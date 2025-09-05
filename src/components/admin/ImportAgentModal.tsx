@@ -205,7 +205,7 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
     if (content.includes('cliente') || content.includes('customer')) keywords.push('atención al cliente');
     if (content.includes('agendar') || content.includes('schedule') || content.includes('demo')) keywords.push('agendamiento');
     if (content.includes('información') || content.includes('consulta')) keywords.push('consultas');
-    if (content.includes('clever') || content.includes('ideas')) keywords.push('clever ideas');
+    if (content.includes('pqnc') || content.includes('qa')) keywords.push('pqnc qa ai');
     if (toolNames.includes('transfer')) keywords.push('transferencia');
     if (toolNames.includes('endcall')) keywords.push('finalización automática');
 

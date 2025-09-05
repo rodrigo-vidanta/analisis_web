@@ -1,4 +1,4 @@
-# Guía de Deployment - Clever Agent Builder Alpha 1.0
+# Guía de Deployment - PQNC QA AI Platform Alpha 1.0
 
 ## Railway Deployment
 

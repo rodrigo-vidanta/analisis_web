@@ -1,4 +1,4 @@
-# Clever Agent Builder React - Alpha 1.0
+# PQNC QA AI Platform - Alpha 1.0
 
 Sistema avanzado de construcción y análisis de agentes de IA con dashboard de análisis de llamadas PQNC Humans.
 

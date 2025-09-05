@@ -2,7 +2,7 @@
 
 **Fecha:** 2025-01-23  
 **Estado:** Estructura actual verificada y funcionando  
-**Proyecto:** Clever Agent Builder React
+**Proyecto:** PQNC QA AI Platform
 
 ---
 

@@ -1,4 +1,4 @@
-# Control de Versiones - Clever Agent Builder React
+# Control de Versiones - PQNC QA AI Platform
 
 ## Alpha 1.0 (Enero 2024)
 
