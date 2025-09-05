@@ -27,12 +27,24 @@ export default defineConfig({
   // Preview para Railway
   preview: {
     port: parseInt(process.env.PORT || '4173'),
-    host: '0.0.0.0'
+    host: '0.0.0.0',
+    allowedHosts: [
+      'healthcheck.railway.app',
+      '.railway.app',
+      '.up.railway.app',
+      'localhost'
+    ]
   },
   
   // Server para desarrollo
   server: {
     port: 5173,
-    host: true
+    host: true,
+    allowedHosts: [
+      'healthcheck.railway.app',
+      '.railway.app',
+      '.up.railway.app',
+      'localhost'
+    ]
   }
 })
