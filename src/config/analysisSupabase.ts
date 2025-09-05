@@ -1,0 +1,9 @@
+import { createClient } from '@supabase/supabase-js';
+
+// Configuración para la base de datos de análisis de llamadas
+const analysisSupabaseUrl = 'https://glsmifhkoaifvaegsozd.supabase.co';
+const analysisSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E';
+
+export const analysisSupabase = createClient(analysisSupabaseUrl, analysisSupabaseAnonKey);
+
+export default analysisSupabase;

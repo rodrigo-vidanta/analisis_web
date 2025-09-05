@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- Prevenir overscroll bounce específicamente -->
+    <meta name="theme-color" content="#0f172a" />
+    <style>
+      /* CRÍTICO: Eliminar overscroll bounce desde el HTML */
+      html, body {
+        overscroll-behavior: none !important;
+        background-color: #0f172a !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    </style>
+    <title>Vite + React + TS</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

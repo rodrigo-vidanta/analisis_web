@@ -1,0 +1,1442 @@
+import React, { useState, useEffect, useRef } from 'react';
+import Chart from 'chart.js/auto';
+import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
+import { definirConfiguracion, calcularQualityScorePonderado, calcularProbabilidadConversion, type PonderacionConfig } from './ponderacionConfig';
+import DetailedCallView from './DetailedCallView';
+
+// Interfaces para los datos de PQNC
+interface CallRecord {
+  id: string;
+  agent_name: string;
+  customer_name: string;
+  call_type: string;
+  call_result: string;
+  duration: string;
+  quality_score: number;
+  customer_quality: string | null;
+  organization: string;
+  direction: string;
+  start_time: string;
+  agent_performance: any;
+  call_evaluation: any;
+  comunicacion_data: any;
+}
+
+interface CallSegment {
+  id: string;
+  call_id: string;
+  segment_index: number;
+  text: string;
+  etapa_script: string;
+  elementos_obligatorios: string[] | null;
+  tecnicas_rapport: string[] | null;
+  tipos_discovery: string[] | null;
+  tipos_objeciones: string[] | null;
+  tono_cliente: string;
+  tono_agente: string;
+  quality_score: number;
+}
+
+interface DashboardWidget {
+  id: string;
+  title: string;
+  type: 'chart' | 'metric' | 'table' | 'heatmap';
+  enabled: boolean;
+  size: 'small' | 'medium' | 'large';
+}
+
+const PQNCDashboard: React.FC = () => {
+  // Configuración de ponderación
+  const [ponderacionConfig] = useState<PonderacionConfig>(definirConfiguracion());
+  
+  // Estados principales
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [calls, setCalls] = useState<CallRecord[]>([]);
+  const [filteredCalls, setFilteredCalls] = useState<CallRecord[]>([]);
+  const [selectedCall, setSelectedCall] = useState<CallRecord | null>(null);
+  const [transcript, setTranscript] = useState<CallSegment[]>([]);
+  
+  // Estados de paginación y sincronización
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
+  const [syncInterval, setSyncInterval] = useState(30); // segundos
+  
+  // Estados de filtros
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [agentFilter, setAgentFilter] = useState('');
+  const [qualityFilter, setQualityFilter] = useState('');
+  const [resultFilter, setResultFilter] = useState('');
+  const [organizationFilter, setOrganizationFilter] = useState('');
+  const [topRecords, setTopRecords] = useState<10 | 30 | 50 | 100 | 200>(30);
+  const [callTypeFilter, setCallTypeFilter] = useState<string[]>([]);
+  const [directionFilter, setDirectionFilter] = useState<string[]>([]);
+  const [customerQualityFilter, setCustomerQualityFilter] = useState<string[]>([]);
+  
+  // Nuevos filtros adicionales
+  const [requiresFollowupFilter, setRequiresFollowupFilter] = useState<boolean | null>(null);
+  const [durationRangeFilter, setDurationRangeFilter] = useState<string>('');
+  const [qualityScoreRangeFilter, setQualityScoreRangeFilter] = useState<{min: number, max: number}>({min: 0, max: 100});
+  const [hasAudioFilter, setHasAudioFilter] = useState<boolean | null>(null);
+  const [serviceOfferedFilter, setServiceOfferedFilter] = useState<string[]>([]);
+  
+  // Estados de UI
+  const [showTranscriptModal, setShowTranscriptModal] = useState(false);
+  const [showDetailedView, setShowDetailedView] = useState(false);
+  const [selectedCallForDetail, setSelectedCallForDetail] = useState<CallRecord | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isAdvancedFiltersCollapsed, setIsAdvancedFiltersCollapsed] = useState(true);
+  
+  // WIDGETS: Deshabilitados por defecto en Alpha 1.0
+  // - Causaban filtros ocultos que limitaban datos mostrados
+  // - Sistema de métricas separado implementado (general vs filtradas)
+  const [widgets] = useState<DashboardWidget[]>([
+    { id: 'performance-overview', title: 'Resumen de Performance', type: 'chart', enabled: false, size: 'large' },
+    { id: 'agent-ranking', title: 'Ranking de Agentes', type: 'table', enabled: false, size: 'medium' },
+    { id: 'quality-distribution', title: 'Distribución de Calidad', type: 'chart', enabled: false, size: 'medium' },
+    { id: 'call-results', title: 'Resultados de Llamadas', type: 'chart', enabled: false, size: 'small' },
+    { id: 'rapport-analysis', title: 'Análisis de Rapport', type: 'heatmap', enabled: false, size: 'large' },
+    { id: 'discovery-metrics', title: 'Métricas de Discovery', type: 'metric', enabled: false, size: 'small' },
+    { id: 'objection-handling', title: 'Manejo de Objeciones', type: 'chart', enabled: false, size: 'medium' },
+    { id: 'script-compliance', title: 'Cumplimiento de Script', type: 'metric', enabled: false, size: 'small' }
+  ]);
+
+
+  // Cargar datos iniciales y configurar sincronización
+  useEffect(() => {
+    loadCalls();
+    
+    // Configurar sincronización automática
+    if (autoSyncEnabled) {
+      const intervalId = setInterval(() => {
+        console.log('🔄 Sincronización automática ejecutándose...');
+        syncNewRecords();
+      }, syncInterval * 1000);
+      
+      console.log(`⏱️ Sincronización automática configurada cada ${syncInterval} segundos`);
+      
+      return () => {
+        clearInterval(intervalId);
+        console.log('🛑 Sincronización automática detenida');
+      };
+    }
+  }, [autoSyncEnabled, syncInterval]);
+
+  // Aplicar filtros
+  useEffect(() => {
+    applyFilters();
+  }, [calls, searchQuery, dateFrom, dateTo, agentFilter, qualityFilter, resultFilter, organizationFilter, callTypeFilter, directionFilter, customerQualityFilter, requiresFollowupFilter, durationRangeFilter, qualityScoreRangeFilter, hasAudioFilter, serviceOfferedFilter]);
+
+  // Ajustar itemsPerPage cuando cambie topRecords
+  useEffect(() => {
+    // Máximo 50 por página, pero no puede exceder topRecords
+    const maxAllowed = Math.min(50, topRecords);
+    if (itemsPerPage > maxAllowed) {
+      setItemsPerPage(maxAllowed);
+      setCurrentPage(1);
+    }
+  }, [topRecords, itemsPerPage]);
+
+  const loadCalls = async (forceReload = false) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('📊 Cargando registros de llamadas...');
+      
+      // Primero obtener el conteo total para mostrar estadísticas
+      const { count, error: countError } = await pqncSupabaseAdmin
+        .from('calls')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.warn('⚠️ Error obteniendo conteo:', countError);
+      } else {
+        console.log(`📈 Total de registros en BD: ${count}`);
+        setTotalRecords(count || 0);
+      }
+
+      // Cargar los registros más recientes (aumentamos el límite pero mantenemos eficiencia)
+      let query = pqncSupabaseAdmin
+        .from('calls')
+        .select(`
+          id,
+          agent_name,
+          customer_name,
+          call_type,
+          call_result,
+          duration,
+          quality_score,
+          customer_quality,
+          organization,
+          direction,
+          start_time,
+          agent_performance,
+          call_evaluation,
+          comunicacion_data
+        `)
+        .order('start_time', { ascending: false })
+        .limit(1000); // Aumentamos a 1000 para ver más registros
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      console.log(`✅ Cargados ${data?.length || 0} registros`);
+      setCalls(data || []);
+      setLastSyncTime(new Date().toISOString());
+      
+    } catch (err) {
+      console.error('❌ Error loading calls:', err);
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función de sincronización inteligente (solo nuevos registros)
+  const syncNewRecords = async () => {
+    if (!lastSyncTime) {
+      console.log('🔄 Primera sincronización, cargando todos los datos...');
+      return loadCalls();
+    }
+
+    try {
+      console.log('🔍 Buscando nuevos registros...');
+      
+      // Buscar solo registros más recientes que la última sincronización
+      const { data: newRecords, error } = await pqncSupabaseAdmin
+        .from('calls')
+        .select(`
+          id,
+          agent_name,
+          customer_name,
+          call_type,
+          call_result,
+          duration,
+          quality_score,
+          customer_quality,
+          organization,
+          direction,
+          start_time,
+          agent_performance,
+          call_evaluation,
+          comunicacion_data
+        `)
+        .gt('start_time', lastSyncTime)
+        .order('start_time', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error en sincronización:', error);
+        return;
+      }
+
+      if (newRecords && newRecords.length > 0) {
+        console.log(`🆕 Encontrados ${newRecords.length} nuevos registros`);
+        
+        // Agregar nuevos registros al inicio de la lista
+        setCalls(prevCalls => {
+          const updatedCalls = [...newRecords, ...prevCalls];
+          // Mantener solo los últimos 1000 registros para eficiencia
+          return updatedCalls.slice(0, 1000);
+        });
+        
+        setLastSyncTime(new Date().toISOString());
+        
+        // Actualizar conteo total
+        const { count } = await pqncSupabaseAdmin
+          .from('calls')
+          .select('*', { count: 'exact', head: true });
+        
+        if (count) {
+          setTotalRecords(count);
+        }
+      } else {
+        console.log('✅ No hay nuevos registros');
+      }
+    } catch (err) {
+      console.error('❌ Error en sincronización automática:', err);
+    }
+  };
+
+  // Función de búsqueda inteligente
+  const performIntelligentSearch = (query: string, callsToFilter: CallRecord[]) => {
+    if (!query || query.trim().length < 2) return callsToFilter;
+
+    const searchTerm = query.toLowerCase().trim();
+    let filtered = [...callsToFilter];
+
+    // 1. Búsqueda directa en campos principales
+    const directMatches = filtered.filter(call =>
+      call.id.toLowerCase().includes(searchTerm) ||
+      call.agent_name?.toLowerCase().includes(searchTerm) ||
+      call.customer_name?.toLowerCase().includes(searchTerm) ||
+      call.organization?.toLowerCase().includes(searchTerm) ||
+      call.call_type?.toLowerCase().includes(searchTerm) ||
+      call.call_result?.toLowerCase().includes(searchTerm) ||
+      call.customer_quality?.toLowerCase().includes(searchTerm)
+    );
+
+    // 2. Búsqueda en resumen de llamadas
+    const summaryMatches = filtered.filter(call =>
+      call.call_summary?.toLowerCase().includes(searchTerm)
+    );
+
+    // 3. Búsqueda por patrones de lenguaje natural
+    const naturalLanguageMatches = filtered.filter(call => {
+      // Detectar patrones comunes
+      if (searchTerm.includes('venta') || searchTerm.includes('exitosa') || searchTerm.includes('conversion')) {
+        return call.call_result?.toLowerCase().includes('venta') || 
+               call.call_result?.toLowerCase().includes('exitosa');
+      }
+      if (searchTerm.includes('no interesado') || searchTerm.includes('rechazo')) {
+        return call.call_result?.toLowerCase().includes('no_interesado') ||
+               call.call_result?.toLowerCase().includes('rechazo');
+      }
+      if (searchTerm.includes('elite') || searchTerm.includes('premium') || searchTerm.includes('calidad alta')) {
+        return call.customer_quality === 'Q_ELITE' || call.customer_quality === 'Q_PREMIUM';
+      }
+      if (searchTerm.includes('problemas') || searchTerm.includes('reto') || searchTerm.includes('dificil')) {
+        return call.customer_quality === 'Q_RETO';
+      }
+      if (searchTerm.includes('larga') || searchTerm.includes('duracion')) {
+        const duration = parseFloat(call.duration) || 0;
+        return duration > 300; // Más de 5 minutos
+      }
+      if (searchTerm.includes('corta') || searchTerm.includes('rapida')) {
+        const duration = parseFloat(call.duration) || 0;
+        return duration < 120; // Menos de 2 minutos
+      }
+      return false;
+    });
+
+    // 4. Combinar resultados únicos
+    const allMatches = new Set([
+      ...directMatches.map(call => call.id),
+      ...summaryMatches.map(call => call.id),
+      ...naturalLanguageMatches.map(call => call.id)
+    ]);
+
+    return filtered.filter(call => allMatches.has(call.id));
+  };
+
+  const applyFilters = () => {
+    let filtered = [...calls];
+    console.log('🔍 DEBUG applyFilters - Iniciando con', filtered.length, 'registros');
+
+    // PRIMERO aplicar todos los filtros, LUEGO la búsqueda inteligente sobre el resultado
+    
+    // Filtro de fechas
+    if (dateFrom) {
+      filtered = filtered.filter(call => new Date(call.start_time) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+      filtered = filtered.filter(call => new Date(call.start_time) <= new Date(dateTo));
+    }
+
+    // Filtros básicos
+    if (agentFilter) {
+      filtered = filtered.filter(call => call.agent_name === agentFilter);
+    }
+    if (qualityFilter) {
+      const [min, max] = qualityFilter.split('-').map(Number);
+      filtered = filtered.filter(call => call.quality_score >= min && call.quality_score <= max);
+    }
+    if (resultFilter) {
+      filtered = filtered.filter(call => call.call_result === resultFilter);
+    }
+    if (organizationFilter) {
+      filtered = filtered.filter(call => call.organization === organizationFilter);
+    }
+
+    // Filtros adicionales avanzados
+    if (callTypeFilter.length > 0) {
+      filtered = filtered.filter(call => callTypeFilter.includes(call.call_type));
+    }
+    if (directionFilter.length > 0) {
+      filtered = filtered.filter(call => directionFilter.includes(call.direction));
+    }
+    if (customerQualityFilter.length > 0) {
+      filtered = filtered.filter(call => call.customer_quality && customerQualityFilter.includes(call.customer_quality));
+    }
+
+    // Nuevos filtros adicionales
+    if (requiresFollowupFilter !== null) {
+      filtered = filtered.filter(call => {
+        const requiresFollowup = call.call_evaluation?.requires_followup || false;
+        return requiresFollowup === requiresFollowupFilter;
+      });
+    }
+
+    if (durationRangeFilter) {
+      filtered = filtered.filter(call => {
+        const duration = parseFloat(call.duration) || 0;
+        switch (durationRangeFilter) {
+          case 'short': return duration < 120; // Menos de 2 minutos
+          case 'medium': return duration >= 120 && duration <= 600; // 2-10 minutos
+          case 'long': return duration > 600; // Más de 10 minutos
+          default: return true;
+        }
+      });
+    }
+
+    if (qualityScoreRangeFilter.min > 0 || qualityScoreRangeFilter.max < 100) {
+      filtered = filtered.filter(call => {
+        const score = call.quality_score || 0;
+        return score >= qualityScoreRangeFilter.min && score <= qualityScoreRangeFilter.max;
+      });
+    }
+
+    if (hasAudioFilter !== null) {
+      filtered = filtered.filter(call => {
+        const hasAudio = !!(call.audio_file_url || call.audio_file_name);
+        return hasAudio === hasAudioFilter;
+      });
+    }
+
+    if (serviceOfferedFilter.length > 0) {
+      filtered = filtered.filter(call => {
+        const services = call.service_offered?.services || [];
+        return serviceOfferedFilter.some(service => services.includes(service));
+      });
+    }
+
+    // DESPUÉS DE TODOS LOS FILTROS: Aplicar búsqueda inteligente al resultado filtrado
+    if (searchQuery) {
+      filtered = performIntelligentSearch(searchQuery, filtered);
+    }
+
+    // NOTA: Se eliminaron los filtros automáticos de widgets para evitar restricciones ocultas
+    // Los widgets son solo para visualización, no deberían filtrar automáticamente los datos
+
+    // Ordenar por score ponderado descendente
+    console.log('🔍 DEBUG - Antes de ordenar:', filtered.length, 'registros');
+    
+    // Verificar si hay registros con scores inválidos
+    const invalidScores = filtered.filter(call => {
+      const score = calcularQualityScorePonderado(call, ponderacionConfig);
+      return isNaN(score) || score === undefined || score === null;
+    });
+    
+    if (invalidScores.length > 0) {
+      console.log('⚠️ Registros con scores inválidos:', invalidScores.length);
+    }
+    
+    filtered.sort((a, b) => {
+      const scoreA = calcularQualityScorePonderado(a, ponderacionConfig);
+      const scoreB = calcularQualityScorePonderado(b, ponderacionConfig);
+      return scoreB - scoreA;
+    });
+    
+    console.log('🔍 DEBUG - Después de ordenar:', filtered.length, 'registros');
+
+    console.log('🔍 DEBUG applyFilters - Final:', filtered.length, 'registros después de todos los filtros');
+    setFilteredCalls(filtered);
+    setCurrentPage(1);
+  };
+
+  const loadTranscript = async (callId: string) => {
+    try {
+      const { data, error } = await pqncSupabaseAdmin
+        .from('call_segments')
+        .select('*')
+        .eq('call_id', callId)
+        .order('segment_index', { ascending: true });
+
+      if (error) throw error;
+      
+      setTranscript(data || []);
+    } catch (err) {
+      console.error('Error loading transcript:', err);
+      setError('Error al cargar la transcripción');
+    }
+  };
+
+  const openTranscriptModal = async (call: CallRecord) => {
+    setSelectedCall(call);
+    setShowTranscriptModal(true);
+    await loadTranscript(call.id);
+  };
+
+  const openDetailedView = async (call: CallRecord) => {
+    setSelectedCallForDetail(call);
+    setShowDetailedView(true);
+    await loadTranscript(call.id);
+  };
+
+  const closeDetailedView = () => {
+    setShowDetailedView(false);
+    setSelectedCallForDetail(null);
+    setTranscript([]);
+  };
+
+
+  // Cálculos de métricas generales (TODOS los datos cargados)
+  const calculateGeneralMetrics = () => {
+    const totalCalls = calls.length;
+    
+    if (totalCalls === 0) {
+      return { 
+        totalCalls: 0, 
+        avgQuality: 0, 
+        avgQualityPonderada: 0,
+        avgConversionProb: 0,
+        successRate: 0, 
+        avgDuration: 0,
+        avgAgentPerformance: 0,
+        avgRapportScore: 0
+      };
+    }
+    
+    // Calidad promedio estándar
+    const avgQuality = calls.reduce((sum, call) => sum + call.quality_score, 0) / totalCalls;
+    
+    // Calidad promedio ponderada
+    const avgQualityPonderada = calls.reduce((sum, call) => {
+      return sum + calcularQualityScorePonderado(call, ponderacionConfig);
+    }, 0) / totalCalls;
+    
+    // Probabilidad de conversión promedio
+    const avgConversionProb = calls.reduce((sum, call) => {
+      return sum + calcularProbabilidadConversion(call, ponderacionConfig);
+    }, 0) / totalCalls;
+    
+    // Tasa de éxito
+    const successRate = (calls.filter(call => 
+      call.call_result === 'seguimiento_programado' || 
+      call.call_result === 'venta_concretada'
+    ).length / totalCalls) * 100;
+    
+    // Duración promedio
+    const avgDuration = calls.reduce((sum, call) => {
+      const duration = call.duration || '00:00:00';
+      const parts = duration.split(':');
+      const seconds = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]);
+      return sum + seconds;
+    }, 0) / totalCalls;
+
+    // Métricas adicionales de ponderación
+    const avgAgentPerformance = calls.reduce((sum, call) => {
+      const agentPerf = call.agent_performance?.score_ponderado || 0;
+      return sum + agentPerf;
+    }, 0) / totalCalls;
+
+    const avgRapportScore = calls.reduce((sum, call) => {
+      const rapportScore = call.comunicacion_data?.rapport_metricas?.score_ponderado || 0;
+      return sum + rapportScore;
+    }, 0) / totalCalls;
+
+    return { 
+      totalCalls, 
+      avgQuality, 
+      avgQualityPonderada,
+      avgConversionProb,
+      successRate, 
+      avgDuration,
+      avgAgentPerformance,
+      avgRapportScore
+    };
+  };
+
+  // Cálculos de métricas filtradas (para análisis específico si es necesario)
+  const calculateFilteredMetrics = () => {
+    const totalCalls = filteredCalls.length;
+    
+    if (totalCalls === 0) {
+      return { 
+        totalCalls: 0, 
+        avgQuality: 0, 
+        avgQualityPonderada: 0,
+        avgConversionProb: 0,
+        successRate: 0, 
+        avgDuration: 0,
+        avgAgentPerformance: 0,
+        avgRapportScore: 0
+      };
+    }
+    
+    // Calidad promedio estándar
+    const avgQuality = filteredCalls.reduce((sum, call) => sum + call.quality_score, 0) / totalCalls;
+    
+    // Calidad promedio ponderada
+    const avgQualityPonderada = filteredCalls.reduce((sum, call) => {
+      return sum + calcularQualityScorePonderado(call, ponderacionConfig);
+    }, 0) / totalCalls;
+    
+    // Probabilidad de conversión promedio
+    const avgConversionProb = filteredCalls.reduce((sum, call) => {
+      return sum + calcularProbabilidadConversion(call, ponderacionConfig);
+    }, 0) / totalCalls;
+    
+    // Tasa de éxito
+    const successRate = (filteredCalls.filter(call => 
+      call.call_result === 'seguimiento_programado' || 
+      call.call_result === 'venta_concretada'
+    ).length / totalCalls) * 100;
+    
+    // Duración promedio
+    const avgDuration = filteredCalls.reduce((sum, call) => {
+      const duration = call.duration || '00:00:00';
+      const parts = duration.split(':');
+      const seconds = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]);
+      return sum + seconds;
+    }, 0) / totalCalls;
+
+    // Métricas adicionales de ponderación
+    const avgAgentPerformance = filteredCalls.reduce((sum, call) => {
+      const agentPerf = call.agent_performance?.score_ponderado || 0;
+      return sum + agentPerf;
+    }, 0) / totalCalls;
+
+    const avgRapportScore = filteredCalls.reduce((sum, call) => {
+      const rapportScore = call.comunicacion_data?.rapport_metricas?.score_ponderado || 0;
+      return sum + rapportScore;
+    }, 0) / totalCalls;
+
+    return { 
+      totalCalls, 
+      avgQuality, 
+      avgQualityPonderada,
+      avgConversionProb,
+      successRate, 
+      avgDuration,
+      avgAgentPerformance,
+      avgRapportScore
+    };
+  };
+
+  // Métricas generales para el header (todos los datos)
+  const generalMetrics = calculateGeneralMetrics();
+  
+  // Métricas filtradas para análisis específico
+  const filteredMetrics = calculateFilteredMetrics();
+
+  // Datos únicos para filtros
+  const uniqueAgents = [...new Set(calls.map(call => call.agent_name))].filter(Boolean);
+  const uniqueResults = [...new Set(calls.map(call => call.call_result))].filter(Boolean);
+  const uniqueOrganizations = [...new Set(calls.map(call => call.organization))].filter(Boolean);
+
+  // Aplicar filtro de top records primero
+  const topFilteredCalls = filteredCalls.slice(0, topRecords);
+  
+  // Paginación
+  const totalPages = Math.ceil(topFilteredCalls.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedCalls = topFilteredCalls.slice(startIndex, startIndex + itemsPerPage);
+
+  // Formato de duración
+  const formatDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // CRÍTICO: Sistema de scroll optimizado implementado Alpha 1.0
+  // - Elimina bounce effect con CSS personalizado
+  // - Scroll reveal animations para UX mejorada
+  // - Performance optimizada con IntersectionObserver
+  
+  // SCROLL REVEAL: Activar animaciones cuando elementos entran en viewport
+  useEffect(() => {
+    
+    const observeScrollReveal = () => {
+      const scrollRevealElements = document.querySelectorAll('.scroll-reveal');
+      
+      if (scrollRevealElements.length > 0) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+            }
+          });
+        }, { threshold: 0.1 });
+
+        scrollRevealElements.forEach(el => observer.observe(el));
+        
+        return () => {
+          observer.disconnect();
+        };
+      }
+    };
+
+    const cleanup = observeScrollReveal();
+    return cleanup;
+  }, []);
+  
+  return (
+    <div className="space-y-6 scroll-fade-in prevent-horizontal-scroll" /* DEBUG: Clases agregadas para scroll mejorado */>
+      {/* DEBUG: Header con métricas principales - scroll optimizado */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 scroll-reveal" /* DEBUG: Grid con animación reveal */>
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Llamadas</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.totalCalls.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Calidad Estándar</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.avgQuality.toFixed(1)}</p>
+            </div>
+            <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">🎯 Calidad Ponderada</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.avgQualityPonderada.toFixed(1)}</p>
+            </div>
+            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">📈 Prob. Conversión</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.avgConversionProb.toFixed(1)}%</p>
+            </div>
+            <div className="p-3 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Tasa de Éxito</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.successRate.toFixed(1)}%</p>
+            </div>
+            <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Duración Promedio</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatDuration(generalMetrics.avgDuration)}</p>
+            </div>
+            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      {/* Panel de Sincronización Compacto */}
+      <div className="bg-slate-50 dark:bg-slate-800 rounded-lg px-4 py-2 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+          {/* Estado y estadísticas */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${autoSyncEnabled ? 'bg-green-400' : 'bg-gray-400'}`}></div>
+              <span>Sync {autoSyncEnabled ? 'ON' : 'OFF'}</span>
+            </div>
+            <span>BD: {totalRecords.toLocaleString()} | Cargados: {calls.length}</span>
+            {lastSyncTime && (
+              <span>Última: {new Date(lastSyncTime).toLocaleTimeString()}</span>
+            )}
+          </div>
+          
+          {/* Controles */}
+          <div className="flex items-center gap-3">
+              {/* Toggle Auto-sync */}
+              <button
+                onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
+                className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${
+                  autoSyncEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+                title={`Auto-sync ${autoSyncEnabled ? 'activado' : 'desactivado'}`}
+              >
+                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  autoSyncEnabled ? 'translate-x-4' : 'translate-x-0.5'
+                }`} />
+              </button>
+              
+              {/* Intervalo */}
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="10"
+                  max="300"
+                  value={syncInterval}
+                  onChange={(e) => setSyncInterval(Number(e.target.value))}
+                  className="w-12 px-1 py-0.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  title="Intervalo de sincronización en segundos"
+                />
+                <span>s</span>
+              </div>
+              
+              {/* Botón de sincronización manual */}
+              <button
+                onClick={() => syncNewRecords()}
+                disabled={loading}
+                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Sincronizar manualmente"
+              >
+                {loading ? (
+                  <div className="animate-spin w-3 h-3 border border-slate-500 border-t-transparent rounded-full"></div>
+                ) : (
+                  <svg className="w-3 h-3 text-slate-500 hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Búsqueda Principal */}
+        <div className="p-6 border-t border-slate-200 dark:border-slate-700">
+          <div className="space-y-4">
+            {/* Campo de búsqueda principal más grande */}
+            <div>
+              <label className="block text-lg font-semibold text-slate-900 dark:text-white mb-3">
+                🔍 Búsqueda Inteligente
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por agente, cliente, ID, resultado, calidad, o texto libre (ej: 'ventas exitosas', 'clientes elite', 'llamadas largas')..."
+                  className="w-full px-6 py-4 text-lg border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                💡 Ejemplos: "Juan Pérez", "Q_ELITE", "llamadas exitosas", "clientes difíciles", "duracion larga"
+              </p>
+            </div>
+
+            {/* Controles de Top Records */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Top Registros
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {[10, 30, 50, 100, 200].map(num => (
+                    <button
+                      key={num}
+                      onClick={() => setTopRecords(num as 10 | 30 | 50 | 100 | 200)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        topRecords === num
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-500'
+                      }`}
+                    >
+                      Top {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Botón para mostrar filtros avanzados */}
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
+              >
+                <svg className={`w-4 h-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                Filtros Avanzados
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Filtros Avanzados Colapsables */}
+        {showAdvancedFilters && (
+          <div className="p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
+            <h4 className="text-md font-semibold text-slate-900 dark:text-white mb-4">Filtros Avanzados</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Desde
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Hasta
+                </label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Rango de Calidad
+                </label>
+                <select
+                  value={qualityFilter}
+                  onChange={(e) => setQualityFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todas las calidades</option>
+                  <option value="0-20">Deficiente (0-20)</option>
+                  <option value="21-40">Regular (21-40)</option>
+                  <option value="41-60">Bueno (41-60)</option>
+                  <option value="61-80">Muy Bueno (61-80)</option>
+                  <option value="81-100">Excelente (81-100)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Organización
+                </label>
+                <select
+                  value={organizationFilter}
+                  onChange={(e) => setOrganizationFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todas las organizaciones</option>
+                  {uniqueOrganizations.map(org => (
+                    <option key={org} value={org}>{org}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Agente
+                </label>
+                <select
+                  value={agentFilter}
+                  onChange={(e) => setAgentFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todos los agentes</option>
+                  {uniqueAgents.map(agent => (
+                    <option key={agent} value={agent}>{agent}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Resultado
+                </label>
+                <select
+                  value={resultFilter}
+                  onChange={(e) => setResultFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todos los resultados</option>
+                  {uniqueResults.map(result => (
+                    <option key={result} value={result}>{result}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Nuevos Filtros Adicionales */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200 dark:border-slate-600">
+              
+              {/* Filtro de Seguimiento */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  Requiere Seguimiento
+                </label>
+                <select
+                  value={requiresFollowupFilter === null ? '' : requiresFollowupFilter.toString()}
+                  onChange={(e) => setRequiresFollowupFilter(e.target.value === '' ? null : e.target.value === 'true')}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todos</option>
+                  <option value="true">Requiere seguimiento</option>
+                  <option value="false">No requiere seguimiento</option>
+                </select>
+              </div>
+
+              {/* Filtro de Duración */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Duración
+                </label>
+                <select
+                  value={durationRangeFilter}
+                  onChange={(e) => setDurationRangeFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todas las duraciones</option>
+                  <option value="short">Cortas (&lt; 2 min)</option>
+                  <option value="medium">Medianas (2-10 min)</option>
+                  <option value="long">Largas (&gt; 10 min)</option>
+                </select>
+              </div>
+
+              {/* Filtro de Calidad Score */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Score de Calidad
+                </label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={qualityScoreRangeFilter.min}
+                      onChange={(e) => setQualityScoreRangeFilter(prev => ({...prev, min: Number(e.target.value)}))}
+                      className="w-1/2 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded"
+                      placeholder="Min"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={qualityScoreRangeFilter.max}
+                      onChange={(e) => setQualityScoreRangeFilter(prev => ({...prev, max: Number(e.target.value)}))}
+                      className="w-1/2 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded"
+                      placeholder="Max"
+                    />
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Rango: {qualityScoreRangeFilter.min} - {qualityScoreRangeFilter.max}
+                  </div>
+                </div>
+              </div>
+
+              {/* Filtro de Audio */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 14.142M12 6.5v11m0-11a1 1 0 011 1v9a1 1 0 01-1 1m0-11a1 1 0 00-1 1v9a1 1 0 001 1" />
+                  </svg>
+                  Archivo de Audio
+                </label>
+                <select
+                  value={hasAudioFilter === null ? '' : hasAudioFilter.toString()}
+                  onChange={(e) => setHasAudioFilter(e.target.value === '' ? null : e.target.value === 'true')}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todos</option>
+                  <option value="true">Con audio</option>
+                  <option value="false">Sin audio</option>
+                </select>
+              </div>
+
+            </div>
+
+            <div className="flex items-end mt-6">
+              <button
+                onClick={() => {
+                  console.log('🧹 Limpiando todos los filtros...');
+                  setSearchQuery('');
+                  setDateFrom('');
+                  setDateTo('');
+                  setAgentFilter('');
+                  setQualityFilter('');
+                  setResultFilter('');
+                  setOrganizationFilter('');
+                  setCallTypeFilter([]);
+                  setDirectionFilter([]);
+                  setCustomerQualityFilter([]);
+                  // Limpiar nuevos filtros
+                  setRequiresFollowupFilter(null);
+                  setDurationRangeFilter('');
+                  setQualityScoreRangeFilter({min: 0, max: 100});
+                  setHasAudioFilter(null);
+                  setServiceOfferedFilter([]);
+                  console.log('✅ Filtros limpiados - calls.length:', calls.length);
+                }}
+                className="w-full px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Limpiar Todos los Filtros
+              </button>
+            </div>
+          </div>
+        )}
+
+      {/* DEBUG: Tabla de Llamadas con scroll optimizado */}
+      <div className="momentum-scroll scroll-snap-section" /* DEBUG: Clases para tabla con scroll suave */>
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+                Registro de Llamadas ({filteredCalls.length})
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 dark:bg-slate-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    Agente
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    Cliente
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    Resultado
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    🎯 Score
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    📈 Conv.
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    Fecha
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                {paginatedCalls.map((call) => {
+                  const scorePonderado = calcularQualityScorePonderado(call, ponderacionConfig);
+                  const probConversion = calcularProbabilidadConversion(call, ponderacionConfig);
+                  
+                  return (
+                    <tr 
+                      key={call.id} 
+                      className="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors"
+                      onClick={() => openDetailedView(call)}
+                    >
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">
+                        {call.agent_name}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-300">
+                        {call.customer_name}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          call.call_result === 'seguimiento_programado' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                          call.call_result === 'venta_concretada' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                          call.call_result === 'no_interesado' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                          call.call_result === 'abandonada' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400' :
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        }`}>
+                          {call.call_result.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className={`flex-shrink-0 w-2 h-2 rounded-full mr-2 ${
+                            scorePonderado >= 80 ? 'bg-indigo-400' :
+                            scorePonderado >= 60 ? 'bg-blue-400' :
+                            scorePonderado >= 40 ? 'bg-purple-400' :
+                            'bg-pink-400'
+                          }`}></div>
+                          <span className="text-sm text-slate-900 dark:text-white font-medium">
+                            {scorePonderado.toFixed(1)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className={`flex-shrink-0 w-2 h-2 rounded-full mr-2 ${
+                            probConversion >= 75 ? 'bg-emerald-400' :
+                            probConversion >= 50 ? 'bg-yellow-400' :
+                            probConversion >= 25 ? 'bg-orange-400' :
+                            'bg-red-400'
+                          }`}></div>
+                          <span className="text-sm text-slate-900 dark:text-white font-medium">
+                            {probConversion.toFixed(1)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-300">
+                        {new Date(call.start_time).toLocaleDateString('es-ES', { 
+                          day: '2-digit', 
+                          month: '2-digit' 
+                        })}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTranscriptModal(call);
+                          }}
+                          className="inline-flex items-center px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Ver
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Paginación */}
+          <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700 border-t border-slate-200 dark:border-slate-600">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-slate-700 dark:text-slate-300">
+                  <div>Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, topFilteredCalls.length)} de {topFilteredCalls.length} llamadas</div>
+                  {topFilteredCalls.length < generalMetrics.totalCalls && (
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      📊 {generalMetrics.totalCalls.toLocaleString()} registros totales en BD | {topFilteredCalls.length} después de filtros
+                    </div>
+                  )}
+                </div>
+                
+                {/* Selector de registros por página */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Por página:</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      const newPerPage = Number(e.target.value);
+                      // Máximo 50 por página, pero no puede exceder topRecords
+                      const maxAllowed = Math.min(newPerPage, Math.min(50, topRecords));
+                      setItemsPerPage(maxAllowed);
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {/* Opciones dinámicas con máximo de 50 por página */}
+                    {[10, 25, 50].filter(option => option <= topRecords).map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                    {/* Si topRecords es menor que 50 y no está en las opciones estándar */}
+                    {topRecords < 50 && ![10, 25].includes(topRecords) && (
+                      <option value={topRecords}>{topRecords}</option>
+                    )}
+                  </select>
+                  <span className="text-xs text-slate-400">
+                    (máx. {Math.min(50, topRecords)} por página)
+                  </span>
+                </div>
+              </div>
+              
+              {totalPages > 1 && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    Anterior
+                  </button>
+                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                    {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+
+      {/* Modal de Transcripción */}
+      {showTranscriptModal && selectedCall && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-slate-500 opacity-75"></div>
+            </div>
+
+            <div className="inline-block align-bottom bg-white dark:bg-slate-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-white dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-slate-900 dark:text-white">
+                    Transcripción de Llamada - {selectedCall.agent_name}
+                  </h3>
+                  <button
+                    onClick={() => setShowTranscriptModal(false)}
+                    className="text-slate-400 hover:text-slate-500 dark:hover:text-slate-300"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-slate-600 dark:text-slate-400">Cliente:</span>
+                    <p className="text-slate-900 dark:text-white">{selectedCall.customer_name}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-slate-600 dark:text-slate-400">Resultado:</span>
+                    <p className="text-slate-900 dark:text-white">{selectedCall.call_result}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-slate-600 dark:text-slate-400">Calidad:</span>
+                    <p className="text-slate-900 dark:text-white">{selectedCall.quality_score}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-slate-600 dark:text-slate-400">Duración:</span>
+                    <p className="text-slate-900 dark:text-white">{selectedCall.duration}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-h-96 overflow-y-auto p-6 space-y-4">
+                {transcript.length > 0 ? (
+                  transcript.map((segment, index) => (
+                    <div key={segment.id} className="border-l-4 border-blue-200 dark:border-blue-700 pl-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                            Segmento {segment.segment_index}
+                          </span>
+                          {segment.etapa_script && (
+                            <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+                              {segment.etapa_script}
+                            </span>
+                          )}
+                          {segment.quality_score && (
+                            <span className={`text-xs font-medium px-2 py-1 rounded ${
+                              segment.quality_score >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                              segment.quality_score >= 60 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                              'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            }`}>
+                              {segment.quality_score}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                        {segment.text}
+                      </p>
+                      {(segment.tecnicas_rapport || segment.tipos_discovery || segment.tipos_objeciones) && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {segment.tecnicas_rapport?.map(tecnica => (
+                            <span key={tecnica} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded">
+                              🤝 {tecnica}
+                            </span>
+                          ))}
+                          {segment.tipos_discovery?.map(tipo => (
+                            <span key={tipo} className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded">
+                              🔍 {tipo}
+                            </span>
+                          ))}
+                          {segment.tipos_objeciones?.map(tipo => (
+                            <span key={tipo} className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded">
+                              ⚠️ {tipo}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-slate-500 dark:text-slate-400">Cargando transcripción...</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-700 px-6 py-3">
+                <button
+                  onClick={() => setShowTranscriptModal(false)}
+                  className="w-full px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vista Detallada */}
+      {showDetailedView && selectedCallForDetail && (
+        <DetailedCallView
+          call={selectedCallForDetail}
+          transcript={transcript}
+          ponderacionConfig={ponderacionConfig}
+          enabledWidgets={widgets}
+          onClose={closeDetailedView}
+        />
+      )}
+    </div>
+  );
+};
+
+export default PQNCDashboard;
+

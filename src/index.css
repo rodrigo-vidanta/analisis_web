@@ -1,0 +1,536 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables de tema - Por defecto */
+:root {
+  --theme-primary: 59 130 246; /* blue-500 */
+  --theme-primary-dark: 37 99 235; /* blue-600 */
+  --theme-secondary: 129 140 248; /* indigo-400 */
+  --theme-accent: 236 72 153; /* pink-500 */
+  --theme-gradient-from: 59 130 246; /* blue-500 */
+  --theme-gradient-to: 129 140 248; /* indigo-400 */
+}
+
+/* Tema Verde */
+[data-theme="green_theme"] {
+  --theme-primary: 34 197 94; /* green-500 */
+  --theme-primary-dark: 22 163 74; /* green-600 */
+  --theme-secondary: 74 222 128; /* green-400 */
+  --theme-accent: 168 85 247; /* purple-500 */
+  --theme-gradient-from: 34 197 94; /* green-500 */
+  --theme-gradient-to: 74 222 128; /* green-400 */
+}
+
+/* Tema Morado */
+[data-theme="purple_theme"] {
+  --theme-primary: 147 51 234; /* purple-600 */
+  --theme-primary-dark: 126 34 206; /* purple-700 */
+  --theme-secondary: 168 85 247; /* purple-500 */
+  --theme-accent: 251 191 36; /* amber-400 */
+  --theme-gradient-from: 147 51 234; /* purple-600 */
+  --theme-gradient-to: 168 85 247; /* purple-500 */
+}
+
+/* Tema Naranja */
+[data-theme="orange_theme"] {
+  --theme-primary: 249 115 22; /* orange-500 */
+  --theme-primary-dark: 234 88 12; /* orange-600 */
+  --theme-secondary: 251 146 60; /* orange-400 */
+  --theme-accent: 59 130 246; /* blue-500 */
+  --theme-gradient-from: 249 115 22; /* orange-500 */
+  --theme-gradient-to: 251 146 60; /* orange-400 */
+}
+
+/* Clases para usar las variables de tema */
+.theme-primary {
+  color: rgb(var(--theme-primary));
+}
+
+.theme-bg-primary {
+  background-color: rgb(var(--theme-primary));
+}
+
+.theme-gradient {
+  background: linear-gradient(to right, rgb(var(--theme-gradient-from)), rgb(var(--theme-gradient-to)));
+}
+
+/* Variables CSS minimalistas */
+:root {
+  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --secondary-gradient: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --tech-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-intense: 0 16px 32px rgba(0, 0, 0, 0.12);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Gradientes tecnológicos modernos */
+.tech-gradient {
+  background: var(--tech-gradient);
+  position: relative;
+  overflow: hidden;
+}
+
+.tech-gradient::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.gradient-bg {
+  background: var(--tech-gradient);
+  position: relative;
+  overflow: hidden;
+}
+
+.gradient-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.15) 0%, transparent 50%);
+  animation: gradientShift 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes gradientShift {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* Efectos de glassmorphism minimalistas */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-2px);
+}
+
+/* Cards minimalistas */
+.modern-card {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  box-shadow: var(--shadow-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.modern-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--primary-gradient);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.modern-card:hover::before {
+  transform: scaleX(1);
+}
+
+.modern-card:hover {
+  border-color: #e2e8f0;
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-3px);
+}
+
+.dark .modern-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark .modern-card:hover {
+  border-color: #475569;
+}
+
+/* Botones modernos con efectos tech */
+.btn-modern {
+  position: relative;
+  padding: 12px 32px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.btn-modern::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.btn-modern:hover::before {
+  transform: translateX(100%);
+}
+
+.btn-primary-modern {
+  background: var(--primary-gradient);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary-modern:hover {
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+  transform: translateY(-2px);
+}
+
+.btn-secondary-modern {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.btn-secondary-modern:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Iconos SVG modernos en lugar de emojis */
+.tech-icon {
+  width: 48px;
+  height: 48px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tech-icon-large {
+  width: 64px;
+  height: 64px;
+}
+
+/* Animaciones modernas y sutiles */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes subtleFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-subtle-float {
+  animation: subtleFloat 4s ease-in-out infinite;
+}
+
+/* Progress ring moderno */
+.progress-ring-modern {
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.5));
+}
+
+.progress-ring-circle-modern {
+  stroke-dasharray: 125.6;
+  stroke-dashoffset: 125.6;
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  stroke: url(#progressGradient);
+}
+
+/* Scrollbar moderna */
+.modern-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.modern-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.modern-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 3px;
+}
+
+.modern-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5a67d8, #6b46c1);
+}
+
+/* Efectos de hover profesionales */
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* Variables CSS para modo oscuro */
+.dark {
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-elevated: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Layout responsive moderno */
+@media (max-width: 768px) {
+  .modern-card {
+    border-radius: 12px;
+    margin: 0 8px;
+  }
+  
+  .btn-modern {
+    padding: 10px 24px;
+    font-size: 13px;
+  }
+}
+
+/* Scrollbars personalizados minimalistas */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(148 163 184);
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 116 139);
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: rgb(71 85 105) transparent;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(71 85 105);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(51 65 85);
+}
+
+/* Para elementos con scrollbar en análisis detallado */
+.analysis-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.3) transparent;
+}
+
+.analysis-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.analysis-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.analysis-scroll::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.analysis-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+.dark .analysis-scroll {
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
+}
+
+.dark .analysis-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .analysis-scroll::-webkit-scrollbar-thumb {
+  background: rgba(147, 197, 253, 0.3);
+}
+
+.dark .analysis-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 197, 253, 0.5);
+}
+
+/* OVERSCROLL FIX: Solución crítica Alpha 1.0 - Elimina áreas blancas en scroll
+   - Aplicado en html, body y #root para cobertura completa
+   - Funciona en Safari, Chrome, Firefox y móviles
+   - Colores de fondo sincronizados con tema dinámico */
+html {
+  /* CRÍTICO: Fondo que coincide EXACTAMENTE con el tema oscuro por defecto */
+  background-color: #0f172a !important; /* slate-900 - modo oscuro */
+  /* CRÍTICO: Eliminar bounce effect completamente */
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
+  overscroll-behavior-x: none !important;
+  /* Scroll suave pero sin bounce */
+  scroll-behavior: smooth;
+  /* Eliminar márgenes que causen problemas */
+  margin: 0 !important;
+  padding: 0 !important;
+  /* Altura controlada */
+  min-height: 100vh;
+  height: 100%;
+}
+
+/* Modo claro con transición suave */
+html:not(.dark) {
+  background-color: #f8fafc !important; /* slate-50 - modo claro */
+}
+
+/* Modo oscuro reforzado */
+html.dark {
+  background-color: #0f172a !important; /* slate-900 - modo oscuro */
+}
+
+/* BODY: Heredar configuración del HTML */
+body {
+  /* Heredar el fondo del html */
+  background-color: inherit !important;
+  /* CRÍTICO: Eliminar overscroll bounce en body también */
+  overscroll-behavior: none !important;
+  /* Eliminar scroll bounce en dispositivos touch */
+  -webkit-overflow-scrolling: touch;
+  /* Transición suave para cambios de tema */
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Eliminar márgenes */
+  margin: 0 !important;
+  padding: 0 !important;
+  /* Font family heredada pero reforzada */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* CONTENEDOR PRINCIPAL: #root */
+#root {
+  background-color: inherit !important;
+  min-height: 100vh;
+  /* CRÍTICO: También eliminar overscroll en el contenedor principal */
+  overscroll-behavior: none !important;
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* SOLUCIÓN ADICIONAL: Forzar color de viewport en WebKit (Safari/Chrome) */
+@supports (-webkit-appearance: none) {
+  html {
+    /* Para Safari/Chrome - forzar el color del viewport */
+    background: #0f172a !important;
+  }
+  
+  html:not(.dark) {
+    background: #f8fafc !important;
+  }
+}
+
+/* SOLUCIÓN MÓVIL: Eliminar bounce en dispositivos iOS */
+@media screen and (max-device-width: 768px) {
+  html, body {
+    /* Eliminar scroll bounce en móviles */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none !important;
+    touch-action: pan-y;
+  }
+}
