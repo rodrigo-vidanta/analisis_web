@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import Chart from 'chart.js/auto';
+import React, { useState, useEffect } from 'react';
+// import Chart from 'chart.js/auto';
 import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
 import { definirConfiguracion, calcularQualityScorePonderado, calcularProbabilidadConversion, type PonderacionConfig } from './ponderacionConfig';
 import DetailedCallView from './DetailedCallView';

@@ -2,7 +2,7 @@
 // CONTEXTO DE AUTENTICACIÓN PARA REACT
 // ============================================
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authService, type User, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
 
 // Tipos para el contexto
