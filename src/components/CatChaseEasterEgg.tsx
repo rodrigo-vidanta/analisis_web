@@ -50,13 +50,13 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         const dy = catPosition.y - prevPos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Movimiento base aleatorio - MÁS AMPLIO
-        let moveX = (Math.random() - 0.5) * 2.5; // Aumentado para recorrer más pantalla
-        let moveY = (Math.random() - 0.5) * 2.5;
+        // Movimiento base aleatorio - MUY AMPLIO
+        let moveX = (Math.random() - 0.5) * 8.0; // MUCHO más amplio para recorrer toda la pantalla
+        let moveY = (Math.random() - 0.5) * 8.0;
         
         // Si el gato está cerca, huir más rápido pero controlado
-        if (distance < 25) {
-          const fleeStrength = 3.0; // Aumentado para huida más efectiva
+        if (distance < 30) {
+          const fleeStrength = 6.0; // Huida muy efectiva
           moveX = (-dx / distance) * fleeStrength;
           moveY = (-dy / distance) * fleeStrength;
         }
