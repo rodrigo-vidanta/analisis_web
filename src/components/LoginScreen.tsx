@@ -15,14 +15,24 @@ const LoginScreen: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🚀 LOGIN - Iniciando proceso de login...');
+    
     // Mostrar animación de velocidad luz
     setShowLightSpeed(true);
+    console.log('🚀 LOGIN - showLightSpeed establecido a true');
     
-    // Ejecutar login
-    await login({ email: email.trim(), password });
+    // Ejecutar login en paralelo (no esperar a que termine)
+    login({ email: email.trim(), password }).then(() => {
+      console.log('🚀 LOGIN - Proceso de login completado');
+    }).catch((error) => {
+      console.error('🚀 LOGIN - Error en login:', error);
+      // Si hay error, ocultar la animación
+      setShowLightSpeed(false);
+    });
   };
 
   const handleLightSpeedComplete = () => {
+    console.log('🚀 LOGIN - Animación completada, ocultando...');
     setShowLightSpeed(false);
   };
 

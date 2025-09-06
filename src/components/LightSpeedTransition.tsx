@@ -15,6 +15,11 @@ const LightSpeedTransition: React.FC<LightSpeedTransitionProps> = ({
   const [stars, setStars] = useState<Array<{ id: number; x: number; y: number; size: number; speed: number }>>([]);
   const [showFadeout, setShowFadeout] = useState(false);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🚀 LightSpeedTransition - isVisible:', isVisible, 'type:', type);
+  }, [isVisible, type]);
+
   // Generar estrellas para el efecto de velocidad luz
   useEffect(() => {
     if (isVisible) {
@@ -73,15 +78,20 @@ const LightSpeedTransition: React.FC<LightSpeedTransitionProps> = ({
   // Efecto de fadeout al final
   useEffect(() => {
     if (isVisible && type === 'login') {
+      console.log('🚀 ANIMACIÓN - Iniciando timer de fadeout para login');
       const timer = setTimeout(() => {
+        console.log('🚀 ANIMACIÓN - Activando fadeout');
         setShowFadeout(true);
         setTimeout(() => {
+          console.log('🚀 ANIMACIÓN - Completando animación');
           onComplete();
         }, 1000);
       }, 2500);
       return () => clearTimeout(timer);
     } else if (isVisible && type === 'logout') {
+      console.log('🚀 ANIMACIÓN - Iniciando timer para logout');
       const timer = setTimeout(() => {
+        console.log('🚀 ANIMACIÓN - Completando logout');
         onComplete();
       }, 2000);
       return () => clearTimeout(timer);
