@@ -60,19 +60,33 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         let moveX = (Math.random() - 0.5) * 8.0; // MUCHO más amplio para recorrer toda la pantalla
         let moveY = (Math.random() - 0.5) * 8.0;
         
-        // ESCAPAR DEL CURSOR - Prioridad alta
+        // ESCAPAR DEL CURSOR Y DEL GATO SIMULTÁNEAMENTE
+        let totalFleeX = 0;
+        let totalFleeY = 0;
+        let fleeCount = 0;
+        
+        // ESCAPAR DEL CURSOR
         if (distanceToCursor < 25) {
           const cursorFleeStrength = 8.0; // Huida muy agresiva del cursor
-          moveX = (-dxCursor / distanceToCursor) * cursorFleeStrength;
-          moveY = (-dyCursor / distanceToCursor) * cursorFleeStrength;
+          totalFleeX += (-dxCursor / distanceToCursor) * cursorFleeStrength;
+          totalFleeY += (-dyCursor / distanceToCursor) * cursorFleeStrength;
+          fleeCount++;
           console.log(`🐭 ESCAPANDO DEL CURSOR! Distancia: ${distanceToCursor.toFixed(1)}`);
         }
-        // Si el gato está cerca, huir también
-        else if (distanceToCat < 30) {
+        
+        // ESCAPAR DEL GATO
+        if (distanceToCat < 30) {
           const catFleeStrength = 6.0; // Huida del gato
-          moveX = (-dxCat / distanceToCat) * catFleeStrength;
-          moveY = (-dyCat / distanceToCat) * catFleeStrength;
+          totalFleeX += (-dxCat / distanceToCat) * catFleeStrength;
+          totalFleeY += (-dyCat / distanceToCat) * catFleeStrength;
+          fleeCount++;
           console.log(`🐭 ESCAPANDO DEL GATO! Distancia: ${distanceToCat.toFixed(1)}`);
+        }
+        
+        // Si está escapando de algo, usar la huida combinada
+        if (fleeCount > 0) {
+          moveX = totalFleeX / fleeCount; // Promedio de las huidas
+          moveY = totalFleeY / fleeCount;
         }
         
         // Calcular nueva posición
