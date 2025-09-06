@@ -65,7 +65,7 @@ const Footer: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 4l-1 2"/>
               </svg>
               
-              <span className="font-mono text-xs bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-3 py-1 rounded-full border border-slate-700 dark:border-slate-300 shadow-sm">
+              <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
                 {version}
               </span>
             </div>
