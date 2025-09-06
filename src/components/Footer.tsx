@@ -1,8 +1,40 @@
-import React from 'react';
+import React, { useState } from 'react';
+import CatChaseEasterEgg from './CatChaseEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión nightly manual
   const version = 'Nightly v.1.0.3';
+  
+  // Easter egg state
+  const [clickCount, setClickCount] = useState(0);
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  
+  // Manejar clics en el gato
+  const handleCatClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const newCount = clickCount + 1;
+    setClickCount(newCount);
+    
+    if (newCount >= 6) {
+      setShowEasterEgg(true);
+      setClickCount(0); // Reset counter
+    }
+    
+    // Reset counter después de 3 segundos si no llega a 6
+    setTimeout(() => {
+      if (newCount < 6) {
+        setClickCount(0);
+      }
+    }, 3000);
+  };
+  
+  // Cerrar easter egg
+  const handleCloseEasterEgg = () => {
+    setShowEasterEgg(false);
+    setClickCount(0);
+  };
 
   return (
     <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 py-4">
@@ -53,17 +85,25 @@ const Footer: React.FC = () => {
             {/* Separador */}
             <span className="text-slate-300 dark:text-slate-600">•</span>
             
-            {/* Versión Nightly con gato negro */}
+            {/* Versión Nightly con gato negro clickeable */}
             <div className="flex items-center gap-2">
-              {/* Icono de gato minimalista */}
-              <svg className="w-4 h-4 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12c0-1.5.5-3 2-4 1.5-1 3.5-1 5 0s3.5 1 5 0c1.5 1 2 2.5 2 4v3c0 2-1 3-3 3H9c-2 0-3-1-3-3v-3z"/>
-                <circle cx="9" cy="10" r="1"/>
-                <circle cx="15" cy="10" r="1"/>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 13v1"/>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 4l1 2"/>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 4l-1 2"/>
-              </svg>
+              {/* Icono de gato minimalista - Easter Egg */}
+              <button
+                onClick={handleCatClick}
+                className={`w-4 h-4 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-all duration-200 cursor-pointer ${
+                  clickCount > 0 ? 'animate-pulse' : ''
+                }`}
+                title={clickCount > 0 ? `${6 - clickCount} clics restantes...` : 'Easter egg 🐱'}
+              >
+                <svg className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12c0-1.5.5-3 2-4 1.5-1 3.5-1 5 0s3.5 1 5 0c1.5 1 2 2.5 2 4v3c0 2-1 3-3 3H9c-2 0-3-1-3-3v-3z"/>
+                  <circle cx="9" cy="10" r="1"/>
+                  <circle cx="15" cy="10" r="1"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 13v1"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 4l1 2"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 4l-1 2"/>
+                </svg>
+              </button>
               
               <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
                 {version}
@@ -73,6 +113,12 @@ const Footer: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Easter Egg Component */}
+      <CatChaseEasterEgg 
+        isVisible={showEasterEgg}
+        onClose={handleCloseEasterEgg}
+      />
     </footer>
   );
 };
