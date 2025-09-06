@@ -1,23 +1,42 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
+import VortexTransition from './VortexTransition';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showVortex, setShowVortex] = useState(false);
   const { login, isLoading, error } = useAuth();
   const { config } = useSystemConfig();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Mostrar vórtice de login
+    setShowVortex(true);
+    
+    // Ejecutar login
     await login({ email: email.trim(), password });
+  };
+
+  const handleVortexComplete = () => {
+    setShowVortex(false);
   };
 
 
   return (
-    <div className="min-h-screen tech-gradient flex items-center justify-center px-4">
+    <>
+      {/* Transición de vórtice */}
+      <VortexTransition 
+        isVisible={showVortex} 
+        onComplete={handleVortexComplete}
+        type="login"
+      />
+      
+      <div className="min-h-screen tech-gradient flex items-center justify-center px-4">
       {/* SVG Definitions for gradients */}
       <svg width="0" height="0" className="absolute">
         <defs>
@@ -200,7 +219,8 @@ const LoginScreen: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
