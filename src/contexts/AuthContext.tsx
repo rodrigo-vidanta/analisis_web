@@ -4,7 +4,6 @@
 
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authService, type User, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
-import VortexTransition from '../components/VortexTransition';
 
 // Tipos para el contexto
 interface AuthContextType extends AuthState {
@@ -39,7 +38,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading: true,
     error: null
   });
-  const [showLogoutVortex, setShowLogoutVortex] = useState(false);
 
   // Inicializar autenticación al cargar la aplicación
   useEffect(() => {
@@ -84,9 +82,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función de logout
   const logout = async (): Promise<void> => {
     try {
-      // Mostrar vórtice de logout
-      setShowLogoutVortex(true);
-      
       setAuthState(prev => ({ ...prev, isLoading: true }));
       await authService.logout();
       setAuthState({
@@ -107,10 +102,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null
       });
     }
-  };
-
-  const handleLogoutVortexComplete = () => {
-    setShowLogoutVortex(false);
   };
 
   // Verificar permisos
@@ -237,13 +228,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
-      
-      {/* Transición de vórtice para logout */}
-      <VortexTransition 
-        isVisible={showLogoutVortex} 
-        onComplete={handleLogoutVortexComplete}
-        type="logout"
-      />
     </AuthContext.Provider>
   );
 };

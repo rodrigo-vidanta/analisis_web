@@ -1,38 +1,38 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
-import VortexTransition from './VortexTransition';
+import LightSpeedTransition from './LightSpeedTransition';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [showVortex, setShowVortex] = useState(false);
+  const [showLightSpeed, setShowLightSpeed] = useState(false);
   const { login, isLoading, error } = useAuth();
   const { config } = useSystemConfig();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Mostrar vórtice de login
-    setShowVortex(true);
+    // Mostrar animación de velocidad luz
+    setShowLightSpeed(true);
     
     // Ejecutar login
     await login({ email: email.trim(), password });
   };
 
-  const handleVortexComplete = () => {
-    setShowVortex(false);
+  const handleLightSpeedComplete = () => {
+    setShowLightSpeed(false);
   };
 
 
   return (
     <>
-      {/* Transición de vórtice */}
-      <VortexTransition 
-        isVisible={showVortex} 
-        onComplete={handleVortexComplete}
+      {/* Transición de velocidad luz */}
+      <LightSpeedTransition 
+        isVisible={showLightSpeed} 
+        onComplete={handleLightSpeedComplete}
         type="login"
       />
       
