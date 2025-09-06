@@ -17,6 +17,7 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
   const [caught, setCaught] = useState(false);
   const [catDirection, setCatDirection] = useState<'left' | 'right'>('right');
   const [mouseDirection, setMouseDirection] = useState<'left' | 'right'>('right');
+  const [cursorPosition, setCursorPosition] = useState<Position>({ x: 50, y: 50 });
   const animationRef = useRef<number>();
   const timeoutRef = useRef<NodeJS.Timeout>();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -46,19 +47,32 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       
       setMousePosition(prevPos => {
         // Calcular distancia al gato
-        const dx = catPosition.x - prevPos.x;
-        const dy = catPosition.y - prevPos.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const dxCat = catPosition.x - prevPos.x;
+        const dyCat = catPosition.y - prevPos.y;
+        const distanceToCat = Math.sqrt(dxCat * dxCat + dyCat * dyCat);
+        
+        // Calcular distancia al cursor
+        const dxCursor = cursorPosition.x - prevPos.x;
+        const dyCursor = cursorPosition.y - prevPos.y;
+        const distanceToCursor = Math.sqrt(dxCursor * dxCursor + dyCursor * dyCursor);
         
         // Movimiento base aleatorio - MUY AMPLIO
         let moveX = (Math.random() - 0.5) * 8.0; // MUCHO más amplio para recorrer toda la pantalla
         let moveY = (Math.random() - 0.5) * 8.0;
         
-        // Si el gato está cerca, huir más rápido pero controlado
-        if (distance < 30) {
-          const fleeStrength = 6.0; // Huida muy efectiva
-          moveX = (-dx / distance) * fleeStrength;
-          moveY = (-dy / distance) * fleeStrength;
+        // ESCAPAR DEL CURSOR - Prioridad alta
+        if (distanceToCursor < 25) {
+          const cursorFleeStrength = 8.0; // Huida muy agresiva del cursor
+          moveX = (-dxCursor / distanceToCursor) * cursorFleeStrength;
+          moveY = (-dyCursor / distanceToCursor) * cursorFleeStrength;
+          console.log(`🐭 ESCAPANDO DEL CURSOR! Distancia: ${distanceToCursor.toFixed(1)}`);
+        }
+        // Si el gato está cerca, huir también
+        else if (distanceToCat < 30) {
+          const catFleeStrength = 6.0; // Huida del gato
+          moveX = (-dxCat / distanceToCat) * catFleeStrength;
+          moveY = (-dyCat / distanceToCat) * catFleeStrength;
+          console.log(`🐭 ESCAPANDO DEL GATO! Distancia: ${distanceToCat.toFixed(1)}`);
         }
         
         // Calcular nueva posición
@@ -122,7 +136,7 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
     }
   }, [gameActive, isVisible]);
 
-  // Control del gato por cursor del usuario
+  // Control del gato por cursor del usuario Y rastrear posición del cursor
   useEffect(() => {
     if (!gameActive || !isVisible) return;
 
@@ -147,6 +161,9 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       
       lastCatPosition.current = newPosition;
       setCatPosition(newPosition);
+      
+      // ACTUALIZAR POSICIÓN DEL CURSOR para que el ratón escape
+      setCursorPosition(newPosition);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
