@@ -1,8 +1,8 @@
 import React from 'react';
 
 const Footer: React.FC = () => {
-  // Obtener la versión del package.json
-  const version = import.meta.env.VITE_APP_VERSION || '3.1.0';
+  // Versión nightly manual
+  const version = 'Nightly v.1.0.3';
 
   return (
     <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 py-4">
@@ -53,10 +53,14 @@ const Footer: React.FC = () => {
             {/* Separador */}
             <span className="text-slate-300 dark:text-slate-600">•</span>
             
-            {/* Versión */}
-            <div className="flex items-center gap-1">
-              <span>v</span>
-              <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-600">
+            {/* Versión Nightly con gato negro */}
+            <div className="flex items-center gap-2">
+              {/* Icono de gato negro */}
+              <svg className="w-4 h-4 text-slate-700 dark:text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L13 3V5C12.5 5 12 5.2 12 5.5C12 5.8 12.5 6 13 6V8L11 10V12H13V10.5L15 8.5V11C15 12.1 15.9 13 17 13S19 12.1 19 11V9H21ZM7.5 12C8.3 12 9 12.7 9 13.5S8.3 15 7.5 15 6 14.3 6 13.5 6.7 12 7.5 12ZM16.5 12C17.3 12 18 12.7 18 13.5S17.3 15 16.5 15 15 14.3 15 13.5 15.7 12 16.5 12ZM12 16C14.2 16 16 17.8 16 20C16 21.1 15.1 22 14 22H10C8.9 22 8 21.1 8 20C8 17.8 9.8 16 12 16Z"/>
+              </svg>
+              
+              <span className="font-mono text-xs bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-3 py-1 rounded-full border border-slate-700 dark:border-slate-300 shadow-sm">
                 {version}
               </span>
             </div>
