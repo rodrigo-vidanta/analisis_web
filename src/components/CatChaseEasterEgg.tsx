@@ -15,9 +15,13 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
   const [catPosition, setCatPosition] = useState<Position>({ x: 20, y: 70 });
   const [gameActive, setGameActive] = useState(false);
   const [caught, setCaught] = useState(false);
+  const [catDirection, setCatDirection] = useState<'left' | 'right'>('right');
+  const [mouseDirection, setMouseDirection] = useState<'left' | 'right'>('right');
   const animationRef = useRef<number>();
   const timeoutRef = useRef<NodeJS.Timeout>();
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastCatPosition = useRef<Position>({ x: 20, y: 70 });
+  const lastMousePosition = useRef<Position>({ x: 70, y: 30 });
 
   // Inicializar juego cuando se hace visible
   useEffect(() => {
@@ -50,49 +54,63 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
     }
   }, [isVisible]);
 
-  // Movimiento automático del ratón - Mejorado
+  // Movimiento automático del ratón - Corregido y mejorado
   const startMouseMovement = () => {
     let time = 0;
     let direction = { x: 1, y: 1 };
-    let speed = 0.8;
+    let speed = 1.2; // Velocidad aumentada
     
     const moveMouseRandomly = () => {
-      if (!isVisible) return;
+      if (!isVisible || !gameActive) return;
       
-      time += 0.03;
+      time += 0.05;
       
       // Movimiento más dinámico y errático del ratón
-      const baseX = mousePosition.x + direction.x * speed;
-      const baseY = mousePosition.y + direction.y * speed;
-      
-      // Añadir variación aleatoria
-      const randomX = baseX + Math.sin(time * 3) * 2;
-      const randomY = baseY + Math.cos(time * 2.5) * 2;
-      
-      let newX = randomX;
-      let newY = randomY;
-      
-      // Rebotar en los bordes
-      if (newX <= 3 || newX >= 97) {
-        direction.x *= -1;
-        newX = Math.max(3, Math.min(97, newX));
-      }
-      if (newY <= 3 || newY >= 97) {
-        direction.y *= -1;
-        newY = Math.max(3, Math.min(97, newY));
-      }
-      
-      // Cambiar dirección aleatoriamente a veces
-      if (Math.random() < 0.02) {
-        direction.x += (Math.random() - 0.5) * 0.5;
-        direction.y += (Math.random() - 0.5) * 0.5;
-        // Normalizar velocidad
-        const magnitude = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-        direction.x = (direction.x / magnitude) * speed;
-        direction.y = (direction.y / magnitude) * speed;
-      }
-      
-      setMousePosition({ x: newX, y: newY });
+      setMousePosition(prevPos => {
+        const baseX = prevPos.x + direction.x * speed;
+        const baseY = prevPos.y + direction.y * speed;
+        
+        // Añadir variación aleatoria más pronunciada
+        const randomX = baseX + Math.sin(time * 4) * 3;
+        const randomY = baseY + Math.cos(time * 3.5) * 3;
+        
+        let newX = randomX;
+        let newY = randomY;
+        
+        // Rebotar en los bordes
+        if (newX <= 5 || newX >= 95) {
+          direction.x *= -1;
+          newX = Math.max(5, Math.min(95, newX));
+        }
+        if (newY <= 5 || newY >= 95) {
+          direction.y *= -1;
+          newY = Math.max(5, Math.min(95, newY));
+        }
+        
+        // Cambiar dirección aleatoriamente más frecuente
+        if (Math.random() < 0.03) {
+          direction.x += (Math.random() - 0.5) * 0.8;
+          direction.y += (Math.random() - 0.5) * 0.8;
+          // Normalizar velocidad
+          const magnitude = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+          if (magnitude > 0) {
+            direction.x = (direction.x / magnitude) * speed;
+            direction.y = (direction.y / magnitude) * speed;
+          }
+        }
+        
+        // Detectar dirección del ratón
+        if (newX > lastMousePosition.current.x) {
+          setMouseDirection('right');
+        } else if (newX < lastMousePosition.current.x) {
+          setMouseDirection('left');
+        }
+        
+        lastMousePosition.current = { x: newX, y: newY };
+        
+        return { x: newX, y: newY };
+      });
+
       animationRef.current = requestAnimationFrame(moveMouseRandomly);
     };
 
@@ -110,10 +128,20 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
       
-      setCatPosition({
+      // Detectar dirección del gato
+      if (x > lastCatPosition.current.x) {
+        setCatDirection('right');
+      } else if (x < lastCatPosition.current.x) {
+        setCatDirection('left');
+      }
+      
+      const newPosition = {
         x: Math.max(2, Math.min(98, x)),
         y: Math.max(2, Math.min(98, y))
-      });
+      };
+      
+      lastCatPosition.current = newPosition;
+      setCatPosition(newPosition);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -166,107 +194,69 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       {/* Fondo blureado */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-all duration-500" />
       
-      {/* Ratón - Más grande y expresivo */}
+      {/* Ratón - Emoji lindo con orientación */}
       <div
-        className={`absolute transition-all duration-200 ease-out ${caught ? 'animate-bounce' : ''}`}
+        className={`absolute transition-all duration-150 ease-out ${caught ? 'animate-bounce' : ''}`}
         style={{
           left: `${mousePosition.x}%`,
           top: `${mousePosition.y}%`,
-          transform: 'translate(-50%, -50%)'
+          transform: `translate(-50%, -50%) ${mouseDirection === 'left' ? 'scaleX(-1)' : ''}`
         }}
       >
         <div className="relative">
-          <svg 
-            className={`w-8 h-8 text-gray-700 dark:text-gray-300 drop-shadow-lg ${caught ? 'animate-spin' : ''}`}
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            viewBox="0 0 24 24"
-          >
-            {/* Cuerpo del ratón */}
-            <ellipse cx="12" cy="15" rx="7" ry="5"/>
-            {/* Cabeza */}
-            <circle cx="12" cy="8" r="4"/>
-            {/* Orejas grandes */}
-            <circle cx="9" cy="4" r="2"/>
-            <circle cx="15" cy="4" r="2"/>
-            {/* Ojos expresivos */}
-            <circle cx="10" cy="7" r="1" fill="currentColor"/>
-            <circle cx="14" cy="7" r="1" fill="currentColor"/>
-            {/* Nariz */}
-            <circle cx="12" cy="9" r="0.5" fill="currentColor"/>
-            {/* Cola larga y curvada */}
-            <path strokeLinecap="round" d="M19 15c4 0 5-2 6-5"/>
-          </svg>
+          <div className={`text-3xl drop-shadow-lg ${caught ? 'animate-spin' : ''}`}>
+            {caught ? '😵' : '🐭'}
+          </div>
           {/* Efectos según estado */}
           {!caught && (
-            <div className="absolute inset-0 w-8 h-8 bg-gray-400/20 rounded-full animate-ping" style={{ animationDuration: '1.5s' }} />
+            <div className="absolute inset-0 w-12 h-12 bg-gray-400/20 rounded-full animate-ping" style={{ animationDuration: '1.5s' }} />
           )}
           {caught && (
-            <div className="absolute inset-0 w-12 h-12 bg-yellow-400/30 rounded-full animate-ping" style={{ animationDuration: '0.5s' }} />
+            <>
+              <div className="absolute inset-0 w-16 h-16 bg-yellow-400/30 rounded-full animate-ping" style={{ animationDuration: '0.5s' }} />
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-8">
+                <span className="text-2xl animate-bounce">⭐</span>
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* Gato controlado por usuario - Más grande */}
+      {/* Gato controlado por usuario - Emoji lindo con orientación */}
       <div
         className="absolute transition-none"
         style={{
           left: `${catPosition.x}%`,
           top: `${catPosition.y}%`,
-          transform: 'translate(-50%, -50%)'
+          transform: `translate(-50%, -50%) ${catDirection === 'left' ? 'scaleX(-1)' : ''}`
         }}
       >
         <div className="relative">
-          {/* Gato grande y expresivo */}
-          <svg 
-            className={`w-10 h-10 text-slate-800 dark:text-slate-200 drop-shadow-xl ${caught ? 'animate-bounce' : ''}`}
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            viewBox="0 0 24 24"
-          >
-            {/* Cuerpo del gato */}
-            <ellipse cx="12" cy="16" rx="6" ry="4"/>
-            {/* Cabeza */}
-            <circle cx="12" cy="8" r="5"/>
-            {/* Orejas puntiagudas */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 5l3 4"/>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 5l-3 4"/>
-            {/* Ojos expresivos (más grandes si atrapó) */}
-            <circle cx="9.5" cy="7" r={caught ? "1.5" : "1"} fill="currentColor"/>
-            <circle cx="14.5" cy="7" r={caught ? "1.5" : "1"} fill="currentColor"/>
-            {/* Nariz */}
-            <circle cx="12" cy="9" r="0.5" fill="currentColor"/>
-            {/* Boca (sonriente si atrapó) */}
-            {caught ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 11c1 1 3 1 4 0"/>
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11 11c.5.3 1.5.3 2 0"/>
-            )}
-            {/* Cola expresiva */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18 16c3 1 4 3 2 6"/>
-            {/* Bigotes */}
-            <path strokeLinecap="round" d="M5 8h3"/>
-            <path strokeLinecap="round" d="M16 8h3"/>
-            <path strokeLinecap="round" d="M5 9h3"/>
-            <path strokeLinecap="round" d="M16 9h3"/>
-          </svg>
+          {/* Gato emoji grande y expresivo */}
+          <div className={`text-4xl drop-shadow-xl ${caught ? 'animate-bounce' : ''}`}>
+            {caught ? '😸' : '🐱'}
+          </div>
           
           {/* Efectos de captura */}
           {caught && (
             <>
-              <div className="absolute inset-0 w-16 h-16 bg-green-400/20 rounded-full animate-ping" style={{ animationDuration: '0.8s' }} />
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-8">
-                <span className="text-2xl animate-bounce">🎉</span>
+              <div className="absolute inset-0 w-20 h-20 bg-green-400/20 rounded-full animate-ping" style={{ animationDuration: '0.8s' }} />
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-12">
+                <span className="text-3xl animate-bounce">🎉</span>
+              </div>
+              <div className="absolute -top-4 -left-8">
+                <span className="text-lg animate-pulse">✨</span>
+              </div>
+              <div className="absolute -top-4 -right-8">
+                <span className="text-lg animate-pulse" style={{ animationDelay: '0.3s' }}>✨</span>
               </div>
             </>
           )}
           
-          {/* Cursor indicator (sutil) */}
+          {/* Indicador sutil de cursor */}
           {gameActive && !caught && (
-            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-              <div className="w-1 h-1 bg-blue-500/60 rounded-full animate-pulse" />
+            <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2">
+              <div className="w-2 h-2 bg-blue-500/40 rounded-full animate-pulse" />
             </div>
           )}
         </div>
