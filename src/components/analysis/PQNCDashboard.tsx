@@ -198,9 +198,15 @@ const PQNCDashboard: React.FC = () => {
           organization,
           direction,
           start_time,
+          audio_file_url,
+          audio_file_name,
           agent_performance,
           call_evaluation,
-          comunicacion_data
+          comunicacion_data,
+          customer_data,
+          service_offered,
+          script_analysis,
+          compliance_data
         `)
         .order('start_time', { ascending: false })
         .limit(1000); // Aumentamos a 1000 para ver más registros
@@ -436,9 +442,15 @@ const PQNCDashboard: React.FC = () => {
           organization,
           direction,
           start_time,
+          audio_file_url,
+          audio_file_name,
           agent_performance,
           call_evaluation,
-          comunicacion_data
+          comunicacion_data,
+          customer_data,
+          service_offered,
+          script_analysis,
+          compliance_data
         `)
         .gt('start_time', lastSyncTime)
         .order('start_time', { ascending: false });

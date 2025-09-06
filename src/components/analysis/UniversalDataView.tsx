@@ -207,20 +207,82 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
   // RENDER
   // ============================================
   
-  if (!data) {
+  // Si no hay datos, mostrar estructura básica explicativa
+  if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+    const expectedStructure = getExpectedStructure(title);
+    
     return (
-      <div className={`bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 text-center ${className}`}>
-        <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-        </svg>
-        <h3 className="text-lg font-medium text-yellow-800 dark:text-yellow-200 mb-2">
-          No hay {title.toLowerCase()} disponibles
-        </h3>
-        <p className="text-yellow-700 dark:text-yellow-300">
-          Esta llamada no contiene {title.toLowerCase()}.
-        </p>
+      <div className={`space-y-4 ${className}`}>
+        {/* Header principal */}
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
+              {icon}
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {title}
+              </h2>
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                No hay datos disponibles para esta llamada
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Mostrar estructura esperada */}
+        {expectedStructure && (
+          <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+              Estructura esperada de datos:
+            </h3>
+            <div className="space-y-2">
+              {expectedStructure.map((section, index) => (
+                <div key={index} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+                  <span>{section}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
+  }
+  
+  // Función para obtener la estructura esperada según el tipo de datos
+  function getExpectedStructure(title: string): string[] | null {
+    const structureMap: { [key: string]: string[] } = {
+      'Datos de Compliance': [
+        'Elementos Obligatorios (tour, check-in/out, impuesto hotelero, descripción habitación)',
+        'Métricas de Cumplimiento (riesgo normativo, elementos mencionados, porcentaje)'
+      ],
+      'Información del Cliente': [
+        'Perfil (ocupación, estado civil, experiencia, composición grupo)',
+        'Contacto (edad, nombre completo, teléfono, email, fecha nacimiento)'
+      ],
+      'Datos de Comunicación': [
+        'Patrones (tonos cliente, tipos discovery, técnicas rapport, temas personales)',
+        'Métricas de Rapport (empatía, escucha activa, personalización)',
+        'Métricas Derivadas (diversidad, presencia objeciones, complejidad)'
+      ],
+      'Performance Completo del Agente': [
+        'Score Ponderado y Datos Originales',
+        'Áreas de Performance (fortalezas y debilidades)',
+        'Métricas Calculadas por categoría'
+      ],
+      'Evaluación General de la Llamada': [
+        'Análisis FODA (fortalezas, debilidades, oportunidades, amenazas)',
+        'Análisis General (descripción, puntos clave)',
+        'Resumen de Objeciones y Problemas Detectados'
+      ],
+      'Análisis del Script': [
+        'Etapas del Script (saludo, motivo, discovery, objeciones, costos, cierre)',
+        'Métricas del Script (completitud, calidad por etapa, factor entrenamiento)'
+      ]
+    };
+    
+    return structureMap[title] || null;
   }
   
   const sections = getSections();

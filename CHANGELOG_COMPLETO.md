@@ -1,23 +1,109 @@
 # 📋 CHANGELOG COMPLETO - Plataforma PQNC QA AI
 
 **Fecha:** 2025-01-24  
-**Versión:** 3.0.0  
+**Versión:** 3.1.0  
 **Proyecto:** Plataforma de Análisis de Calidad de Llamadas PQNC
 
 ---
 
 ## 🎯 **RESUMEN EJECUTIVO**
 
-La plataforma PQNC QA AI ha evolucionado significativamente con **3 versiones principales** que incluyen:
+La plataforma PQNC QA AI ha evolucionado significativamente con **4 versiones principales** que incluyen:
 
 - ✅ **Sistema de Retroalimentación** completo con historial
 - ✅ **Mejoras de Usabilidad** (sorting, fecha/hora, bookmarks)  
 - ✅ **Visualización Completa de Datos** JSONB con componente universal
+- ✅ **Reproductor de Audio** integrado con API de Google Cloud Storage
 
-**Total de líneas implementadas**: ~3,200  
-**Componentes nuevos**: 6  
-**Servicios nuevos**: 2  
+**Total de líneas implementadas**: ~3,500  
+**Componentes nuevos**: 7  
+**Servicios nuevos**: 3  
 **Tablas de BD nuevas**: 4
+
+---
+
+## 🎵 **VERSIÓN 3.1.0 - REPRODUCTOR DE AUDIO INTEGRADO** (2025-01-24 15:40)
+
+### 🎯 **Reproductor de Audio Completo**
+
+#### **Archivo**: `src/components/analysis/AudioPlayer.tsx`
+- **Líneas**: 320+
+- **Propósito**: Reproducir archivos WAV de llamadas desde Google Cloud Storage
+
+#### **Características Principales**:
+- **🎮 Controles completos**: Play/Pause, seek bar, control de volumen
+- **🔗 Integración con API**: Railway function para URLs firmadas temporales
+- **🎨 Diseño minimalista**: Paleta blue/slate del proyecto
+- **📱 Responsive**: Optimizado para móvil y desktop
+- **⏱️ URLs temporales**: 30 minutos de expiración
+- **🛡️ Manejo de errores**: Estados de carga, error y retry
+
+#### **Integración en Análisis Detallado**:
+- **Ubicación**: Pestaña "Análisis Completo" → Entre resumen y métricas
+- **Condicional**: Solo se muestra si existe `audio_file_url`
+- **Fallback**: Mensaje elegante cuando no hay audio disponible
+
+### 🔧 **Servicio de Audio**
+
+#### **Archivo**: `src/services/audioService.ts`
+- **Líneas**: 130+
+- **API**: `https://function-bun-dev-6d8e.up.railway.app/generar-url`
+- **Token**: Configurado con `x-api-token`
+
+#### **Funciones Principales**:
+- **`parseAudioUrl()`**: Extrae bucket y filename de URLs `gs://`
+- **`getSignedAudioUrl()`**: Obtiene URL firmada temporal del bucket
+- **`formatFileSize()`**: Formatea tamaño de archivos
+
+#### **Configuración API**:
+```json
+{
+  "filename": "exports/audio/PQNC_Export2;4_20250819_000000/COBACA/WAV/archivo.wav",
+  "bucket": "verintpqnc",
+  "expirationMinutes": 30
+}
+```
+
+### 🎨 **Diseño Minimalista**
+
+#### **Paleta de Colores**:
+- **Botón Play**: `bg-blue-600` (59 130 246)
+- **Progreso**: Blue gradient dinámico  
+- **Volumen**: Slate gray discreto
+- **Header**: Gradient slate subtle
+- **❌ Eliminado**: Purple/pink llamativo
+
+#### **Layout Optimizado**:
+- **Header**: 8px icon + título compacto + duración
+- **Progreso**: Barra 4px altura con tiempos en extremos
+- **Controles**: Play + info + volumen en línea horizontal
+- **Espaciado**: Padding 4px, gaps reducidos
+
+#### **Estados Visuales**:
+- **Loading**: Spinner blue con mensaje
+- **Error**: Banner rojo con botón retry
+- **Sin audio**: Mensaje informativo elegante
+
+### 🔒 **Seguridad y Limpieza**
+
+#### **Logs Eliminados**:
+- **❌ DetailedCallView**: Debugging de datos sensibles
+- **❌ audioService**: URLs y tokens de API
+- **❌ AudioPlayer**: Metadata y errores detallados
+- **✅ Producción**: Sin riesgo de filtración
+
+#### **Optimización de Consultas**:
+- **Añadidos campos**: `audio_file_url`, `audio_file_name` en SELECT
+- **Consultas completas**: Tanto carga inicial como sincronización
+- **Datos JSONB**: Todos los campos disponibles
+
+### 📊 **Métricas v3.1.0**
+
+- **Archivos nuevos**: 2 (AudioPlayer + audioService)
+- **Archivos modificados**: 3 (DetailedCallView, PQNCDashboard, index.css)
+- **Líneas añadidas**: ~500
+- **Estilos CSS**: 120+ líneas de estilos minimalistas
+- **API integrada**: 1 (Railway function)
 
 ---
 

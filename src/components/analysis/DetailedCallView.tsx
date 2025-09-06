@@ -9,6 +9,8 @@ import ComplianceDataView from './ComplianceDataView';
 import CustomerDataView from './CustomerDataView';
 import ComplianceChart from './ComplianceChart';
 import UniversalDataView from './UniversalDataView';
+// REPRODUCTOR DE AUDIO: Componente para reproducir archivos WAV
+import AudioPlayer from './AudioPlayer';
 
 Chart.register(...registerables);
 
@@ -36,9 +38,15 @@ interface CallRecord {
   organization: string;
   direction: string;
   start_time: string;
+  audio_file_url?: string;
+  audio_file_name?: string;
   agent_performance?: any;
   call_evaluation?: any;
   comunicacion_data?: any;
+  customer_data?: any;
+  service_offered?: any;
+  script_analysis?: any;
+  compliance_data?: any;
 }
 
 interface DashboardWidget {
@@ -113,36 +121,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
 
   const scorePonderado = call.quality_score; // Simplified for now
   
-  // DEBUGGING: Verificar qué datos están llegando
-  useEffect(() => {
-    console.log('🔍 DEBUGGING DETAILED CALL VIEW - Datos recibidos:', {
-      callId: call.id,
-      customerName: call.customer_name,
-      hasComplianceData: !!(call as any).compliance_data,
-      hasCustomerData: !!(call as any).customer_data,
-      hasAgentPerformance: !!(call as any).agent_performance,
-      hasScriptAnalysis: !!(call as any).script_analysis,
-      hasCallEvaluation: !!(call as any).call_evaluation,
-      hasServiceOffered: !!(call as any).service_offered,
-      hasCommunicationData: !!(call as any).comunicacion_data,
-      allKeys: Object.keys(call)
-    });
-    
-    // Log de datos específicos
-    if ((call as any).compliance_data) {
-      console.log('🔍 COMPLIANCE DATA ENCONTRADA:', (call as any).compliance_data);
-    } else {
-      console.log('❌ NO HAY COMPLIANCE DATA');
-    }
-    
-    if ((call as any).customer_data) {
-      console.log('🔍 CUSTOMER DATA ENCONTRADA:', (call as any).customer_data);
-    } else {
-      console.log('❌ NO HAY CUSTOMER DATA');
-    }
-    
-    console.log('🔍 CALL OBJECT COMPLETO:', call);
-  }, [call]);
+  // Removed debugging logs for security
 
   // Effect para crear gráfica de barras en Performance
   useEffect(() => {
@@ -449,8 +428,8 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
       case 'summary':
         return (
           <div className="flex h-full">
-            {/* Left Sidebar - Conversation */}
-            <div className="w-1/2 p-6 border-r border-slate-200 dark:border-slate-700 overflow-y-auto analysis-scroll">
+              {/* Left Sidebar - Conversation */}
+              <div className="w-1/2 p-6 border-r border-slate-200 dark:border-slate-700 overflow-y-auto analysis-scroll">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -589,6 +568,29 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* REPRODUCTOR DE AUDIO - Posicionado entre resumen y métricas */}
+              <div className="mb-6">
+                {call.audio_file_url ? (
+                  <AudioPlayer
+                    audioFileUrl={call.audio_file_url}
+                    callId={call.id}
+                    customerName={call.customer_name}
+                  />
+                ) : (
+                  <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 text-center">
+                    <div className="flex items-center justify-center gap-3">
+                      <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 14.142M9 9a3 3 0 000 6h3v5a1 1 0 102 0v-5h3a3 3 0 000-6H9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                        Audio no disponible para esta llamada
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
                 <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
