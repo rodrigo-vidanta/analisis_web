@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import LightSpeedTransition from './LightSpeedTransition';
+import SimpleLightSpeed from './SimpleLightSpeed';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [showLightSpeed, setShowLightSpeed] = useState(false);
   const { login, isLoading, error } = useAuth();
   const { config } = useSystemConfig();
 
@@ -17,34 +17,13 @@ const LoginScreen: React.FC = () => {
     
     console.log('🚀 LOGIN - Iniciando proceso de login...');
     
-    // Mostrar animación de velocidad luz
-    setShowLightSpeed(true);
-    console.log('🚀 LOGIN - showLightSpeed establecido a true');
-    
-    // Ejecutar login en paralelo (no esperar a que termine)
-    login({ email: email.trim(), password }).then(() => {
-      console.log('🚀 LOGIN - Proceso de login completado');
-    }).catch((error) => {
-      console.error('🚀 LOGIN - Error en login:', error);
-      // Si hay error, ocultar la animación
-      setShowLightSpeed(false);
-    });
+    // Ejecutar login - la animación se maneja en AuthContext
+    await login({ email: email.trim(), password });
+    console.log('🚀 LOGIN - Proceso de login completado');
   };
-
-  const handleLightSpeedComplete = () => {
-    console.log('🚀 LOGIN - Animación completada, ocultando...');
-    setShowLightSpeed(false);
-  };
-
 
   return (
     <>
-      {/* Transición de velocidad luz */}
-      <LightSpeedTransition 
-        isVisible={showLightSpeed} 
-        onComplete={handleLightSpeedComplete}
-        type="login"
-      />
       
       <div className="min-h-screen tech-gradient flex items-center justify-center px-4">
       {/* SVG Definitions for gradients */}

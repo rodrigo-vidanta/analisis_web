@@ -48,7 +48,7 @@ const LightSpeedTransition: React.FC<LightSpeedTransitionProps> = ({
           opacity: 0 
         },
         transition: { 
-          duration: 3.5, 
+          duration: 5.0, 
           ease: "easeInOut",
           times: [0, 0.3, 0.7, 1]
         }
@@ -78,16 +78,22 @@ const LightSpeedTransition: React.FC<LightSpeedTransitionProps> = ({
   // Efecto de fadeout al final
   useEffect(() => {
     if (isVisible && type === 'login') {
-      console.log('🚀 ANIMACIÓN - Iniciando timer de fadeout para login');
+      console.log('🚀 ANIMACIÓN - Iniciando timer de fadeout para login (4 segundos)');
       const timer = setTimeout(() => {
-        console.log('🚀 ANIMACIÓN - Activando fadeout');
+        console.log('🚀 ANIMACIÓN - 4 segundos completados, activando fadeout');
         setShowFadeout(true);
         setTimeout(() => {
-          console.log('🚀 ANIMACIÓN - Completando animación');
+          console.log('🚀 ANIMACIÓN - 1 segundo de fadeout completado, finalizando animación');
           onComplete();
         }, 1000);
-      }, 2500);
-      return () => clearTimeout(timer);
+      }, 4000); // 4 segundos antes del fadeout
+      
+      console.log('🚀 ANIMACIÓN - Timer configurado para 4 segundos');
+      
+      return () => {
+        console.log('🚀 ANIMACIÓN - Limpiando timer (componente desmontado o isVisible cambió)');
+        clearTimeout(timer);
+      };
     } else if (isVisible && type === 'logout') {
       console.log('🚀 ANIMACIÓN - Iniciando timer para logout');
       const timer = setTimeout(() => {
@@ -102,7 +108,7 @@ const LightSpeedTransition: React.FC<LightSpeedTransitionProps> = ({
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          className="fixed inset-0 z-[10000] flex items-center justify-center overflow-hidden"
+          className="fixed inset-0 z-[99999] flex items-center justify-center overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

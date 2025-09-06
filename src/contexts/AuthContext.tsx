@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authService, type User, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
+import LightSpeedTunnel from '../components/LightSpeedTunnel';
 
 // Tipos para el contexto
 interface AuthContextType extends AuthState {
@@ -38,6 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading: true,
     error: null
   });
+  const [showLoginAnimation, setShowLoginAnimation] = useState(false);
 
   // Inicializar autenticación al cargar la aplicación
   useEffect(() => {
@@ -64,9 +66,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función de login
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     try {
+      console.log('🚀 AUTH - Iniciando login con animación...');
+      
+      // Mostrar animación de login
+      setShowLoginAnimation(true);
+      
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
       const state = await authService.login(credentials);
       setAuthState(state);
+      
+      if (state.isAuthenticated) {
+        console.log('🚀 AUTH - Login exitoso, manteniendo animación...');
+      } else {
+        // Si falla el login, ocultar la animación
+        setShowLoginAnimation(false);
+      }
+      
       return state.isAuthenticated;
     } catch (error) {
       console.error('Login error:', error);
@@ -75,6 +90,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false,
         error: 'Error en el login'
       }));
+      // Si hay error, ocultar la animación
+      setShowLoginAnimation(false);
       return false;
     }
   };
@@ -102,6 +119,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null
       });
     }
+  };
+
+  // Función para manejar el completado de la animación
+  const handleLoginAnimationComplete = () => {
+    console.log('🚀 AUTH - Animación de login completada');
+    setShowLoginAnimation(false);
   };
 
   // Verificar permisos
@@ -228,6 +251,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
+      
+      {/* Animación de túnel de velocidad luz a nivel global */}
+      <LightSpeedTunnel 
+        isVisible={showLoginAnimation} 
+        onComplete={handleLoginAnimationComplete}
+        type="login"
+      />
     </AuthContext.Provider>
   );
 };
