@@ -1,4 +1,4 @@
-# PQNC QA AI Platform - v3.0.0 🚀
+# PQNC QA AI Platform - v1.0.3 🚀
 
 **Plataforma Avanzada de Análisis de Calidad de Llamadas con IA**
 
@@ -115,6 +115,44 @@ CHANGELOG_COMPLETO.md          # Changelog completo del proyecto
 - **⚡ Funciones RPC**: 8 nuevas
 - **🎨 Componentes React**: 6 nuevos
 - **🔧 Servicios**: 2 nuevos
+
+---
+
+---
+
+## 🔖 **Sistema de Versionado**
+
+### **🚀 Deploy Automático**
+```bash
+# Deploy con incremento automático de versión
+./scripts/deploy.sh "Descripción del cambio"
+
+# Ejemplos:
+./scripts/deploy.sh "Fix audio player bug"
+./scripts/deploy.sh "Add new filter feature" 
+./scripts/deploy.sh "Update dashboard design"
+```
+
+### **📋 Verificar Versión**
+```bash
+# Ver información actual de versión
+./scripts/version-info.sh
+```
+
+### **🏷️ Versionado Manual Avanzado**
+```bash
+# Para cambios mayores
+./scripts/version-and-deploy.sh patch "Bug fixes"     # 1.0.3 → 1.0.4
+./scripts/version-and-deploy.sh minor "New features" # 1.0.3 → 1.1.0  
+./scripts/version-and-deploy.sh major "Breaking"     # 1.0.3 → 2.0.0
+```
+
+### **📦 Control de Versión:**
+- **Fuente**: `package.json` - Versión real del desarrollo
+- **Automático**: Incremento en cada deploy
+- **Git tags**: Creación automática de tags
+- **Changelog**: Actualización automática con timestamp
+- **Footer**: Muestra versión dinámica en la aplicación
 
 ---
 
