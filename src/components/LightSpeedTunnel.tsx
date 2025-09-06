@@ -22,13 +22,13 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
       
       // Solo la segunda parte: anillos aparecen uno por uno y desaparecen
       const fadeoutTimer = setTimeout(() => {
-        console.log('🚀 TÚNEL - Iniciando fadeout negro al dashboard');
+        console.log('🚀 TÚNEL - Iniciando fadeout degradado al dashboard');
         setShowFadeout(true);
         setTimeout(() => {
           console.log('🚀 TÚNEL - Fadeout completado, finalizando animación');
           onComplete();
-        }, 500);
-      }, 2200); // 2.2 segundos total (más rápido)
+        }, 300);
+      }, 1800); // 1.8 segundos total (más rápido)
       
       return () => {
         clearTimeout(fadeoutTimer);
@@ -77,7 +77,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, 45, 90, 135, 180, 225, 270]
               }}
               transition={{
-                duration: 1.8,
+                duration: 1.4,
                 ease: "easeInOut",
                 delay: 0
               }}
@@ -96,7 +96,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, -45, -90, -135, -180, -225, -270]
               }}
               transition={{
-                duration: 1.8,
+                duration: 1.4,
                 ease: "easeInOut",
                 delay: 0.1
               }}
@@ -115,7 +115,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, 45, 90, 135, 180, 225, 270]
               }}
               transition={{
-                duration: 1.8,
+                duration: 1.4,
                 ease: "easeInOut",
                 delay: 0.2
               }}
@@ -134,7 +134,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, -45, -90, -135, -180, -225, -270]
               }}
               transition={{
-                duration: 1.8,
+                duration: 1.4,
                 ease: "easeInOut",
                 delay: 0.3
               }}
@@ -153,7 +153,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, 45, 90, 135, 180, 225, 270]
               }}
               transition={{
-                duration: 1.8,
+                duration: 1.4,
                 ease: "easeInOut",
                 delay: 0.4
               }}
@@ -172,7 +172,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, -45, -90, -135, -180, -225, -270]
               }}
               transition={{
-                duration: 1.8,
+                duration: 1.4,
                 ease: "easeInOut",
                 delay: 0.5
               }}
@@ -192,19 +192,22 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 opacity: [0, 1, 1, 0.9, 0.8, 0.7, 0.6]
               }}
               transition={{
-                duration: 1.8,
+                duration: 1.4,
                 ease: "easeInOut"
               }}
             />
           </div>
 
-          {/* Efecto de fadeout negro al dashboard */}
+          {/* Efecto de fadeout degradado al dashboard */}
           {showFadeout && type === 'login' && (
             <motion.div
-              className="absolute inset-0 bg-black"
+              className="absolute inset-0"
+              style={{
+                background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,1) 100%)'
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
             />
           )}
         </motion.div>
