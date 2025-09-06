@@ -13,66 +13,32 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
   type 
 }) => {
   const [showFadeout, setShowFadeout] = useState(false);
-
-  // Configuración de animación según el tipo
-  const getAnimationConfig = () => {
-    if (type === 'login') {
-      return {
-        initial: { scale: 0, opacity: 0 },
-        animate: { 
-          scale: [0, 0.3, 0.8, 1.2, 1], 
-          opacity: [0, 0.2, 0.6, 0.9, 1] 
-        },
-        exit: { 
-          scale: 0, 
-          opacity: 0 
-        },
-        transition: { 
-          duration: 4.0, 
-          ease: "easeInOut",
-          times: [0, 0.2, 0.5, 0.8, 1]
-        }
-      };
-    } else {
-      return {
-        initial: { scale: 1, opacity: 1 },
-        animate: { 
-          scale: [1, 1.2, 0.8, 0.3, 0], 
-          opacity: [1, 0.9, 0.6, 0.2, 0] 
-        },
-        exit: { 
-          scale: 0, 
-          opacity: 0 
-        },
-        transition: { 
-          duration: 3.0, 
-          ease: "easeInOut",
-          times: [0, 0.2, 0.5, 0.8, 1]
-        }
-      };
-    }
-  };
-
-  const config = getAnimationConfig();
+  const [showTunnelExit, setShowTunnelExit] = useState(false);
 
   // Efecto de fadeout al final
   useEffect(() => {
     if (isVisible && type === 'login') {
-      console.log('🚀 TÚNEL - Iniciando timer de fadeout para login (4 segundos)');
-      const timer = setTimeout(() => {
-        console.log('🚀 TÚNEL - 4 segundos completados, activando fadeout');
+      console.log('🚀 TÚNEL - Iniciando timer de llegada al final del túnel (3.5 segundos)');
+      
+      // Primero: efecto de llegada al final del túnel (anillos se abren)
+      const tunnelExitTimer = setTimeout(() => {
+        console.log('🚀 TÚNEL - Llegando al final del túnel, abriendo anillos');
+        setShowTunnelExit(true);
+      }, 3500);
+      
+      // Segundo: fadeout negro al dashboard (1 segundo después)
+      const fadeoutTimer = setTimeout(() => {
+        console.log('🚀 TÚNEL - Iniciando fadeout negro al dashboard');
         setShowFadeout(true);
         setTimeout(() => {
-          console.log('🚀 TÚNEL - 1 segundo de fadeout completado, finalizando animación');
+          console.log('🚀 TÚNEL - Fadeout completado, finalizando animación');
           onComplete();
         }, 1000);
-      }, 4000); // 4 segundos antes del fadeout
-      
-      console.log('🚀 TÚNEL - Timer configurado para 4 segundos');
+      }, 4500); // 4.5 segundos total
       
       return () => {
-        console.log('🚀 TÚNEL - Limpiando timer (componente desmontado o isVisible cambió)');
-        clearTimeout(timer);
+        clearTimeout(tunnelExitTimer);
+        clearTimeout(fadeoutTimer);
       };
     } else if (isVisible && type === 'logout') {
       console.log('🚀 TÚNEL - Iniciando timer para logout');
@@ -94,12 +60,9 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Fondo con gradiente radial */}
+          {/* Fondo negro */}
           <motion.div
-            className="absolute inset-0"
-            style={{
-              background: 'radial-gradient(#582b8c, #270245)'
-            }}
+            className="absolute inset-0 bg-black"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -108,150 +71,135 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
 
           {/* Anillos concéntricos del túnel */}
           <div className="relative w-96 h-96">
-            {/* Anillo 1 - Más pequeño */}
+            {/* Anillo 1 - Más pequeño (50px) */}
             <motion.div
               className="absolute top-1/2 left-1/2 w-12 h-12 border-2 border-white rounded-full"
               style={{
                 margin: '-24px 0 0 -24px',
-                boxShadow: '0 0 4px cyan, 0 0 20px cyan, inset 0 0 4px cyan, inset 0 0 20px cyan'
+                boxShadow: '0 0 4px #3B82F6, 0 0 20px #3B82F6, inset 0 0 4px #3B82F6, inset 0 0 20px #3B82F6'
               }}
               animate={{
-                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
-                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
-                rotate: type === 'login' ? 360 : -360
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 90, 180, 270, 360]
               }}
               transition={{
-                duration: 4,
+                duration: showTunnelExit ? 1 : 4,
                 ease: "easeInOut",
-                delay: 0
+                delay: showTunnelExit ? 0 : 0
               }}
             />
 
-            {/* Anillo 2 */}
+            {/* Anillo 2 (64px) */}
             <motion.div
               className="absolute top-1/2 left-1/2 w-16 h-16 border-2 border-white rounded-full"
               style={{
                 margin: '-32px 0 0 -32px',
-                boxShadow: '0 0 4px magenta, 0 0 20px magenta, inset 0 0 4px magenta, inset 0 0 20px magenta'
+                boxShadow: '0 0 4px #8B5CF6, 0 0 20px #8B5CF6, inset 0 0 4px #8B5CF6, inset 0 0 20px #8B5CF6'
               }}
               animate={{
-                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
-                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
-                rotate: type === 'login' ? -360 : 360
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -90, -180, -270, -360]
               }}
               transition={{
-                duration: 4,
+                duration: showTunnelExit ? 1 : 4,
                 ease: "easeInOut",
-                delay: 0.1
+                delay: showTunnelExit ? 0.1 : 0.1
               }}
             />
 
-            {/* Anillo 3 */}
+            {/* Anillo 3 (78px) */}
             <motion.div
               className="absolute top-1/2 left-1/2 w-20 h-20 border-2 border-white rounded-full"
               style={{
                 margin: '-40px 0 0 -40px',
-                boxShadow: '0 0 4px cyan, 0 0 20px cyan, inset 0 0 4px cyan, inset 0 0 20px cyan'
+                boxShadow: '0 0 4px #06B6D4, 0 0 20px #06B6D4, inset 0 0 4px #06B6D4, inset 0 0 20px #06B6D4'
               }}
               animate={{
-                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
-                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
-                rotate: type === 'login' ? 360 : -360
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 90, 180, 270, 360]
               }}
               transition={{
-                duration: 4,
+                duration: showTunnelExit ? 1 : 4,
                 ease: "easeInOut",
-                delay: 0.2
+                delay: showTunnelExit ? 0.2 : 0.2
               }}
             />
 
-            {/* Anillo 4 */}
+            {/* Anillo 4 (92px) */}
             <motion.div
               className="absolute top-1/2 left-1/2 w-24 h-24 border-2 border-white rounded-full"
               style={{
                 margin: '-48px 0 0 -48px',
-                boxShadow: '0 0 4px magenta, 0 0 20px magenta, inset 0 0 4px magenta, inset 0 0 20px magenta'
+                boxShadow: '0 0 4px #10B981, 0 0 20px #10B981, inset 0 0 4px #10B981, inset 0 0 20px #10B981'
               }}
               animate={{
-                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
-                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
-                rotate: type === 'login' ? -360 : 360
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -90, -180, -270, -360]
               }}
               transition={{
-                duration: 4,
+                duration: showTunnelExit ? 1 : 4,
                 ease: "easeInOut",
-                delay: 0.3
+                delay: showTunnelExit ? 0.3 : 0.3
               }}
             />
 
-            {/* Anillo 5 */}
+            {/* Anillo 5 (104px) */}
             <motion.div
               className="absolute top-1/2 left-1/2 w-28 h-28 border-2 border-white rounded-full"
               style={{
                 margin: '-56px 0 0 -56px',
-                boxShadow: '0 0 4px cyan, 0 0 20px cyan, inset 0 0 4px cyan, inset 0 0 20px cyan'
+                boxShadow: '0 0 4px #F59E0B, 0 0 20px #F59E0B, inset 0 0 4px #F59E0B, inset 0 0 20px #F59E0B'
               }}
               animate={{
-                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
-                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
-                rotate: type === 'login' ? 360 : -360
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 90, 180, 270, 360]
               }}
               transition={{
-                duration: 4,
+                duration: showTunnelExit ? 1 : 4,
                 ease: "easeInOut",
-                delay: 0.4
+                delay: showTunnelExit ? 0.4 : 0.4
               }}
             />
 
-            {/* Anillo 6 - Más grande */}
+            {/* Anillo 6 - Más grande (118px) */}
             <motion.div
               className="absolute top-1/2 left-1/2 w-32 h-32 border-2 border-white rounded-full"
               style={{
                 margin: '-64px 0 0 -64px',
-                boxShadow: '0 0 4px magenta, 0 0 20px magenta, inset 0 0 4px magenta, inset 0 0 20px magenta'
+                boxShadow: '0 0 4px #EF4444, 0 0 20px #EF4444, inset 0 0 4px #EF4444, inset 0 0 20px #EF4444'
               }}
               animate={{
-                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
-                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
-                rotate: type === 'login' ? -360 : 360
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -90, -180, -270, -360]
               }}
               transition={{
-                duration: 4,
+                duration: showTunnelExit ? 1 : 4,
                 ease: "easeInOut",
-                delay: 0.5
+                delay: showTunnelExit ? 0.5 : 0.5
               }}
             />
 
-            {/* Centro brillante del túnel */}
+            {/* Centro negro del túnel - Punto de fuga */}
             <motion.div
-              className="absolute top-1/2 left-1/2 w-8 h-8 bg-white rounded-full"
+              className="absolute top-1/2 left-1/2 bg-black rounded-full"
               style={{ 
                 margin: '-16px 0 0 -16px',
-                boxShadow: '0 0 20px white, 0 0 40px white, 0 0 60px white'
+                width: '32px',
+                height: '32px',
+                boxShadow: '0 0 20px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.6), 0 0 60px rgba(0,0,0,0.4)'
               }}
               animate={{
-                scale: type === 'login' ? [0, 2, 3, 1] : [1, 3, 2, 0],
-                opacity: type === 'login' ? [0, 1, 1, 0.8] : [0.8, 1, 1, 0],
-                rotate: type === 'login' ? 360 : -360
+                scale: showTunnelExit ? [1, 2, 4, 8, 16] : [0, 1, 1.5, 2, 2.5],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 1, 1, 0.8, 0.6]
               }}
               transition={{
-                duration: 3,
-                ease: "easeInOut"
-              }}
-            />
-
-            {/* Efectos de luz radial del túnel */}
-            <motion.div
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: 'radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.2) 30%, rgba(255,255,255,0.1) 60%, transparent 100%)'
-              }}
-              animate={{
-                scale: type === 'login' ? [0, 2, 1] : [1, 2, 0],
-                opacity: type === 'login' ? [0, 0.8, 0.4] : [0.4, 0.8, 0]
-              }}
-              transition={{
-                duration: 3,
+                duration: showTunnelExit ? 1 : 4,
                 ease: "easeInOut"
               }}
             />
@@ -260,14 +208,14 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
             <motion.div
               className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-2xl font-bold text-center z-10"
               animate={{
-                opacity: type === 'login' ? [0, 1, 0] : [0, 1, 0],
-                y: type === 'login' ? [30, 0, -30] : [-30, 0, 30],
-                scale: type === 'login' ? [0.8, 1, 0.8] : [1, 0.8, 1]
+                opacity: showTunnelExit ? [1, 0] : [0, 1, 0],
+                y: showTunnelExit ? [0, -50] : [30, 0, -30],
+                scale: showTunnelExit ? [1, 0.8] : [0.8, 1, 0.8]
               }}
               transition={{
-                duration: 3,
+                duration: showTunnelExit ? 0.5 : 3,
                 ease: "easeInOut",
-                times: [0, 0.5, 1]
+                times: showTunnelExit ? [0, 1] : [0, 0.5, 1]
               }}
             >
               {type === 'login' ? (
@@ -285,35 +233,10 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
             </motion.div>
           </div>
 
-          {/* Partículas adicionales para efecto de túnel */}
-          <div className="absolute inset-0 overflow-hidden">
-            {Array.from({ length: 30 }).map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute w-1 h-1 bg-white/60 rounded-full"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`
-                }}
-                animate={{
-                  x: type === 'login' ? [0, (Math.random() - 0.5) * 400] : [(Math.random() - 0.5) * 400, 0],
-                  y: type === 'login' ? [0, (Math.random() - 0.5) * 400] : [(Math.random() - 0.5) * 400, 0],
-                  opacity: type === 'login' ? [0, 1, 0] : [1, 0, 0],
-                  scale: type === 'login' ? [0, 1, 0] : [1, 0, 0]
-                }}
-                transition={{
-                  duration: 3,
-                  delay: Math.random() * 2,
-                  ease: "easeOut"
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Efecto de fadeout al final para login */}
+          {/* Efecto de fadeout negro al dashboard */}
           {showFadeout && type === 'login' && (
             <motion.div
-              className="absolute inset-0 bg-white"
+              className="absolute inset-0 bg-black"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 1, ease: "easeInOut" }}
