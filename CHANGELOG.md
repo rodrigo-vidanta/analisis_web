@@ -2,9 +2,9 @@
 
 ## Historial de Versiones
 
-### v1.0.6 (2025-01-24 23:00)
+### v1.0.6 (2025-01-24 23:30)
 **Tipo**: major
-**Descripción**: Módulo de Plantillas Completamente Rediseñado
+**Descripción**: Módulo de Plantillas Completamente Rediseñado - CORRECCIONES APLICADAS
 
 **🎨 Nuevo Gestor de Plantillas:**
 - TemplateManager: Interfaz moderna con navegación por tabs
@@ -39,6 +39,19 @@
 - Catálogos de prompts y herramientas
 - Relaciones agentes-prompts-tools
 - Sistema de versionado y metadatos
+
+**🔧 CORRECCIONES APLICADAS:**
+- ✅ Iconos obsoletos reemplazados por iconos SVG modernos
+- ✅ Botón de recargar corregido para modo claro y oscuro (ReloadButton.tsx)
+- ✅ Hover de pestañas corregido en modo oscuro
+- ✅ UI de prompts mejorada con diseño funcional y navegación por categorías
+- ✅ Sección de herramientas rediseñada con iconos SVG y mejor organización
+- ✅ Editor de parámetros mejorado con diseño homologado (ParametersEditorImproved.tsx)
+- ✅ Visualizador JSON mejorado con sintaxis highlighting y modo oscuro (JsonViewer.tsx)
+- ✅ Contadores de plantillas funcionan como botones de filtro
+- ✅ Diseño completamente homologado con admin/squads/análisis
+- ✅ Formularios con fondos glass-card y colores consistentes
+- ✅ Navegación intuitiva con iconos SVG descriptivos
 
 ---
 
