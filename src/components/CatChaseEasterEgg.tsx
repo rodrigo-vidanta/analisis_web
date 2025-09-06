@@ -40,31 +40,56 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
     }
   }, [isVisible]);
 
-  // Movimiento automático del ratón
+  // Movimiento automático del ratón - Mejorado
   const startMouseMovement = () => {
     let time = 0;
+    let direction = { x: 1, y: 1 };
+    let speed = 0.8;
     
     const moveMouseRandomly = () => {
       if (!isVisible) return;
       
-      time += 0.02;
+      time += 0.03;
       
-      // Movimiento pseudo-aleatorio pero suave del ratón
-      const newX = 30 + Math.sin(time * 2) * 25 + Math.cos(time * 0.7) * 15;
-      const newY = 30 + Math.cos(time * 1.5) * 20 + Math.sin(time * 0.9) * 15;
+      // Movimiento más dinámico y errático del ratón
+      const baseX = mousePosition.x + direction.x * speed;
+      const baseY = mousePosition.y + direction.y * speed;
       
-      setMousePosition({
-        x: Math.max(5, Math.min(95, newX)),
-        y: Math.max(5, Math.min(95, newY))
-      });
-
+      // Añadir variación aleatoria
+      const randomX = baseX + Math.sin(time * 3) * 2;
+      const randomY = baseY + Math.cos(time * 2.5) * 2;
+      
+      let newX = randomX;
+      let newY = randomY;
+      
+      // Rebotar en los bordes
+      if (newX <= 3 || newX >= 97) {
+        direction.x *= -1;
+        newX = Math.max(3, Math.min(97, newX));
+      }
+      if (newY <= 3 || newY >= 97) {
+        direction.y *= -1;
+        newY = Math.max(3, Math.min(97, newY));
+      }
+      
+      // Cambiar dirección aleatoriamente a veces
+      if (Math.random() < 0.02) {
+        direction.x += (Math.random() - 0.5) * 0.5;
+        direction.y += (Math.random() - 0.5) * 0.5;
+        // Normalizar velocidad
+        const magnitude = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+        direction.x = (direction.x / magnitude) * speed;
+        direction.y = (direction.y / magnitude) * speed;
+      }
+      
+      setMousePosition({ x: newX, y: newY });
       animationRef.current = requestAnimationFrame(moveMouseRandomly);
     };
 
     moveMouseRandomly();
   };
 
-  // El gato persigue al ratón con delay
+  // El gato persigue al ratón - Mejorado
   useEffect(() => {
     if (!isChasing || !isVisible) return;
 
@@ -72,18 +97,25 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       setCatPosition(prevCat => {
         const dx = mousePosition.x - prevCat.x;
         const dy = mousePosition.y - prevCat.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Velocidad de persecución (más lenta que el ratón)
-        const speed = 0.8;
+        // Velocidad adaptiva basada en distancia
+        let speed = 0.6;
+        if (distance > 30) speed = 1.2; // Más rápido si está lejos
+        if (distance < 10) speed = 0.3; // Más lento si está cerca
+        
+        // Movimiento más suave y realista
+        const moveX = (dx / distance) * speed;
+        const moveY = (dy / distance) * speed;
         
         return {
-          x: prevCat.x + dx * speed * 0.05,
-          y: prevCat.y + dy * speed * 0.05
+          x: Math.max(1, Math.min(99, prevCat.x + (moveX || 0))),
+          y: Math.max(1, Math.min(99, prevCat.y + (moveY || 0)))
         };
       });
     };
 
-    const chaseInterval = setInterval(chaseMouse, 50);
+    const chaseInterval = setInterval(chaseMouse, 30); // Más frecuente para suavidad
     return () => clearInterval(chaseInterval);
   }, [mousePosition, isChasing, isVisible]);
 
@@ -109,31 +141,42 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       
       {/* Ratón */}
       <div
-        className="absolute transition-all duration-300 ease-out transform"
+        className="absolute transition-all duration-150 ease-out"
         style={{
           left: `${mousePosition.x}%`,
           top: `${mousePosition.y}%`,
           transform: 'translate(-50%, -50%)'
         }}
       >
-        <svg 
-          className="w-6 h-6 text-gray-600 dark:text-gray-400 drop-shadow-lg animate-bounce" 
-          fill="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          {/* Ratón minimalista */}
-          <path d="M12 2C8.5 2 6 4.5 6 8v4c0 3.5 2.5 6 6 6s6-2.5 6-6V8c0-3.5-2.5-6-6-6z"/>
-          <circle cx="10" cy="7" r="1"/>
-          <circle cx="14" cy="7" r="1"/>
-          <path d="M12 9v2"/>
-          {/* Cola del ratón */}
-          <path d="M18 12c2 0 3 1 3 2s-1 2-3 2"/>
-        </svg>
+        <div className="relative">
+          <svg 
+            className="w-5 h-5 text-gray-700 dark:text-gray-300 drop-shadow-lg" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            viewBox="0 0 24 24"
+          >
+            {/* Cuerpo del ratón */}
+            <ellipse cx="12" cy="14" rx="6" ry="4"/>
+            {/* Cabeza */}
+            <circle cx="12" cy="8" r="3"/>
+            {/* Orejas */}
+            <circle cx="10" cy="5" r="1.5"/>
+            <circle cx="14" cy="5" r="1.5"/>
+            {/* Ojos */}
+            <circle cx="10.5" cy="7.5" r="0.5" fill="currentColor"/>
+            <circle cx="13.5" cy="7.5" r="0.5" fill="currentColor"/>
+            {/* Cola larga */}
+            <path strokeLinecap="round" d="M18 14c3 0 4-1 5-3"/>
+          </svg>
+          {/* Estela de movimiento */}
+          <div className="absolute inset-0 w-5 h-5 bg-gray-400/20 rounded-full animate-ping" style={{ animationDuration: '1s' }} />
+        </div>
       </div>
 
       {/* Gato perseguidor */}
       <div
-        className="absolute transition-all duration-500 ease-out transform"
+        className="absolute transition-all duration-200 ease-out"
         style={{
           left: `${catPosition.x}%`,
           top: `${catPosition.y}%`,
@@ -141,44 +184,43 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         }}
       >
         <div className="relative">
-          {/* Gato animado */}
+          {/* Gato animado mejorado */}
           <svg 
-            className="w-8 h-8 text-slate-800 dark:text-slate-200 drop-shadow-xl animate-pulse" 
+            className="w-7 h-7 text-slate-800 dark:text-slate-200 drop-shadow-xl" 
             fill="none" 
             stroke="currentColor" 
-            strokeWidth="1.5" 
+            strokeWidth="2" 
             viewBox="0 0 24 24"
           >
             {/* Cuerpo del gato */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12c0-1.5.5-3 2-4 1.5-1 3.5-1 5 0s3.5 1 5 0c1.5 1 2 2.5 2 4v3c0 2-1 3-3 3H9c-2 0-3-1-3-3v-3z"/>
-            {/* Ojos */}
-            <circle cx="9" cy="10" r="1" fill="currentColor"/>
-            <circle cx="15" cy="10" r="1" fill="currentColor"/>
-            {/* Nariz */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 13v1"/>
-            {/* Orejas */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 4l1 2"/>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 4l-1 2"/>
-            {/* Cola */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18 15c2 1 3 2 2 4"/>
+            <ellipse cx="12" cy="15" rx="5" ry="3"/>
+            {/* Cabeza */}
+            <circle cx="12" cy="9" r="4"/>
+            {/* Orejas puntiagudas */}
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 6l2 3"/>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16 6l-2 3"/>
+            {/* Ojos grandes expresivos */}
+            <circle cx="10" cy="8" r="1" fill="currentColor"/>
+            <circle cx="14" cy="8" r="1" fill="currentColor"/>
+            {/* Nariz y boca */}
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v1"/>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11 11.5c.5.5 1.5.5 2 0"/>
+            {/* Cola expresiva */}
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 15c2 2 3 4 1 6"/>
+            {/* Bigotes */}
+            <path strokeLinecap="round" d="M6 9h2"/>
+            <path strokeLinecap="round" d="M16 9h2"/>
           </svg>
           
-          {/* Efectos de movimiento */}
-          <div className="absolute -bottom-2 -left-2 w-12 h-1 bg-gradient-to-r from-transparent via-slate-400/30 to-transparent rounded-full animate-pulse" />
+          {/* Efectos de carrera */}
+          <div className="absolute -bottom-1 -left-3 w-10 h-2 bg-gradient-to-r from-transparent via-slate-500/40 to-transparent rounded-full animate-pulse" style={{ animationDuration: '0.5s' }} />
+          
+          {/* Partículas de velocidad */}
+          <div className="absolute -left-6 top-1/2 w-1 h-1 bg-slate-400/60 rounded-full animate-ping" style={{ animationDelay: '0.1s' }} />
+          <div className="absolute -left-8 top-1/3 w-1 h-1 bg-slate-400/40 rounded-full animate-ping" style={{ animationDelay: '0.3s' }} />
         </div>
       </div>
 
-      {/* Instrucciones elegantes */}
-      <div className="absolute top-8 left-1/2 transform -translate-x-1/2">
-        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl px-6 py-3 border border-white/20 dark:border-slate-700/50 shadow-2xl">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              🐱 El gato está persiguiendo al ratón... Haz clic para detener
-            </span>
-          </div>
-        </div>
-      </div>
 
       {/* Efectos de partículas sutiles */}
       <div className="absolute inset-0 pointer-events-none">

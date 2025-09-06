@@ -87,13 +87,10 @@ const Footer: React.FC = () => {
             
             {/* Versión Nightly con gato negro clickeable */}
             <div className="flex items-center gap-2">
-              {/* Icono de gato minimalista - Easter Egg */}
-              <button
+              {/* Icono de gato - Easter Egg secreto */}
+              <div
                 onClick={handleCatClick}
-                className={`w-4 h-4 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-all duration-200 cursor-pointer ${
-                  clickCount > 0 ? 'animate-pulse' : ''
-                }`}
-                title={clickCount > 0 ? `${6 - clickCount} clics restantes...` : 'Easter egg 🐱'}
+                className="w-4 h-4 text-slate-700 dark:text-slate-300 cursor-default select-none"
               >
                 <svg className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 12c0-1.5.5-3 2-4 1.5-1 3.5-1 5 0s3.5 1 5 0c1.5 1 2 2.5 2 4v3c0 2-1 3-3 3H9c-2 0-3-1-3-3v-3z"/>
@@ -103,7 +100,7 @@ const Footer: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 4l1 2"/>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 4l-1 2"/>
                 </svg>
-              </button>
+              </div>
               
               <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
                 {version}
