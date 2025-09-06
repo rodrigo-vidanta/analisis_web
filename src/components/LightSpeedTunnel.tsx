@@ -60,13 +60,13 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Fondo negro */}
+          {/* Fondo negro con fade-in lento */}
           <motion.div
             className="absolute inset-0 bg-black"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 2.0, ease: "easeInOut" }}
           />
 
           {/* Anillos concéntricos del túnel */}
@@ -79,9 +79,9 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #3B82F6, 0 0 20px #3B82F6, inset 0 0 4px #3B82F6, inset 0 0 20px #3B82F6'
               }}
               animate={{
-                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
-                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
-                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 90, 180, 270, 360]
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.1, 1.2, 1.3],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.6, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 45, 90, 135, 180]
               }}
               transition={{
                 duration: showTunnelExit ? 1 : 4,
@@ -98,9 +98,9 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #8B5CF6, 0 0 20px #8B5CF6, inset 0 0 4px #8B5CF6, inset 0 0 20px #8B5CF6'
               }}
               animate={{
-                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
-                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
-                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -90, -180, -270, -360]
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.1, 1.2, 1.3],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.6, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -45, -90, -135, -180]
               }}
               transition={{
                 duration: showTunnelExit ? 1 : 4,
@@ -117,9 +117,9 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #06B6D4, 0 0 20px #06B6D4, inset 0 0 4px #06B6D4, inset 0 0 20px #06B6D4'
               }}
               animate={{
-                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
-                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
-                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 90, 180, 270, 360]
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.1, 1.2, 1.3],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.6, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 45, 90, 135, 180]
               }}
               transition={{
                 duration: showTunnelExit ? 1 : 4,
@@ -136,9 +136,9 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #10B981, 0 0 20px #10B981, inset 0 0 4px #10B981, inset 0 0 20px #10B981'
               }}
               animate={{
-                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
-                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
-                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -90, -180, -270, -360]
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.1, 1.2, 1.3],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.6, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -45, -90, -135, -180]
               }}
               transition={{
                 duration: showTunnelExit ? 1 : 4,
@@ -155,9 +155,9 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #F59E0B, 0 0 20px #F59E0B, inset 0 0 4px #F59E0B, inset 0 0 20px #F59E0B'
               }}
               animate={{
-                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
-                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
-                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 90, 180, 270, 360]
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.1, 1.2, 1.3],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.6, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, 180, 360, 540, 720] : [0, 45, 90, 135, 180]
               }}
               transition={{
                 duration: showTunnelExit ? 1 : 4,
@@ -174,9 +174,9 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #EF4444, 0 0 20px #EF4444, inset 0 0 4px #EF4444, inset 0 0 20px #EF4444'
               }}
               animate={{
-                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.2, 1.5, 1.8],
-                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.8, 1, 0.8, 0.6],
-                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -90, -180, -270, -360]
+                scale: showTunnelExit ? [1, 1.5, 2, 3, 4] : [0, 1, 1.1, 1.2, 1.3],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 0.6, 1, 0.8, 0.6],
+                rotate: showTunnelExit ? [0, -180, -360, -540, -720] : [0, -45, -90, -135, -180]
               }}
               transition={{
                 duration: showTunnelExit ? 1 : 4,
@@ -195,8 +195,8 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 20px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.6), 0 0 60px rgba(0,0,0,0.4)'
               }}
               animate={{
-                scale: showTunnelExit ? [1, 2, 4, 8, 16] : [0, 1, 1.5, 2, 2.5],
-                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 1, 1, 0.8, 0.6]
+                scale: showTunnelExit ? [1, 2, 4, 8, 16] : [0, 1, 1.2, 1.4, 1.6],
+                opacity: showTunnelExit ? [1, 0.8, 0.6, 0.4, 0] : [0, 1, 1, 0.9, 0.8]
               }}
               transition={{
                 duration: showTunnelExit ? 1 : 4,
