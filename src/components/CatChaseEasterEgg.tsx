@@ -11,28 +11,38 @@ interface Position {
 }
 
 const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClose }) => {
-  const [mousePosition, setMousePosition] = useState<Position>({ x: 50, y: 50 });
-  const [catPosition, setCatPosition] = useState<Position>({ x: 10, y: 80 });
-  const [isChasing, setIsChasing] = useState(false);
+  const [mousePosition, setMousePosition] = useState<Position>({ x: 70, y: 30 });
+  const [catPosition, setCatPosition] = useState<Position>({ x: 20, y: 70 });
+  const [gameActive, setGameActive] = useState(false);
+  const [caught, setCaught] = useState(false);
   const animationRef = useRef<number>();
+  const timeoutRef = useRef<NodeJS.Timeout>();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Inicializar posiciones cuando se hace visible
+  // Inicializar juego cuando se hace visible
   useEffect(() => {
     if (isVisible) {
-      // Posición inicial del ratón (centro-derecha)
-      setMousePosition({ x: 70, y: 50 });
-      // Posición inicial del gato (izquierda)
-      setCatPosition({ x: 10, y: 80 });
+      // Posiciones iniciales
+      setMousePosition({ x: 70, y: 30 });
+      setCatPosition({ x: 20, y: 70 });
+      setCaught(false);
       
-      // Iniciar persecución después de un momento
-      const startChase = setTimeout(() => {
-        setIsChasing(true);
+      // Iniciar juego después de un momento
+      const startGame = setTimeout(() => {
+        setGameActive(true);
         startMouseMovement();
       }, 500);
 
+      // Timeout de 5 minutos
+      timeoutRef.current = setTimeout(() => {
+        handleGameEnd();
+      }, 5 * 60 * 1000); // 5 minutos
+
       return () => {
-        clearTimeout(startChase);
+        clearTimeout(startGame);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
         }
@@ -89,43 +99,60 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
     moveMouseRandomly();
   };
 
-  // El gato persigue al ratón - Mejorado
+  // Control del gato por cursor del usuario
   useEffect(() => {
-    if (!isChasing || !isVisible) return;
+    if (!gameActive || !isVisible) return;
 
-    const chaseMouse = () => {
-      setCatPosition(prevCat => {
-        const dx = mousePosition.x - prevCat.x;
-        const dy = mousePosition.y - prevCat.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // Velocidad adaptiva basada en distancia
-        let speed = 0.6;
-        if (distance > 30) speed = 1.2; // Más rápido si está lejos
-        if (distance < 10) speed = 0.3; // Más lento si está cerca
-        
-        // Movimiento más suave y realista
-        const moveX = (dx / distance) * speed;
-        const moveY = (dy / distance) * speed;
-        
-        return {
-          x: Math.max(1, Math.min(99, prevCat.x + (moveX || 0))),
-          y: Math.max(1, Math.min(99, prevCat.y + (moveY || 0)))
-        };
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      
+      setCatPosition({
+        x: Math.max(2, Math.min(98, x)),
+        y: Math.max(2, Math.min(98, y))
       });
     };
 
-    const chaseInterval = setInterval(chaseMouse, 30); // Más frecuente para suavidad
-    return () => clearInterval(chaseInterval);
-  }, [mousePosition, isChasing, isVisible]);
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => document.removeEventListener('mousemove', handleMouseMove);
+  }, [gameActive, isVisible]);
 
-  // Manejar click para cerrar
-  const handleClick = () => {
-    setIsChasing(false);
+  // Verificar si el gato atrapó al ratón
+  useEffect(() => {
+    if (!gameActive || caught) return;
+
+    const dx = Math.abs(catPosition.x - mousePosition.x);
+    const dy = Math.abs(catPosition.y - mousePosition.y);
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Si la distancia es menor a 5%, el gato atrapó al ratón
+    if (distance < 5) {
+      setCaught(true);
+      setTimeout(() => {
+        handleGameEnd();
+      }, 1500); // Mostrar captura por 1.5 segundos
+    }
+  }, [catPosition, mousePosition, gameActive, caught]);
+
+  // Función para terminar el juego
+  const handleGameEnd = () => {
+    setGameActive(false);
+    setCaught(false);
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
     }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
     onClose();
+  };
+
+  // Manejar click para cerrar
+  const handleClick = () => {
+    handleGameEnd();
   };
 
   if (!isVisible) return null;
@@ -139,9 +166,9 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       {/* Fondo blureado */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-all duration-500" />
       
-      {/* Ratón */}
+      {/* Ratón - Más grande y expresivo */}
       <div
-        className="absolute transition-all duration-150 ease-out"
+        className={`absolute transition-all duration-200 ease-out ${caught ? 'animate-bounce' : ''}`}
         style={{
           left: `${mousePosition.x}%`,
           top: `${mousePosition.y}%`,
@@ -150,33 +177,40 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       >
         <div className="relative">
           <svg 
-            className="w-5 h-5 text-gray-700 dark:text-gray-300 drop-shadow-lg" 
+            className={`w-8 h-8 text-gray-700 dark:text-gray-300 drop-shadow-lg ${caught ? 'animate-spin' : ''}`}
             fill="none" 
             stroke="currentColor" 
             strokeWidth="2" 
             viewBox="0 0 24 24"
           >
             {/* Cuerpo del ratón */}
-            <ellipse cx="12" cy="14" rx="6" ry="4"/>
+            <ellipse cx="12" cy="15" rx="7" ry="5"/>
             {/* Cabeza */}
-            <circle cx="12" cy="8" r="3"/>
-            {/* Orejas */}
-            <circle cx="10" cy="5" r="1.5"/>
-            <circle cx="14" cy="5" r="1.5"/>
-            {/* Ojos */}
-            <circle cx="10.5" cy="7.5" r="0.5" fill="currentColor"/>
-            <circle cx="13.5" cy="7.5" r="0.5" fill="currentColor"/>
-            {/* Cola larga */}
-            <path strokeLinecap="round" d="M18 14c3 0 4-1 5-3"/>
+            <circle cx="12" cy="8" r="4"/>
+            {/* Orejas grandes */}
+            <circle cx="9" cy="4" r="2"/>
+            <circle cx="15" cy="4" r="2"/>
+            {/* Ojos expresivos */}
+            <circle cx="10" cy="7" r="1" fill="currentColor"/>
+            <circle cx="14" cy="7" r="1" fill="currentColor"/>
+            {/* Nariz */}
+            <circle cx="12" cy="9" r="0.5" fill="currentColor"/>
+            {/* Cola larga y curvada */}
+            <path strokeLinecap="round" d="M19 15c4 0 5-2 6-5"/>
           </svg>
-          {/* Estela de movimiento */}
-          <div className="absolute inset-0 w-5 h-5 bg-gray-400/20 rounded-full animate-ping" style={{ animationDuration: '1s' }} />
+          {/* Efectos según estado */}
+          {!caught && (
+            <div className="absolute inset-0 w-8 h-8 bg-gray-400/20 rounded-full animate-ping" style={{ animationDuration: '1.5s' }} />
+          )}
+          {caught && (
+            <div className="absolute inset-0 w-12 h-12 bg-yellow-400/30 rounded-full animate-ping" style={{ animationDuration: '0.5s' }} />
+          )}
         </div>
       </div>
 
-      {/* Gato perseguidor */}
+      {/* Gato controlado por usuario - Más grande */}
       <div
-        className="absolute transition-all duration-200 ease-out"
+        className="absolute transition-none"
         style={{
           left: `${catPosition.x}%`,
           top: `${catPosition.y}%`,
@@ -184,40 +218,57 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         }}
       >
         <div className="relative">
-          {/* Gato animado mejorado */}
+          {/* Gato grande y expresivo */}
           <svg 
-            className="w-7 h-7 text-slate-800 dark:text-slate-200 drop-shadow-xl" 
+            className={`w-10 h-10 text-slate-800 dark:text-slate-200 drop-shadow-xl ${caught ? 'animate-bounce' : ''}`}
             fill="none" 
             stroke="currentColor" 
             strokeWidth="2" 
             viewBox="0 0 24 24"
           >
             {/* Cuerpo del gato */}
-            <ellipse cx="12" cy="15" rx="5" ry="3"/>
+            <ellipse cx="12" cy="16" rx="6" ry="4"/>
             {/* Cabeza */}
-            <circle cx="12" cy="9" r="4"/>
+            <circle cx="12" cy="8" r="5"/>
             {/* Orejas puntiagudas */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 6l2 3"/>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 6l-2 3"/>
-            {/* Ojos grandes expresivos */}
-            <circle cx="10" cy="8" r="1" fill="currentColor"/>
-            <circle cx="14" cy="8" r="1" fill="currentColor"/>
-            {/* Nariz y boca */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v1"/>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11 11.5c.5.5 1.5.5 2 0"/>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 5l3 4"/>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 5l-3 4"/>
+            {/* Ojos expresivos (más grandes si atrapó) */}
+            <circle cx="9.5" cy="7" r={caught ? "1.5" : "1"} fill="currentColor"/>
+            <circle cx="14.5" cy="7" r={caught ? "1.5" : "1"} fill="currentColor"/>
+            {/* Nariz */}
+            <circle cx="12" cy="9" r="0.5" fill="currentColor"/>
+            {/* Boca (sonriente si atrapó) */}
+            {caught ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 11c1 1 3 1 4 0"/>
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 11c.5.3 1.5.3 2 0"/>
+            )}
             {/* Cola expresiva */}
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 15c2 2 3 4 1 6"/>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M18 16c3 1 4 3 2 6"/>
             {/* Bigotes */}
-            <path strokeLinecap="round" d="M6 9h2"/>
-            <path strokeLinecap="round" d="M16 9h2"/>
+            <path strokeLinecap="round" d="M5 8h3"/>
+            <path strokeLinecap="round" d="M16 8h3"/>
+            <path strokeLinecap="round" d="M5 9h3"/>
+            <path strokeLinecap="round" d="M16 9h3"/>
           </svg>
           
-          {/* Efectos de carrera */}
-          <div className="absolute -bottom-1 -left-3 w-10 h-2 bg-gradient-to-r from-transparent via-slate-500/40 to-transparent rounded-full animate-pulse" style={{ animationDuration: '0.5s' }} />
+          {/* Efectos de captura */}
+          {caught && (
+            <>
+              <div className="absolute inset-0 w-16 h-16 bg-green-400/20 rounded-full animate-ping" style={{ animationDuration: '0.8s' }} />
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-8">
+                <span className="text-2xl animate-bounce">🎉</span>
+              </div>
+            </>
+          )}
           
-          {/* Partículas de velocidad */}
-          <div className="absolute -left-6 top-1/2 w-1 h-1 bg-slate-400/60 rounded-full animate-ping" style={{ animationDelay: '0.1s' }} />
-          <div className="absolute -left-8 top-1/3 w-1 h-1 bg-slate-400/40 rounded-full animate-ping" style={{ animationDelay: '0.3s' }} />
+          {/* Cursor indicator (sutil) */}
+          {gameActive && !caught && (
+            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+              <div className="w-1 h-1 bg-blue-500/60 rounded-full animate-pulse" />
+            </div>
+          )}
         </div>
       </div>
 
