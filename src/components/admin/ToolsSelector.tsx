@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { type ToolCatalog } from '../../config/supabase';
 import { supabaseMainAdmin as supabaseAdmin } from '../../config/supabase';
+import { createTool } from '../../services/supabaseService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SelectedTool extends ToolCatalog {
   isEnabled: boolean;
@@ -30,9 +32,45 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [editingTool, setEditingTool] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'mine'>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newToolData, setNewToolData] = useState({
+    name: '',
+    tool_type: 'function' as 'function' | 'transferCall' | 'endCall',
+    category: 'communication',
+    description: '',
+    configText: '{\n  \n}'
+  });
+  const { user } = useAuth();
 
   useEffect(() => {
     loadAvailableTools();
+  }, []);
+
+  // Asegurar que endCall esté siempre seleccionado y bloqueado
+  useEffect(() => {
+    const hasEndCall = selectedTools.some(t => t.tool_type === 'endCall');
+    if (!hasEndCall) {
+      const endCall: SelectedTool = {
+        id: '', // se creará en DB si es necesario al guardar
+        name: 'End Call',
+        tool_type: 'endCall',
+        category: 'communication',
+        config: {},
+        description: 'Finaliza la llamada de forma elegante',
+        complexity: 'simple',
+        keywords: ['end', 'hangup'],
+        use_cases: ['Finalización automática'],
+        is_active: true,
+        usage_count: 0,
+        success_rate: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        isEnabled: true,
+        customConfig: {}
+      } as any;
+      onUpdate([endCall, ...selectedTools]);
+    }
   }, []);
 
   const loadAvailableTools = async () => {
@@ -55,7 +93,12 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
 
   const filteredTools = availableTools.filter(tool => {
     const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory;
-    return matchesCategory;
+    const isMine = ownerFilter === 'mine'
+      ? (tool as any)?.config?.metadata?.created_by === user?.id
+      : true;
+    // Ocultar endCall del listado (ya forzado por defecto)
+    const notEndCall = tool.tool_type !== 'endCall';
+    return matchesCategory && isMine && notEndCall;
   });
 
   const toolCategories = [
@@ -121,6 +164,12 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
     const config = tool.customConfig || {};
 
     switch (tool.tool_type) {
+      case 'endCall':
+        return (
+          <div className="text-sm text-gray-600">
+            El mensaje de despedida se edita en la sección Parámetros. Esta herramienta no es editable ni removible.
+          </div>
+        );
       case 'transferCall':
         return (
           <div className="space-y-4">
@@ -257,13 +306,21 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Herramientas Disponibles</h3>
-          <p className="text-sm text-gray-600">
-            Selecciona y configura las herramientas que usará tu agente
+          <h3 className="text-lg font-medium text-slate-900">Herramientas</h3>
+          <p className="text-sm text-slate-600">
+            Selecciona de la librería o crea tus propias herramientas
           </p>
         </div>
-        <div className="text-sm text-gray-500">
-          {selectedTools.length} seleccionada{selectedTools.length !== 1 ? 's' : ''}
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-slate-500">
+            {selectedTools.length} seleccionada{selectedTools.length !== 1 ? 's' : ''}
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg text-sm hover:from-emerald-600 hover:to-teal-700"
+          >
+            Nueva herramienta
+          </button>
         </div>
       </div>
 
@@ -275,14 +332,28 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
             onClick={() => setSelectedCategory(cat.id)}
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
               selectedCategory === cat.id
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             <span>{cat.icon}</span>
             <span>{cat.name}</span>
           </button>
         ))}
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={() => setOwnerFilter('all')}
+            className={`px-3 py-2 rounded-lg text-sm font-medium ${ownerFilter==='all'?'bg-slate-900 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+          >
+            Todas
+          </button>
+          <button
+            onClick={() => setOwnerFilter('mine')}
+            className={`px-3 py-2 rounded-lg text-sm font-medium ${ownerFilter==='mine'?'bg-slate-900 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+          >
+            Mis herramientas
+          </button>
+        </div>
       </div>
 
       {/* Herramientas seleccionadas */}
@@ -304,18 +375,22 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setEditingTool(editingTool === tool.id ? null : tool.id)}
-                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
-                    >
-                      {editingTool === tool.id ? 'Cerrar' : 'Configurar'}
-                    </button>
-                    <button
-                      onClick={() => toggleTool(tool)}
-                      className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200"
-                    >
-                      Remover
-                    </button>
+                    {tool.tool_type !== 'endCall' && (
+                      <>
+                        <button
+                          onClick={() => setEditingTool(editingTool === tool.id ? null : tool.id)}
+                          className="px-3 py-1 text-xs bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200"
+                        >
+                          {editingTool === tool.id ? 'Cerrar' : 'Configurar'}
+                        </button>
+                        <button
+                          onClick={() => toggleTool(tool as any)}
+                          className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                        >
+                          Remover
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -345,15 +420,15 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                 key={tool.id}
                 className={`border rounded-lg p-4 cursor-pointer transition-all ${
                   isSelected
-                    ? 'border-green-200 bg-green-50'
-                    : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
+                    ? 'border-emerald-200 bg-emerald-50'
+                    : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50'
                 }`}
                 onClick={() => !isSelected && toggleTool(tool)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
-                      <h5 className="text-sm font-medium text-gray-900">{tool.name}</h5>
+                      <h5 className="text-sm font-medium text-slate-900">{tool.name}</h5>
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         tool.complexity === 'simple' ? 'bg-green-100 text-green-700' :
                         tool.complexity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
@@ -362,10 +437,13 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                         {tool.complexity}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-600 mb-2">{tool.description}</p>
+                    <p className="text-xs text-slate-600 mb-2">{tool.description}</p>
+                    {tool.tool_type === 'function' && (
+                      <p className="text-[11px] text-slate-500">{tool.config?.server?.url || 'sin servidor'}</p>
+                    )}
                     <div className="flex flex-wrap gap-1">
                       {tool.keywords.slice(0, 3).map((keyword, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                        <span key={idx} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded">
                           {keyword}
                         </span>
                       ))}
@@ -374,11 +452,11 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                   
                   <div className="ml-3">
                     {isSelected ? (
-                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
                         <span className="text-white text-xs">✓</span>
                       </div>
                     ) : (
-                      <div className="w-6 h-6 border-2 border-gray-300 rounded-full"></div>
+                      <div className="w-6 h-6 border-2 border-slate-300 rounded-full"></div>
                     )}
                   </div>
                 </div>
@@ -388,11 +466,77 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
         </div>
 
         {filteredTools.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-slate-500">
             No hay herramientas disponibles para esta categoría.
           </div>
         )}
       </div>
+
+      {/* Modal Crear Herramienta */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold text-slate-900">Nueva herramienta</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                <input className="w-full px-3 py-2 border rounded-md" value={newToolData.name} onChange={e=>setNewToolData({...newToolData,name:e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                  <select className="w-full px-3 py-2 border rounded-md" value={newToolData.tool_type} onChange={e=>setNewToolData({...newToolData,tool_type:e.target.value as any})}>
+                    <option value="function">Función</option>
+                    <option value="transferCall">Transferencia</option>
+                    <option value="endCall">End Call</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
+                  <select className="w-full px-3 py-2 border rounded-md" value={newToolData.category} onChange={e=>setNewToolData({...newToolData,category:e.target.value})}>
+                    {toolCategories.filter(t=>t.id!=='all').map(t=> (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+                <textarea className="w-full px-3 py-2 border rounded-md" rows={2} value={newToolData.description} onChange={e=>setNewToolData({...newToolData,description:e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Config (JSON)</label>
+                <textarea className="w-full px-3 py-2 border rounded-md font-mono text-xs" rows={6} value={newToolData.configText} onChange={e=>setNewToolData({...newToolData,configText:e.target.value})} />
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end gap-3">
+              <button className="px-4 py-2 bg-slate-100 rounded-md" onClick={()=>setShowCreateModal(false)}>Cancelar</button>
+              <button className="px-4 py-2 bg-indigo-600 text-white rounded-md" onClick={async ()=>{
+                try {
+                  const cfg = JSON.parse(newToolData.configText||'{}');
+                  await createTool({
+                    name: newToolData.name,
+                    tool_type: newToolData.tool_type,
+                    category: newToolData.category,
+                    description: newToolData.description,
+                    config: cfg,
+                    complexity: 'medium',
+                    keywords: [],
+                    use_cases: []
+                  }, user?.id);
+                  setShowCreateModal(false);
+                  setNewToolData({ name:'', tool_type:'function', category:'communication', description:'', configText:'{\n  \n}' });
+                  await loadAvailableTools();
+                } catch (e) {
+                  alert('Config JSON inválido');
+                }
+              }}>Crear</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

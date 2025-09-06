@@ -103,6 +103,7 @@ docs/
 CHANGELOG_FEEDBACK.md          # Changelog de retroalimentación
 CHANGELOG_MEJORAS_AVANZADAS.md # Changelog de mejoras UX
 CHANGELOG_COMPLETO.md          # Changelog completo del proyecto
+docs/AGENTS_IMPORT_MAPPING.md  # Mapeo de Vapi JSON a catálogos y BD
 ```
 
 ---

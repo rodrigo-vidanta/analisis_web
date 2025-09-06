@@ -2,6 +2,56 @@
 
 ## Historial de Versiones
 
+### v1.0.6 (2025-01-24 23:00)
+**Tipo**: major
+**Descripción**: Módulo de Plantillas Completamente Rediseñado
+
+**🎨 Nuevo Gestor de Plantillas:**
+- TemplateManager: Interfaz moderna con navegación por tabs
+- Catálogo de plantillas con filtros por categoría y búsqueda
+- Diseño homologado con glass-cards y gradientes
+- Importación de plantillas desde JSON
+- Creación de nuevas plantillas personalizadas
+
+**💬 Editor de Prompts Avanzado:**
+- Navegación por categorías (Identidad, Flujo, Restricciones, Comunicación, Protección)
+- Formulario completo para crear/editar prompts
+- Variables dinámicas con sintaxis {{variable}}
+- Sistema de prompts requeridos vs editables
+- Duplicación y eliminación de prompts
+
+**🔧 Editor de Herramientas Completo:**
+- Gestión por categorías (Comunicación, Datos, Negocio, APIs)
+- Tipos de herramientas: Función, Transferir, Finalizar
+- Configuración de mensajes y ejemplos de uso
+- Herramientas asíncronas y configuración de complejidad
+- Compatibilidad con categorías de agentes
+
+**🎯 Características Técnicas:**
+- Diseño completamente homologado con admin/squads/análisis
+- Componentes modulares y reutilizables
+- Formularios con validación y estados
+- Navegación intuitiva con iconos SVG
+- Responsive design para todos los dispositivos
+
+**📋 Base de Datos:**
+- Estructura existente compatible
+- Catálogos de prompts y herramientas
+- Relaciones agentes-prompts-tools
+- Sistema de versionado y metadatos
+
+---
+
+### Unreleased (dev)
+Tipo: improvements
+Descripción: Importador Vapi homologado, Tools mejoradas, Parámetros en pestañas, groundwork para "Mis agentes/Tools".
+
+- Import Vapi: mapea squad/members, tools (function/endCall), assistantDestinations → transferCall. Prompts por miembro quedan etiquetados en `system_prompts.context_tags` (`member:<nombre>`). Tools guardan su schema, server y async en `tools_catalog.config`; relación `agent_tools.custom_config` conserva el objeto original + `member` cuando aplique.
+- Tools UI: cards con server/parameters; "endCall" forzada y bloqueada; creación de tools y filtro "Mis herramientas" por `config.metadata.created_by`.
+- Parámetros: rediseño con tabs verticales (Identidad, Modelo, Voz, Transcripción, Comportamiento, Llamada). El mensaje de endCall se edita en Parámetros > Llamada.
+- Editor footer: "Guardar como borrador" crea/actualiza agente del usuario sin tocar plantilla base; "Generar agente" crea nueva plantilla publicada.
+- DB: sin cambios de esquema requeridos. Se recomienda usar `created_by` ya presente en `agent_templates` y `config.metadata.created_by` para tools; asociación por miembro via `context_tags`/`custom_config.member`.
+
 ### v1.0.5 (2025-01-24 22:30)
 **Tipo**: minor
 **Descripción**: Animación de Login Perfecta - Túnel de Anillos Concéntricos

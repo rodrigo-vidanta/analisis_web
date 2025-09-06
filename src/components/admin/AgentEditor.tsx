@@ -5,6 +5,8 @@ import ToolsSelector from './ToolsSelector.tsx';
 import ParametersEditor from './ParametersEditor.tsx';
 import SquadEditor from './SquadEditor.tsx';
 import JsonOutput from './JsonOutput.tsx';
+import { saveAgentPrompts, saveAgentTools, saveAgentVapiConfig, createAgentFromEditor, type SimpleMessage } from '../../services/supabaseService';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Declaración global para el callback de squad
 declare global {
@@ -47,6 +49,10 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
   const [squadEnabled, setSquadEnabled] = useState(false);
   const [squadMembers, setSquadMembers] = useState<SquadMember[]>([]);
   const [squadConfigDetected, setSquadConfigDetected] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastBuiltJson, setLastBuiltJson] = useState<any>(null);
+  const [workingAgentId, setWorkingAgentId] = useState<string | null>(null); // draft agent id
+  const { user } = useAuth();
 
   // Detectar automáticamente si el agente tiene configuración de squad
   React.useEffect(() => {
@@ -179,6 +185,166 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
     setAgentData(prev => ({ ...prev, ...updates }));
   };
 
+  // Construir JSON final tomando en cuenta parámetros, prompts, tools y squad
+  const buildVapiConfig = (): any => {
+    const params = agentData.defaultParameters || {};
+    const messages = (agentData.systemMessages || []) as SimpleMessage[];
+    const tools = (agentData.defaultTools || []).map((t: any) => {
+      // Mapear herramientas a forma simple
+      if (t.tool_type === 'transferCall') {
+        return {
+          type: 'transferCall',
+          parameters: {
+            destination: t.customConfig?.destination || { type: 'phone', value: '' },
+            extension: t.customConfig?.extension || '',
+            message: t.customConfig?.message || ''
+          }
+        };
+      }
+      if (t.tool_type === 'endCall') {
+        return {
+          type: 'endCall',
+          parameters: {
+            message: params?.behavior?.endCallMessage || 'Gracias por tu llamada.'
+          }
+        };
+      }
+      return {
+        type: 'function',
+        name: t.name,
+        config: t.customConfig || {}
+      };
+    });
+
+    if (squadEnabled && squadMembers.length > 0) {
+      return {
+        squad: {
+          name: agentData.name || 'Squad',
+          members: squadMembers.map((m) => ({
+            assistant: {
+              name: m.name,
+              model: {
+                messages: (m as any).originalMessages || []
+              }
+            }
+          }))
+        },
+        tools,
+        parameters: params
+      };
+    }
+
+    return {
+      assistant: {
+        name: agentData.name,
+        model: {
+          messages
+        }
+      },
+      tools,
+      parameters: params
+    };
+  };
+
+  const saveAllChanges = async () => {
+    setIsSaving(true);
+    try {
+      // Guardado tradicional sobre plantilla (modo legacy). No recomendado para flujos nuevos.
+      const messages = (agentData.systemMessages || []) as SimpleMessage[];
+      await saveAgentPrompts(template.id, messages);
+      await saveAgentTools(template.id, (agentData as any).defaultTools || []);
+      const built = buildVapiConfig();
+      setLastBuiltJson(built);
+      await saveAgentVapiConfig(template.id, built);
+    } catch (err) {
+      console.error('❌ Error guardando cambios:', err);
+      throw err;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Guardar como borrador: crear o actualizar un agente propio sin tocar la plantilla base
+  const saveAsDraft = async () => {
+    if (!user) {
+      console.warn('No user in context');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const built = buildVapiConfig();
+      setLastBuiltJson(built);
+
+      // Crear borrador si no existe
+      if (!workingAgentId) {
+        const payload = {
+          name: `${agentData.name} (Borrador)`,
+          description: agentData.description || '',
+          category_id: typeof agentData.category === 'string' ? agentData.category : agentData.category_id,
+          difficulty: agentData.difficulty,
+          estimated_time: agentData.estimated_time || '',
+          keywords: agentData.keywords || [],
+          use_cases: agentData.use_cases || [],
+          agent_type: (agentData as any).agent_type || 'inbound',
+          vapi_config: built
+        } as any;
+
+        const created = await createAgentFromEditor(payload, user.id, { draft: true, isPublic: false });
+        setWorkingAgentId(created.id);
+
+        // Guardar prompts y tools del borrador
+        const messages = (agentData.systemMessages || []) as SimpleMessage[];
+        await saveAgentPrompts(created.id, messages);
+        await saveAgentTools(created.id, (agentData as any).defaultTools || []);
+      } else {
+        // Actualizar borrador existente
+        await saveAgentVapiConfig(workingAgentId, built);
+        const messages = (agentData.systemMessages || []) as SimpleMessage[];
+        await saveAgentPrompts(workingAgentId, messages);
+        await saveAgentTools(workingAgentId, (agentData as any).defaultTools || []);
+      }
+    } catch (err) {
+      console.error('❌ Error guardando borrador:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Generar agente final (aparece en plantillas generales y en "Mis agentes")
+  const generateAgent = async () => {
+    if (!user) {
+      console.warn('No user in context');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const built = buildVapiConfig();
+      setLastBuiltJson(built);
+
+      const payload = {
+        name: agentData.name,
+        description: agentData.description || '',
+        category_id: typeof agentData.category === 'string' ? agentData.category : agentData.category_id,
+        difficulty: agentData.difficulty,
+        estimated_time: agentData.estimated_time || '',
+        keywords: agentData.keywords || [],
+        use_cases: agentData.use_cases || [],
+        agent_type: (agentData as any).agent_type || 'inbound',
+        vapi_config: built
+      } as any;
+
+      const created = await createAgentFromEditor(payload, user.id, { draft: false, isPublic: true });
+      // Guardar prompts y tools
+      const messages = (agentData.systemMessages || []) as SimpleMessage[];
+      await saveAgentPrompts(created.id, messages);
+      await saveAgentTools(created.id, (agentData as any).defaultTools || []);
+    } catch (err) {
+      console.error('❌ Error generando agente:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
 
 
   return (
@@ -292,9 +458,17 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
           {activeTab === 'json' && (
             <JsonOutput
               agentData={agentData}
+              builtJson={lastBuiltJson || buildVapiConfig()}
               onExport={() => {
-                // Implementar lógica de exportación
-                console.log('Exportando agente:', agentData);
+                const blob = new Blob([
+                  JSON.stringify(lastBuiltJson || buildVapiConfig(), null, 2)
+                ], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${agentData.slug || agentData.name || 'agent'}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
               }}
             />
           )}
@@ -304,20 +478,22 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2">
           <div className="glass-card px-6 py-3 shadow-xl">
             <div className="flex items-center space-x-4">
-              <button className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-                Guardar como Borrador
+              <button
+                onClick={async () => { try { await saveAsDraft(); } catch {} }}
+                disabled={isSaving}
+                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-60"
+              >
+                {isSaving ? 'Guardando...' : 'Guardar como Borrador'}
               </button>
               
               <div className="h-4 w-px bg-slate-300 dark:bg-slate-600"></div>
-              
-              <button className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-                Vista Previa
-              </button>
-              
-              <div className="h-4 w-px bg-slate-300 dark:bg-slate-600"></div>
-              
-              <button className="px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg">
-                Generar Agente
+
+              <button
+                onClick={async () => { try { await generateAgent(); setActiveTab('json'); } catch {} }}
+                disabled={isSaving}
+                className="px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-60"
+              >
+                {isSaving ? 'Generando...' : 'Generar Agente'}
               </button>
             </div>
           </div>

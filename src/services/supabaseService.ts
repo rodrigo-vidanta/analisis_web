@@ -155,11 +155,29 @@ export const importAgentFromJson = async (jsonData: any, sourceType: 'manual' | 
     tools = [];
     jsonData.squad.members?.forEach((member: any) => {
       const memberData = member.assistant || member;
+      const memberName = memberData.name || 'member';
       if (memberData.model?.messages) {
-        messages.push(...memberData.model.messages);
+        const withMember = memberData.model.messages.map((m: any) => ({ ...m, memberName }));
+        messages.push(...withMember);
       }
       if (memberData.tools) {
         tools.push(...memberData.tools);
+      }
+      if (memberData.model?.tools) {
+        tools.push(...memberData.model.tools);
+      }
+      // Assistant Destinations -> synthetic transfer tools
+      if (member.assistantDestinations && Array.isArray(member.assistantDestinations)) {
+        for (const dest of member.assistantDestinations) {
+          const assistantName = dest.assistantName || dest.target || 'assistant';
+          tools.push({
+            type: 'transferCall',
+            name: `transfer_to_${assistantName}`,
+            description: dest.description || `Transferir a ${assistantName}`,
+            assistantName,
+            message: dest.message || ''
+          });
+        }
       }
     });
     // También agregar tools del nivel raíz
@@ -574,7 +592,8 @@ const processAndSavePrompts = async (agentId: string, messages: any[]) => {
           order_priority: i + 1,
           is_required: i === 0, // El primer prompt suele ser la identidad
           is_editable: true,
-          variables: extractVariables(message.content)
+          variables: extractVariables(message.content),
+          context_tags: message.memberName ? [`member:${message.memberName}`] : []
         })
         .select('id')
         .single();
@@ -736,16 +755,17 @@ const extractVariables = (content: string): string[] => {
 };
 
 const detectToolType = (func: any): 'function' | 'transferCall' | 'endCall' => {
-  const name = func.name?.toLowerCase() || '';
-  
-  if (name.includes('transfer')) return 'transferCall';
-  if (name.includes('end') && name.includes('call')) return 'endCall';
+  const name = (func.name || func.function?.name || '').toLowerCase();
+  const type = (func.type || '').toLowerCase();
+
+  if (type === 'endcall' || (name.includes('end') && name.includes('call'))) return 'endCall';
+  if (type === 'transfercall' || type === 'transfer' || name.includes('transfer')) return 'transferCall';
   return 'function';
 };
 
 const categorizeToolCatalog = (func: any): string => {
-  const name = func.name?.toLowerCase() || '';
-  const description = func.description?.toLowerCase() || '';
+  const name = (func.name || func.function?.name || '').toLowerCase();
+  const description = (func.description || func.function?.description || '').toLowerCase();
   
   if (name.includes('transfer') || description.includes('transfer')) {
     return 'communication';
@@ -761,7 +781,7 @@ const categorizeToolCatalog = (func: any): string => {
 };
 
 const analyzeToolComplexity = (func: any): 'simple' | 'medium' | 'complex' => {
-  const parametersCount = Object.keys(func.parameters?.properties || {}).length;
+  const parametersCount = Object.keys(func.function?.parameters?.properties || func.parameters?.properties || {}).length;
   
   if (parametersCount <= 2) return 'simple';
   if (parametersCount <= 5) return 'medium';
@@ -770,8 +790,8 @@ const analyzeToolComplexity = (func: any): 'simple' | 'medium' | 'complex' => {
 
 const extractToolKeywords = (func: any): string[] => {
   const keywords = [];
-  const name = func.name || '';
-  const description = func.description || '';
+  const name = func.name || func.function?.name || '';
+  const description = func.description || func.function?.description || '';
   
   keywords.push(name);
   
@@ -784,7 +804,7 @@ const extractToolKeywords = (func: any): string[] => {
 
 const detectToolUseCases = (func: any): string[] => {
   const useCases = [];
-  const name = func.name?.toLowerCase() || '';
+  const name = (func.name || func.function?.name || '').toLowerCase();
   
   if (name.includes('transfer')) {
     useCases.push('Transferencia de llamadas');
@@ -946,4 +966,276 @@ export const updateAgentTemplate = async (id: string, updates: Partial<AgentTemp
 
 export const incrementUsageCount = async (templateId: string): Promise<void> => {
   await supabase.rpc('increment_usage_count', { template_id: templateId });
+};
+
+// ===============================
+// PERSISTENCIA DESDE EL EDITOR
+// ===============================
+
+export interface SimpleMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * Reemplaza las relaciones de prompts de un agente con el nuevo orden y contenido.
+ * - Si existe un prompt con mismo contenido/rol se reutiliza
+ * - Si no existe, se crea un prompt básico en system_prompts
+ */
+export const saveAgentPrompts = async (
+  agentId: string,
+  messages: SimpleMessage[]
+): Promise<void> => {
+  // 1) Limpiar relaciones actuales
+  await supabaseAdmin
+    .from('agent_prompts')
+    .delete()
+    .eq('agent_template_id', agentId);
+
+  // 2) Asegurar/crear prompts y relacionarlos
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+
+    // Buscar prompt existente por contenido y rol
+    const { data: existing, error: findErr } = await supabaseAdmin
+      .from('system_prompts')
+      .select('id')
+      .eq('content', msg.content)
+      .eq('role', msg.role)
+      .maybeSingle();
+
+    if (findErr && findErr.code !== 'PGRST116') {
+      console.warn('Error buscando prompt existente:', findErr);
+    }
+
+    let promptId = existing?.id as string | undefined;
+
+    if (!promptId) {
+      // Crear uno nuevo con valores por defecto seguros
+      const { data: created, error: createErr } = await supabaseAdmin
+        .from('system_prompts')
+        .insert({
+          title: `Prompt ${i + 1}`,
+          content: msg.content,
+          role: msg.role,
+          category: 'general',
+          prompt_type: 'instruction',
+          keywords: [],
+          applicable_categories: ['general'],
+          context_tags: [],
+          order_priority: i + 1,
+          is_required: i === 0,
+          is_editable: true,
+          variables: [],
+          language: 'es',
+          tested_scenarios: []
+        })
+        .select('id')
+        .single();
+
+      if (createErr) {
+        throw createErr;
+      }
+      promptId = created.id;
+    }
+
+    // Crear relación con el agente
+    const { error: relErr } = await supabaseAdmin
+      .from('agent_prompts')
+      .insert({
+        agent_template_id: agentId,
+        system_prompt_id: promptId,
+        order_index: i,
+        is_customized: false,
+        custom_content: null
+      });
+
+    if (relErr) {
+      throw relErr;
+    }
+  }
+};
+
+interface GenericSelectedTool {
+  id: string;
+  isEnabled?: boolean;
+  customConfig?: any;
+  name?: string;
+  tool_type?: 'function' | 'transferCall' | 'endCall' | string;
+  category?: string;
+  description?: string;
+}
+
+/**
+ * Reemplaza las relaciones de herramientas del agente con las seleccionadas en el editor.
+ */
+export const saveAgentTools = async (
+  agentId: string,
+  tools: GenericSelectedTool[]
+): Promise<void> => {
+  // 1) Limpiar relaciones actuales
+  await supabaseAdmin
+    .from('agent_tools')
+    .delete()
+    .eq('agent_template_id', agentId);
+
+  for (const t of tools) {
+    // Asegurar que la herramienta exista en catálogo (normalmente ya existe)
+    let toolId = t.id;
+    if (!toolId) {
+      // Crear una mínima si faltara id
+      const { data: created, error: toolErr } = await supabaseAdmin
+        .from('tools_catalog')
+        .insert({
+          name: t.name || 'Custom Tool',
+          tool_type: (t.tool_type as any) || 'function',
+          category: t.category || 'general',
+          config: {},
+          description: t.description || null,
+          complexity: 'medium',
+          keywords: [],
+          use_cases: [],
+          integration_requirements: [],
+          applicable_categories: ['general'],
+          is_active: true,
+          usage_count: 0,
+          success_rate: 0
+        })
+        .select('id')
+        .single();
+      if (toolErr) throw toolErr;
+      toolId = created.id;
+    }
+
+    // Crear relación agent_tools
+    const { error: relErr } = await supabaseAdmin
+      .from('agent_tools')
+      .insert({
+        agent_template_id: agentId,
+        tool_id: toolId,
+        is_enabled: t.isEnabled ?? true,
+        custom_config: t.customConfig || null
+      });
+    if (relErr) throw relErr;
+  }
+};
+
+/**
+ * Actualiza el JSON completo (vapi_config) del agente.
+ */
+export const saveAgentVapiConfig = async (
+  agentId: string,
+  vapiConfig: any
+): Promise<void> => {
+  const { error } = await supabaseAdmin
+    .from('agent_templates')
+    .update({ vapi_config: vapiConfig, updated_at: new Date().toISOString() })
+    .eq('id', agentId);
+  if (error) throw error;
+};
+
+// ===============================
+// CREAR AGENTE DESDE EDITOR
+// ===============================
+
+export interface EditorAgentPayload {
+  name: string;
+  description?: string;
+  category_id: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimated_time?: string;
+  keywords: string[];
+  use_cases: string[];
+  agent_type: 'inbound' | 'outbound';
+  vapi_config: any;
+}
+
+export const createAgentFromEditor = async (
+  payload: EditorAgentPayload,
+  createdByUserId: string,
+  options?: { draft?: boolean; isPublic?: boolean }
+): Promise<{ id: string; slug: string; name: string }> => {
+  const isDraft = options?.draft ?? false;
+  const isPublic = options?.isPublic ?? !isDraft;
+
+  const insertData = {
+    name: payload.name,
+    slug: await generateSlug(payload.name),
+    description: payload.description || null,
+    category_id: payload.category_id,
+    difficulty: payload.difficulty,
+    estimated_time: payload.estimated_time || null,
+    keywords: payload.keywords || [],
+    use_cases: payload.use_cases || [],
+    business_context: null,
+    industry_tags: [],
+    vapi_config: payload.vapi_config,
+    usage_count: 0,
+    success_rate: 0,
+    is_active: !isDraft,
+    is_public: isPublic,
+    source_type: 'manual',
+    created_by: createdByUserId,
+    agent_type: payload.agent_type
+  } as any;
+
+  const { data, error } = await supabaseAdmin
+    .from('agent_templates')
+    .insert(insertData)
+    .select('id, slug, name')
+    .single();
+
+  if (error) throw error;
+  return data as { id: string; slug: string; name: string };
+};
+
+// ===============================
+// CREAR HERRAMIENTA
+// ===============================
+
+export interface ToolInput {
+  name: string;
+  tool_type: 'function' | 'transferCall' | 'endCall';
+  category: string;
+  description?: string;
+  config?: any;
+  complexity?: 'simple' | 'medium' | 'complex';
+  keywords?: string[];
+  use_cases?: string[];
+}
+
+export const createTool = async (
+  input: ToolInput,
+  createdByUserId?: string
+): Promise<{ id: string; name: string }> => {
+  const config = {
+    ...(input.config || {}),
+    metadata: {
+      ...(input.config?.metadata || {}),
+      created_by: createdByUserId || null
+    }
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('tools_catalog')
+    .insert({
+      name: input.name,
+      tool_type: input.tool_type,
+      category: input.category,
+      config,
+      description: input.description || null,
+      complexity: input.complexity || 'medium',
+      keywords: input.keywords || [],
+      use_cases: input.use_cases || [],
+      integration_requirements: [],
+      applicable_categories: ['general'],
+      is_active: true,
+      usage_count: 0,
+      success_rate: 0
+    })
+    .select('id, name')
+    .single();
+
+  if (error) throw error;
+  return data as { id: string; name: string };
 };

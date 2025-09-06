@@ -119,3 +119,30 @@ upload_user_avatar(user_id, url, filename, size, type)
 - AvatarUpload.tsx → pqncSupabase ✅  
 - SystemPreferences.tsx → pqncSupabase ✅
 - authService.ts → pqncSupabase ✅
+
+---
+
+## 🔄 Mapeo Vapi JSON → Base de Datos
+
+Esta plataforma importa agentes completos de Vapi y los descompone en catálogos reutilizables.
+
+Resumen del mapeo:
+- `squad.*` → Se persiste en `agent_templates.vapi_config.squad`. Los prompts por miembro se crean en `system_prompts` y se relacionan vía `agent_prompts`, agregando `context_tags: ['member:<nombre>']` para distinguir el origen. Las herramientas por miembro se guardan en `agent_tools` con `custom_config.member` cuando aplique.
+- `members[*].assistant.model.messages` → `system_prompts` + `agent_prompts`; etiquetados por miembro.
+- `members[*].assistant.model.tools` + `tools` → `tools_catalog.config` (schema/servidor/async/mensajes), relación `agent_tools.custom_config` con el objeto original.
+- `assistantDestinations[*]` → herramienta sintética `transferCall` con `config.assistantName` y `message`.
+- `voice`, `transcriber`, `messagePlan`, `voicemailDetection`, `startSpeakingPlan`, `stopSpeakingPlan`, etc. → `agent_templates.vapi_config.parameters.*` y se editan desde la sección “Parámetros”.
+- `endCall` → siempre disponible en Tools como herramienta especial (no editable); su mensaje se edita en “Parámetros > Llamada”.
+
+Catálogos utilizados:
+- `agent_templates` (plantillas y agentes generados) con `created_by` (usuario PQNC) y flags (`is_active`, `is_public`).
+- `system_prompts` + `agent_prompts` (prompts y relaciones). Uso de `context_tags` para distinguir origen por miembro/rol.
+- `tools_catalog` (catálogo global de tools). Estructura embebida en `config`:
+  - Function: `function.{name,description,parameters}`, `server.url`, `async`, `messages` (si existen)
+  - TransferCall: `assistantName`, `message`, `description`
+  - EndCall: `type: 'endCall'`, `messages` base opcionales
+  - Propietario: `config.metadata.created_by` para “Mis herramientas”
+- `agent_tools` (relaciones agente-tool). Se guarda `custom_config` con el objeto original y, si aplica, `member`.
+
+Notas de diseño de datos:
+- No se agregaron tablas nuevas. Para consultas avanzadas de squads por miembro, se sugiere futura normalización (`agent_squads`, `agent_squad_members`) pero no es requerida para el flujo actual.

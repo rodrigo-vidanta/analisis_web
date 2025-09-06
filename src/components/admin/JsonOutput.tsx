@@ -3,12 +3,14 @@ import React, { useState, useMemo } from 'react';
 interface JsonOutputProps {
   agentData: any;
   onExport: () => void;
+  builtJson?: any;
 }
 
-const JsonOutput: React.FC<JsonOutputProps> = ({ agentData, onExport }) => {
+const JsonOutput: React.FC<JsonOutputProps> = ({ agentData, onExport, builtJson }) => {
   const [jsonDisplay, setJsonDisplay] = useState('formatted');
 
   const generatedJson = useMemo(() => {
+    if (builtJson) return builtJson;
     // Generar JSON basado en la configuración actual
     const baseConfig = agentData.vapi_config || {};
     

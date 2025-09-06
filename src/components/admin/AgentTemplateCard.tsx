@@ -8,14 +8,13 @@ interface AgentTemplateCardProps {
   onEdit?: (templateId: string) => void;
 }
 
-// Array de gradientes muy oscuros y pronunciados
+// Paleta sobria y elegante, alineada al diseño general
 const AGENT_AVATARS = [
-  'linear-gradient(135deg, #2D1B69 0%, #4C1D95 30%, #7C3AED 70%, #C084FC 100%)', // Morado ultra oscuro
-  'linear-gradient(135deg, #7C2D12 0%, #C2410C 30%, #EA580C 70%, #FB923C 100%)', // Naranja ultra oscuro
-  'linear-gradient(135deg, #042F2E 0%, #0D9488 30%, #14B8A6 70%, #2DD4BF 100%)', // Turquesa ultra oscuro
-  'linear-gradient(135deg, #450A0A 0%, #991B1B 30%, #DC2626 70%, #F87171 100%)', // Rojo ultra oscuro
-  'linear-gradient(135deg, #1F2937 0%, #374151 30%, #6B7280 70%, #D1D5DB 100%)', // Gris ultra oscuro
-  'linear-gradient(135deg, #78350F 0%, #D97706 30%, #F59E0B 70%, #FDE047 100%)', // Amarillo ultra oscuro
+  'linear-gradient(135deg, rgba(15,23,42,0.9) 0%, rgba(30,41,59,0.9) 50%, rgba(51,65,85,0.9) 100%)', // Slate profundo
+  'linear-gradient(135deg, rgba(30,27,75,0.9) 0%, rgba(49,46,129,0.9) 50%, rgba(79,70,229,0.9) 100%)', // Indigo sobrio
+  'linear-gradient(135deg, rgba(6,78,59,0.9) 0%, rgba(5,102,80,0.9) 50%, rgba(16,185,129,0.9) 100%)', // Emerald sobrio
+  'linear-gradient(135deg, rgba(2,6,23,0.9) 0%, rgba(15,23,42,0.9) 50%, rgba(30,41,59,0.9) 100%)', // Night slate
+  'linear-gradient(135deg, rgba(15,23,42,0.9) 0%, rgba(67,56,202,0.85) 60%, rgba(99,102,241,0.85) 100%)', // Slate→Indigo sutil
 ];
 
 const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick, onDelete, onEdit }) => {
@@ -147,9 +146,9 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
         
         {/* Avatar circular con emoji */}
         <div className="absolute -bottom-5 left-4 z-20">
-          <div className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border-2 border-white">
-            <span className="text-lg leading-none flex items-center justify-center">
-              {getAgentEmoji(template.category?.name || '', template.agent_type || 'inbound')}
+          <div className="w-10 h-10 rounded-full bg-white/90 backdrop-blur shadow-md flex items-center justify-center border border-white/70">
+            <span className="text-sm text-slate-700">
+              {template.category?.name?.slice(0,1) || 'A'}
             </span>
           </div>
         </div>
@@ -172,16 +171,16 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
       {/* Content */}
       <div className="p-4 pt-7 relative">
         <div className="mb-3">
-          <h3 className="font-semibold text-gray-900 text-base group-hover:text-blue-600 transition-colors line-clamp-1">
+          <h3 className="font-semibold text-slate-900 text-base group-hover:text-indigo-600 transition-colors line-clamp-1">
             {template.name}
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-500">
             {template.category?.name || 'Sin categoría'}
           </p>
         </div>
         
         {/* Descripción */}
-        <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+        <p className="text-slate-600 text-sm mb-3 line-clamp-2">
           {template.description || 'Plantilla de agente conversacional'}
         </p>
 
@@ -191,13 +190,13 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
             {template.keywords.slice(0, 2).map((keyword, index) => (
               <span 
                 key={index}
-                className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-md"
+                className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md"
               >
                 {keyword}
               </span>
             ))}
             {template.keywords.length > 2 && (
-              <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-md">
+              <span className="px-2 py-1 bg-slate-100 text-slate-500 text-xs rounded-md">
                 +{template.keywords.length - 2}
               </span>
             )}
@@ -205,7 +204,7 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
         )}
 
         {/* Stats y tiempo */}
-        <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center space-x-1">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

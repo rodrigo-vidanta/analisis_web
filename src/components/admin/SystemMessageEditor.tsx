@@ -14,6 +14,7 @@ interface SystemPrompt {
   is_customized?: boolean;
   custom_content?: string;
   order_index?: number;
+  context_tags?: string[];
 }
 
 interface SquadConfig {
@@ -42,6 +43,13 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
   const [isInitialized, setIsInitialized] = useState(false); // Para evitar loops
   const [squadConfig, setSquadConfig] = useState<SquadConfig | null>(null);
   const [showSquadConfig, setShowSquadConfig] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<'all'|'system'|'user'|'assistant'>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPromptData, setNewPromptData] = useState<{title:string; role:'system'|'user'|'assistant'; content:string}>({
+    title: 'Nuevo Prompt',
+    role: 'system',
+    content: ''
+  });
 
   useEffect(() => {
     if (agentTemplateId) {
@@ -471,8 +479,9 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                          prompt.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || prompt.category === selectedCategory;
     const notSelected = !selectedPrompts.find(sp => sp.id === prompt.id);
+    const matchesRole = roleFilter === 'all' || prompt.role === roleFilter;
     
-    return matchesSearch && matchesCategory && notSelected;
+    return matchesSearch && matchesCategory && notSelected && matchesRole;
   });
 
   const categories = [
@@ -509,8 +518,23 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
               Personaliza la identidad y flujos de conversación de tu agente
             </p>
           </div>
-          
-          {squadConfig && (
+          <div className="flex items-center gap-3">
+            {/* Filtro por rol */}
+            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
+              {(['all','system','user','assistant'] as const).map(r => (
+                <button key={r}
+                  onClick={()=>setRoleFilter(r)}
+                  className={`px-3 py-1 rounded-md text-sm ${roleFilter===r?'bg-indigo-600 text-white':'text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                >{r==='all'?'Todos':r}</button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm hover:from-indigo-600 hover:to-purple-700"
+            >
+              Nuevo prompt
+            </button>
+            {squadConfig && (
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-200/50 dark:border-purple-500/30">
                 <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -529,8 +553,8 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-            </div>
-          )}
+            </div>)}
+          </div>
         </div>
 
         {/* Squad Configuration Panel */}
@@ -606,7 +630,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
           </div>
         ) : (
           <div className="space-y-4">
-            {selectedPrompts.map((prompt, index) => (
+            {selectedPrompts.filter(p=> roleFilter==='all' || p.role===roleFilter).map((prompt, index) => (
               <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -615,6 +639,9 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                         {index + 1}
                       </div>
                       <h5 className="font-semibold text-slate-900 dark:text-white">{prompt.title}</h5>
+                      {prompt.context_tags?.find(t=>t.startsWith('member:')) && (
+                        <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full">{prompt.context_tags.find(t=>t.startsWith('member:'))?.replace('member:','Miembro: ')}</span>
+                      )}
                       
                       <div className="flex items-center gap-2">
                         {prompt.is_required && (
@@ -801,6 +828,41 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
           )}
         </div>
       </div>
+
+      {/* Modal Crear Prompt */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold text-slate-900">Nuevo prompt</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Título</label>
+                <input className="w-full px-3 py-2 border rounded-md" value={newPromptData.title} onChange={e=>setNewPromptData({...newPromptData,title:e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
+                  <select className="w-full px-3 py-2 border rounded-md" value={newPromptData.role} onChange={e=>setNewPromptData({...newPromptData,role:e.target.value as any})}>
+                    <option value="system">system</option>
+                    <option value="user">user</option>
+                    <option value="assistant">assistant</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Contenido</label>
+                <textarea className="w-full px-3 py-2 border rounded-md" rows={6} value={newPromptData.content} onChange={e=>setNewPromptData({...newPromptData,content:e.target.value})} />
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end gap-3">
+              <button className="px-4 py-2 bg-slate-100 rounded-md" onClick={()=>setShowCreateModal(false)}>Cancelar</button>
+              <button className="px-4 py-2 bg-indigo-600 text-white rounded-md" onClick={() => { if(newPromptData.content.trim()) { const np = { id: `temp-${Date.now()}`, title: newPromptData.title.trim()||'Nuevo Prompt', content: newPromptData.content, role: newPromptData.role, category: 'custom', prompt_type: 'custom', is_required: false, order_priority: (selectedPrompts.length + 1), variables: [], is_customized: true, custom_content: newPromptData.content, order_index: selectedPrompts.length } as any; const list = [...selectedPrompts, np]; setSelectedPrompts(list); updateMessages(list); setShowCreateModal(false);} else { alert('Contenido requerido'); } }}>Agregar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

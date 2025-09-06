@@ -7,6 +7,9 @@ import AgentTemplateCard from './admin/AgentTemplateCard';
 import AgentEditor from './admin/AgentEditor';
 import ImportAgentModal from './admin/ImportAgentModal';
 import EditAgentModal from './admin/EditAgentModal';
+import MyAgents from './admin/MyAgents';
+import MyTools from './admin/MyTools';
+import { supabaseMainAdmin as supabaseAdmin } from '../config/supabase';
 
 
 const AdminDashboard = () => {
@@ -20,6 +23,8 @@ const AdminDashboard = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<AgentTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeView, setActiveView] = useState<'catalogo'|'mis-agentes'|'mis-herramientas'>('catalogo');
+  const [selectedTemplateObj, setSelectedTemplateObj] = useState<AgentTemplate | null>(null);
 
   useEffect(() => {
     loadData();
@@ -100,7 +105,7 @@ const AdminDashboard = () => {
     return matchesSearch;
   });
 
-  const selectedTemplateData = templates.find(t => t.id === selectedTemplate);
+  const selectedTemplateData = templates.find(t => t.id === selectedTemplate) || allTemplates.find(t => t.id === selectedTemplate) || selectedTemplateObj || null;
 
   const handleImportSuccess = () => {
     loadTemplates(); // Recargar plantillas después de importar
@@ -156,7 +161,8 @@ const AdminDashboard = () => {
             </button>
           </div>
 
-          {/* Estadísticas rápidas */}
+        {/* Estadísticas rápidas */}
+        {activeView === 'catalogo' && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             {categories.map((category) => (
               <div key={category.id} className="glass-card p-4">
@@ -174,9 +180,27 @@ const AdminDashboard = () => {
               </div>
             ))}
           </div>
+        )}
+
+          {/* Sub-secciones */}
+          <div className="glass-card">
+            <nav className="flex">
+              {[
+                {id:'catalogo',label:'Catálogo'},
+                {id:'mis-agentes',label:'Mis agentes'},
+                {id:'mis-herramientas',label:'Mis herramientas'},
+              ].map(tab => (
+                <button key={tab.id as string}
+                  onClick={()=>setActiveView(tab.id as any)}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeView===tab.id?'border-indigo-600 text-indigo-600':'border-transparent text-slate-600 hover:text-slate-800'}`}
+                >{tab.label}</button>
+              ))}
+            </nav>
+          </div>
         </div>
 
         {/* Filtros y búsqueda */}
+        {activeView === 'catalogo' && (
         <div className="glass-card p-6 mb-6">
           <div className="flex flex-col md:flex-row gap-4">
             
@@ -226,16 +250,17 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
+        )}
 
         {/* Loading State */}
-        {isLoading && (
+        {activeView === 'catalogo' && isLoading && (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
           </div>
         )}
 
         {/* Grid de plantillas */}
-        {!isLoading && (
+        {activeView === 'catalogo' && !isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTemplates.map((template) => (
               <AgentTemplateCard
@@ -250,7 +275,7 @@ const AdminDashboard = () => {
         )}
 
         {/* Estado vacío */}
-        {!isLoading && filteredTemplates.length === 0 && (
+        {activeView === 'catalogo' && !isLoading && filteredTemplates.length === 0 && (
           <div className="text-center py-12">
             <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,6 +310,23 @@ const AdminDashboard = () => {
               </div>
             )}
           </div>
+        )}
+
+        {activeView === 'mis-agentes' && (
+          <MyAgents onOpenEditor={async (id)=>{
+            const found = templates.find(t=>t.id===id) || allTemplates.find(t=>t.id===id) || null;
+            if (!found) {
+              const { data } = await supabaseAdmin.from('agent_templates').select('*').eq('id', id).maybeSingle();
+              if (data) setSelectedTemplateObj(data as any);
+            } else {
+              setSelectedTemplateObj(found);
+            }
+            setSelectedTemplate(id);
+          }} />
+        )}
+
+        {activeView === 'mis-herramientas' && (
+          <MyTools />
         )}
       </div>
 
