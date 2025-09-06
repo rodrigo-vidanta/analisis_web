@@ -186,25 +186,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
               }}
             />
 
-            {/* Centro negro del túnel - Punto de fuga */}
-            <motion.div
-              className="absolute top-1/2 left-1/2 bg-black rounded-full"
-              style={{ 
-                margin: '-16px 0 0 -16px',
-                width: '32px',
-                height: '32px',
-                boxShadow: '0 0 20px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.6), 0 0 60px rgba(0,0,0,0.4)'
-              }}
-              animate={{
-                scale: [0, 1, 1.2, 1.4, 1.6, 1.8, 2.0, 0],
-                opacity: [0, 1, 1, 0.9, 0.8, 0.7, 0.6, 0]
-              }}
-              transition={{
-                duration: 1.9,
-                ease: "easeInOut",
-                times: [0, 0.14, 0.28, 0.42, 0.56, 0.70, 0.84, 1] // Sincronizado con el último anillo
-              }}
-            />
+            {/* Sin centro negro - Solo anillos concéntricos */}
           </div>
 
           {/* Efecto de desvanecido simple del negro al transparente */}
