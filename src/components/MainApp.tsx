@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Header from './Header';
+import Footer from './Footer';
 import ProjectSelector from './ProjectSelector';
 import LoginScreen from './LoginScreen';
 import IndividualAgentWizard from './IndividualAgentWizard';
@@ -186,7 +187,7 @@ function MainApp() {
     <div className={`min-h-screen transition-colors duration-300 ${
       darkMode || localDarkMode ? 'dark' : ''
     }`}>
-      <div className="min-h-screen bg-white dark:bg-gray-900">
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col">
         <Header
           currentStep={currentStep}
           progress={progress}
@@ -197,9 +198,10 @@ function MainApp() {
           onReset={resetApp}
           onModeChange={handleModeChange}
         />
-        <main className="relative">
+        <main className="relative flex-1">
           {renderContent()}
         </main>
+        <Footer />
       </div>
     </div>
   );

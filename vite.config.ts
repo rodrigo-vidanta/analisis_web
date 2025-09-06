@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'fs'
+
+// Leer la versión del package.json
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
+const version = packageJson.version
 
 // CONFIGURACIÓN OPTIMIZADA PARA RAILWAY DEPLOYMENT
 export default defineConfig({
   plugins: [react()],
+  
+  // Variables de entorno
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(version)
+  },
   
   // Build optimizado para producción
   build: {
