@@ -23,6 +23,8 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
   const containerRef = useRef<HTMLDivElement>(null);
   const lastCatPosition = useRef<Position>({ x: 20, y: 70 });
   const lastMousePosition = useRef<Position>({ x: 70, y: 30 });
+  const currentCatPosition = useRef<Position>({ x: 20, y: 70 });
+  const currentCursorPosition = useRef<Position>({ x: 50, y: 50 });
 
   // Movimiento automático del ratón - VELOCIDAD CONTROLADA
   const startMouseMovement = () => {
@@ -46,14 +48,18 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       lastTime = currentTime;
       
       setMousePosition(prevPos => {
+        // Usar refs para obtener posiciones actualizadas
+        const catPos = currentCatPosition.current;
+        const cursorPos = currentCursorPosition.current;
+        
         // Calcular distancia al gato
-        const dxCat = catPosition.x - prevPos.x;
-        const dyCat = catPosition.y - prevPos.y;
+        const dxCat = catPos.x - prevPos.x;
+        const dyCat = catPos.y - prevPos.y;
         const distanceToCat = Math.sqrt(dxCat * dxCat + dyCat * dyCat);
         
         // Calcular distancia al cursor
-        const dxCursor = cursorPosition.x - prevPos.x;
-        const dyCursor = cursorPosition.y - prevPos.y;
+        const dxCursor = cursorPos.x - prevPos.x;
+        const dyCursor = cursorPos.y - prevPos.y;
         const distanceToCursor = Math.sqrt(dxCursor * dxCursor + dyCursor * dyCursor);
         
         // Movimiento base aleatorio - MUY AMPLIO
@@ -180,6 +186,10 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       
       // ACTUALIZAR POSICIÓN DEL CURSOR para que el ratón escape
       setCursorPosition(newPosition);
+      
+      // ACTUALIZAR REFS para el movimiento del ratón
+      currentCatPosition.current = newPosition;
+      currentCursorPosition.current = newPosition;
     };
 
     document.addEventListener('mousemove', handleMouseMove);
