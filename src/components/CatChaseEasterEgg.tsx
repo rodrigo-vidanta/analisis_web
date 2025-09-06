@@ -54,67 +54,80 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
     }
   }, [isVisible]);
 
-  // Movimiento automático del ratón - Corregido y mejorado
+  // Movimiento automático del ratón con huida del gato
   const startMouseMovement = () => {
     let time = 0;
-    let direction = { x: 1, y: 1 };
-    let speed = 1.2; // Velocidad aumentada
+    let baseDirection = { x: 1, y: 1 };
+    let speed = 1.0;
+    let currentPos = { x: mousePosition.x, y: mousePosition.y };
     
-    const moveMouseRandomly = () => {
+    const moveMouseWithFlee = () => {
       if (!isVisible || !gameActive) return;
       
-      time += 0.05;
+      time += 0.04;
       
-      // Movimiento más dinámico y errático del ratón
-      setMousePosition(prevPos => {
-        const baseX = prevPos.x + direction.x * speed;
-        const baseY = prevPos.y + direction.y * speed;
-        
-        // Añadir variación aleatoria más pronunciada
-        const randomX = baseX + Math.sin(time * 4) * 3;
-        const randomY = baseY + Math.cos(time * 3.5) * 3;
-        
-        let newX = randomX;
-        let newY = randomY;
-        
-        // Rebotar en los bordes
-        if (newX <= 5 || newX >= 95) {
-          direction.x *= -1;
-          newX = Math.max(5, Math.min(95, newX));
+      // Calcular distancia al gato
+      const dx = catPosition.x - currentPos.x;
+      const dy = catPosition.y - currentPos.y;
+      const distanceToCAT = Math.sqrt(dx * dx + dy * dy);
+      
+      // Lógica de huida: si el gato está cerca, huir
+      let fleeX = 0;
+      let fleeY = 0;
+      
+      if (distanceToCAT < 25) { // Si el gato está a menos del 25% de distancia
+        // Huir en dirección opuesta al gato
+        const fleeStrength = Math.max(0.5, (25 - distanceToCAT) / 25) * 2;
+        fleeX = (-dx / distanceToCAT) * fleeStrength;
+        fleeY = (-dy / distanceToCAT) * fleeStrength;
+      }
+      
+      // Movimiento base errático
+      const randomX = Math.sin(time * 3) * 2;
+      const randomY = Math.cos(time * 2.8) * 2;
+      
+      // Combinar movimiento base + huida + aleatorio
+      let newX = currentPos.x + baseDirection.x * speed + fleeX + randomX;
+      let newY = currentPos.y + baseDirection.y * speed + fleeY + randomY;
+      
+      // Rebotar en bordes
+      if (newX <= 3 || newX >= 97) {
+        baseDirection.x *= -1;
+        newX = Math.max(3, Math.min(97, newX));
+      }
+      if (newY <= 3 || newY >= 97) {
+        baseDirection.y *= -1;
+        newY = Math.max(3, Math.min(97, newY));
+      }
+      
+      // Cambiar dirección base aleatoriamente
+      if (Math.random() < 0.02) {
+        baseDirection.x += (Math.random() - 0.5) * 0.6;
+        baseDirection.y += (Math.random() - 0.5) * 0.6;
+        // Normalizar
+        const magnitude = Math.sqrt(baseDirection.x * baseDirection.x + baseDirection.y * baseDirection.y);
+        if (magnitude > 0) {
+          baseDirection.x = (baseDirection.x / magnitude) * speed;
+          baseDirection.y = (baseDirection.y / magnitude) * speed;
         }
-        if (newY <= 5 || newY >= 95) {
-          direction.y *= -1;
-          newY = Math.max(5, Math.min(95, newY));
-        }
-        
-        // Cambiar dirección aleatoriamente más frecuente
-        if (Math.random() < 0.03) {
-          direction.x += (Math.random() - 0.5) * 0.8;
-          direction.y += (Math.random() - 0.5) * 0.8;
-          // Normalizar velocidad
-          const magnitude = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-          if (magnitude > 0) {
-            direction.x = (direction.x / magnitude) * speed;
-            direction.y = (direction.y / magnitude) * speed;
-          }
-        }
-        
-        // Detectar dirección del ratón
-        if (newX > lastMousePosition.current.x) {
-          setMouseDirection('right');
-        } else if (newX < lastMousePosition.current.x) {
-          setMouseDirection('left');
-        }
-        
-        lastMousePosition.current = { x: newX, y: newY };
-        
-        return { x: newX, y: newY };
-      });
+      }
+      
+      // Detectar dirección del ratón
+      if (newX > currentPos.x) {
+        setMouseDirection('right');
+      } else if (newX < currentPos.x) {
+        setMouseDirection('left');
+      }
+      
+      // Actualizar posición
+      currentPos = { x: newX, y: newY };
+      lastMousePosition.current = currentPos;
+      setMousePosition(currentPos);
 
-      animationRef.current = requestAnimationFrame(moveMouseRandomly);
+      animationRef.current = requestAnimationFrame(moveMouseWithFlee);
     };
 
-    moveMouseRandomly();
+    moveMouseWithFlee();
   };
 
   // Control del gato por cursor del usuario
