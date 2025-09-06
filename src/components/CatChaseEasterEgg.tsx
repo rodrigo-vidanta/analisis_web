@@ -59,7 +59,8 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
     let time = 0;
     let baseDirection = { x: 1, y: 1 };
     let speed = 1.0;
-    let currentPos = { x: mousePosition.x, y: mousePosition.y };
+    // Usar posición inicial fija del ratón
+    let currentPos = { x: 80, y: 20 };
     
     const moveMouseWithFlee = () => {
       if (!isVisible || !gameActive) return;
