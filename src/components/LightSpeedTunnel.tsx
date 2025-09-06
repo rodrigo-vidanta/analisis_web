@@ -27,8 +27,8 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
         setTimeout(() => {
           console.log('🚀 TÚNEL - Fadeout completado, finalizando animación');
           onComplete();
-        }, 1000);
-      }, 3000); // 3 segundos total (más rápido)
+        }, 500);
+      }, 2200); // 2.2 segundos total (más rápido)
       
       return () => {
         clearTimeout(fadeoutTimer);
@@ -77,7 +77,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, 45, 90, 135, 180, 225, 270]
               }}
               transition={{
-                duration: 2.5,
+                duration: 1.8,
                 ease: "easeInOut",
                 delay: 0
               }}
@@ -96,7 +96,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, -45, -90, -135, -180, -225, -270]
               }}
               transition={{
-                duration: 2.5,
+                duration: 1.8,
                 ease: "easeInOut",
                 delay: 0.1
               }}
@@ -115,7 +115,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, 45, 90, 135, 180, 225, 270]
               }}
               transition={{
-                duration: 2.5,
+                duration: 1.8,
                 ease: "easeInOut",
                 delay: 0.2
               }}
@@ -134,7 +134,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, -45, -90, -135, -180, -225, -270]
               }}
               transition={{
-                duration: 2.5,
+                duration: 1.8,
                 ease: "easeInOut",
                 delay: 0.3
               }}
@@ -153,7 +153,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, 45, 90, 135, 180, 225, 270]
               }}
               transition={{
-                duration: 2.5,
+                duration: 1.8,
                 ease: "easeInOut",
                 delay: 0.4
               }}
@@ -172,7 +172,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 rotate: [0, -45, -90, -135, -180, -225, -270]
               }}
               transition={{
-                duration: 2.5,
+                duration: 1.8,
                 ease: "easeInOut",
                 delay: 0.5
               }}
@@ -192,7 +192,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 opacity: [0, 1, 1, 0.9, 0.8, 0.7, 0.6]
               }}
               transition={{
-                duration: 2.5,
+                duration: 1.8,
                 ease: "easeInOut"
               }}
             />
@@ -204,7 +204,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
               className="absolute inset-0 bg-black"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 1, ease: "easeInOut" }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
             />
           )}
         </motion.div>
