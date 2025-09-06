@@ -55,9 +55,14 @@ const Footer: React.FC = () => {
             
             {/* Versión Nightly con gato negro */}
             <div className="flex items-center gap-2">
-              {/* Icono de gato negro */}
-              <svg className="w-4 h-4 text-slate-700 dark:text-slate-300" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L13 3V5C12.5 5 12 5.2 12 5.5C12 5.8 12.5 6 13 6V8L11 10V12H13V10.5L15 8.5V11C15 12.1 15.9 13 17 13S19 12.1 19 11V9H21ZM7.5 12C8.3 12 9 12.7 9 13.5S8.3 15 7.5 15 6 14.3 6 13.5 6.7 12 7.5 12ZM16.5 12C17.3 12 18 12.7 18 13.5S17.3 15 16.5 15 15 14.3 15 13.5 15.7 12 16.5 12ZM12 16C14.2 16 16 17.8 16 20C16 21.1 15.1 22 14 22H10C8.9 22 8 21.1 8 20C8 17.8 9.8 16 12 16Z"/>
+              {/* Icono de gato minimalista */}
+              <svg className="w-4 h-4 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12c0-1.5.5-3 2-4 1.5-1 3.5-1 5 0s3.5 1 5 0c1.5 1 2 2.5 2 4v3c0 2-1 3-3 3H9c-2 0-3-1-3-3v-3z"/>
+                <circle cx="9" cy="10" r="1"/>
+                <circle cx="15" cy="10" r="1"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 13v1"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 4l1 2"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 4l-1 2"/>
               </svg>
               
               <span className="font-mono text-xs bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-3 py-1 rounded-full border border-slate-700 dark:border-slate-300 shadow-sm">
