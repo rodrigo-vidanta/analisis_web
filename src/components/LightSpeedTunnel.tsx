@@ -20,15 +20,15 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
     if (isVisible && type === 'login') {
       console.log('🚀 TÚNEL - Iniciando animación de anillos apareciendo uno por uno');
       
-      // Solo la segunda parte: anillos aparecen uno por uno y desaparecen
+      // Sincronizar fadeout con el último anillo (1.4s + 0.5s delay del último anillo)
       const fadeoutTimer = setTimeout(() => {
-        console.log('🚀 TÚNEL - Iniciando fadeout degradado al dashboard');
+        console.log('🚀 TÚNEL - Iniciando fadeout sincronizado con último anillo');
         setShowFadeout(true);
         setTimeout(() => {
           console.log('🚀 TÚNEL - Fadeout completado, finalizando animación');
           onComplete();
         }, 300);
-      }, 1800); // 1.8 segundos total (más rápido)
+      }, 1900); // 1.9 segundos (1.4s + 0.5s delay del último anillo)
       
       return () => {
         clearTimeout(fadeoutTimer);
