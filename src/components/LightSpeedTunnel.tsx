@@ -12,23 +12,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
   onComplete, 
   type 
 }) => {
-  const [tunnelLines, setTunnelLines] = useState<Array<{ id: number; x: number; y: number; length: number; color: string; speed: number }>>([]);
   const [showFadeout, setShowFadeout] = useState(false);
-
-  // Generar líneas del túnel
-  useEffect(() => {
-    if (isVisible) {
-      const newLines = Array.from({ length: 50 }, (_, i) => ({
-        id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        length: Math.random() * 200 + 100,
-        color: Math.random() > 0.5 ? 'red' : 'blue',
-        speed: Math.random() * 0.5 + 0.5
-      }));
-      setTunnelLines(newLines);
-    }
-  }, [isVisible]);
 
   // Configuración de animación según el tipo
   const getAnimationConfig = () => {
@@ -110,146 +94,144 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Fondo negro profundo */}
+          {/* Fondo con gradiente radial */}
           <motion.div
-            className="absolute inset-0 bg-black"
+            className="absolute inset-0"
+            style={{
+              background: 'radial-gradient(#582b8c, #270245)'
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           />
 
-          {/* Líneas del túnel de velocidad luz */}
-          <div className="absolute inset-0">
-            {/* Líneas horizontales principales */}
+          {/* Anillos concéntricos del túnel */}
+          <div className="relative w-96 h-96">
+            {/* Anillo 1 - Más pequeño */}
             <motion.div
-              className="absolute w-full h-1 bg-gradient-to-r from-transparent via-white to-transparent opacity-80"
-              style={{ top: '30%' }}
+              className="absolute top-1/2 left-1/2 w-12 h-12 border-2 border-white rounded-full"
+              style={{
+                margin: '-24px 0 0 -24px',
+                boxShadow: '0 0 4px cyan, 0 0 20px cyan, inset 0 0 4px cyan, inset 0 0 20px cyan'
+              }}
               animate={{
-                x: type === 'login' ? [0, window.innerWidth * 2] : [window.innerWidth * 2, 0],
-                opacity: type === 'login' ? [0, 1, 0] : [1, 0, 0],
-                scale: type === 'login' ? [0, 1, 0] : [1, 0, 0]
+                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
+                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
+                rotate: type === 'login' ? 360 : -360
               }}
               transition={{
-                duration: 2,
+                duration: 4,
                 ease: "easeInOut",
-                repeat: Infinity,
-                repeatDelay: 0.5
-              }}
-            />
-            <motion.div
-              className="absolute w-full h-1 bg-gradient-to-r from-transparent via-white to-transparent opacity-80"
-              style={{ top: '70%' }}
-              animate={{
-                x: type === 'login' ? [0, window.innerWidth * 2] : [window.innerWidth * 2, 0],
-                opacity: type === 'login' ? [0, 1, 0] : [1, 0, 0],
-                scale: type === 'login' ? [0, 1, 0] : [1, 0, 0]
-              }}
-              transition={{
-                duration: 2,
-                ease: "easeInOut",
-                repeat: Infinity,
-                repeatDelay: 0.5
+                delay: 0
               }}
             />
 
-            {/* Líneas radiales del túnel */}
-            {Array.from({ length: 30 }).map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-60"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  width: `${Math.random() * 300 + 200}px`,
-                  transform: `rotate(${Math.random() * 360}deg)`
-                }}
-                animate={{
-                  x: type === 'login' ? [0, (Math.random() - 0.5) * 800] : [(Math.random() - 0.5) * 800, 0],
-                  y: type === 'login' ? [0, (Math.random() - 0.5) * 800] : [(Math.random() - 0.5) * 800, 0],
-                  opacity: type === 'login' ? [0, 1, 0] : [1, 0, 0],
-                  scale: type === 'login' ? [0, 1, 0] : [1, 0, 0]
-                }}
-                transition={{
-                  duration: 1.5,
-                  delay: Math.random() * 1,
-                  ease: "easeOut",
-                  repeat: Infinity,
-                  repeatDelay: Math.random() * 2
-                }}
-              />
-            ))}
+            {/* Anillo 2 */}
+            <motion.div
+              className="absolute top-1/2 left-1/2 w-16 h-16 border-2 border-white rounded-full"
+              style={{
+                margin: '-32px 0 0 -32px',
+                boxShadow: '0 0 4px magenta, 0 0 20px magenta, inset 0 0 4px magenta, inset 0 0 20px magenta'
+              }}
+              animate={{
+                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
+                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
+                rotate: type === 'login' ? -360 : 360
+              }}
+              transition={{
+                duration: 4,
+                ease: "easeInOut",
+                delay: 0.1
+              }}
+            />
 
-            {/* Líneas de colores (rojo y azul) */}
-            {Array.from({ length: 20 }).map((_, i) => (
-              <motion.div
-                key={`color-${i}`}
-                className={`absolute h-0.5 ${
-                  i % 2 === 0 
-                    ? 'bg-gradient-to-r from-transparent via-red-500 to-transparent' 
-                    : 'bg-gradient-to-r from-transparent via-blue-500 to-transparent'
-                } opacity-70`}
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  width: `${Math.random() * 400 + 300}px`,
-                  transform: `rotate(${Math.random() * 360}deg)`
-                }}
-                animate={{
-                  x: type === 'login' ? [0, (Math.random() - 0.5) * 1000] : [(Math.random() - 0.5) * 1000, 0],
-                  y: type === 'login' ? [0, (Math.random() - 0.5) * 1000] : [(Math.random() - 0.5) * 1000, 0],
-                  opacity: type === 'login' ? [0, 1, 0] : [1, 0, 0],
-                  scale: type === 'login' ? [0, 1, 0] : [1, 0, 0]
-                }}
-                transition={{
-                  duration: 2,
-                  delay: Math.random() * 1.5,
-                  ease: "easeOut",
-                  repeat: Infinity,
-                  repeatDelay: Math.random() * 3
-                }}
-              />
-            ))}
-          </div>
+            {/* Anillo 3 */}
+            <motion.div
+              className="absolute top-1/2 left-1/2 w-20 h-20 border-2 border-white rounded-full"
+              style={{
+                margin: '-40px 0 0 -40px',
+                boxShadow: '0 0 4px cyan, 0 0 20px cyan, inset 0 0 4px cyan, inset 0 0 20px cyan'
+              }}
+              animate={{
+                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
+                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
+                rotate: type === 'login' ? 360 : -360
+              }}
+              transition={{
+                duration: 4,
+                ease: "easeInOut",
+                delay: 0.2
+              }}
+            />
 
-          {/* Centro del túnel - punto de fuga */}
-          <motion.div
-            className="relative w-96 h-96"
-            {...config}
-          >
-            {/* Círculos concéntricos del túnel */}
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((ring) => (
-              <motion.div
-                key={ring}
-                className="absolute inset-0 rounded-full border border-white/20"
-                style={{
-                  width: `${ring * 12}%`,
-                  height: `${ring * 12}%`,
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)'
-                }}
-                animate={{
-                  rotate: type === 'login' ? 360 : -360,
-                  scale: type === 'login' ? [0.5, 1, 0.5] : [1, 0.5, 1],
-                  opacity: type === 'login' ? [0, 0.8, 0] : [0.8, 0, 0.8]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "linear",
-                  delay: ring * 0.1
-                }}
-              />
-            ))}
+            {/* Anillo 4 */}
+            <motion.div
+              className="absolute top-1/2 left-1/2 w-24 h-24 border-2 border-white rounded-full"
+              style={{
+                margin: '-48px 0 0 -48px',
+                boxShadow: '0 0 4px magenta, 0 0 20px magenta, inset 0 0 4px magenta, inset 0 0 20px magenta'
+              }}
+              animate={{
+                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
+                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
+                rotate: type === 'login' ? -360 : 360
+              }}
+              transition={{
+                duration: 4,
+                ease: "easeInOut",
+                delay: 0.3
+              }}
+            />
+
+            {/* Anillo 5 */}
+            <motion.div
+              className="absolute top-1/2 left-1/2 w-28 h-28 border-2 border-white rounded-full"
+              style={{
+                margin: '-56px 0 0 -56px',
+                boxShadow: '0 0 4px cyan, 0 0 20px cyan, inset 0 0 4px cyan, inset 0 0 20px cyan'
+              }}
+              animate={{
+                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
+                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
+                rotate: type === 'login' ? 360 : -360
+              }}
+              transition={{
+                duration: 4,
+                ease: "easeInOut",
+                delay: 0.4
+              }}
+            />
+
+            {/* Anillo 6 - Más grande */}
+            <motion.div
+              className="absolute top-1/2 left-1/2 w-32 h-32 border-2 border-white rounded-full"
+              style={{
+                margin: '-64px 0 0 -64px',
+                boxShadow: '0 0 4px magenta, 0 0 20px magenta, inset 0 0 4px magenta, inset 0 0 20px magenta'
+              }}
+              animate={{
+                scale: type === 'login' ? [0, 1, 1.5, 2, 0] : [2, 1.5, 1, 0, 0],
+                opacity: type === 'login' ? [0, 0.8, 1, 0.8, 0] : [0.8, 1, 0.8, 0, 0],
+                rotate: type === 'login' ? -360 : 360
+              }}
+              transition={{
+                duration: 4,
+                ease: "easeInOut",
+                delay: 0.5
+              }}
+            />
 
             {/* Centro brillante del túnel */}
             <motion.div
-              className="absolute top-1/2 left-1/2 w-16 h-16 bg-white rounded-full"
-              style={{ transform: 'translate(-50%, -50%)' }}
+              className="absolute top-1/2 left-1/2 w-8 h-8 bg-white rounded-full"
+              style={{ 
+                margin: '-16px 0 0 -16px',
+                boxShadow: '0 0 20px white, 0 0 40px white, 0 0 60px white'
+              }}
               animate={{
-                scale: type === 'login' ? [0, 3, 1] : [1, 3, 0],
-                opacity: type === 'login' ? [0, 1, 0.8] : [0.8, 1, 0],
+                scale: type === 'login' ? [0, 2, 3, 1] : [1, 3, 2, 0],
+                opacity: type === 'login' ? [0, 1, 1, 0.8] : [0.8, 1, 1, 0],
                 rotate: type === 'login' ? 360 : -360
               }}
               transition={{
@@ -262,7 +244,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
             <motion.div
               className="absolute inset-0 rounded-full"
               style={{
-                background: 'radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 40%, transparent 70%)'
+                background: 'radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.2) 30%, rgba(255,255,255,0.1) 60%, transparent 100%)'
               }}
               animate={{
                 scale: type === 'login' ? [0, 2, 1] : [1, 2, 0],
@@ -276,7 +258,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
 
             {/* Texto de transición */}
             <motion.div
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-3xl font-bold text-center"
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-2xl font-bold text-center z-10"
               animate={{
                 opacity: type === 'login' ? [0, 1, 0] : [0, 1, 0],
                 y: type === 'login' ? [30, 0, -30] : [-30, 0, 30],
@@ -290,32 +272,22 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
             >
               {type === 'login' ? (
                 <>
-                  <div className="text-5xl mb-3">🚀</div>
+                  <div className="text-4xl mb-2">🚀</div>
                   <div>Entrando al túnel de velocidad luz...</div>
-                  <div className="text-lg mt-2 opacity-70">Sumergiéndose en la interfaz</div>
+                  <div className="text-sm mt-1 opacity-70">Sumergiéndose en la interfaz</div>
                 </>
               ) : (
                 <>
-                  <div className="text-5xl mb-3">👋</div>
+                  <div className="text-4xl mb-2">👋</div>
                   <div>Saliendo del sistema...</div>
                 </>
               )}
             </motion.div>
-          </motion.div>
-
-          {/* Efecto de fadeout al final para login */}
-          {showFadeout && type === 'login' && (
-            <motion.div
-              className="absolute inset-0 bg-white"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, ease: "easeInOut" }}
-            />
-          )}
+          </div>
 
           {/* Partículas adicionales para efecto de túnel */}
           <div className="absolute inset-0 overflow-hidden">
-            {Array.from({ length: 40 }).map((_, i) => (
+            {Array.from({ length: 30 }).map((_, i) => (
               <motion.div
                 key={i}
                 className="absolute w-1 h-1 bg-white/60 rounded-full"
@@ -324,8 +296,8 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                   top: `${Math.random() * 100}%`
                 }}
                 animate={{
-                  x: type === 'login' ? [0, (Math.random() - 0.5) * 800] : [(Math.random() - 0.5) * 800, 0],
-                  y: type === 'login' ? [0, (Math.random() - 0.5) * 800] : [(Math.random() - 0.5) * 800, 0],
+                  x: type === 'login' ? [0, (Math.random() - 0.5) * 400] : [(Math.random() - 0.5) * 400, 0],
+                  y: type === 'login' ? [0, (Math.random() - 0.5) * 400] : [(Math.random() - 0.5) * 400, 0],
                   opacity: type === 'login' ? [0, 1, 0] : [1, 0, 0],
                   scale: type === 'login' ? [0, 1, 0] : [1, 0, 0]
                 }}
@@ -337,6 +309,16 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
               />
             ))}
           </div>
+
+          {/* Efecto de fadeout al final para login */}
+          {showFadeout && type === 'login' && (
+            <motion.div
+              className="absolute inset-0 bg-white"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, ease: "easeInOut" }}
+            />
+          )}
         </motion.div>
       )}
     </AnimatePresence>
