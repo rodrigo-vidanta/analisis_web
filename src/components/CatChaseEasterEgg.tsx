@@ -50,13 +50,13 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         const dy = catPosition.y - prevPos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Movimiento base aleatorio - MUCHO MÁS LENTO
-        let moveX = (Math.random() - 0.5) * 0.8; // Reducido de 3 a 0.8
-        let moveY = (Math.random() - 0.5) * 0.8;
+        // Movimiento base aleatorio - MÁS AMPLIO
+        let moveX = (Math.random() - 0.5) * 2.5; // Aumentado para recorrer más pantalla
+        let moveY = (Math.random() - 0.5) * 2.5;
         
         // Si el gato está cerca, huir más rápido pero controlado
-        if (distance < 20) {
-          const fleeStrength = 1.5; // Reducido de 4 a 1.5
+        if (distance < 25) {
+          const fleeStrength = 3.0; // Aumentado para huida más efectiva
           moveX = (-dx / distance) * fleeStrength;
           moveY = (-dy / distance) * fleeStrength;
         }
@@ -65,16 +65,12 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         let newX = prevPos.x + moveX;
         let newY = prevPos.y + moveY;
         
-        // Mantener dentro de límites
-        newX = Math.max(5, Math.min(95, newX));
-        newY = Math.max(5, Math.min(95, newY));
+        // Mantener dentro de límites - MÁS AMPLIO
+        newX = Math.max(2, Math.min(98, newX));
+        newY = Math.max(2, Math.min(98, newY));
         
-        // Detectar dirección
-        if (newX > prevPos.x) {
-          setMouseDirection('right');
-        } else if (newX < prevPos.x) {
-          setMouseDirection('left');
-        }
+        // NO cambiar dirección del ratón - mantener siempre hacia la derecha
+        // setMouseDirection('right'); // Comentado para evitar rotación
         
         console.log(`🐭 Ratón moviéndose: ${prevPos.x.toFixed(1)},${prevPos.y.toFixed(1)} → ${newX.toFixed(1)},${newY.toFixed(1)}`);
         
@@ -203,13 +199,13 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       {/* Fondo blureado */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-all duration-500" />
       
-      {/* Ratón - Emoji lindo con orientación */}
+      {/* Ratón - Emoji lindo SIN rotación */}
       <div
         className={`absolute transition-all duration-150 ease-out ${caught ? 'animate-bounce' : ''}`}
         style={{
           left: `${mousePosition.x}%`,
           top: `${mousePosition.y}%`,
-          transform: `translate(-50%, -50%) ${mouseDirection === 'left' ? 'scaleX(-1)' : ''}`
+          transform: `translate(-50%, -50%)` // Sin rotación
         }}
       >
         <div className="relative">
