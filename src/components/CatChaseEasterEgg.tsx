@@ -67,20 +67,22 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         
         // ESCAPAR DEL CURSOR
         if (distanceToCursor < 25) {
-          const cursorFleeStrength = 8.0; // Huida muy agresiva del cursor
+          const cursorFleeStrength = 12.0; // Huida MUY agresiva del cursor
           totalFleeX += (-dxCursor / distanceToCursor) * cursorFleeStrength;
           totalFleeY += (-dyCursor / distanceToCursor) * cursorFleeStrength;
           fleeCount++;
           console.log(`🐭 ESCAPANDO DEL CURSOR! Distancia: ${distanceToCursor.toFixed(1)}`);
         }
         
-        // ESCAPAR DEL GATO
-        if (distanceToCat < 30) {
-          const catFleeStrength = 6.0; // Huida del gato
+        // ESCAPAR DEL GATO - MUY AGRESIVO
+        if (distanceToCat < 40) { // Aumentado el rango de detección
+          // Huida más agresiva cuanto más cerca esté el gato
+          const proximityFactor = Math.max(1, (40 - distanceToCat) / 40); // 1 a 2x más agresivo
+          const catFleeStrength = 15.0 * proximityFactor; // Hasta 30.0 de fuerza
           totalFleeX += (-dxCat / distanceToCat) * catFleeStrength;
           totalFleeY += (-dyCat / distanceToCat) * catFleeStrength;
           fleeCount++;
-          console.log(`🐭 ESCAPANDO DEL GATO! Distancia: ${distanceToCat.toFixed(1)}`);
+          console.log(`🐭 ESCAPANDO DEL GATO! Distancia: ${distanceToCat.toFixed(1)}, Fuerza: ${catFleeStrength.toFixed(1)}`);
         }
         
         // Si está escapando de algo, usar la huida combinada
