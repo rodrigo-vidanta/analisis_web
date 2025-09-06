@@ -62,7 +62,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 1.0, ease: "easeInOut" }}
+            transition={{ duration: 1.4, ease: "easeInOut" }}
           />
 
           {/* Anillos concéntricos del túnel - Movidos arriba y más rápidos */}
