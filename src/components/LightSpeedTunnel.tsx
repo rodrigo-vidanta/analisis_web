@@ -20,11 +20,15 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
     if (isVisible && type === 'login') {
       console.log('🚀 TÚNEL - Iniciando animación de anillos apareciendo uno por uno');
       
-      // Solo anillos flotantes - Sin fadeout
+      // Solo la segunda parte: anillos aparecen uno por uno y desaparecen
       const fadeoutTimer = setTimeout(() => {
-        console.log('🚀 ANILLOS - Finalizando animación de anillos flotantes');
-        onComplete();
-      }, 1600); // 1.6 segundos total (solo anillos)
+        console.log('🚀 TÚNEL - Iniciando fadeout degradado al dashboard');
+        setShowFadeout(true);
+        setTimeout(() => {
+          console.log('🚀 TÚNEL - Fadeout completado, finalizando animación');
+          onComplete();
+        }, 300);
+      }, 1800); // 1.8 segundos total (más rápido)
       
       return () => {
         clearTimeout(fadeoutTimer);
@@ -49,7 +53,17 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Sin fondo negro - Solo anillos */}
+          {/* Fondo negro con fade-in invertido (de adentro hacia afuera) */}
+          <motion.div
+            className="absolute inset-0"
+            style={{
+              background: 'radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0.3) 60%, transparent 100%)'
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.0, ease: "easeInOut" }}
+          />
 
           {/* Anillos concéntricos del túnel - Movidos arriba y más rápidos */}
           <div className="relative w-96 h-96" style={{ transform: 'translateY(-20px)' }}>
@@ -167,10 +181,38 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
               }}
             />
 
-            {/* Sin centro negro - Solo anillos flotantes */}
+            {/* Centro negro del túnel - Punto de fuga */}
+            <motion.div
+              className="absolute top-1/2 left-1/2 bg-black rounded-full"
+              style={{ 
+                margin: '-16px 0 0 -16px',
+                width: '32px',
+                height: '32px',
+                boxShadow: '0 0 20px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.6), 0 0 60px rgba(0,0,0,0.4)'
+              }}
+              animate={{
+                scale: [0, 1, 1.2, 1.4, 1.6, 1.8, 2.0],
+                opacity: [0, 1, 1, 0.9, 0.8, 0.7, 0.6]
+              }}
+              transition={{
+                duration: 1.4,
+                ease: "easeInOut"
+              }}
+            />
           </div>
 
-          {/* Sin fadeout - Solo anillos flotantes */}
+          {/* Efecto de fadeout degradado al dashboard (de afuera hacia adentro) */}
+          {showFadeout && type === 'login' && (
+            <motion.div
+              className="absolute inset-0"
+              style={{
+                background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,1) 100%)'
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            />
+          )}
         </motion.div>
       )}
     </AnimatePresence>
