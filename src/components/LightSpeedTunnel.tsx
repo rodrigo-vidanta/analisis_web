@@ -60,9 +60,14 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
               background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,1) 100%)'
             }}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.4, ease: "easeInOut" }}
+            animate={{ 
+              opacity: [0, 1, 1, 0]
+            }}
+            transition={{ 
+              duration: 1.9, 
+              ease: "easeInOut",
+              times: [0, 0.74, 0.95, 1] // 0-1.4s visible, 1.4-1.8s visible, 1.8-1.9s fadeout
+            }}
           />
 
           {/* Anillos concéntricos del túnel - Movidos arriba y más rápidos */}
@@ -191,12 +196,13 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 20px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.6), 0 0 60px rgba(0,0,0,0.4)'
               }}
               animate={{
-                scale: [0, 1, 1.2, 1.4, 1.6, 1.8, 2.0],
-                opacity: [0, 1, 1, 0.9, 0.8, 0.7, 0.6]
+                scale: [0, 1, 1.2, 1.4, 1.6, 1.8, 2.0, 0],
+                opacity: [0, 1, 1, 0.9, 0.8, 0.7, 0.6, 0]
               }}
               transition={{
-                duration: 1.4,
-                ease: "easeInOut"
+                duration: 1.9,
+                ease: "easeInOut",
+                times: [0, 0.14, 0.28, 0.42, 0.56, 0.70, 0.84, 1] // Sincronizado con el último anillo
               }}
             />
           </div>
