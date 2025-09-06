@@ -87,10 +87,7 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       setMousePosition({ x: 70, y: 30 });
       setCatPosition({ x: 20, y: 70 });
       setCaught(false);
-      setGameActive(true); // Activar juego inmediatamente
-      
-      console.log('🎮 JUEGO ACTIVADO - Iniciando movimiento del ratón');
-      startMouseMovement(); // Iniciar movimiento inmediatamente
+      setGameActive(true); // Activar juego
 
       // Timeout de 5 minutos
       timeoutRef.current = setTimeout(() => {
@@ -109,6 +106,14 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
       };
     }
   }, [isVisible]);
+
+  // Iniciar movimiento cuando el juego se active
+  useEffect(() => {
+    if (gameActive && isVisible) {
+      console.log('🎮 JUEGO ACTIVADO - Iniciando movimiento del ratón');
+      startMouseMovement();
+    }
+  }, [gameActive, isVisible]);
 
   // Control del gato por cursor del usuario
   useEffect(() => {
