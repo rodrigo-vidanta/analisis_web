@@ -23,37 +23,6 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
   const lastCatPosition = useRef<Position>({ x: 20, y: 70 });
   const lastMousePosition = useRef<Position>({ x: 70, y: 30 });
 
-  // Inicializar juego cuando se hace visible
-  useEffect(() => {
-    if (isVisible) {
-      // Posiciones iniciales
-      setMousePosition({ x: 70, y: 30 });
-      setCatPosition({ x: 20, y: 70 });
-      setCaught(false);
-      
-      // Iniciar juego después de un momento
-      const startGame = setTimeout(() => {
-        setGameActive(true);
-        startMouseMovement();
-      }, 500);
-
-      // Timeout de 5 minutos
-      timeoutRef.current = setTimeout(() => {
-        handleGameEnd();
-      }, 5 * 60 * 1000); // 5 minutos
-
-      return () => {
-        clearTimeout(startGame);
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-        }
-      };
-    }
-  }, [isVisible]);
-
   // Movimiento automático del ratón con huida del gato
   const startMouseMovement = () => {
     let time = 0;
@@ -130,6 +99,37 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
 
     moveMouseWithFlee();
   };
+
+  // Inicializar juego cuando se hace visible
+  useEffect(() => {
+    if (isVisible) {
+      // Posiciones iniciales
+      setMousePosition({ x: 70, y: 30 });
+      setCatPosition({ x: 20, y: 70 });
+      setCaught(false);
+      
+      // Iniciar juego después de un momento
+      const startGame = setTimeout(() => {
+        setGameActive(true);
+        startMouseMovement();
+      }, 500);
+
+      // Timeout de 5 minutos
+      timeoutRef.current = setTimeout(() => {
+        handleGameEnd();
+      }, 5 * 60 * 1000); // 5 minutos
+
+      return () => {
+        clearTimeout(startGame);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+      };
+    }
+  }, [isVisible]);
 
   // Control del gato por cursor del usuario
   useEffect(() => {
