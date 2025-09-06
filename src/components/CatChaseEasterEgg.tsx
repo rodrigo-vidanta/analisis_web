@@ -81,24 +81,25 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
   // Inicializar juego cuando se hace visible
   useEffect(() => {
     if (isVisible) {
+      console.log('🎮 INICIANDO JUEGO - Configurando posiciones');
+      
       // Posiciones iniciales
       setMousePosition({ x: 70, y: 30 });
       setCatPosition({ x: 20, y: 70 });
       setCaught(false);
+      setGameActive(true); // Activar juego inmediatamente
       
-      // Iniciar juego después de un momento
-      const startGame = setTimeout(() => {
-        setGameActive(true);
-        startMouseMovement();
-      }, 500);
+      console.log('🎮 JUEGO ACTIVADO - Iniciando movimiento del ratón');
+      startMouseMovement(); // Iniciar movimiento inmediatamente
 
       // Timeout de 5 minutos
       timeoutRef.current = setTimeout(() => {
+        console.log('⏰ TIMEOUT DE 5 MINUTOS - Terminando juego');
         handleGameEnd();
       }, 5 * 60 * 1000); // 5 minutos
 
       return () => {
-        clearTimeout(startGame);
+        console.log('🧹 LIMPIANDO JUEGO');
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
         }
