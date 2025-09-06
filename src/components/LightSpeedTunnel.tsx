@@ -201,15 +201,12 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
             />
           </div>
 
-          {/* Efecto de fadeout degradado al dashboard (de afuera hacia adentro) */}
+          {/* Efecto de desvanecido simple del negro al transparente */}
           {showFadeout && type === 'login' && (
             <motion.div
-              className="absolute inset-0"
-              style={{
-                background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,1) 100%)'
-              }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              className="absolute inset-0 bg-black"
+              initial={{ opacity: 1 }}
+              animate={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
             />
           )}
