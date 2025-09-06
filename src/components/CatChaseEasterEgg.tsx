@@ -23,15 +23,26 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
   const lastCatPosition = useRef<Position>({ x: 20, y: 70 });
   const lastMousePosition = useRef<Position>({ x: 70, y: 30 });
 
-  // Movimiento automático del ratón - IMPLEMENTACIÓN SIMPLE Y GARANTIZADA
+  // Movimiento automático del ratón - VELOCIDAD CONTROLADA
   const startMouseMovement = () => {
     console.log('🐭 INICIANDO MOVIMIENTO DEL RATÓN');
     
-    const moveMouse = () => {
+    let lastTime = 0;
+    const targetFPS = 30; // 30 FPS para movimiento visible
+    const frameInterval = 1000 / targetFPS;
+    
+    const moveMouse = (currentTime: number) => {
       if (!isVisible || !gameActive) {
         console.log('🐭 Juego no activo, deteniendo movimiento');
         return;
       }
+      
+      // Control de frame rate
+      if (currentTime - lastTime < frameInterval) {
+        animationRef.current = requestAnimationFrame(moveMouse);
+        return;
+      }
+      lastTime = currentTime;
       
       setMousePosition(prevPos => {
         // Calcular distancia al gato
@@ -39,13 +50,13 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         const dy = catPosition.y - prevPos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Movimiento base aleatorio
-        let moveX = (Math.random() - 0.5) * 3; // Movimiento más rápido
-        let moveY = (Math.random() - 0.5) * 3;
+        // Movimiento base aleatorio - MUCHO MÁS LENTO
+        let moveX = (Math.random() - 0.5) * 0.8; // Reducido de 3 a 0.8
+        let moveY = (Math.random() - 0.5) * 0.8;
         
-        // Si el gato está cerca, huir más rápido
+        // Si el gato está cerca, huir más rápido pero controlado
         if (distance < 20) {
-          const fleeStrength = 4; // Huida más agresiva
+          const fleeStrength = 1.5; // Reducido de 4 a 1.5
           moveX = (-dx / distance) * fleeStrength;
           moveY = (-dy / distance) * fleeStrength;
         }
@@ -75,7 +86,7 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
     };
     
     // Iniciar movimiento inmediatamente
-    moveMouse();
+    animationRef.current = requestAnimationFrame(moveMouse);
   };
 
   // Inicializar juego cuando se hace visible
