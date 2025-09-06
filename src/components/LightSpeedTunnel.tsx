@@ -53,11 +53,11 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Fondo negro con fade-in invertido (de adentro hacia afuera) */}
+          {/* Fondo negro con fade-in correcto (de afuera hacia adentro) */}
           <motion.div
             className="absolute inset-0"
             style={{
-              background: 'radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0.3) 60%, transparent 100%)'
+              background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,1) 100%)'
             }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
