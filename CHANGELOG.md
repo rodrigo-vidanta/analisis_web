@@ -2,6 +2,30 @@
 
 ## Historial de Versiones
 
+### v1.0.5 (2025-01-24 22:30)
+**Tipo**: minor
+**Descripción**: Animación de Login Perfecta - Túnel de Anillos Concéntricos
+
+**🎨 Animación de Login:**
+- Túnel de anillos concéntricos con colores vibrantes
+- Fade-in degradado de afuera hacia adentro
+- Sincronización perfecta de todos los elementos
+- Sin elementos residuales ni tiempo muerto
+
+**⚡ Características Técnicas:**
+- 6 anillos concéntricos con delays escalonados
+- Colores: Azul, Púrpura, Cian, Verde, Naranja, Rojo
+- Duración total: 2.2 segundos
+- Fadeout sincronizado con último anillo
+
+**🎯 Optimizaciones:**
+- Sin círculo negro central innecesario
+- Fondo degradado sincronizado
+- Transición completamente fluida
+- Experiencia más elegante y minimalista
+
+---
+
 ### v1.0.4 (2025-09-05 21:54)
 **Descripción**: Corrección de versionado: 1.0.3 + Sistema automático de versiones
 
