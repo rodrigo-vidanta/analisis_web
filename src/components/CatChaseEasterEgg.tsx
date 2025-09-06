@@ -101,7 +101,40 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         let newX = prevPos.x + moveX;
         let newY = prevPos.y + moveY;
         
-        // Mantener dentro de límites - MÁS AMPLIO
+        // REBOTAR EN BORDES - Evitar que se quede atrapado
+        if (newX <= 2) {
+          newX = 2;
+          // Si está escapando hacia la izquierda, cambiar dirección
+          if (moveX < 0) {
+            moveX = Math.abs(moveX) * 0.5; // Rebote con menos fuerza
+          }
+        } else if (newX >= 98) {
+          newX = 98;
+          // Si está escapando hacia la derecha, cambiar dirección
+          if (moveX > 0) {
+            moveX = -Math.abs(moveX) * 0.5; // Rebote con menos fuerza
+          }
+        }
+        
+        if (newY <= 2) {
+          newY = 2;
+          // Si está escapando hacia arriba, cambiar dirección
+          if (moveY < 0) {
+            moveY = Math.abs(moveY) * 0.5; // Rebote con menos fuerza
+          }
+        } else if (newY >= 98) {
+          newY = 98;
+          // Si está escapando hacia abajo, cambiar dirección
+          if (moveY > 0) {
+            moveY = -Math.abs(moveY) * 0.5; // Rebote con menos fuerza
+          }
+        }
+        
+        // Aplicar rebote a la nueva posición
+        newX = prevPos.x + moveX;
+        newY = prevPos.y + moveY;
+        
+        // Mantener dentro de límites finales
         newX = Math.max(2, Math.min(98, newX));
         newY = Math.max(2, Math.min(98, newY));
         
