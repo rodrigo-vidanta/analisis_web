@@ -1,41 +1,126 @@
-# PQNC QA AI Platform - Alpha 1.0
+# PQNC QA AI Platform - v3.0.0 🚀
 
-Sistema avanzado de construcción y análisis de agentes de IA con dashboard de análisis de llamadas PQNC Humans.
+**Plataforma Avanzada de Análisis de Calidad de Llamadas con IA**
 
-## Tecnologías Principales
+Sistema completo de construcción y análisis de agentes de IA con dashboard avanzado de análisis de llamadas PQNC Humans, incluyendo **sistema de retroalimentación**, **visualización completa de datos JSONB**, y **herramientas de productividad**.
+
+---
+
+## 🎯 **Funcionalidades Principales**
+
+### 💬 **Sistema de Retroalimentación** (v1.0)
+- **Modal de retroalimentación** con validación de 1500 caracteres
+- **Botón dinámico** en análisis detallado (azul → verde)
+- **Columna "Retro"** en tabla con tooltips de preview
+- **Historial completo** de cambios con versioning
+- **Base de datos** con 3 tablas relacionadas
+
+### 🔍 **Visualización Completa de Datos JSONB** (v3.0)
+- **UniversalDataView**: Componente revolucionario para mostrar TODOS los datos
+- **8 campos JSONB completos**: comunicacion_data, customer_data, service_offered, agent_performance, script_analysis, call_evaluation, compliance_data, customer_quality
+- **Secciones colapsables** con highlights cuando están cerradas
+- **Manejo inteligente**: null → "No especificado", booleans → ✓/✗, arrays → chips
+- **Indicadores visuales** y botón expandir/colapsar todo
+
+### 🔧 **Mejoras de Productividad** (v2.0)
+- **Sorting de columnas**: Ascendente/descendente en tabla de llamadas
+- **Fecha/hora completa**: Formato DD/MM/YY + hora 12h
+- **Sistema de bookmarks**: 5 colores personalizados por usuario
+- **Filtros avanzados**: Por color de bookmark con contadores
+- **Persistencia local**: Fallback con localStorage
+
+---
+
+## 🛠️ **Tecnologías**
 
 - **React 18.3.1** + **TypeScript 5.5.3**
 - **Vite 6.0.5** - Build tool optimizado
 - **Tailwind CSS 3.4.17** - Styling avanzado con tema dinámico
 - **Supabase 2.48.1** - Backend completo (Auth + Database + Storage)
 - **Zustand 5.0.2** - State management global
+- **Chart.js** - Visualizaciones avanzadas
+- **Framer Motion** - Animaciones fluidas
 
-## Funcionalidades Críticas
+---
 
-### Sistema de Autenticación
-- Login con Supabase Auth
-- Gestión de roles (admin, developer, user)
-- Redirección automática basada en permisos
-- Session management persistente
+## 📊 **Dashboard de Análisis PQNC**
 
-### Dashboard de Análisis PQNC
-- **Métricas principales**: Total llamadas, calidad estándar/ponderada, probabilidad conversión
-- **Filtros avanzados**: Fecha, agente, calidad, resultado, dirección, tipo de llamada
-- **Búsqueda inteligente**: Busca por agente, cliente, ID, resultado, calidad, texto libre
-- **Paginación optimizada**: Máximo 50 elementos por página
-- **Sincronización automática**: Datos en tiempo real desde Supabase
+### **Métricas Principales**
+- Total llamadas, calidad estándar/ponderada, probabilidad conversión
+- **Análisis detallado** con 6 pestañas reorganizadas
+- **Visualización completa** de todos los campos JSONB
+
+### **Filtros y Búsqueda**
+- **Filtros avanzados**: Fecha, agente, calidad, resultado, dirección, tipo
+- **Búsqueda inteligente**: Agente, cliente, ID, resultado, calidad, texto libre
+- **Filtros por bookmark**: Por color con contadores
 - **Top Records**: 10, 30, 50, 100, 200 registros
 
-### Mejoras de UX/UI
-- **Scroll optimizado**: Sin bounce effect, transiciones suaves
-- **Tema dinámico**: Claro/oscuro con variables CSS personalizadas
-- **Responsive**: Optimizado para móviles y desktop
-- **Animaciones**: Entrada suave, scroll reveal, indicador de progreso
-- **Glassmorphism**: Efectos de cristal modernos
+### **Tabla Mejorada**
+- **Sorting**: Todas las columnas ordenables ascendente/descendente
+- **Fecha/hora**: Formato completo DD/MM/YY + hora 12h
+- **Columna Retro**: Estados dinámicos con tooltips
+- **Columna Bookmarks**: Selector de 5 colores minimalista
+- **Iconos elegantes**: Reemplazo de emojis por iconos SVG
 
-## Configuraciones Críticas
+---
 
-### Variables de Entorno
+## 🏗️ **Arquitectura y Componentes**
+
+### **Nuevos Componentes (v3.0)**
+```
+src/components/analysis/
+├── UniversalDataView.tsx      # Visualización avanzada de datos JSONB
+├── FeedbackModal.tsx          # Modal de retroalimentación
+├── FeedbackTooltip.tsx        # Tooltip de preview
+├── BookmarkSelector.tsx       # Selector de bookmarks
+└── BookmarkFilter.tsx         # Filtro por bookmarks
+```
+
+### **Nuevos Servicios**
+```
+src/services/
+├── feedbackService.ts         # CRUD de retroalimentaciones
+└── bookmarkService.ts         # CRUD de bookmarks
+```
+
+### **Base de Datos Extendida**
+```sql
+-- Nuevas tablas
+call_feedback                  # Retroalimentaciones principales
+call_feedback_history          # Historial de cambios
+call_feedback_interactions     # Interacciones de usuarios
+call_bookmarks                 # Bookmarks por usuario
+```
+
+### **Documentación Completa**
+```
+docs/
+├── DATABASE_README.md         # Estructura completa de BD
+├── FEEDBACK_SCHEMA.sql        # Schema de retroalimentaciones
+└── BOOKMARKS_SCHEMA.sql       # Schema de bookmarks
+
+CHANGELOG_FEEDBACK.md          # Changelog de retroalimentación
+CHANGELOG_MEJORAS_AVANZADAS.md # Changelog de mejoras UX
+CHANGELOG_COMPLETO.md          # Changelog completo del proyecto
+```
+
+---
+
+## 📈 **Métricas del Proyecto**
+
+- **📁 Archivos creados**: 8 componentes + 6 documentos
+- **📝 Líneas de código**: ~3,200 nuevas
+- **🗄️ Tablas de BD**: 4 nuevas
+- **⚡ Funciones RPC**: 8 nuevas
+- **🎨 Componentes React**: 6 nuevos
+- **🔧 Servicios**: 2 nuevos
+
+---
+
+## 🚀 **Instalación y Configuración**
+
+### **Variables de Entorno**
 ```bash
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key

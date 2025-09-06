@@ -1,5 +1,14 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Chart, registerables } from 'chart.js/auto';
+// RETROALIMENTACIÓN: Importaciones para el sistema de feedback
+import FeedbackModal from './FeedbackModal';
+import { feedbackService, type FeedbackData } from '../../services/feedbackService';
+import { useAuth } from '../../contexts/AuthContext';
+// NUEVAS VISTAS: Componentes para mostrar información completa
+import ComplianceDataView from './ComplianceDataView';
+import CustomerDataView from './CustomerDataView';
+import ComplianceChart from './ComplianceChart';
+import UniversalDataView from './UniversalDataView';
 
 Chart.register(...registerables);
 
@@ -52,6 +61,8 @@ interface DetailedCallViewProps {
   ponderacionConfig: PonderacionConfig;
   enabledWidgets: DashboardWidget[];
   onClose: () => void;
+  // RETROALIMENTACIÓN: Callback para notificar cambios al componente padre
+  onFeedbackChange?: (callId: string, feedbackData: FeedbackData | null) => void;
 }
 
 type TabType = 'summary' | 'performance' | 'script' | 'compliance' | 'customer' | 'raw-data';
@@ -59,11 +70,18 @@ type TabType = 'summary' | 'performance' | 'script' | 'compliance' | 'customer' 
 const DetailedCallView: React.FC<DetailedCallViewProps> = ({
   call,
   transcript,
-  onClose
+  onClose,
+  onFeedbackChange
 }) => {
   const chartRefs = useRef<{ [key: string]: Chart | null }>({});
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [collapsedSegments, setCollapsedSegments] = useState<Set<string>>(new Set());
+  
+  // RETROALIMENTACIÓN: Estados para el sistema de feedback
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackData, setFeedbackData] = useState<FeedbackData | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const { user } = useAuth();
 
   // Canvas refs para las gráficas
   const performanceCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -73,8 +91,58 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
   useEffect(() => {
     setCollapsedSegments(new Set(transcript.map(segment => segment.id)));
   }, [transcript]);
+  
+  // RETROALIMENTACIÓN: Cargar feedback existente al abrir el componente
+  useEffect(() => {
+    const loadExistingFeedback = async () => {
+      if (!call.id) return;
+      
+      try {
+        setFeedbackLoading(true);
+        const existingFeedback = await feedbackService.getFeedback(call.id);
+        setFeedbackData(existingFeedback);
+      } catch (error) {
+        console.error('Error cargando retroalimentación existente:', error);
+      } finally {
+        setFeedbackLoading(false);
+      }
+    };
+    
+    loadExistingFeedback();
+  }, [call.id]);
 
   const scorePonderado = call.quality_score; // Simplified for now
+  
+  // DEBUGGING: Verificar qué datos están llegando
+  useEffect(() => {
+    console.log('🔍 DEBUGGING DETAILED CALL VIEW - Datos recibidos:', {
+      callId: call.id,
+      customerName: call.customer_name,
+      hasComplianceData: !!(call as any).compliance_data,
+      hasCustomerData: !!(call as any).customer_data,
+      hasAgentPerformance: !!(call as any).agent_performance,
+      hasScriptAnalysis: !!(call as any).script_analysis,
+      hasCallEvaluation: !!(call as any).call_evaluation,
+      hasServiceOffered: !!(call as any).service_offered,
+      hasCommunicationData: !!(call as any).comunicacion_data,
+      allKeys: Object.keys(call)
+    });
+    
+    // Log de datos específicos
+    if ((call as any).compliance_data) {
+      console.log('🔍 COMPLIANCE DATA ENCONTRADA:', (call as any).compliance_data);
+    } else {
+      console.log('❌ NO HAY COMPLIANCE DATA');
+    }
+    
+    if ((call as any).customer_data) {
+      console.log('🔍 CUSTOMER DATA ENCONTRADA:', (call as any).customer_data);
+    } else {
+      console.log('❌ NO HAY CUSTOMER DATA');
+    }
+    
+    console.log('🔍 CALL OBJECT COMPLETO:', call);
+  }, [call]);
 
   // Effect para crear gráfica de barras en Performance
   useEffect(() => {
@@ -292,6 +360,44 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
     }
     
     return conversations;
+  };
+
+  // RETROALIMENTACIÓN: Funciones para manejar el feedback
+  const handleOpenFeedbackModal = () => {
+    setShowFeedbackModal(true);
+  };
+  
+  const handleCloseFeedbackModal = () => {
+    setShowFeedbackModal(false);
+  };
+  
+  const handleSaveFeedback = async (newFeedbackData: FeedbackData) => {
+    try {
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      // Guardar en la base de datos
+      const savedFeedback = await feedbackService.upsertFeedback(
+        call.id,
+        newFeedbackData.feedback_text,
+        user.id
+      );
+      
+      // Actualizar el estado local
+      setFeedbackData(savedFeedback);
+      
+      // RETROALIMENTACIÓN: Notificar al componente padre sobre el cambio
+      if (onFeedbackChange) {
+        onFeedbackChange(call.id, savedFeedback);
+      }
+      
+      console.log('✅ Retroalimentación guardada exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error guardando retroalimentación:', error);
+      throw error; // Re-throw para que el modal pueda manejarlo
+    }
   };
 
   // Función para resaltar momentos clave
@@ -517,6 +623,18 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
       case 'performance':
         return (
           <div className="p-6 space-y-6">
+            
+            {/* PERFORMANCE COMPLETO DEL AGENTE */}
+            <UniversalDataView
+              data={call.agent_performance || {}}
+              title="Performance Completo del Agente"
+              icon={
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              }
+            />
+            
             {/* Gráfico principal */}
             <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
@@ -525,7 +643,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                Performance del Agente
+                Gráfica de Performance
               </h3>
               {renderPerformanceChart()}
             </div>
@@ -752,150 +870,159 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                 )}
               </div>
             </div>
+            
+            {/* Nueva Gráfica de Compliance de Alto Impacto en Performance */}
+            {(call as any).compliance_data && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  </div>
+                  Cumplimiento Normativo
+                </h3>
+                
+                <ComplianceChart 
+                  complianceData={(call as any).compliance_data}
+                />
+              </div>
+            )}
           </div>
         );
 
       case 'compliance':
         return (
           <div className="p-6 space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                Análisis de Compliance
-              </h3>
-              
-              <div className="space-y-6">
-                {/* Información básica de la llamada */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Agente</h4>
-                    <p className="text-slate-600 dark:text-slate-400">{call.agent_name}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Dirección</h4>
-                    <p className="text-slate-600 dark:text-slate-400">{call.direction}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Duración</h4>
-                    <p className="text-slate-600 dark:text-slate-400">{call.duration}</p>
-                  </div>
-                </div>
-
-                {/* Calidad de la llamada */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Calidad General</h4>
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-blue-600">{call.quality_score}</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">Score de Calidad</div>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Resultado</h4>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-slate-900 dark:text-white capitalize">
-                        {call.call_result.replace('_', ' ')}
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">Resultado de la Llamada</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Datos de compliance si existen */}
-                {(call as any).compliance_data && (
-                  <div>
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Datos de Compliance</h4>
-                    <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-4">
-                      <pre className="text-xs overflow-auto max-h-80 whitespace-pre-wrap analysis-scroll">
-                        {JSON.stringify((call as any).compliance_data, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            
+            {/* DATOS DE COMPLIANCE */}
+            <UniversalDataView
+              data={call.compliance_data || {}}
+              title="Datos de Compliance"
+              icon={
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              }
+            />
+            
+            {/* EVALUACIÓN GENERAL DE LA LLAMADA */}
+            <UniversalDataView
+              data={call.call_evaluation || {}}
+              title="Evaluación General de la Llamada"
+              icon={
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              }
+            />
+            
+            {/* ANÁLISIS DEL SCRIPT */}
+            <UniversalDataView
+              data={call.script_analysis || {}}
+              title="Análisis del Script"
+              icon={
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              }
+            />
+            
           </div>
         );
 
       case 'customer':
         return (
           <div className="p-6 space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                Información del Cliente
-              </h3>
-              
-              <div className="space-y-6">
-                {/* Datos básicos del cliente */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Nombre</h4>
-                    <p className="text-lg text-slate-600 dark:text-slate-400">{call.customer_name}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Calidad</h4>
-                    <p className="text-lg text-slate-600 dark:text-slate-400">{call.customer_quality || 'No especificada'}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Organización</h4>
-                    <p className="text-lg text-slate-600 dark:text-slate-400">{call.organization}</p>
-                  </div>
-                </div>
-
-                {/* Métricas de rapport del cliente */}
-                {call.comunicacion_data?.rapport_metricas && (
-                  <div>
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Métricas de Rapport</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
-                        <div className="text-2xl font-bold text-blue-600">{call.comunicacion_data.rapport_metricas.empatia}</div>
-                        <div className="text-sm text-blue-700 dark:text-blue-300">Empatía</div>
-                      </div>
-                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
-                        <div className="text-2xl font-bold text-green-600">{call.comunicacion_data.rapport_metricas.escucha_activa}</div>
-                        <div className="text-sm text-green-700 dark:text-green-300">Escucha Activa</div>
-                      </div>
-                      <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
-                        <div className="text-2xl font-bold text-purple-600">{call.comunicacion_data.rapport_metricas.personalizacion}</div>
-                        <div className="text-sm text-purple-700 dark:text-purple-300">Personalización</div>
-                      </div>
-                      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg text-center">
-                        <div className="text-2xl font-bold text-indigo-600">{call.comunicacion_data.rapport_metricas.score_ponderado}</div>
-                        <div className="text-sm text-indigo-700 dark:text-indigo-300">Score Ponderado</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Datos del cliente si existen */}
-                {(call as any).customer_data && (
-                  <div>
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Datos Adicionales del Cliente</h4>
-                    <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-4">
-                      <pre className="text-xs overflow-auto max-h-64 whitespace-pre-wrap analysis-scroll">
-                        {JSON.stringify((call as any).customer_data, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            
+            {/* DATOS DEL CLIENTE */}
+            <UniversalDataView
+              data={call.customer_data || {}}
+              title="Información del Cliente"
+              icon={
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              }
+            />
+            
+            {/* SERVICIO OFRECIDO */}
+            <UniversalDataView
+              data={call.service_offered || {}}
+              title="Servicio Ofrecido"
+              icon={
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              }
+            />
+            
+            {/* DATOS DE COMUNICACIÓN */}
+            <UniversalDataView
+              data={call.comunicacion_data || {}}
+              title="Datos de Comunicación"
+              icon={
+                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              }
+            />
+            
           </div>
         );
 
       case 'raw-data':
         return (
           <div className="p-6 space-y-6">
+            
+            {/* TODOS LOS DATOS ESTRUCTURADOS */}
+            <UniversalDataView
+              data={{
+                informacion_basica: {
+                  id: call.id,
+                  verint_id: call.verint_id,
+                  crm_id: call.crm_id,
+                  agent_id: call.agent_id,
+                  agent_name: call.agent_name,
+                  customer_name: call.customer_name,
+                  phone_numbers: call.phone_numbers,
+                  call_type: call.call_type,
+                  call_result: call.call_result,
+                  requires_followup: call.requires_followup,
+                  start_time: call.start_time,
+                  end_time: call.end_time,
+                  duration: call.duration,
+                  quality_score: call.quality_score,
+                  organization: call.organization,
+                  direction: call.direction
+                },
+                datos_jsonb: {
+                  customer_quality: call.customer_quality,
+                  comunicacion_data: call.comunicacion_data,
+                  customer_data: call.customer_data,
+                  service_offered: call.service_offered,
+                  agent_performance: call.agent_performance,
+                  script_analysis: call.script_analysis,
+                  call_evaluation: call.call_evaluation,
+                  compliance_data: call.compliance_data
+                },
+                metadatos: {
+                  call_summary: call.call_summary,
+                  schema_version: call.schema_version,
+                  created_at: call.created_at,
+                  updated_at: call.updated_at,
+                  audio_file_name: call.audio_file_name,
+                  audio_file_url: call.audio_file_url
+                }
+              }}
+              title="Todos los Datos Técnicos"
+              icon={
+                <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+              }
+            />
+            
             <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center">
                 <div className="w-8 h-8 bg-gradient-to-r from-slate-500 to-slate-600 rounded-lg flex items-center justify-center mr-3">
@@ -981,14 +1108,58 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
               Agente: {call.agent_name} • {call.call_type} • {call.direction}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          
+          {/* RETROALIMENTACIÓN: Botones del header */}
+          <div className="flex items-center gap-3">
+            {/* Botón de Retroalimentación */}
+            <button
+              onClick={handleOpenFeedbackModal}
+              disabled={feedbackLoading}
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2
+                ${feedbackData 
+                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg' 
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
+                }
+                disabled:opacity-50 disabled:cursor-not-allowed
+              `}
+              title={feedbackData ? 'Editar retroalimentación existente' : 'Agregar retroalimentación'}
+            >
+              {feedbackLoading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                    <path fill="currentColor" className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span className="text-sm">Cargando...</span>
+                </>
+              ) : feedbackData ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="text-sm">Editar Retro</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="text-sm">Retroalimentación</span>
+                </>
+              )}
+            </button>
+            
+            {/* Botón de Cerrar */}
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              title="Cerrar análisis detallado"
+            >
+              <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -1015,6 +1186,21 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
           {renderTabContent()}
         </div>
       </div>
+      
+      {/* RETROALIMENTACIÓN: Modal de feedback */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={handleCloseFeedbackModal}
+        callId={call.id}
+        callInfo={{
+          customer_name: call.customer_name,
+          agent_name: call.agent_name,
+          call_type: call.call_type,
+          start_time: call.start_time
+        }}
+        existingFeedback={feedbackData}
+        onSave={handleSaveFeedback}
+      />
     </div>
   );
 };
