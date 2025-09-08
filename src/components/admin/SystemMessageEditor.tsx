@@ -173,7 +173,16 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
         }));
         
         console.log('📝 Prompts del agente cargados:', transformedPrompts.length);
-        setAvailablePrompts(transformedPrompts);
+        
+        // Si hay configuración de squad, organizar los prompts por miembro
+        if (squadConfig && squadConfig.squadMembers.length > 0) {
+          console.log('🔍 Organizando prompts por miembro del squad');
+          // Los prompts ya están organizados por el orden de importación
+          // El primer miembro tiene los primeros prompts, el segundo los siguientes, etc.
+          setAvailablePrompts(transformedPrompts);
+        } else {
+          setAvailablePrompts(transformedPrompts);
+        }
         setIsLoading(false);
         return;
       }
@@ -629,8 +638,82 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
             <p className="text-sm text-slate-500 dark:text-slate-500">Agrega prompts desde el catálogo para comenzar</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {selectedPrompts.filter(p=> roleFilter==='all' || p.role===roleFilter).map((prompt, index) => (
+          <div className="space-y-6">
+            {squadConfig && squadConfig.squadMembers.length > 0 ? (
+              // Mostrar prompts organizados por miembro del squad
+              squadConfig.squadMembers.map((memberName, memberIndex) => {
+                // Calcular el rango de prompts para este miembro
+                const promptsPerMember = Math.ceil(selectedPrompts.length / squadConfig.squadMembers.length);
+                const startIndex = memberIndex * promptsPerMember;
+                const endIndex = Math.min(startIndex + promptsPerMember, selectedPrompts.length);
+                const memberPrompts = selectedPrompts.slice(startIndex, endIndex).filter(p => roleFilter === 'all' || p.role === roleFilter);
+                
+                if (memberPrompts.length === 0) return null;
+                
+                return (
+                  <div key={memberIndex} className="space-y-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-white text-xs ${
+                        memberIndex === 0 ? 'bg-gradient-to-r from-blue-500 to-purple-600' : 'bg-gradient-to-r from-green-500 to-emerald-600'
+                      }`}>
+                        {memberIndex + 1}
+                      </div>
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
+                        {memberName} ({memberPrompts.length} roles)
+                      </h4>
+                      {memberIndex > 0 && (
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full">
+                          Auto-detectado
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {memberPrompts.map((prompt, promptIndex) => (
+                        <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-4">
+                                <div className="flex items-center justify-center w-7 h-7 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-lg font-semibold">
+                                  {startIndex + promptIndex + 1}
+                                </div>
+                                <h5 className="font-semibold text-slate-900 dark:text-white">{prompt.title}</h5>
+                                
+                                <div className="flex items-center gap-2">
+                                  {prompt.is_required && (
+                                    <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs rounded-full font-medium">
+                                      Requerido
+                                    </span>
+                                  )}
+                                  {prompt.is_customized && (
+                                    <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded-full font-medium">
+                                      Personalizado
+                                    </span>
+                                  )}
+                                  <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs rounded-full font-medium">
+                                    {prompt.role}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <textarea
+                                value={prompt.is_customized ? (prompt.custom_content || prompt.content) : prompt.content}
+                                onChange={(e) => updatePromptContent(prompt.id, e.target.value)}
+                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg text-sm resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white transition-colors"
+                                rows={4}
+                                placeholder="Contenido del prompt..."
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              // Mostrar prompts normalmente (sin squad)
+              selectedPrompts.filter(p=> roleFilter==='all' || p.role===roleFilter).map((prompt, index) => (
               <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -704,7 +787,8 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         )}
       </div>

@@ -111,7 +111,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
     <div className="glass-card">
       <div className="grid grid-cols-1 lg:grid-cols-4 min-h-[480px]">
         {/* Nav lateral */}
-        <div className="lg:col-span-1 border-r border-slate-200 p-6 space-y-2">
+        <div className="lg:col-span-1 border-r border-slate-200 dark:border-slate-700 p-6 space-y-2">
           {[
             {id:'identity',label:'Identidad',icon:(
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A9 9 0 1118.364 4.56 9 9 0 015.12 17.804z"/></svg>
@@ -135,7 +135,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M12 14a5 5 0 100-10 5 5 0 000 10z"/></svg>
             )}] : [])
           ].map((s:any)=> (
-            <button key={s.id} onClick={()=>setActiveSection(s.id)} className={`w-full text-left px-4 py-3 rounded-lg transition ${activeSection===s.id? 'bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-200 text-purple-700':'text-slate-600 hover:bg-slate-100'}` }>
+            <button key={s.id} onClick={()=>setActiveSection(s.id)} className={`w-full text-left px-4 py-3 rounded-lg transition ${activeSection===s.id? 'bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-200 dark:border-purple-500 text-purple-700 dark:text-purple-300':'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}` }>
               <div className="flex items-center gap-3">
                 {s.icon}
                 <span className="font-medium">{s.label}</span>
@@ -147,11 +147,11 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
         {/* Contenido */}
         <div className="lg:col-span-3 p-6 space-y-6">
         {activeSection==='identity' && (
-          <div className="bg-white border border-slate-200 rounded-lg p-6">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">Identidad del Agente</h4>
+          <div className="glass-card p-6">
+            <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Identidad del Agente</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Nombre del Agente
             </label>
             <input
@@ -159,12 +159,12 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
               value={agentIdentity.name}
               onChange={(e) => updateAgentIdentity('name', e.target.value)}
               placeholder="Ej: Ana - Asistente de Ventas"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Primer Mensaje
             </label>
             <input
@@ -172,12 +172,12 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
               value={agentIdentity.firstMessage}
               onChange={(e) => updateAgentIdentity('firstMessage', e.target.value)}
               placeholder="Mensaje de saludo inicial"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
             />
           </div>
           
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Descripción del Agente
             </label>
             <textarea
@@ -185,12 +185,12 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
               onChange={(e) => updateAgentIdentity('description', e.target.value)}
               placeholder="Breve descripción de qué hace este agente"
               rows={2}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
             />
           </div>
           
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Instrucciones Personalizadas
             </label>
             <textarea
@@ -198,7 +198,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
               onChange={(e) => updateAgentIdentity('customInstructions', e.target.value)}
               placeholder="Instrucciones específicas para este agente..."
               rows={3}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
             />
           </div>
             </div>
@@ -206,15 +206,15 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
         )}
 
         {activeSection==='model' && (
-          <div className="bg-white border border-slate-200 rounded-lg p-6">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">Modelo de IA</h4>
+          <div className="glass-card p-6">
+            <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Modelo de IA</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Proveedor</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Proveedor</label>
             <select
               value={currentParams.model?.provider || 'openai'}
               onChange={(e) => updateParameter('model', 'provider', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
             >
               <option value="openai">OpenAI</option>
               <option value="anthropic">Anthropic</option>
@@ -222,11 +222,11 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Modelo</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Modelo</label>
             <select
               value={currentParams.model?.model || 'gpt-4o'}
               onChange={(e) => updateParameter('model', 'model', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
             >
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4-0125-preview">GPT-4 Preview</option>
@@ -235,7 +235,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Temperature ({currentParams.model?.temperature || 0.75})
             </label>
             <input
@@ -253,48 +253,48 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
         )}
 
         {activeSection==='voice' && (
-          <div className="bg-white border border-slate-200 rounded-lg p-6">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">Voz</h4>
+          <div className="glass-card p-6">
+            <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Voz</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Proveedor</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Proveedor</label>
                 <select
                   value={currentParams.voice?.provider || '11labs'}
                   onChange={(e) => updateParameter('voice', 'provider', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
                 >
                   <option value="11labs">11labs</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Voice ID</label>
-                <input className="w-full px-3 py-2 border border-slate-300 rounded-md" value={currentParams.voice?.voiceId || 'default'} onChange={(e)=>updateParameter('voice','voiceId',e.target.value)} />
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Voice ID</label>
+                <input className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 dark:text-white" value={currentParams.voice?.voiceId || 'default'} onChange={(e)=>updateParameter('voice','voiceId',e.target.value)} />
               </div>
             </div>
           </div>
         )}
 
         {activeSection==='transcriber' && (
-          <div className="bg-white border border-slate-200 rounded-lg p-6">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">Transcripción</h4>
+          <div className="glass-card p-6">
+            <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Transcripción</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Proveedor</label>
-                <select className="w-full px-3 py-2 border border-slate-300 rounded-md" value={currentParams.transcriber?.provider || 'deepgram'} onChange={(e)=>updateParameter('transcriber','provider',e.target.value)}>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Proveedor</label>
+                <select className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 dark:text-white" value={currentParams.transcriber?.provider || 'deepgram'} onChange={(e)=>updateParameter('transcriber','provider',e.target.value)}>
                   <option value="deepgram">Deepgram</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Modelo</label>
-                <input className="w-full px-3 py-2 border border-slate-300 rounded-md" value={currentParams.transcriber?.model || 'nova-3'} onChange={(e)=>updateParameter('transcriber','model',e.target.value)} />
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Modelo</label>
+                <input className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 dark:text-white" value={currentParams.transcriber?.model || 'nova-3'} onChange={(e)=>updateParameter('transcriber','model',e.target.value)} />
               </div>
             </div>
           </div>
         )}
 
         {activeSection==='behavior' && (
-          <div className="bg-white border border-slate-200 rounded-lg p-6">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">Comportamiento</h4>
+          <div className="glass-card p-6">
+            <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Comportamiento</h4>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -304,7 +304,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
                 <select
                   value={currentParams.behavior?.backgroundSound || 'office'}
                   onChange={(e) => updateParameter('behavior', 'backgroundSound', e.target.value)}
-                  className="px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
                 >
                   <option value="office">Oficina</option>
                   <option value="none">Sin sonido</option>
@@ -323,7 +323,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
                   step="60"
                   value={currentParams.behavior?.maxDurationSeconds || 1800}
                   onChange={(e) => updateParameter('behavior', 'maxDurationSeconds', parseInt(e.target.value))}
-                  className="w-24 px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-24 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
                 />
               </div>
             </div>
@@ -331,14 +331,14 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
         )}
 
         {activeSection==='call' && (
-          <div className="bg-white border border-slate-200 rounded-lg p-6">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">Llamada</h4>
+          <div className="glass-card p-6">
+            <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Llamada</h4>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Mensaje de fin de llamada (End Call)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mensaje de fin de llamada (End Call)</label>
                 <textarea
                   rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 dark:text-white"
                   value={currentParams.behavior?.endCallMessage || ''}
                   onChange={(e)=>updateParameter('behavior','endCallMessage', e.target.value)}
                 />
@@ -348,15 +348,15 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
         )}
 
         {activeSection==='squad' && squadEnabled && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
-          <h4 className="text-md font-semibold text-amber-900 mb-4">⭐ Configuración de Squad</h4>
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-6">
+          <h4 className="text-lg font-semibold text-amber-900 dark:text-amber-100 mb-4">⭐ Configuración de Squad</h4>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-amber-800 mb-2">Tipo de Transferencia</label>
+              <label className="block text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">Tipo de Transferencia</label>
               <select
                 value={squadConfig.transferType}
                 onChange={(e) => updateSquadConfig('transferType', e.target.value)}
-                className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-500 bg-white"
+                className="w-full px-3 py-2 border border-amber-300 dark:border-amber-600 rounded-lg focus:ring-2 focus:ring-amber-500 bg-white dark:bg-slate-800 dark:text-white"
               >
                 <option value="assistant">A otro agente del squad</option>
                 <option value="phone">A número telefónico</option>
@@ -371,18 +371,18 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({
                   value={squadConfig.destinationNumber}
                   onChange={(e) => updateSquadConfig('destinationNumber', e.target.value)}
                   placeholder="Ej: +52 33 1234 5678"
-                  className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 border border-amber-300 dark:border-amber-600 rounded-lg focus:ring-2 focus:ring-amber-500 dark:bg-slate-800 dark:text-white"
                 />
               </div>
             )}
             
             <div>
-              <label className="block text-sm font-medium text-amber-800 mb-2">Mensaje de Transferencia</label>
+              <label className="block text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">Mensaje de Transferencia</label>
               <textarea
                 value={squadConfig.transferMessage}
                 onChange={(e) => updateSquadConfig('transferMessage', e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-amber-300 dark:border-amber-600 rounded-lg focus:ring-2 focus:ring-amber-500 dark:bg-slate-800 dark:text-white"
                 placeholder="Mensaje que dirá el agente antes de transferir..."
               />
             </div>

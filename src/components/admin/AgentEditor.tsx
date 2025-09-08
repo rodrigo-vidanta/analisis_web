@@ -433,6 +433,8 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
               selectedTools={agentData.defaultTools || []}
               category={typeof agentData.category === 'string' ? agentData.category : agentData.category?.name || ''}
               onUpdate={(tools: any[]) => updateAgentData({ defaultTools: tools })}
+              squadMembers={squadMembers}
+              squadEnabled={squadEnabled}
             />
           )}
           

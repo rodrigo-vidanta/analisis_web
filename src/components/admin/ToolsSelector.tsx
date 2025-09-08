@@ -9,10 +9,21 @@ interface SelectedTool extends ToolCatalog {
   customConfig?: any;
 }
 
+interface SquadMember {
+  id: string;
+  name: string;
+  originalMessages?: any[];
+  assistant?: {
+    tools?: any[];
+  };
+}
+
 interface ToolsSelectorProps {
   selectedTools: SelectedTool[];
   category: string;
   onUpdate: (tools: SelectedTool[]) => void;
+  squadMembers?: SquadMember[];
+  squadEnabled?: boolean;
 }
 
 interface ToolParameterConfig {
@@ -27,7 +38,7 @@ interface ToolParameterConfig {
   };
 }
 
-const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, onUpdate }) => {
+const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, onUpdate, squadMembers = [], squadEnabled = false }) => {
   const [availableTools, setAvailableTools] = useState<ToolCatalog[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [editingTool, setEditingTool] = useState<string | null>(null);
@@ -404,6 +415,70 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Squad Tools Section */}
+      {squadEnabled && squadMembers.length > 0 && (
+        <div className="space-y-4">
+          <h4 className="text-md font-medium text-slate-900">Herramientas del Squad</h4>
+          <div className="space-y-4">
+            {squadMembers.map((member, index) => {
+              const memberTools = member.assistant?.tools || [];
+              const isDetectedMember = member.id.startsWith('member-');
+              
+              return (
+                <div key={member.id} className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-white text-xs ${
+                      isDetectedMember ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-blue-500 to-purple-600'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-slate-900 dark:text-white">{member.name}</h5>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {memberTools.length} herramienta{memberTools.length !== 1 ? 's' : ''}
+                        {isDetectedMember && ' • Auto-detectado'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {memberTools.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {memberTools.map((tool: any, toolIndex: number) => (
+                        <div key={toolIndex} className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                              <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            </div>
+                            <h6 className="font-medium text-slate-900 dark:text-white text-sm">
+                              {tool.name || tool.type || `Tool ${toolIndex + 1}`}
+                            </h6>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                            {tool.description || 'Sin descripción'}
+                          </p>
+                          <div className="mt-2">
+                            <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">
+                              {tool.type || 'function'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                      No hay herramientas configuradas para este miembro
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

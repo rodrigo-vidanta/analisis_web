@@ -1,7 +1,7 @@
 # 📋 CHANGELOG COMPLETO - Plataforma PQNC QA AI
 
 **Fecha:** 2025-01-24  
-**Versión:** 3.2.0  
+**Versión:** 1.0.7  
 **Proyecto:** Plataforma de Análisis de Calidad de Llamadas PQNC
 
 ---
@@ -20,6 +20,61 @@ La plataforma PQNC QA AI ha evolucionado significativamente con **5 versiones pr
 **Componentes nuevos**: 7  
 **Servicios nuevos**: 3  
 **Tablas de BD nuevas**: 4
+
+---
+
+## 🔧 **VERSIÓN 1.0.7 - CORRECCIÓN DE IMPORTACIÓN Y VISUALIZACIÓN DE SQUADS** (2025-01-24 18:30)
+
+### 🎯 **Correcciones Críticas de Importación**
+
+#### **Problemas Resueltos**:
+- ✅ **Error 404 en herramientas**: Corregido nombre de tabla `tool_catalog` → `tools_catalog`
+- ✅ **Roles no separados**: Los roles del squad ahora se muestran organizados por miembro
+- ✅ **Modo oscuro inconsistente**: Estilos visuales corregidos en sección de parámetros
+
+#### **Archivos Modificados**:
+
+##### **1. ImportAgentModal.tsx**
+- **Corrección de tabla**: `from('tool_catalog')` → `from('tools_catalog')`
+- **Prevención de conflictos**: Verificación de relaciones existentes en `agent_tools`
+- **Preservación de squad**: Lógica mejorada para mantener estructura de squad
+
+##### **2. SystemMessageEditor.tsx**
+- **Separación por miembro**: Roles organizados por miembro del squad
+- **Identificación visual**: Encabezados con número y nombre de miembro
+- **Etiquetas distintivas**: "Auto-detectado" para miembros del squad
+
+##### **3. ToolsSelector.tsx**
+- **Herramientas del squad**: Nueva sección para mostrar herramientas por miembro
+- **Props extendidas**: `squadMembers` y `squadEnabled` agregadas
+- **Visualización mejorada**: Herramientas organizadas por miembro
+
+##### **4. ParametersEditor.tsx**
+- **Modo oscuro completo**: Todos los elementos con soporte para dark mode
+- **Navegación lateral**: Botones con estilos consistentes
+- **Inputs y selects**: Colores y bordes corregidos para modo oscuro
+- **Sección de squad**: Estilo mejorado con soporte para modo oscuro
+
+##### **5. AgentCV.tsx**
+- **Información de squad**: Nueva sección para mostrar detalles del squad
+- **Miembros y roles**: Visualización de cada miembro con sus roles
+- **Herramientas por miembro**: Herramientas específicas de cada miembro
+
+##### **6. AgentEditor.tsx**
+- **Props de squad**: Pasa `squadMembers` y `squadEnabled` a ToolsSelector
+- **Integración mejorada**: Mejor comunicación entre componentes
+
+#### **Mejoras Técnicas**:
+- **Consistencia visual**: Todos los elementos siguen el lineamiento de diseño
+- **Modo oscuro perfecto**: Colores y contrastes corregidos
+- **Organización de datos**: Squad structure correctamente interpretada
+- **Error handling**: Prevención de conflictos en base de datos
+
+#### **Resultado**:
+- **Importación exitosa**: Sin errores 404 o 409
+- **Visualización correcta**: Roles y herramientas separados por miembro
+- **UI consistente**: Modo oscuro perfecto en todas las secciones
+- **Experiencia mejorada**: Navegación fluida y clara
 
 ---
 

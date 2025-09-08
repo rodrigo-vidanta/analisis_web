@@ -1,5 +1,23 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 1.0.7 (Enero 2025)
+
+### Correcciones Críticas de Importación y Visualización
+- **Error 404 en herramientas**: Corregido nombre de tabla `tool_catalog` → `tools_catalog`
+- **Roles no separados**: Los roles del squad ahora se muestran organizados por miembro
+- **Modo oscuro inconsistente**: Estilos visuales corregidos en sección de parámetros
+- **Importación de squads**: Lógica mejorada para preservar estructura de squad
+- **Visualización de herramientas**: Herramientas organizadas por miembro del squad
+- **UI consistente**: Modo oscuro perfecto en todas las secciones
+
+### Archivos Modificados
+- `ImportAgentModal.tsx` - Corrección de tabla y prevención de conflictos
+- `SystemMessageEditor.tsx` - Separación de roles por miembro
+- `ToolsSelector.tsx` - Herramientas del squad por miembro
+- `ParametersEditor.tsx` - Modo oscuro completo
+- `AgentCV.tsx` - Información de squad
+- `AgentEditor.tsx` - Integración mejorada
+
 ## Alpha 1.0 (Enero 2024)
 
 ### Tecnologías Principales

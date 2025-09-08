@@ -55,6 +55,53 @@ export interface AgentCategory {
   updated_at: string;
 }
 
+export interface SystemVariable {
+  id: string;
+  variable_name: string;
+  display_name: string;
+  variable_code: string;
+  description?: string;
+  category: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PhoneNumber {
+  id: string;
+  phone_id: string;
+  phone_number: string;
+  description: string;
+  country_code: string;
+  is_active: boolean;
+  created_by_user?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentWizardStep {
+  id: string;
+  agent_template_id: string;
+  step_number: number;
+  step_name: string;
+  step_data: any;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentDraft {
+  id: string;
+  user_id?: string;
+  draft_name: string;
+  base_template_id?: string;
+  wizard_data: any;
+  generated_json?: any;
+  status: 'draft' | 'completed' | 'generated';
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AgentTemplate {
   id: string;
   name: string;

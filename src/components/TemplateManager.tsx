@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { AgentTemplate, SystemMessage, Tool } from '../data/database-structure';
+import type { AgentTemplate } from '../config/supabase';
 import { SYSTEM_MESSAGES_LIBRARY, TOOLS_LIBRARY, AGENT_TEMPLATES } from '../data/agent-templates';
+
+// Importar tipos desde agent-templates que ya los re-exporta
+type SystemMessage = typeof SYSTEM_MESSAGES_LIBRARY[0];
+type Tool = typeof TOOLS_LIBRARY[0];
 
 interface TemplateManagerProps {
   onClose: () => void;
