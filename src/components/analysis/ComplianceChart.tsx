@@ -214,7 +214,7 @@ const ComplianceChart: React.FC<ComplianceChartProps> = ({
             Elementos Obligatorios ({elementos.filter(e => e.mencionado).length}/{elementos.length})
           </h4>
           
-          <div className="space-y-2 max-h-40 overflow-y-auto">
+          <div className="space-y-2 max-h-48 overflow-y-auto">
             {elementos.map((elemento, index) => (
               <div key={index} className={`flex items-center gap-3 p-2 rounded-lg ${
                 elemento.mencionado 

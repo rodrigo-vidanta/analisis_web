@@ -30,6 +30,49 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
   className = ""
 }) => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+  // Efecto para inicializar las secciones expandidas cuando los datos cambien
+  React.useEffect(() => {
+    // Si el título está vacío (performance context), expandir todas las secciones por defecto
+    if (title === '') {
+      const allSections = Object.keys(data || {}).filter(key => {
+        const excludedSections = ['areas_performance', 'Score_ponderado', 'score_ponderado', 'metricas_calculadas'];
+        return !excludedSections.includes(key);
+      });
+      setExpandedSections(new Set(allSections));
+      return;
+    }
+    
+    // Si es compliance, evaluación general o customer, expandir todo por defecto
+    if (title === 'Datos de Compliance' || title === 'Evaluación General de la Llamada' || 
+        title === 'Información del Cliente' || title === 'Servicio Ofrecido' || title === 'Datos de Comunicación') {
+      const allSections = Object.keys(data || {}).filter(key => {
+        if (title === 'Datos de Compliance') {
+          const excludedSections = ['metricas_cumplimiento'];
+          return !excludedSections.includes(key);
+        }
+        if (title === 'Evaluación General de la Llamada') {
+          const excludedSections = ['FODA', 'analisisGeneral'];
+          return !excludedSections.includes(key);
+        }
+        if (title === 'Datos de Comunicación') {
+          const excludedSections = ['metricas_chunks', 'rapport_metricas', 'metricas_derivadas'];
+          return !excludedSections.includes(key);
+        }
+        if (title === 'Información del Cliente') {
+          // Asegurar que 'estadia' y 'patrones' estén expandidos por defecto
+          const excludedSections = ['metricas_chunks', 'rapport_metricas', 'metricas_derivadas'];
+          return !excludedSections.includes(key);
+        }
+        return true;
+      });
+      setExpandedSections(new Set(allSections));
+      return;
+    }
+    
+    // Por defecto, no expandir nada
+    setExpandedSections(new Set());
+  }, [data, title]);
   
   // ============================================
   // HELPERS
@@ -87,7 +130,36 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
   const getSections = (): Section[] => {
     if (!data || typeof data !== 'object') return [];
     
-    return Object.entries(data).map(([key, value]) => ({
+    // Filtrar secciones no deseadas según el contexto
+    const filteredEntries = Object.entries(data).filter(([key]) => {
+      // Si el título está vacío, es performance context y filtramos ciertas secciones
+      if (title === '') {
+        const excludedSections = ['areas_performance', 'Score_ponderado', 'score_ponderado', 'metricas_calculadas'];
+        return !excludedSections.includes(key);
+      }
+      
+      // Si es compliance context, filtrar secciones específicas
+      if (title === 'Datos de Compliance') {
+        const excludedSections = ['metricas_cumplimiento'];
+        return !excludedSections.includes(key);
+      }
+      
+      // Si es evaluación general, filtrar secciones específicas
+      if (title === 'Evaluación General de la Llamada') {
+        const excludedSections = ['FODA', 'analisisGeneral'];
+        return !excludedSections.includes(key);
+      }
+      
+      // Si es datos de comunicación, filtrar secciones específicas
+      if (title === 'Datos de Comunicación') {
+        const excludedSections = ['metricas_chunks', 'rapport_metricas', 'metricas_derivadas'];
+        return !excludedSections.includes(key);
+      }
+      
+      return true;
+    });
+    
+    return filteredEntries.map(([key, value]) => ({
       key,
       title: formatSectionTitle(key),
       data: value,
@@ -105,7 +177,7 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
       patrones: 'Patrones de Comunicación',
       rapport_metricas: 'Métricas de Rapport',
       metricas_derivadas: 'Métricas Derivadas',
-      datos_originales: 'Datos Originales',
+      datos_originales: 'Evaluación Detallada',
       areas_performance: 'Áreas de Performance',
       metricas_calculadas: 'Métricas Calculadas',
       etapas: 'Etapas del Script',
@@ -290,22 +362,29 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
   return (
     <div className={`space-y-4 ${className}`}>
       
-      {/* Header principal */}
-      <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-            {icon}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              {title}
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              {sections.length} secciones disponibles
-            </p>
+      {/* Header principal - Solo mostrar si hay título */}
+      {title && (
+        <div className={`bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg p-4 ${
+          title === 'Datos de Compliance' || title === 'Evaluación General de la Llamada' || 
+          title === 'Información del Cliente' || title === 'Servicio Ofrecido' || title === 'Datos de Comunicación'
+            ? '' 
+            : 'border border-slate-200 dark:border-slate-700'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+              {icon}
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {title}
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                {sections.length} secciones disponibles
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
       
       {/* Secciones colapsables */}
       <div className="space-y-3">

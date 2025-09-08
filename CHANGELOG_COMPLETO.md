@@ -1,7 +1,7 @@
 # 📋 CHANGELOG COMPLETO - Plataforma PQNC QA AI
 
 **Fecha:** 2025-01-24  
-**Versión:** 1.0.7  
+**Versión:** 1.0.11  
 **Proyecto:** Plataforma de Análisis de Calidad de Llamadas PQNC
 
 ---
@@ -20,6 +20,218 @@ La plataforma PQNC QA AI ha evolucionado significativamente con **5 versiones pr
 **Componentes nuevos**: 7  
 **Servicios nuevos**: 3  
 **Tablas de BD nuevas**: 4
+
+---
+
+## 🎨 **VERSIÓN 1.0.8 - MEJORAS DE UX/UI Y REORGANIZACIÓN DE ANÁLISIS** (2025-01-24 19:30)
+
+### 🎯 **Mejoras Críticas de Experiencia de Usuario**
+
+#### **Problemas Resueltos**:
+- ✅ **Sorting global**: El ordenamiento ahora aplica a todos los registros, no solo al top seleccionado
+- ✅ **Colores suavizados**: Segmentos de conversación con colores menos brillantes y más amigables
+- ✅ **Reorganización de pestañas**: Mejor estructura y flujo en análisis detallado
+- ✅ **Iconos vectoriales**: Reemplazo de emojis por iconos SVG adaptativos
+- ✅ **Widgets optimizados**: Eliminación de widgets redundantes y mejor distribución
+
+#### **Archivos Modificados**:
+
+##### **1. PQNCDashboard.tsx**
+- **Sorting global**: Ordenamiento aplicado antes del filtro de top records
+- **Widgets reducidos**: Eliminados "Prob. Conversión" y "Tasa de Éxito" 
+- **Grid optimizado**: Cambio de 6 a 4 columnas para mejor distribución
+- **Iconos vectoriales**: Reemplazo de emojis 🔍💡 por SVG adaptativos
+- **SyncON reubicado**: Panel movido después de la tabla de llamadas
+
+##### **2. DetailedCallView.tsx**
+- **Colores suavizados**: `bg-blue-600` → `bg-blue-400/500` para mejor contraste
+- **Performance reordenado**: Gráfica al top, score/fortalezas/áreas, performance completo al final
+- **Script reorganizado**: Balance FODA antes de etapas de conversación
+- **Compliance mejorado**: Gráfica de cumplimiento movida al top
+- **Secciones limpias**: Eliminación de evaluación detallada redundante
+
+##### **3. UniversalDataView.tsx**
+- **Filtros contextuales**: Eliminación automática de secciones según contexto
+- **Expansión por defecto**: Secciones críticas expandidas automáticamente
+- **Bordes condicionales**: Títulos sin borde en compliance y customer
+- **Renombrado**: "datos_originales" → "Evaluación Detallada"
+
+#### **Mejoras de UX/UI**:
+- **Navegación fluida**: Mejor organización de información en pestañas
+- **Consistencia visual**: Iconos vectoriales uniformes y adaptativos
+- **Modo oscuro perfecto**: Colores optimizados para ambos temas
+- **Menos sobrecarga visual**: Eliminación de elementos redundantes
+- **Accesibilidad mejorada**: Mejor contraste y legibilidad
+
+#### **Reorganización de Pestañas**:
+
+**Performance Detallado**:
+1. Gráfica de Performance (top)
+2. Score General, Fortalezas, Áreas de Mejora
+3. Performance Completo del Agente (expandido, sin borde)
+
+**Análisis del Script**:
+1. Balance FODA (antes de etapas)
+2. Etapas de Conversación
+3. Análisis FODA completo
+
+**Datos de Compliance**:
+1. Gráfica de Cumplimiento Normativo (movida desde script)
+2. Datos de Compliance (sin borde, expandido)
+3. Evaluación General (sin borde, expandido)
+4. Resumen de Objeciones (expandido)
+5. Problemas Detectados (expandido)
+6. Etapas del Script (colapsado)
+
+**Información del Cliente**:
+- Todo expandido por defecto
+- Sin bordes en títulos principales
+- Eliminadas métricas redundantes (chunks, rapport, derivadas)
+
+#### **Resultado**:
+- **Navegación optimizada**: Información más accesible y organizada
+- **Rendimiento mejorado**: Menos elementos innecesarios
+- **UI consistente**: Iconos vectoriales y colores armonizados
+- **Experiencia fluida**: Mejor flujo de información y análisis
+
+---
+
+## 🔧 **VERSIÓN 1.0.11 - ELIMINACIÓN DE SCORE DUPLICADO EN PERFORMANCE** (2025-01-24 21:30)
+
+### 🎯 **Corrección Final de Duplicados**
+
+#### **Problema Resuelto**:
+- ✅ **Score duplicado eliminado**: Removida sección "Score_ponderado" duplicada en Performance Completo
+- ✅ **Evaluación Detallada preservada**: Mantenido el resto de la información importante
+- ✅ **Filtrado mejorado**: Agregado tanto "Score_ponderado" como "score_ponderado" a exclusiones
+
+#### **Archivo Modificado**:
+
+##### **UniversalDataView.tsx**
+- **Filtros actualizados**:
+  - Agregado `'score_ponderado'` a `excludedSections` (además del existente `'Score_ponderado'`)
+  - Aplicado en ambas funciones: `useEffect` para expansión y `getSections` para filtrado
+  - Mantenida toda la "Evaluación Detallada" excepto el score duplicado
+
+#### **Resultado**:
+- **Sin duplicados**: Score_ponderado aparece solo en las tarjetas superiores
+- **Información completa**: Evaluación Detallada preservada con todos los demás datos
+- **Consistencia**: Filtrado uniforme en toda la aplicación
+
+---
+
+## 📊 **VERSIÓN 1.0.10 - OPTIMIZACIÓN FINAL DE DISTRIBUCIÓN DE COLUMNAS** (2025-01-24 21:15)
+
+### 🎯 **Perfeccionamiento de Layout de Tabla**
+
+#### **Problemas Resueltos**:
+- ✅ **Distribución optimizada**: Redistribuido espacio entre columnas según contenido real
+- ✅ **Duración completa**: Espacio suficiente para formato completo "00:00:00"
+- ✅ **Nombres más legibles**: Más espacio para agentes con nombres largos
+- ✅ **Acciones compactas**: Reducido espacio innecesario en botones de acción
+- ✅ **Secciones expandidas**: Performance Completo expandido por defecto
+- ✅ **Texto sin sobreposición**: Truncado elegante con tooltips
+
+#### **Archivos Modificados**:
+
+##### **1. PQNCDashboard.tsx**
+- **Distribución optimizada**:
+  - Agente: `w-40` → `w-48` (+32px para nombres largos)
+  - Cliente: `w-40` (mantenido para nombres completos)
+  - Resultado: `w-36` (espacio suficiente para estados)
+  - Score: `w-16` (compacto para números)
+  - Duración: `w-16` → `w-20` (+16px para formato completo)
+  - Fecha: `w-20` (optimizado para formato compacto)
+  - Retro: `w-16` → `w-12` (-25% espacio innecesario)
+  - Ver: `w-16` → `w-12` (-25% espacio innecesario)
+  - Estrella: `w-12` → `w-8` (-33% más compacto)
+
+##### **2. UniversalDataView.tsx**
+- **Expansión automática**:
+  - Cambiado de `useState(() => {...})` a `useEffect(() => {...}, [data, title])`
+  - Secciones se expanden cuando los datos están disponibles
+  - Performance Completo del Agente expandido por defecto
+
+#### **Mejoras de UX/UI**:
+- **Layout más equilibrado**: Espacio distribuido según necesidad real de contenido
+- **Legibilidad mejorada**: Nombres de agentes completamente visibles
+- **Duración completa**: Formato "00:00:00" sin truncado
+- **Acciones compactas**: Más espacio para contenido principal
+- **Tooltips informativos**: Información completa al hacer hover
+- **Datos estructurados**: Secciones importantes expandidas automáticamente
+
+#### **Optimizaciones Técnicas**:
+- **Espacio eficiente**: +96px redistribuidos de acciones a contenido
+- **Truncado inteligente**: Con tooltips para información completa
+- **Renderizado dinámico**: Expansión basada en disponibilidad de datos
+- **Responsive**: Mantiene proporciones en diferentes tamaños
+
+#### **Resultado**:
+- **Tabla perfectamente balanceada**: Cada columna con el espacio justo
+- **Contenido completamente visible**: Sin truncado excesivo
+- **Acciones compactas**: Sin desperdicio de espacio
+- **Información expandida**: Datos críticos visibles por defecto
+
+---
+
+## 🎯 **VERSIÓN 1.0.9 - AJUSTES FINALES DE UX/UI Y OPTIMIZACIÓN DE TABLAS** (2025-01-24 20:45)
+
+### 🎯 **Mejoras Críticas de Experiencia de Usuario**
+
+#### **Problemas Resueltos**:
+- ✅ **Tabla optimizada**: Columna de duración reemplaza porcentaje de conversión
+- ✅ **Anchos fijos**: Columnas con anchos fijos para evitar desbordamiento
+- ✅ **Widgets simplificados**: Eliminado "Calidad Estándar", renombrado "Score Ponderado"
+- ✅ **Información duplicada**: Eliminado score_ponderado duplicado en performance
+- ✅ **Secciones limpias**: Eliminados bloques redundantes en análisis detallado
+- ✅ **Expansión automática**: Secciones críticas expandidas por defecto
+
+#### **Archivos Modificados**:
+
+##### **1. PQNCDashboard.tsx**
+- **Tabla mejorada**: 
+  - Columna "Conv." → "Duración" con icono de reloj
+  - Anchos fijos: `table-fixed` con clases `w-32`, `w-28`, `w-20`, etc.
+  - Prevención de desbordamiento horizontal
+- **Widgets optimizados**:
+  - Eliminado widget "Calidad Estándar"
+  - Renombrado "Calidad Ponderada" → "Score Ponderado"
+  - Grid reducido de 4 a 3 columnas para mejor distribución
+
+##### **2. DetailedCallView.tsx**
+- **Performance detallado**:
+  - Eliminado bloque "Performance Completo del Agente" duplicado
+  - Mantenido solo "Score General" con score_ponderado
+- **Análisis del script**:
+  - Eliminado último bloque "Etapas del Script"
+- **Datos de compliance**:
+  - Eliminado "Resumen de Objeciones" duplicado
+  - Eliminado "Etapas del Script" 
+  - Eliminado "Evaluación General de la Llamada" (contenía métricas FODA)
+
+##### **3. UniversalDataView.tsx**
+- **Información del cliente**:
+  - Asegurada expansión por defecto de "estadia" y "patrones"
+  - Lógica mejorada para secciones críticas
+
+#### **Mejoras de UX/UI**:
+- **Tabla más funcional**: Duración de llamada más útil que porcentaje de conversión
+- **Layout estable**: Anchos fijos previenen desbordamiento y mejoran legibilidad
+- **Información no duplicada**: Eliminación de redundancias en análisis detallado
+- **Navegación más limpia**: Menos elementos, más enfoque en información relevante
+- **Expansión inteligente**: Secciones importantes visibles por defecto
+
+#### **Optimizaciones Técnicas**:
+- **Rendimiento mejorado**: Menos elementos renderizados innecesariamente
+- **Consistencia visual**: Widgets distribuidos uniformemente
+- **Accesibilidad**: Mejor contraste y organización de información
+- **Mantenibilidad**: Código más limpio sin duplicaciones
+
+#### **Resultado**:
+- **Tabla más útil**: Duración de llamada visible sin desbordamiento
+- **Análisis más limpio**: Sin información duplicada o redundante
+- **UI más eficiente**: Widgets distribuidos uniformemente
+- **Experiencia optimizada**: Navegación más fluida y enfocada
 
 ---
 

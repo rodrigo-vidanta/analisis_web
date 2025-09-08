@@ -295,19 +295,19 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
     }
   }, [call, activeTab]);
 
-  // Función para obtener color por etapa
+  // Función para obtener color por etapa - COLORES BALANCEADOS PARA AMBOS MODOS
   const getStageColor = (etapa: string) => {
     const colors: { [key: string]: string } = {
-      'saludo': 'from-blue-500 to-blue-600',
-      'presentacion': 'from-indigo-500 to-indigo-600',
-      'discovery': 'from-green-500 to-green-600',
-      'small_talk': 'from-purple-500 to-purple-600',
-      'presentacion_costos': 'from-orange-500 to-orange-600',
-      'manejo_objeciones': 'from-red-500 to-red-600',
-      'cierre': 'from-emerald-500 to-emerald-600',
-      'despedida': 'from-slate-500 to-slate-600'
+      'saludo': 'from-blue-400 to-blue-500 dark:from-blue-600 dark:to-blue-700',
+      'presentacion': 'from-indigo-400 to-indigo-500 dark:from-indigo-600 dark:to-indigo-700',
+      'discovery': 'from-green-400 to-green-500 dark:from-green-600 dark:to-green-700',
+      'small_talk': 'from-purple-400 to-purple-500 dark:from-purple-600 dark:to-purple-700',
+      'presentacion_costos': 'from-orange-400 to-orange-500 dark:from-orange-600 dark:to-orange-700',
+      'manejo_objeciones': 'from-red-400 to-red-500 dark:from-red-600 dark:to-red-700',
+      'cierre': 'from-emerald-400 to-emerald-500 dark:from-emerald-600 dark:to-emerald-700',
+      'despedida': 'from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700'
     };
-    return colors[etapa.toLowerCase()] || 'from-gray-500 to-gray-600';
+    return colors[etapa.toLowerCase()] || 'from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700';
   };
 
   // Función para toggle de segmentos
@@ -510,7 +510,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                               <div key={convIndex} className={`flex ${conv.isAgent ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[80%] p-3 rounded-lg ${
                                   conv.isAgent 
-                                    ? 'bg-blue-600 text-white rounded-br-none' 
+                                    ? 'bg-blue-400 dark:bg-blue-500 text-white rounded-br-none' 
                                     : 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-bl-none'
                                 }`}>
                                   <div className="text-xs font-medium mb-1 opacity-75">
@@ -626,18 +626,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
         return (
           <div className="p-6 space-y-6">
             
-            {/* PERFORMANCE COMPLETO DEL AGENTE */}
-            <UniversalDataView
-              data={call.agent_performance || {}}
-              title="Performance Completo del Agente"
-              icon={
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              }
-            />
-            
-            {/* Gráfico principal */}
+            {/* Gráfico principal - MOVIDO AL TOP */}
             <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
@@ -718,52 +707,24 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
               </div>
             </div>
 
-            {/* Datos Originales del Performance - Ajustado para mejor espacio */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-200 dark:border-slate-700">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
-                <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-2">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            {/* PERFORMANCE COMPLETO DEL AGENTE - MOVIDO AL FINAL Y EXPANDIDO POR DEFECTO */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-                Evaluación Detallada
+                Performance Completo del Agente
               </h3>
-              
-              {call.agent_performance?.datos_originales && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto analysis-scroll">
-                  {Object.entries(call.agent_performance.datos_originales)
-                    .filter(([key]) => key !== 'nombreAgente' && key !== 'supervisorInterviene')
-                    .map(([category, data]: [string, any]) => (
-                    <div key={category} className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                      <h4 className="font-semibold text-slate-900 dark:text-white mb-2 text-sm capitalize">
-                        {category.replace(/([A-Z])/g, ' $1').trim()}
-                      </h4>
-                      <div className="space-y-1 text-xs">
-                        {Object.entries(data)
-                          .filter(([subKey]) => subKey !== 'justificacion' && subKey !== 'confianzaEvaluacion')
-                          .slice(0, 4) // Limitar a 4 items para mejor espacio
-                          .map(([subKey, subValue]: [string, any]) => (
-                          <div key={subKey} className="flex justify-between">
-                            <span className="text-slate-600 dark:text-slate-400 capitalize truncate mr-2">
-                              {subKey.replace(/([A-Z])/g, ' $1').trim()}:
-                            </span>
-                            <span className={`font-medium ${
-                              typeof subValue === 'boolean' 
-                                ? (subValue ? 'text-green-600' : 'text-red-600')
-                                : 'text-slate-900 dark:text-white'
-                            }`}>
-                              {typeof subValue === 'boolean' 
-                                ? (subValue ? 'Sí' : 'No') 
-                                : String(subValue)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <UniversalDataView
+                data={call.agent_performance || {}}
+                title=""
+                icon={null}
+                className=""
+              />
             </div>
+
           </div>
         );
 
@@ -781,6 +742,19 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
               </h3>
               
               <div className="space-y-6">
+                {/* Balance FODA - MOVIDO ANTES DE ETAPAS */}
+                {call.call_evaluation?.metricas_foda && (
+                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
+                    <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Balance FODA</h4>
+                    <div className="flex justify-center">
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-indigo-600">{call.call_evaluation.metricas_foda.balance_foda}</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Score Balance</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Métricas de etapas de comunicacion_data */}
                 {call.comunicacion_data?.metricas_chunks?.conteo_etapas && (
                   <div>
@@ -857,23 +831,75 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                     </div>
                   </div>
                 )}
-
-                {/* Balance FODA */}
-                {call.call_evaluation?.metricas_foda && (
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Balance FODA</h4>
-                    <div className="flex justify-center">
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-indigo-600">{call.call_evaluation.metricas_foda.balance_foda}</div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">Score Balance</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
+
+            {/* SECCIONES MOVIDAS DESDE COMPLIANCE */}
+            <div className="space-y-6">
+              
+              {/* Resumen de Objeciones - EXPANDIDO POR DEFECTO */}
+              {call.call_evaluation?.objeciones_resumen && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    Resumen de Objeciones
+                  </h3>
+                  <div className="space-y-3">
+                    {Object.entries(call.call_evaluation.objeciones_resumen).map(([key, value]) => (
+                      <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}:
+                        </span>
+                        <span className="text-sm text-slate-900 dark:text-white ml-4">
+                          {Array.isArray(value) ? value.join(', ') : String(value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Problemas Detectados - EXPANDIDO POR DEFECTO */}
+              {call.call_evaluation?.problemas_detectados && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    Problemas Detectados
+                  </h3>
+                  <div className="space-y-3">
+                    {Object.entries(call.call_evaluation.problemas_detectados).map(([key, value]) => (
+                      <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}:
+                        </span>
+                        <span className="text-sm text-slate-900 dark:text-white ml-4">
+                          {Array.isArray(value) ? value.join(', ') : String(value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              
+            </div>
+
+          </div>
+        );
+
+      case 'compliance':
+        return (
+          <div className="p-6 space-y-6">
             
-            {/* Nueva Gráfica de Compliance de Alto Impacto en Performance */}
+            {/* Gráfica de Cumplimiento Normativo - MOVIDA DESDE SCRIPT */}
             {(call as any).compliance_data && (
               <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
@@ -890,13 +916,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                 />
               </div>
             )}
-          </div>
-        );
 
-      case 'compliance':
-        return (
-          <div className="p-6 space-y-6">
-            
             {/* DATOS DE COMPLIANCE */}
             <UniversalDataView
               data={call.compliance_data || {}}
@@ -908,27 +928,38 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
               }
             />
             
-            {/* EVALUACIÓN GENERAL DE LA LLAMADA */}
-            <UniversalDataView
-              data={call.call_evaluation || {}}
-              title="Evaluación General de la Llamada"
-              icon={
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              }
-            />
             
-            {/* ANÁLISIS DEL SCRIPT */}
-            <UniversalDataView
-              data={call.script_analysis || {}}
-              title="Análisis del Script"
-              icon={
-                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              }
-            />
+            {/* SECCIONES ESPECÍFICAS MOVIDAS DESDE SCRIPT */}
+            <div className="space-y-6">
+
+              {/* Problemas Detectados - EXPANDIDO POR DEFECTO */}
+              {call.call_evaluation?.problemas_detectados && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    Problemas Detectados
+                  </h3>
+                  <div className="space-y-3">
+                    {Object.entries(call.call_evaluation.problemas_detectados).map(([key, value]) => (
+                      <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}:
+                        </span>
+                        <span className="text-sm text-slate-900 dark:text-white ml-4">
+                          {Array.isArray(value) ? value.join(', ') : String(value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              
+            </div>
             
           </div>
         );
@@ -1119,8 +1150,8 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
               disabled={feedbackLoading}
               className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2
                 ${feedbackData 
-                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg' 
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
+                  ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg' 
+                  : 'bg-blue-500 hover:bg-blue-600 text-white shadow-md'
                 }
                 disabled:opacity-50 disabled:cursor-not-allowed
               `}

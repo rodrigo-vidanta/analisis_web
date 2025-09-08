@@ -1,5 +1,62 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 1.0.11 (Enero 2025)
+
+### Eliminación de Score Duplicado en Performance
+- **Score duplicado eliminado**: Removida sección "Score_ponderado" duplicada en Performance Completo
+- **Evaluación Detallada preservada**: Mantenido el resto de la información importante
+- **Filtrado mejorado**: Agregado tanto "Score_ponderado" como "score_ponderado" a exclusiones
+
+### Archivo Modificado
+- `UniversalDataView.tsx` - Filtros actualizados para eliminar duplicados, información completa preservada
+
+## Versión 1.0.10 (Enero 2025)
+
+### Optimización Final de Distribución de Columnas
+- **Distribución optimizada**: Redistribuido espacio entre columnas según contenido real
+- **Duración completa**: Espacio suficiente para formato completo "00:00:00"
+- **Nombres más legibles**: Más espacio para agentes con nombres largos
+- **Acciones compactas**: Reducido espacio innecesario en botones de acción
+- **Secciones expandidas**: Performance Completo expandido por defecto
+- **Texto sin sobreposición**: Truncado elegante con tooltips
+
+### Archivos Modificados
+- `PQNCDashboard.tsx` - Distribución optimizada de columnas, anchos balanceados
+- `UniversalDataView.tsx` - Expansión automática con useEffect, secciones expandidas por defecto
+
+## Versión 1.0.9 (Enero 2025)
+
+### Ajustes Finales de UX/UI y Optimización de Tablas
+- **Tabla optimizada**: Columna de duración reemplaza porcentaje de conversión
+- **Anchos fijos**: Columnas con anchos fijos para evitar desbordamiento
+- **Widgets simplificados**: Eliminado "Calidad Estándar", renombrado "Score Ponderado"
+- **Información duplicada**: Eliminado score_ponderado duplicado en performance
+- **Secciones limpias**: Eliminados bloques redundantes en análisis detallado
+- **Expansión automática**: Secciones críticas expandidas por defecto
+
+### Archivos Modificados
+- `PQNCDashboard.tsx` - Tabla mejorada con duración, anchos fijos, widgets optimizados
+- `DetailedCallView.tsx` - Eliminación de duplicados, secciones limpias
+- `UniversalDataView.tsx` - Expansión automática de secciones críticas
+
+## Versión 1.0.8 (Enero 2025)
+
+### Mejoras de UX/UI y Reorganización de Análisis
+- **Sorting global**: El ordenamiento ahora aplica a todos los registros, no solo al top seleccionado
+- **Colores suavizados**: Segmentos de conversación con colores menos brillantes y más amigables
+- **Reorganización de pestañas**: Mejor estructura y flujo en análisis detallado
+- **Iconos vectoriales**: Reemplazo de emojis por iconos SVG adaptativos
+- **Widgets optimizados**: Eliminación de widgets redundantes y mejor distribución
+- **SyncON reubicado**: Panel movido después de la tabla de llamadas
+- **Performance reordenado**: Gráfica al top, performance completo al final expandido
+- **Compliance mejorado**: Gráfica movida al top, secciones reorganizadas
+- **Customer expandido**: Todo expandido por defecto, métricas redundantes eliminadas
+
+### Archivos Modificados
+- `PQNCDashboard.tsx` - Sorting global, widgets optimizados, iconos vectoriales
+- `DetailedCallView.tsx` - Colores suavizados, reorganización de pestañas
+- `UniversalDataView.tsx` - Filtros contextuales, expansión automática, bordes condicionales
+
 ## Versión 1.0.7 (Enero 2025)
 
 ### Correcciones Críticas de Importación y Visualización
