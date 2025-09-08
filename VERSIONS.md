@@ -1,5 +1,18 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 1.0.12 (Enero 2025)
+
+### Optimización de Animaciones y UX de Login
+- **Animación ultra fluida**: LightSpeedTunnel optimizado con 10 micro-pasos y solapamiento 96%
+- **Velocidad equilibrada**: 1.5s total, ni muy rápido ni muy lento
+- **Transiciones suaves**: Curvas bezier naturales [0.25, 0.1, 0.25, 1]
+- **Logo aumentado**: 43% más grande (160px) para mayor presencia visual
+- **UX mejorada**: Experiencia de login más profesional y suave
+
+### Archivos Modificados
+- `LightSpeedTunnel.tsx` - Animación ultra fluida con micro-transiciones
+- `LoginScreen.tsx` - Logo aumentado 40% manteniendo responsive
+
 ## Versión 1.0.11 (Enero 2025)
 
 ### Eliminación de Score Duplicado en Performance

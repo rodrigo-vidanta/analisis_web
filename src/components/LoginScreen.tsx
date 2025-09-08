@@ -43,7 +43,7 @@ const LoginScreen: React.FC = () => {
           <div className="flex justify-center mb-6">
             <div className="relative">
               {config.app_branding?.logo_url ? (
-                <div className="w-28 h-28 animate-subtle-float flex items-center justify-center">
+                <div className="w-40 h-40 animate-subtle-float flex items-center justify-center">
                   <img 
                     src={config.app_branding.logo_url} 
                     alt="Logo" 
@@ -51,7 +51,7 @@ const LoginScreen: React.FC = () => {
                   />
                 </div>
               ) : (
-                <svg className="tech-icon-large text-white animate-subtle-float" viewBox="0 0 24 24">
+                <svg className="w-16 h-16 text-white animate-subtle-float" viewBox="0 0 24 24">
                   <path stroke="url(#logoGradient)" strokeWidth="1.5" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
               )}

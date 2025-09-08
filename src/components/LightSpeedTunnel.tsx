@@ -15,20 +15,20 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
   const [showFadeout, setShowFadeout] = useState(false);
   const [showTunnelExit, setShowTunnelExit] = useState(false);
 
-  // Efecto de fadeout al final
+  // Efecto de fadeout al final - VELOCIDAD EQUILIBRADA Y FLUIDA
   useEffect(() => {
     if (isVisible && type === 'login') {
-      console.log('🚀 TÚNEL - Iniciando animación de anillos apareciendo uno por uno');
+      console.log('🚀 TÚNEL - Iniciando animación de anillos fluida y rápida');
       
-      // Sincronizar fadeout con el último anillo (1.4s + 0.5s delay del último anillo)
+      // VELOCIDAD EQUILIBRADA: suave y fluida
       const fadeoutTimer = setTimeout(() => {
-        console.log('🚀 TÚNEL - Iniciando fadeout sincronizado con último anillo');
+        console.log('🚀 TÚNEL - Iniciando fadeout suave');
         setShowFadeout(true);
         setTimeout(() => {
           console.log('🚀 TÚNEL - Fadeout completado, finalizando animación');
           onComplete();
-        }, 300);
-      }, 1900); // 1.9 segundos (1.4s + 0.5s delay del último anillo)
+        }, 200); // Tiempo para suavidad
+      }, 1300); // Tiempo ajustado para la nueva duración más suave (1.1s + 0.2s overlap)
       
       return () => {
         clearTimeout(fadeoutTimer);
@@ -38,7 +38,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
       const timer = setTimeout(() => {
         console.log('🚀 TÚNEL - Completando logout');
         onComplete();
-      }, 2000);
+      }, 1000); // Equilibrado
       return () => clearTimeout(timer);
     }
   }, [isVisible, type, onComplete]);
@@ -64,9 +64,9 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
               opacity: [0, 1, 1, 0]
             }}
             transition={{ 
-              duration: 1.9, 
-              ease: "easeInOut",
-              times: [0, 0.74, 0.95, 1] // 0-1.4s visible, 1.4-1.8s visible, 1.8-1.9s fadeout
+              duration: 1.4, // Ajustado para la nueva duración de anillos
+              ease: [0.25, 0.1, 0.25, 1], // Misma curva suave que los anillos
+              times: [0, 0.5, 0.85, 1] // Timing suave y coordinado
             }}
           />
 
@@ -80,13 +80,13 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #3B82F6, 0 0 20px #3B82F6, inset 0 0 4px #3B82F6, inset 0 0 20px #3B82F6'
               }}
               animate={{
-                scale: [0, 1, 1.5, 2, 3, 4, 0],
-                opacity: [0, 0.8, 1, 0.8, 0.6, 0.4, 0],
-                rotate: [0, 45, 90, 135, 180, 225, 270]
+                scale: [0, 0.8, 1.5, 2.2, 3.2, 4.5, 6, 4, 2, 0], // Transición más suave con más pasos
+                opacity: [0, 0.4, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0],
+                rotate: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270] // Rotación muy gradual
               }}
               transition={{
-                duration: 1.4,
-                ease: "easeInOut",
+                duration: 1.1, // Más tiempo para mayor suavidad
+                ease: [0.25, 0.1, 0.25, 1], // Curva bezier muy suave
                 delay: 0
               }}
             />
@@ -99,14 +99,14 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #8B5CF6, 0 0 20px #8B5CF6, inset 0 0 4px #8B5CF6, inset 0 0 20px #8B5CF6'
               }}
               animate={{
-                scale: [0, 1, 1.5, 2, 3, 4, 0],
-                opacity: [0, 0.8, 1, 0.8, 0.6, 0.4, 0],
-                rotate: [0, -45, -90, -135, -180, -225, -270]
+                scale: [0, 0.8, 1.5, 2.2, 3.2, 4.5, 6, 4, 2, 0], // Transición más suave
+                opacity: [0, 0.4, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0],
+                rotate: [0, -30, -60, -90, -120, -150, -180, -210, -240, -270] // Rotación muy gradual
               }}
               transition={{
-                duration: 1.4,
-                ease: "easeInOut",
-                delay: 0.1
+                duration: 1.1, // Más tiempo para mayor suavidad
+                ease: [0.25, 0.1, 0.25, 1], // Curva bezier muy suave
+                delay: 0.04 // Delay más corto para mayor overlap
               }}
             />
 
@@ -118,14 +118,14 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #06B6D4, 0 0 20px #06B6D4, inset 0 0 4px #06B6D4, inset 0 0 20px #06B6D4'
               }}
               animate={{
-                scale: [0, 1, 1.5, 2, 3, 4, 0],
-                opacity: [0, 0.8, 1, 0.8, 0.6, 0.4, 0],
-                rotate: [0, 45, 90, 135, 180, 225, 270]
+                scale: [0, 0.8, 1.5, 2.2, 3.2, 4.5, 6, 4, 2, 0], // Transición más suave
+                opacity: [0, 0.4, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0],
+                rotate: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270] // Rotación muy gradual
               }}
               transition={{
-                duration: 1.4,
-                ease: "easeInOut",
-                delay: 0.2
+                duration: 1.1, // Más tiempo para mayor suavidad
+                ease: [0.25, 0.1, 0.25, 1], // Curva bezier muy suave
+                delay: 0.08 // Delay más corto para mayor overlap
               }}
             />
 
@@ -137,14 +137,14 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #10B981, 0 0 20px #10B981, inset 0 0 4px #10B981, inset 0 0 20px #10B981'
               }}
               animate={{
-                scale: [0, 1, 1.5, 2, 3, 4, 0],
-                opacity: [0, 0.8, 1, 0.8, 0.6, 0.4, 0],
-                rotate: [0, -45, -90, -135, -180, -225, -270]
+                scale: [0, 0.8, 1.5, 2.2, 3.2, 4.5, 6, 4, 2, 0], // Transición más suave
+                opacity: [0, 0.4, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0],
+                rotate: [0, -30, -60, -90, -120, -150, -180, -210, -240, -270] // Rotación muy gradual
               }}
               transition={{
-                duration: 1.4,
-                ease: "easeInOut",
-                delay: 0.3
+                duration: 1.1, // Más tiempo para mayor suavidad
+                ease: [0.25, 0.1, 0.25, 1], // Curva bezier muy suave
+                delay: 0.12 // Delay más corto para mayor overlap
               }}
             />
 
@@ -156,14 +156,14 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #F59E0B, 0 0 20px #F59E0B, inset 0 0 4px #F59E0B, inset 0 0 20px #F59E0B'
               }}
               animate={{
-                scale: [0, 1, 1.5, 2, 3, 4, 0],
-                opacity: [0, 0.8, 1, 0.8, 0.6, 0.4, 0],
-                rotate: [0, 45, 90, 135, 180, 225, 270]
+                scale: [0, 0.8, 1.5, 2.2, 3.2, 4.5, 6, 4, 2, 0], // Transición más suave
+                opacity: [0, 0.4, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0],
+                rotate: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270] // Rotación muy gradual
               }}
               transition={{
-                duration: 1.4,
-                ease: "easeInOut",
-                delay: 0.4
+                duration: 1.1, // Más tiempo para mayor suavidad
+                ease: [0.25, 0.1, 0.25, 1], // Curva bezier muy suave
+                delay: 0.16 // Delay más corto para mayor overlap
               }}
             />
 
@@ -175,14 +175,14 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
                 boxShadow: '0 0 4px #EF4444, 0 0 20px #EF4444, inset 0 0 4px #EF4444, inset 0 0 20px #EF4444'
               }}
               animate={{
-                scale: [0, 1, 1.5, 2, 3, 4, 0],
-                opacity: [0, 0.8, 1, 0.8, 0.6, 0.4, 0],
-                rotate: [0, -45, -90, -135, -180, -225, -270]
+                scale: [0, 0.8, 1.5, 2.2, 3.2, 4.5, 6, 4, 2, 0], // Transición más suave
+                opacity: [0, 0.4, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0],
+                rotate: [0, -30, -60, -90, -120, -150, -180, -210, -240, -270] // Rotación muy gradual
               }}
               transition={{
-                duration: 1.4,
-                ease: "easeInOut",
-                delay: 0.5
+                duration: 1.1, // Más tiempo para mayor suavidad
+                ease: [0.25, 0.1, 0.25, 1], // Curva bezier muy suave
+                delay: 0.2 // Delay más corto para mayor overlap
               }}
             />
 
@@ -195,7 +195,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
               className="absolute inset-0 bg-black"
               initial={{ opacity: 1 }}
               animate={{ opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              transition={{ duration: 0.2, ease: "easeInOut" }} // SUAVE Y EQUILIBRADO
             />
           )}
         </motion.div>

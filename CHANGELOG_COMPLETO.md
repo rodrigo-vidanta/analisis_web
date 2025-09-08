@@ -1,7 +1,7 @@
 # 📋 CHANGELOG COMPLETO - Plataforma PQNC QA AI
 
 **Fecha:** 2025-01-24  
-**Versión:** 1.0.11  
+**Versión:** 1.0.12  
 **Proyecto:** Plataforma de Análisis de Calidad de Llamadas PQNC
 
 ---
@@ -93,6 +93,47 @@ La plataforma PQNC QA AI ha evolucionado significativamente con **5 versiones pr
 - **Rendimiento mejorado**: Menos elementos innecesarios
 - **UI consistente**: Iconos vectoriales y colores armonizados
 - **Experiencia fluida**: Mejor flujo de información y análisis
+
+---
+
+## 🌊 **VERSIÓN 1.0.12 - OPTIMIZACIÓN DE ANIMACIONES Y UX DE LOGIN** (2025-01-24 22:00)
+
+### 🎯 **Mejoras de Experiencia de Usuario**
+
+#### **Animación de Login Ultra Fluida**:
+- ✅ **Componente correcto identificado**: `LightSpeedTunnel.tsx` (no `LightSpeedTransition.tsx`)
+- ✅ **Velocidad equilibrada**: Duración total ajustada a 1.5 segundos (ni muy rápido ni muy lento)
+- ✅ **Transiciones ultra suaves**: 10 micro-pasos por anillo eliminan "brincos" visuales
+- ✅ **Solapamiento extenso**: Delays de 0.04s entre anillos (96% de overlap)
+- ✅ **Curvas bezier naturales**: `[0.25, 0.1, 0.25, 1]` para movimiento orgánico
+
+#### **Logo de Login Mejorado**:
+- ✅ **Tamaño aumentado**: 43% más grande (de 112px a 160px)
+- ✅ **Mayor presencia visual**: Logo más prominente en pantalla de login
+- ✅ **Proporciones equilibradas**: Mejor jerarquía visual
+- ✅ **Responsive mantenido**: Se adapta a todas las pantallas
+
+#### **Archivos Modificados**:
+
+##### **LightSpeedTunnel.tsx**
+- **Timing general**: 1.5s total (1.3s animación + 0.2s fadeout)
+- **Delays graduales**: [0, 0.04, 0.08, 0.12, 0.16, 0.2s] para fluidez máxima
+- **Escalas suaves**: 10 puntos `[0, 0.8, 1.5, 2.2, 3.2, 4.5, 6, 4, 2, 0]`
+- **Opacidad gradual**: 10 transiciones para fundidos naturales
+- **Rotación moderada**: 270° con pasos de 30° para suavidad
+- **Curva natural**: Bezier orgánica elimina movimientos mecánicos
+
+##### **LoginScreen.tsx**
+- **Logo personalizado**: `w-28 h-28` → `w-40 h-40` (160px)
+- **Logo SVG**: Mantenido proporcional `w-16 h-16`
+- **Animaciones preservadas**: `animate-subtle-float` funcional
+- **Responsive**: `object-contain` mantiene adaptabilidad
+
+#### **Resultado**:
+- **Animación fluida**: Sin saltos, transición como agua
+- **Velocidad perfecta**: Rápida pero cómoda visualmente
+- **Logo prominente**: Mayor impacto visual en login
+- **UX mejorada**: Experiencia más profesional y suave
 
 ---
 
