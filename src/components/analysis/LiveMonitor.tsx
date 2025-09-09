@@ -427,10 +427,7 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                   
                   <div className="space-y-1.5">
                     <button
-                      onClick={() => {
-                        setFeedbackType('contestada');
-                        onFeedback('contestada');
-                      }}
+                      onClick={() => onFeedback('contestada')}
                       className="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center space-x-1.5"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -440,10 +437,7 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                     </button>
                     
                     <button
-                      onClick={() => {
-                        setFeedbackType('perdida');
-                        onFeedback('perdida');
-                      }}
+                      onClick={() => onFeedback('perdida')}
                       className="w-full bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center space-x-1.5"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -461,7 +455,7 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
 
       {/* Modal de Transferencia con Susurro */}
       {showTransferModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-60 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-[65] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
             <div className="p-6 border-b border-slate-200 dark:border-slate-700">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
@@ -577,6 +571,7 @@ const LiveMonitor: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentAgentIndex, setCurrentAgentIndex] = useState(0);
   const [agentLocked, setAgentLocked] = useState(false); // Bloquear rotación hasta que se complete una acción
+  const [prospectForFeedback, setProspectForFeedback] = useState<Prospect | null>(null); // Guardar prospecto para feedback
 
   // Cargar datos de prospectos usando el servicio
   const loadProspects = async () => {
@@ -739,10 +734,10 @@ const LiveMonitor: React.FC = () => {
 
   // Función para guardar feedback obligatorio
   const handleSaveFeedback = async (resultado: 'exitosa' | 'perdida' | 'problemas_tecnicos') => {
-    if (!selectedProspect) return;
+    if (!prospectForFeedback) return;
 
     const feedbackData: FeedbackData = {
-      prospect_id: selectedProspect.id,
+      prospect_id: prospectForFeedback.id,
       agent_email: nextAgent?.agent_email || 'unknown',
       resultado,
       comentarios: feedback,
@@ -754,7 +749,7 @@ const LiveMonitor: React.FC = () => {
       // Cerrar modales y resetear estado
       setShowFeedbackModal(false);
       setFeedback('');
-      setSelectedProspect(null);
+      setProspectForFeedback(null);
       
       // Recargar datos para quitar de la vista
       loadProspects();
@@ -1014,8 +1009,9 @@ const LiveMonitor: React.FC = () => {
             onClose={() => setSelectedProspect(null)}
             onFeedback={(type) => {
               setFeedbackType(type);
+              setProspectForFeedback(selectedProspect); // Guardar prospecto para feedback
               setShowFeedbackModal(true);
-              // NO cerrar selectedProspect aquí, se cierra después del feedback
+              setSelectedProspect(null); // Cerrar modal de detalle para evitar conflicto de z-index
             }}
             onRefresh={loadProspects}
           />
@@ -1023,7 +1019,7 @@ const LiveMonitor: React.FC = () => {
 
         {/* Modal de Feedback Obligatorio */}
         {showFeedbackModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-60 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-75 z-[70] flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
               <div className="p-6 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center space-x-2">
