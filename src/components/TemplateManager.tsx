@@ -9,11 +9,12 @@ type Tool = typeof TOOLS_LIBRARY[0];
 
 interface TemplateManagerProps {
   onClose: () => void;
+  isModal?: boolean;
 }
 
 type ActiveTab = 'catalog' | 'prompts' | 'tools' | 'editor';
 
-const TemplateManager: React.FC<TemplateManagerProps> = ({ onClose }) => {
+const TemplateManager: React.FC<TemplateManagerProps> = ({ onClose, isModal = true }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('catalog');
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
@@ -564,9 +565,9 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({ onClose }) => {
     </div>
   );
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-slate-900 rounded-lg w-full max-w-7xl h-[90vh] flex flex-col">
+  // Contenido principal del gestor
+  const mainContent = (
+    <div className={`bg-white dark:bg-slate-900 ${isModal ? 'rounded-lg' : ''} w-full ${isModal ? 'max-w-7xl h-[90vh]' : 'min-h-screen'} flex flex-col`}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
           <div>
@@ -577,14 +578,16 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({ onClose }) => {
               Crea, edita y gestiona plantillas de agentes
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {isModal && (
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Navigation Tabs */}
@@ -650,9 +653,19 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({ onClose }) => {
           {activeTab === 'tools' && renderTools()}
           {activeTab === 'editor' && renderEditor()}
         </div>
-      </div>
     </div>
   );
+
+  // Renderizar como modal o como página completa
+  if (isModal) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        {mainContent}
+      </div>
+    );
+  }
+
+  return mainContent;
 };
 
 export default TemplateManager;

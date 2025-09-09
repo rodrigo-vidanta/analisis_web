@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { type AgentTemplate } from '../../config/supabase';
-import SystemMessageEditor from './SystemMessageEditor.tsx';
-import ToolsSelector from './ToolsSelector.tsx';
-import ParametersEditor from './ParametersEditor.tsx';
-import SquadEditor from './SquadEditor.tsx';
-import JsonOutput from './JsonOutput.tsx';
+import SystemMessageEditor from './SystemMessageEditor';
+import ToolsSelector from './ToolsSelector';
+import ParametersEditor from './ParametersEditor';
+import SquadEditor from './SquadEditor';
+import JsonOutput from './JsonOutput';
 import { saveAgentPrompts, saveAgentTools, saveAgentVapiConfig, createAgentFromEditor, type SimpleMessage } from '../../services/supabaseService';
 import { useAuth } from '../../contexts/AuthContext';
 
