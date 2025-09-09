@@ -3,6 +3,28 @@ import { liveMonitorService, type Prospect, type Agent, type FeedbackData } from
 
 // Tipos importados desde el servicio
 
+// Función utilitaria para obtener progreso
+const getCheckpointProgress = (checkpoint: string): number => {
+  const progressMap: Record<string, number> = {
+    'saludo_continuacion': 20,
+    'conexion_emocional': 40,
+    'introduccion_paraiso': 60,
+    'presentacion_oferta': 80,
+    'proceso_pago': 100
+  };
+  return progressMap[checkpoint] || 10;
+};
+
+// Función utilitaria para obtener color de temperatura
+const getTemperatureColor = (temperatura?: string) => {
+  switch (temperatura) {
+    case 'caliente': return 'from-red-500 to-orange-500';
+    case 'tibio': return 'from-yellow-500 to-amber-500';
+    case 'frio': return 'from-blue-500 to-cyan-500';
+    default: return 'from-slate-500 to-gray-500';
+  }
+};
+
 // Componente Modal de Detalle Avanzado
 interface ProspectDetailModalProps {
   prospect: Prospect;
@@ -409,16 +431,6 @@ const LiveMonitor: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Obtener color según temperatura
-  const getTemperatureColor = (temperatura?: string) => {
-    switch (temperatura) {
-      case 'caliente': return 'from-red-500 to-orange-500';
-      case 'tibio': return 'from-yellow-500 to-amber-500';
-      case 'frio': return 'from-blue-500 to-cyan-500';
-      default: return 'from-slate-500 to-gray-500';
-    }
-  };
-
   // Obtener icono según checkpoint
   const getCheckpointIcon = (checkpoint?: string) => {
     switch (checkpoint) {
@@ -433,18 +445,6 @@ const LiveMonitor: React.FC = () => {
       default:
         return <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />;
     }
-  };
-
-  // Obtener porcentaje de progreso según checkpoint
-  const getCheckpointProgress = (checkpoint: string): number => {
-    const progressMap: Record<string, number> = {
-      'saludo_continuacion': 20,
-      'conexion_emocional': 40,
-      'introduccion_paraiso': 60,
-      'presentacion_oferta': 80,
-      'proceso_pago': 100
-    };
-    return progressMap[checkpoint] || 10;
   };
 
   // Función de sorting
