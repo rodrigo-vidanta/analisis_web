@@ -427,7 +427,10 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                   
                   <div className="space-y-1.5">
                     <button
-                      onClick={() => onFeedback('contestada')}
+                      onClick={() => {
+                        setFeedbackType('contestada');
+                        onFeedback('contestada');
+                      }}
                       className="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center space-x-1.5"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -437,7 +440,10 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                     </button>
                     
                     <button
-                      onClick={() => onFeedback('perdida')}
+                      onClick={() => {
+                        setFeedbackType('perdida');
+                        onFeedback('perdida');
+                      }}
                       className="w-full bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center space-x-1.5"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -569,6 +575,8 @@ const LiveMonitor: React.FC = () => {
   const [feedbackType, setFeedbackType] = useState<'contestada' | 'perdida' | 'colgada' | 'transferida'>('contestada');
   const [sortField, setSortField] = useState<'progress' | 'cliente' | 'checkpoint' | 'temperatura' | 'tiempo'>('progress');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentAgentIndex, setCurrentAgentIndex] = useState(0);
+  const [agentLocked, setAgentLocked] = useState(false); // Bloquear rotación hasta que se complete una acción
 
   // Cargar datos de prospectos usando el servicio
   const loadProspects = async () => {
@@ -578,23 +586,40 @@ const LiveMonitor: React.FC = () => {
     setLoading(false);
   };
 
-  // Sortear próximo agente usando el servicio
+  // Seleccionar próximo agente de forma consecutiva
   const selectNextAgent = async () => {
-    const agent = await liveMonitorService.selectNextAgent();
-    setNextAgent(agent);
+    if (agentLocked) return; // No cambiar si hay una acción en proceso
+    
+    const agentsList = await liveMonitorService.getActiveAgents();
+    if (agentsList.length > 0) {
+      const nextIndex = (currentAgentIndex + 1) % agentsList.length;
+      setCurrentAgentIndex(nextIndex);
+      setNextAgent(agentsList[nextIndex]);
+      setAgentLocked(true); // Bloquear rotación hasta completar acción
+    }
   };
 
-  // Cargar agentes usando el servicio
+  // Cargar agentes y establecer el primero
   const loadAgents = async () => {
     const agentsList = await liveMonitorService.getActiveAgents();
     setAgents(agentsList);
+    if (agentsList.length > 0 && !nextAgent) {
+      setNextAgent(agentsList[0]); // Establecer primer agente
+      setCurrentAgentIndex(0);
+    }
+  };
+
+  // Completar acción y desbloquear rotación
+  const completeAction = () => {
+    setAgentLocked(false);
+    // La rotación al siguiente agente ocurrirá cuando llegue una nueva llamada transferida
   };
 
   // Cargar datos al inicializar
   useEffect(() => {
     loadProspects();
     loadAgents();
-    selectNextAgent();
+    // NO llamar selectNextAgent() automáticamente
     
     // Recargar cada 10 segundos
     const interval = setInterval(() => {
@@ -712,7 +737,7 @@ const LiveMonitor: React.FC = () => {
     }
   }, [sortedProspects]);
 
-  // Función para guardar feedback
+  // Función para guardar feedback obligatorio
   const handleSaveFeedback = async (resultado: 'exitosa' | 'perdida' | 'problemas_tecnicos') => {
     if (!selectedProspect) return;
 
@@ -721,15 +746,20 @@ const LiveMonitor: React.FC = () => {
       agent_email: nextAgent?.agent_email || 'unknown',
       resultado,
       comentarios: feedback,
-      comentarios_ia: 'Transferencia desde Live Monitor'
+      comentarios_ia: `Acción: ${feedbackType} - Feedback desde Live Monitor`
     };
 
     const success = await liveMonitorService.saveFeedback(feedbackData);
     if (success) {
+      // Cerrar modales y resetear estado
       setShowFeedbackModal(false);
       setFeedback('');
       setSelectedProspect(null);
-      loadProspects(); // Recargar para quitar de la vista
+      
+      // Recargar datos para quitar de la vista
+      loadProspects();
+      
+      console.log(`✅ Acción completada: ${feedbackType} - Agente rotado al siguiente en cola`);
     }
   };
 
@@ -985,55 +1015,79 @@ const LiveMonitor: React.FC = () => {
             onFeedback={(type) => {
               setFeedbackType(type);
               setShowFeedbackModal(true);
-              setSelectedProspect(null);
+              // NO cerrar selectedProspect aquí, se cierra después del feedback
             }}
             onRefresh={loadProspects}
           />
         )}
 
-        {/* Modal de Feedback */}
+        {/* Modal de Feedback Obligatorio */}
         {showFeedbackModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-75 z-60 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
               <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
-                  Feedback del Agente
-                </h3>
+                <div className="flex items-center space-x-2">
+                  <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+                    Feedback Obligatorio
+                  </h3>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                  Tipo de acción: <span className="font-semibold capitalize">{feedbackType}</span>
+                </p>
               </div>
               
               <div className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
-                    Comentarios (máximo 600 caracteres)
+                    Comentarios detallados (obligatorio, máximo 600 caracteres)
                   </label>
                   <textarea
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     maxLength={600}
                     rows={4}
+                    required
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-white"
-                    placeholder="Describe el resultado de la llamada, comentarios sobre la IA, problemas técnicos, etc..."
+                    placeholder={
+                      feedbackType === 'contestada' ? "Describe cómo fue la conversación, resultado de la venta, comentarios del cliente sobre la IA..." :
+                      feedbackType === 'perdida' ? "Explica por qué se perdió la llamada, problemas técnicos, comportamiento del cliente..." :
+                      feedbackType === 'colgada' ? "Razón por la cual se colgó la llamada, estado del cliente, próximos pasos..." :
+                      "Describe el proceso de transferencia, preparación del cliente, contexto para el siguiente agente..."
+                    }
                   />
                   <div className="text-right text-xs text-slate-400 mt-1">
-                    {feedback.length}/600
+                    {feedback.length}/600 {feedback.length < 10 && <span className="text-red-500">• Mínimo 10 caracteres</span>}
                   </div>
                 </div>
 
                 <div className="flex space-x-3">
                   <button
                     onClick={() => {
-                      setShowFeedbackModal(false);
-                      setFeedback('');
+                      // NO permitir cancelar - feedback es obligatorio
+                      alert('El feedback es obligatorio para completar la acción');
                     }}
-                    className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white px-4 py-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600"
+                    disabled
+                    className="flex-1 bg-slate-300 text-slate-500 px-4 py-2 rounded-lg cursor-not-allowed"
                   >
-                    Cancelar
+                    Feedback Obligatorio
                   </button>
                   <button
-                    onClick={() => handleSaveFeedback('exitosa')}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+                    onClick={() => {
+                      if (feedback.trim().length < 10) {
+                        alert('El feedback debe tener al menos 10 caracteres');
+                        return;
+                      }
+                      handleSaveFeedback('exitosa');
+                      completeAction(); // Desbloquear rotación de agente
+                      selectNextAgent(); // Rotar al siguiente agente
+                    }}
+                    disabled={feedback.trim().length < 10}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg transition-colors"
                   >
-                    Guardar Feedback
+                    Completar Acción
                   </button>
                 </div>
               </div>
