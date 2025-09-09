@@ -13,9 +13,10 @@ interface AuthContextType extends AuthState {
   hasPermission: (permissionName: string) => boolean;
   canAccessModule: (module: string, subModule?: string) => boolean;
   canAccessSubModule: (subModule: 'natalia' | 'pqnc') => boolean;
+  canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'analisis' | 'admin' | null;
+  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | null;
   refreshUser: () => Promise<void>;
 }
 
@@ -40,6 +41,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error: null
   });
   const [showLoginAnimation, setShowLoginAnimation] = useState(false);
+
+  console.log('🔄 AuthProvider inicializando...', { isLoading: authState.isLoading, isAuthenticated: authState.isAuthenticated });
 
   // Inicializar autenticación al cargar la aplicación
   useEffect(() => {
@@ -137,7 +140,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return authService.canAccessModule(module, subModule);
   };
 
-  // Verificar acceso a sub-módulos de análisis
+  // Verificar acceso a sub-módulos de análisis usando permisos específicos
   const canAccessSubModule = (subModule: 'natalia' | 'pqnc'): boolean => {
     if (!authState.user) return false;
     
@@ -147,13 +150,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Developers no tienen acceso a análisis
     if (authState.user.role_name === 'developer') return false;
     
-    // Evaluators necesitan sub-permisos específicos
+    // Evaluators: verificar permisos específicos (implementaremos verificación asíncrona)
     if (authState.user.role_name === 'evaluator') {
-      // Esta lógica se implementará desde el servidor
-      // Por ahora, permitir acceso mientras se implementa la verificación
-      return authService.canAccessSubModule ? authService.canAccessSubModule(subModule) : true;
+      // Por ahora, usar la lógica del servicio si existe
+      return authService.canAccessSubModule ? authService.canAccessSubModule(subModule) : false;
     }
     
+    return false;
+  };
+
+  // Verificar acceso a Live Monitor
+  const canAccessLiveMonitor = (): boolean => {
+    if (!authState.user) return false;
+    
+    // Admins siempre tienen acceso
+    if (authState.user.role_name === 'admin') return true;
+    
+    // Vendedores tienen acceso a Live Monitor
+    if (authState.user.role_name === 'vendedor') return true;
+    
+    // Otros roles no tienen acceso por defecto
     return false;
   };
 
@@ -201,20 +217,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'analisis' | 'admin' | null => {
+  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | null => {
     if (!authState.user) return null;
 
     // Orden de prioridad de módulos
-    const moduleOrder: Array<'constructor' | 'plantillas' | 'analisis' | 'admin'> = ['plantillas', 'analisis', 'constructor', 'admin'];
+    if (canAccessModule('constructor')) return 'constructor';
+    if (canAccessModule('plantillas')) return 'plantillas';
     
-    for (const module of moduleOrder) {
-      if (module === 'admin' && authState.user.role_name === 'admin') {
-        return module;
-      } else if (module !== 'admin' && canAccessModule(module)) {
-        return module;
-      }
-    }
+    // Priorizar submódulos específicos de análisis
+    if (canAccessModule('analisis') && canAccessSubModule('natalia')) return 'natalia';
+    if (canAccessModule('analisis') && canAccessSubModule('pqnc')) return 'pqnc';
+    if (canAccessLiveMonitor()) return 'live-monitor';
     
+    if (authState.user.role_name === 'admin') return 'admin';
+
     return null;
   };
 
@@ -242,6 +258,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     hasPermission,
     canAccessModule,
     canAccessSubModule,
+    canAccessLiveMonitor,
     checkAnalysisPermissions,
     getModulePermissions,
     getFirstAvailableModule,
@@ -269,6 +286,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
+    console.error('❌ useAuth llamado fuera de AuthProvider');
+    console.trace('Stack trace del error:');
     throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
   return context;

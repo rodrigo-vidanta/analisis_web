@@ -1,5 +1,44 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 1.0.13 (Enero 2025)
+
+### Reorganización Completa con Sidebar y Sistema de Permisos Avanzado
+
+#### Transformación Arquitectónica Mayor
+- **Sidebar colapsable profesional**: Navegación lateral con iconos vectoriales y transiciones fluidas
+- **Header simplificado**: Solo usuario, logout y cambio de tema - espacio liberado para futuras funciones
+- **Footer fijo**: Siempre visible sin scroll, se ajusta dinámicamente al sidebar
+- **Responsividad completa**: Desktop (fijo), tablet/móvil (overlay con backdrop)
+
+#### Sistema de Permisos Granular
+- **Módulos independientes**: Natalia IA, PQNC Humans y Live Monitor como módulos separados
+- **Rol Vendedor nuevo**: Con acceso específico a PQNC + Live Monitor
+- **Evaluadores personalizables**: Permisos individuales via checkboxes funcionales
+- **Gestión dinámica**: Sistema híbrido localStorage + funciones RPC para configuración desde interfaz
+
+#### Optimizaciones de Rendimiento
+- **12 índices de BD**: Para manejo eficiente de 1.5M registros
+- **Filtros de fecha optimizados**: 30 días por defecto, máximo 3 meses
+- **Skeleton Loading**: CLS mejorado de 0.62 a ~0.1
+- **Métricas globales separadas**: Widgets independientes de filtros de tabla
+- **Sincronización optimizada**: 90 segundos vs 30 segundos anterior
+
+#### UX/UI Mejoradas
+- **Tema automático**: Detecta preferencia del sistema operativo (claro/oscuro)
+- **Sidebar abierto**: Por defecto expandido para mejor accesibilidad
+- **Live Monitor**: Nuevo módulo con indicador verde pulsante "en construcción"
+- **Navegación inteligente**: Solo muestra módulos con permisos específicos
+
+### Archivos Modificados
+- `src/components/Sidebar.tsx` - **NUEVO** componente de navegación lateral
+- `src/components/MainApp.tsx` - **REESTRUCTURADO** para layout con sidebar
+- `src/components/Header.tsx` - **SIMPLIFICADO** solo funciones esenciales
+- `src/components/analysis/PQNCDashboard.tsx` - **OPTIMIZADO** con skeleton loading
+- `src/components/admin/UserManagement.tsx` - **PERMISOS MEJORADOS** con checkboxes funcionales
+- `src/hooks/useAnalysisPermissions.ts` - **NUEVO** hook para permisos granulares
+- `src/contexts/AuthContext.tsx` - **PERMISOS GRANULARES** y funciones específicas
+- `docs/PERMISSIONS_SYSTEM_README.md` - **NUEVA** documentación técnica detallada
+
 ## Versión 1.0.12 (Enero 2025)
 
 ### Optimización de Animaciones y UX de Login

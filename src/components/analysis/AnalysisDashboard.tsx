@@ -20,7 +20,11 @@ interface AnalysisRecord {
   calificaciones: Record<string, string>;
 }
 
-const AnalysisDashboard: React.FC = () => {
+interface AnalysisDashboardProps {
+  forceMode?: 'natalia' | 'pqnc';
+}
+
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
   const { user, canAccessSubModule, checkAnalysisPermissions } = useAuth();
   
   // Estado de la aplicación
@@ -42,8 +46,10 @@ const AnalysisDashboard: React.FC = () => {
   // Permisos específicos de análisis
   const [analysisPermissions, setAnalysisPermissions] = useState<{natalia: boolean, pqnc: boolean}>({ natalia: false, pqnc: false });
   
-  // UI Estado - Determinar selección inicial basada en permisos
+  // UI Estado - Usar forceMode si está definido, sino usar lógica anterior
   const [selectedAnalysis, setSelectedAnalysis] = useState<'natalia' | 'pqnc'>(() => {
+    if (forceMode) return forceMode;
+    
     if (!user) return 'natalia';
     
     // Admin ve por defecto Natalia
@@ -62,6 +68,13 @@ const AnalysisDashboard: React.FC = () => {
     
     return 'natalia';
   });
+
+  // Actualizar selectedAnalysis cuando cambie forceMode
+  useEffect(() => {
+    if (forceMode) {
+      setSelectedAnalysis(forceMode);
+    }
+  }, [forceMode]);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailChart, setDetailChart] = useState<Chart | null>(null);
   const detailRadarChartRef = useRef<HTMLCanvasElement>(null);
@@ -476,63 +489,6 @@ const AnalysisDashboard: React.FC = () => {
             Analiza el rendimiento y resultados de las llamadas procesadas por los agentes
           </p>
 
-          {/* Selector de Tipo de Análisis */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-8">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              Tipo de Análisis
-            </h2>
-            <div className="flex flex-wrap gap-4">
-              {/* Mostrar Natalia solo si tiene permisos */}
-              {analysisPermissions.natalia && (
-                <button
-                  onClick={() => setSelectedAnalysis('natalia')}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                    selectedAnalysis === 'natalia'
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span>Análisis Natalia</span>
-                  </div>
-                </button>
-              )}
-              
-              {/* Mostrar PQNC solo si tiene permisos */}
-              {analysisPermissions.pqnc && (
-                <button
-                  onClick={() => setSelectedAnalysis('pqnc')}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                    selectedAnalysis === 'pqnc'
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                    </svg>
-                    <span>PQNC Humans</span>
-                  </div>
-                </button>
-              )}
-              
-              {/* Mensaje para developers */}
-              {user?.role_name === 'developer' && (
-                <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <div className="flex items-center space-x-2 text-amber-700 dark:text-amber-300">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-medium">Los desarrolladores no tienen acceso al módulo de análisis</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Renderizado Condicional */}

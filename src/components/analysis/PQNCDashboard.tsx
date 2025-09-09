@@ -72,7 +72,7 @@ const PQNCDashboard: React.FC = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
-  const [syncInterval, setSyncInterval] = useState(30); // segundos
+  const [syncInterval, setSyncInterval] = useState(90); // segundos
   
   // Estados de filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,8 +90,21 @@ const PQNCDashboard: React.FC = () => {
   const [bookmarkMap, setBookmarkMap] = useState<Map<string, BookmarkData>>(new Map());
   const [bookmarkFilter, setBookmarkFilter] = useState<BookmarkColor | null>(null);
   const [bookmarkStats, setBookmarkStats] = useState<Array<{ color: BookmarkColor; count: number }>>([]);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  
+  // Inicializar filtros de fecha con últimos 30 días por defecto
+  const getDefaultDateFrom = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split('T')[0];
+  };
+  
+  const getDefaultDateTo = () => {
+    const date = new Date();
+    return date.toISOString().split('T')[0];
+  };
+
+  const [dateFrom, setDateFrom] = useState(getDefaultDateFrom());
+  const [dateTo, setDateTo] = useState(getDefaultDateTo());
   const [agentFilter, setAgentFilter] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
   const [resultFilter, setResultFilter] = useState('');
@@ -151,6 +164,23 @@ const PQNCDashboard: React.FC = () => {
     }
   }, [autoSyncEnabled, syncInterval]);
 
+  // Recargar datos cuando cambien las fechas (con debounce para evitar múltiples cargas)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadCalls();
+      // NO recargar métricas globales aquí, solo al inicializar
+    }, 500); // Debounce de 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [dateFrom, dateTo]);
+
+  // Cargar métricas globales al inicializar
+  useEffect(() => {
+    loadGlobalMetrics();
+  }, []);
+
+  // Las métricas globales son independientes de los datos filtrados
+
   // Aplicar filtros
   useEffect(() => {
     applyFilters();
@@ -166,25 +196,38 @@ const PQNCDashboard: React.FC = () => {
     }
   }, [topRecords, itemsPerPage]);
 
+  // Función para validar rango máximo de 3 meses
+  const validateDateRange = (from: string, to: string) => {
+    if (!from || !to) return true; // Si no hay fechas, permitir
+    
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    const diffTime = toDate.getTime() - fromDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays <= 90; // Máximo 90 días (3 meses)
+  };
+
   const loadCalls = async (forceReload = false) => {
     setLoading(true);
     setError(null);
 
     try {
+      // VALIDACIÓN: Verificar que el rango no exceda 3 meses
+      if (!validateDateRange(dateFrom, dateTo)) {
+        setError('El rango de fechas no puede ser mayor a 3 meses');
+        setLoading(false);
+        return;
+      }
       
-      // Primero obtener el conteo total para mostrar estadísticas
-      const { count, error: countError } = await pqncSupabaseAdmin
+      console.log(`🔍 Cargando llamadas desde: ${dateFrom} hasta: ${dateTo}`);
+      
+      // Construir la consulta base
+      let countQuery = pqncSupabaseAdmin
         .from('calls')
         .select('*', { count: 'exact', head: true });
-
-      if (countError) {
-        console.warn('⚠️ Error obteniendo conteo:', countError);
-      } else {
-        setTotalRecords(count || 0);
-      }
-
-      // Cargar los registros más recientes (aumentamos el límite pero mantenemos eficiencia)
-      let query = pqncSupabaseAdmin
+      
+      let dataQuery = pqncSupabaseAdmin
         .from('calls')
         .select(`
           id,
@@ -207,11 +250,35 @@ const PQNCDashboard: React.FC = () => {
           service_offered,
           script_analysis,
           compliance_data
-        `)
-        .order('start_time', { ascending: false })
-        .limit(1000); // Aumentamos a 1000 para ver más registros
+        `);
 
-      const { data, error: fetchError } = await query;
+      // OPTIMIZACIÓN: Aplicar filtros de fecha si están definidos
+      if (dateFrom) {
+        const fromDateTime = `${dateFrom}T00:00:00`;
+        countQuery = countQuery.gte('start_time', fromDateTime);
+        dataQuery = dataQuery.gte('start_time', fromDateTime);
+      }
+      
+      if (dateTo) {
+        const toDateTime = `${dateTo}T23:59:59`;
+        countQuery = countQuery.lte('start_time', toDateTime);
+        dataQuery = dataQuery.lte('start_time', toDateTime);
+      }
+
+      // Obtener conteo con filtros aplicados
+      const { count, error: countError } = await countQuery;
+
+      if (countError) {
+        console.warn('⚠️ Error obteniendo conteo:', countError);
+      } else {
+        setTotalRecords(count || 0);
+        console.log(`📊 Registros en rango: ${count || 0}`);
+      }
+
+      // Cargar los registros con límite optimizado
+      const { data, error: fetchError } = await dataQuery
+        .order('start_time', { ascending: false })
+        .limit(Math.min(500, topRecords * 10)); // Límite dinámico
 
       if (fetchError) {
         throw fetchError;
@@ -704,71 +771,154 @@ const PQNCDashboard: React.FC = () => {
   };
 
 
-  // Cálculos de métricas generales (TODOS los datos cargados)
+  // Estados para métricas globales optimizadas (consultas SQL directas)
+  const [globalMetrics, setGlobalMetrics] = useState({
+    totalCalls: 0,
+    avgQuality: 0,
+    avgQualityPonderada: 0,
+    avgConversionProb: 0,
+    successRate: 0,
+    avgDuration: 0,
+    avgAgentPerformance: 0,
+    avgRapportScore: 0
+  });
+
+  // Función optimizada para cargar métricas globales de TODA la BD (sin filtros)
+  const loadGlobalMetrics = async () => {
+    try {
+      console.log('📊 Cargando métricas globales de TODA la base de datos...');
+      
+      // 1. CONSULTA OPTIMIZADA: Solo contar registros totales
+      const { count: totalCount, error: countError } = await pqncSupabaseAdmin
+        .from('calls')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.error('❌ Error obteniendo conteo total:', countError);
+        return;
+      }
+
+      // 2. CONSULTA OPTIMIZADA: Solo campos para score ponderado y duración
+      const { data: metricsData, error: metricsError } = await pqncSupabaseAdmin
+        .from('calls')
+        .select(`
+          quality_score,
+          duration,
+          agent_performance
+        `)
+        .not('quality_score', 'is', null)
+        .not('duration', 'is', null);
+
+      if (metricsError) {
+        console.error('❌ Error cargando métricas:', metricsError);
+        return;
+      }
+
+      console.log(`🔍 Total registros en BD: ${totalCount || 0}`);
+      console.log(`🔍 Registros con métricas: ${metricsData?.length || 0}`);
+
+      if (!metricsData || metricsData.length === 0) {
+        setGlobalMetrics({
+          totalCalls: totalCount || 0,
+          avgQuality: 0,
+          avgQualityPonderada: 0,
+          avgConversionProb: 0,
+          successRate: 0,
+          avgDuration: 0,
+          avgAgentPerformance: 0,
+          avgRapportScore: 0
+        });
+        return;
+      }
+
+      // 3. CÁLCULOS OPTIMIZADOS en una sola pasada
+      let totalQuality = 0;
+      let totalQualityPonderada = 0;
+      let totalDuration = 0;
+      let validQualityCount = 0;
+      let validDurationCount = 0;
+
+      metricsData.forEach(call => {
+        // Score básico
+        if (call.quality_score != null) {
+          totalQuality += call.quality_score;
+          validQualityCount++;
+        }
+
+        // Score ponderado (simplificado para performance)
+        const agentScore = call.agent_performance?.score_ponderado || call.quality_score || 0;
+        totalQualityPonderada += agentScore;
+
+        // Duración
+        if (call.duration) {
+          const parts = call.duration.split(':');
+          if (parts.length === 3) {
+            totalDuration += ((+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]));
+            validDurationCount++;
+          }
+        }
+      });
+
+      // Calcular promedios finales
+      const newMetrics = {
+        totalCalls: totalCount || 0,
+        avgQuality: validQualityCount > 0 ? totalQuality / validQualityCount : 0,
+        avgQualityPonderada: metricsData.length > 0 ? totalQualityPonderada / metricsData.length : 0,
+        avgConversionProb: 0, // No necesario para widgets
+        successRate: 0, // No necesario para widgets
+        avgDuration: validDurationCount > 0 ? totalDuration / validDurationCount : 0,
+        avgAgentPerformance: 0, // No necesario para widgets
+        avgRapportScore: 0 // No necesario para widgets
+      };
+
+      setGlobalMetrics(newMetrics);
+      console.log(`✅ Métricas globales cargadas:`);
+      console.log(`   📊 Total llamadas: ${newMetrics.totalCalls.toLocaleString()}`);
+      console.log(`   ⭐ Score ponderado: ${newMetrics.avgQualityPonderada.toFixed(1)}`);
+      console.log(`   ⏱️ Duración promedio: ${Math.floor(newMetrics.avgDuration / 60)}:${String(Math.floor(newMetrics.avgDuration % 60)).padStart(2, '0')}`);
+
+    } catch (error) {
+      console.error('💥 Error en loadGlobalMetrics:', error);
+    }
+  };
+
+  // Función legacy con fallback a datos locales si no hay métricas globales
   const calculateGeneralMetrics = () => {
-    const totalCalls = calls.length;
-    
-    if (totalCalls === 0) {
-      return { 
-        totalCalls: 0, 
-        avgQuality: 0, 
-        avgQualityPonderada: 0,
-        avgConversionProb: 0,
-        successRate: 0, 
-        avgDuration: 0,
+    // Si no hay métricas globales cargadas, usar datos locales como fallback
+    if (globalMetrics.totalCalls === 0 && calls.length > 0) {
+      console.log('⚠️ Usando fallback local para métricas');
+      const totalCalls = calls.length;
+      
+      // Cálculos simples con datos locales
+      const avgQuality = calls.reduce((sum, call) => sum + (call.quality_score || 0), 0) / totalCalls;
+      const avgQualityPonderada = calls.reduce((sum, call) => {
+        return sum + calcularQualityScorePonderado(call, ponderacionConfig);
+      }, 0) / totalCalls;
+      
+      const successRate = (calls.filter(call => 
+        call.call_result === 'seguimiento_programado' || 
+        call.call_result === 'venta_concretada'
+      ).length / totalCalls) * 100;
+      
+      const avgDuration = calls.reduce((sum, call) => {
+        if (!call.duration) return sum;
+        const parts = call.duration.split(':');
+        return sum + ((+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]));
+      }, 0) / totalCalls;
+
+      return {
+        totalCalls,
+        avgQuality,
+        avgQualityPonderada,
+        avgConversionProb: avgQualityPonderada,
+        successRate,
+        avgDuration,
         avgAgentPerformance: 0,
         avgRapportScore: 0
       };
     }
     
-    // Calidad promedio estándar
-    const avgQuality = calls.reduce((sum, call) => sum + call.quality_score, 0) / totalCalls;
-    
-    // Calidad promedio ponderada
-    const avgQualityPonderada = calls.reduce((sum, call) => {
-      return sum + calcularQualityScorePonderado(call, ponderacionConfig);
-    }, 0) / totalCalls;
-    
-    // Probabilidad de conversión promedio
-    const avgConversionProb = calls.reduce((sum, call) => {
-      return sum + calcularProbabilidadConversion(call, ponderacionConfig);
-    }, 0) / totalCalls;
-    
-    // Tasa de éxito
-    const successRate = (calls.filter(call => 
-      call.call_result === 'seguimiento_programado' || 
-      call.call_result === 'venta_concretada'
-    ).length / totalCalls) * 100;
-    
-    // Duración promedio
-    const avgDuration = calls.reduce((sum, call) => {
-      const duration = call.duration || '00:00:00';
-      const parts = duration.split(':');
-      const seconds = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]);
-      return sum + seconds;
-    }, 0) / totalCalls;
-
-    // Métricas adicionales de ponderación
-    const avgAgentPerformance = calls.reduce((sum, call) => {
-      const agentPerf = call.agent_performance?.score_ponderado || 0;
-      return sum + agentPerf;
-    }, 0) / totalCalls;
-
-    const avgRapportScore = calls.reduce((sum, call) => {
-      const rapportScore = call.comunicacion_data?.rapport_metricas?.score_ponderado || 0;
-      return sum + rapportScore;
-    }, 0) / totalCalls;
-
-    return { 
-      totalCalls, 
-      avgQuality, 
-      avgQualityPonderada,
-      avgConversionProb,
-      successRate, 
-      avgDuration,
-      avgAgentPerformance,
-      avgRapportScore
-    };
+    return globalMetrics;
   };
 
   // Cálculos de métricas filtradas (para análisis específico si es necesario)
@@ -905,51 +1055,71 @@ const PQNCDashboard: React.FC = () => {
   
   return (
     <div className="space-y-6 scroll-fade-in prevent-horizontal-scroll" /* DEBUG: Clases agregadas para scroll mejorado */>
-      {/* DEBUG: Header con métricas principales - scroll optimizado */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 scroll-reveal" /* DEBUG: Grid con animación reveal */>
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Llamadas</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.totalCalls.toLocaleString()}</p>
+      {/* Header con métricas principales - CON SKELETON LOADING */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {loading ? (
+          // SKELETON PARA WIDGETS - Evita layout shifts
+          <>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-3 flex-1">
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-2/3"></div>
+                    <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-1/2"></div>
+                  </div>
+                  <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+                    <div className="w-6 h-6 bg-slate-200 dark:bg-slate-600 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700 min-h-[120px]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Llamadas</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.totalCalls.toLocaleString()}</p>
+                </div>
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-            </div>
-          </div>
-        </div>
 
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Score Ponderado</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.avgQualityPonderada.toFixed(1)}</p>
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700 min-h-[120px]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Score Ponderado</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{generalMetrics.avgQualityPonderada.toFixed(1)}</p>
+                </div>
+                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                  <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-              <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-              </svg>
-            </div>
-          </div>
-        </div>
 
-
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Duración Promedio</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatDuration(generalMetrics.avgDuration)}</p>
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700 min-h-[120px]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Duración Promedio</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatDuration(generalMetrics.avgDuration)}</p>
+                </div>
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
 
@@ -957,7 +1127,7 @@ const PQNCDashboard: React.FC = () => {
         {/* Búsqueda Principal */}
         <div className="p-6 border-t border-slate-200 dark:border-slate-700">
           <div className="space-y-4">
-            {/* Campo de búsqueda principal más grande */}
+            {/* Campo de búsqueda principal */}
             <div>
               <label className="block text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
                 <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1044,8 +1214,18 @@ const PQNCDashboard: React.FC = () => {
                 <input
                   type="date"
                   value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => {
+                    setDateFrom(e.target.value);
+                    // Mostrar advertencia si excede 3 meses
+                    if (dateTo && !validateDateRange(e.target.value, dateTo)) {
+                      console.warn('⚠️ Rango mayor a 3 meses, puede afectar el rendimiento');
+                    }
+                  }}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200 ${
+                    !validateDateRange(dateFrom, dateTo) 
+                      ? 'border-red-500 dark:border-red-400' 
+                      : 'border-slate-300 dark:border-slate-600'
+                  }`}
                 />
               </div>
 
@@ -1056,10 +1236,39 @@ const PQNCDashboard: React.FC = () => {
                 <input
                   type="date"
                   value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => {
+                    setDateTo(e.target.value);
+                    // Mostrar advertencia si excede 3 meses
+                    if (dateFrom && !validateDateRange(dateFrom, e.target.value)) {
+                      console.warn('⚠️ Rango mayor a 3 meses, puede afectar el rendimiento');
+                    }
+                  }}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200 ${
+                    !validateDateRange(dateFrom, dateTo) 
+                      ? 'border-red-500 dark:border-red-400' 
+                      : 'border-slate-300 dark:border-slate-600'
+                  }`}
                 />
               </div>
+              
+              {/* Advertencia visual si el rango excede 3 meses */}
+              {!validateDateRange(dateFrom, dateTo) && (
+                <div className="md:col-span-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        ⚠️ Rango máximo excedido
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                        El rango de fechas no puede ser mayor a 3 meses para mantener el rendimiento óptimo.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -1272,9 +1481,24 @@ const PQNCDashboard: React.FC = () => {
         ) : (
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
-                Registro de Llamadas ({filteredCalls.length})
-              </h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+                    Registro de Llamadas ({filteredCalls.length})
+                  </h3>
+                  {(dateFrom || dateTo) && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Filtrado por fechas
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  📊 Total en BD: {totalRecords.toLocaleString()}
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto" style={{ overflow: 'visible' }}>
@@ -1324,7 +1548,8 @@ const PQNCDashboard: React.FC = () => {
                     </th>
                     <th className="px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-12">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 616 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                       Ver
                     </th>
@@ -1333,7 +1558,23 @@ const PQNCDashboard: React.FC = () => {
                   </tr>
                 </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                {paginatedCalls.map((call) => {
+                {loading ? (
+                  // SKELETON ROWS - Evita layout shifts en tabla
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <tr key={`skeleton-${i}`} className="animate-pulse">
+                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-32"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-28"></div></td>
+                      <td className="px-4 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded-full w-20"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-12"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
+                      <td className="px-2 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-6 mx-auto"></div></td>
+                      <td className="px-2 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-6"></div></td>
+                      <td className="px-1 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-4 mx-auto"></div></td>
+                    </tr>
+                  ))
+                ) : (
+                  paginatedCalls.map((call) => {
                   const scorePonderado = calcularQualityScorePonderado(call, ponderacionConfig);
                   const probConversion = calcularProbabilidadConversion(call, ponderacionConfig);
                   
@@ -1497,7 +1738,7 @@ const PQNCDashboard: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
@@ -1580,7 +1821,7 @@ const PQNCDashboard: React.FC = () => {
               <div className={`w-2 h-2 rounded-full ${autoSyncEnabled ? 'bg-green-400' : 'bg-gray-400'}`}></div>
               <span>Sync {autoSyncEnabled ? 'ON' : 'OFF'}</span>
             </div>
-            <span>BD: {totalRecords.toLocaleString()} | Cargados: {calls.length}</span>
+            <span>BD: {globalMetrics.totalCalls.toLocaleString()} | Cargados: {calls.length}</span>
             {lastSyncTime && (
               <span>Última: {new Date(lastSyncTime).toLocaleTimeString()}</span>
             )}

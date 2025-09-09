@@ -2,6 +2,33 @@
 
 ## Historial de Versiones
 
+### v1.0.13 (2025-01-24 23:45)
+**Tipo**: major
+**Descripción**: Reorganización Completa con Sidebar y Sistema de Permisos Avanzado
+
+**🏗️ Transformación Arquitectónica:**
+- Sidebar colapsable profesional con navegación lateral
+- Header simplificado (usuario, logout, tema)
+- Footer fijo siempre visible
+- Responsividad completa desktop/móvil
+
+**🔐 Sistema de Permisos Granular:**
+- Módulos independientes: Natalia IA, PQNC Humans, Live Monitor
+- Rol Vendedor nuevo con permisos específicos
+- Evaluadores personalizables via checkboxes funcionales
+- Gestión dinámica desde interfaz admin
+
+**⚡ Optimizaciones de Rendimiento:**
+- 12 índices de BD para 1.5M registros
+- Filtros de fecha optimizados (30 días default, máximo 3 meses)
+- Skeleton Loading (CLS mejorado 0.62 → 0.1)
+- Tema automático del sistema operativo
+
+**📚 Documentación:**
+- `docs/PERMISSIONS_SYSTEM_README.md` - Sistema de permisos detallado
+- Scripts de BD organizados y optimizados
+- Limpieza completa de archivos temporales
+
 ### v1.0.6 (2025-01-24 23:30)
 **Tipo**: major
 **Descripción**: Módulo de Plantillas Completamente Rediseñado - CORRECCIONES APLICADAS

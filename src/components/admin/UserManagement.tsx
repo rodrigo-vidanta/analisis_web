@@ -71,8 +71,8 @@ const UserManagement: React.FC = () => {
     position: '',
     role_id: '',
     is_active: true,
-    // Subpermisos específicos para evaluadores
-    analysis_sources: [] as string[] // ['natalia', 'pqnc']
+    // Subpermisos específicos para evaluadores y vendedores
+    analysis_sources: [] as string[] // ['natalia', 'pqnc', 'live_monitor']
   });
 
   // Verificar permisos - FORZAR TRUE para admin mientras se arregla hasPermission
@@ -382,33 +382,59 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  // Gestión de subpermisos de análisis usando permisos específicos por usuario
+  // Gestión de subpermisos usando localStorage temporal + función RPC cuando esté disponible
   const assignAnalysisSubPermissions = async (userId: string, sources: string[]) => {
     try {
       const nataliaAccess = sources.includes('natalia');
       const pqncAccess = sources.includes('pqnc');
+      const liveMonitorAccess = sources.includes('live_monitor');
       
-      // Verificar si la función SQL existe, si no usar método temporal
-      const { error } = await supabase.rpc('configure_evaluator_analysis_permissions', {
-        p_target_user_id: userId,
-        p_natalia_access: nataliaAccess,
-        p_pqnc_access: pqncAccess
-      });
-
-      if (error) {
-        // Si la función no existe, usar método temporal simple
-        if (error.code === 'PGRST202') {
-          console.warn('Funciones SQL no configuradas. Usando método temporal.');
-          // Método temporal: solo actualizar localmente hasta que se ejecuten las funciones SQL
-          return;
-        }
-        console.error('Error configuring analysis permissions:', error);
-        throw error;
+      console.log('📋 Configurando permisos:', { userId, nataliaAccess, pqncAccess, liveMonitorAccess });
+      
+      // MÉTODO TEMPORAL: Guardar en localStorage hasta que RPC funcione completamente
+      const userEmail = users.find(u => u.id === userId)?.email;
+      if (userEmail) {
+        const permissionsKey = `evaluator_permissions_${userEmail}`;
+        const permissionsData = {
+          userId,
+          userEmail,
+          natalia_access: nataliaAccess,
+          pqnc_access: pqncAccess,
+          live_monitor_access: liveMonitorAccess,
+          updated_at: new Date().toISOString()
+        };
+        
+        localStorage.setItem(permissionsKey, JSON.stringify(permissionsData));
+        console.log('✅ Permisos guardados temporalmente en localStorage:', permissionsData);
+        
+        // Disparar evento para notificar cambios
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: permissionsKey,
+          newValue: JSON.stringify(permissionsData),
+          url: window.location.href
+        }));
       }
+
+      // INTENTAR USAR FUNCIÓN RPC SI ESTÁ DISPONIBLE
+      try {
+        const { data: result, error } = await supabase.rpc('configure_evaluator_analysis_permissions', {
+          p_target_user_id: userId,
+          p_natalia_access: nataliaAccess,
+          p_pqnc_access: pqncAccess
+          // Omitir live_monitor por ahora hasta que la función se actualice completamente
+        });
+
+        if (error) {
+          console.log('⚠️ Función RPC no disponible completamente, usando localStorage temporal');
+        } else {
+          console.log('✅ Permisos también guardados via RPC:', result);
+        }
+      } catch (err) {
+        console.log('⚠️ RPC no disponible, usando solo localStorage temporal');
+      }
+
     } catch (err) {
-      console.error('Error assigning analysis sub-permissions:', err);
-      // No lanzar error para evitar romper la aplicación
-      console.warn('Continuando sin configurar subpermisos. Ejecuta las funciones SQL requeridas.');
+      console.error('💥 Error assigning analysis sub-permissions:', err);
     }
   };
 
@@ -450,6 +476,47 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  // Función para cargar permisos específicos del usuario desde localStorage
+  const loadUserPermissionsDirect = async (userId: string) => {
+    try {
+      console.log('🔍 Cargando permisos específicos para usuario:', userId);
+      
+      const userEmail = users.find(u => u.id === userId)?.email;
+      if (!userEmail) {
+        console.error('❌ No se encontró email para usuario:', userId);
+        setFormData(prev => ({ ...prev, analysis_sources: [] }));
+        return;
+      }
+
+      // Cargar desde localStorage
+      const permissionsKey = `evaluator_permissions_${userEmail}`;
+      const savedPermissions = localStorage.getItem(permissionsKey);
+      
+      if (savedPermissions) {
+        try {
+          const permData = JSON.parse(savedPermissions);
+          const sources: string[] = [];
+          if (permData.natalia_access) sources.push('natalia');
+          if (permData.pqnc_access) sources.push('pqnc');
+          if (permData.live_monitor_access) sources.push('live_monitor');
+          
+          console.log('✅ Permisos cargados desde localStorage:', sources);
+          setFormData(prev => ({ ...prev, analysis_sources: sources }));
+        } catch (err) {
+          console.error('❌ Error parseando localStorage:', err);
+          setFormData(prev => ({ ...prev, analysis_sources: [] }));
+        }
+      } else {
+        console.log('⚠️ No hay configuración en localStorage para:', userEmail);
+        setFormData(prev => ({ ...prev, analysis_sources: [] }));
+      }
+
+    } catch (err) {
+      console.error('💥 Error en loadUserPermissionsDirect:', err);
+      setFormData(prev => ({ ...prev, analysis_sources: [] }));
+    }
+  };
+
   const openEditModal = async (user: User) => {
     setSelectedUser(user);
     setFormData({
@@ -467,29 +534,9 @@ const UserManagement: React.FC = () => {
 
     // Cargar subpermisos actuales si es evaluador
     if (user.role_name === 'evaluator') {
-      try {
-        const { data: analysisConfig, error } = await supabase.rpc('get_evaluator_analysis_config', {
-          p_target_user_id: user.id
-        });
-
-        if (!error && analysisConfig && analysisConfig.length > 0) {
-          const config = analysisConfig[0];
-          const sources: string[] = [];
-          if (config.has_natalia_access) sources.push('natalia');
-          if (config.has_pqnc_access) sources.push('pqnc');
-          
-          setFormData(prev => ({ ...prev, analysis_sources: sources }));
-        } else if (error && error.code === 'PGRST202') {
-          // Función no existe, usar método temporal
-          console.warn('Función SQL no configurada. Usando permisos básicos.');
-          // Por defecto, dar acceso a ambos hasta que se configuren las funciones
-          setFormData(prev => ({ ...prev, analysis_sources: ['natalia', 'pqnc'] }));
-        }
-      } catch (err) {
-        console.error('Error loading analysis config:', err);
-        // En caso de error, usar configuración por defecto
-        setFormData(prev => ({ ...prev, analysis_sources: ['natalia', 'pqnc'] }));
-      }
+      console.log('📋 Cargando configuración para evaluador:', user.email);
+      // Usar localStorage como fuente principal para gestión dinámica
+      await loadUserPermissionsDirect(user.id);
     }
 
     setShowEditModal(true);
@@ -821,6 +868,22 @@ const UserManagement: React.FC = () => {
                         Análisis de PQNC Humans
                       </span>
                     </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.analysis_sources.includes('live_monitor')}
+                        onChange={(e) => {
+                          const sources = e.target.checked
+                            ? [...formData.analysis_sources, 'live_monitor']
+                            : formData.analysis_sources.filter(s => s !== 'live_monitor');
+                          setFormData({ ...formData, analysis_sources: sources });
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        Live Monitor
+                      </span>
+                    </label>
                   </div>
                 </div>
               )}
@@ -1036,6 +1099,22 @@ const UserManagement: React.FC = () => {
                       />
                       <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                         Análisis de PQNC Humans
+                      </span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.analysis_sources.includes('live_monitor')}
+                        onChange={(e) => {
+                          const sources = e.target.checked
+                            ? [...formData.analysis_sources, 'live_monitor']
+                            : formData.analysis_sources.filter(s => s !== 'live_monitor');
+                          setFormData({ ...formData, analysis_sources: sources });
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        Live Monitor
                       </span>
                     </label>
                   </div>

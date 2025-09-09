@@ -48,13 +48,17 @@ export const useUserProfile = () => {
       }
 
       // Luego obtener avatar por separado
-      const { data: avatarData } = await supabase
+      const { data: avatarData, error: avatarError } = await supabase
         .from('user_avatars')
         .select('avatar_url')
         .eq('user_id', user.id)
         .order('uploaded_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (avatarError) {
+        console.warn('⚠️ Error cargando avatar:', avatarError);
+      }
 
       if (userData) {
         setProfile({
