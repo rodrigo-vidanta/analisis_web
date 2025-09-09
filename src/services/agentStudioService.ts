@@ -1,758 +1,897 @@
-// ============================================
-// SERVICIO PARA AGENT STUDIO
-// Gestión completa de plantillas, categorías, prompts y herramientas
-// ============================================
+// Servicio completo para Agent Studio con todas las funcionalidades avanzadas
+// Manejo de importación, squads, roles, tools y perfiles de usuario
 
-import { supabaseMainAdmin } from '../config/supabase';
+import { supabase } from '../config/supabase';
+import type { Database } from '../types/database';
 
-// Tipos
+// Tipos para Agent Studio
 export interface AgentTemplate {
-  id: string;
+  id?: string;
   name: string;
-  slug: string;
   description: string;
-  category_id: string;
-  category_name?: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimated_time: string;
-  icon: string;
-  agent_type: 'inbound' | 'outbound';
+  category: string;
   keywords: string[];
   use_cases: string[];
-  business_context?: string;
-  vapi_config: any;
+  is_squad: boolean;
+  squad_config?: SquadConfig;
+  single_agent_config?: SingleAgentConfig;
+  tools: Tool[];
+  created_by: string;
+  created_at?: string;
+  updated_at?: string;
   usage_count: number;
   success_rate: number;
   is_active: boolean;
-  is_public: boolean;
-  source_type?: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
+  vapi_config?: any;
 }
 
-export interface AgentCategory {
+export interface SquadConfig {
+  name: string;
+  description: string;
+  members: SquadMember[];
+}
+
+export interface SquadMember {
   id: string;
   name: string;
-  slug: string;
+  role: string;
   description: string;
-  icon: string;
-  color: string;
-  created_at: string;
-  updated_at: string;
+  model_config: ModelConfig;
+  voice_config: VoiceConfig;
+  tools: string[]; // IDs de tools
+  system_prompts: string[];
+  destinations?: TransferDestination[];
 }
 
-export interface SystemPrompt {
-  id: string;
-  title: string;
-  content: string;
-  role: 'system' | 'user' | 'assistant';
-  category: string;
-  prompt_type: string;
-  keywords: string[];
-  applicable_categories: string[];
-  order_priority: number;
-  is_required: boolean;
-  is_editable: boolean;
-  variables: any;
-  created_at: string;
-  updated_at: string;
+export interface SingleAgentConfig {
+  name: string;
+  role: string;
+  description: string;
+  model_config: ModelConfig;
+  voice_config: VoiceConfig;
+  system_prompts: string[];
+}
+
+export interface ModelConfig {
+  provider: string;
+  model: string;
+  temperature: number;
+  fallback_models?: string[];
+}
+
+export interface VoiceConfig {
+  provider: string;
+  voice_id: string;
+  model: string;
+  stability: number;
+  similarity_boost: number;
+  style?: number;
+  speed: number;
+}
+
+export interface TransferDestination {
+  type: 'assistant' | 'number';
+  assistant_name?: string;
+  number?: string;
+  message: string;
+  description: string;
 }
 
 export interface Tool {
-  id: string;
+  id?: string;
   name: string;
-  tool_type: string;
-  category: string;
-  config: any;
   description: string;
-  complexity: 'low' | 'medium' | 'high';
-  keywords: string[];
-  use_cases: string[];
-  integration_requirements: string[];
-  applicable_categories: string[];
-  is_active: boolean;
+  category: string;
+  function_schema: any;
+  server_url: string;
+  is_async: boolean;
+  messages?: any[];
+  created_by: string;
+  created_at?: string;
+  is_reusable: boolean;
   usage_count: number;
-  success_rate: number;
-  setup_instructions?: string;
-  example_usage?: any;
-  troubleshooting_notes?: string;
-  created_at: string;
-  updated_at: string;
 }
 
-export interface CreateAgentRequest {
-  name: string;
-  description: string;
-  category_id: string;
-  agent_type: 'inbound' | 'outbound';
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimated_time: string;
-  keywords: string[];
-  use_cases: string[];
-  business_context?: string;
-  selectedPrompts: string[];
-  selectedTools: string[];
-  vapi_config?: any;
-  created_by: string;
+export interface ImportResult {
+  success: boolean;
+  message: string;
+  agent?: AgentTemplate;
+  errors?: string[];
+  warnings?: string[];
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  detectedType: 'single' | 'squad' | 'invalid';
+  agentCount?: number;
+  toolsCount?: number;
 }
 
 class AgentStudioService {
-
-  // ============================================
-  // GESTIÓN DE PLANTILLAS
-  // ============================================
-
-  /**
-   * Obtener todas las plantillas activas
-   */
-  async getTemplates(): Promise<AgentTemplate[]> {
+  
+  // =================== GESTIÓN DE PLANTILLAS ===================
+  
+  async getTemplates(userId?: string): Promise<AgentTemplate[]> {
     try {
-      const { data, error } = await supabaseMainAdmin
+      let query = supabase
         .from('agent_templates')
         .select(`
           *,
-          agent_categories!inner(name, icon, color)
+          tools:agent_template_tools(
+            tool_id,
+            tools(*)
+          )
         `)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error obteniendo plantillas:', error);
-        return [];
+      if (userId) {
+        query = query.eq('created_by', userId);
       }
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
 
       return data?.map(template => ({
         ...template,
-        category_name: template.agent_categories?.name,
-        icon: template.icon || template.agent_categories?.icon
+        tools: template.tools?.map((t: any) => t.tools) || []
       })) || [];
     } catch (error) {
-      console.error('💥 Error en getTemplates:', error);
-      return [];
+      console.error('Error fetching templates:', error);
+      throw error;
     }
   }
 
-  /**
-   * Obtener plantilla por ID
-   */
   async getTemplateById(id: string): Promise<AgentTemplate | null> {
     try {
-      const { data, error } = await supabaseMainAdmin
+      const { data, error } = await supabase
         .from('agent_templates')
         .select(`
           *,
-          agent_categories(name, icon, color)
+          tools:agent_template_tools(
+            tool_id,
+            tools(*)
+          )
         `)
         .eq('id', id)
         .eq('is_active', true)
         .single();
 
-      if (error) {
-        console.error('❌ Error obteniendo plantilla:', error);
-        return null;
-      }
+      if (error) throw error;
+
+      if (!data) return null;
 
       return {
         ...data,
-        category_name: data.agent_categories?.name,
-        icon: data.icon || data.agent_categories?.icon
+        tools: data.tools?.map((t: any) => t.tools) || []
       };
     } catch (error) {
-      console.error('💥 Error en getTemplateById:', error);
+      console.error('Error fetching template by ID:', error);
       return null;
     }
   }
 
-  /**
-   * Crear nueva plantilla
-   */
-  async createTemplate(request: CreateAgentRequest): Promise<AgentTemplate | null> {
+  async createTemplate(template: Omit<AgentTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<AgentTemplate> {
     try {
-      // Generar slug único
-      const baseSlug = request.name.toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .substring(0, 50);
-      
-      let slug = baseSlug;
-      let counter = 1;
-      
-      // Verificar unicidad del slug
-      while (true) {
-        const { data: existing } = await supabaseMainAdmin
-          .from('agent_templates')
-          .select('id')
-          .eq('slug', slug)
-          .single();
-
-        if (!existing) break;
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-      }
-
-      // Construir configuración VAPI optimizada
-      const vapiConfig = await this.buildVapiConfig(request);
-
-      // Crear plantilla principal
-      const { data: template, error: templateError } = await supabaseMainAdmin
+      // Crear la plantilla principal
+      const { data: templateData, error: templateError } = await supabase
         .from('agent_templates')
         .insert({
-          name: request.name,
-          slug,
-          description: request.description,
-          category_id: request.category_id,
-          difficulty: request.difficulty,
-          estimated_time: request.estimated_time,
-          agent_type: request.agent_type,
-          keywords: request.keywords,
-          use_cases: request.use_cases,
-          business_context: request.business_context,
-          vapi_config: vapiConfig,
-          created_by: request.created_by,
-          is_active: true,
-          is_public: true,
-          source_type: 'agent_studio',
+          name: template.name,
+          description: template.description,
+          category: template.category,
+          keywords: template.keywords,
+          use_cases: template.use_cases,
+          is_squad: template.is_squad,
+          squad_config: template.squad_config,
+          single_agent_config: template.single_agent_config,
+          created_by: template.created_by,
           usage_count: 0,
-          success_rate: 0.0
+          success_rate: 0,
+          is_active: true,
+          vapi_config: template.vapi_config
         })
         .select()
         .single();
 
-      if (templateError) {
-        console.error('❌ Error creando plantilla:', templateError);
-        return null;
-      }
+      if (templateError) throw templateError;
 
-      // Crear relaciones con prompts
-      if (request.selectedPrompts.length > 0) {
-        const promptRelations = request.selectedPrompts.map((promptId, index) => ({
-          agent_template_id: template.id,
-          system_prompt_id: promptId,
-          order_index: index + 1,
-          is_customized: false
+      // Asociar tools si existen
+      if (template.tools && template.tools.length > 0) {
+        const toolAssociations = template.tools.map(tool => ({
+          agent_template_id: templateData.id,
+          tool_id: tool.id
         }));
 
-        const { error: promptError } = await supabaseMainAdmin
-          .from('agent_prompts')
-          .insert(promptRelations);
+        const { error: toolsError } = await supabase
+          .from('agent_template_tools')
+          .insert(toolAssociations);
 
-        if (promptError) {
-          console.error('❌ Error creando relaciones de prompts:', promptError);
-        }
+        if (toolsError) throw toolsError;
       }
 
-      // Crear relaciones con herramientas
-      if (request.selectedTools.length > 0) {
-        const toolRelations = request.selectedTools.map(toolId => ({
-          agent_template_id: template.id,
-          tool_id: toolId,
-          is_enabled: true
-        }));
-
-        const { error: toolError } = await supabaseMainAdmin
-          .from('agent_tools')
-          .insert(toolRelations);
-
-        if (toolError) {
-          console.error('❌ Error creando relaciones de herramientas:', toolError);
-        }
-      }
-
-      console.log('✅ Plantilla creada exitosamente:', template.name);
-      return template;
+      return await this.getTemplateById(templateData.id) as AgentTemplate;
     } catch (error) {
-      console.error('💥 Error en createTemplate:', error);
-      return null;
+      console.error('Error creating template:', error);
+      throw error;
     }
   }
 
-  /**
-   * Construir configuración VAPI optimizada
-   */
-  private async buildVapiConfig(request: CreateAgentRequest): Promise<any> {
+  async updateTemplate(id: string, updates: Partial<AgentTemplate>): Promise<AgentTemplate> {
     try {
-      // Obtener prompts seleccionados
-      const { data: prompts } = await supabaseMainAdmin
-        .from('system_prompts')
-        .select('*')
-        .in('id', request.selectedPrompts)
-        .order('order_priority');
-
-      // Obtener herramientas seleccionadas
-      const { data: tools } = await supabaseMainAdmin
-        .from('tool_catalog')
-        .select('*')
-        .in('id', request.selectedTools);
-
-      // Configuración base optimizada
-      const config = {
-        name: request.name,
-        model: {
-          provider: "openai",
-          model: "gpt-4o",
-          temperature: 0.7,
-          fallbackModels: ["gpt-4-0125-preview", "gpt-3.5-turbo"]
-        },
-        voice: {
-          provider: "11labs",
-          voiceId: "9qxz2UdKZeMN5XFM4myE",
-          model: "eleven_turbo_v2_5",
-          stability: 0.30,
-          similarityBoost: 0.75,
-          style: 0.9,
-          speed: 1.0,
-          useSpeakerBoost: true,
-          enableSsmlParsing: true,
-          fallbackPlan: {
-            voices: [{
-              provider: "11labs",
-              voiceId: "R9EPoSH2zk7AP9XgMBCk",
-              model: "eleven_turbo_v2_5"
-            }]
-          }
-        },
-        transcriber: {
-          provider: "deepgram",
-          model: "nova-3",
-          language: "es",
-          numerals: true,
-          smartFormat: true,
-          endpointing: 280,
-          confidenceThreshold: 0.75,
-          keywords: request.keywords
-        },
-        messages: prompts?.map(prompt => ({
-          role: prompt.role,
-          content: prompt.content
-        })) || [],
-        tools: tools?.map(tool => tool.config).filter(Boolean) || [],
-        firstMessage: "Hola, soy su asistente virtual. ¿En qué puedo ayudarle?",
-        firstMessageMode: "assistant-speaks-first",
-        firstMessageInterruptionsEnabled: true,
-        backgroundSound: "office",
-        maxDurationSeconds: 900,
-        backgroundDenoisingEnabled: true,
-        recordingEnabled: true,
-        endCallFunctionEnabled: true,
-        endCallPhrases: ["hasta luego", "bye", "adiós", "gracias"],
-        endCallMessage: "Gracias por contactarnos. ¡Que tenga un excelente día!",
-        messagePlan: {
-          idleMessages: ["¿Sigue ahí?", "¿Me escucha bien?"],
-          idleMessageMaxSpokenCount: 2,
-          idleTimeoutSeconds: 7
-        },
-        startSpeakingPlan: {
-          waitSeconds: 0.8,
-          smartEndpointingEnabled: true
-        },
-        stopSpeakingPlan: {
-          numWords: 1,
-          voiceSeconds: 0.2,
-          backoffSeconds: 1
-        },
-        voicemailDetection: {
-          provider: "vapi"
-        },
-        analysisPlan: {
-          summaryPrompt: `Analiza esta conversación y proporciona un resumen conciso destacando: 1) El propósito de la llamada, 2) Los puntos clave discutidos, 3) El resultado o resolución alcanzada, 4) Próximos pasos si los hay.`,
-          structuredDataPrompt: "Extrae información estructurada de esta conversación según el esquema proporcionado.",
-          structuredDataSchema: {
-            type: "object",
-            properties: {
-              purpose: { type: "string", description: "Propósito principal de la llamada" },
-              outcome: { type: "string", description: "Resultado de la conversación" },
-              nextSteps: { type: "array", items: { type: "string" }, description: "Próximos pasos acordados" },
-              customerSatisfaction: { type: "string", enum: ["high", "medium", "low"], description: "Nivel de satisfacción percibido" }
-            }
-          },
-          successEvaluationPrompt: "Evalúa el éxito de esta conversación basándote en si se cumplieron los objetivos del agente y la satisfacción del cliente.",
-          successEvaluationRubric: "NumericScale"
-        }
-      };
-
-      return config;
-    } catch (error) {
-      console.error('💥 Error construyendo configuración VAPI:', error);
-      return {};
-    }
-  }
-
-  /**
-   * Actualizar plantilla existente
-   */
-  async updateTemplate(id: string, updates: Partial<AgentTemplate>): Promise<boolean> {
-    try {
-      const { error } = await supabaseMainAdmin
+      const { data, error } = await supabase
         .from('agent_templates')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
         })
-        .eq('id', id);
+        .eq('id', id)
+        .select()
+        .single();
 
-      if (error) {
-        console.error('❌ Error actualizando plantilla:', error);
-        return false;
+      if (error) throw error;
+
+      // Si se actualizaron las tools, manejar las asociaciones
+      if (updates.tools) {
+        // Eliminar asociaciones existentes
+        await supabase
+          .from('agent_template_tools')
+          .delete()
+          .eq('agent_template_id', id);
+
+        // Crear nuevas asociaciones
+        if (updates.tools.length > 0) {
+          const toolAssociations = updates.tools.map(tool => ({
+            agent_template_id: id,
+            tool_id: tool.id
+          }));
+
+          await supabase
+            .from('agent_template_tools')
+            .insert(toolAssociations);
+        }
       }
 
-      console.log('✅ Plantilla actualizada exitosamente');
-      return true;
+      return await this.getTemplateById(id) as AgentTemplate;
     } catch (error) {
-      console.error('💥 Error en updateTemplate:', error);
-      return false;
+      console.error('Error updating template:', error);
+      throw error;
     }
   }
 
-  /**
-   * Eliminar plantilla (soft delete)
-   */
   async deleteTemplate(id: string): Promise<boolean> {
     try {
-      const { error } = await supabaseMainAdmin
+      // Soft delete
+      const { error } = await supabase
         .from('agent_templates')
-        .update({ 
-          is_active: false,
-          updated_at: new Date().toISOString()
-        })
+        .update({ is_active: false })
         .eq('id', id);
 
-      if (error) {
-        console.error('❌ Error eliminando plantilla:', error);
-        return false;
-      }
-
-      console.log('✅ Plantilla eliminada exitosamente');
+      if (error) throw error;
       return true;
     } catch (error) {
-      console.error('💥 Error en deleteTemplate:', error);
+      console.error('Error deleting template:', error);
       return false;
     }
   }
 
-  /**
-   * Duplicar plantilla
-   */
-  async duplicateTemplate(originalId: string, newName: string, userId: string): Promise<AgentTemplate | null> {
+  async duplicateTemplate(id: string, newName: string, userId: string): Promise<AgentTemplate> {
     try {
-      // Obtener plantilla original con relaciones
-      const original = await this.getTemplateById(originalId);
-      if (!original) return null;
+      const original = await this.getTemplateById(id);
+      if (!original) throw new Error('Template not found');
 
-      // Obtener prompts asociados
-      const { data: promptRelations } = await supabaseMainAdmin
-        .from('agent_prompts')
-        .select('system_prompt_id, order_index, is_customized, custom_content')
-        .eq('agent_template_id', originalId)
-        .order('order_index');
-
-      // Obtener herramientas asociadas
-      const { data: toolRelations } = await supabaseMainAdmin
-        .from('agent_tools')
-        .select('tool_id, is_enabled, custom_config')
-        .eq('agent_template_id', originalId);
-
-      // Crear nueva plantilla
-      const createRequest: CreateAgentRequest = {
+      const duplicate = {
+        ...original,
         name: newName,
-        description: `${original.description} (Copia)`,
-        category_id: original.category_id,
-        agent_type: original.agent_type,
-        difficulty: original.difficulty,
-        estimated_time: original.estimated_time,
-        keywords: [...original.keywords],
-        use_cases: [...original.use_cases],
-        business_context: original.business_context,
-        selectedPrompts: promptRelations?.map(pr => pr.system_prompt_id) || [],
-        selectedTools: toolRelations?.map(tr => tr.tool_id) || [],
-        vapi_config: original.vapi_config,
-        created_by: userId
+        created_by: userId,
+        usage_count: 0,
+        success_rate: 0
       };
 
-      return await this.createTemplate(createRequest);
+      delete duplicate.id;
+      delete duplicate.created_at;
+      delete duplicate.updated_at;
+
+      return await this.createTemplate(duplicate);
     } catch (error) {
-      console.error('💥 Error en duplicateTemplate:', error);
-      return null;
+      console.error('Error duplicating template:', error);
+      throw error;
     }
   }
 
-  // ============================================
-  // GESTIÓN DE CATEGORÍAS
-  // ============================================
+  // =================== SISTEMA DE IMPORTACIÓN ===================
 
-  /**
-   * Obtener todas las categorías
-   */
-  async getCategories(): Promise<AgentCategory[]> {
+  async importAgent(jsonData: any, userId: string): Promise<ImportResult> {
     try {
-      const { data, error } = await supabaseMainAdmin
-        .from('agent_categories')
-        .select('*')
-        .order('name');
-
-      if (error) {
-        console.error('❌ Error obteniendo categorías:', error);
-        return [];
+      // Validar el JSON
+      const validation = this.validateAgentJSON(jsonData);
+      
+      if (!validation.isValid) {
+        return {
+          success: false,
+          message: 'JSON inválido',
+          errors: validation.errors
+        };
       }
 
-      return data || [];
+      // Procesar según el tipo detectado
+      let agent: AgentTemplate;
+
+      if (validation.detectedType === 'squad') {
+        agent = await this.processSquadImport(jsonData, userId);
+      } else {
+        agent = await this.processSingleAgentImport(jsonData, userId);
+      }
+
+      // Guardar en base de datos
+      const savedAgent = await this.createTemplate(agent);
+
+      return {
+        success: true,
+        message: `Agente "${agent.name}" importado exitosamente`,
+        agent: savedAgent,
+        warnings: validation.warnings
+      };
+
     } catch (error) {
-      console.error('💥 Error en getCategories:', error);
-      return [];
+      console.error('Error importing agent:', error);
+      return {
+        success: false,
+        message: 'Error al importar agente',
+        errors: [error instanceof Error ? error.message : 'Error desconocido']
+      };
     }
   }
 
-  /**
-   * Crear nueva categoría
-   */
-  async createCategory(category: Omit<AgentCategory, 'id' | 'created_at' | 'updated_at'>): Promise<AgentCategory | null> {
-    try {
-      const { data, error } = await supabaseMainAdmin
-        .from('agent_categories')
-        .insert(category)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creando categoría:', error);
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('💥 Error en createCategory:', error);
-      return null;
-    }
-  }
-
-  // ============================================
-  // GESTIÓN DE PROMPTS
-  // ============================================
-
-  /**
-   * Obtener prompts del sistema
-   */
-  async getSystemPrompts(categoryFilter?: string): Promise<SystemPrompt[]> {
-    try {
-      let query = supabaseMainAdmin
-        .from('system_prompts')
-        .select('*')
-        .order('order_priority');
-
-      if (categoryFilter) {
-        query = query.contains('applicable_categories', [categoryFilter]);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ Error obteniendo prompts:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('💥 Error en getSystemPrompts:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Crear nuevo prompt
-   */
-  async createSystemPrompt(prompt: Omit<SystemPrompt, 'id' | 'created_at' | 'updated_at'>): Promise<SystemPrompt | null> {
-    try {
-      const { data, error } = await supabaseMainAdmin
-        .from('system_prompts')
-        .insert(prompt)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creando prompt:', error);
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('💥 Error en createSystemPrompt:', error);
-      return null;
-    }
-  }
-
-  // ============================================
-  // GESTIÓN DE HERRAMIENTAS
-  // ============================================
-
-  /**
-   * Obtener herramientas disponibles
-   */
-  async getTools(categoryFilter?: string): Promise<Tool[]> {
-    try {
-      let query = supabaseMainAdmin
-        .from('tool_catalog')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-
-      if (categoryFilter) {
-        query = query.contains('applicable_categories', [categoryFilter]);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ Error obteniendo herramientas:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('💥 Error en getTools:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Crear nueva herramienta
-   */
-  async createTool(tool: Omit<Tool, 'id' | 'created_at' | 'updated_at'>): Promise<Tool | null> {
-    try {
-      const { data, error } = await supabaseMainAdmin
-        .from('tool_catalog')
-        .insert(tool)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creando herramienta:', error);
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('💥 Error en createTool:', error);
-      return null;
-    }
-  }
-
-  // ============================================
-  // UTILIDADES
-  // ============================================
-
-  /**
-   * Incrementar contador de uso
-   */
-  async incrementUsageCount(templateId: string): Promise<void> {
-    try {
-      const { error } = await supabaseMainAdmin
-        .rpc('increment_template_usage', { template_id: templateId });
-
-      if (error) {
-        console.error('❌ Error incrementando contador:', error);
-      }
-    } catch (error) {
-      console.error('💥 Error en incrementUsageCount:', error);
-    }
-  }
-
-  /**
-   * Actualizar tasa de éxito
-   */
-  async updateSuccessRate(templateId: string, successRate: number): Promise<void> {
-    try {
-      const { error } = await supabaseMainAdmin
-        .from('agent_templates')
-        .update({ 
-          success_rate: successRate,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', templateId);
-
-      if (error) {
-        console.error('❌ Error actualizando tasa de éxito:', error);
-      }
-    } catch (error) {
-      console.error('💥 Error en updateSuccessRate:', error);
-    }
-  }
-
-  /**
-   * Validar configuración VAPI
-   */
-  validateVapiConfig(config: any): { isValid: boolean; errors: string[] } {
+  private validateAgentJSON(jsonData: any): ValidationResult {
     const errors: string[] = [];
+    const warnings: string[] = [];
 
-    if (!config.name) errors.push('Nombre requerido');
-    if (!config.model?.provider) errors.push('Proveedor de modelo requerido');
-    if (!config.voice?.provider) errors.push('Proveedor de voz requerido');
-    if (!config.transcriber?.provider) errors.push('Proveedor de transcripción requerido');
-    if (!config.messages || config.messages.length === 0) errors.push('Al menos un mensaje del sistema requerido');
+    // Validaciones básicas
+    if (!jsonData) {
+      errors.push('JSON vacío o inválido');
+      return { isValid: false, errors, warnings, detectedType: 'invalid' };
+    }
+
+    // Detectar tipo de agente
+    let detectedType: 'single' | 'squad' | 'invalid' = 'invalid';
+    let agentCount = 0;
+    let toolsCount = 0;
+
+    // Verificar si es un squad
+    if (jsonData.squad && jsonData.squad.members) {
+      detectedType = 'squad';
+      agentCount = jsonData.squad.members.length;
+      
+      // Validar estructura de squad
+      if (!jsonData.squad.name) {
+        errors.push('El squad debe tener un nombre');
+      }
+
+      if (!Array.isArray(jsonData.squad.members) || jsonData.squad.members.length === 0) {
+        errors.push('El squad debe tener al menos un miembro');
+      }
+
+      // Validar cada miembro del squad
+      jsonData.squad.members.forEach((member: any, index: number) => {
+        if (!member.assistant?.name) {
+          errors.push(`Miembro ${index + 1}: falta nombre del asistente`);
+        }
+        if (!member.assistant?.model) {
+          errors.push(`Miembro ${index + 1}: falta configuración del modelo`);
+        }
+        if (member.assistant?.tools) {
+          toolsCount += member.assistant.tools.length;
+        }
+      });
+    }
+    // Verificar si es un agente individual
+    else if (jsonData.name || jsonData.assistant) {
+      detectedType = 'single';
+      agentCount = 1;
+      
+      const agent = jsonData.assistant || jsonData;
+      
+      if (!agent.name) {
+        errors.push('El agente debe tener un nombre');
+      }
+      if (!agent.model) {
+        errors.push('El agente debe tener configuración del modelo');
+      }
+      if (agent.tools) {
+        toolsCount = agent.tools.length;
+      }
+    }
+    // Verificar si es un workflow de n8n
+    else if (jsonData.nodes && Array.isArray(jsonData.nodes)) {
+      // Buscar nodos que parezcan agentes VAPI
+      const vapiNodes = jsonData.nodes.filter((node: any) => 
+        node.parameters && (
+          node.parameters.squad || 
+          node.parameters.assistant ||
+          (typeof node.parameters === 'string' && node.parameters.includes('assistant'))
+        )
+      );
+
+      if (vapiNodes.length > 0) {
+        detectedType = 'squad';
+        agentCount = vapiNodes.length;
+        warnings.push('Detectado workflow de n8n con configuración VAPI');
+      } else {
+        errors.push('No se detectó configuración de agentes válida en el workflow');
+      }
+    }
+
+    if (detectedType === 'invalid') {
+      errors.push('Formato de agente no reconocido. Debe ser un agente individual, squad o workflow válido');
+    }
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
+      warnings,
+      detectedType,
+      agentCount,
+      toolsCount
     };
   }
 
-  /**
-   * Exportar plantilla como JSON
-   */
-  async exportTemplate(templateId: string): Promise<any> {
-    try {
-      const template = await this.getTemplateById(templateId);
-      if (!template) return null;
+  private async processSquadImport(jsonData: any, userId: string): Promise<AgentTemplate> {
+    const squad = jsonData.squad;
+    const tools: Tool[] = [];
+    const members: SquadMember[] = [];
 
-      return {
-        version: "1.0",
-        exported_at: new Date().toISOString(),
-        template: {
-          ...template,
-          prompts: await this.getTemplatePrompts(templateId),
-          tools: await this.getTemplateTools(templateId)
+    // Procesar cada miembro del squad
+    for (const member of squad.members) {
+      const assistant = member.assistant;
+      
+      // Extraer tools del miembro
+      if (assistant.model?.tools) {
+        for (const tool of assistant.model.tools) {
+          if (tool.type === 'function') {
+            const newTool: Tool = {
+              name: tool.function.name,
+              description: tool.function.description || '',
+              category: 'imported',
+              function_schema: tool.function,
+              server_url: tool.server?.url || '',
+              is_async: tool.async || false,
+              messages: tool.messages || [],
+              created_by: userId,
+              is_reusable: true,
+              usage_count: 0
+            };
+            tools.push(newTool);
+          }
         }
+      }
+
+      // Crear configuración del miembro
+      const squadMember: SquadMember = {
+        id: assistant.name.replace(/[^a-zA-Z0-9]/g, '_'),
+        name: assistant.name,
+        role: this.extractRoleFromPrompts(assistant.model?.messages || []),
+        description: assistant.model?.messages?.[0]?.content?.substring(0, 200) || '',
+        model_config: {
+          provider: assistant.model?.provider || 'openai',
+          model: assistant.model?.model || 'gpt-4o',
+          temperature: assistant.model?.temperature || 0.7,
+          fallback_models: assistant.model?.fallbackModels || []
+        },
+        voice_config: {
+          provider: assistant.voice?.provider || '11labs',
+          voice_id: assistant.voice?.voiceId || '',
+          model: assistant.voice?.model || 'eleven_turbo_v2_5',
+          stability: assistant.voice?.stability || 0.5,
+          similarity_boost: assistant.voice?.similarityBoost || 0.8,
+          style: assistant.voice?.style || 0,
+          speed: assistant.voice?.speed || 1.0
+        },
+        system_prompts: assistant.model?.messages?.map((m: any) => m.content) || [],
+        tools: assistant.model?.tools?.map((t: any) => t.function?.name) || [],
+        destinations: member.assistantDestinations?.map((dest: any) => ({
+          type: dest.type,
+          assistant_name: dest.assistantName,
+          number: dest.number,
+          message: dest.message || '',
+          description: dest.description || ''
+        })) || []
       };
+
+      members.push(squadMember);
+    }
+
+    return {
+      name: squad.name,
+      description: `Squad importado con ${members.length} miembros`,
+      category: 'imported',
+      keywords: ['squad', 'imported', 'multi-agent'],
+      use_cases: ['Atención al cliente', 'Ventas', 'Soporte'],
+      is_squad: true,
+      squad_config: {
+        name: squad.name,
+        description: `Squad con ${members.length} agentes especializados`,
+        members
+      },
+      tools,
+      created_by: userId,
+      usage_count: 0,
+      success_rate: 0,
+      is_active: true,
+      vapi_config: jsonData
+    };
+  }
+
+  private async processSingleAgentImport(jsonData: any, userId: string): Promise<AgentTemplate> {
+    const agent = jsonData.assistant || jsonData;
+    const tools: Tool[] = [];
+
+    // Extraer tools del agente
+    if (agent.model?.tools) {
+      for (const tool of agent.model.tools) {
+        if (tool.type === 'function') {
+          const newTool: Tool = {
+            name: tool.function.name,
+            description: tool.function.description || '',
+            category: 'imported',
+            function_schema: tool.function,
+            server_url: tool.server?.url || '',
+            is_async: tool.async || false,
+            messages: tool.messages || [],
+            created_by: userId,
+            is_reusable: true,
+            usage_count: 0
+          };
+          tools.push(newTool);
+        }
+      }
+    }
+
+    return {
+      name: agent.name,
+      description: agent.model?.messages?.[0]?.content?.substring(0, 200) || 'Agente importado',
+      category: 'imported',
+      keywords: ['imported', 'single-agent'],
+      use_cases: ['Atención personalizada'],
+      is_squad: false,
+      single_agent_config: {
+        name: agent.name,
+        role: this.extractRoleFromPrompts(agent.model?.messages || []),
+        description: agent.model?.messages?.[0]?.content?.substring(0, 200) || '',
+        model_config: {
+          provider: agent.model?.provider || 'openai',
+          model: agent.model?.model || 'gpt-4o',
+          temperature: agent.model?.temperature || 0.7,
+          fallback_models: agent.model?.fallbackModels || []
+        },
+        voice_config: {
+          provider: agent.voice?.provider || '11labs',
+          voice_id: agent.voice?.voiceId || '',
+          model: agent.voice?.model || 'eleven_turbo_v2_5',
+          stability: agent.voice?.stability || 0.5,
+          similarity_boost: agent.voice?.similarityBoost || 0.8,
+          style: agent.voice?.style || 0,
+          speed: agent.voice?.speed || 1.0
+        },
+        system_prompts: agent.model?.messages?.map((m: any) => m.content) || []
+      },
+      tools,
+      created_by: userId,
+      usage_count: 0,
+      success_rate: 0,
+      is_active: true,
+      vapi_config: jsonData
+    };
+  }
+
+  private extractRoleFromPrompts(messages: any[]): string {
+    if (!messages || messages.length === 0) return 'Asistente';
+    
+    const firstMessage = messages[0]?.content || '';
+    
+    // Buscar patrones comunes de roles
+    if (firstMessage.toLowerCase().includes('ventas')) return 'Agente de Ventas';
+    if (firstMessage.toLowerCase().includes('soporte')) return 'Agente de Soporte';
+    if (firstMessage.toLowerCase().includes('recepción')) return 'Recepcionista';
+    if (firstMessage.toLowerCase().includes('atención')) return 'Atención al Cliente';
+    if (firstMessage.toLowerCase().includes('técnico')) return 'Soporte Técnico';
+    
+    return 'Asistente Virtual';
+  }
+
+  // =================== GESTIÓN DE TOOLS ===================
+
+  async getTools(userId?: string): Promise<Tool[]> {
+    try {
+      let query = supabase
+        .from('tools')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (userId) {
+        query = query.eq('created_by', userId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return data || [];
     } catch (error) {
-      console.error('💥 Error en exportTemplate:', error);
-      return null;
+      console.error('Error fetching tools:', error);
+      throw error;
     }
   }
 
-  /**
-   * Obtener prompts de una plantilla
-   */
-  private async getTemplatePrompts(templateId: string) {
-    const { data } = await supabaseMainAdmin
-      .from('agent_prompts')
-      .select(`
-        order_index,
-        is_customized,
-        custom_content,
-        system_prompts(*)
-      `)
-      .eq('agent_template_id', templateId)
-      .order('order_index');
+  async createTool(tool: Omit<Tool, 'id' | 'created_at'>): Promise<Tool> {
+    try {
+      const { data, error } = await supabase
+        .from('tools')
+        .insert({
+          name: tool.name,
+          description: tool.description,
+          category: tool.category,
+          function_schema: tool.function_schema,
+          server_url: tool.server_url,
+          is_async: tool.is_async,
+          messages: tool.messages,
+          created_by: tool.created_by,
+          is_reusable: tool.is_reusable,
+          usage_count: 0
+        })
+        .select()
+        .single();
 
-    return data || [];
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating tool:', error);
+      throw error;
+    }
   }
 
-  /**
-   * Obtener herramientas de una plantilla
-   */
-  private async getTemplateTools(templateId: string) {
-    const { data } = await supabaseMainAdmin
-      .from('agent_tools')
-      .select(`
-        is_enabled,
-        custom_config,
-        tool_catalog(*)
-      `)
-      .eq('agent_template_id', templateId);
+  async updateTool(id: string, updates: Partial<Tool>): Promise<Tool> {
+    try {
+      const { data, error } = await supabase
+        .from('tools')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
 
-    return data || [];
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating tool:', error);
+      throw error;
+    }
+  }
+
+  async deleteTool(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('tools')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting tool:', error);
+      return false;
+    }
+  }
+
+  // =================== GENERACIÓN VAPI ===================
+
+  generateVAPIConfig(template: AgentTemplate): any {
+    if (template.is_squad) {
+      return this.generateSquadVAPIConfig(template);
+    } else {
+      return this.generateSingleAgentVAPIConfig(template);
+    }
+  }
+
+  private generateSquadVAPIConfig(template: AgentTemplate): any {
+    if (!template.squad_config) return null;
+
+    const squadConfig = {
+      squad: {
+        name: template.squad_config.name,
+        members: template.squad_config.members.map(member => ({
+          assistant: {
+            name: member.name,
+            model: {
+              provider: member.model_config.provider,
+              model: member.model_config.model,
+              temperature: member.model_config.temperature,
+              fallbackModels: member.model_config.fallback_models || [],
+              tools: this.generateToolsForMember(member, template.tools),
+              messages: member.system_prompts.map(prompt => ({
+                role: 'system',
+                content: prompt
+              }))
+            },
+            voice: {
+              provider: member.voice_config.provider,
+              voiceId: member.voice_config.voice_id,
+              model: member.voice_config.model,
+              stability: member.voice_config.stability,
+              similarityBoost: member.voice_config.similarity_boost,
+              style: member.voice_config.style,
+              speed: member.voice_config.speed,
+              useSpeakerBoost: true,
+              enableSsmlParsing: true
+            },
+            transcriber: {
+              provider: 'deepgram',
+              model: 'nova-3',
+              language: 'multi',
+              numerals: true,
+              smartFormat: true,
+              endpointing: 180,
+              confidenceThreshold: 0.75
+            },
+            maxDurationSeconds: 1800,
+            backgroundDenoisingEnabled: true,
+            endCallFunctionEnabled: true,
+            recordingEnabled: true
+          },
+          assistantDestinations: member.destinations?.map(dest => ({
+            type: dest.type,
+            assistantName: dest.assistant_name,
+            number: dest.number,
+            message: dest.message,
+            description: dest.description
+          })) || []
+        }))
+      }
+    };
+
+    return squadConfig;
+  }
+
+  private generateSingleAgentVAPIConfig(template: AgentTemplate): any {
+    if (!template.single_agent_config) return null;
+
+    const config = template.single_agent_config;
+
+    return {
+      name: config.name,
+      model: {
+        provider: config.model_config.provider,
+        model: config.model_config.model,
+        temperature: config.model_config.temperature,
+        fallbackModels: config.model_config.fallback_models || [],
+        tools: this.generateToolsConfig(template.tools),
+        messages: config.system_prompts.map(prompt => ({
+          role: 'system',
+          content: prompt
+        }))
+      },
+      voice: {
+        provider: config.voice_config.provider,
+        voiceId: config.voice_config.voice_id,
+        model: config.voice_config.model,
+        stability: config.voice_config.stability,
+        similarityBoost: config.voice_config.similarity_boost,
+        style: config.voice_config.style,
+        speed: config.voice_config.speed,
+        useSpeakerBoost: true,
+        enableSsmlParsing: true
+      },
+      transcriber: {
+        provider: 'deepgram',
+        model: 'nova-3',
+        language: 'multi',
+        numerals: true,
+        smartFormat: true,
+        endpointing: 180,
+        confidenceThreshold: 0.75
+      },
+      maxDurationSeconds: 1800,
+      backgroundDenoisingEnabled: true,
+      endCallFunctionEnabled: true,
+      recordingEnabled: true
+    };
+  }
+
+  private generateToolsForMember(member: SquadMember, allTools: Tool[]): any[] {
+    return allTools
+      .filter(tool => member.tools.includes(tool.name))
+      .map(tool => ({
+        type: 'function',
+        async: tool.is_async,
+        messages: tool.messages || [],
+        function: tool.function_schema,
+        server: {
+          url: tool.server_url
+        }
+      }));
+  }
+
+  private generateToolsConfig(tools: Tool[]): any[] {
+    return tools.map(tool => ({
+      type: 'function',
+      async: tool.is_async,
+      messages: tool.messages || [],
+      function: tool.function_schema,
+      server: {
+        url: tool.server_url
+      }
+    }));
+  }
+
+  // =================== ESTADÍSTICAS ===================
+
+  async getStatistics(): Promise<{
+    totalTemplates: number;
+    totalUsage: number;
+    averageSuccess: number;
+    totalCategories: number;
+    totalTools: number;
+  }> {
+    try {
+      const [templatesResult, toolsResult] = await Promise.all([
+        supabase
+          .from('agent_templates')
+          .select('usage_count, success_rate, category')
+          .eq('is_active', true),
+        supabase
+          .from('tools')
+          .select('id')
+      ]);
+
+      const templates = templatesResult.data || [];
+      const tools = toolsResult.data || [];
+
+      const totalUsage = templates.reduce((sum, t) => sum + (t.usage_count || 0), 0);
+      const averageSuccess = templates.length > 0 
+        ? templates.reduce((sum, t) => sum + (t.success_rate || 0), 0) / templates.length 
+        : 0;
+      const categories = new Set(templates.map(t => t.category));
+
+      return {
+        totalTemplates: templates.length,
+        totalUsage,
+        averageSuccess: Math.round(averageSuccess * 100) / 100,
+        totalCategories: categories.size,
+        totalTools: tools.length
+      };
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+      return {
+        totalTemplates: 0,
+        totalUsage: 0,
+        averageSuccess: 0,
+        totalCategories: 0,
+        totalTools: 0
+      };
+    }
+  }
+
+  // =================== UTILIDADES ===================
+
+  async incrementUsage(templateId: string): Promise<void> {
+    try {
+      await supabase.rpc('increment_template_usage', { template_id: templateId });
+    } catch (error) {
+      console.error('Error incrementing usage:', error);
+    }
+  }
+
+  async updateSuccessRate(templateId: string, success: boolean): Promise<void> {
+    try {
+      // Esta función requeriría una implementación más compleja
+      // para calcular la tasa de éxito promedio
+      console.log('Updating success rate for template:', templateId, success);
+    } catch (error) {
+      console.error('Error updating success rate:', error);
+    }
   }
 }
 
-// Exportar instancia singleton
 export const agentStudioService = new AgentStudioService();
 export default agentStudioService;

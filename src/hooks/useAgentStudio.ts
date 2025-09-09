@@ -1,290 +1,386 @@
-import { useState, useEffect } from 'react';
-import { agentStudioService, type AgentTemplate, type AgentCategory, type SystemPrompt, type Tool } from '../services/agentStudioService';
-import { useAuth } from '../contexts/AuthContext';
+// Hook completo para Agent Studio con gestión de estado avanzada
+// Manejo de importación, squads, roles, tools y perfiles de usuario
 
-interface AgentStudioState {
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { agentStudioService } from '../services/agentStudioService';
+import type { 
+  AgentTemplate, 
+  Tool, 
+  ImportResult, 
+  ValidationResult 
+} from '../services/agentStudioService';
+
+export interface UseAgentStudioReturn {
+  // Estado principal
   templates: AgentTemplate[];
-  categories: AgentCategory[];
-  prompts: SystemPrompt[];
   tools: Tool[];
   loading: boolean;
   error: string | null;
+  
+  // Estadísticas
+  statistics: {
+    totalTemplates: number;
+    totalUsage: number;
+    averageSuccess: number;
+    totalCategories: number;
+    totalTools: number;
+  };
+
+  // Gestión de plantillas
+  createTemplate: (template: Omit<AgentTemplate, 'id' | 'created_at' | 'updated_at'>) => Promise<AgentTemplate>;
+  updateTemplate: (id: string, updates: Partial<AgentTemplate>) => Promise<AgentTemplate>;
+  deleteTemplate: (id: string) => Promise<boolean>;
+  duplicateTemplate: (id: string, newName: string) => Promise<AgentTemplate>;
+  getTemplateById: (id: string) => Promise<AgentTemplate | null>;
+  
+  // Importación de agentes
+  importAgent: (jsonData: any) => Promise<ImportResult>;
+  validateAgentJSON: (jsonData: any) => ValidationResult;
+  
+  // Gestión de tools
+  createTool: (tool: Omit<Tool, 'id' | 'created_at'>) => Promise<Tool>;
+  updateTool: (id: string, updates: Partial<Tool>) => Promise<Tool>;
+  deleteTool: (id: string) => Promise<boolean>;
+  getMyTools: () => Tool[];
+  getReusableTools: () => Tool[];
+  
+  // Generación VAPI
+  generateVAPIConfig: (template: AgentTemplate) => any;
+  exportTemplate: (template: AgentTemplate) => string;
+  
+  // Filtros y búsqueda
+  filteredTemplates: AgentTemplate[];
+  setSearchTerm: (term: string) => void;
+  setSelectedCategory: (category: string) => void;
+  setShowMyTemplates: (show: boolean) => void;
+  searchTerm: string;
+  selectedCategory: string;
+  showMyTemplates: boolean;
+  
+  // Utilidades
+  refreshData: () => Promise<void>;
+  incrementUsage: (templateId: string) => Promise<void>;
 }
 
-export const useAgentStudio = () => {
+export const useAgentStudio = (): UseAgentStudioReturn => {
   const { user } = useAuth();
-  const [state, setState] = useState<AgentStudioState>({
-    templates: [],
-    categories: [],
-    prompts: [],
-    tools: [],
-    loading: true,
-    error: null
+  
+  // Estado principal
+  const [templates, setTemplates] = useState<AgentTemplate[]>([]);
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Estadísticas
+  const [statistics, setStatistics] = useState({
+    totalTemplates: 0,
+    totalUsage: 0,
+    averageSuccess: 0,
+    totalCategories: 0,
+    totalTools: 0
   });
+  
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [showMyTemplates, setShowMyTemplates] = useState(false);
 
-  // Cargar todos los datos
-  const loadAllData = async () => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+  // Cargar datos iniciales
+  const loadData = useCallback(async () => {
+    if (!user) return;
     
     try {
-      const [templates, categories, prompts, tools] = await Promise.all([
+      setLoading(true);
+      setError(null);
+      
+      const [templatesData, toolsData, statsData] = await Promise.all([
         agentStudioService.getTemplates(),
-        agentStudioService.getCategories(),
-        agentStudioService.getSystemPrompts(),
-        agentStudioService.getTools()
+        agentStudioService.getTools(),
+        agentStudioService.getStatistics()
       ]);
-
-      setState({
-        templates,
-        categories,
-        prompts,
-        tools,
-        loading: false,
-        error: null
-      });
-
-      console.log('✅ Datos de Agent Studio cargados:', {
-        templates: templates.length,
-        categories: categories.length,
-        prompts: prompts.length,
-        tools: tools.length
-      });
-    } catch (error) {
-      console.error('💥 Error cargando datos de Agent Studio:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Error al cargar los datos del Agent Studio'
-      }));
+      
+      setTemplates(templatesData);
+      setTools(toolsData);
+      setStatistics(statsData);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError(err instanceof Error ? err.message : 'Error cargando datos');
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [user]);
 
-  // Crear nuevo agente
-  const createAgent = async (request: any): Promise<boolean> => {
-    if (!user) {
-      console.error('❌ Usuario no autenticado');
-      return false;
-    }
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-    setState(prev => ({ ...prev, loading: true }));
-
+  // Gestión de plantillas
+  const createTemplate = useCallback(async (templateData: Omit<AgentTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<AgentTemplate> => {
+    if (!user) throw new Error('Usuario no autenticado');
+    
     try {
-      const newTemplate = await agentStudioService.createTemplate({
-        ...request,
+      const template = await agentStudioService.createTemplate({
+        ...templateData,
         created_by: user.id
       });
-
-      if (newTemplate) {
-        // Recargar plantillas para incluir la nueva
-        const updatedTemplates = await agentStudioService.getTemplates();
-        setState(prev => ({
-          ...prev,
-          templates: updatedTemplates,
-          loading: false
-        }));
-        return true;
-      }
-
-      setState(prev => ({ ...prev, loading: false }));
-      return false;
-    } catch (error) {
-      console.error('💥 Error creando agente:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Error al crear el agente'
-      }));
-      return false;
-    }
-  };
-
-  // Actualizar agente
-  const updateAgent = async (id: string, updates: Partial<AgentTemplate>): Promise<boolean> => {
-    setState(prev => ({ ...prev, loading: true }));
-
-    try {
-      const success = await agentStudioService.updateTemplate(id, updates);
       
-      if (success) {
-        // Recargar plantillas
-        const updatedTemplates = await agentStudioService.getTemplates();
-        setState(prev => ({
-          ...prev,
-          templates: updatedTemplates,
-          loading: false
-        }));
-      } else {
-        setState(prev => ({ ...prev, loading: false }));
-      }
-
-      return success;
-    } catch (error) {
-      console.error('💥 Error actualizando agente:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Error al actualizar el agente'
-      }));
-      return false;
+      setTemplates(prev => [template, ...prev]);
+      await loadData(); // Refrescar estadísticas
+      
+      return template;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error creando plantilla';
+      setError(errorMessage);
+      throw err;
     }
-  };
+  }, [user, loadData]);
 
-  // Eliminar agente
-  const deleteAgent = async (id: string): Promise<boolean> => {
-    setState(prev => ({ ...prev, loading: true }));
+  const updateTemplate = useCallback(async (id: string, updates: Partial<AgentTemplate>): Promise<AgentTemplate> => {
+    try {
+      const updatedTemplate = await agentStudioService.updateTemplate(id, updates);
+      
+      setTemplates(prev => prev.map(t => t.id === id ? updatedTemplate : t));
+      
+      return updatedTemplate;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error actualizando plantilla';
+      setError(errorMessage);
+      throw err;
+    }
+  }, []);
 
+  const deleteTemplate = useCallback(async (id: string): Promise<boolean> => {
     try {
       const success = await agentStudioService.deleteTemplate(id);
       
       if (success) {
-        // Actualizar lista local eliminando el agente
-        setState(prev => ({
-          ...prev,
-          templates: prev.templates.filter(t => t.id !== id),
-          loading: false
-        }));
-      } else {
-        setState(prev => ({ ...prev, loading: false }));
+        setTemplates(prev => prev.filter(t => t.id !== id));
+        await loadData(); // Refrescar estadísticas
       }
-
+      
       return success;
-    } catch (error) {
-      console.error('💥 Error eliminando agente:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Error al eliminar el agente'
-      }));
-      return false;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error eliminando plantilla';
+      setError(errorMessage);
+      throw err;
     }
-  };
+  }, [loadData]);
 
-  // Duplicar agente
-  const duplicateAgent = async (originalId: string, newName: string): Promise<boolean> => {
-    if (!user) {
-      console.error('❌ Usuario no autenticado');
-      return false;
-    }
-
-    setState(prev => ({ ...prev, loading: true }));
-
+  const duplicateTemplate = useCallback(async (id: string, newName: string): Promise<AgentTemplate> => {
+    if (!user) throw new Error('Usuario no autenticado');
+    
     try {
-      const duplicated = await agentStudioService.duplicateTemplate(originalId, newName, user.id);
+      const duplicated = await agentStudioService.duplicateTemplate(id, newName, user.id);
       
-      if (duplicated) {
-        // Recargar plantillas
-        const updatedTemplates = await agentStudioService.getTemplates();
-        setState(prev => ({
-          ...prev,
-          templates: updatedTemplates,
-          loading: false
-        }));
-        return true;
-      }
-
-      setState(prev => ({ ...prev, loading: false }));
-      return false;
-    } catch (error) {
-      console.error('💥 Error duplicando agente:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Error al duplicar el agente'
-      }));
-      return false;
-    }
-  };
-
-  // Incrementar contador de uso
-  const incrementUsage = async (templateId: string): Promise<void> => {
-    try {
-      await agentStudioService.incrementUsageCount(templateId);
+      setTemplates(prev => [duplicated, ...prev]);
+      await loadData(); // Refrescar estadísticas
       
-      // Actualizar contador local
-      setState(prev => ({
-        ...prev,
-        templates: prev.templates.map(t => 
-          t.id === templateId 
-            ? { ...t, usage_count: t.usage_count + 1 }
-            : t
-        )
-      }));
-    } catch (error) {
-      console.error('💥 Error incrementando uso:', error);
+      return duplicated;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error duplicando plantilla';
+      setError(errorMessage);
+      throw err;
     }
-  };
+  }, [user, loadData]);
 
-  // Exportar agente
-  const exportAgent = async (templateId: string): Promise<any> => {
+  const getTemplateById = useCallback(async (id: string): Promise<AgentTemplate | null> => {
     try {
-      return await agentStudioService.exportTemplate(templateId);
-    } catch (error) {
-      console.error('💥 Error exportando agente:', error);
+      return await agentStudioService.getTemplateById(id);
+    } catch (err) {
+      console.error('Error getting template by ID:', err);
       return null;
     }
-  };
+  }, []);
 
-  // Filtrar plantillas
-  const filterTemplates = (searchTerm: string, categoryId: string, agentType?: string) => {
-    return state.templates.filter(template => {
-      const matchesSearch = !searchTerm || 
-        template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        template.keywords.some(keyword => keyword.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      const matchesCategory = categoryId === 'all' || template.category_id === categoryId;
+  // Importación de agentes
+  const importAgent = useCallback(async (jsonData: any): Promise<ImportResult> => {
+    if (!user) throw new Error('Usuario no autenticado');
+    
+    try {
+      const result = await agentStudioService.importAgent(jsonData, user.id);
       
-      const matchesType = !agentType || template.agent_type === agentType;
+      if (result.success && result.agent) {
+        setTemplates(prev => [result.agent!, ...prev]);
+        await loadData(); // Refrescar datos
+      }
+      
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error importando agente';
+      return {
+        success: false,
+        message: errorMessage,
+        errors: [errorMessage]
+      };
+    }
+  }, [user, loadData]);
 
-      return matchesSearch && matchesCategory && matchesType;
-    });
-  };
+  const validateAgentJSON = useCallback((jsonData: any): ValidationResult => {
+    // Esta función se implementa en el servicio
+    return agentStudioService['validateAgentJSON'](jsonData);
+  }, []);
 
-  // Obtener estadísticas
-  const getStats = () => {
-    const totalTemplates = state.templates.length;
-    const totalUsage = state.templates.reduce((sum, t) => sum + t.usage_count, 0);
-    const avgSuccessRate = totalTemplates > 0 
-      ? state.templates.reduce((sum, t) => sum + t.success_rate, 0) / totalTemplates 
-      : 0;
+  // Gestión de tools
+  const createTool = useCallback(async (toolData: Omit<Tool, 'id' | 'created_at'>): Promise<Tool> => {
+    if (!user) throw new Error('Usuario no autenticado');
+    
+    try {
+      const tool = await agentStudioService.createTool({
+        ...toolData,
+        created_by: user.id
+      });
+      
+      setTools(prev => [tool, ...prev]);
+      await loadData(); // Refrescar estadísticas
+      
+      return tool;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error creando tool';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [user, loadData]);
 
-    const byCategory = state.categories.map(category => ({
-      ...category,
-      count: state.templates.filter(t => t.category_id === category.id).length
-    }));
+  const updateTool = useCallback(async (id: string, updates: Partial<Tool>): Promise<Tool> => {
+    try {
+      const updatedTool = await agentStudioService.updateTool(id, updates);
+      
+      setTools(prev => prev.map(t => t.id === id ? updatedTool : t));
+      
+      return updatedTool;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error actualizando tool';
+      setError(errorMessage);
+      throw err;
+    }
+  }, []);
 
-    const byDifficulty = {
-      beginner: state.templates.filter(t => t.difficulty === 'beginner').length,
-      intermediate: state.templates.filter(t => t.difficulty === 'intermediate').length,
-      advanced: state.templates.filter(t => t.difficulty === 'advanced').length
-    };
+  const deleteTool = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const success = await agentStudioService.deleteTool(id);
+      
+      if (success) {
+        setTools(prev => prev.filter(t => t.id !== id));
+        await loadData(); // Refrescar estadísticas
+      }
+      
+      return success;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error eliminando tool';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [loadData]);
 
-    return {
-      totalTemplates,
-      totalUsage,
-      avgSuccessRate,
-      byCategory,
-      byDifficulty
-    };
-  };
+  const getMyTools = useCallback((): Tool[] => {
+    if (!user) return [];
+    return tools.filter(tool => tool.created_by === user.id);
+  }, [tools, user]);
 
-  // Cargar datos al inicializar
-  useEffect(() => {
-    loadAllData();
+  const getReusableTools = useCallback((): Tool[] => {
+    return tools.filter(tool => tool.is_reusable);
+  }, [tools]);
+
+  // Generación VAPI
+  const generateVAPIConfig = useCallback((template: AgentTemplate): any => {
+    return agentStudioService.generateVAPIConfig(template);
+  }, []);
+
+  const exportTemplate = useCallback((template: AgentTemplate): string => {
+    const vapiConfig = generateVAPIConfig(template);
+    return JSON.stringify(vapiConfig, null, 2);
+  }, [generateVAPIConfig]);
+
+  // Filtros aplicados
+  const filteredTemplates = useCallback(() => {
+    let filtered = templates;
+
+    // Filtro por usuario
+    if (showMyTemplates && user) {
+      filtered = filtered.filter(template => template.created_by === user.id);
+    }
+
+    // Filtro por categoría
+    if (selectedCategory) {
+      filtered = filtered.filter(template => template.category === selectedCategory);
+    }
+
+    // Filtro por búsqueda
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(template =>
+        template.name.toLowerCase().includes(term) ||
+        template.description.toLowerCase().includes(term) ||
+        template.keywords.some(keyword => keyword.toLowerCase().includes(term)) ||
+        template.use_cases.some(useCase => useCase.toLowerCase().includes(term))
+      );
+    }
+
+    return filtered;
+  }, [templates, showMyTemplates, user, selectedCategory, searchTerm]);
+
+  // Utilidades
+  const refreshData = useCallback(async (): Promise<void> => {
+    await loadData();
+  }, [loadData]);
+
+  const incrementUsage = useCallback(async (templateId: string): Promise<void> => {
+    try {
+      await agentStudioService.incrementUsage(templateId);
+      
+      // Actualizar localmente
+      setTemplates(prev => prev.map(t => 
+        t.id === templateId 
+          ? { ...t, usage_count: t.usage_count + 1 }
+          : t
+      ));
+    } catch (err) {
+      console.error('Error incrementing usage:', err);
+    }
   }, []);
 
   return {
-    ...state,
-    loadAllData,
-    createAgent,
-    updateAgent,
-    deleteAgent,
-    duplicateAgent,
-    incrementUsage,
-    exportAgent,
-    filterTemplates,
-    getStats
+    // Estado principal
+    templates,
+    tools,
+    loading,
+    error,
+    statistics,
+
+    // Gestión de plantillas
+    createTemplate,
+    updateTemplate,
+    deleteTemplate,
+    duplicateTemplate,
+    getTemplateById,
+
+    // Importación
+    importAgent,
+    validateAgentJSON,
+
+    // Gestión de tools
+    createTool,
+    updateTool,
+    deleteTool,
+    getMyTools,
+    getReusableTools,
+
+    // Generación VAPI
+    generateVAPIConfig,
+    exportTemplate,
+
+    // Filtros
+    filteredTemplates: filteredTemplates(),
+    setSearchTerm,
+    setSelectedCategory,
+    setShowMyTemplates,
+    searchTerm,
+    selectedCategory,
+    showMyTemplates,
+
+    // Utilidades
+    refreshData,
+    incrementUsage
   };
 };
-
-export default useAgentStudio;
