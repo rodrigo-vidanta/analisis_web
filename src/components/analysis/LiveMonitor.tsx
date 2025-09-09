@@ -44,6 +44,20 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [hangupStep, setHangupStep] = useState(0); // 0: inicial, 1: primer click, 2: confirmación
   const [transferLoading, setTransferLoading] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferReason, setTransferReason] = useState('');
+  const [selectedPresetReason, setSelectedPresetReason] = useState('');
+
+  // Razones predefinidas para transferencia
+  const presetReasons = [
+    'Dile que tu supervisor puede ofrecerle un mejor precio exclusivo',
+    'Comenta que tu supervisor estaba atento a la llamada y quiere darle un beneficio adicional',
+    'Explícale que tu supervisor maneja casos especiales como el suyo',
+    'Menciona que tu supervisor tiene autorización para ofertas personalizadas',
+    'Dile que tu supervisor puede resolver cualquier duda específica que tenga',
+    'Comenta que tu supervisor quiere atenderle personalmente por ser un cliente especial',
+    'Explica que tu supervisor tiene disponibilidad limitada solo para hoy'
+  ];
 
   // Simular monitor de audio de VAPI
   const toggleAudioMonitor = () => {
@@ -68,24 +82,46 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   };
 
   // Solicitar transferencia (human handoff)
-  const handleTransferRequest = async () => {
-    setTransferLoading(true);
-    
-    // TODO: Reemplazar con webhook real
-    const webhookData = {
-      prospect_id: prospect.id,
-      agent_email: nextAgent?.agent_email,
-      reason: 'Transferencia solicitada desde Live Monitor',
-      timestamp: new Date().toISOString()
-    };
+  const handleTransferRequest = () => {
+    setShowTransferModal(true);
+  };
 
-    // Simular llamada al webhook
-    console.log('🔄 Solicitando transferencia:', webhookData);
+  // Ejecutar transferencia con razón específica
+  const executeTransfer = async () => {
+    setTransferLoading(true);
+    setShowTransferModal(false);
+    
+    const finalReason = selectedPresetReason || transferReason;
+    
+    if (!nextAgent?.agent_email) {
+      console.error('❌ No hay agente asignado');
+      setTransferLoading(false);
+      return;
+    }
+
+    // Enviar susurro a la IA usando el servicio
+    const success = await liveMonitorService.sendWhisperToAI(
+      prospect.id,
+      finalReason,
+      nextAgent.agent_email
+    );
+
+    if (success) {
+      // Marcar como transferido en la BD
+      await liveMonitorService.markAsTransferred(
+        prospect.id,
+        nextAgent.agent_email,
+        liveMonitorService.mapEtapaToCheckpoint(prospect.etapa)
+      );
+    }
     
     setTimeout(() => {
       setTransferLoading(false);
       onFeedback('transferida');
-    }, 2000);
+      // Reset form
+      setTransferReason('');
+      setSelectedPresetReason('');
+    }, 1500);
   };
 
   return (
@@ -400,7 +436,7 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                       </svg>
                     )}
-                    <span>{transferLoading ? 'Transfiriendo...' : 'Solicitar Transferencia'}</span>
+                    <span>{transferLoading ? 'Interviniendo...' : 'Intervenir Llamada'}</span>
                   </button>
 
                   {/* Colgar Llamada */}
@@ -461,6 +497,108 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal de Transferencia con Susurro */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-60 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span>Intervenir Llamada</span>
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                Selecciona qué debe decirle la IA al cliente antes de transferirte la llamada
+              </p>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {/* Razones Predefinidas */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                  Razones Predefinidas
+                </label>
+                <div className="space-y-2">
+                  {presetReasons.map((reason, index) => (
+                    <label key={index} className="flex items-start space-x-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="transferReason"
+                        value={reason}
+                        checked={selectedPresetReason === reason}
+                        onChange={(e) => {
+                          setSelectedPresetReason(e.target.value);
+                          setTransferReason(''); // Limpiar texto personalizado
+                        }}
+                        className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        "{reason}"
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Razón Personalizada */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  O escribe una razón personalizada
+                </label>
+                <textarea
+                  value={transferReason}
+                  onChange={(e) => {
+                    setTransferReason(e.target.value);
+                    setSelectedPresetReason(''); // Limpiar selección predefinida
+                  }}
+                  placeholder="Ejemplo: Dile que tu supervisor tiene una promoción especial que expira hoy..."
+                  rows={3}
+                  maxLength={200}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-white text-sm"
+                />
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-right">
+                  {transferReason.length}/200
+                </div>
+              </div>
+
+              {/* Vista previa del mensaje */}
+              {(selectedPresetReason || transferReason) && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                  <label className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wide">
+                    La IA dirá al cliente:
+                  </label>
+                  <p className="text-sm text-blue-800 dark:text-blue-200 mt-1 italic">
+                    "{selectedPresetReason || transferReason}"
+                  </p>
+                </div>
+              )}
+
+              {/* Botones */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowTransferModal(false);
+                    setTransferReason('');
+                    setSelectedPresetReason('');
+                  }}
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white px-4 py-2.5 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 text-sm font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={executeTransfer}
+                  disabled={!selectedPresetReason && !transferReason.trim()}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2.5 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Intervenir Ahora
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

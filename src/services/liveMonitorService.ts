@@ -166,6 +166,39 @@ class LiveMonitorService {
   // ============================================
 
   /**
+   * Enviar susurro a IA para transferencia
+   */
+  async sendWhisperToAI(prospectId: string, whisperMessage: string, agentEmail: string): Promise<boolean> {
+    try {
+      // TODO: Reemplazar con webhook real de VAPI
+      const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/whisper';
+      
+      const webhookData = {
+        prospect_id: prospectId,
+        action: 'human_handoff_whisper',
+        message: whisperMessage,
+        agent_email: agentEmail,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('🔄 Enviando susurro a IA:', webhookData);
+      console.log('💬 Mensaje que dirá la IA al cliente:', whisperMessage);
+
+      // Simular llamada al webhook
+      // const response = await fetch(webhookUrl, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(webhookData)
+      // });
+
+      return true;
+    } catch (error) {
+      console.error('💥 Error enviando susurro:', error);
+      return false;
+    }
+  }
+
+  /**
    * Marcar prospecto como transferido
    */
   async markAsTransferred(prospectId: string, agentEmail: string, checkpoint: string): Promise<boolean> {
