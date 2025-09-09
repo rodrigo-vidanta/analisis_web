@@ -2,9 +2,9 @@
 
 ## Historial de Versiones
 
-### v1.0.13 (2025-01-24 23:45)
+### v1.0.14 (2025-01-24 23:45)
 **Tipo**: major
-**Descripción**: Reorganización Completa con Sidebar y Sistema de Permisos Avanzado
+**Descripción**: Reorganización Completa con Sidebar y Módulo Live Monitor Funcional
 
 **🏗️ Transformación Arquitectónica:**
 - Sidebar colapsable profesional con navegación lateral
@@ -18,6 +18,13 @@
 - Evaluadores personalizables via checkboxes funcionales
 - Gestión dinámica desde interfaz admin
 
+**📺 Live Monitor Completo (NUEVO):**
+- Monitor de llamadas en tiempo real para vendedores
+- Pipeline visual con checkpoints y progreso animado
+- Sistema de intervención con susurro a la IA
+- Feedback obligatorio con rotación consecutiva de agentes
+- Controles avanzados: escuchar, intervenir, colgar, resultado
+
 **⚡ Optimizaciones de Rendimiento:**
 - 12 índices de BD para 1.5M registros
 - Filtros de fecha optimizados (30 días default, máximo 3 meses)
@@ -26,6 +33,7 @@
 
 **📚 Documentación:**
 - `docs/PERMISSIONS_SYSTEM_README.md` - Sistema de permisos detallado
+- `docs/COMPONENT_DEPENDENCIES.md` - Mapa de dependencias
 - Scripts de BD organizados y optimizados
 - Limpieza completa de archivos temporales
 

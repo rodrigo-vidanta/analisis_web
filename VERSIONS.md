@@ -1,5 +1,37 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 1.0.14 (Enero 2025)
+
+### Módulo Live Monitor Completo y Funcional
+
+#### Live Monitor para Vendedores (NUEVO)
+- **Monitor en tiempo real**: Visualización de llamadas activas de IA Natalia
+- **Pipeline visual**: Tabla con checkpoints y progreso animado por temperatura
+- **Sistema de intervención**: Susurro a IA con razones predefinidas o personalizadas
+- **Rotación consecutiva**: Cola de agentes que rota al completar acciones
+- **Feedback obligatorio**: Sistema completo de trazabilidad
+
+#### Características Técnicas del Live Monitor
+- **Barra de progreso protagonista**: Ancho completo con temperatura integrada
+- **Animación de audio elegante**: Ondas concéntricas minimalistas
+- **Controles profesionales**: Escuchar, intervenir, colgar, marcar resultado
+- **Modal de detalle**: Información completa del prospecto para vendedor
+- **Sistema de susurro**: 7 razones predefinidas + campo personalizado
+
+#### Integración y Funcionalidad
+- **Base de datos**: Conectado a tabla prospectos en BD pqnc_ai
+- **Tiempo real**: Actualización automática cada 10 segundos
+- **Responsive**: Diseño adaptable a todos los tamaños
+- **Tema oscuro**: Completamente compatible
+- **Webhooks preparados**: URLs listas para integración con VAPI
+
+### Archivos Modificados
+- `src/components/analysis/LiveMonitor.tsx` - **NUEVO** módulo completo
+- `src/services/liveMonitorService.ts` - **NUEVO** servicio de gestión
+- `scripts/sql/add-live-monitor-fields.sql` - **NUEVO** script de BD
+- `src/components/MainApp.tsx` - Integración del nuevo módulo
+- `src/hooks/useAnalysisPermissions.ts` - Permisos para Live Monitor
+
 ## Versión 1.0.13 (Enero 2025)
 
 ### Reorganización Completa con Sidebar y Sistema de Permisos Avanzado

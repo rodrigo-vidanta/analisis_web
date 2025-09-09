@@ -1,7 +1,7 @@
 # 📋 CHANGELOG COMPLETO - Plataforma PQNC QA AI
 
 **Fecha:** 2025-01-24  
-**Versión:** 1.0.13  
+**Versión:** 1.0.14  
 **Proyecto:** Plataforma de Análisis de Calidad de Llamadas PQNC
 
 ---
@@ -21,6 +21,111 @@ La plataforma PQNC QA AI ha evolucionado significativamente con **5 versiones pr
 **Servicios nuevos**: 3  
 **Tablas de BD nuevas**: 4  
 **Funciones RPC nuevas**: 2
+
+---
+
+## 📺 **VERSIÓN 1.0.14 - MÓDULO LIVE MONITOR COMPLETO Y FUNCIONAL** (2025-01-25 00:30)
+
+### 🎯 **IMPLEMENTACIÓN DEL LIVE MONITOR PARA VENDEDORES**
+
+Esta versión completa la plataforma con un **módulo Live Monitor profesional** que permite a los vendedores supervisar e intervenir llamadas de IA en tiempo real.
+
+#### **🔥 MÓDULO LIVE MONITOR COMPLETO**
+
+##### **Monitor de Llamadas en Tiempo Real**
+- ✅ **Pipeline visual**: Tabla organizada por checkpoints con progreso animado
+- ✅ **Información completa**: Todos los datos del prospecto disponibles para el vendedor
+- ✅ **Tiempo real**: Actualización automática cada 10 segundos
+- ✅ **Alertas visuales**: Parpadeo para llamadas críticas (≥60% y ≥80% progreso)
+- ✅ **Sorting avanzado**: Por progreso, temperatura, tiempo, cliente, checkpoint
+
+##### **Sistema de Intervención con Susurro**
+- ✅ **Susurro a IA**: 7 razones predefinidas + campo personalizado (200 caracteres)
+- ✅ **Webhook preparado**: `/webhook/whisper` para integración con VAPI
+- ✅ **Intervención inteligente**: IA prepara al cliente antes de transferir
+- ✅ **Vista previa**: "La IA dirá al cliente: [mensaje]"
+
+##### **Rotación Consecutiva de Agentes**
+- ✅ **Cola consecutiva**: Agentes rotan en orden 1→2→3→4→5→1
+- ✅ **No automática**: Solo rota al completar una acción
+- ✅ **Agente bloqueado**: Permanece asignado hasta feedback completado
+- ✅ **5 agentes demo**: Carlos, Ana, Roberto, María, Diego
+
+##### **Feedback Obligatorio y Trazabilidad**
+- ✅ **Feedback obligatorio**: Para todas las acciones (mínimo 10 caracteres)
+- ✅ **Tipos específicos**: Contestada, perdida, colgada, transferida
+- ✅ **Placeholders contextuales**: Específicos por tipo de acción
+- ✅ **Opción de regreso**: "Regresar a la Llamada" para clicks accidentales
+
+#### **🎨 DISEÑO VISUAL PROFESIONAL**
+
+##### **Barra de Progreso Protagonista**
+- ✅ **Ancho completo**: Aprovecha todo el espacio del header
+- ✅ **Altura perfecta**: h-6 para presencia sin exceso
+- ✅ **Temperatura integrada**: Centrada con transparencia sutil
+- ✅ **Bordes elegantes**: rounded-sm para geometría limpia
+- ✅ **Animación triple**: Pulse + edge glow + avance continuo
+
+##### **Animación de Audio Minimalista**
+- ✅ **Ondas concéntricas**: 3 círculos expandiéndose tipo radar
+- ✅ **Efecto ripple**: Animación elegante sin elementos superpuestos
+- ✅ **Estados claros**: Conectado (ondas) vs desconectado (icono estático)
+- ✅ **Timing perfecto**: 2s con delays escalonados
+
+##### **Modal de Detalle Optimizado**
+- ✅ **Más ancho**: max-w-6xl para mejor aprovechamiento
+- ✅ **Información completa**: Personal, discovery, progreso, contexto IA
+- ✅ **Grid 2x2**: Información personal y discovery compactadas
+- ✅ **Controles minimalistas**: Botones profesionales y discretos
+- ✅ **Scrollbar personalizada**: Discreta de 6px compatible con tema oscuro
+
+#### **🔧 ARQUITECTURA TÉCNICA**
+
+##### **Componentes Creados**
+- **`LiveMonitor.tsx`**: Interfaz principal con pipeline visual
+- **`ProspectDetailModal`**: Modal avanzado con controles completos
+- **`liveMonitorService.ts`**: Lógica de negocio y gestión de BD
+
+##### **Integración Completa**
+- ✅ **Base de datos**: Conectado a tabla prospectos (glsmifhkoaifvaegsozd.supabase.co)
+- ✅ **Sistema de permisos**: Integrado con roles vendedor y evaluador
+- ✅ **Navegación**: Módulo independiente en sidebar
+- ✅ **Campos existentes**: Compatible sin modificar estructura BD
+
+##### **Funcionalidades Avanzadas**
+- ✅ **WebSocket preparado**: Para monitor de audio real de VAPI
+- ✅ **Webhooks listos**: URLs para susurro y transferencia
+- ✅ **Sistema de cola**: Rotación inteligente de agentes
+- ✅ **Trazabilidad**: Feedback estructurado en observaciones
+
+### 📊 **ESTADÍSTICAS DE IMPLEMENTACIÓN**
+
+#### **Líneas de Código**
+- **LiveMonitor.tsx**: 1,100+ líneas
+- **liveMonitorService.ts**: 300+ líneas
+- **Scripts SQL**: 50+ líneas
+- **Total agregado**: ~1,500 líneas
+
+#### **Funcionalidades Implementadas**
+- ✅ **Monitor de llamadas**: Tiempo real con tabla visual
+- ✅ **Sistema de intervención**: Susurro + transferencia
+- ✅ **Rotación de agentes**: Cola consecutiva automática
+- ✅ **Feedback obligatorio**: Trazabilidad completa
+- ✅ **Controles avanzados**: Escuchar, intervenir, colgar, resultado
+
+### 🎯 **IMPACTO EN USUARIOS**
+
+#### **Vendedores**
+- ✅ **Supervisión completa**: Monitor de todas las llamadas activas
+- ✅ **Intervención inteligente**: Tomar control cuando sea necesario
+- ✅ **Información completa**: Todo el contexto del prospecto disponible
+- ✅ **Herramientas profesionales**: Controles de nivel enterprise
+
+#### **Administradores**
+- ✅ **Trazabilidad total**: Feedback obligatorio de todas las acciones
+- ✅ **Gestión de cola**: Rotación automática de agentes
+- ✅ **Reportes**: Historial completo en observaciones
+- ✅ **Control granular**: Permisos específicos por usuario
 
 ---
 
