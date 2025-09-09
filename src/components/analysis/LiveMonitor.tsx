@@ -155,33 +155,30 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
             </button>
           </div>
           
-          {/* Barra de Progreso Protagonista - Ancho Completo */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Progreso de la Llamada
-              </span>
-              <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%
-              </span>
-            </div>
-            <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-full h-8 overflow-hidden shadow-xl border border-slate-400 dark:border-slate-500">
-              <div 
-                className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-3000 ease-out relative overflow-hidden flex items-center`}
-                style={{width: `${getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%`}}
-              >
-                {/* Animación sutil de progreso */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
-                
-                {/* Efecto de avance minimalista */}
-                <div className="absolute right-0 top-0 w-4 h-full bg-gradient-to-l from-white/40 to-transparent animate-pulse"></div>
-                
-                {/* Temperatura integrada */}
-                <span className="ml-4 text-sm font-bold text-white drop-shadow-lg tracking-wider">
-                  {liveMonitorService.inferTemperature(prospect).toUpperCase()}
-                </span>
+          {/* Barra de Progreso Protagonista - Limpia y Elegante */}
+          <div className="flex items-center justify-between">
+            <div className="flex-1 mr-6">
+              <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-sm h-6 overflow-hidden shadow-lg border border-slate-400 dark:border-slate-500">
+                <div 
+                  className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-3000 ease-out relative overflow-hidden flex items-center justify-center`}
+                  style={{width: `${getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%`}}
+                >
+                  {/* Animación sutil de progreso */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                  
+                  {/* Efecto de avance minimalista */}
+                  <div className="absolute right-0 top-0 w-4 h-full bg-gradient-to-l from-white/40 to-transparent animate-pulse"></div>
+                  
+                  {/* Temperatura centrada y sutil */}
+                  <span className="text-sm font-medium text-white/70 tracking-wide">
+                    {liveMonitorService.inferTemperature(prospect).toUpperCase()}
+                  </span>
+                </div>
               </div>
             </div>
+            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%
+            </span>
           </div>
         </div>
         
