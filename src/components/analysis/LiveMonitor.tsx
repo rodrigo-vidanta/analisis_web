@@ -126,7 +126,7 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto custom-scrollbar">
         {/* Header con Progreso Integrado */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
@@ -143,21 +143,29 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                 </p>
               </div>
               
-              {/* Progreso en Header */}
-              <div className="flex items-center space-x-4">
-                <div className="w-48 bg-slate-200 dark:bg-slate-600 rounded-full h-3 overflow-hidden shadow-inner">
+              {/* Progreso Protagonista en Header */}
+              <div className="flex items-center space-x-6 flex-1 max-w-md">
+                <div className="flex-1 bg-slate-300 dark:bg-slate-600 rounded-full h-6 overflow-hidden shadow-lg border border-slate-400 dark:border-slate-500">
                   <div 
-                    className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-1000 relative overflow-hidden flex items-center justify-center`}
+                    className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-2000 ease-out relative overflow-hidden flex items-center justify-center`}
                     style={{width: `${getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%`}}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/10 animate-ping"></div>
-                    <span className="text-xs font-bold text-white drop-shadow-sm">
+                    {/* Animación principal de progreso */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse"></div>
+                    
+                    {/* Animación de avance */}
+                    <div className="absolute inset-0 overflow-hidden">
+                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-ping opacity-60"></div>
+                      <div className="absolute top-0 right-0 w-4 h-full bg-gradient-to-l from-white/30 to-transparent animate-pulse"></div>
+                    </div>
+                    
+                    {/* Texto de temperatura */}
+                    <span className="text-xs font-bold text-white drop-shadow-lg tracking-wider">
                       {liveMonitorService.inferTemperature(prospect).toUpperCase()}
                     </span>
                   </div>
                 </div>
-                <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 min-w-0">
                   {getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%
                 </span>
               </div>
@@ -278,9 +286,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                       {prospect.observaciones}
                     </p>
                   </div>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-2 italic">
-                    Esta información es crucial para que el vendedor entienda el contexto completo de la conversación antes de intervenir.
-                  </p>
                 </div>
               )}
             </div>
@@ -298,32 +303,65 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                     <span className="text-sm font-medium text-green-900 dark:text-green-100">Supervisión</span>
                   </div>
                   
-                  {/* Visualizador de audio mejorado */}
-                  <div className="h-16 flex items-center justify-center">
+                  {/* Visualizador de audio espectacular */}
+                  <div className="h-16 flex items-center justify-center relative">
                     {isListening ? (
-                      // Animación de ondas más impresionante
-                      <div className="flex items-end space-x-1">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
-                          <div
-                            key={i}
-                            className="bg-gradient-to-t from-green-500 to-green-300 rounded-full"
-                            style={{
-                              width: '3px',
-                              height: `${Math.sin(Date.now() * 0.005 + i) * 20 + 25}px`,
-                              animation: `wave 1.5s ease-in-out infinite`,
-                              animationDelay: `${i * 0.1}s`
-                            }}
-                          ></div>
-                        ))}
+                      // Animación de ondas concéntricas tipo radar
+                      <div className="relative">
+                        {/* Ondas concéntricas de fondo */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          {[1, 2, 3].map(i => (
+                            <div
+                              key={i}
+                              className="absolute border-2 border-green-400/30 rounded-full animate-ping"
+                              style={{
+                                width: `${i * 20}px`,
+                                height: `${i * 20}px`,
+                                animationDelay: `${i * 0.5}s`,
+                                animationDuration: '2s'
+                              }}
+                            ></div>
+                          ))}
+                        </div>
+                        
+                        {/* Ecualizador central */}
+                        <div className="relative z-10 flex items-end space-x-0.5">
+                          {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                            <div
+                              key={i}
+                              className="bg-gradient-to-t from-green-600 via-green-400 to-green-200 rounded-sm shadow-lg"
+                              style={{
+                                width: '2px',
+                                height: `${Math.abs(Math.sin(Date.now() * 0.01 + i * 0.5)) * 30 + 8}px`,
+                                animation: `audioBar 0.8s ease-in-out infinite`,
+                                animationDelay: `${i * 0.1}s`
+                              }}
+                            ></div>
+                          ))}
+                        </div>
+                        
+                        {/* Pulso central */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
+                        </div>
+
                         <style jsx>{`
-                          @keyframes wave {
+                          @keyframes audioBar {
                             0%, 100% { 
-                              transform: scaleY(0.5);
-                              opacity: 0.7;
+                              transform: scaleY(0.3);
+                              opacity: 0.6;
+                            }
+                            25% { 
+                              transform: scaleY(1.2);
+                              opacity: 0.9;
                             }
                             50% { 
-                              transform: scaleY(1.5);
+                              transform: scaleY(0.8);
                               opacity: 1;
+                            }
+                            75% { 
+                              transform: scaleY(1.5);
+                              opacity: 0.8;
                             }
                           }
                         `}</style>
