@@ -16,7 +16,7 @@ flowchart TD
     B -->|No| C[LoginScreen]
     B -->|Sí| D[MainApp]
     
-    C --> E[AuthContext.login()]
+    C --> E[AuthContext Login]
     E --> F{Credenciales Válidas?}
     F -->|No| C
     F -->|Sí| G[LightSpeedTunnel Animation]
@@ -459,7 +459,7 @@ sequenceDiagram
     U->>L: Ingresa credenciales
     L->>A: login(credentials)
     A->>AS: login(credentials)
-    AS->>BD: authenticate_user()
+    AS->>BD: authenticate_user
     BD-->>AS: user_data + permissions
     AS-->>A: AuthState
     A->>A: setAuthState
@@ -467,7 +467,7 @@ sequenceDiagram
     S->>S: Filtrar módulos por permisos
     
     Note over A,S: Sistema de permisos granular
-    S->>BD: get_evaluator_analysis_config()
+    S->>BD: get_evaluator_analysis_config
     BD-->>S: permisos específicos
     S->>S: Mostrar módulos permitidos
 ```
@@ -491,7 +491,7 @@ sequenceDiagram
     IAW->>IAW: Step 5: Squad Config
     IAW->>IAW: Step 6: JSON Review
     U->>IAW: Confirma creación
-    IAW->>SS: createAgentFromEditor()
+    IAW->>SS: createAgentFromEditor
     SS->>BD: INSERT agent_templates
     SS->>BD: INSERT agent_prompts
     SS->>BD: INSERT agent_tools
@@ -512,7 +512,7 @@ sequenceDiagram
     participant IA as IA Natalia
     
     V->>LM: Accede a Live Monitor
-    LM->>LMS: getActiveProspects()
+    LM->>LMS: getActiveProspects
     LMS->>BD: SELECT prospectos activos
     BD-->>LMS: Lista de prospectos
     LMS-->>LM: Prospects data
@@ -529,8 +529,8 @@ sequenceDiagram
     V->>LM: Click "Intervenir Llamada"
     LM->>LM: Show transfer modal
     V->>LM: Selecciona razón
-    LM->>LMS: sendWhisperToAI()
-    LMS->>VAPI: POST /webhook/whisper
+    LM->>LMS: sendWhisperToAI
+    LMS->>VAPI: POST webhook whisper
     VAPI->>IA: Susurro con razón
     IA->>IA: Dice razón al cliente
     IA->>VAPI: Ejecuta transferencia
@@ -539,7 +539,7 @@ sequenceDiagram
     V->>LM: Marca resultado
     LM->>LM: Feedback obligatorio
     V->>LM: Completa feedback
-    LM->>LMS: saveFeedback()
+    LM->>LMS: saveFeedback
     LMS->>BD: UPDATE observaciones
     LM->>LM: Rotate to next agent
     LM->>LM: Refresh pipeline
@@ -558,7 +558,7 @@ sequenceDiagram
     participant BS as BookmarkService
     
     U->>PD: Accede a PQNC Humans
-    PD->>AS: getActiveProspects()
+    PD->>AS: getActiveProspects
     AS->>BD: SELECT calls con filtros
     BD-->>AS: Call records
     AS-->>PD: Filtered calls
@@ -569,13 +569,13 @@ sequenceDiagram
     DCV->>DCV: Render tabs
     
     U->>DCV: Add feedback
-    DCV->>FS: upsertFeedback()
-    FS->>BD: INSERT/UPDATE call_feedback
+    DCV->>FS: upsertFeedback
+    FS->>BD: INSERT UPDATE call_feedback
     BD-->>FS: Feedback saved
     
     U->>DCV: Add bookmark
-    DCV->>BS: upsertBookmark()
-    BS->>BD: INSERT/UPDATE call_bookmarks
+    DCV->>BS: upsertBookmark
+    BS->>BD: INSERT UPDATE call_bookmarks
     BD-->>BS: Bookmark saved
     
     DCV-->>PD: Close detail view
