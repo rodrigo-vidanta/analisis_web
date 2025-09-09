@@ -143,29 +143,29 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                 </p>
               </div>
               
-              {/* Progreso Protagonista en Header */}
-              <div className="flex items-center space-x-6 flex-1 max-w-md">
-                <div className="flex-1 bg-slate-300 dark:bg-slate-600 rounded-full h-6 overflow-hidden shadow-lg border border-slate-400 dark:border-slate-500">
+              {/* Progreso Protagonista en Header - Más Largo y Grueso */}
+              <div className="flex items-center space-x-4 flex-1 mr-16">
+                <div className="flex-1 bg-slate-300 dark:bg-slate-600 rounded-full h-10 overflow-hidden shadow-xl border-2 border-slate-400 dark:border-slate-500">
                   <div 
                     className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-2000 ease-out relative overflow-hidden flex items-center justify-center`}
                     style={{width: `${getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%`}}
                   >
                     {/* Animación principal de progreso */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-pulse"></div>
                     
-                    {/* Animación de avance */}
+                    {/* Animación de avance continuo */}
                     <div className="absolute inset-0 overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-ping opacity-60"></div>
-                      <div className="absolute top-0 right-0 w-4 h-full bg-gradient-to-l from-white/30 to-transparent animate-pulse"></div>
+                      <div className="absolute top-0 left-0 w-8 h-full bg-gradient-to-r from-white/40 to-transparent animate-bounce opacity-80"></div>
+                      <div className="absolute top-0 right-0 w-6 h-full bg-gradient-to-l from-white/60 to-transparent animate-pulse"></div>
                     </div>
                     
-                    {/* Texto de temperatura */}
-                    <span className="text-xs font-bold text-white drop-shadow-lg tracking-wider">
+                    {/* Texto de temperatura más prominente */}
+                    <span className="text-sm font-bold text-white drop-shadow-lg tracking-widest">
                       {liveMonitorService.inferTemperature(prospect).toUpperCase()}
                     </span>
                   </div>
                 </div>
-                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 min-w-0">
+                <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                   {getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%
                 </span>
               </div>
@@ -306,62 +306,48 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                   {/* Visualizador de audio espectacular */}
                   <div className="h-16 flex items-center justify-center relative">
                     {isListening ? (
-                      // Animación de ondas concéntricas tipo radar
-                      <div className="relative">
-                        {/* Ondas concéntricas de fondo */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          {[1, 2, 3].map(i => (
+                      // Animación de espectro de audio profesional
+                      <div className="relative w-20 h-12">
+                        {/* Barras de espectro */}
+                        <div className="flex items-end justify-center space-x-0.5 h-full">
+                          {[0.2, 0.8, 1.5, 0.9, 1.8, 1.2, 2.1, 1.6, 1.1, 0.7, 1.9, 0.5, 1.3, 0.9, 1.7].map((intensity, i) => (
                             <div
                               key={i}
-                              className="absolute border-2 border-green-400/30 rounded-full animate-ping"
-                              style={{
-                                width: `${i * 20}px`,
-                                height: `${i * 20}px`,
-                                animationDelay: `${i * 0.5}s`,
-                                animationDuration: '2s'
-                              }}
-                            ></div>
-                          ))}
-                        </div>
-                        
-                        {/* Ecualizador central */}
-                        <div className="relative z-10 flex items-end space-x-0.5">
-                          {[1, 2, 3, 4, 5, 6, 7].map(i => (
-                            <div
-                              key={i}
-                              className="bg-gradient-to-t from-green-600 via-green-400 to-green-200 rounded-sm shadow-lg"
+                              className="bg-gradient-to-t from-green-600 via-green-400 to-green-200 rounded-t-sm shadow-sm"
                               style={{
                                 width: '2px',
-                                height: `${Math.abs(Math.sin(Date.now() * 0.01 + i * 0.5)) * 30 + 8}px`,
-                                animation: `audioBar 0.8s ease-in-out infinite`,
-                                animationDelay: `${i * 0.1}s`
+                                height: `${intensity * 20 + 8}px`,
+                                animation: `audioSpectrum ${0.3 + Math.random() * 0.4}s ease-in-out infinite alternate`,
+                                animationDelay: `${i * 0.05}s`
                               }}
                             ></div>
                           ))}
                         </div>
+
+                        {/* Efecto de brillo */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-green-400/20 to-green-300/30 rounded animate-pulse"></div>
                         
-                        {/* Pulso central */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
+                        {/* Indicador central */}
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                          <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse shadow-lg shadow-green-300/80"></div>
                         </div>
 
                         <style jsx>{`
-                          @keyframes audioBar {
-                            0%, 100% { 
+                          @keyframes audioSpectrum {
+                            0% { 
                               transform: scaleY(0.3);
-                              opacity: 0.6;
-                            }
-                            25% { 
-                              transform: scaleY(1.2);
-                              opacity: 0.9;
+                              opacity: 0.7;
+                              filter: brightness(0.8);
                             }
                             50% { 
-                              transform: scaleY(0.8);
+                              transform: scaleY(1);
                               opacity: 1;
+                              filter: brightness(1.2);
                             }
-                            75% { 
-                              transform: scaleY(1.5);
+                            100% { 
+                              transform: scaleY(0.6);
                               opacity: 0.8;
+                              filter: brightness(1);
                             }
                           }
                         `}</style>
