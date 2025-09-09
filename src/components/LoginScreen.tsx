@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
-import LightSpeedTransition from './LightSpeedTransition';
-import SimpleLightSpeed from './SimpleLightSpeed';
+// Componentes de transición eliminados - se usa LightSpeedTunnel en AuthContext
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');

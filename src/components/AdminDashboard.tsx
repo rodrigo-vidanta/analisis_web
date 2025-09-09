@@ -1,9 +1,9 @@
 import React from 'react';
-import AdvancedAgentEditor from './AdvancedAgentEditor';
+import TemplateManager from './TemplateManager';
 
 const AdminDashboard = () => {
-  // Renderizar directamente el Editor Avanzado sin opción de cerrar
-  return <AdvancedAgentEditor />;
+  // Renderizar directamente el Gestor de Plantillas
+  return <TemplateManager />;
 };
 
 export default AdminDashboard;
