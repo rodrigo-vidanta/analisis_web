@@ -8,10 +8,10 @@ interface HeaderProps {
   progress: number;
   progressText: string;
   darkMode: boolean;
-  appMode?: 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin';
+  appMode?: 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin';
   onToggleDarkMode: () => void;
   onReset: () => void;
-  onModeChange?: (mode: 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin') => void;
+  onModeChange?: (mode: 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin') => void;
   simplified?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -55,6 +55,7 @@ const Header = ({
               <h1 className="text-xl font-semibold text-slate-900 dark:text-white capitalize">
                 {appMode === 'constructor' ? 'Constructor de Agentes' :
                  appMode === 'plantillas' ? 'Gestión de Plantillas' :
+                 appMode === 'agent-studio' ? 'Agent Studio' :
                  appMode === 'natalia' ? 'Análisis Natalia IA' :
                  appMode === 'pqnc' ? 'Análisis PQNC Humans' :
                  appMode === 'live-monitor' ? 'Monitor en Vivo' :

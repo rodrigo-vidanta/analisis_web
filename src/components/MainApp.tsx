@@ -6,6 +6,7 @@ import ProjectSelector from './ProjectSelector';
 import LoginScreen from './LoginScreen';
 import IndividualAgentWizard from './IndividualAgentWizard';
 import AdminDashboard from './AdminDashboard';
+import AgentStudio from './AgentStudio';
 import AnalysisDashboard from './analysis/AnalysisDashboard';
 import LiveMonitor from './analysis/LiveMonitor';
 import AdminDashboardTabs from './admin/AdminDashboardTabs';
@@ -190,6 +191,23 @@ function MainApp() {
           <ProtectedRoute requireModule="plantillas">
             <AdminDashboard />
           </ProtectedRoute>
+        );
+      case 'agent-studio':
+        return (
+          user?.role_name === 'admin' || user?.role_name === 'developer' ? (
+            <AgentStudio />
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Acceso Denegado
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Solo administradores y desarrolladores pueden acceder al Agent Studio
+                </p>
+              </div>
+            </div>
+          )
         );
       case 'natalia':
         return (

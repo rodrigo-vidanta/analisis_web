@@ -16,7 +16,7 @@ interface AuthContextType extends AuthState {
   canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | null;
+  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | null;
   refreshUser: () => Promise<void>;
 }
 
@@ -217,12 +217,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | null => {
+  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | null => {
     if (!authState.user) return null;
 
     // Orden de prioridad de módulos
     if (canAccessModule('constructor')) return 'constructor';
     if (canAccessModule('plantillas')) return 'plantillas';
+    
+    // Agent Studio para admin y developer
+    if (authState.user.role_name === 'admin' || authState.user.role_name === 'developer') {
+      return 'agent-studio';
+    }
     
     // Priorizar submódulos específicos de análisis
     if (canAccessModule('analisis') && canAccessSubModule('natalia')) return 'natalia';
