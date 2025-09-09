@@ -1,4 +1,4 @@
-# PQNC QA AI Platform - v1.0.3 🚀
+# PQNC QA AI Platform - v1.0.13 🚀
 
 **Plataforma Avanzada de Análisis de Calidad de Llamadas con IA**
 

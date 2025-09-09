@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabaseMainAdmin } from '../config/supabase';
 import type { AgentTemplate } from '../config/supabase';
-import DeleteTemplateModal from './admin/DeleteTemplateModal';
+// DeleteTemplateModal eliminado - funcionalidad integrada en TemplateManager
 
 interface AgentCVProps {
   template: AgentTemplate;
@@ -351,16 +351,27 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
         </div>
       )}
 
-      {/* Delete Modal */}
-      <DeleteTemplateModal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        template={template}
-        onSuccess={() => {
-          setShowDeleteModal(false);
-          if (onDelete) onDelete();
-        }}
-      />
+      {/* Delete Modal - Funcionalidad integrada en TemplateManager */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+              Eliminar Plantilla
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              Esta funcionalidad se ha movido al gestor de plantillas principal.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
