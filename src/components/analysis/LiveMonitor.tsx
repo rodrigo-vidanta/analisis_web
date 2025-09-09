@@ -127,47 +127,21 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto custom-scrollbar">
-        {/* Header con Progreso Integrado */}
+        {/* Header Minimalista con Progreso Protagonista */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+          {/* Información básica compacta */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                 {(prospect.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                   {prospect.nombre_whatsapp || 'Sin nombre'}
                 </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {prospect.etapa} • Monitor de Llamada en Vivo
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {prospect.etapa}
                 </p>
-              </div>
-              
-              {/* Progreso Protagonista en Header - Más Largo y Grueso */}
-              <div className="flex items-center space-x-4 flex-1 mr-16">
-                <div className="flex-1 bg-slate-300 dark:bg-slate-600 rounded-full h-10 overflow-hidden shadow-xl border-2 border-slate-400 dark:border-slate-500">
-                  <div 
-                    className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-2000 ease-out relative overflow-hidden flex items-center justify-center`}
-                    style={{width: `${getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%`}}
-                  >
-                    {/* Animación principal de progreso */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-pulse"></div>
-                    
-                    {/* Animación de avance continuo */}
-                    <div className="absolute inset-0 overflow-hidden">
-                      <div className="absolute top-0 left-0 w-8 h-full bg-gradient-to-r from-white/40 to-transparent animate-bounce opacity-80"></div>
-                      <div className="absolute top-0 right-0 w-6 h-full bg-gradient-to-l from-white/60 to-transparent animate-pulse"></div>
-                    </div>
-                    
-                    {/* Texto de temperatura más prominente */}
-                    <span className="text-sm font-bold text-white drop-shadow-lg tracking-widest">
-                      {liveMonitorService.inferTemperature(prospect).toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                  {getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%
-                </span>
               </div>
             </div>
             
@@ -179,6 +153,35 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          </div>
+          
+          {/* Barra de Progreso Protagonista - Ancho Completo */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                Progreso de la Llamada
+              </span>
+              <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-full h-8 overflow-hidden shadow-xl border border-slate-400 dark:border-slate-500">
+              <div 
+                className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-3000 ease-out relative overflow-hidden flex items-center`}
+                style={{width: `${getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%`}}
+              >
+                {/* Animación sutil de progreso */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                
+                {/* Efecto de avance minimalista */}
+                <div className="absolute right-0 top-0 w-4 h-full bg-gradient-to-l from-white/40 to-transparent animate-pulse"></div>
+                
+                {/* Temperatura integrada */}
+                <span className="ml-4 text-sm font-bold text-white drop-shadow-lg tracking-wider">
+                  {liveMonitorService.inferTemperature(prospect).toUpperCase()}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -303,60 +306,55 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                     <span className="text-sm font-medium text-green-900 dark:text-green-100">Supervisión</span>
                   </div>
                   
-                  {/* Visualizador de audio espectacular */}
+                  {/* Visualizador de audio minimalista y elegante */}
                   <div className="h-16 flex items-center justify-center relative">
                     {isListening ? (
-                      // Animación de espectro de audio profesional
-                      <div className="relative w-20 h-12">
-                        {/* Barras de espectro */}
-                        <div className="flex items-end justify-center space-x-0.5 h-full">
-                          {[0.2, 0.8, 1.5, 0.9, 1.8, 1.2, 2.1, 1.6, 1.1, 0.7, 1.9, 0.5, 1.3, 0.9, 1.7].map((intensity, i) => (
-                            <div
-                              key={i}
-                              className="bg-gradient-to-t from-green-600 via-green-400 to-green-200 rounded-t-sm shadow-sm"
-                              style={{
-                                width: '2px',
-                                height: `${intensity * 20 + 8}px`,
-                                animation: `audioSpectrum ${0.3 + Math.random() * 0.4}s ease-in-out infinite alternate`,
-                                animationDelay: `${i * 0.05}s`
-                              }}
-                            ></div>
-                          ))}
+                      // Animación de pulso minimalista con impacto
+                      <div className="relative">
+                        {/* Círculo principal */}
+                        <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
+                          </svg>
                         </div>
-
-                        {/* Efecto de brillo */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-green-400/20 to-green-300/30 rounded animate-pulse"></div>
                         
-                        {/* Indicador central */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                          <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse shadow-lg shadow-green-300/80"></div>
-                        </div>
+                        {/* Ondas concéntricas elegantes */}
+                        {[1, 2, 3].map(i => (
+                          <div
+                            key={i}
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 border-2 border-green-400 rounded-full opacity-20"
+                            style={{
+                              width: `${48 + (i * 16)}px`,
+                              height: `${48 + (i * 16)}px`,
+                              animation: `ripple 2s ease-out infinite`,
+                              animationDelay: `${i * 0.6}s`
+                            }}
+                          ></div>
+                        ))}
 
                         <style jsx>{`
-                          @keyframes audioSpectrum {
-                            0% { 
-                              transform: scaleY(0.3);
-                              opacity: 0.7;
-                              filter: brightness(0.8);
+                          @keyframes ripple {
+                            0% {
+                              transform: translate(-50%, -50%) scale(0.8);
+                              opacity: 0.6;
                             }
-                            50% { 
-                              transform: scaleY(1);
-                              opacity: 1;
-                              filter: brightness(1.2);
+                            50% {
+                              opacity: 0.3;
                             }
-                            100% { 
-                              transform: scaleY(0.6);
-                              opacity: 0.8;
-                              filter: brightness(1);
+                            100% {
+                              transform: translate(-50%, -50%) scale(1.2);
+                              opacity: 0;
                             }
                           }
                         `}</style>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center">
-                        <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
-                        </svg>
+                        <div className="w-12 h-12 bg-slate-200 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                          <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
+                          </svg>
+                        </div>
                       </div>
                     )}
                   </div>
