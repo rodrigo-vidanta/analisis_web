@@ -1062,13 +1062,16 @@ const LiveMonitor: React.FC = () => {
                 <div className="flex space-x-3">
                   <button
                     onClick={() => {
-                      // NO permitir cancelar - feedback es obligatorio
-                      alert('El feedback es obligatorio para completar la acción');
+                      // Permitir regresar sin ejecutar la acción
+                      setShowFeedbackModal(false);
+                      setFeedback('');
+                      setProspectForFeedback(null);
+                      // Restaurar el modal de detalle
+                      setSelectedProspect(prospectForFeedback);
                     }}
-                    disabled
-                    className="flex-1 bg-slate-300 text-slate-500 px-4 py-2 rounded-lg cursor-not-allowed"
+                    className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white px-4 py-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                   >
-                    Feedback Obligatorio
+                    Regresar a la Llamada
                   </button>
                   <button
                     onClick={() => {

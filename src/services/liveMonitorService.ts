@@ -59,7 +59,8 @@ class LiveMonitorService {
         .from('prospectos')
         .select('*')
         .not('etapa', 'is', null)
-        .neq('etapa', 'Finalizado')
+        .not('etapa', 'eq', 'Finalizado')
+        .not('etapa', 'eq', 'Transferido')
         .order('updated_at', { ascending: false })
         .limit(50);
 
@@ -199,17 +200,18 @@ class LiveMonitorService {
   }
 
   /**
-   * Marcar prospecto como transferido
+   * Marcar prospecto como transferido (usando solo campos existentes)
    */
   async markAsTransferred(prospectId: string, agentEmail: string, checkpoint: string): Promise<boolean> {
     try {
+      // Usar campos que sabemos que existen
+      const transferInfo = `[TRANSFERIDO] Agente: ${agentEmail} | Checkpoint: ${checkpoint} | ${new Date().toLocaleString()}`;
+      
       const { error } = await analysisSupabase
         .from('prospectos')
         .update({
-          status_transferencia: 'transferida',
-          agente_asignado: agentEmail,
-          fecha_transferencia: new Date().toISOString(),
-          checkpoint_transferencia: checkpoint,
+          etapa: 'Transferido',
+          observaciones: transferInfo,
           updated_at: new Date().toISOString()
         })
         .eq('id', prospectId);
@@ -228,19 +230,18 @@ class LiveMonitorService {
   }
 
   /**
-   * Guardar feedback del agente
+   * Guardar feedback del agente (usando solo campos existentes)
    */
   async saveFeedback(feedbackData: FeedbackData): Promise<boolean> {
     try {
+      // Usar solo el campo observaciones que sabemos que existe
+      const feedbackText = `[FEEDBACK ${feedbackData.resultado.toUpperCase()}] ${feedbackData.comentarios} | Agente: ${feedbackData.agent_email} | ${feedbackData.comentarios_ia}`;
+      
       const { error } = await analysisSupabase
         .from('prospectos')
         .update({
-          feedback_agente: feedbackData.comentarios,
-          resultado_transferencia: feedbackData.resultado,
-          comentarios_ia: feedbackData.comentarios_ia,
-          fecha_feedback: new Date().toISOString(),
-          agente_feedback_id: feedbackData.agent_email,
-          status_transferencia: 'completada',
+          observaciones: feedbackText,
+          etapa: 'Finalizado', // Marcar como finalizado
           updated_at: new Date().toISOString()
         })
         .eq('id', feedbackData.prospect_id);
@@ -250,7 +251,7 @@ class LiveMonitorService {
         return false;
       }
 
-      console.log('✅ Feedback guardado exitosamente');
+      console.log('✅ Feedback guardado exitosamente en observaciones');
       return true;
     } catch (error) {
       console.error('💥 Error en saveFeedback:', error);
