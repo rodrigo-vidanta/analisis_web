@@ -127,22 +127,42 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
-        {/* Header */}
+        {/* Header con Progreso Integrado */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
                 {(prospect.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
               </div>
-              <div>
+              <div className="flex-1">
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
                   {prospect.nombre_whatsapp || 'Sin nombre'}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Monitor de Llamada en Vivo
+                  {prospect.etapa} • Monitor de Llamada en Vivo
                 </p>
               </div>
+              
+              {/* Progreso en Header */}
+              <div className="flex items-center space-x-4">
+                <div className="w-48 bg-slate-200 dark:bg-slate-600 rounded-full h-3 overflow-hidden shadow-inner">
+                  <div 
+                    className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-1000 relative overflow-hidden flex items-center justify-center`}
+                    style={{width: `${getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%`}}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/10 animate-ping"></div>
+                    <span className="text-xs font-bold text-white drop-shadow-sm">
+                      {liveMonitorService.inferTemperature(prospect).toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                  {getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%
+                </span>
+              </div>
             </div>
+            
             <button
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -157,248 +177,163 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         <div className="p-8">
           <div className="grid grid-cols-3 gap-8">
             {/* COLUMNA IZQUIERDA - Información Completa del Cliente */}
-            <div className="col-span-2 space-y-6">
+            <div className="col-span-2 space-y-4">
               
-              {/* Información Personal Completa */}
-              <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-5">
-                <h4 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <span>Información Personal</span>
-                </h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Nombre Completo</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.nombre_completo || prospect.nombre_whatsapp || 'No especificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Nombre WhatsApp</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.nombre_whatsapp || 'No disponible'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Teléfono Principal</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.whatsapp}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Email</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.email || 'No proporcionado'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Edad</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.edad || 'No especificada'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Estado Civil</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.estado_civil || 'No especificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Ciudad</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.ciudad_residencia || 'No especificada'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cónyuge</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.nombre_conyuge || 'No especificado'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Discovery de Viaje */}
-              <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-5">
-                <h4 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  </svg>
-                  <span>Discovery de Viaje</span>
-                </h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Tamaño del Grupo</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.tamano_grupo ? `${prospect.tamano_grupo} personas` : 'No especificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Menores</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.cantidad_menores !== null ? `${prospect.cantidad_menores} menores` : 'No especificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Viaja Con</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.viaja_con || 'No especificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Destino Preferido</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.destino_preferencia?.[0] || 'No especificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Interés Principal</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.interes_principal || 'No especificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Campaña Origen</label>
-                    <p className="font-medium text-slate-900 dark:text-white mt-1">
-                      {prospect.campana_origen || 'No especificada'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Estado de Progreso */}
-              <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-5">
-                <h4 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                  <span>Progreso de la Llamada</span>
-                </h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-slate-900 dark:text-white">
-                      {prospect.etapa}
-                    </span>
-                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-6 overflow-hidden shadow-inner">
-                    <div 
-                      className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-1000 relative overflow-hidden`}
-                      style={{width: `${getCheckpointProgress(liveMonitorService.mapEtapaToCheckpoint(prospect.etapa))}%`}}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/10 animate-ping"></div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div className="text-center">
-                      <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Temperatura</span>
-                      <p className={`font-medium mt-1 ${
-                        liveMonitorService.inferTemperature(prospect) === 'caliente' ? 'text-red-600 dark:text-red-400' :
-                        liveMonitorService.inferTemperature(prospect) === 'tibio' ? 'text-yellow-600 dark:text-yellow-400' :
-                        'text-blue-600 dark:text-blue-400'
-                      }`}>
-                        {liveMonitorService.inferTemperature(prospect).charAt(0).toUpperCase() + liveMonitorService.inferTemperature(prospect).slice(1)}
+              {/* Información Compacta en Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Información Personal */}
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                  <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center space-x-2">
+                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="text-sm">Información Personal</span>
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Nombre:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {prospect.nombre_completo || prospect.nombre_whatsapp || 'No especificado'}
                       </p>
                     </div>
-                    <div className="text-center">
-                      <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Tiempo Activo</span>
-                      <p className="font-medium text-slate-900 dark:text-white mt-1">
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Teléfono:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">{prospect.whatsapp}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Email:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {prospect.email || 'No proporcionado'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Edad:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {prospect.edad || 'No especificada'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Ciudad:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {prospect.ciudad_residencia || 'No especificada'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Discovery de Viaje */}
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                  <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center space-x-2">
+                    <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    </svg>
+                    <span className="text-sm">Discovery de Viaje</span>
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Grupo:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {prospect.tamano_grupo ? `${prospect.tamano_grupo} personas` : 'No especificado'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Menores:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {prospect.cantidad_menores !== null ? `${prospect.cantidad_menores}` : 'No especificado'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Viaja con:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {prospect.viaja_con || 'No especificado'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Destino:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {prospect.destino_preferencia?.[0] || 'No especificado'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Tiempo activo:</span>
+                      <p className="font-medium text-slate-900 dark:text-white">
                         {liveMonitorService.getTimeElapsed(prospect.updated_at)}
                       </p>
                     </div>
-                    <div className="text-center">
-                      <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Próximo Agente</span>
-                      <p className="font-medium text-green-600 dark:text-green-400 mt-1">
-                        {nextAgent?.agent_name.split(' ')[0] || 'No asignado'}
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Resumen de la IA */}
+              {/* Resumen de la IA - Campo Completo */}
               {prospect.observaciones && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-5 border border-blue-200 dark:border-blue-700">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center space-x-2">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-4 flex items-center space-x-2">
                     <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
-                    <span>Contexto de la IA</span>
+                    <span>Contexto de la Conversación (IA)</span>
                   </h4>
-                  <p className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed">
-                    {prospect.observaciones}
+                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-100 dark:border-blue-800">
+                    <p className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed">
+                      {prospect.observaciones}
+                    </p>
+                  </div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-2 italic">
+                    Esta información es crucial para que el vendedor entienda el contexto completo de la conversación antes de intervenir.
                   </p>
                 </div>
               )}
-
-              {/* Datos Técnicos */}
-              <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-5">
-                <h4 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span>Datos Técnicos</span>
-                </h4>
-                <div className="grid grid-cols-3 gap-4 text-xs">
-                  <div>
-                    <label className="text-slate-500 dark:text-slate-400 uppercase tracking-wide">ID Prospecto</label>
-                    <p className="font-mono text-slate-700 dark:text-slate-300 mt-1">
-                      {prospect.id.slice(0, 8)}...
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-slate-500 dark:text-slate-400 uppercase tracking-wide">ID UChat</label>
-                    <p className="font-mono text-slate-700 dark:text-slate-300 mt-1">
-                      {prospect.id_uchat || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-slate-500 dark:text-slate-400 uppercase tracking-wide">Score</label>
-                    <p className="font-medium text-slate-700 dark:text-slate-300 mt-1">
-                      {prospect.score || 'No evaluado'}
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* COLUMNA DERECHA - Controles Minimalistas */}
             <div className="space-y-4">
               
-              {/* Monitor de Audio Compacto */}
+              {/* Supervisión de Llamada */}
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
                 <div className="text-center space-y-3">
                   <div className="flex items-center justify-center space-x-2">
                     <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-sm font-medium text-green-900 dark:text-green-100">Audio Monitor</span>
+                    <span className="text-sm font-medium text-green-900 dark:text-green-100">Supervisión</span>
                   </div>
                   
-                  {/* Visualizador de audio compacto */}
-                  <div className="h-12 flex items-center justify-center">
+                  {/* Visualizador de audio mejorado */}
+                  <div className="h-16 flex items-center justify-center">
                     {isListening ? (
-                      <div className="flex items-center space-x-0.5">
-                        {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                      // Animación de ondas más impresionante
+                      <div className="flex items-end space-x-1">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
                           <div
                             key={i}
-                            className="w-0.5 bg-green-500 rounded-full animate-pulse"
+                            className="bg-gradient-to-t from-green-500 to-green-300 rounded-full"
                             style={{
-                              height: `${Math.random() * 20 + 8}px`,
-                              animationDelay: `${i * 0.1}s`,
-                              animationDuration: '0.6s'
+                              width: '3px',
+                              height: `${Math.sin(Date.now() * 0.005 + i) * 20 + 25}px`,
+                              animation: `wave 1.5s ease-in-out infinite`,
+                              animationDelay: `${i * 0.1}s`
                             }}
                           ></div>
                         ))}
+                        <style jsx>{`
+                          @keyframes wave {
+                            0%, 100% { 
+                              transform: scaleY(0.5);
+                              opacity: 0.7;
+                            }
+                            50% { 
+                              transform: scaleY(1.5);
+                              opacity: 1;
+                            }
+                          }
+                        `}</style>
                       </div>
                     ) : (
-                      <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
-                      </svg>
+                      <div className="flex items-center justify-center">
+                        <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
+                        </svg>
+                      </div>
                     )}
                   </div>
                   
@@ -410,8 +345,11 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
                         : 'bg-green-500 hover:bg-green-600 text-white'
                     }`}
                   >
-                    {isListening ? 'Detener' : 'Iniciar'}
+                    {isListening ? 'Detener Supervisión' : 'Escuchar Llamada'}
                   </button>
+                  <p className="text-xs text-green-700 dark:text-green-300">
+                    Monitor en tiempo real
+                  </p>
                 </div>
               </div>
 
@@ -419,78 +357,76 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Controles</h4>
                 
-                <div className="space-y-2">
-                  {/* Human Handoff */}
-                  <button
-                    onClick={handleTransferRequest}
-                    disabled={transferLoading}
-                    className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2"
-                  >
-                    {transferLoading ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                      </svg>
-                    )}
-                    <span>{transferLoading ? 'Interviniendo...' : 'Intervenir Llamada'}</span>
-                  </button>
-
-                  {/* Colgar Llamada */}
-                  <button
-                    onClick={handleHangup}
-                    className={`w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
-                      hangupStep === 0 
-                        ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                        : hangupStep === 1
-                        ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                        : 'bg-red-700 text-white'
-                    }`}
-                  >
-                    {hangupStep === 2 ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2v12a4 4 0 01-4 4H6a4 4 0 01-4-4V6a4 4 0 014-4h4m8 0V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0h2m-2 0v2m-2-2v2" />
-                      </svg>
-                    )}
-                    <span>
-                      {hangupStep === 0 ? 'Colgar Llamada' : hangupStep === 1 ? 'Confirmar' : 'Colgando...'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Botones de Resultado Discretos */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Resultado</h4>
-                
-                <div className="space-y-2">
-                  <button
-                    onClick={() => onFeedback('contestada')}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                {/* Human Handoff */}
+                <button
+                  onClick={handleTransferRequest}
+                  disabled={transferLoading}
+                  className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2"
+                >
+                  {transferLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Llamada Contestada</span>
-                  </button>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                  )}
+                  <span>{transferLoading ? 'Interviniendo...' : 'Intervenir Llamada'}</span>
+                </button>
+
+                {/* Colgar Llamada */}
+                <button
+                  onClick={handleHangup}
+                  className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
+                    hangupStep === 0 
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                      : hangupStep === 1
+                      ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                      : 'bg-red-700 text-white'
+                  }`}
+                >
+                  {hangupStep === 2 ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2v12a4 4 0 01-4 4H6a4 4 0 01-4-4V6a4 4 0 014-4h4m8 0V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0h2m-2 0v2m-2-2v2" />
+                    </svg>
+                  )}
+                  <span>
+                    {hangupStep === 0 ? 'Colgar' : hangupStep === 1 ? 'Confirmar' : 'Colgando...'}
+                  </span>
+                </button>
+
+                {/* Separador y Botones de Resultado */}
+                <div className="border-t border-slate-200 dark:border-slate-600 pt-3 mt-4">
+                  <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Resultado</h4>
                   
-                  <button
-                    onClick={() => onFeedback('perdida')}
-                    className="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    <span>Llamada Perdida</span>
-                  </button>
+                  <div className="space-y-1.5">
+                    <button
+                      onClick={() => onFeedback('contestada')}
+                      className="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center space-x-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Contestada</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => onFeedback('perdida')}
+                      className="w-full bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center space-x-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span>Perdida</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
