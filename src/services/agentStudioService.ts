@@ -115,6 +115,17 @@ class AgentStudioService {
   
   async getTemplates(userId?: string): Promise<AgentTemplate[]> {
     try {
+      // Primero verificar si las tablas existen
+      const { error: tableError } = await supabase
+        .from('agent_templates')
+        .select('id')
+        .limit(1);
+
+      if (tableError) {
+        console.warn('Tablas de Agent Studio no existen aún. Retornando datos de ejemplo.');
+        return this.getMockTemplates();
+      }
+
       let query = supabase
         .from('agent_templates')
         .select(`
@@ -141,7 +152,7 @@ class AgentStudioService {
       })) || [];
     } catch (error) {
       console.error('Error fetching templates:', error);
-      throw error;
+      return this.getMockTemplates();
     }
   }
 
@@ -606,6 +617,17 @@ class AgentStudioService {
 
   async getTools(userId?: string): Promise<Tool[]> {
     try {
+      // Verificar si las tablas existen
+      const { error: tableError } = await supabase
+        .from('tools')
+        .select('id')
+        .limit(1);
+
+      if (tableError) {
+        console.warn('Tabla tools no existe aún. Retornando datos de ejemplo.');
+        return this.getMockTools();
+      }
+
       let query = supabase
         .from('tools')
         .select('*')
@@ -621,7 +643,7 @@ class AgentStudioService {
       return data || [];
     } catch (error) {
       console.error('Error fetching tools:', error);
-      throw error;
+      return this.getMockTools();
     }
   }
 
@@ -834,6 +856,30 @@ class AgentStudioService {
     totalTools: number;
   }> {
     try {
+      // Verificar si las tablas existen
+      const { error: tableError } = await supabase
+        .from('agent_templates')
+        .select('id')
+        .limit(1);
+
+      if (tableError) {
+        console.warn('Tablas no existen aún. Retornando estadísticas mock.');
+        const mockTemplates = this.getMockTemplates();
+        const mockTools = this.getMockTools();
+        
+        const totalUsage = mockTemplates.reduce((sum, t) => sum + t.usage_count, 0);
+        const averageSuccess = mockTemplates.reduce((sum, t) => sum + t.success_rate, 0) / mockTemplates.length;
+        const categories = new Set(mockTemplates.map(t => t.category));
+
+        return {
+          totalTemplates: mockTemplates.length,
+          totalUsage,
+          averageSuccess: Math.round(averageSuccess * 100) / 100,
+          totalCategories: categories.size,
+          totalTools: mockTools.length
+        };
+      }
+
       const [templatesResult, toolsResult] = await Promise.all([
         supabase
           .from('agent_templates')
@@ -872,10 +918,167 @@ class AgentStudioService {
     }
   }
 
+  // =================== DATOS MOCK (TEMPORAL) ===================
+
+  private getMockTemplates(): AgentTemplate[] {
+    return [
+      {
+        id: 'mock-1',
+        name: 'Agente de Ventas Básico',
+        description: 'Plantilla base para agentes de ventas con funcionalidades esenciales',
+        category: 'ventas',
+        keywords: ['ventas', 'conversion', 'leads'],
+        use_cases: ['Calificación de leads', 'Seguimiento de prospectos'],
+        is_squad: false,
+        single_agent_config: {
+          name: 'Agente de Ventas',
+          role: 'Especialista en Ventas',
+          description: 'Agente especializado en procesos de venta',
+          model_config: {
+            provider: 'openai',
+            model: 'gpt-4o',
+            temperature: 0.7,
+            fallback_models: ['gpt-4-0125-preview']
+          },
+          voice_config: {
+            provider: '11labs',
+            voice_id: 'pNInz6obpgDQGcFmaJgB',
+            model: 'eleven_turbo_v2_5',
+            stability: 0.5,
+            similarity_boost: 0.8,
+            speed: 1.0
+          },
+          system_prompts: ['Eres un agente de ventas profesional y persuasivo.']
+        },
+        tools: [],
+        created_by: 'system',
+        created_at: '2024-01-15T10:00:00Z',
+        usage_count: 15,
+        success_rate: 85,
+        is_active: true
+      },
+      {
+        id: 'mock-2',
+        name: 'Squad Atención al Cliente',
+        description: 'Squad completo para atención al cliente con escalamiento automático',
+        category: 'atencion',
+        keywords: ['atencion', 'soporte', 'squad'],
+        use_cases: ['Atención 24/7', 'Escalamiento de casos'],
+        is_squad: true,
+        squad_config: {
+          name: 'Squad Atención al Cliente',
+          description: 'Equipo especializado en atención al cliente',
+          members: [
+            {
+              id: 'agent-1',
+              name: 'Recepcionista Virtual',
+              role: 'Primera Línea',
+              description: 'Agente que recibe las consultas iniciales',
+              model_config: {
+                provider: 'openai',
+                model: 'gpt-4o',
+                temperature: 0.6,
+                fallback_models: []
+              },
+              voice_config: {
+                provider: '11labs',
+                voice_id: 'voice-1',
+                model: 'eleven_turbo_v2_5',
+                stability: 0.5,
+                similarity_boost: 0.8,
+                speed: 1.0
+              },
+              system_prompts: ['Eres una recepcionista virtual amigable y eficiente.'],
+              tools: [],
+              destinations: [{
+                type: 'assistant',
+                assistant_name: 'Especialista Técnico',
+                message: 'Te transfiero con un especialista',
+                description: 'Transferir casos técnicos'
+              }]
+            }
+          ]
+        },
+        tools: [],
+        created_by: 'system',
+        created_at: '2024-01-10T10:00:00Z',
+        usage_count: 8,
+        success_rate: 92,
+        is_active: true
+      }
+    ];
+  }
+
+  private getMockTools(): Tool[] {
+    return [
+      {
+        id: 'tool-1',
+        name: 'send_email',
+        description: 'Envía emails personalizados a clientes',
+        category: 'communication',
+        function_schema: {
+          name: 'send_email',
+          description: 'Envía un email',
+          parameters: {
+            type: 'object',
+            properties: {
+              to: { type: 'string', description: 'Email del destinatario' },
+              subject: { type: 'string', description: 'Asunto del email' },
+              body: { type: 'string', description: 'Contenido del email' }
+            },
+            required: ['to', 'subject', 'body']
+          }
+        },
+        server_url: 'https://api.ejemplo.com/send-email',
+        is_async: true,
+        messages: [],
+        created_by: 'system',
+        created_at: '2024-01-01T10:00:00Z',
+        is_reusable: true,
+        usage_count: 25
+      },
+      {
+        id: 'tool-2',
+        name: 'get_weather',
+        description: 'Obtiene información del clima actual',
+        category: 'utility',
+        function_schema: {
+          name: 'get_weather',
+          description: 'Obtiene el clima',
+          parameters: {
+            type: 'object',
+            properties: {
+              location: { type: 'string', description: 'Ubicación' }
+            },
+            required: ['location']
+          }
+        },
+        server_url: 'https://api.ejemplo.com/weather',
+        is_async: false,
+        messages: [],
+        created_by: 'system',
+        created_at: '2024-01-01T10:00:00Z',
+        is_reusable: true,
+        usage_count: 12
+      }
+    ];
+  }
+
   // =================== UTILIDADES ===================
 
   async incrementUsage(templateId: string): Promise<void> {
     try {
+      // Verificar si las tablas existen
+      const { error: tableError } = await supabase
+        .from('agent_templates')
+        .select('id')
+        .limit(1);
+
+      if (tableError) {
+        console.warn('Tablas no existen aún. Incremento simulado.');
+        return;
+      }
+
       await supabase.rpc('increment_template_usage', { template_id: templateId });
     } catch (error) {
       console.error('Error incrementing usage:', error);

@@ -12,6 +12,7 @@ import CreateAgentModal from './studio/CreateAgentModal';
 import EditAgentModal from './studio/EditAgentModal';
 import ToolsManagerModal from './studio/ToolsManagerModal';
 import SquadEditorModal from './studio/SquadEditorModal';
+import DatabaseSetupNotice from './studio/DatabaseSetupNotice';
 
 const AgentStudio: React.FC = () => {
   const { user } = useAuth();
@@ -49,6 +50,7 @@ const AgentStudio: React.FC = () => {
   // Estado de selección
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
   const [activeTab, setActiveTab] = useState<'gallery' | 'create' | 'tools' | 'my-agents'>('gallery');
+  const [showDatabaseNotice, setShowDatabaseNotice] = useState(true);
 
   // Referencias
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -306,6 +308,10 @@ const AgentStudio: React.FC = () => {
 
       {/* Contenido principal */}
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Aviso de configuración de base de datos */}
+        {showDatabaseNotice && error && error.includes('404') && (
+          <DatabaseSetupNotice onDismiss={() => setShowDatabaseNotice(false)} />
+        )}
         {/* Tab: Galería */}
         {activeTab === 'gallery' && (
           <div>
