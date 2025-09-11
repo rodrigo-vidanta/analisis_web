@@ -176,8 +176,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Vendedores tienen acceso a Live Monitor
     if (authState.user.role_name === 'vendedor') return true;
     
-    // TEMPORAL: Evaluators también pueden acceder (para testing)
-    if (authState.user.role_name === 'evaluator') return true;
+    // Evaluators: verificar permisos específicos en localStorage
+    if (authState.user.role_name === 'evaluator') {
+      const permissionsKey = `evaluator_permissions_${authState.user.email}`;
+      const savedPermissions = localStorage.getItem(permissionsKey);
+      
+      if (savedPermissions) {
+        try {
+          const permData = JSON.parse(savedPermissions);
+          const hasLiveMonitorAccess = permData.live_monitor_access === true;
+          
+          console.log('🔍 Permisos de evaluator desde localStorage:', {
+            live_monitor_access: permData.live_monitor_access,
+            natalia_access: permData.natalia_access,
+            pqnc_access: permData.pqnc_access,
+            hasAccess: hasLiveMonitorAccess
+          });
+          
+          return hasLiveMonitorAccess;
+        } catch (e) {
+          console.error('❌ Error parsing permisos de localStorage:', e);
+          return false;
+        }
+      }
+      
+      console.log('❌ Evaluator sin permisos en localStorage');
+      return false;
+    }
     
     // Otros roles no tienen acceso por defecto
     console.log('❌ Usuario sin acceso a Live Monitor:', authState.user.role_name);
