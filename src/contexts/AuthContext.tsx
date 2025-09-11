@@ -163,13 +163,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const canAccessLiveMonitor = (): boolean => {
     if (!authState.user) return false;
     
+    console.log('🔍 Verificando acceso Live Monitor para:', {
+      email: authState.user.email,
+      role: authState.user.role_name,
+      first_name: authState.user.first_name,
+      last_name: authState.user.last_name
+    });
+    
     // Admins siempre tienen acceso
     if (authState.user.role_name === 'admin') return true;
     
     // Vendedores tienen acceso a Live Monitor
     if (authState.user.role_name === 'vendedor') return true;
     
+    // TEMPORAL: Evaluators también pueden acceder (para testing)
+    if (authState.user.role_name === 'evaluator') return true;
+    
     // Otros roles no tienen acceso por defecto
+    console.log('❌ Usuario sin acceso a Live Monitor:', authState.user.role_name);
     return false;
   };
 
@@ -307,6 +318,7 @@ interface ProtectedRouteProps {
   requirePermission?: string;
   requireModule?: string;
   requireSubModule?: string;
+  requireLiveMonitor?: boolean;
   fallback?: ReactNode;
 }
 
@@ -315,9 +327,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requirePermission,
   requireModule,
   requireSubModule,
+  requireLiveMonitor,
   fallback
 }) => {
-  const { isAuthenticated, isLoading, hasPermission, canAccessModule } = useAuth();
+  const { isAuthenticated, isLoading, hasPermission, canAccessModule, canAccessLiveMonitor } = useAuth();
 
   // Mostrar loading mientras se verifica la autenticación
   if (isLoading) {
@@ -344,6 +357,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Verificar acceso a módulos
   if (requireModule && !canAccessModule(requireModule, requireSubModule)) {
     return fallback || <AccessDenied module={requireModule} subModule={requireSubModule} />;
+  }
+
+  // Verificar acceso a Live Monitor
+  if (requireLiveMonitor && !canAccessLiveMonitor()) {
+    return fallback || <AccessDenied module="live-monitor" />;
   }
 
   return <>{children}</>;

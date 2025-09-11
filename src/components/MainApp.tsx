@@ -222,7 +222,11 @@ function MainApp() {
           </ProtectedRoute>
         );
       case 'live-monitor':
-        return <LiveMonitor />;
+        return (
+          <ProtectedRoute requireLiveMonitor={true}>
+            <LiveMonitor />
+          </ProtectedRoute>
+        );
       case 'admin':
         return (
           user?.role_name === 'admin' ? (
