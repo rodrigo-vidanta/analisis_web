@@ -167,7 +167,18 @@ class LiveMonitorService {
           feedback_resultado,
           feedback_comentarios,
           feedback_user_email,
-          feedback_fecha
+          feedback_fecha,
+          checkpoint_venta_actual,
+          composicion_familiar_numero,
+          destino_preferido,
+          preferencia_vacaciones,
+          numero_noches,
+          mes_preferencia,
+          propuesta_economica_ofrecida,
+          habitacion_ofertada,
+          resort_ofertado,
+          principales_objeciones,
+          resumen_llamada
         `)
         .order('fecha_llamada', { ascending: false })
         .limit(20); // Obtener últimas 20 llamadas (activas + recién finalizadas)

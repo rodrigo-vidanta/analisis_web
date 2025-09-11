@@ -8,7 +8,7 @@ import IndividualAgentWizard from './IndividualAgentWizard';
 import AdminDashboard from './AdminDashboard';
 import AgentStudio from './AgentStudio';
 import AnalysisDashboard from './analysis/AnalysisDashboard';
-import LiveMonitor from './analysis/LiveMonitor';
+import LiveMonitorKanban from './analysis/LiveMonitorKanban';
 import AdminDashboardTabs from './admin/AdminDashboardTabs';
 import { useAuth, ProtectedRoute } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
@@ -224,7 +224,7 @@ function MainApp() {
       case 'live-monitor':
         return (
           <ProtectedRoute requireLiveMonitor={true}>
-            <LiveMonitor />
+            <LiveMonitorKanban />
           </ProtectedRoute>
         );
       case 'admin':
