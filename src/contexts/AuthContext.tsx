@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authService, type User, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
+import { pqncSupabase as supabase } from '../config/pqncSupabase';
 
 // Tipos para el contexto
 interface AuthContextType extends AuthState {
@@ -159,6 +160,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return false;
   };
 
+  // Estado para permisos de evaluador cargados desde BD
+  const [evaluatorPermissions, setEvaluatorPermissions] = useState<{natalia: boolean, pqnc: boolean, live_monitor: boolean} | null>(null);
+
+  // Cargar permisos de evaluador desde BD al login
+  useEffect(() => {
+    const loadEvaluatorPermissions = async () => {
+      if (authState.user?.role_name === 'evaluator') {
+        try {
+          console.log('🔍 Cargando permisos de evaluador desde BD...');
+          
+          // Usar función RPC existente
+          const { data: config, error } = await supabase.rpc('get_evaluator_analysis_config', {
+            p_user_id: authState.user.id
+          });
+
+          if (error) {
+            console.error('❌ Error cargando permisos RPC:', error);
+            // Fallback a localStorage
+            const permissionsKey = `evaluator_permissions_${authState.user.email}`;
+            const savedPermissions = localStorage.getItem(permissionsKey);
+            if (savedPermissions) {
+              const permData = JSON.parse(savedPermissions);
+              setEvaluatorPermissions({
+                natalia: permData.natalia_access || false,
+                pqnc: permData.pqnc_access || false,
+                live_monitor: permData.live_monitor_access || false
+              });
+            }
+          } else {
+            console.log('✅ Permisos cargados desde BD:', config);
+            setEvaluatorPermissions({
+              natalia: config?.natalia_access || false,
+              pqnc: config?.pqnc_access || false,
+              live_monitor: config?.live_monitor_access || false
+            });
+          }
+        } catch (e) {
+          console.error('❌ Error general cargando permisos:', e);
+        }
+      }
+    };
+
+    if (authState.user) {
+      loadEvaluatorPermissions();
+    }
+  }, [authState.user]);
+
   // Verificar acceso a Live Monitor
   const canAccessLiveMonitor = (): boolean => {
     if (!authState.user) return false;
@@ -176,32 +224,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Vendedores tienen acceso a Live Monitor
     if (authState.user.role_name === 'vendedor') return true;
     
-    // Evaluators: verificar permisos específicos en localStorage
+    // Evaluators: usar permisos cargados desde BD
     if (authState.user.role_name === 'evaluator') {
-      const permissionsKey = `evaluator_permissions_${authState.user.email}`;
-      const savedPermissions = localStorage.getItem(permissionsKey);
-      
-      if (savedPermissions) {
-        try {
-          const permData = JSON.parse(savedPermissions);
-          const hasLiveMonitorAccess = permData.live_monitor_access === true;
-          
-          console.log('🔍 Permisos de evaluator desde localStorage:', {
-            live_monitor_access: permData.live_monitor_access,
-            natalia_access: permData.natalia_access,
-            pqnc_access: permData.pqnc_access,
-            hasAccess: hasLiveMonitorAccess
-          });
-          
-          return hasLiveMonitorAccess;
-        } catch (e) {
-          console.error('❌ Error parsing permisos de localStorage:', e);
-          return false;
+      if (evaluatorPermissions) {
+        console.log('🔍 Usando permisos cargados desde BD:', evaluatorPermissions);
+        return evaluatorPermissions.live_monitor;
+      } else {
+        console.log('⏳ Permisos de evaluator aún cargando desde BD...');
+        // Fallback temporal a localStorage mientras cargan los permisos
+        const permissionsKey = `evaluator_permissions_${authState.user.email}`;
+        const savedPermissions = localStorage.getItem(permissionsKey);
+        
+        if (savedPermissions) {
+          try {
+            const permData = JSON.parse(savedPermissions);
+            return permData.live_monitor_access === true;
+          } catch (e) {
+            return false;
+          }
         }
+        
+        return false;
       }
-      
-      console.log('❌ Evaluator sin permisos en localStorage');
-      return false;
     }
     
     // Otros roles no tienen acceso por defecto
