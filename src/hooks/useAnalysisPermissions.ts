@@ -48,12 +48,16 @@ export const useAnalysisPermissions = () => {
       try {
         console.log('🔍 Cargando permisos de evaluador via RPC...');
         
-        const { data: config, error } = await supabase.rpc('get_evaluator_analysis_config', {
-          p_target_user_id: user.id
-        });
+        // TEMPORAL: Consulta directa hasta que RPC incluya live_monitor
+        console.log('🔍 [useAnalysisPermissions] Consultando permisos directamente...');
+        
+        const { data: userPermissions, error: permError } = await supabase
+          .from('auth_user_permissions')
+          .select('permission_name, module, sub_module')
+          .eq('user_id', user.id);
 
-        if (error) {
-          console.log('⚠️ Error obteniendo configuración de evaluador, usando localStorage:', error);
+        if (permError) {
+          console.error('❌ [useAnalysisPermissions] Error consultando permisos:', permError);
           
           // Fallback a localStorage
           const permissionsKey = `evaluator_permissions_${user.email}`;
@@ -68,7 +72,7 @@ export const useAnalysisPermissions = () => {
                 liveMonitor: permData.live_monitor_access || false,
                 loading: false
               });
-              console.log('✅ Permisos cargados desde localStorage:', permData);
+              console.log('✅ [useAnalysisPermissions] Usando localStorage fallback:', permData);
             } catch (err) {
               console.error('❌ Error parseando localStorage:', err);
               setPermissions({ natalia: false, pqnc: false, liveMonitor: false, loading: false });
@@ -77,46 +81,44 @@ export const useAnalysisPermissions = () => {
             setPermissions({ natalia: false, pqnc: false, liveMonitor: false, loading: false });
           }
         } else {
-          console.log('✅ Configuración de evaluador obtenida:', config);
+          // Procesar permisos obtenidos directamente
+          const nataliaAccess = userPermissions?.some(p => p.module === 'analisis' && p.sub_module === 'natalia') || false;
+          const pqncAccess = userPermissions?.some(p => p.module === 'analisis' && p.sub_module === 'pqnc') || false;
+          const liveMonitorAccess = userPermissions?.some(p => p.module === 'live_monitor' || p.permission_name === 'live_monitor.access') || false;
           
-          const analysisConfig = config?.[0] || {};
+          console.log('✅ [useAnalysisPermissions] Permisos desde BD:', {
+            natalia: nataliaAccess,
+            pqnc: pqncAccess,
+            liveMonitor: liveMonitorAccess,
+            raw_permissions: userPermissions
+          });
           
-          // Verificar si hay configuración en localStorage que sobrescriba
-          const permissionsKey = `evaluator_permissions_${user.email}`;
-          const savedPermissions = localStorage.getItem(permissionsKey);
+          console.log('🔍 [useAnalysisPermissions] DETALLE PERMISOS:');
+          userPermissions?.forEach(p => {
+            console.log(`  - ${p.permission_name} | ${p.module} | ${p.sub_module || 'null'}`);
+          });
           
-          let finalPermissions;
-          
-          if (savedPermissions) {
-            try {
+          // Si no hay permisos en BD, usar localStorage
+          if (!nataliaAccess && !pqncAccess && !liveMonitorAccess) {
+            const permissionsKey = `evaluator_permissions_${user.email}`;
+            const savedPermissions = localStorage.getItem(permissionsKey);
+            if (savedPermissions) {
               const permData = JSON.parse(savedPermissions);
-              finalPermissions = {
+              console.log('🔄 [useAnalysisPermissions] Sin permisos BD, usando localStorage:', permData);
+              setPermissions({
                 natalia: permData.natalia_access || false,
                 pqnc: permData.pqnc_access || false,
-                liveMonitor: permData.live_monitor_access || false
-              };
-              console.log('✅ Usando permisos desde localStorage (más reciente):', finalPermissions);
-            } catch (err) {
-              // Si falla localStorage, usar RPC
-              finalPermissions = {
-                natalia: analysisConfig.has_natalia_access || false,
-                pqnc: analysisConfig.has_pqnc_access || false,
-                liveMonitor: analysisConfig.has_live_monitor_access || false
-              };
-              console.log('✅ Usando permisos desde RPC:', finalPermissions);
+                liveMonitor: permData.live_monitor_access || false,
+                loading: false
+              });
+              return;
             }
-          } else {
-            // Sin localStorage, usar RPC
-            finalPermissions = {
-              natalia: analysisConfig.has_natalia_access || false,
-              pqnc: analysisConfig.has_pqnc_access || false,
-              liveMonitor: analysisConfig.has_live_monitor_access || false
-            };
-            console.log('✅ Usando permisos desde RPC:', finalPermissions);
           }
           
           setPermissions({
-            ...finalPermissions,
+            natalia: nataliaAccess,
+            pqnc: pqncAccess,
+            liveMonitor: liveMonitorAccess,
             loading: false
           });
         }
