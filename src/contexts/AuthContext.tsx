@@ -170,18 +170,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           console.log('🔍 Cargando permisos de evaluador desde BD...');
           
-          // Usar función RPC existente
-          const { data: config, error } = await supabase.rpc('get_evaluator_analysis_config', {
-            p_user_id: authState.user.id
-          });
+          // TEMPORAL: Usar consulta directa hasta que RPC incluya live_monitor
+          console.log('🔍 Consultando permisos directamente desde BD...');
+          
+          // Consultar permisos desde auth_user_permissions directamente
+          const { data: userPermissions, error: permError } = await supabase
+            .from('auth_user_permissions')
+            .select('permission_name, module, sub_module')
+            .eq('user_id', authState.user.id);
 
-          if (error) {
-            console.error('❌ Error cargando permisos RPC:', error);
+          if (permError) {
+            console.error('❌ Error consultando permisos directos:', permError);
             // Fallback a localStorage
             const permissionsKey = `evaluator_permissions_${authState.user.email}`;
             const savedPermissions = localStorage.getItem(permissionsKey);
             if (savedPermissions) {
               const permData = JSON.parse(savedPermissions);
+              console.log('🔄 Usando fallback localStorage:', permData);
               setEvaluatorPermissions({
                 natalia: permData.natalia_access || false,
                 pqnc: permData.pqnc_access || false,
@@ -189,12 +194,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               });
             }
           } else {
-            console.log('✅ Permisos cargados desde BD:', config);
-            setEvaluatorPermissions({
-              natalia: config?.natalia_access || false,
-              pqnc: config?.pqnc_access || false,
-              live_monitor: config?.live_monitor_access || false
+            // Procesar permisos obtenidos
+            const nataliaAccess = userPermissions?.some(p => p.module === 'analisis' && p.sub_module === 'natalia') || false;
+            const pqncAccess = userPermissions?.some(p => p.module === 'analisis' && p.sub_module === 'pqnc') || false;
+            const liveMonitorAccess = userPermissions?.some(p => p.module === 'live_monitor' || p.permission_name === 'live_monitor.access') || false;
+            
+            console.log('✅ Permisos cargados desde BD (consulta directa):', {
+              natalia: nataliaAccess,
+              pqnc: pqncAccess,
+              live_monitor: liveMonitorAccess,
+              raw_permissions: userPermissions
             });
+            
+            console.log('🔍 DETALLE PERMISOS ENCONTRADOS:');
+            userPermissions?.forEach(p => {
+              console.log(`  - ${p.permission_name} | ${p.module} | ${p.sub_module || 'null'}`);
+            });
+            
+            setEvaluatorPermissions({
+              natalia: nataliaAccess,
+              pqnc: pqncAccess,
+              live_monitor: liveMonitorAccess
+            });
+            
+            // Si no tiene permisos en BD, usar localStorage como fallback
+            if (!liveMonitorAccess) {
+              const permissionsKey = `evaluator_permissions_${authState.user.email}`;
+              const savedPermissions = localStorage.getItem(permissionsKey);
+              if (savedPermissions) {
+                const permData = JSON.parse(savedPermissions);
+                console.log('🔄 Combinando con localStorage:', permData);
+                setEvaluatorPermissions(prev => ({
+                  natalia: prev?.natalia || permData.natalia_access || false,
+                  pqnc: prev?.pqnc || permData.pqnc_access || false,
+                  live_monitor: permData.live_monitor_access || false
+                }));
+              }
+            }
           }
         } catch (e) {
           console.error('❌ Error general cargando permisos:', e);
@@ -209,13 +245,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Verificar acceso a Live Monitor
   const canAccessLiveMonitor = (): boolean => {
-    if (!authState.user) return false;
+    console.log('🚀 EJECUTANDO canAccessLiveMonitor()...');
+    
+    if (!authState.user) {
+      console.log('❌ No hay usuario autenticado');
+      return false;
+    }
     
     console.log('🔍 Verificando acceso Live Monitor para:', {
       email: authState.user.email,
       role: authState.user.role_name,
       first_name: authState.user.first_name,
-      last_name: authState.user.last_name
+      last_name: authState.user.last_name,
+      evaluatorPermissions: evaluatorPermissions
     });
     
     // Admins siempre tienen acceso
@@ -226,8 +268,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     // Evaluators: usar permisos cargados desde BD
     if (authState.user.role_name === 'evaluator') {
+      console.log('👤 Usuario es EVALUATOR, verificando permisos...');
+      
       if (evaluatorPermissions) {
-        console.log('🔍 Usando permisos cargados desde BD:', evaluatorPermissions);
+        console.log('✅ Usando permisos cargados desde BD:', evaluatorPermissions);
+        console.log('🎯 RESULTADO Live Monitor:', evaluatorPermissions.live_monitor);
         return evaluatorPermissions.live_monitor;
       } else {
         console.log('⏳ Permisos de evaluator aún cargando desde BD...');
