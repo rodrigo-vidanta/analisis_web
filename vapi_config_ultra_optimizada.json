@@ -1,0 +1,42 @@
+{
+  "voice_config_ultra_optimizada": {
+    "provider": "11labs",
+    "voiceId": "9qxz2UdKZeMN5XFM4myE",
+    "model": "eleven_multilingual_v2",
+    "stability": 0.85,
+    "similarityBoost": 0.90,
+    "style": 0.15,
+    "speed": 0.98,
+    "useSpeakerBoost": false,
+    "optimizeStreamingLatency": 4,
+    "outputFormat": "pcm_22050"
+  },
+  
+  "mejoras_aplicadas": {
+    "model": "eleven_multilingual_v2 - Mejor calidad que turbo",
+    "stability": "0.85 (era 0.75) - Máxima estabilidad sin robotización",
+    "similarityBoost": "0.90 (era 0.85) - Máxima similitud de voz",
+    "style": "0.15 (era 0.9) - Mínimo artificio, máxima naturalidad",
+    "speed": "0.98 (era 1.0) - Ligeramente más lento para claridad",
+    "optimizeStreamingLatency": "4 - Máxima optimización para streaming",
+    "outputFormat": "pcm_22050 - Sample rate más alto para nitidez"
+  },
+  
+  "configuracion_adicional_para_cliente": {
+    "backgroundDenoisingEnabled": true,
+    "echoCancellationEnabled": true,
+    "noiseSuppression": true,
+    "autoGainControl": true
+  },
+  
+  "transcriber_optimizado": {
+    "provider": "deepgram",
+    "model": "nova-2",
+    "language": "es",
+    "smartFormat": true,
+    "punctuate": true,
+    "diarize": false,
+    "endpointing": 200,
+    "vadTurnoffDelay": 500
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "voice_config_actual": {
+    "provider": "11labs",
+    "voiceId": "9qxz2UdKZeMN5XFM4myE",
+    "model": "eleven_turbo_v2_5",
+    "stability": 0.30,
+    "similarityBoost": 0.12,
+    "style": 0.9,
+    "speed": 1.04,
+    "useSpeakerBoost": true
+  },
+  
+  "voice_config_optimizada": {
+    "provider": "11labs",
+    "voiceId": "9qxz2UdKZeMN5XFM4myE", 
+    "model": "eleven_multilingual_v2",
+    "stability": 0.75,
+    "similarityBoost": 0.85,
+    "style": 0.3,
+    "speed": 1.0,
+    "useSpeakerBoost": false,
+    "optimizeStreamingLatency": 3,
+    "outputFormat": "pcm_16000"
+  },
+  
+  "cambios_explicacion": {
+    "model": "eleven_multilingual_v2 tiene mejor calidad que turbo_v2_5",
+    "stability": "0.75 en lugar de 0.30 - más estable, menos distorsión",
+    "similarityBoost": "0.85 en lugar de 0.12 - mejor calidad de voz",
+    "style": "0.3 en lugar de 0.9 - menos artificial",
+    "speed": "1.0 en lugar de 1.04 - velocidad natural",
+    "useSpeakerBoost": "false - puede causar distorsión en WebSocket",
+    "optimizeStreamingLatency": "3 - optimiza para streaming",
+    "outputFormat": "pcm_16000 - formato específico para WebSocket"
+  }
+}

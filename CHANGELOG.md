@@ -2,6 +2,39 @@
 
 ## Historial de Versiones
 
+### v1.0.15 (2025-01-25 01:30)
+**Tipo**: major
+**Descripción**: Reestructuración Completa del Live Monitor - Pipeline y Modales Optimizados
+
+**🎯 Pipeline Inteligente:**
+- Filtrado automático: Solo llamadas activas y finalizadas sin feedback
+- Llamadas al 60% parpadean suavemente (animate-bounce)
+- Llamadas al 80% parpadean intensamente + pitido cada 3 segundos
+- Llamadas finalizadas en color grisáceo hasta completar feedback
+- Detección automática de estado basada en duración + grabación
+
+**📱 Modales Completamente Rediseñados:**
+- **Llamadas Activas**: Vista contextual con perfil, discovery de viaje, audio en tiempo real
+- **Llamadas Finalizadas**: Reproductor de audio sin descarga + botones de feedback
+- Cierre automático al hacer clic fuera del modal
+- Información nutricional completa desde tablas prospectos + llamadas_ventas
+
+**🎵 Audio Mejorado:**
+- Buffer grande priorizando calidad sobre sincronización
+- Detención automática al cerrar modal o hacer clic en "dejar de escuchar"
+- Eliminado ecualizador no funcional y features experimentales
+
+**🧹 Código Limpio:**
+- Eliminados todos los logs de debugging
+- Removidas funciones no utilizadas (Tone.js, AudioConfigPanel)
+- Estructura modular con componentes separados por tipo de llamada
+- Código 2000+ líneas más corto y mantenible
+
+**🔄 Lógica de Feedback Actualizada:**
+- Llamadas desaparecen del pipeline solo después de feedback completado
+- Feedback obligatorio: "Contestada" / "Perdida" para llamadas finalizadas
+- Actualización automática de observaciones en base de datos
+
 ### v1.0.14 (2025-01-24 23:45)
 **Tipo**: major
 **Descripción**: Reorganización Completa con Sidebar y Módulo Live Monitor Funcional

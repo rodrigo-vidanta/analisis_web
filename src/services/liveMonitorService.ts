@@ -5,7 +5,90 @@
 
 import { analysisSupabase } from '../config/analysisSupabase';
 
-// Tipos
+// Tipos para llamadas de ventas (tabla principal)
+export interface SalesCall {
+  call_id: string;
+  fecha_llamada: string;
+  duracion_segundos: number;
+  es_venta_exitosa: boolean;
+  nivel_interes: any;
+  probabilidad_cierre: number;
+  costo_total: number;
+  tipo_llamada: any;
+  oferta_presentada: boolean;
+  precio_ofertado: any;
+  requiere_seguimiento: boolean;
+  datos_llamada: any;
+  datos_proceso: any;
+  datos_objeciones: any;
+  prospecto: string; // UUID del prospecto
+  audio_ruta_bucket: any;
+  // Nuevas columnas para control VAPI
+  monitor_url?: string;
+  control_url?: string;
+  transport_url?: string; // Nueva: WebSocket Transport de alta calidad
+  call_sid?: string;
+  transport?: string;
+  provider?: string;
+  account_sid?: string;
+  call_status?: 'activa' | 'transferida' | 'colgada' | 'perdida' | 'exitosa';
+}
+
+// Tipo combinado para el Live Monitor (llamada + datos del prospecto)
+export interface LiveCallData {
+  // Datos de la llamada (tabla llamadas_ventas)
+  call_id: string;
+  call_status: 'activa' | 'transferida' | 'colgada' | 'perdida' | 'exitosa';
+  fecha_llamada: string;
+  monitor_url?: string;
+  control_url?: string;
+  transport_url?: string; // WebSocket Transport de alta calidad
+  call_sid?: string;
+  provider?: string;
+  account_sid?: string;
+  duracion_segundos: number;
+  nivel_interes: any;
+  datos_llamada: any;
+  audio_ruta_bucket?: string;
+  
+  // Datos del prospecto (tabla prospectos)
+  prospecto_id: string;
+  nombre_completo: string | null;
+  nombre_whatsapp: string;
+  whatsapp: string;
+  etapa: string;
+  temperatura_prospecto?: 'frio' | 'tibio' | 'caliente';
+  observaciones?: string;
+  tamano_grupo?: number;
+  destino_preferencia?: string[];
+  ciudad_residencia?: string;
+  email?: string;
+  edad?: number;
+  viaja_con?: string;
+  cantidad_menores?: number;
+  updated_at: string;
+  
+  // Campos adicionales para el modal
+  estado_civil?: string;
+  interes_principal?: string;
+  campana_origen?: string;
+  es_venta_exitosa?: boolean;
+  precio_ofertado?: string;
+  tipo_llamada?: string;
+  oferta_presentada?: boolean;
+  requiere_seguimiento?: boolean;
+  costo_total?: string;
+  probabilidad_cierre?: string;
+  
+  // Campos de feedback
+  tiene_feedback?: boolean;
+  feedback_resultado?: string;
+  feedback_comentarios?: string;
+  feedback_user_email?: string;
+  feedback_fecha?: string;
+}
+
+// Mantener interfaz Prospect para compatibilidad
 export interface Prospect {
   id: string;
   nombre_completo: string | null;
@@ -37,39 +120,168 @@ export interface Agent {
 }
 
 export interface FeedbackData {
+  call_id: string;
   prospect_id: string;
-  agent_email: string;
-  resultado: 'exitosa' | 'perdida' | 'problemas_tecnicos';
+  user_email: string; // Usuario logueado que da el feedback
+  resultado: 'contestada' | 'perdida' | 'transferida' | 'problemas_tecnicos';
   comentarios: string;
-  comentarios_ia?: string;
+  fecha_feedback: string;
 }
 
 class LiveMonitorService {
   
   // ============================================
-  // GESTIÓN DE PROSPECTOS
+  // GESTIÓN DE LLAMADAS ACTIVAS (TABLA PRINCIPAL)
   // ============================================
   
   /**
-   * Obtener prospectos activos
+   * Obtener llamadas recientes (activas + finalizadas) desde llamadas_ventas con datos del prospecto
    */
-  async getActiveProspects(): Promise<Prospect[]> {
+  async getActiveCalls(): Promise<LiveCallData[]> {
     try {
       const { data, error } = await analysisSupabase
-        .from('prospectos')
-        .select('*')
-        .not('etapa', 'is', null)
-        .not('etapa', 'eq', 'Finalizado')
-        .not('etapa', 'eq', 'Transferido')
-        .order('updated_at', { ascending: false })
-        .limit(50);
+        .from('llamadas_ventas')
+        .select(`
+          call_id,
+          call_status,
+          fecha_llamada,
+          monitor_url,
+          control_url,
+          call_sid,
+          provider,
+          account_sid,
+          duracion_segundos,
+          nivel_interes,
+          datos_llamada,
+          audio_ruta_bucket,
+          prospecto,
+          es_venta_exitosa,
+          precio_ofertado,
+          requiere_seguimiento,
+          tipo_llamada,
+          oferta_presentada,
+          costo_total,
+          datos_proceso,
+          datos_objeciones,
+          tiene_feedback,
+          feedback_resultado,
+          feedback_comentarios,
+          feedback_user_email,
+          feedback_fecha
+        `)
+        .order('fecha_llamada', { ascending: false })
+        .limit(20); // Obtener últimas 20 llamadas (activas + recién finalizadas)
 
       if (error) {
-        console.error('❌ Error obteniendo prospectos activos:', error);
+        console.error('❌ Error obteniendo llamadas activas:', error);
         return [];
       }
 
-      return data || [];
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      // Obtener datos de los prospectos relacionados
+      const prospectIds = data.map(call => call.prospecto);
+      const { data: prospectosData, error: prospectError } = await analysisSupabase
+        .from('prospectos')
+        .select('*')
+        .in('id', prospectIds);
+
+      if (prospectError) {
+        console.error('❌ Error obteniendo datos de prospectos:', prospectError);
+        return [];
+      }
+
+      // Combinar datos de llamadas con datos de prospectos
+      const combinedData: LiveCallData[] = data.map(call => {
+        const prospecto = prospectosData?.find(p => p.id === call.prospecto);
+        
+        return {
+          // Datos de la llamada
+          call_id: call.call_id,
+          call_status: call.call_status || 'activa',
+          fecha_llamada: call.fecha_llamada,
+          monitor_url: call.monitor_url,
+          control_url: call.control_url,
+          transport_url: undefined, // Temporalmente undefined hasta agregar columna en BD
+          call_sid: call.call_sid,
+          provider: call.provider,
+          account_sid: call.account_sid,
+          duracion_segundos: call.duracion_segundos || 0,
+          nivel_interes: call.nivel_interes,
+          datos_llamada: call.datos_llamada,
+          audio_ruta_bucket: call.audio_ruta_bucket,
+          
+          // Datos del prospecto
+          prospecto_id: call.prospecto,
+          nombre_completo: prospecto?.nombre_completo || null,
+          nombre_whatsapp: prospecto?.nombre_whatsapp || 'Sin nombre',
+          whatsapp: prospecto?.whatsapp || '',
+          etapa: prospecto?.etapa || 'Desconocida',
+          temperatura_prospecto: prospecto?.temperatura_prospecto,
+          observaciones: prospecto?.observaciones,
+          tamano_grupo: prospecto?.tamano_grupo,
+          destino_preferencia: prospecto?.destino_preferencia,
+          ciudad_residencia: prospecto?.ciudad_residencia,
+          email: prospecto?.email,
+          edad: prospecto?.edad,
+          viaja_con: prospecto?.viaja_con,
+          cantidad_menores: prospecto?.cantidad_menores,
+          updated_at: prospecto?.updated_at || call.fecha_llamada,
+          
+          // Campos adicionales del prospecto
+          estado_civil: prospecto?.estado_civil,
+          interes_principal: prospecto?.interes_principal,
+          campana_origen: prospecto?.campana_origen,
+          
+          // Campos adicionales de la llamada
+          es_venta_exitosa: call.es_venta_exitosa,
+          precio_ofertado: call.precio_ofertado,
+          tipo_llamada: call.tipo_llamada,
+          oferta_presentada: call.oferta_presentada,
+          requiere_seguimiento: call.requiere_seguimiento,
+          costo_total: call.costo_total,
+          probabilidad_cierre: call.probabilidad_cierre,
+          
+          // Campos de feedback
+          tiene_feedback: call.tiene_feedback,
+          feedback_resultado: call.feedback_resultado,
+          feedback_comentarios: call.feedback_comentarios,
+          feedback_user_email: call.feedback_user_email,
+          feedback_fecha: call.feedback_fecha
+        };
+      });
+
+      console.log(`✅ Llamadas activas cargadas: ${combinedData.length}`);
+      return combinedData;
+    } catch (error) {
+      console.error('💥 Error en getActiveCalls:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Obtener prospectos activos (método legacy para compatibilidad)
+   */
+  async getActiveProspects(): Promise<Prospect[]> {
+    try {
+      const activeCalls = await this.getActiveCalls();
+      
+      // Convertir LiveCallData a Prospect para compatibilidad
+      return activeCalls.map(call => ({
+        id: call.prospecto_id,
+        nombre_completo: call.nombre_completo,
+        nombre_whatsapp: call.nombre_whatsapp,
+        whatsapp: call.whatsapp,
+        etapa: call.etapa,
+        temperatura_prospecto: call.temperatura_prospecto,
+        updated_at: call.updated_at,
+        observaciones: call.observaciones,
+        tamano_grupo: call.tamano_grupo,
+        destino_preferencia: call.destino_preferencia,
+        llamada_activa: true
+      }));
     } catch (error) {
       console.error('💥 Error en getActiveProspects:', error);
       return [];
@@ -163,40 +375,347 @@ class LiveMonitorService {
   }
 
   // ============================================
-  // GESTIÓN DE TRANSFERENCIAS
+  // CONTROL REAL DE LLAMADAS VAPI
   // ============================================
 
   /**
-   * Enviar susurro a IA para transferencia
+   * Transferir llamada usando API real de VAPI
    */
-  async sendWhisperToAI(prospectId: string, whisperMessage: string, agentEmail: string): Promise<boolean> {
+  async transferCall(callId: string, phoneNumber: string, extension?: string, message?: string): Promise<boolean> {
     try {
-      // TODO: Reemplazar con webhook real de VAPI
-      const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/whisper';
-      
-      const webhookData = {
-        prospect_id: prospectId,
-        action: 'human_handoff_whisper',
-        message: whisperMessage,
-        agent_email: agentEmail,
-        timestamp: new Date().toISOString()
+      // Obtener control_url de la base de datos
+      const { data: callData, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select('control_url')
+        .eq('call_id', callId)
+        .single();
+
+      if (error || !callData?.control_url) {
+        console.error('❌ No se encontró control_url para la llamada:', callId);
+        return false;
+      }
+
+      const transferData = {
+        type: "transferCall",
+        destination: {
+          type: "number",
+          number: phoneNumber,
+          ...(extension && { extension })
+        },
+        ...(message && { 
+          message,
+          description: "TRANSFERENCIA CONTEXTUAL CON MENSAJE PERSONALIZADO"
+        })
       };
 
-      console.log('🔄 Enviando susurro a IA:', webhookData);
-      console.log('💬 Mensaje que dirá la IA al cliente:', whisperMessage);
+      console.log('🔄 Transfiriendo llamada:', callId);
+      console.log('📞 Número destino:', phoneNumber);
+      console.log('💬 Mensaje:', message);
 
-      // Simular llamada al webhook
-      // const response = await fetch(webhookUrl, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(webhookData)
-      // });
+      const response = await fetch(callData.control_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transferData)
+      });
+
+      if (response.ok) {
+        // Actualizar estado en la base de datos
+        await this.updateCallStatus(callId, 'transferida');
+        console.log('✅ Llamada transferida exitosamente');
+        return true;
+      } else {
+        console.error('❌ Error en transferencia:', response.status, response.statusText);
+        return false;
+      }
+    } catch (error) {
+      console.error('💥 Error transfiriendo llamada:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Terminar llamada usando API real de VAPI
+   */
+  async endCall(callId: string): Promise<boolean> {
+    try {
+      // Obtener control_url de la base de datos
+      const { data: callData, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select('control_url')
+        .eq('call_id', callId)
+        .single();
+
+      if (error || !callData?.control_url) {
+        console.error('❌ No se encontró control_url para la llamada:', callId);
+        return false;
+      }
+
+      const endCallData = {
+        type: "end-call"
+      };
+
+      console.log('🔚 Terminando llamada:', callId);
+
+      const response = await fetch(callData.control_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(endCallData)
+      });
+
+      if (response.ok) {
+        // Actualizar estado en la base de datos
+        await this.updateCallStatus(callId, 'colgada');
+        console.log('✅ Llamada terminada exitosamente');
+        return true;
+      } else {
+        console.error('❌ Error terminando llamada:', response.status, response.statusText);
+        return false;
+      }
+    } catch (error) {
+      console.error('💥 Error terminando llamada:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Actualizar estado de llamada en la base de datos
+   */
+  async updateCallStatus(callId: string, status: 'activa' | 'transferida' | 'colgada' | 'perdida' | 'exitosa'): Promise<boolean> {
+    try {
+      const updateData: any = { 
+        call_status: status
+      };
+      
+      // Si la llamada se marca como finalizada, actualizar timestamp de finalización
+      if (status !== 'activa') {
+        updateData.fecha_llamada = new Date().toISOString();
+        
+        // Si es exitosa, marcar también como venta exitosa
+        if (status === 'exitosa') {
+          updateData.es_venta_exitosa = true;
+        }
+      }
+
+      const { error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .update(updateData)
+        .eq('call_id', callId);
+
+      if (error) {
+        console.error('❌ Error actualizando estado de llamada:', error);
+        return false;
+      }
+
+      console.log(`✅ Estado de llamada actualizado: ${callId} → ${status}`);
+      
+      // Limpiar URLs si la llamada terminó (ya no son válidas)
+      if (status !== 'activa') {
+        await this.clearCallUrls(callId);
+      }
 
       return true;
     } catch (error) {
-      console.error('💥 Error enviando susurro:', error);
+      console.error('💥 Error en updateCallStatus:', error);
       return false;
     }
+  }
+
+  /**
+   * Limpiar URLs de llamada terminada
+   */
+  async clearCallUrls(callId: string): Promise<boolean> {
+    try {
+      const { error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .update({ 
+          monitor_url: null,
+          control_url: null
+        })
+        .eq('call_id', callId);
+
+      if (error) {
+        console.error('❌ Error limpiando URLs:', error);
+        return false;
+      }
+
+      console.log(`🧹 URLs limpiadas para llamada finalizada: ${callId}`);
+      return true;
+    } catch (error) {
+      console.error('💥 Error en clearCallUrls:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Actualizar URLs de control y monitor desde webhook de VAPI
+   */
+  async updateCallUrls(callId: string, monitorUrl: string, controlUrl: string, callSid?: string, accountSid?: string): Promise<boolean> {
+    try {
+      const updateData: any = {
+        monitor_url: monitorUrl,
+        control_url: controlUrl,
+        call_status: 'activa'
+      };
+
+      if (callSid) updateData.call_sid = callSid;
+      if (accountSid) updateData.account_sid = accountSid;
+
+      const { error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .update(updateData)
+        .eq('call_id', callId);
+
+      if (error) {
+        console.error('❌ Error actualizando URLs de llamada:', error);
+        return false;
+      }
+
+      console.log(`✅ URLs actualizadas para llamada: ${callId}`);
+      console.log(`  Monitor: ${monitorUrl}`);
+      console.log(`  Control: ${controlUrl}`);
+      return true;
+    } catch (error) {
+      console.error('💥 Error en updateCallUrls:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Crear o actualizar registro de llamada desde webhook de VAPI
+   */
+  async upsertCallFromWebhook(callData: {
+    call_id: string;
+    prospect_id: string;
+    monitor_url: string;
+    control_url: string;
+    call_sid?: string;
+    transport?: string;
+    provider?: string;
+    account_sid?: string;
+  }): Promise<boolean> {
+    try {
+      const { data: existing } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select('call_id')
+        .eq('call_id', callData.call_id)
+        .single();
+
+      if (existing) {
+        // Actualizar registro existente
+        return await this.updateCallUrls(
+          callData.call_id,
+          callData.monitor_url,
+          callData.control_url,
+          callData.call_sid,
+          callData.account_sid
+        );
+      } else {
+        // Crear nuevo registro
+        const { error } = await analysisSupabase
+          .from('llamadas_ventas')
+          .insert({
+            call_id: callData.call_id,
+            prospecto: callData.prospect_id,
+            monitor_url: callData.monitor_url,
+            control_url: callData.control_url,
+            call_sid: callData.call_sid,
+            transport: callData.transport || 'twilio',
+            provider: callData.provider || 'twilio',
+            account_sid: callData.account_sid,
+            call_status: 'activa',
+            fecha_llamada: new Date().toISOString(),
+            duracion_segundos: 0,
+            es_venta_exitosa: false,
+            probabilidad_cierre: 0,
+            costo_total: 0,
+            oferta_presentada: false,
+            requiere_seguimiento: false
+          });
+
+        if (error) {
+          console.error('❌ Error creando registro de llamada:', error);
+          return false;
+        }
+
+        console.log(`✅ Registro de llamada creado: ${callData.call_id}`);
+        return true;
+      }
+    } catch (error) {
+      console.error('💥 Error en upsertCallFromWebhook:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Crear conexión WebSocket para escuchar audio de llamada usando URL de la BD
+   */
+  async createAudioWebSocket(callId: string, onMessage: (audioData: ArrayBuffer) => void): Promise<WebSocket | null> {
+    try {
+      // Obtener monitor_url de la base de datos
+      const { data: callData, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select('monitor_url')
+        .eq('call_id', callId)
+        .single();
+
+      if (error || !callData?.monitor_url) {
+        console.error('❌ No se encontró monitor_url para la llamada:', callId);
+        return null;
+      }
+
+      const wsUrl = callData.monitor_url;
+      console.log('🎧 Conectando WebSocket de audio:', wsUrl);
+      
+      const ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('✅ WebSocket de audio conectado');
+      };
+      
+      ws.onmessage = (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          // Audio PCM crudo
+          onMessage(event.data);
+        } else {
+          console.log('📝 Mensaje WebSocket:', event.data);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('❌ Error WebSocket:', error);
+      };
+      
+      ws.onclose = () => {
+        console.log('🔌 WebSocket de audio desconectado');
+      };
+      
+      return ws;
+    } catch (error) {
+      console.error('💥 Error creando WebSocket:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Enviar susurro a IA para transferencia (método legacy)
+   */
+  async sendWhisperToAI(prospectId: string, whisperMessage: string, agentEmail: string): Promise<boolean> {
+    // Buscar la llamada activa para este prospecto
+    const activeCalls = await this.getActiveCalls();
+    const activeCall = activeCalls.find(call => call.prospecto_id === prospectId);
+    
+    if (!activeCall) {
+      console.error('❌ No se encontró llamada activa para el prospecto:', prospectId);
+      return false;
+    }
+    
+    // Usar la nueva función de transferencia real
+    return await this.transferCall(
+      activeCall.call_id, 
+      '+523222264000', // Número por defecto
+      '60973', // Extensión por defecto
+      whisperMessage
+    );
   }
 
   /**
@@ -230,28 +749,45 @@ class LiveMonitorService {
   }
 
   /**
-   * Guardar feedback del agente (usando solo campos existentes)
+   * Guardar feedback por llamada usando columnas específicas
    */
   async saveFeedback(feedbackData: FeedbackData): Promise<boolean> {
     try {
-      // Usar solo el campo observaciones que sabemos que existe
-      const feedbackText = `[FEEDBACK ${feedbackData.resultado.toUpperCase()}] ${feedbackData.comentarios} | Agente: ${feedbackData.agent_email} | ${feedbackData.comentarios_ia}`;
+      // Actualizar la llamada con las nuevas columnas de feedback
+      const { error: callError } = await analysisSupabase
+        .from('llamadas_ventas')
+        .update({
+          feedback_resultado: feedbackData.resultado,
+          feedback_comentarios: feedbackData.comentarios,
+          feedback_user_email: feedbackData.user_email,
+          feedback_fecha: feedbackData.fecha_feedback,
+          tiene_feedback: true,
+          call_status: feedbackData.resultado === 'contestada' ? 'exitosa' : 'perdida'
+        })
+        .eq('call_id', feedbackData.call_id);
+
+      if (callError) {
+        console.error('❌ Error actualizando llamada con feedback:', callError);
+        return false;
+      }
+
+      // También actualizar el prospecto para compatibilidad
+      const feedbackText = `[CALL_FEEDBACK ${feedbackData.call_id}] ${feedbackData.resultado.toUpperCase()}: ${feedbackData.comentarios} | Usuario: ${feedbackData.user_email} | Fecha: ${feedbackData.fecha_feedback}`;
       
-      const { error } = await analysisSupabase
+      const { error: prospectError } = await analysisSupabase
         .from('prospectos')
         .update({
           observaciones: feedbackText,
-          etapa: 'Finalizado', // Marcar como finalizado
+          etapa: 'Finalizado',
           updated_at: new Date().toISOString()
         })
         .eq('id', feedbackData.prospect_id);
 
-      if (error) {
-        console.error('❌ Error guardando feedback:', error);
-        return false;
+      if (prospectError) {
+        console.log('⚠️ Advertencia actualizando prospecto:', prospectError);
       }
 
-      console.log('✅ Feedback guardado exitosamente en observaciones');
+      console.log('✅ Feedback guardado exitosamente en llamadas_ventas');
       return true;
     } catch (error) {
       console.error('💥 Error en saveFeedback:', error);
@@ -283,6 +819,99 @@ class LiveMonitorService {
       return data || [];
     } catch (error) {
       console.error('💥 Error en getTransferHistory:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Obtener historial de llamadas de las últimas 24 horas (todos los estados)
+   */
+  async getCallHistory24h(): Promise<LiveCallData[]> {
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const { data, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select(`
+          call_id,
+          call_status,
+          fecha_llamada,
+          monitor_url,
+          control_url,
+          call_sid,
+          provider,
+          duracion_segundos,
+          nivel_interes,
+          datos_llamada,
+          prospecto
+        `)
+        .not('call_status', 'eq', 'activa')
+        .gte('fecha_llamada', yesterday.toISOString())
+        .order('fecha_llamada', { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.error('❌ Error obteniendo historial de 24h:', error);
+        return [];
+      }
+
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      // Obtener datos de los prospectos relacionados
+      const prospectIds = data.map(call => call.prospecto);
+      const { data: prospectosData, error: prospectError } = await analysisSupabase
+        .from('prospectos')
+        .select('*')
+        .in('id', prospectIds);
+
+      if (prospectError) {
+        console.error('❌ Error obteniendo datos de prospectos para historial:', prospectError);
+        return [];
+      }
+
+      // Combinar datos de llamadas con datos de prospectos
+      const combinedData: LiveCallData[] = data.map(call => {
+        const prospecto = prospectosData?.find(p => p.id === call.prospecto);
+        
+        return {
+          // Datos de la llamada
+          call_id: call.call_id,
+          call_status: call.call_status || 'exitosa',
+          fecha_llamada: call.fecha_llamada,
+          monitor_url: call.monitor_url,
+          control_url: call.control_url,
+          call_sid: call.call_sid,
+          provider: call.provider,
+          duracion_segundos: call.duracion_segundos || 0,
+          nivel_interes: call.nivel_interes,
+          datos_llamada: call.datos_llamada,
+          
+          // Datos del prospecto
+          prospecto_id: call.prospecto,
+          nombre_completo: prospecto?.nombre_completo || null,
+          nombre_whatsapp: prospecto?.nombre_whatsapp || 'Sin nombre',
+          whatsapp: prospecto?.whatsapp || '',
+          etapa: prospecto?.etapa || 'Finalizado',
+          temperatura_prospecto: prospecto?.temperatura_prospecto,
+          observaciones: prospecto?.observaciones,
+          tamano_grupo: prospecto?.tamano_grupo,
+          destino_preferencia: prospecto?.destino_preferencia,
+          ciudad_residencia: prospecto?.ciudad_residencia,
+          email: prospecto?.email,
+          edad: prospecto?.edad,
+          viaja_con: prospecto?.viaja_con,
+          cantidad_menores: prospecto?.cantidad_menores,
+          updated_at: prospecto?.updated_at || call.fecha_llamada
+        };
+      });
+
+      console.log(`✅ Historial cargado: ${combinedData.length} llamadas de las últimas 24h`);
+      return combinedData;
+    } catch (error) {
+      console.error('💥 Error en getCallHistory24h:', error);
       return [];
     }
   }
