@@ -84,7 +84,12 @@ export const useAnalysisPermissions = () => {
           // Procesar permisos obtenidos directamente
           const nataliaAccess = userPermissions?.some(p => p.module === 'analisis' && p.sub_module === 'natalia') || false;
           const pqncAccess = userPermissions?.some(p => p.module === 'analisis' && p.sub_module === 'pqnc') || false;
-          const liveMonitorAccess = userPermissions?.some(p => p.module === 'live_monitor' || p.permission_name === 'live_monitor.access') || false;
+          const liveMonitorAccess = userPermissions?.some(p => 
+            (p.module === 'analisis' && p.sub_module === 'live_monitor') || 
+            p.permission_name === 'analisis.live_monitor.view' ||
+            p.module === 'live_monitor' || 
+            p.permission_name === 'live_monitor.access'
+          ) || false;
           
           console.log('✅ [useAnalysisPermissions] Permisos desde BD:', {
             natalia: nataliaAccess,
