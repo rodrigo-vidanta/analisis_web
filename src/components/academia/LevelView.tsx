@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AcademiaLayout from './AcademiaLayout';
 import VirtualCallComponent from './VirtualCallComponent';
-import { academiaService, AcademiaLevel, AcademiaActivity, VirtualAssistant } from '../../services/academiaService';
+import academiaService, { AcademiaLevel, AcademiaActivity, VirtualAssistant } from '../../services/academiaService';
 
 interface LevelViewProps {
   levelId: number;
