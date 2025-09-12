@@ -184,6 +184,10 @@ class AuthService {
         // Solo Admin y Evaluator pueden ver análisis
         return ['admin', 'evaluator'].includes(this.currentUser.role_name);
       
+      case 'academia':
+        // Academia disponible para todos los roles autenticados
+        return true;
+      
       default:
         // Para otros módulos, usar verificación de permisos si existe
         if (subModule) {
