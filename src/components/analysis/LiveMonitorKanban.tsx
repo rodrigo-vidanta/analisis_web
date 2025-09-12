@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
+import { useTheme } from '../../hooks/useTheme';
 
 // Definición de checkpoints del proceso de venta
 const CHECKPOINTS = {
@@ -66,6 +67,9 @@ const LiveMonitorKanban: React.FC = () => {
   const [selectedCall, setSelectedCall] = useState<KanbanCall | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Hook de tema para aplicar estilos
+  const { getThemeClasses, isLinearTheme } = useTheme();
   
   // Estados para feedback y controles
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -737,8 +741,10 @@ const LiveMonitorKanban: React.FC = () => {
   const groupedActiveCalls = groupCallsByCheckpoint(activeCalls);
   const horizontalRows = createHorizontalRows(groupedActiveCalls);
 
+  const themeClasses = getThemeClasses();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+    <div className={`min-h-screen ${themeClasses.background} p-4 transition-colors duration-300`}>
       {/* Estilos CSS personalizados para animaciones de checkpoint */}
       <style>{`
         .checkpoint-pulse-blue {

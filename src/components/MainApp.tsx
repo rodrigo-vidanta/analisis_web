@@ -12,6 +12,7 @@ import LiveMonitorKanban from './analysis/LiveMonitorKanban';
 import AdminDashboardTabs from './admin/AdminDashboardTabs';
 import { useAuth, ProtectedRoute } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
+import { useTheme } from '../hooks/useTheme';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -48,6 +49,9 @@ function MainApp() {
   } = useAppStore();
   const [localDarkMode, setLocalDarkMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Por defecto abierto
+  
+  // Hook de tema para el rediseño
+  const { currentTheme, getThemeClasses, isLinearTheme } = useTheme();
 
   // Calcular progreso
   const getTotalSteps = () => {
@@ -267,17 +271,21 @@ function MainApp() {
     }
   };
 
+  const themeClasses = getThemeClasses();
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       (appMode === 'constructor' ? darkMode : localDarkMode) ? 'dark' : ''
     }`}>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex">
+      <div className={`min-h-screen ${themeClasses.background} flex transition-all duration-300`}>
         
-        {/* Sidebar */}
-        <Sidebar 
-          isCollapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        />
+        {/* Sidebar with theme support */}
+        <div className={`${themeClasses.sidebar} transition-all duration-300`}>
+          <Sidebar 
+            isCollapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          />
+        </div>
         
         {/* Contenido principal */}
         <div className={`flex-1 flex flex-col transition-all duration-300 ${
@@ -300,7 +308,9 @@ function MainApp() {
           
           {/* Área de contenido con espacio para footer fijo */}
           <main className="relative flex-1 pb-16">
-            {renderContent()}
+            <div className={isLinearTheme ? 'linear-theme-content' : ''}>
+              {renderContent()}
+            </div>
           </main>
         </div>
         

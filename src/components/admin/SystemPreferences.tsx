@@ -42,6 +42,46 @@ const SystemPreferences: React.FC = () => {
     loadSystemConfig();
   }, []);
 
+  // Función para asegurar que el tema Linear existe
+  const ensureLinearThemeExists = async () => {
+    try {
+      const { data: existingTheme } = await supabase
+        .from('app_themes')
+        .select('id')
+        .eq('theme_name', 'linear_theme')
+        .single();
+
+      if (!existingTheme) {
+        // Crear tema Linear si no existe
+        await supabase
+          .from('app_themes')
+          .insert({
+            theme_name: 'linear_theme',
+            display_name: 'Linear Design',
+            description: 'Diseño elegante y minimalista inspirado en Linear.app con colores sutiles y animaciones fluidas',
+            color_palette: {
+              primary: "rgb(99, 102, 241)",
+              primary_dark: "rgb(79, 70, 229)", 
+              secondary: "rgb(129, 140, 248)",
+              accent: "rgb(156, 163, 175)",
+              surface: "rgb(248, 250, 252)",
+              surface_dark: "rgb(15, 23, 42)",
+              border: "rgb(226, 232, 240)",
+              border_dark: "rgb(51, 65, 85)",
+              gradient: "linear-gradient(135deg, rgb(99, 102, 241) 0%, rgb(129, 140, 248) 100%)",
+              shadow_soft: "0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)",
+              shadow_elevated: "0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06)"
+            },
+            is_active: false
+          });
+        
+        console.log('✅ Tema Linear creado automáticamente');
+      }
+    } catch (error) {
+      console.error('Error creando tema Linear:', error);
+    }
+  };
+
   const loadSystemConfig = async () => {
     try {
       setLoading(true);
@@ -60,6 +100,9 @@ const SystemPreferences: React.FC = () => {
       if (brandingData) {
         setBrandingConfig(brandingData.config_value);
       }
+
+      // Agregar tema Linear si no existe
+      await ensureLinearThemeExists();
 
       // Cargar temas disponibles
       const { data: themesData, error: themesError } = await supabase
