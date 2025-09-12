@@ -121,6 +121,17 @@ export const useTheme = () => {
 
   useEffect(() => {
     loadActiveTheme();
+    
+    // Escuchar cambios de tema desde SystemPreferences
+    const handleThemeChange = () => {
+      loadActiveTheme();
+    };
+    
+    window.addEventListener('themeChanged', handleThemeChange);
+    
+    return () => {
+      window.removeEventListener('themeChanged', handleThemeChange);
+    };
   }, []);
 
   return {

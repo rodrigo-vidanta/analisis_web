@@ -13,6 +13,9 @@ import AdminDashboardTabs from './admin/AdminDashboardTabs';
 import { useAuth, ProtectedRoute } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
 import { useTheme } from '../hooks/useTheme';
+// Componentes Linear
+import LinearLayout from './linear/LinearLayout';
+import LinearLiveMonitor from './linear/LinearLiveMonitor';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -228,7 +231,7 @@ function MainApp() {
       case 'live-monitor':
         return (
           <ProtectedRoute requireLiveMonitor={true}>
-            <LiveMonitorKanban />
+            {isLinearTheme ? <LinearLiveMonitor /> : <LiveMonitorKanban />}
           </ProtectedRoute>
         );
       case 'admin':
@@ -273,6 +276,22 @@ function MainApp() {
 
   const themeClasses = getThemeClasses();
 
+  // Si el tema Linear está activo, usar layout completamente diferente
+  if (isLinearTheme) {
+    return (
+      <div className={`${(appMode === 'constructor' ? darkMode : localDarkMode) ? 'dark' : ''}`}>
+        <LinearLayout
+          darkMode={appMode === 'constructor' ? darkMode : localDarkMode}
+          onToggleDarkMode={handleToggleDarkMode}
+          currentMode={appMode}
+        >
+          {renderContent()}
+        </LinearLayout>
+      </div>
+    );
+  }
+
+  // Layout original para tema corporativo
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       (appMode === 'constructor' ? darkMode : localDarkMode) ? 'dark' : ''

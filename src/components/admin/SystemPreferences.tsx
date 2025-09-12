@@ -42,43 +42,54 @@ const SystemPreferences: React.FC = () => {
     loadSystemConfig();
   }, []);
 
-  // Función para asegurar que el tema Linear existe
-  const ensureLinearThemeExists = async () => {
+  // Función para limpiar y configurar solo los temas principales
+  const cleanupAndSetupThemes = async () => {
     try {
-      const { data: existingTheme } = await supabase
+      // 1. Eliminar todos los temas excepto default y linear_theme
+      await supabase
         .from('app_themes')
-        .select('id')
-        .eq('theme_name', 'linear_theme')
-        .single();
+        .delete()
+        .not('theme_name', 'in', '(default,linear_theme)');
 
-      if (!existingTheme) {
-        // Crear tema Linear si no existe
-        await supabase
-          .from('app_themes')
-          .insert({
-            theme_name: 'linear_theme',
-            display_name: 'Linear Design',
-            description: 'Diseño elegante y minimalista inspirado en Linear.app con colores sutiles y animaciones fluidas',
-            color_palette: {
-              primary: "rgb(99, 102, 241)",
-              primary_dark: "rgb(79, 70, 229)", 
-              secondary: "rgb(129, 140, 248)",
-              accent: "rgb(156, 163, 175)",
-              surface: "rgb(248, 250, 252)",
-              surface_dark: "rgb(15, 23, 42)",
-              border: "rgb(226, 232, 240)",
-              border_dark: "rgb(51, 65, 85)",
-              gradient: "linear-gradient(135deg, rgb(99, 102, 241) 0%, rgb(129, 140, 248) 100%)",
-              shadow_soft: "0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)",
-              shadow_elevated: "0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06)"
-            },
-            is_active: false
-          });
+      // 2. Crear/actualizar tema por defecto (Corporativo)
+      await supabase
+        .from('app_themes')
+        .upsert({
+          theme_name: 'default',
+          display_name: 'Diseño Corporativo',
+          description: 'Diseño actual de la aplicación con gradientes y colores corporativos',
+          theme_config: {
+            primary: "rgb(59, 130, 246)",
+            secondary: "rgb(129, 140, 248)", 
+            accent: "rgb(236, 72, 153)",
+            success: "rgb(34, 197, 94)",
+            warning: "rgb(245, 158, 11)",
+            error: "rgb(239, 68, 68)"
+          },
+          is_active: true
+        }, { onConflict: 'theme_name' });
+
+      // 3. Crear/actualizar tema Linear
+      await supabase
+        .from('app_themes')
+        .upsert({
+          theme_name: 'linear_theme',
+          display_name: 'Linear Design',
+          description: 'Diseño elegante y minimalista inspirado en Linear.app con colores sutiles y animaciones fluidas',
+          theme_config: {
+            primary: "rgb(99, 102, 241)",
+            secondary: "rgb(129, 140, 248)",
+            accent: "rgb(156, 163, 175)",
+            success: "rgb(34, 197, 94)",
+            warning: "rgb(245, 158, 11)",
+            error: "rgb(239, 68, 68)"
+          },
+          is_active: false
+        }, { onConflict: 'theme_name' });
         
-        console.log('✅ Tema Linear creado automáticamente');
-      }
+      console.log('✅ Temas limpiados y configurados: Corporativo + Linear');
     } catch (error) {
-      console.error('Error creando tema Linear:', error);
+      console.error('Error configurando temas:', error);
     }
   };
 
@@ -101,8 +112,8 @@ const SystemPreferences: React.FC = () => {
         setBrandingConfig(brandingData.config_value);
       }
 
-      // Agregar tema Linear si no existe
-      await ensureLinearThemeExists();
+      // Limpiar y configurar temas
+      await cleanupAndSetupThemes();
 
       // Cargar temas disponibles
       const { data: themesData, error: themesError } = await supabase
@@ -253,6 +264,11 @@ const SystemPreferences: React.FC = () => {
       
       // Notificar actualización global
       systemConfigEvents.notifyUpdate();
+      
+      // Disparar evento de cambio de tema
+      window.dispatchEvent(new CustomEvent('themeChanged', { 
+        detail: { theme: selectedTheme.theme_name } 
+      }));
 
       // Recargar la página para aplicar el nuevo tema
       setTimeout(() => {
@@ -428,7 +444,7 @@ const SystemPreferences: React.FC = () => {
           🎨 Temas de la Aplicación
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          Selecciona un tema para cambiar la paleta de colores de toda la aplicación. Los modos claro/oscuro se mantienen independientes.
+          Elige entre dos estilos de diseño para toda la aplicación. Cada tema mantiene compatibilidad con modo claro/oscuro.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -458,20 +474,20 @@ const SystemPreferences: React.FC = () => {
               {/* Preview de colores */}
               <div className="flex space-x-1 mb-3">
                 <div 
-                  className="w-6 h-6 rounded"
-                  style={{ backgroundColor: theme.theme_config.primary }}
+                  className="w-6 h-6 rounded shadow-sm"
+                  style={{ backgroundColor: theme.theme_config?.primary || '#6366f1' }}
                 ></div>
                 <div 
-                  className="w-6 h-6 rounded"
-                  style={{ backgroundColor: theme.theme_config.secondary }}
+                  className="w-6 h-6 rounded shadow-sm"
+                  style={{ backgroundColor: theme.theme_config?.secondary || '#818cf8' }}
                 ></div>
                 <div 
-                  className="w-6 h-6 rounded"
-                  style={{ backgroundColor: theme.theme_config.accent }}
+                  className="w-6 h-6 rounded shadow-sm"
+                  style={{ backgroundColor: theme.theme_config?.accent || '#9ca3af' }}
                 ></div>
                 <div 
-                  className="w-6 h-6 rounded"
-                  style={{ backgroundColor: theme.theme_config.success }}
+                  className="w-6 h-6 rounded shadow-sm"
+                  style={{ backgroundColor: theme.theme_config?.success || '#22c55e' }}
                 ></div>
               </div>
 

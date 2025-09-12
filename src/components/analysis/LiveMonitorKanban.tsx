@@ -598,7 +598,11 @@ const LiveMonitorKanban: React.FC = () => {
               <span className="truncate font-medium text-blue-600 dark:text-blue-400">
                 {call.destino_preferido?.replace('_', ' ') || call.destino_preferencia?.join(', ')}
               </span>
-              {call.destino_preferido && <span className="text-xs text-blue-600 ml-1">🔄</span>}
+              {call.destino_preferido && (
+                <svg className="w-3 h-3 ml-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
             </div>
           )}
           
@@ -611,7 +615,11 @@ const LiveMonitorKanban: React.FC = () => {
               <span className={`font-semibold ${call.composicion_familiar_numero ? 'text-green-600 dark:text-green-400' : 'text-slate-600 dark:text-slate-400'}`}>
                 {call.composicion_familiar_numero || call.tamano_grupo}p
               </span>
-              {call.composicion_familiar_numero && <span className="text-xs text-green-600 ml-1">🔄</span>}
+              {call.composicion_familiar_numero && (
+                <svg className="w-3 h-3 ml-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
             </div>
           )}
           
@@ -624,7 +632,9 @@ const LiveMonitorKanban: React.FC = () => {
               <span className="font-medium text-indigo-600 dark:text-indigo-400">
                 Mes {call.mes_preferencia}
               </span>
-              <span className="text-xs text-indigo-600 ml-1">🔄</span>
+              <svg className="w-3 h-3 ml-1 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
             </div>
           )}
           
@@ -637,7 +647,9 @@ const LiveMonitorKanban: React.FC = () => {
               <span className="truncate font-medium text-purple-600 dark:text-purple-400">
                 {call.preferencia_vacaciones.join(', ')}
               </span>
-              <span className="text-xs text-purple-600 ml-1">🔄</span>
+              <svg className="w-3 h-3 ml-1 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
             </div>
           )}
           
@@ -804,7 +816,7 @@ const LiveMonitorKanban: React.FC = () => {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+        <div className="corp-card corp-glow overflow-hidden">
           <div className="grid grid-cols-4 border-b border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setSelectedTab('active')}
@@ -1451,19 +1463,19 @@ const LiveMonitorKanban: React.FC = () => {
                       <div className="mt-4">
                         <h5 className="text-xs font-semibold text-slate-900 dark:text-white mb-2">Resultado:</h5>
                         <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => handleFeedbackRequest('contestada')}
-                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
-                          >
+                        <button
+                          onClick={() => handleFeedbackRequest('contestada')}
+                          className="corp-button-primary bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
+                        >
                             <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                             Contestada
                           </button>
-                          <button
-                            onClick={() => handleFeedbackRequest('perdida')}
-                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
-                          >
+                        <button
+                          onClick={() => handleFeedbackRequest('perdida')}
+                          className="corp-button-primary bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
+                        >
                             <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>

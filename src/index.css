@@ -40,14 +40,54 @@
   background-color: #64748b;
 }
 
-/* Variables de tema - Por defecto */
+/* ============================================ */
+/* PALETA HOMOLOGADA PARA UI CORPORATIVA */
+/* ============================================ */
+
+/* Variables de tema - Por defecto mejoradas */
 :root {
-  --theme-primary: 59 130 246; /* blue-500 */
-  --theme-primary-dark: 37 99 235; /* blue-600 */
-  --theme-secondary: 129 140 248; /* indigo-400 */
-  --theme-accent: 236 72 153; /* pink-500 */
-  --theme-gradient-from: 59 130 246; /* blue-500 */
-  --theme-gradient-to: 129 140 248; /* indigo-400 */
+  /* Colores primarios homologados */
+  --corp-primary: 99 102 241; /* indigo-500 elegante */
+  --corp-primary-dark: 79 70 229; /* indigo-600 */
+  --corp-secondary: 129 140 248; /* indigo-400 suave */
+  --corp-accent: 168 85 247; /* purple-500 sutil */
+  
+  /* Colores de estado homologados */
+  --corp-success: 34 197 94; /* emerald-500 */
+  --corp-warning: 245 158 11; /* amber-500 */
+  --corp-error: 239 68 68; /* red-500 */
+  --corp-info: 59 130 246; /* blue-500 */
+  
+  /* Grises elegantes */
+  --corp-gray-50: 248 250 252; /* slate-50 */
+  --corp-gray-100: 241 245 249; /* slate-100 */
+  --corp-gray-200: 226 232 240; /* slate-200 */
+  --corp-gray-300: 203 213 225; /* slate-300 */
+  --corp-gray-400: 148 163 184; /* slate-400 */
+  --corp-gray-500: 100 116 139; /* slate-500 */
+  --corp-gray-600: 71 85 105; /* slate-600 */
+  --corp-gray-700: 51 65 85; /* slate-700 */
+  --corp-gray-800: 30 41 59; /* slate-800 */
+  --corp-gray-900: 15 23 42; /* slate-900 */
+  
+  /* Gradientes sutiles */
+  --corp-gradient-primary: linear-gradient(135deg, rgb(99, 102, 241) 0%, rgb(129, 140, 248) 100%);
+  --corp-gradient-secondary: linear-gradient(135deg, rgb(248, 250, 252) 0%, rgb(241, 245, 249) 100%);
+  --corp-gradient-dark: linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(30, 41, 59) 100%);
+  
+  /* Sombras elegantes */
+  --corp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --corp-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --corp-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --corp-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+  
+  /* Variables legacy para compatibilidad */
+  --theme-primary: var(--corp-primary);
+  --theme-primary-dark: var(--corp-primary-dark);
+  --theme-secondary: var(--corp-secondary);
+  --theme-accent: var(--corp-accent);
+  --theme-gradient-from: var(--corp-primary);
+  --theme-gradient-to: var(--corp-secondary);
 }
 
 /* Tema Verde */
@@ -297,6 +337,530 @@ body {
 [data-theme="linear_theme"] .dark .linear-sidebar {
   background: rgba(var(--theme-surface-dark), 0.9);
   border-right-color: rgba(var(--theme-border-dark), 0.6);
+}
+
+/* ============================================ */
+/* REDISEÑO COMPLETO PARA TEMA LINEAR */
+/* ============================================ */
+
+/* Layout principal */
+[data-theme="linear_theme"] {
+  --linear-bg: rgb(250, 250, 250);
+  --linear-bg-dark: rgb(13, 13, 13);
+  --linear-surface: rgb(255, 255, 255);
+  --linear-surface-dark: rgb(24, 24, 24);
+  --linear-border: rgb(229, 229, 229);
+  --linear-border-dark: rgb(39, 39, 42);
+  --linear-text: rgb(23, 23, 23);
+  --linear-text-dark: rgb(250, 250, 250);
+  --linear-text-muted: rgb(115, 115, 115);
+  --linear-text-muted-dark: rgb(163, 163, 163);
+  --linear-primary: rgb(99, 102, 241);
+  --linear-primary-soft: rgba(99, 102, 241, 0.1);
+}
+
+/* Backgrounds globales */
+[data-theme="linear_theme"] .min-h-screen {
+  background: var(--linear-bg) !important;
+}
+
+[data-theme="linear_theme"].dark .min-h-screen {
+  background: var(--linear-bg-dark) !important;
+}
+
+/* Cards y superficies */
+[data-theme="linear_theme"] .bg-white {
+  background: var(--linear-surface) !important;
+  border: 1px solid var(--linear-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="linear_theme"].dark .bg-white {
+  background: var(--linear-surface-dark) !important;
+  border-color: var(--linear-border-dark);
+}
+
+/* Botones rediseñados - Sutiles */
+[data-theme="linear_theme"] .bg-blue-500,
+[data-theme="linear_theme"] .bg-blue-600 {
+  background: var(--linear-primary) !important;
+  border: 1px solid var(--linear-primary);
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+[data-theme="linear_theme"] .bg-blue-500:hover,
+[data-theme="linear_theme"] .bg-blue-600:hover {
+  background: rgb(79, 70, 229) !important;
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+/* Botones secundarios */
+[data-theme="linear_theme"] .bg-gray-500,
+[data-theme="linear_theme"] .bg-gray-600 {
+  background: var(--linear-text-muted) !important;
+  border: 1px solid var(--linear-border);
+  border-radius: 6px;
+}
+
+[data-theme="linear_theme"] .bg-gray-500:hover,
+[data-theme="linear_theme"] .bg-gray-600:hover {
+  background: rgb(82, 82, 82) !important;
+  transform: translateY(-0.5px);
+}
+
+/* Botones de éxito - Sutiles */
+[data-theme="linear_theme"] .bg-green-500,
+[data-theme="linear_theme"] .bg-green-600 {
+  background: rgb(34, 197, 94) !important;
+  border: 1px solid rgb(34, 197, 94);
+  border-radius: 6px;
+}
+
+[data-theme="linear_theme"] .bg-green-500:hover,
+[data-theme="linear_theme"] .bg-green-600:hover {
+  background: rgb(22, 163, 74) !important;
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
+}
+
+/* Botones de error - Sutiles */
+[data-theme="linear_theme"] .bg-red-500,
+[data-theme="linear_theme"] .bg-red-600 {
+  background: rgb(239, 68, 68) !important;
+  border: 1px solid rgb(239, 68, 68);
+  border-radius: 6px;
+}
+
+[data-theme="linear_theme"] .bg-red-500:hover,
+[data-theme="linear_theme"] .bg-red-600:hover {
+  background: rgb(220, 38, 38) !important;
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+}
+
+/* Sidebar rediseñado */
+[data-theme="linear_theme"] .sidebar-container {
+  background: var(--linear-surface) !important;
+  border-right: 1px solid var(--linear-border);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="linear_theme"].dark .sidebar-container {
+  background: var(--linear-surface-dark) !important;
+  border-right-color: var(--linear-border-dark);
+}
+
+/* Inputs y forms */
+[data-theme="linear_theme"] input,
+[data-theme="linear_theme"] textarea,
+[data-theme="linear_theme"] select {
+  background: var(--linear-surface) !important;
+  border: 1px solid var(--linear-border) !important;
+  border-radius: 6px !important;
+  color: var(--linear-text) !important;
+  transition: all 0.15s ease !important;
+}
+
+[data-theme="linear_theme"] input:focus,
+[data-theme="linear_theme"] textarea:focus,
+[data-theme="linear_theme"] select:focus {
+  border-color: var(--linear-primary) !important;
+  box-shadow: 0 0 0 3px var(--linear-primary-soft) !important;
+  outline: none !important;
+}
+
+[data-theme="linear_theme"].dark input,
+[data-theme="linear_theme"].dark textarea,
+[data-theme="linear_theme"].dark select {
+  background: var(--linear-surface-dark) !important;
+  border-color: var(--linear-border-dark) !important;
+  color: var(--linear-text-dark) !important;
+}
+
+/* Textos */
+[data-theme="linear_theme"] .text-slate-900 {
+  color: var(--linear-text) !important;
+}
+
+[data-theme="linear_theme"].dark .text-slate-900 {
+  color: var(--linear-text-dark) !important;
+}
+
+[data-theme="linear_theme"] .text-slate-600,
+[data-theme="linear_theme"] .text-slate-500 {
+  color: var(--linear-text-muted) !important;
+}
+
+[data-theme="linear_theme"].dark .text-slate-600,
+[data-theme="linear_theme"].dark .text-slate-500 {
+  color: var(--linear-text-muted-dark) !important;
+}
+
+/* Animaciones fluidas */
+[data-theme="linear_theme"] * {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Hover effects sutiles */
+[data-theme="linear_theme"] .hover\\:shadow-md:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.03) !important;
+  transform: translateY(-1px);
+}
+
+/* Bordes sutiles */
+[data-theme="linear_theme"] .border-slate-200 {
+  border-color: var(--linear-border) !important;
+}
+
+[data-theme="linear_theme"].dark .border-slate-200 {
+  border-color: var(--linear-border-dark) !important;
+}
+
+/* Backgrounds de secciones */
+[data-theme="linear_theme"] .bg-slate-50 {
+  background: rgba(var(--theme-surface), 0.5) !important;
+}
+
+[data-theme="linear_theme"].dark .bg-slate-50 {
+  background: rgba(var(--theme-surface-dark), 0.5) !important;
+}
+
+/* ============================================ */
+/* ANIMACIONES FLUIDAS ESTILO 21ST.DEV */
+/* ============================================ */
+
+/* Animación de entrada suave */
+[data-theme="linear_theme"] .fade-in {
+  animation: linearFadeIn 0.3s ease-out;
+}
+
+@keyframes linearFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animación de hover en cards */
+[data-theme="linear_theme"] .card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="linear_theme"] .card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Animación de pulso sutil */
+[data-theme="linear_theme"] .pulse-subtle {
+  animation: linearPulse 2s ease-in-out infinite;
+}
+
+@keyframes linearPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Animación de carga elegante */
+[data-theme="linear_theme"] .loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--linear-border);
+  border-top: 2px solid var(--linear-primary);
+  border-radius: 50%;
+  animation: linearSpin 1s linear infinite;
+}
+
+@keyframes linearSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Efectos de glassmorphism sutil */
+[data-theme="linear_theme"] .glass-effect {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="linear_theme"].dark .glass-effect {
+  background: rgba(24, 24, 24, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Tabs estilo Linear */
+[data-theme="linear_theme"] .linear-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--linear-text-muted);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+[data-theme="linear_theme"] .linear-tab.active {
+  color: var(--linear-text);
+  border-bottom-color: var(--linear-primary);
+}
+
+[data-theme="linear_theme"] .linear-tab:hover {
+  color: var(--linear-text);
+  background: rgba(var(--linear-primary), 0.05);
+}
+
+/* Efectos de micro-interacciones */
+[data-theme="linear_theme"] .micro-bounce {
+  transition: transform 0.1s ease;
+}
+
+[data-theme="linear_theme"] .micro-bounce:active {
+  transform: scale(0.98);
+}
+
+/* ============================================ */
+/* ANIMACIONES ESPECÍFICAS PARA TEMA LINEAR */
+/* ============================================ */
+
+/* Animaciones de entrada */
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fadeIn;
+}
+
+.slide-in-from-bottom {
+  animation-name: slideInFromBottom;
+}
+
+.slide-in-from-left {
+  animation-name: slideInFromLeft;
+}
+
+.slide-in-from-right {
+  animation-name: slideInFromRight;
+}
+
+.duration-300 {
+  animation-duration: 300ms;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Animación de modal */
+[data-theme="linear_theme"] .modal-backdrop {
+  animation: modalBackdropFadeIn 0.2s ease-out;
+}
+
+[data-theme="linear_theme"] .modal-content {
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalBackdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ============================================ */
+/* MEJORAS PARA UI CORPORATIVA (DEFAULT) */
+/* ============================================ */
+
+/* Solo aplicar cuando NO sea tema Linear */
+:not([data-theme="linear_theme"]) .corp-button-primary {
+  background: rgb(var(--corp-primary));
+  border: 1px solid rgb(var(--corp-primary));
+  color: white;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+:not([data-theme="linear_theme"]) .corp-button-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+:not([data-theme="linear_theme"]) .corp-button-primary:hover::before {
+  left: 100%;
+}
+
+:not([data-theme="linear_theme"]) .corp-button-primary:hover {
+  background: rgb(var(--corp-primary-dark));
+  transform: translateY(-1px);
+  box-shadow: var(--corp-shadow-lg);
+}
+
+/* Botones secundarios elegantes */
+:not([data-theme="linear_theme"]) .corp-button-secondary {
+  background: rgb(var(--corp-gray-100));
+  border: 1px solid rgb(var(--corp-gray-200));
+  color: rgb(var(--corp-gray-700));
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:not([data-theme="linear_theme"]) .corp-button-secondary:hover {
+  background: rgb(var(--corp-gray-200));
+  border-color: rgb(var(--corp-gray-300));
+  transform: translateY(-1px);
+  box-shadow: var(--corp-shadow-md);
+}
+
+:not([data-theme="linear_theme"]).dark .corp-button-secondary {
+  background: rgb(var(--corp-gray-800));
+  border-color: rgb(var(--corp-gray-700));
+  color: rgb(var(--corp-gray-300));
+}
+
+:not([data-theme="linear_theme"]).dark .corp-button-secondary:hover {
+  background: rgb(var(--corp-gray-700));
+  border-color: rgb(var(--corp-gray-600));
+}
+
+/* Cards corporativas elegantes */
+:not([data-theme="linear_theme"]) .corp-card {
+  background: white;
+  border: 1px solid rgb(var(--corp-gray-200));
+  border-radius: 12px;
+  box-shadow: var(--corp-shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+:not([data-theme="linear_theme"]) .corp-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--corp-gradient-primary);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+:not([data-theme="linear_theme"]) .corp-card:hover::before {
+  transform: scaleX(1);
+}
+
+:not([data-theme="linear_theme"]) .corp-card:hover {
+  border-color: rgb(var(--corp-gray-300));
+  box-shadow: var(--corp-shadow-md);
+  transform: translateY(-2px);
+}
+
+:not([data-theme="linear_theme"]).dark .corp-card {
+  background: rgb(var(--corp-gray-800));
+  border-color: rgb(var(--corp-gray-700));
+}
+
+:not([data-theme="linear_theme"]).dark .corp-card:hover {
+  border-color: rgb(var(--corp-gray-600));
+}
+
+/* Efectos de glow elegantes para hover */
+:not([data-theme="linear_theme"]) .corp-glow:hover {
+  box-shadow: 0 0 20px rgba(var(--corp-primary), 0.15), var(--corp-shadow-lg);
+}
+
+/* Gradientes animados sutiles */
+:not([data-theme="linear_theme"]) .corp-gradient-hover {
+  background: var(--corp-gradient-secondary);
+  position: relative;
+  overflow: hidden;
+}
+
+:not([data-theme="linear_theme"]) .corp-gradient-hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(var(--corp-primary), 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+:not([data-theme="linear_theme"]) .corp-gradient-hover:hover::before {
+  left: 100%;
 }
 
 /* Botones modernos con efectos tech */
