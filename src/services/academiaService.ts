@@ -1,4 +1,4 @@
-import { pqncSupabase } from '../config/supabase';
+import { pqncSupabase } from '../config/pqncSupabase';
 
 // ============================================
 // INTERFACES Y TIPOS
