@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 
 type ProjectType = 'individual' | 'squad' | '';
-type AppMode = 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin';
+type AppMode = 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia';
 
 interface AppState {
   currentStep: number;

@@ -16,6 +16,8 @@ import { useTheme } from '../hooks/useTheme';
 // Componentes Linear
 import LinearLayout from './linear/LinearLayout';
 import LinearLiveMonitor from './linear/LinearLiveMonitor';
+// Academia
+import AcademiaDashboard from './academia/AcademiaDashboard';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -165,7 +167,7 @@ function MainApp() {
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin') => {
+  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia') => {
     setAppMode(mode);
     // Resetear steps cuando cambies de modo para evitar problemas
     if (mode !== 'constructor') {
@@ -232,6 +234,12 @@ function MainApp() {
         return (
           <ProtectedRoute requireLiveMonitor={true}>
             {isLinearTheme ? <LinearLiveMonitor /> : <LiveMonitorKanban />}
+          </ProtectedRoute>
+        );
+      case 'academia':
+        return (
+          <ProtectedRoute requireModule="academia">
+            <AcademiaDashboard />
           </ProtectedRoute>
         );
       case 'admin':
