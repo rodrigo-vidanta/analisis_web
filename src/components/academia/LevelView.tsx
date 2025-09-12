@@ -30,12 +30,151 @@ const LevelView: React.FC<LevelViewProps> = ({ levelId, onBack }) => {
   const loadLevelData = async () => {
     try {
       setLoading(true);
-      const [levelData, activitiesData] = await Promise.all([
-        academiaService.getLevelById(levelId),
-        academiaService.getActivitiesByLevel(levelId)
-      ]);
       
-      setLevel(levelData);
+      // Datos mock temporales hasta configurar la base de datos
+      const mockLevels = {
+        1: {
+          id: 1,
+          nivel_numero: 1,
+          nombre: 'Fundamentos de Vidanta',
+          descripcion: 'Aprende los conceptos básicos sobre Vidanta y sus resorts',
+          xp_requerido: 0,
+          es_activo: true,
+          orden_display: 1,
+          color_tema: 'blue',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        2: {
+          id: 2,
+          nivel_numero: 2,
+          nombre: 'Técnicas de Conexión',
+          descripcion: 'Domina el arte de conectar emocionalmente con el cliente',
+          xp_requerido: 100,
+          es_activo: true,
+          orden_display: 2,
+          color_tema: 'emerald',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        3: {
+          id: 3,
+          nivel_numero: 3,
+          nombre: 'Presentación de Beneficios',
+          descripcion: 'Aprende a presentar los beneficios de manera persuasiva',
+          xp_requerido: 250,
+          es_activo: true,
+          orden_display: 3,
+          color_tema: 'purple',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      };
+
+      const mockActivities = {
+        1: [
+          {
+            id: 1,
+            nivel_id: 1,
+            tipo_actividad: 'llamada_virtual' as const,
+            nombre: 'Cliente Básico - María González',
+            descripcion: 'Primera llamada con una madre de familia interesada en vacaciones',
+            orden_actividad: 1,
+            xp_otorgado: 25,
+            es_obligatoria: true,
+            configuracion: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 2,
+            nivel_id: 1,
+            tipo_actividad: 'quiz' as const,
+            nombre: 'Quiz: Conocimiento de Resorts',
+            descripcion: 'Evaluación sobre información básica de los resorts Vidanta',
+            orden_actividad: 2,
+            xp_otorgado: 15,
+            es_obligatoria: true,
+            configuracion: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 3,
+            nivel_id: 1,
+            tipo_actividad: 'juego' as const,
+            nombre: 'Juego: Matching de Beneficios',
+            descripcion: 'Conecta cada tipo de cliente con sus beneficios ideales',
+            orden_actividad: 3,
+            xp_otorgado: 20,
+            es_obligatoria: false,
+            configuracion: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 4,
+            nivel_id: 1,
+            tipo_actividad: 'llamada_virtual' as const,
+            nombre: 'Cliente Indeciso - Roberto Mendoza',
+            descripcion: 'Manejo de un empresario ocupado que necesita más información',
+            orden_actividad: 4,
+            xp_otorgado: 30,
+            es_obligatoria: true,
+            configuracion: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ],
+        2: [
+          {
+            id: 5,
+            nivel_id: 2,
+            tipo_actividad: 'llamada_virtual' as const,
+            nombre: 'Cliente Exigente - Carmen Ruiz',
+            descripcion: 'Establecer rapport con una profesional muy exigente',
+            orden_actividad: 1,
+            xp_otorgado: 35,
+            es_obligatoria: true,
+            configuracion: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 6,
+            nivel_id: 2,
+            tipo_actividad: 'juego' as const,
+            nombre: 'Simulador de Emociones',
+            descripcion: 'Identifica las emociones del cliente y responde apropiadamente',
+            orden_actividad: 2,
+            xp_otorgado: 20,
+            es_obligatoria: true,
+            configuracion: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ],
+        3: [
+          {
+            id: 7,
+            nivel_id: 3,
+            tipo_actividad: 'llamada_virtual' as const,
+            nombre: 'Presentación Ejecutiva - Cliente VIP',
+            descripcion: 'Presenta beneficios a un ejecutivo de alto valor',
+            orden_actividad: 1,
+            xp_otorgado: 50,
+            es_obligatoria: true,
+            configuracion: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ]
+      };
+      
+      const levelData = mockLevels[levelId as keyof typeof mockLevels];
+      const activitiesData = mockActivities[levelId as keyof typeof mockActivities] || [];
+      
+      setLevel(levelData || null);
       setActivities(activitiesData);
     } catch (error) {
       console.error('Error cargando datos del nivel:', error);
@@ -48,13 +187,47 @@ const LevelView: React.FC<LevelViewProps> = ({ levelId, onBack }) => {
     setCurrentActivity(activity);
     
     if (activity.tipo_actividad === 'llamada_virtual') {
-      try {
-        const assistant = await academiaService.getVirtualAssistantByActivity(activity.id);
-        setVirtualAssistant(assistant);
-        setShowVirtualCall(true);
-      } catch (error) {
-        console.error('Error cargando asistente virtual:', error);
-      }
+      // Mock de asistente virtual temporal
+      const mockAssistant: VirtualAssistant = {
+        id: activity.id,
+        actividad_id: activity.id,
+        assistant_id: `mock_assistant_${activity.id}`,
+        nombre_cliente: activity.nombre.includes('María') ? 'María González' : 
+                       activity.nombre.includes('Roberto') ? 'Roberto Mendoza' :
+                       activity.nombre.includes('Carmen') ? 'Carmen Ruiz' : 'Cliente Virtual',
+        personalidad: activity.nombre.includes('María') 
+          ? 'Madre de familia de 35 años, muy organizada y detallista. Busca unas vacaciones relajantes para su familia de 4 personas.'
+          : activity.nombre.includes('Roberto')
+          ? 'Empresario de 42 años, ocupado pero interesado. Habla rápido y va directo al grano.'
+          : 'Profesional exigente con altos estándares. Es directa y no tolera vendedores insistentes.',
+        dificultad: activity.nivel_id,
+        objetivos_venta: [
+          'Establecer rapport inicial',
+          'Identificar necesidades del cliente',
+          'Presentar beneficios relevantes',
+          'Manejar objeciones básicas'
+        ],
+        objeciones_comunes: [
+          'Necesito consultar con mi familia',
+          'Es muy caro para nosotros',
+          '¿Qué incluye exactamente?'
+        ],
+        es_activo: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      setVirtualAssistant(mockAssistant);
+      setShowVirtualCall(true);
+    } else if (activity.tipo_actividad === 'quiz') {
+      // Mostrar quiz (implementar después)
+      alert(`Quiz: ${activity.nombre} - Próximamente disponible`);
+    } else if (activity.tipo_actividad === 'juego') {
+      // Mostrar juego (implementar después)
+      alert(`Juego: ${activity.nombre} - Próximamente disponible`);
+    } else {
+      // Repaso u otros
+      alert(`${activity.nombre} - Próximamente disponible`);
     }
   };
 

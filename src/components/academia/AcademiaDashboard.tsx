@@ -4,6 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import AcademiaLayout from './AcademiaLayout';
 import LevelView from './LevelView';
 import AcademiaAdminPanel from './AcademiaAdminPanel';
+import AchievementsView from './AchievementsView';
+import LeaderboardView from './LeaderboardView';
+import ProfileView from './ProfileView';
 
 interface Level {
   id: number;
@@ -36,12 +39,12 @@ const AcademiaDashboard: React.FC = () => {
   const [levels, setLevels] = useState<Level[]>([]);
   const [recentAchievements, setRecentAchievements] = useState<Achievement[]>([]);
   const [nextActivity] = useState<string>('Llamada Virtual: Cliente Básico');
-  const [currentView, setCurrentView] = useState<'dashboard' | 'level'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'level' | 'achievements' | 'leaderboard' | 'profile'>('dashboard');
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   useEffect(() => {
-    // Simular carga de datos
+    // Datos reales con IDs que coincidan con la base de datos
     setLevels([
       {
         id: 1,
@@ -137,12 +140,33 @@ const AcademiaDashboard: React.FC = () => {
     setSelectedLevelId(null);
   };
 
+  const handleNavigate = (section: string) => {
+    switch (section) {
+      case 'dashboard':
+        setCurrentView('dashboard');
+        break;
+      case 'levels':
+        setCurrentView('dashboard'); // Los niveles se muestran en el dashboard
+        break;
+      case 'achievements':
+        setCurrentView('achievements');
+        break;
+      case 'leaderboard':
+        setCurrentView('leaderboard');
+        break;
+      case 'profile':
+        setCurrentView('profile');
+        break;
+    }
+  };
+
   const LevelCard: React.FC<{ level: Level }> = ({ level }) => (
     <div 
-      className={`relative group cursor-pointer transform transition-all duration-300 hover:scale-105 ${
-        level.isUnlocked ? 'hover:shadow-2xl' : 'opacity-60'
+      className={`relative group cursor-pointer transform transition-all duration-300 hover:scale-105 gamification-card particle-effect ${
+        level.isUnlocked ? 'hover:shadow-2xl animate-float' : 'opacity-60'
       }`}
       onClick={() => handleLevelClick(level.id, level.isUnlocked)}
+      style={{ animationDelay: `${level.number * 0.2}s` }}
     >
       <div className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
         level.isUnlocked
@@ -214,7 +238,7 @@ const AcademiaDashboard: React.FC = () => {
               : 'bg-indigo-200 dark:bg-slate-700'
           }`}>
             <div 
-              className={`h-2 rounded-full transition-all duration-500 bg-gradient-to-r ${getColorClasses(level.color)}`}
+              className={`h-2 rounded-full transition-all duration-500 bg-gradient-to-r ${getColorClasses(level.color)} ${level.progress > 50 ? 'animate-glow' : ''}`}
               style={{ width: `${level.progress}%` }}
             />
           </div>
@@ -225,11 +249,11 @@ const AcademiaDashboard: React.FC = () => {
           disabled={!level.isUnlocked}
           className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${
             level.isUnlocked
-              ? `bg-gradient-to-r ${getColorClasses(level.color)} hover:shadow-lg transform hover:scale-105`
+              ? `bg-gradient-to-r ${getColorClasses(level.color)} hover:shadow-lg transform hover:scale-105 animate-glow`
               : 'bg-slate-300 dark:bg-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed'
           }`}
         >
-          {level.isCompleted ? 'Revisar' : level.progress > 0 ? 'Continuar' : level.isUnlocked ? 'Comenzar' : 'Bloqueado'}
+          {level.isCompleted ? '✅ Revisar' : level.progress > 0 ? '🚀 Continuar' : level.isUnlocked ? '🎯 Comenzar' : '🔒 Bloqueado'}
         </button>
       </div>
 
@@ -280,8 +304,20 @@ const AcademiaDashboard: React.FC = () => {
     );
   }
 
+  if (currentView === 'achievements') {
+    return <AchievementsView />;
+  }
+
+  if (currentView === 'leaderboard') {
+    return <LeaderboardView />;
+  }
+
+  if (currentView === 'profile') {
+    return <ProfileView />;
+  }
+
   return (
-    <AcademiaLayout currentSection="dashboard">
+    <AcademiaLayout currentSection={currentView} onNavigate={handleNavigate}>
       <div className="space-y-8">
         {/* Bienvenida y Estadísticas Rápidas */}
         <div className="text-center">
@@ -304,8 +340,8 @@ const AcademiaDashboard: React.FC = () => {
         {/* Tarjeta de Próxima Actividad */}
         <div className={`p-6 rounded-2xl border-2 border-dashed transition-all duration-300 hover:border-solid ${
           isLinearTheme 
-            ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 hover:border-slate-400'
-            : 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:bg-slate-800/50 border-indigo-300 dark:border-slate-600 hover:border-indigo-400'
+            ? 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
+            : 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-700 border-indigo-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-slate-500'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">

@@ -4,9 +4,10 @@ import { useTheme } from '../../hooks/useTheme';
 interface AcademiaLayoutProps {
   children: React.ReactNode;
   currentSection?: string;
+  onNavigate?: (section: string) => void;
 }
 
-const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSection = 'dashboard' }) => {
+const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSection = 'dashboard', onNavigate }) => {
   const { isLinearTheme } = useTheme();
   const [userProgress] = useState({
     level: 1,
@@ -71,6 +72,8 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
               {/* Racha */}
               <div className="flex items-center space-x-2">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  userProgress.streak > 3 ? 'animate-streak-fire' : ''
+                } ${
                   isLinearTheme 
                     ? 'bg-orange-100 dark:bg-orange-900/20'
                     : 'bg-gradient-to-br from-orange-400 to-red-500'
@@ -151,6 +154,8 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
                 }`}>
                   <div 
                     className={`h-2 rounded-full transition-all duration-500 ${
+                      userProgress.xp > 75 ? 'animate-progress-pulse' : ''
+                    } ${
                       isLinearTheme 
                         ? 'bg-gradient-to-r from-slate-500 to-slate-600'
                         : 'bg-gradient-to-r from-indigo-500 to-purple-600'
@@ -175,6 +180,7 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
             {navigationItems.map((item) => (
               <button
                 key={item.id}
+                onClick={() => onNavigate?.(item.id)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   currentSection === item.id
                     ? isLinearTheme
