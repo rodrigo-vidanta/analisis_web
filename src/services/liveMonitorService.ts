@@ -260,7 +260,20 @@ class LiveMonitorService {
           feedback_resultado: call.feedback_resultado,
           feedback_comentarios: call.feedback_comentarios,
           feedback_user_email: call.feedback_user_email,
-          feedback_fecha: call.feedback_fecha
+          feedback_fecha: call.feedback_fecha,
+          
+          // Campos de checkpoint Kanban (dinámicos de llamadas_ventas)
+          checkpoint_venta_actual: call.checkpoint_venta_actual,
+          composicion_familiar_numero: call.composicion_familiar_numero,
+          destino_preferido: call.destino_preferido,
+          preferencia_vacaciones: call.preferencia_vacaciones,
+          numero_noches: call.numero_noches,
+          mes_preferencia: call.mes_preferencia,
+          propuesta_economica_ofrecida: call.propuesta_economica_ofrecida,
+          habitacion_ofertada: call.habitacion_ofertada,
+          resort_ofertado: call.resort_ofertado,
+          principales_objeciones: call.principales_objeciones,
+          resumen_llamada: call.resumen_llamada
         };
       });
 

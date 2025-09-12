@@ -1,5 +1,46 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 1.0.16 (Septiembre 2025)
+
+### Live Monitor Kanban - Rediseño Completo por Checkpoints
+
+#### Vista Kanban por Proceso de Venta (NUEVO)
+- **5 Checkpoints visuales**: Saludo → Conexión → Introducción → Urgencia → Presentación
+- **Franjas horizontales**: Sombreado grisáceo progresivo sin líneas verticales
+- **Animaciones inteligentes**: Parpadeo más intenso según progreso del checkpoint
+- **Actualización en tiempo real**: Movimiento automático entre checkpoints cada 3s
+
+#### Sistema de Pestañas Organizado (REDISEÑADO)
+- **Llamadas Activas**: Vista Kanban con 5 columnas por checkpoint
+- **Finalizadas**: Llamadas sin feedback que requieren procesamiento
+- **Fallidas**: Llamadas no conectadas que requieren feedback
+- **Historial**: Llamadas completamente procesadas (solo lectura)
+
+#### Controles de Llamada Funcionales (NUEVO)
+- **Transferencia inteligente**: 6 motivos predefinidos contextuales
+- **Colgar llamada**: Control directo con feedback obligatorio
+- **Webhook integration**: Peticiones a través de Railway backend
+- **Sin alertas del navegador**: Feedback modal automático
+
+#### Información Dinámica en Tiempo Real (MEJORADO)
+- **Vista miniatura expandida**: Discovery completo con indicadores de actualización
+- **Resumen en tiempo real**: Extracción de `datos_llamada.resumen` automática
+- **Información prioritaria**: `llamadas_ventas` sobre `prospectos` para datos dinámicos
+- **Vista detallada completa**: 3 columnas con información de ambas tablas
+
+#### Mejoras UX y Visuales
+- **Modo oscuro corregido**: Textos legibles en todos los estados
+- **Feedback específico**: Placeholders contextuales por tipo de acción
+- **Layout responsivo**: Aprovecha 95% de pantalla disponible
+- **Clasificación inteligente**: Prioriza `call_status` sobre heurísticas
+
+## Versión 1.0.15 (Septiembre 2025)
+
+### Sistema de Permisos Live Monitor Corregido
+- **Verificación BD**: Consulta directa a `auth_user_permissions`
+- **Evaluators con checkbox**: Acceso basado en localStorage + BD
+- **Logs de debugging**: Identificación precisa de problemas de acceso
+
 ## Versión 1.0.14 (Enero 2025)
 
 ### Módulo Live Monitor Completo y Funcional

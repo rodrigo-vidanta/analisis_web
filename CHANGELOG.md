@@ -2,6 +2,51 @@
 
 ## Historial de Versiones
 
+### v1.0.16 (2025-09-12 12:00)
+**Tipo**: major
+**Descripción**: Live Monitor Kanban - Rediseño Completo por Checkpoints de Venta
+
+**🎯 Vista Kanban por Checkpoints:**
+- Rediseño completo: 5 checkpoints del proceso de venta
+- Checkpoint #1: Saludo de Continuación 
+- Checkpoint #2: Conexión Emocional Inmediata
+- Checkpoint #3: Introducción al Paraíso
+- Checkpoint #4: Urgencia Natural
+- Checkpoint #5: Presentación de Oportunidad
+- Franjas horizontales grisáceas sin líneas verticales
+- Animaciones progresivas: parpadeo más intenso según avance
+
+**📊 Sistema de Pestañas Reorganizado:**
+- Llamadas Activas: Vista Kanban con movimiento automático por checkpoint
+- Finalizadas: Llamadas transferidas/finalizadas sin feedback (requieren procesamiento)
+- Fallidas: Llamadas no conectadas que requieren feedback
+- Historial: Llamadas completamente procesadas (solo lectura con feedback)
+
+**🎛️ Controles de Llamada Funcionales:**
+- Transferencia inteligente: 6 motivos predefinidos contextuales
+- Colgar llamada: Control directo con endpoint VAPI
+- Webhook integration: Peticiones a través de Railway backend
+- Sin alertas del navegador: Modal de feedback automático
+
+**📱 Información Dinámica en Tiempo Real:**
+- Vista miniatura expandida: Discovery completo con indicadores 🔄
+- Prioriza datos de `llamadas_ventas` sobre `prospectos`
+- Resumen extraído de `datos_llamada.resumen` automáticamente
+- Actualización silenciosa cada 3 segundos sin parpadeo
+
+**🎨 Mejoras UX y Visuales:**
+- Modo oscuro: Textos legibles en todos los estados ("Llamada Activa" verde)
+- Layout optimizado: Aprovecha 95% de pantalla disponible
+- Feedback contextual: Placeholders específicos por tipo de acción
+- Modal inteligente: Botones o información según estado de feedback
+
+**🔧 Problemas Solucionados:**
+- Clasificación de llamadas activas: Prioriza `call_status` sobre duración/audio
+- Mapeo de campos faltante: Incluye todos los campos de checkpoint en SELECT
+- Lógica de feedback: `tiene_feedback === true` para clasificación precisa
+- Actualización en tiempo real: Detecta cambios de checkpoint automáticamente
+- Sistema de permisos: Consulta directa a BD para evaluators
+
 ### v1.0.15 (2025-01-25 01:30)
 **Tipo**: major
 **Descripción**: Reestructuración Completa del Live Monitor - Pipeline y Modales Optimizados

@@ -61,17 +61,24 @@ const LiveMonitorKanban: React.FC = () => {
   const [activeCalls, setActiveCalls] = useState<KanbanCall[]>([]);
   const [finishedCalls, setFinishedCalls] = useState<KanbanCall[]>([]);
   const [failedCalls, setFailedCalls] = useState<KanbanCall[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'active' | 'finished' | 'failed'>('active');
+  const [selectedTab, setSelectedTab] = useState<'active' | 'finished' | 'failed' | 'all'>('active');
+  const [allCalls, setAllCalls] = useState<KanbanCall[]>([]);
   const [selectedCall, setSelectedCall] = useState<KanbanCall | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   
-  // Estados para feedback
+  // Estados para feedback y controles
   const [agents, setAgents] = useState<Agent[]>([]);
   const [nextAgent, setNextAgent] = useState<Agent | null>(null);
   const [showGlobalFeedbackModal, setShowGlobalFeedbackModal] = useState(false);
-  const [globalFeedbackType, setGlobalFeedbackType] = useState<'contestada' | 'perdida' | null>(null);
+  const [globalFeedbackType, setGlobalFeedbackType] = useState<'contestada' | 'perdida' | 'transferida' | 'colgada' | null>(null);
   const [globalFeedbackComment, setGlobalFeedbackComment] = useState('');
+  
+  // Estados para controles de llamada
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferReason, setTransferReason] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [hangupLoading, setHangupLoading] = useState(false);
 
   // Función para ejecutar feedback
   const executeGlobalFeedback = async () => {
@@ -125,6 +132,209 @@ const LiveMonitorKanban: React.FC = () => {
     setGlobalFeedbackComment('');
   };
 
+  // Mensajes predefinidos para transferencia
+  const transferReasons = [
+    "Mi supervisor puede ofrecerle un mejor precio exclusivo que tengo autorización limitada",
+    "Mi supervisor maneja casos especiales como el suyo y quiere atenderle personalmente", 
+    "Tengo un supervisor especializado en su destino que puede darle beneficios adicionales",
+    "Mi supervisor tiene disponibilidad muy limitada solo para hoy y quiere hablar con usted",
+    "Como mostró tanto interés, mi supervisor quiere ofrecerle algo especial que yo no puedo autorizar",
+    "Mi supervisor estaba escuchando la llamada y quiere darle un beneficio exclusivo inmediatamente"
+  ];
+
+  // Función para transferir llamada a través de webhook de Railway
+  const handleTransferCall = async (reason: string) => {
+    if (!selectedCall?.call_id) {
+      alert('No se encontró ID de llamada');
+      return;
+    }
+
+    setTransferLoading(true);
+    
+    try {
+      // Extraer contexto adicional de datos_llamada y datos_proceso
+      let contextData = {};
+      try {
+        if (selectedCall.datos_llamada) {
+          const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
+            ? JSON.parse(selectedCall.datos_llamada) 
+            : selectedCall.datos_llamada;
+          contextData = { ...contextData, ...datosLlamada };
+        }
+        
+        if (selectedCall.datos_proceso) {
+          const datosProc = typeof selectedCall.datos_proceso === 'string' 
+            ? JSON.parse(selectedCall.datos_proceso) 
+            : selectedCall.datos_proceso;
+          contextData = { ...contextData, datos_proceso: datosProc };
+        }
+      } catch (e) {
+        console.log('No se pudo extraer contexto adicional');
+      }
+
+      const transferData = {
+        action: "transfer",
+        call_id: selectedCall.call_id,
+        control_url: selectedCall.control_url,
+        message: reason,
+        destination: {
+          number: "+523222264000",
+          extension: "60973"
+        },
+        // Contexto completo de la llamada
+        call_context: {
+          // Datos básicos de la llamada
+          fecha_llamada: selectedCall.fecha_llamada,
+          duracion_segundos: selectedCall.duracion_segundos,
+          call_status: selectedCall.call_status,
+          nivel_interes: selectedCall.nivel_interes,
+          tipo_llamada: selectedCall.tipo_llamada,
+          precio_ofertado: selectedCall.precio_ofertado,
+          costo_total: selectedCall.costo_total,
+          
+          // Información del prospecto
+          prospecto_id: selectedCall.prospecto_id,
+          nombre_completo: selectedCall.nombre_completo,
+          nombre_whatsapp: selectedCall.nombre_whatsapp,
+          whatsapp: selectedCall.whatsapp,
+          email: selectedCall.email,
+          ciudad_residencia: selectedCall.ciudad_residencia,
+          estado_civil: selectedCall.estado_civil,
+          edad: selectedCall.edad,
+          
+          // Información de viaje actualizada
+          checkpoint_venta_actual: selectedCall.checkpoint_venta_actual,
+          composicion_familiar_numero: selectedCall.composicion_familiar_numero,
+          destino_preferido: selectedCall.destino_preferido,
+          preferencia_vacaciones: selectedCall.preferencia_vacaciones,
+          numero_noches: selectedCall.numero_noches,
+          mes_preferencia: selectedCall.mes_preferencia,
+          propuesta_economica_ofrecida: selectedCall.propuesta_economica_ofrecida,
+          habitacion_ofertada: selectedCall.habitacion_ofertada,
+          resort_ofertado: selectedCall.resort_ofertado,
+          principales_objeciones: selectedCall.principales_objeciones,
+          resumen_llamada: selectedCall.resumen_llamada,
+          
+          // Contexto adicional extraído
+          ...contextData
+        }
+      };
+
+      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/tools', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(transferData)
+      });
+
+      if (response.ok) {
+        setShowTransferModal(false);
+        // Abrir modal de feedback para transferencia
+        setGlobalFeedbackType('transferida' as any);
+        setShowGlobalFeedbackModal(true);
+        setGlobalFeedbackComment('');
+        // Actualizar estado en BD
+        await liveMonitorService.updateCallStatus(selectedCall.call_id, 'transferida');
+        await loadCalls(true);
+      } else {
+        alert('Error al transferir la llamada');
+      }
+    } catch (error) {
+      console.error('Error en transferencia:', error);
+      alert('Error al transferir la llamada');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  // Función para colgar llamada a través de webhook de Railway
+  const handleHangupCall = async () => {
+    if (!selectedCall?.call_id) {
+      alert('No se encontró ID de llamada');
+      return;
+    }
+
+    setHangupLoading(true);
+    
+    try {
+      // Extraer contexto de la llamada para el backend
+      let contextData = {};
+      try {
+        if (selectedCall.datos_llamada) {
+          const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
+            ? JSON.parse(selectedCall.datos_llamada) 
+            : selectedCall.datos_llamada;
+          contextData = { ...contextData, ...datosLlamada };
+        }
+        
+        if (selectedCall.datos_proceso) {
+          const datosProc = typeof selectedCall.datos_proceso === 'string' 
+            ? JSON.parse(selectedCall.datos_proceso) 
+            : selectedCall.datos_proceso;
+          contextData = { ...contextData, datos_proceso: datosProc };
+        }
+      } catch (e) {
+        console.log('No se pudo extraer contexto adicional');
+      }
+
+      const hangupData = {
+        action: "hangup",
+        call_id: selectedCall.call_id,
+        control_url: selectedCall.control_url,
+        // Contexto completo de la llamada
+        call_context: {
+          // Datos básicos
+          fecha_llamada: selectedCall.fecha_llamada,
+          duracion_segundos: selectedCall.duracion_segundos,
+          call_status: selectedCall.call_status,
+          nivel_interes: selectedCall.nivel_interes,
+          tipo_llamada: selectedCall.tipo_llamada,
+          
+          // Información del prospecto
+          prospecto_id: selectedCall.prospecto_id,
+          nombre_completo: selectedCall.nombre_completo,
+          nombre_whatsapp: selectedCall.nombre_whatsapp,
+          whatsapp: selectedCall.whatsapp,
+          
+          // Checkpoint y progreso
+          checkpoint_venta_actual: selectedCall.checkpoint_venta_actual,
+          composicion_familiar_numero: selectedCall.composicion_familiar_numero,
+          destino_preferido: selectedCall.destino_preferido,
+          propuesta_economica_ofrecida: selectedCall.propuesta_economica_ofrecida,
+          
+          // Contexto adicional extraído
+          ...contextData
+        }
+      };
+
+      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/tools', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(hangupData)
+      });
+
+      if (response.ok) {
+        // Abrir modal de feedback para colgar
+        setGlobalFeedbackType('colgada' as any);
+        setShowGlobalFeedbackModal(true);
+        setGlobalFeedbackComment('');
+        // Actualizar estado en BD
+        await liveMonitorService.updateCallStatus(selectedCall.call_id, 'colgada');
+        await loadCalls(true);
+      } else {
+        alert('Error al colgar la llamada');
+      }
+    } catch (error) {
+      console.error('Error al colgar:', error);
+      alert('Error al colgar la llamada');
+    } finally {
+      setHangupLoading(false);
+    }
+  };
+
   // Cargar llamadas desde la BD
   const loadCalls = async (isRefresh = false) => {
     try {
@@ -136,30 +346,7 @@ const LiveMonitorKanban: React.FC = () => {
       
       const allCalls = await liveMonitorService.getActiveCalls() as KanbanCall[];
       
-      console.log('🔍 [CHECKPOINT DEBUG] Verificando campos de checkpoint en llamadas:');
-      allCalls.slice(0, 2).forEach((call, index) => {
-        // Extraer checkpoint desde datos_proceso
-        let checkpointFromProcess = null;
-        try {
-          if (call.datos_proceso) {
-            const datosProc = typeof call.datos_proceso === 'string' 
-              ? JSON.parse(call.datos_proceso) 
-              : call.datos_proceso;
-            checkpointFromProcess = datosProc.checkpoint_alcanzado;
-          }
-        } catch (e) {
-          // Ignorar errores de parsing
-        }
-        
-        console.log(`  Llamada ${index + 1}:`, {
-          call_id: call.call_id.slice(-8),
-          checkpoint_venta_actual: call.checkpoint_venta_actual,
-          checkpoint_from_datos_proceso: checkpointFromProcess,
-          destino_preferido: call.destino_preferido,
-          composicion_familiar_numero: call.composicion_familiar_numero,
-          propuesta_economica_ofrecida: call.propuesta_economica_ofrecida
-        });
-      });
+      // Actualización silenciosa en background
       
       // Clasificar llamadas por estado
       const active: KanbanCall[] = [];
@@ -171,25 +358,41 @@ const LiveMonitorKanban: React.FC = () => {
         const hasRecording = call.audio_ruta_bucket && call.audio_ruta_bucket.length > 0;
         const isZeroDuration = call.duracion_segundos === 0;
         const hasNoRecording = !call.audio_ruta_bucket;
-        const hasFeedback = call.tiene_feedback || (call.observaciones && call.observaciones.includes('[CALL_FEEDBACK'));
+        const hasFeedback = call.tiene_feedback === true;
         
-        // LÓGICA CORREGIDA: Priorizar call_status
+        // LÓGICA CORREGIDA DE CLASIFICACIÓN:
+        
+        // 1. LLAMADAS ACTIVAS: call_status = 'activa'
         if (call.call_status === 'activa') {
           active.push(call);
         }
-        // Llamadas finalizadas: duración > 0 + grabación, sin feedback
-        else if ((hasDuration && hasRecording) || call.call_status === 'finalizada') {
+        
+        // 2. LLAMADAS FINALIZADAS: Estados finalizados O duración + grabación
+        else if (
+          call.call_status === 'finalizada' || 
+          call.call_status === 'transferida' || 
+          call.call_status === 'colgada' ||
+          call.call_status === 'exitosa' ||
+          (hasDuration && hasRecording)
+        ) {
+          // Solo mostrar si NO tienen feedback (requieren feedback para desaparecer)
           if (!hasFeedback) {
             finished.push(call);
           }
         }
-        // Llamadas fallidas: duración 0 + sin grabación + NO activa, sin feedback
-        else if (isZeroDuration && hasNoRecording && call.call_status !== 'activa') {
+        
+        // 3. LLAMADAS FALLIDAS: call_status = 'perdida' O sin conexión
+        else if (
+          call.call_status === 'perdida' ||
+          (isZeroDuration && hasNoRecording)
+        ) {
+          // Solo mostrar si NO tienen feedback
           if (!hasFeedback) {
             failed.push(call);
           }
         }
-        // Fallback
+        
+        // 4. FALLBACK: Casos no clasificados van a activas
         else if (!hasFeedback) {
           active.push(call);
         }
@@ -211,24 +414,40 @@ const LiveMonitorKanban: React.FC = () => {
         const finishedChanged = JSON.stringify(finishedIds) !== JSON.stringify(currentFinishedIds);
         const failedChanged = JSON.stringify(failedIds) !== JSON.stringify(currentFailedIds);
         
-        if (activeChanged) {
-          console.log('🔄 Actualizando llamadas activas (checkpoint cambió)');
-          console.log('  Antes:', currentActiveIds);
-          console.log('  Ahora:', activeIds);
-          setActiveCalls(active);
-        }
-        if (finishedChanged) {
-          console.log('🔄 Actualizando llamadas finalizadas');
-          setFinishedCalls(finished);
-        }
-        if (failedChanged) {
-          console.log('🔄 Actualizando llamadas fallidas');
-          setFailedCalls(failed);
-        }
+        if (activeChanged) setActiveCalls(active);
+        if (finishedChanged) setFinishedCalls(finished);
+        if (failedChanged) setFailedCalls(failed);
+        // Filtrar llamadas COMPLETAMENTE procesadas para pestaña "Historial"
+        const completedCalls = allCalls.filter(call => {
+          const hasFeedback = call.tiene_feedback === true; // Solo feedback completo, no pendiente
+          const isCompleted = call.call_status === 'finalizada' || 
+                             call.call_status === 'transferida' || 
+                             call.call_status === 'colgada' ||
+                             call.call_status === 'exitosa' ||
+                             call.call_status === 'perdida';
+          
+          return hasFeedback && isCompleted;
+        });
+        
+        setAllCalls(completedCalls);
       } else {
         setActiveCalls(active);
         setFinishedCalls(finished);
         setFailedCalls(failed);
+        
+        // Filtrar llamadas COMPLETAMENTE procesadas para pestaña "Historial"
+        const completedCalls = allCalls.filter(call => {
+          const hasFeedback = call.tiene_feedback === true; // Solo feedback completo, no pendiente
+          const isCompleted = call.call_status === 'finalizada' || 
+                             call.call_status === 'transferida' || 
+                             call.call_status === 'colgada' ||
+                             call.call_status === 'exitosa' ||
+                             call.call_status === 'perdida';
+          
+          return hasFeedback && isCompleted;
+        });
+        
+        setAllCalls(completedCalls);
       }
       
     } catch (error) {
@@ -279,33 +498,9 @@ const LiveMonitorKanban: React.FC = () => {
     };
 
     calls.forEach(call => {
-      // Obtener checkpoint desde datos_proceso (como funcionaba antes)
-      let checkpointFromProcess = 'checkpoint #1';
+      // Usar directamente checkpoint_venta_actual de la BD (ya está actualizado)
+      const checkpoint = (call.checkpoint_venta_actual || 'checkpoint #1') as CheckpointKey;
       
-      try {
-        if (call.datos_proceso) {
-          const datosProc = typeof call.datos_proceso === 'string' 
-            ? JSON.parse(call.datos_proceso) 
-            : call.datos_proceso;
-          
-          // Mapear checkpoint_alcanzado a nuestros checkpoints
-          const checkpointMap: Record<string, string> = {
-            'Saludo continuación': 'checkpoint #1',
-            'Conexión emocional': 'checkpoint #2', 
-            'Introducción paraíso': 'checkpoint #3',
-            'Presentación oferta': 'checkpoint #4',
-            'Proceso pago': 'checkpoint #5'
-          };
-          
-          if (datosProc.checkpoint_alcanzado) {
-            checkpointFromProcess = checkpointMap[datosProc.checkpoint_alcanzado] || 'checkpoint #1';
-          }
-        }
-      } catch (e) {
-        // Si no se puede parsear, usar checkpoint #1
-      }
-      
-      const checkpoint = (call.checkpoint_venta_actual || checkpointFromProcess) as CheckpointKey;
       if (groups[checkpoint]) {
         groups[checkpoint].push(call);
       } else {
@@ -355,41 +550,16 @@ const LiveMonitorKanban: React.FC = () => {
   };
 
   const renderCallCard = (call: KanbanCall) => {
-    // Obtener checkpoint actual (desde datos_proceso como funcionaba antes)
-    let currentCheckpoint = 'checkpoint #1';
+    // Usar directamente checkpoint_venta_actual de la BD
+    const checkpointNumber = parseInt(call.checkpoint_venta_actual?.replace('checkpoint #', '') || '1');
     
-    try {
-      if (call.datos_proceso) {
-        const datosProc = typeof call.datos_proceso === 'string' 
-          ? JSON.parse(call.datos_proceso) 
-          : call.datos_proceso;
-        
-        const checkpointMap: Record<string, string> = {
-          'Saludo continuación': 'checkpoint #1',
-          'Conexión emocional': 'checkpoint #2', 
-          'Introducción paraíso': 'checkpoint #3',
-          'Presentación oferta': 'checkpoint #4',
-          'Proceso pago': 'checkpoint #5'
-        };
-        
-        if (datosProc.checkpoint_alcanzado) {
-          currentCheckpoint = checkpointMap[datosProc.checkpoint_alcanzado] || 'checkpoint #1';
-        }
-      }
-    } catch (e) {
-      // Si no se puede parsear, usar checkpoint #1
-    }
-    
-    // Usar checkpoint de datos_proceso o el nuevo campo
-    const finalCheckpoint = call.checkpoint_venta_actual || currentCheckpoint;
-    const checkpointNumber = parseInt(finalCheckpoint.replace('checkpoint #', '') || '1');
-    
+    // Clases de animación personalizadas más intensas
     const progressBgColors = {
       1: 'bg-slate-100/30 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-700/30',
-      2: 'bg-slate-100/40 dark:bg-slate-700/25 hover:bg-slate-100/60 dark:hover:bg-slate-700/35 animate-pulse',
-      3: 'bg-slate-100/50 dark:bg-slate-700/30 hover:bg-slate-100/70 dark:hover:bg-slate-700/40 animate-pulse',
-      4: 'bg-slate-100/60 dark:bg-slate-700/35 hover:bg-slate-100/80 dark:hover:bg-slate-700/45 animate-bounce',
-      5: 'bg-slate-100/70 dark:bg-slate-700/40 hover:bg-slate-100/90 dark:hover:bg-slate-700/50 animate-bounce'
+      2: 'checkpoint-pulse-blue',
+      3: 'checkpoint-pulse-yellow', 
+      4: 'checkpoint-pulse-orange',
+      5: 'checkpoint-pulse-red'
     };
 
     return (
@@ -413,32 +583,57 @@ const LiveMonitorKanban: React.FC = () => {
           </div>
         </div>
 
-        {/* Información clave expandida - Discovery */}
+          {/* Información clave - PRIORIZAR llamadas_ventas sobre prospectos */}
         <div className="space-y-1">
-          {/* Destino - PRIORIZAR datos actualizados */}
+          {/* Destino - Datos dinámicos de llamadas_ventas primero */}
           {(call.destino_preferido || call.destino_preferencia) && (
             <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               </svg>
               <span className="truncate font-medium text-blue-600 dark:text-blue-400">
-                {call.destino_preferido?.replace('_', ' ') || call.destino_preferencia?.join(', ') || 'Destino'}
+                {call.destino_preferido?.replace('_', ' ') || call.destino_preferencia?.join(', ')}
               </span>
-              {call.destino_preferido && <span className="text-xs text-blue-600 dark:text-blue-400 ml-1">✨</span>}
+              {call.destino_preferido && <span className="text-xs text-blue-600 ml-1">🔄</span>}
             </div>
           )}
           
-          {/* Grupo familiar - PRIORIZAR datos actualizados */}
+          {/* Grupo familiar - PRIORIZAR llamadas_ventas (dinámico) */}
           {(call.composicion_familiar_numero || call.tamano_grupo) && (
             <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
-              <span className="font-medium text-green-600 dark:text-green-400">
+              <span className={`font-semibold ${call.composicion_familiar_numero ? 'text-green-600 dark:text-green-400' : 'text-slate-600 dark:text-slate-400'}`}>
                 {call.composicion_familiar_numero || call.tamano_grupo}p
               </span>
-              {call.cantidad_menores > 0 && <span className="text-orange-500 ml-1">({call.cantidad_menores} menores)</span>}
-              <span className="text-xs text-green-600 dark:text-green-400 ml-1">✨</span>
+              {call.composicion_familiar_numero && <span className="text-xs text-green-600 ml-1">🔄</span>}
+            </div>
+          )}
+          
+          {/* Mes preferencia - Solo si está actualizado */}
+          {call.mes_preferencia && (
+            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+              <svg className="w-3 h-3 mr-1 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                Mes {call.mes_preferencia}
+              </span>
+              <span className="text-xs text-indigo-600 ml-1">🔄</span>
+            </div>
+          )}
+          
+          {/* Preferencias de vacaciones - Solo si están actualizadas */}
+          {call.preferencia_vacaciones && call.preferencia_vacaciones.length > 0 && (
+            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+              <svg className="w-3 h-3 mr-1 flex-shrink-0 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              <span className="truncate font-medium text-purple-600 dark:text-purple-400">
+                {call.preferencia_vacaciones.join(', ')}
+              </span>
+              <span className="text-xs text-purple-600 ml-1">🔄</span>
             </div>
           )}
           
@@ -544,29 +739,67 @@ const LiveMonitorKanban: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+      {/* Estilos CSS personalizados para animaciones de checkpoint */}
+      <style>{`
+        .checkpoint-pulse-blue {
+          background: rgba(59, 130, 246, 0.15);
+          animation: checkpoint-pulse-blue 2s ease-in-out infinite;
+        }
+        .checkpoint-pulse-yellow {
+          background: rgba(245, 158, 11, 0.2);
+          animation: checkpoint-pulse-yellow 1.5s ease-in-out infinite;
+        }
+        .checkpoint-pulse-orange {
+          background: rgba(249, 115, 22, 0.25);
+          animation: checkpoint-pulse-orange 1s ease-in-out infinite;
+        }
+        .checkpoint-pulse-red {
+          background: rgba(239, 68, 68, 0.3);
+          animation: checkpoint-pulse-red 0.8s ease-in-out infinite;
+        }
+        
+        @keyframes checkpoint-pulse-blue {
+          0%, 100% { background-color: rgba(59, 130, 246, 0.15); }
+          50% { background-color: rgba(59, 130, 246, 0.25); }
+        }
+        @keyframes checkpoint-pulse-yellow {
+          0%, 100% { background-color: rgba(245, 158, 11, 0.2); }
+          50% { background-color: rgba(245, 158, 11, 0.35); }
+        }
+        @keyframes checkpoint-pulse-orange {
+          0%, 100% { background-color: rgba(249, 115, 22, 0.25); }
+          50% { background-color: rgba(249, 115, 22, 0.45); }
+        }
+        @keyframes checkpoint-pulse-red {
+          0%, 100% { background-color: rgba(239, 68, 68, 0.3); }
+          50% { background-color: rgba(239, 68, 68, 0.6); }
+        }
+        
+        /* Asegurar que el texto esté por encima del sombreado */
+        .checkpoint-pulse-blue *, 
+        .checkpoint-pulse-yellow *, 
+        .checkpoint-pulse-orange *, 
+        .checkpoint-pulse-red * {
+          position: relative;
+          z-index: 10;
+        }
+      `}</style>
+      
       <div className="max-w-[95vw] mx-auto space-y-4">
         
         {/* Header */}
         <div className="text-center">
-          <div className="flex items-center justify-center space-x-3">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-              Live Monitor - Vista Kanban
-            </h1>
-            {isUpdating && (
-              <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span className="text-xs font-medium">Actualizando...</span>
-              </div>
-            )}
-          </div>
-          <p className="text-slate-600 dark:text-slate-400 mt-2">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+            Live Monitor - Vista Kanban
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400">
             Gestión visual del proceso de ventas por checkpoints
           </p>
         </div>
 
         {/* Tabs */}
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="grid grid-cols-4 border-b border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setSelectedTab('active')}
               className={`px-6 py-4 text-sm font-medium transition-colors ${
@@ -623,6 +856,25 @@ const LiveMonitorKanban: React.FC = () => {
                 </span>
               </div>
             </button>
+            
+            <button
+              onClick={() => setSelectedTab('all')}
+              className={`px-6 py-4 text-sm font-medium transition-colors ${
+                selectedTab === 'all'
+                  ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-b-2 border-purple-500'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <span>Historial</span>
+                <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {allCalls.length}
+                </span>
+              </div>
+            </button>
           </div>
 
           {/* Contenido de tabs */}
@@ -662,8 +914,8 @@ const LiveMonitorKanban: React.FC = () => {
                       1: 'bg-slate-50/20 dark:bg-slate-800/20',
                       2: 'bg-slate-50/30 dark:bg-slate-800/30 animate-pulse',
                       3: 'bg-slate-50/40 dark:bg-slate-800/40 animate-pulse',
-                      4: 'bg-slate-50/50 dark:bg-slate-800/50 animate-bounce',
-                      5: 'bg-slate-50/60 dark:bg-slate-800/60 animate-bounce'
+                      4: 'bg-slate-50/50 dark:bg-slate-800/50 animate-pulse',
+                      5: 'bg-slate-50/60 dark:bg-slate-800/60 animate-pulse'
                     };
                     
                     return (
@@ -783,6 +1035,112 @@ const LiveMonitorKanban: React.FC = () => {
                 )}
               </div>
             )}
+
+            {selectedTab === 'all' && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                  <thead className="bg-slate-50 dark:bg-slate-900">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                        Cliente
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                        Checkpoint
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                        Duración
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                        Precio
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                        Fecha
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                        Feedback
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                    {allCalls.map((call) => (
+                      <tr 
+                        key={call.call_id}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                        onClick={() => setSelectedCall(call)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                              {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-slate-900 dark:text-white">
+                                {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
+                              </div>
+                              <div className="text-sm text-slate-500 dark:text-slate-400">
+                                {call.whatsapp}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            call.call_status === 'activa' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                            call.call_status === 'transferida' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                            call.call_status === 'finalizada' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300' :
+                            call.call_status === 'perdida' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                          }`}>
+                            {call.call_status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                          {call.checkpoint_venta_actual || 'checkpoint #1'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                          {call.duracion_segundos ? `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                          ${(call.propuesta_economica_ofrecida || call.precio_ofertado)?.toLocaleString() || 'Sin precio'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                          {new Date(call.fecha_llamada).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {call.tiene_feedback ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Completado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Pendiente
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                
+                {allCalls.length === 0 && (
+                  <div className="text-center py-12">
+                    <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <p className="text-slate-500 dark:text-slate-400">No hay llamadas registradas</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -808,7 +1166,11 @@ const LiveMonitorKanban: React.FC = () => {
                       <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                         {selectedCall.nombre_completo || selectedCall.nombre_whatsapp || 'Sin nombre'}
                       </h3>
-                      <p className="text-sm font-medium">
+                      <p className={`text-sm font-medium ${
+                        selectedCall.call_status === 'activa' ? 'text-green-600 dark:text-green-400' : 
+                        selectedCall.duracion_segundos === 0 ? 'text-red-600 dark:text-red-400' : 
+                        'text-gray-600 dark:text-gray-400'
+                      }`}>
                         {selectedCall.call_status === 'activa' ? 'Llamada Activa' : 
                          selectedCall.duracion_segundos === 0 ? 'Llamada Fallida' : 'Llamada Finalizada'}
                       </p>
@@ -1036,70 +1398,211 @@ const LiveMonitorKanban: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Botones de feedback */}
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleFeedbackRequest('contestada')}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
-                      >
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Contestada
-                      </button>
-                      <button
-                        onClick={() => handleFeedbackRequest('perdida')}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
-                      >
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        Perdida
-                      </button>
-                    </div>
+                    {/* Controles para llamadas activas */}
+                    {selectedCall.call_status === 'activa' && (
+                      <div className="mt-4 space-y-2">
+                        <h5 className="text-xs font-semibold text-slate-900 dark:text-white">Controles de Llamada:</h5>
+                        
+                        {/* Escuchar llamada */}
+                        <button
+                          disabled
+                          className="w-full bg-gray-400 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center opacity-50"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728" />
+                          </svg>
+                          Escuchar Llamada (En desarrollo)
+                        </button>
+
+                        {/* Transferir llamada */}
+                        <button
+                          onClick={() => setShowTransferModal(true)}
+                          disabled={transferLoading}
+                          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                          {transferLoading ? 'Transfiriendo...' : 'Solicitar Transferencia'}
+                        </button>
+
+                        {/* Colgar llamada */}
+                        <button
+                          onClick={handleHangupCall}
+                          disabled={hangupLoading}
+                          className="w-full bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2v12a4 4 0 01-4 4H6a4 4 0 01-4-4V6a4 4 0 014-4h4m8 0V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0h2m-2 0v2m-2-2v2" />
+                          </svg>
+                          {hangupLoading ? 'Colgando...' : 'Colgar Llamada'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Botones de feedback - Solo si no tiene feedback completo */}
+                    {!selectedCall.tiene_feedback && (
+                      <div className="mt-4">
+                        <h5 className="text-xs font-semibold text-slate-900 dark:text-white mb-2">Resultado:</h5>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handleFeedbackRequest('contestada')}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Contestada
+                          </button>
+                          <button
+                            onClick={() => handleFeedbackRequest('perdida')}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Perdida
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Mostrar feedback existente si ya lo tiene */}
+                    {selectedCall.tiene_feedback && (
+                      <div className="mt-4 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+                        <h5 className="text-xs font-semibold text-green-800 dark:text-green-200 mb-2 flex items-center">
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Feedback Completado:
+                        </h5>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-green-700 dark:text-green-300">Resultado:</span>
+                            <span className="font-medium text-green-800 dark:text-green-200">
+                              {selectedCall.feedback_resultado}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-green-700 dark:text-green-300">Usuario:</span>
+                            <span className="font-medium text-green-800 dark:text-green-200">
+                              {selectedCall.feedback_user_email}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-green-700 dark:text-green-300">Fecha:</span>
+                            <span className="font-medium text-green-800 dark:text-green-200">
+                              {selectedCall.feedback_fecha ? new Date(selectedCall.feedback_fecha).toLocaleString() : 'N/A'}
+                            </span>
+                          </div>
+                          {selectedCall.feedback_comentarios && (
+                            <div className="mt-2">
+                              <span className="text-green-700 dark:text-green-300">Comentarios:</span>
+                              <p className="text-green-800 dark:text-green-200 mt-1 p-2 bg-green-100 dark:bg-green-900/30 rounded text-xs">
+                                {selectedCall.feedback_comentarios}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Resumen de la llamada desde datos_llamada */}
-                {(() => {
-                  let resumen = selectedCall.resumen_llamada;
-                  
-                  // Si no hay resumen_llamada, extraer de datos_llamada
-                  if (!resumen && selectedCall.datos_llamada) {
-                    try {
-                      const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
-                        ? JSON.parse(selectedCall.datos_llamada) 
-                        : selectedCall.datos_llamada;
-                      resumen = datosLlamada.resumen;
-                    } catch (e) {
-                      // Si no se puede parsear, no mostrar resumen
+                {/* Resumen de la llamada - Abarcar solo las primeras 2 columnas */}
+                <div className="lg:col-span-2">
+                  {(() => {
+                    let resumen = selectedCall.resumen_llamada;
+                    
+                    // PRIORIZAR datos_llamada.resumen (tiempo real)
+                    if (selectedCall.datos_llamada) {
+                      try {
+                        const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
+                          ? JSON.parse(selectedCall.datos_llamada) 
+                          : selectedCall.datos_llamada;
+                        
+                        if (datosLlamada.resumen) {
+                          resumen = datosLlamada.resumen;
+                        }
+                      } catch (e) {
+                        console.log('Error parseando datos_llamada para resumen');
+                      }
                     }
-                  }
-                  
-                  return resumen ? (
-                    <div className="mt-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center justify-between">
-                        <div className="flex items-center">
-                          <svg className="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          Resumen de la Llamada
-                        </div>
-                        {selectedCall.call_status === 'activa' && (
-                          <div className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
-                            Tiempo real
+                    
+                    // Si sigue sin resumen para llamadas activas, mostrar mensaje de estado
+                    if (!resumen && selectedCall.call_status === 'activa') {
+                      resumen = 'Llamada en progreso - el resumen se actualiza conforme avanza la conversación';
+                    }
+                    
+                    return resumen ? (
+                      <div className="mt-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center justify-between">
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Resumen de la Llamada
                           </div>
-                        )}
-                      </h4>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
-                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                          {resumen}
-                        </p>
+                          {selectedCall.call_status === 'activa' && (
+                            <div className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
+                              <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
+                              Tiempo real
+                            </div>
+                          )}
+                        </h4>
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+                          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                            {resumen}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ) : null;
-                })()}
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Transferencia */}
+        {showTransferModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 z-[90] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                  Solicitar Transferencia
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                  Selecciona el motivo de la transferencia:
+                </p>
+                
+                <div className="space-y-2 mb-6">
+                  {transferReasons.map((reason, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setTransferReason(reason);
+                        handleTransferCall(reason);
+                      }}
+                      disabled={transferLoading}
+                      className="w-full text-left p-3 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg text-xs text-slate-900 dark:text-white transition-colors disabled:opacity-50"
+                    >
+                      <span className="font-medium text-blue-600 dark:text-blue-400">Opción {index + 1}:</span>
+                      <br />
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowTransferModal(false)}
+                    disabled={transferLoading}
+                    className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1111,7 +1614,12 @@ const LiveMonitorKanban: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                  Feedback Obligatorio - {globalFeedbackType === 'contestada' ? 'Llamada Contestada' : 'Llamada Perdida'}
+                  Feedback Obligatorio - {
+                    globalFeedbackType === 'contestada' ? 'Llamada Contestada' :
+                    globalFeedbackType === 'perdida' ? 'Llamada Perdida' :
+                    globalFeedbackType === 'transferida' ? 'Llamada Transferida' :
+                    globalFeedbackType === 'colgada' ? 'Llamada Finalizada' : 'Feedback'
+                  }
                 </h3>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -1122,7 +1630,11 @@ const LiveMonitorKanban: React.FC = () => {
                     onChange={(e) => setGlobalFeedbackComment(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500"
                     rows={4}
-                    placeholder="Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes..."
+                    placeholder={
+                      globalFeedbackType === 'transferida' ? 'Explica por qué se transfirió la llamada, contexto del prospecto, motivo específico...' :
+                      globalFeedbackType === 'colgada' ? 'Explica por qué se finalizó la llamada, resultado obtenido, observaciones...' :
+                      'Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes...'
+                    }
                     autoFocus
                   />
                 </div>
