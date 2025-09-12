@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { academiaService, AcademiaLevel, AcademiaActivity, VirtualAssistant } from '../../services/academia';
+import * as Academia from '../../services/academiaService';
+
+type AcademiaLevel = Academia.AcademiaLevel;
+type AcademiaActivity = Academia.AcademiaActivity;
+type VirtualAssistant = Academia.VirtualAssistant;
+const academiaService = Academia.default;
 
 interface AcademiaAdminPanelProps {
   onClose: () => void;

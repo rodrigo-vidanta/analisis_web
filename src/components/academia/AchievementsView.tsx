@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AcademiaLayout from './AcademiaLayout';
-import { academiaService, Achievement, UserAchievement } from '../../services/academia';
+import * as Academia from '../../services/academiaService';
+
+type Achievement = Academia.Achievement;
+type UserAchievement = Academia.UserAchievement;
+const academiaService = Academia.default;
 
 const AchievementsView: React.FC = () => {
   const { isLinearTheme } = useTheme();
