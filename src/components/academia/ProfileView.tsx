@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../contexts/AuthContext';
 import AcademiaLayout from './AcademiaLayout';
+import { 
+  Phone, 
+  HelpCircle, 
+  Gamepad2, 
+  BookOpen, 
+  Edit3,
+  BarChart3,
+  FileText,
+  Trophy
+} from 'lucide-react';
 
 interface UserStats {
   totalXP: number;
@@ -110,11 +120,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
 
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case 'llamada_virtual': return '📞';
-      case 'quiz': return '❓';
-      case 'juego': return '🎮';
-      case 'repaso': return '📖';
-      default: return '📝';
+      case 'llamada_virtual': return <Phone className="w-4 h-4" />;
+      case 'quiz': return <HelpCircle className="w-4 h-4" />;
+      case 'juego': return <Gamepad2 className="w-4 h-4" />;
+      case 'repaso': return <BookOpen className="w-4 h-4" />;
+      default: return <Edit3 className="w-4 h-4" />;
     }
   };
 
@@ -167,7 +177,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
         <div className={`p-8 rounded-2xl ${
           isLinearTheme 
             ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
-            : 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:bg-slate-800 border border-indigo-200 dark:border-slate-700'
+            : 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-700 border border-indigo-200 dark:border-slate-700'
         }`}>
           <div className="flex items-center space-x-6">
             {/* Avatar Grande */}
@@ -273,9 +283,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
         {/* Tabs */}
         <div className="flex space-x-1">
           {[
-            { id: 'overview', label: 'Resumen', icon: '📊' },
-            { id: 'history', label: 'Historial', icon: '📝' },
-            { id: 'achievements', label: 'Logros', icon: '🏆' }
+            { id: 'overview', label: 'Resumen', icon: <BarChart3 className="w-4 h-4" /> },
+            { id: 'history', label: 'Historial', icon: <FileText className="w-4 h-4" /> },
+            { id: 'achievements', label: 'Logros', icon: <Trophy className="w-4 h-4" /> }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -363,7 +373,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
                   { type: 'llamada_virtual', label: 'Llamadas Virtuales', completed: 4, total: 8, color: 'blue' },
                   { type: 'quiz', label: 'Quiz', completed: 3, total: 6, color: 'emerald' },
                   { type: 'juego', label: 'Juegos', completed: 2, total: 4, color: 'purple' },
-                  { type: 'repaso', label: 'Repaso', completed: 3, total: 2, color: 'orange' }
+                  { type: 'repaso', label: 'Repaso', completed: 2, total: 4, color: 'orange' }
                 ].map((item) => (
                   <div key={item.type}>
                     <div className="flex justify-between items-center mb-1">
@@ -420,7 +430,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                       isLinearTheme ? 'bg-slate-100 dark:bg-slate-700' : 'bg-indigo-100 dark:bg-slate-700'
                     }`}>
-                      <span className="text-lg">{getActivityIcon(activity.type)}</span>
+                      {getActivityIcon(activity.type)}
                     </div>
                     <div>
                       <h4 className={`font-semibold ${

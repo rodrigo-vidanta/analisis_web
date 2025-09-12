@@ -58,7 +58,7 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigate }) => {
           totalXP: 275,
           level: 1,
           streak: 3,
-          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent('Samuel Rosales')}&background=6366f1&color=fff&size=150`,
           isCurrentUser: true
         },
         {

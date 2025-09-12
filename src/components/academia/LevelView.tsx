@@ -3,6 +3,14 @@ import { useTheme } from '../../hooks/useTheme';
 import AcademiaLayout from './AcademiaLayout';
 import VirtualCallComponent from './VirtualCallComponent';
 import * as Academia from '../../services/academiaService';
+import { 
+  Phone, 
+  HelpCircle, 
+  Gamepad2, 
+  BookOpen, 
+  Target,
+  Edit3
+} from 'lucide-react';
 
 type AcademiaLevel = Academia.AcademiaLevel;
 type AcademiaActivity = Academia.AcademiaActivity;
@@ -268,15 +276,15 @@ const LevelView: React.FC<LevelViewProps> = ({ levelId, onBack }) => {
   const getActivityIcon = (tipo: string) => {
     switch (tipo) {
       case 'llamada_virtual':
-        return '📞';
+        return <Phone className="w-5 h-5" />;
       case 'quiz':
-        return '❓';
+        return <HelpCircle className="w-5 h-5" />;
       case 'juego':
-        return '🎮';
+        return <Gamepad2 className="w-5 h-5" />;
       case 'repaso':
-        return '📖';
+        return <BookOpen className="w-5 h-5" />;
       default:
-        return '📝';
+        return <Edit3 className="w-5 h-5" />;
     }
   };
 
@@ -390,7 +398,7 @@ const LevelView: React.FC<LevelViewProps> = ({ levelId, onBack }) => {
         }`}>
           <div className="flex items-center space-x-4 mb-4">
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br ${getActivityColor('llamada_virtual')} text-white`}>
-              <span className="text-2xl">🎯</span>
+              <Target className="w-8 h-8" />
             </div>
             <div>
               <h1 className={`text-3xl font-bold mb-2 ${
@@ -437,7 +445,7 @@ const LevelView: React.FC<LevelViewProps> = ({ levelId, onBack }) => {
                   {/* Tipo de Actividad */}
                   <div className="flex items-center justify-between mb-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${getActivityColor(activity.tipo_actividad)} text-white`}>
-                      <span className="text-xl">{getActivityIcon(activity.tipo_actividad)}</span>
+                      {getActivityIcon(activity.tipo_actividad)}
                     </div>
                     <span className={`text-xs px-3 py-1 rounded-full ${
                       isLinearTheme 
@@ -466,9 +474,9 @@ const LevelView: React.FC<LevelViewProps> = ({ levelId, onBack }) => {
                     onClick={() => handleActivityClick(activity)}
                     className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 bg-gradient-to-r ${getActivityColor(activity.tipo_actividad)} text-white shadow-lg hover:shadow-xl`}
                   >
-                    {activity.tipo_actividad === 'llamada_virtual' ? '📞 Iniciar Llamada' : 
-                     activity.tipo_actividad === 'quiz' ? '❓ Tomar Quiz' :
-                     activity.tipo_actividad === 'juego' ? '🎮 Jugar' : '📖 Estudiar'}
+                    {activity.tipo_actividad === 'llamada_virtual' ? 'Iniciar Llamada' : 
+                     activity.tipo_actividad === 'quiz' ? 'Tomar Quiz' :
+                     activity.tipo_actividad === 'juego' ? 'Jugar' : 'Estudiar'}
                   </button>
                 </div>
               </div>
