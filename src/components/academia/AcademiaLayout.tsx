@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { 
+  Target, 
+  BookOpen, 
+  Trophy, 
+  Crown, 
+  User, 
+  Flame, 
+  Star, 
+  GraduationCap,
+  Rocket,
+  Zap
+} from 'lucide-react';
 
 interface AcademiaLayoutProps {
   children: React.ReactNode;
@@ -17,11 +29,11 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
   });
 
   const navigationItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '🎯', path: '/academia' },
-    { id: 'levels', label: 'Niveles', icon: '📚', path: '/academia/niveles' },
-    { id: 'achievements', label: 'Logros', icon: '🏆', path: '/academia/logros' },
-    { id: 'leaderboard', label: 'Ranking', icon: '👑', path: '/academia/ranking' },
-    { id: 'profile', label: 'Mi Perfil', icon: '👤', path: '/academia/perfil' }
+    { id: 'dashboard', label: 'Dashboard', icon: <Target className="w-4 h-4" />, path: '/academia' },
+    { id: 'levels', label: 'Niveles', icon: <BookOpen className="w-4 h-4" />, path: '/academia/niveles' },
+    { id: 'achievements', label: 'Logros', icon: <Trophy className="w-4 h-4" />, path: '/academia/logros' },
+    { id: 'leaderboard', label: 'Ranking', icon: <Crown className="w-4 h-4" />, path: '/academia/ranking' },
+    { id: 'profile', label: 'Mi Perfil', icon: <User className="w-4 h-4" />, path: '/academia/perfil' }
   ];
 
   const baseClasses = isLinearTheme 
@@ -45,9 +57,7 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
                   ? 'bg-slate-100 dark:bg-slate-800'
                   : 'bg-gradient-to-br from-indigo-500 to-purple-600'
               }`}>
-                <span className={`text-xl ${isLinearTheme ? 'text-slate-700 dark:text-slate-300' : 'text-white'}`}>
-                  🎓
-                </span>
+                <GraduationCap className={`w-6 h-6 ${isLinearTheme ? 'text-slate-700 dark:text-slate-300' : 'text-white'}`} />
               </div>
               <div>
                 <h1 className={`text-xl font-bold ${
@@ -78,13 +88,11 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
                     ? 'bg-orange-100 dark:bg-orange-900/20'
                     : 'bg-gradient-to-br from-orange-400 to-red-500'
                 }`}>
-                  <span className={`text-sm ${
+                  <Flame className={`w-4 h-4 ${
                     isLinearTheme 
                       ? 'text-orange-600 dark:text-orange-400'
                       : 'text-white'
-                  }`}>
-                    🔥
-                  </span>
+                  }`} />
                 </div>
                 <div className="text-right">
                   <div className={`text-sm font-semibold ${
@@ -111,13 +119,11 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
                     ? 'bg-emerald-100 dark:bg-emerald-900/20'
                     : 'bg-gradient-to-br from-emerald-400 to-green-500'
                 }`}>
-                  <span className={`text-sm ${
+                  <Star className={`w-4 h-4 ${
                     isLinearTheme 
                       ? 'text-emerald-600 dark:text-emerald-400'
                       : 'text-white'
-                  }`}>
-                    ⭐
-                  </span>
+                  }`} />
                 </div>
                 <div className="text-right">
                   <div className={`text-sm font-semibold ${
@@ -213,7 +219,7 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
             ? 'bg-slate-600 hover:bg-slate-700 text-white'
             : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white'
         }`}>
-          <span className="text-xl">🚀</span>
+          <Rocket className="w-6 h-6" />
         </button>
       </div>
 

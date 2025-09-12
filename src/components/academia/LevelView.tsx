@@ -386,7 +386,7 @@ const LevelView: React.FC<LevelViewProps> = ({ levelId, onBack }) => {
         <div className={`p-8 rounded-2xl ${
           isLinearTheme 
             ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
-            : 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:bg-slate-800 border border-indigo-200 dark:border-slate-700'
+            : 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-700 border border-indigo-200 dark:border-slate-700'
         }`}>
           <div className="flex items-center space-x-4 mb-4">
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br ${getActivityColor('llamada_virtual')} text-white`}>

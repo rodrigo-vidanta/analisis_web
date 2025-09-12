@@ -13,7 +13,11 @@ interface LeaderboardUser {
   isCurrentUser?: boolean;
 }
 
-const LeaderboardView: React.FC = () => {
+interface LeaderboardViewProps {
+  onNavigate?: (section: string) => void;
+}
+
+const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigate }) => {
   const { isLinearTheme } = useTheme();
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [timeFilter, setTimeFilter] = useState<'week' | 'month' | 'all'>('all');
@@ -233,7 +237,7 @@ const LeaderboardView: React.FC = () => {
   }
 
   return (
-    <AcademiaLayout currentSection="leaderboard">
+    <AcademiaLayout currentSection="leaderboard" onNavigate={onNavigate}>
       <div className="space-y-8">
         {/* Header */}
         <div className="text-center">

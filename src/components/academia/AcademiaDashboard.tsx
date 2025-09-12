@@ -7,6 +7,16 @@ import AcademiaAdminPanel from './AcademiaAdminPanel';
 import AchievementsView from './AchievementsView';
 import LeaderboardView from './LeaderboardView';
 import ProfileView from './ProfileView';
+import { 
+  Phone, 
+  Settings, 
+  Wand2, 
+  Building2, 
+  Users, 
+  TrendingUp,
+  Sparkles,
+  Zap
+} from 'lucide-react';
 
 interface Level {
   id: number;
@@ -18,7 +28,7 @@ interface Level {
   isCompleted: boolean;
   progress: number; // 0-100
   color: string;
-  icon: string;
+  icon: React.ReactNode;
   activitiesCompleted: number;
   totalActivities: number;
 }
@@ -27,7 +37,7 @@ interface Achievement {
   id: number;
   name: string;
   description: string;
-  icon: string;
+  icon: React.ReactNode;
   color: string;
   isUnlocked: boolean;
   unlockedAt?: Date;
@@ -56,7 +66,7 @@ const AcademiaDashboard: React.FC = () => {
         isCompleted: false,
         progress: 75,
         color: 'blue',
-        icon: '🏛️',
+        icon: <Building2 className="w-6 h-6" />,
         activitiesCompleted: 3,
         totalActivities: 4
       },
@@ -70,7 +80,7 @@ const AcademiaDashboard: React.FC = () => {
         isCompleted: false,
         progress: 0,
         color: 'emerald',
-        icon: '🤝',
+        icon: <Users className="w-6 h-6" />,
         activitiesCompleted: 0,
         totalActivities: 5
       },
@@ -84,7 +94,7 @@ const AcademiaDashboard: React.FC = () => {
         isCompleted: false,
         progress: 0,
         color: 'purple',
-        icon: '📈',
+        icon: <TrendingUp className="w-6 h-6" />,
         activitiesCompleted: 0,
         totalActivities: 6
       }
@@ -95,7 +105,7 @@ const AcademiaDashboard: React.FC = () => {
         id: 1,
         name: 'Primer Paso',
         description: 'Completaste tu primera actividad',
-        icon: '👶',
+        icon: <Sparkles className="w-5 h-5" />,
         color: 'bronze',
         isUnlocked: true,
         unlockedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
@@ -104,7 +114,7 @@ const AcademiaDashboard: React.FC = () => {
         id: 2,
         name: 'Racha de Fuego',
         description: 'Mantuviste una racha de 3 días',
-        icon: '🔥',
+        icon: <Zap className="w-5 h-5" />,
         color: 'orange',
         isUnlocked: true,
         unlockedAt: new Date()
@@ -179,7 +189,7 @@ const AcademiaDashboard: React.FC = () => {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${getColorClasses(level.color)}`}>
-              <span className="text-xl">{level.icon}</span>
+              {level.icon}
             </div>
             <div>
               <h3 className={`font-bold text-lg ${
@@ -271,9 +281,9 @@ const AcademiaDashboard: React.FC = () => {
         : 'bg-white dark:bg-slate-800 border-indigo-200 dark:border-slate-700'
     }`}>
       <div className="flex items-center space-x-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br ${getColorClasses(achievement.color)}`}>
-          <span className="text-lg">{achievement.icon}</span>
-        </div>
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br ${getColorClasses(achievement.color)}`}>
+              {achievement.icon}
+            </div>
         <div className="flex-1">
           <h4 className={`font-semibold text-sm ${
             isLinearTheme 
@@ -305,15 +315,15 @@ const AcademiaDashboard: React.FC = () => {
   }
 
   if (currentView === 'achievements') {
-    return <AchievementsView />;
+    return <AchievementsView onNavigate={handleNavigate} />;
   }
 
   if (currentView === 'leaderboard') {
-    return <LeaderboardView />;
+    return <LeaderboardView onNavigate={handleNavigate} />;
   }
 
   if (currentView === 'profile') {
-    return <ProfileView />;
+    return <ProfileView onNavigate={handleNavigate} />;
   }
 
   return (
@@ -350,9 +360,7 @@ const AcademiaDashboard: React.FC = () => {
                   ? 'bg-slate-200 dark:bg-slate-700'
                   : 'bg-gradient-to-br from-indigo-500 to-purple-600'
               }`}>
-                <span className={`text-xl ${isLinearTheme ? 'text-slate-600 dark:text-slate-300' : 'text-white'}`}>
-                  📞
-                </span>
+                <Phone className={`w-6 h-6 ${isLinearTheme ? 'text-slate-600 dark:text-slate-300' : 'text-white'}`} />
               </div>
               <div>
                 <h3 className={`font-bold ${
@@ -417,7 +425,7 @@ const AcademiaDashboard: React.FC = () => {
               <div 
                 key={achievement.id}
                 style={{ animationDelay: `${index * 0.1}s` }}
-                className="animate-bounce-in"
+                className="animate-bounce-in opacity-0"
               >
                 <AchievementBadge achievement={achievement} />
               </div>
@@ -437,7 +445,7 @@ const AcademiaDashboard: React.FC = () => {
               }`}
               title="Panel de Administración"
             >
-              ⚙️
+              <Settings className="w-5 h-5" />
             </button>
           </div>
         )}

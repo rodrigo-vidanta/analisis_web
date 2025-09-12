@@ -7,7 +7,11 @@ type Achievement = Academia.Achievement;
 type UserAchievement = Academia.UserAchievement;
 const academiaService = Academia.default;
 
-const AchievementsView: React.FC = () => {
+interface AchievementsViewProps {
+  onNavigate?: (section: string) => void;
+}
+
+const AchievementsView: React.FC<AchievementsViewProps> = ({ onNavigate }) => {
   const { isLinearTheme } = useTheme();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [userAchievements, setUserAchievements] = useState<UserAchievement[]>([]);
@@ -227,7 +231,7 @@ const AchievementsView: React.FC = () => {
   const completionPercentage = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
   return (
-    <AcademiaLayout currentSection="achievements">
+    <AcademiaLayout currentSection="achievements" onNavigate={onNavigate}>
       <div className="space-y-8">
         {/* Header con Estadísticas */}
         <div className="text-center">

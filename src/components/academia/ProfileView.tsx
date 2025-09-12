@@ -27,7 +27,11 @@ interface ActivityHistory {
   duration?: number;
 }
 
-const ProfileView: React.FC = () => {
+interface ProfileViewProps {
+  onNavigate?: (section: string) => void;
+}
+
+const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
   const { isLinearTheme } = useTheme();
   const { user } = useAuth();
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -157,7 +161,7 @@ const ProfileView: React.FC = () => {
   if (!stats) return null;
 
   return (
-    <AcademiaLayout currentSection="profile">
+    <AcademiaLayout currentSection="profile" onNavigate={onNavigate}>
       <div className="space-y-8">
         {/* Header del Perfil */}
         <div className={`p-8 rounded-2xl ${
