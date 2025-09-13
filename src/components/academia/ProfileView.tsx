@@ -183,7 +183,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
             {/* Avatar Grande */}
             <div className="relative">
               <img 
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.first_name + ' ' + user?.last_name || 'Usuario')}&background=6366f1&color=fff&size=120`}
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || '') + ' ' + (user?.last_name || ''))}&background=6366f1&color=fff&size=120`}
                 alt="Avatar"
                 className="w-24 h-24 rounded-2xl object-cover border-4 border-white dark:border-slate-600 shadow-lg"
               />
@@ -197,7 +197,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
               <h1 className={`text-3xl font-bold mb-2 ${
                 isLinearTheme ? 'text-slate-900 dark:text-white' : 'text-indigo-900 dark:text-white'
               }`}>
-                {user?.first_name} {user?.last_name}
+                {(user?.first_name || '') + ' ' + (user?.last_name || '')}
               </h1>
               <p className={`text-lg mb-4 ${
                 isLinearTheme ? 'text-slate-600 dark:text-slate-400' : 'text-indigo-600 dark:text-indigo-300'

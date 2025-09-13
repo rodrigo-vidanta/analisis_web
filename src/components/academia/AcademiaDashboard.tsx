@@ -151,22 +151,30 @@ const AcademiaDashboard: React.FC = () => {
   };
 
   const handleNavigate = (section: string) => {
+    console.log('🔄 Navegando a sección:', section);
     switch (section) {
       case 'dashboard':
         setCurrentView('dashboard');
+        setSelectedLevelId(null);
         break;
       case 'levels':
         setCurrentView('dashboard'); // Los niveles se muestran en el dashboard
+        setSelectedLevelId(null);
         break;
       case 'achievements':
         setCurrentView('achievements');
+        setSelectedLevelId(null);
         break;
       case 'leaderboard':
         setCurrentView('leaderboard');
+        setSelectedLevelId(null);
         break;
       case 'profile':
         setCurrentView('profile');
+        setSelectedLevelId(null);
         break;
+      default:
+        console.warn('Sección no reconocida:', section);
     }
   };
 
@@ -303,6 +311,9 @@ const AcademiaDashboard: React.FC = () => {
       </div>
     </div>
   );
+
+  // Debug del estado actual
+  console.log('🔍 Estado actual Dashboard:', { currentView, selectedLevelId, user: user?.email });
 
   // Renderizado condicional
   if (currentView === 'level' && selectedLevelId) {

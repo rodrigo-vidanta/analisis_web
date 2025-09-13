@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../contexts/AuthContext';
 import AcademiaLayout from './AcademiaLayout';
 
 interface LeaderboardUser {
@@ -19,6 +20,7 @@ interface LeaderboardViewProps {
 
 const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigate }) => {
   const { isLinearTheme } = useTheme();
+  const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [timeFilter, setTimeFilter] = useState<'week' | 'month' | 'all'>('all');
   const [loading, setLoading] = useState(true);
@@ -53,12 +55,12 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigate }) => {
         },
         {
           rank: 3,
-          name: 'Samuel Rosales',
-          email: 'samuelrosales@grupovidanta.com',
+          name: (user?.first_name || '') + ' ' + (user?.last_name || ''),
+          email: user?.email || 'usuario@grupovidanta.com',
           totalXP: 275,
           level: 1,
           streak: 3,
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent('Samuel Rosales')}&background=6366f1&color=fff&size=150`,
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || '') + ' ' + (user?.last_name || ''))}&background=6366f1&color=fff&size=150`,
           isCurrentUser: true
         },
         {

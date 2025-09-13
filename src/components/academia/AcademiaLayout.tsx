@@ -186,7 +186,10 @@ const AcademiaLayout: React.FC<AcademiaLayoutProps> = ({ children, currentSectio
             {navigationItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => onNavigate?.(item.id)}
+                onClick={() => {
+                  console.log('🔄 Click en navegación:', item.id, 'callback:', !!onNavigate);
+                  onNavigate?.(item.id);
+                }}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   currentSection === item.id
                     ? isLinearTheme
