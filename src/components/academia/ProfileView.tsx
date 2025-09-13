@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUserProfile } from '../../hooks/useUserProfile';
 import AcademiaLayout from './AcademiaLayout';
 import { 
   Phone, 
@@ -44,6 +45,7 @@ interface ProfileViewProps {
 const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
   const { isLinearTheme } = useTheme();
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<ActivityHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
             {/* Avatar Grande */}
             <div className="relative">
               <img 
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || '') + ' ' + (user?.last_name || ''))}&background=6366f1&color=fff&size=120`}
+                src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || '') + ' ' + (user?.last_name || ''))}&background=6366f1&color=fff&size=120`}
                 alt="Avatar"
                 className="w-24 h-24 rounded-2xl object-cover border-4 border-white dark:border-slate-600 shadow-lg"
               />
