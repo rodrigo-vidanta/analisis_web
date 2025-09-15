@@ -70,29 +70,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función de login
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     try {
-      console.log('🚀 AUTH - Iniciando login con animación...');
+      console.log('🚀 AUTH - Iniciando login con:', { email: credentials.email, hasPassword: !!credentials.password });
       
       // Mostrar animación de login
       setShowLoginAnimation(true);
       
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      console.log('🔄 AUTH - Llamando authService.login...');
       const state = await authService.login(credentials);
+      
+      console.log('📊 AUTH - Resultado del login:', {
+        isAuthenticated: state.isAuthenticated,
+        hasUser: !!state.user,
+        userEmail: state.user?.email,
+        error: state.error
+      });
+      
       setAuthState(state);
       
       if (state.isAuthenticated) {
-        console.log('🚀 AUTH - Login exitoso, manteniendo animación...');
+        console.log('✅ AUTH - Login exitoso, usuario autenticado');
       } else {
+        console.warn('❌ AUTH - Login falló:', state.error);
         // Si falla el login, ocultar la animación
         setShowLoginAnimation(false);
       }
       
       return state.isAuthenticated;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('💥 AUTH - Error en login:', error);
       setAuthState(prev => ({
         ...prev,
         isLoading: false,
-        error: 'Error en el login'
+        error: `Error en el login: ${error instanceof Error ? error.message : 'Error desconocido'}`
       }));
       // Si hay error, ocultar la animación
       setShowLoginAnimation(false);

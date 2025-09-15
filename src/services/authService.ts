@@ -89,6 +89,8 @@ class AuthService {
   // Autenticar usuario con email y contraseña
   async login(credentials: LoginCredentials): Promise<AuthState> {
     try {
+      console.log('🔄 [AUTH SERVICE] Iniciando autenticación para:', credentials.email);
+      
       // Verificar credenciales usando función SQL personalizada
       const { data: authResult, error: authError } = await supabase
         .rpc('authenticate_user', {
@@ -96,17 +98,29 @@ class AuthService {
           user_password: credentials.password
         });
 
+      console.log('📊 [AUTH SERVICE] Resultado RPC authenticate_user:', {
+        hasData: !!authResult,
+        dataLength: authResult?.length || 0,
+        hasError: !!authError,
+        error: authError?.message
+      });
+
       if (authError) {
-        console.error('Auth error:', authError);
+        console.error('❌ [AUTH SERVICE] Error en RPC:', authError);
         throw new Error(authError?.message || 'Error de autenticación');
       }
 
       if (!authResult || authResult.length === 0) {
+        console.warn('⚠️ [AUTH SERVICE] No se obtuvieron resultados de autenticación');
         throw new Error('Credenciales inválidas');
       }
 
       // La función retorna un array, tomar el primer resultado
       const authData = authResult[0];
+      console.log('✅ [AUTH SERVICE] Datos de autenticación obtenidos:', {
+        user_id: authData.user_id?.slice(-8),
+        is_valid: authData.is_valid
+      });
       
       if (!authData.is_valid || !authData.user_id) {
         throw new Error('Credenciales inválidas');
