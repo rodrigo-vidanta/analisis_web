@@ -278,6 +278,23 @@ class LiveMonitorService {
       });
 
       console.log(`✅ Llamadas activas cargadas: ${combinedData.length}`);
+      
+      // Debug detallado de las llamadas
+      console.log('🔍 [SERVICE] Llamadas obtenidas de BD:', data?.length || 0);
+      console.log('🔍 [SERVICE] Llamadas después de combinar con prospectos:', combinedData.length);
+      
+      if (combinedData.length > 0) {
+        combinedData.forEach((call, index) => {
+          console.log(`🔍 [SERVICE] Llamada ${index + 1}:`, {
+            call_id: call.call_id?.slice(-8),
+            call_status: call.call_status,
+            prospecto_id: call.prospecto_id?.slice(-8),
+            nombre: call.nombre_completo || call.nombre_whatsapp,
+            whatsapp: call.whatsapp
+          });
+        });
+      }
+      
       return combinedData;
     } catch (error) {
       console.error('💥 Error en getActiveCalls:', error);

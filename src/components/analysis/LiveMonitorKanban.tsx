@@ -350,6 +350,19 @@ const LiveMonitorKanban: React.FC = () => {
       
       const allCalls = await liveMonitorService.getActiveCalls() as KanbanCall[];
       
+      console.log('🔍 [LIVE MONITOR] Llamadas obtenidas:', allCalls.length);
+      if (allCalls.length > 0) {
+        console.log('🔍 [LIVE MONITOR] Primera llamada:', {
+          call_id: allCalls[0].call_id?.slice(-8),
+          call_status: allCalls[0].call_status,
+          duracion_segundos: allCalls[0].duracion_segundos,
+          audio_ruta_bucket: allCalls[0].audio_ruta_bucket ? 'SÍ' : 'NO',
+          checkpoint_venta_actual: allCalls[0].checkpoint_venta_actual
+        });
+      } else {
+        console.warn('⚠️ [LIVE MONITOR] No se obtuvieron llamadas');
+      }
+      
       // Actualización silenciosa en background
       
       // Clasificar llamadas por estado
@@ -452,6 +465,21 @@ const LiveMonitorKanban: React.FC = () => {
         });
         
         setAllCalls(completedCalls);
+      }
+      
+      console.log('📊 [LIVE MONITOR] Clasificación final:', {
+        activas: active.length,
+        finalizadas: finished.length,
+        fallidas: failed.length,
+        historial: completedCalls.length
+      });
+      
+      if (active.length > 0) {
+        console.log('🟢 [LIVE MONITOR] Llamadas activas:', active.map(call => ({
+          call_id: call.call_id?.slice(-8),
+          call_status: call.call_status,
+          checkpoint: call.checkpoint_venta_actual
+        })));
       }
       
     } catch (error) {
