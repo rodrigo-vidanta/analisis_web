@@ -1,5 +1,35 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔍 Versión 2.0.1 - Debug y Optimizaciones (Enero 2025)
+
+### 🛠️ **MEJORAS Y CORRECCIONES**
+
+#### 🔍 **Sistema de Debug Avanzado**
+- **Logs detallados** en Live Monitor para troubleshooting
+- **Debug de clasificación** de llamadas activas/finalizadas/fallidas
+- **Logs de servicio** para identificar problemas de conexión BD
+- **Información específica** de call_status y checkpoint por llamada
+
+#### 👤 **Avatar Real del Usuario**
+- **useUserProfile hook** integrado en Academia
+- **Avatar real** del usuario logueado en perfil y ranking
+- **Fallback elegante** a generador automático si no hay foto
+- **Consistencia visual** entre todas las vistas
+
+#### 🎨 **Iconografía Modernizada**
+- **Lucide React** completamente integrado
+- **16+ emojis reemplazados** por iconos vectoriales profesionales
+- **Escalabilidad perfecta** en todos los tamaños
+- **Tema consistency** en ambas UIs
+
+#### 🔧 **Fixes Técnicos**
+- **Navegación Academia** completamente funcional
+- **Animaciones persistentes** (no desaparecen tras completarse)
+- **Modo oscuro perfecto** en todos los componentes
+- **Datos mock realistas** para testing sin BD
+
+---
+
 ## 🚀 Versión 2.0.0 - Academia de Ventas Gamificada (Enero 2025)
 
 ### ✨ **NUEVAS FUNCIONALIDADES PRINCIPALES**

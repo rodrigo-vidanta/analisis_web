@@ -1,5 +1,37 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 2.0.1 (Enero 2025)
+
+### Debug y Optimizaciones Live Monitor
+
+#### Sistema de Debug Avanzado (NUEVO)
+- **Logs detallados**: Troubleshooting completo en Live Monitor
+- **Debug de clasificación**: Llamadas activas/finalizadas/fallidas
+- **Logs de servicio**: Identificación de problemas de conexión BD
+- **Información específica**: call_status y checkpoint por llamada
+
+#### Avatar Real del Usuario (MEJORADO)
+- **useUserProfile hook**: Integrado en Academia
+- **Avatar real**: Del usuario logueado en perfil y ranking
+- **Fallback elegante**: Generador automático si no hay foto
+- **Consistencia visual**: Entre todas las vistas
+
+#### Iconografía Modernizada (COMPLETADO)
+- **Lucide React**: 16+ emojis reemplazados por iconos vectoriales
+- **Escalabilidad perfecta**: En todos los tamaños
+- **Profesionalización**: Iconos modernos y elegantes
+
+## Versión 2.0.0 (Enero 2025)
+
+### Academia de Ventas Gamificada - Lanzamiento Mayor
+
+#### Academia de Ventas Completa (NUEVO)
+- **Sistema tipo Duolingo**: Para entrenamiento de vendedores
+- **3 niveles progresivos**: Fundamentos, Conexión, Beneficios
+- **Llamadas virtuales**: Integración VAPI con asistentes IA
+- **Gamificación avanzada**: XP, logros, ranking, racha
+- **Panel administrativo**: Gestión de contenido y asistentes
+
 ## Versión 1.0.16 (Septiembre 2025)
 
 ### Live Monitor Kanban - Rediseño Completo por Checkpoints
