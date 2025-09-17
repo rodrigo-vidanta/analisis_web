@@ -202,10 +202,6 @@ class AuthService {
         // Academia disponible para todos los roles autenticados
         return true;
       
-      case 'academia-game':
-        // Academia Game disponible para admin y vendedores
-        return ['admin', 'evaluator', 'developer'].includes(this.currentUser.role_name);
-      
       default:
         // Para otros módulos, usar verificación de permisos si existe
         if (subModule) {
