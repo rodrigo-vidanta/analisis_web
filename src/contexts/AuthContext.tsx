@@ -17,7 +17,7 @@ interface AuthContextType extends AuthState {
   canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | null;
+  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'academia-game' | null;
   refreshUser: () => Promise<void>;
 }
 
@@ -358,7 +358,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | null => {
+  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'academia-game' | null => {
     if (!authState.user) return null;
 
     // Orden de prioridad de módulos
@@ -377,6 +377,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     // Academia disponible para todos
     if (canAccessModule('academia')) return 'academia';
+    
+    // Academia Game para admin y vendedores
+    if (canAccessModule('academia-game')) return 'academia-game';
     
     if (authState.user.role_name === 'admin') return 'admin';
 

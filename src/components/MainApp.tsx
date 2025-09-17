@@ -18,6 +18,8 @@ import LinearLayout from './linear/LinearLayout';
 import LinearLiveMonitor from './linear/LinearLiveMonitor';
 // Academia
 import AcademiaDashboard from './academia/AcademiaDashboard';
+// Academia Game
+import AcademiaGameDashboard from './academia-game/AcademiaGameDashboard';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -167,7 +169,7 @@ function MainApp() {
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia') => {
+  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia' | 'academia-game') => {
     setAppMode(mode);
     // Resetear steps cuando cambies de modo para evitar problemas
     if (mode !== 'constructor') {
@@ -240,6 +242,12 @@ function MainApp() {
         return (
           <ProtectedRoute requireModule="academia">
             <AcademiaDashboard />
+          </ProtectedRoute>
+        );
+      case 'academia-game':
+        return (
+          <ProtectedRoute requireModule="academia-game">
+            <AcademiaGameDashboard />
           </ProtectedRoute>
         );
       case 'admin':
