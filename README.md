@@ -173,4 +173,12 @@ Para soporte técnico o preguntas:
 
 ---
 
-**🎓 PQNC AI Platform v2.0.0** - Transformando el entrenamiento de ventas con gamificación avanzada
+**🎓 PQNC AI Platform v2.0.1** - Plataforma integral de IA para análisis y entrenamiento
+
+## 📂 **Proyectos Relacionados**
+
+### 🧠 **Clever Ideas AI Platform**
+- **Ubicación**: `/Users/darigsamuelrosalesrobledo/Documents/clever-ideas-ai-platform/`
+- **Módulos**: Agent Studio + Análisis AI únicamente
+- **Cliente**: Clever Ideas (versión simplificada)
+- **Estado**: Independiente, no conectado a git
