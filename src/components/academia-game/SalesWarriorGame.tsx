@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { WoodPanel, MetalButton, HealthBar, CharacterPortrait, ProgressOrb, BossCard, ItemIcon } from './GameAssets';
+import { GameIcon } from './GameIcons';
 
 interface GameState {
   player: {
@@ -117,9 +118,9 @@ const SalesWarriorGame: React.FC = () => {
       className="min-h-screen relative overflow-hidden"
       style={{
         background: `
-          linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%),
-          radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-          radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%)
+          linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%),
+          radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+          radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)
         `
       }}
     >
@@ -153,7 +154,7 @@ const SalesWarriorGame: React.FC = () => {
                 boxShadow: '0 0 20px rgba(255, 107, 107, 0.6), inset 0 2px 4px rgba(255,255,255,0.3)'
               }}
             >
-              <span className="text-3xl animate-bounce">⚔️</span>
+              <GameIcon type="sword" size="xl" color="gold" className="animate-bounce" />
               <div className="absolute -inset-1 rounded-full border-2 border-yellow-300 animate-ping opacity-30"></div>
             </div>
             
@@ -192,7 +193,8 @@ const SalesWarriorGame: React.FC = () => {
             <WoodPanel>
               <div className="text-center">
                 <h3 className="text-xl font-black text-yellow-100 mb-4">
-                  🦸‍♂️ {gameState.player.name.toUpperCase()} EL GUERRERO
+                  <GameIcon type="helmet" size="md" color="gold" className="inline mr-2" />
+                  {gameState.player.name.toUpperCase()} EL GUERRERO
                 </h3>
                 
                 <div className="flex justify-center mb-4">
@@ -227,7 +229,8 @@ const SalesWarriorGame: React.FC = () => {
             {/* Stats panel */}
             <WoodPanel>
               <h3 className="text-lg font-black text-yellow-100 mb-4 text-center">
-                📊 PODER DE VENTAS
+                <GameIcon type="star" size="md" color="gold" className="inline mr-2" />
+                PODER DE VENTAS
               </h3>
               
               <div className="space-y-3">
@@ -254,7 +257,8 @@ const SalesWarriorGame: React.FC = () => {
           <div className="lg:col-span-2">
             <WoodPanel className="mb-4">
               <h2 className="text-3xl font-black text-yellow-100 text-center mb-6">
-                ⚔️ ARENA DE BATALLAS
+                <GameIcon type="sword" size="lg" color="gold" className="inline mr-3" />
+                ARENA DE BATALLAS
               </h2>
               
               <div className="space-y-4">
@@ -276,7 +280,8 @@ const SalesWarriorGame: React.FC = () => {
             {/* Achievements */}
             <WoodPanel>
               <h3 className="text-lg font-black text-yellow-100 mb-4 text-center">
-                🏆 LOGROS
+                <GameIcon type="star" size="md" color="gold" className="inline mr-2" />
+                LOGROS
               </h3>
               
               <div className="space-y-2">
@@ -287,7 +292,7 @@ const SalesWarriorGame: React.FC = () => {
                   }}
                 >
                   <div className="flex items-center space-x-2">
-                    <span className="text-xl">🔥</span>
+                    <GameIcon type="gem" size="md" color="gold" />
                     <div>
                       <div className="font-bold text-white text-sm">Racha de Fuego</div>
                       <div className="text-xs text-orange-100">{gameState.player.streak} días</div>
@@ -302,7 +307,7 @@ const SalesWarriorGame: React.FC = () => {
                   }}
                 >
                   <div className="flex items-center space-x-2">
-                    <span className="text-xl">👹</span>
+                    <GameIcon type="shield" size="md" color="silver" />
                     <div>
                       <div className="font-bold text-white text-sm">Destructor de Jefes</div>
                       <div className="text-xs text-green-100">3 derrotados</div>
@@ -315,19 +320,23 @@ const SalesWarriorGame: React.FC = () => {
             {/* Action buttons */}
             <div className="space-y-3">
               <MetalButton variant="purple" size="lg" onClick={() => setGameState(prev => ({ ...prev, currentView: 'inventory' }))}>
-                🎒 INVENTARIO
+                <GameIcon type="shield" size="md" color="platinum" className="inline mr-2" />
+                INVENTARIO
               </MetalButton>
               
               <MetalButton variant="yellow" size="lg">
-                🏪 TIENDA ÉPICA
+                <GameIcon type="coin" size="md" color="gold" className="inline mr-2" />
+                TIENDA ÉPICA
               </MetalButton>
               
               <MetalButton variant="green" size="lg">
-                🎯 MISIONES DIARIAS
+                <GameIcon type="star" size="md" color="gold" className="inline mr-2" />
+                MISIONES DIARIAS
               </MetalButton>
               
               <MetalButton variant="blue" size="lg">
-                📊 ESTADÍSTICAS
+                <GameIcon type="gem" size="md" color="crystal" className="inline mr-2" />
+                ESTADÍSTICAS
               </MetalButton>
             </div>
 
@@ -341,7 +350,7 @@ const SalesWarriorGame: React.FC = () => {
                     boxShadow: '0 0 15px rgba(255, 215, 0, 0.8)'
                   }}
                 >
-                  <span className="text-xl">💰</span>
+                  <GameIcon type="coin" size="lg" color="gold" />
                 </div>
                 <div className="font-black text-yellow-100">
                   {gameState.player.gold.toLocaleString()} ORO
