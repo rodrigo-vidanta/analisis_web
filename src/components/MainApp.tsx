@@ -19,7 +19,7 @@ import LinearLiveMonitor from './linear/LinearLiveMonitor';
 // Academia
 import AcademiaDashboard from './academia/AcademiaDashboard';
 // Academia Game
-import AcademiaGameMain from './academia-game/AcademiaGameMain';
+import AcademiaGamePvZ from './academia-game/AcademiaGamePvZ';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -247,7 +247,7 @@ function MainApp() {
       case 'academia-game':
         return (
           <ProtectedRoute requireModule="academia-game">
-            <AcademiaGameMain />
+            <AcademiaGamePvZ />
           </ProtectedRoute>
         );
       case 'admin':
