@@ -278,7 +278,7 @@ const PQNCDashboard: React.FC = () => {
       // Cargar los registros con límite optimizado
       const { data, error: fetchError } = await dataQuery
         .order('start_time', { ascending: false })
-        .limit(Math.min(500, topRecords * 10)); // Límite dinámico
+        .limit(Math.min(2000, topRecords * 20)); // Límite aumentado para mejor filtrado
 
       if (fetchError) {
         throw fetchError;
@@ -533,8 +533,8 @@ const PQNCDashboard: React.FC = () => {
         // Agregar nuevos registros al inicio de la lista
         setCalls(prevCalls => {
           const updatedCalls = [...newRecords, ...prevCalls];
-          // Mantener solo los últimos 1000 registros para eficiencia
-          return updatedCalls.slice(0, 1000);
+          // Mantener solo los últimos 2000 registros para mejor filtrado
+          return updatedCalls.slice(0, 2000);
         });
         
         setLastSyncTime(new Date().toISOString());
