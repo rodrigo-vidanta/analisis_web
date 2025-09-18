@@ -213,6 +213,12 @@ class BookmarkService {
   async getUserBookmarks(userId: string, callIds?: string[]): Promise<Map<string, BookmarkData>> {
     try {
       
+      // OPTIMIZACIÓN: Limitar callIds para evitar URLs muy largas
+      if (callIds && callIds.length > 50) {
+        console.log(`⚡ [BOOKMARKS] Limitando a 50 IDs para evitar URLs largas (era ${callIds.length})`);
+        callIds = callIds.slice(0, 50);
+      }
+      
       let query = pqncSupabaseAdmin
         .from('call_bookmarks')
         .select('*')

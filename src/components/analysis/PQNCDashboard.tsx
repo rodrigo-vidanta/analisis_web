@@ -248,14 +248,11 @@ const PQNCDashboard: React.FC = () => {
       setCalls(data || []);
       setLastSyncTime(new Date().toISOString());
       
-      // RETROALIMENTACIÓN: Cargar retroalimentaciones para estas llamadas
+      // OPTIMIZACIÓN: Cargar feedback y bookmarks solo para primeros 100 registros
       if (data && data.length > 0) {
-        loadFeedbacksForCalls(data.map(call => call.id));
-      }
-      
-      // BOOKMARKS: Cargar bookmarks del usuario para estas llamadas
-      if (data && data.length > 0) {
-        loadBookmarksForCalls(data.map(call => call.id));
+        const firstBatch = data.slice(0, 100).map(call => call.id);
+        loadFeedbacksForCalls(firstBatch);
+        loadBookmarksForCalls(firstBatch);
       }
       
     } catch (err) {
