@@ -1651,8 +1651,8 @@ const PQNCDashboard: React.FC = () => {
                       <td className="px-4 py-4">
                         <div className="flex justify-center">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full truncate max-w-full ${
-                            call.call_result === 'venta_concretada' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                            call.call_result === 'seguimiento_programado' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                            call.call_result === 'venta_concretada' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400' :
+                            call.call_result === 'seguimiento_programado' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' :
                             call.call_result === 'no_interesado' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                             call.call_result === 'abandonada' ? 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400' :
                             call.call_result === 'reagenda' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
