@@ -242,17 +242,10 @@ const PQNCDashboard: React.FC = () => {
           direction,
           start_time,
           audio_file_url,
-          audio_file_name,
-          agent_performance,
-          call_evaluation,
-          comunicacion_data,
-          customer_data,
-          service_offered,
-          script_analysis,
-          compliance_data
+          audio_file_name
         `);
 
-      // OPTIMIZACIÓN: Aplicar filtros de fecha si están definidos
+      // OPTIMIZACIÓN: Aplicar filtros en BD para mejor performance
       if (dateFrom) {
         const fromDateTime = `${dateFrom}T00:00:00`;
         countQuery = countQuery.gte('start_time', fromDateTime);
@@ -263,6 +256,28 @@ const PQNCDashboard: React.FC = () => {
         const toDateTime = `${dateTo}T23:59:59`;
         countQuery = countQuery.lte('start_time', toDateTime);
         dataQuery = dataQuery.lte('start_time', toDateTime);
+      }
+      
+      // Aplicar filtros principales en BD
+      if (agentFilter) {
+        countQuery = countQuery.eq('agent_name', agentFilter);
+        dataQuery = dataQuery.eq('agent_name', agentFilter);
+      }
+      
+      if (resultFilter) {
+        countQuery = countQuery.eq('call_result', resultFilter);
+        dataQuery = dataQuery.eq('call_result', resultFilter);
+      }
+      
+      if (organizationFilter) {
+        countQuery = countQuery.eq('organization', organizationFilter);
+        dataQuery = dataQuery.eq('organization', organizationFilter);
+      }
+      
+      if (qualityFilter) {
+        const [min, max] = qualityFilter.split('-').map(Number);
+        countQuery = countQuery.gte('quality_score', min).lte('quality_score', max);
+        dataQuery = dataQuery.gte('quality_score', min).lte('quality_score', max);
       }
 
       // Obtener conteo con filtros aplicados
@@ -275,10 +290,13 @@ const PQNCDashboard: React.FC = () => {
         console.log(`📊 Registros en rango: ${count || 0}`);
       }
 
-      // Cargar los registros con límite optimizado
+      // OPTIMIZACIÓN: Límite reducido para mejor performance
+      const optimizedLimit = Math.min(500, topRecords * 5); // Reducido significativamente
+      console.log(`📊 Cargando ${optimizedLimit} registros para mejor performance`);
+      
       const { data, error: fetchError } = await dataQuery
         .order('start_time', { ascending: false })
-        .limit(Math.min(2000, topRecords * 20)); // Límite aumentado para mejor filtrado
+        .limit(optimizedLimit);
 
       if (fetchError) {
         throw fetchError;
