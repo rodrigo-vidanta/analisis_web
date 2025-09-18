@@ -103,13 +103,12 @@ const PQNCDashboard: React.FC = () => {
     return date.toISOString().split('T')[0];
   };
 
-  const [dateFrom, setDateFrom] = useState(getDefaultDateFrom());
-  const [dateTo, setDateTo] = useState(getDefaultDateTo());
+  // Sin filtros de fecha
   const [agentFilter, setAgentFilter] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
   const [resultFilter, setResultFilter] = useState('');
   const [organizationFilter, setOrganizationFilter] = useState('');
-  const [topRecords, setTopRecords] = useState<10 | 30 | 50 | 100 | 200>(30);
+  const [topRecords, setTopRecords] = useState<1000 | 3000 | 5000 | 999999>(1000);
   const [callTypeFilter, setCallTypeFilter] = useState<string[]>([]);
   const [directionFilter, setDirectionFilter] = useState<string[]>([]);
   const [customerQualityFilter, setCustomerQualityFilter] = useState<string[]>([]);
@@ -126,7 +125,7 @@ const PQNCDashboard: React.FC = () => {
   const [showDetailedView, setShowDetailedView] = useState(false);
   const [selectedCallForDetail, setSelectedCallForDetail] = useState<CallRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   const [isAdvancedFiltersCollapsed, setIsAdvancedFiltersCollapsed] = useState(true);
   
   // WIDGETS: Deshabilitados por defecto en Alpha 1.0
@@ -172,7 +171,7 @@ const PQNCDashboard: React.FC = () => {
     }, 500); // Debounce de 500ms
 
     return () => clearTimeout(timeoutId);
-  }, [dateFrom, dateTo]);
+  }, [topRecords]);
 
   // Cargar métricas globales al inicializar
   useEffect(() => {
@@ -184,43 +183,26 @@ const PQNCDashboard: React.FC = () => {
   // Aplicar filtros
   useEffect(() => {
     applyFilters();
-  }, [calls, searchQuery, dateFrom, dateTo, agentFilter, qualityFilter, resultFilter, organizationFilter, callTypeFilter, directionFilter, customerQualityFilter, requiresFollowupFilter, durationRangeFilter, qualityScoreRangeFilter, hasAudioFilter, serviceOfferedFilter, bookmarkFilter, bookmarkMap, ponderacionConfig]);
+  }, [calls, searchQuery, agentFilter, qualityFilter, resultFilter, organizationFilter, callTypeFilter, directionFilter, customerQualityFilter, requiresFollowupFilter, durationRangeFilter, qualityScoreRangeFilter, hasAudioFilter, serviceOfferedFilter, bookmarkFilter, bookmarkMap, ponderacionConfig]);
 
   // Ajustar itemsPerPage cuando cambie topRecords
   useEffect(() => {
-    // Máximo 50 por página, pero no puede exceder topRecords
-    const maxAllowed = Math.min(50, topRecords);
-    if (itemsPerPage > maxAllowed) {
-      setItemsPerPage(maxAllowed);
+    // Sin restricciones de página máxima
+    if (itemsPerPage > topRecords && topRecords !== 999999) {
+      setItemsPerPage(100);
       setCurrentPage(1);
     }
   }, [topRecords, itemsPerPage]);
 
-  // Función para validar rango máximo de 3 meses
-  const validateDateRange = (from: string, to: string) => {
-    if (!from || !to) return true; // Si no hay fechas, permitir
-    
-    const fromDate = new Date(from);
-    const toDate = new Date(to);
-    const diffTime = toDate.getTime() - fromDate.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return diffDays <= 90; // Máximo 90 días (3 meses)
-  };
+  // Sin restricciones de rango de fechas
 
   const loadCalls = async (forceReload = false) => {
     setLoading(true);
     setError(null);
 
     try {
-      // VALIDACIÓN: Verificar que el rango no exceda 3 meses
-      if (!validateDateRange(dateFrom, dateTo)) {
-        setError('El rango de fechas no puede ser mayor a 3 meses');
-        setLoading(false);
-        return;
-      }
       
-      console.log(`🔍 Cargando llamadas desde: ${dateFrom} hasta: ${dateTo}`);
+      console.log(`🔍 Cargando llamadas - Top ${topRecords === 999999 ? 'TODOS' : topRecords}`);
       
       // Construir la consulta base
       let countQuery = pqncSupabaseAdmin
@@ -245,40 +227,7 @@ const PQNCDashboard: React.FC = () => {
           audio_file_name
         `);
 
-      // OPTIMIZACIÓN: Aplicar filtros en BD para mejor performance
-      if (dateFrom) {
-        const fromDateTime = `${dateFrom}T00:00:00`;
-        countQuery = countQuery.gte('start_time', fromDateTime);
-        dataQuery = dataQuery.gte('start_time', fromDateTime);
-      }
-      
-      if (dateTo) {
-        const toDateTime = `${dateTo}T23:59:59`;
-        countQuery = countQuery.lte('start_time', toDateTime);
-        dataQuery = dataQuery.lte('start_time', toDateTime);
-      }
-      
-      // Aplicar filtros principales en BD
-      if (agentFilter) {
-        countQuery = countQuery.eq('agent_name', agentFilter);
-        dataQuery = dataQuery.eq('agent_name', agentFilter);
-      }
-      
-      if (resultFilter) {
-        countQuery = countQuery.eq('call_result', resultFilter);
-        dataQuery = dataQuery.eq('call_result', resultFilter);
-      }
-      
-      if (organizationFilter) {
-        countQuery = countQuery.eq('organization', organizationFilter);
-        dataQuery = dataQuery.eq('organization', organizationFilter);
-      }
-      
-      if (qualityFilter) {
-        const [min, max] = qualityFilter.split('-').map(Number);
-        countQuery = countQuery.gte('quality_score', min).lte('quality_score', max);
-        dataQuery = dataQuery.gte('quality_score', min).lte('quality_score', max);
-      }
+      // Sin filtros complejos - carga simple y directa
 
       // Obtener conteo con filtros aplicados
       const { count, error: countError } = await countQuery;
@@ -290,13 +239,16 @@ const PQNCDashboard: React.FC = () => {
         console.log(`📊 Registros en rango: ${count || 0}`);
       }
 
-      // OPTIMIZACIÓN: Límite reducido para mejor performance
-      const optimizedLimit = Math.min(500, topRecords * 5); // Reducido significativamente
-      console.log(`📊 Cargando ${optimizedLimit} registros para mejor performance`);
+      // Cargar según topRecords seleccionado
+      const limit = topRecords === 999999 ? undefined : topRecords;
+      console.log(`📊 Cargando ${limit || 'TODOS'} los registros`);
       
-      const { data, error: fetchError } = await dataQuery
-        .order('start_time', { ascending: false })
-        .limit(optimizedLimit);
+      let query = dataQuery.order('start_time', { ascending: false });
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      const { data, error: fetchError } = await query;
 
       if (fetchError) {
         throw fetchError;
@@ -1226,17 +1178,17 @@ const PQNCDashboard: React.FC = () => {
                   Top Registros
                 </label>
                 <div className="flex gap-2">
-                  {[10, 30, 50, 100, 200].map(num => (
+                  {[1000, 3000, 5000, 999999].map(num => (
                     <button
                       key={num}
-                      onClick={() => setTopRecords(num as 10 | 30 | 50 | 100 | 200)}
+                      onClick={() => setTopRecords(num as 1000 | 3000 | 5000 | 999999)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         topRecords === num
                           ? 'bg-blue-600 text-white shadow-md'
                           : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-500'
                       }`}
                     >
-                      Top {num}
+                      {num === 999999 ? 'TODOS' : `Top ${num/1000}K`}
                     </button>
                   ))}
                   
@@ -1825,25 +1777,15 @@ const PQNCDashboard: React.FC = () => {
                     value={itemsPerPage}
                     onChange={(e) => {
                       const newPerPage = Number(e.target.value);
-                      // Máximo 50 por página, pero no puede exceder topRecords
-                      const maxAllowed = Math.min(newPerPage, Math.min(50, topRecords));
-                      setItemsPerPage(maxAllowed);
+                      setItemsPerPage(newPerPage);
                       setCurrentPage(1);
                     }}
                     className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    {/* Opciones dinámicas con máximo de 50 por página */}
-                    {[10, 25, 50].filter(option => option <= topRecords).map(option => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                    {/* Si topRecords es menor que 50 y no está en las opciones estándar */}
-                    {topRecords < 50 && ![10, 25].includes(topRecords) && (
-                      <option value={topRecords}>{topRecords}</option>
-                    )}
+                    <option value={30}>30</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
                   </select>
-                  <span className="text-xs text-slate-400">
-                    (máx. {Math.min(50, topRecords)} por página)
-                  </span>
                 </div>
               </div>
               
