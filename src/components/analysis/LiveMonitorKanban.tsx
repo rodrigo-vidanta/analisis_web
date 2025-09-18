@@ -451,21 +451,21 @@ const LiveMonitorKanban: React.FC = () => {
         setActiveCalls(active);
         setFinishedCalls(finished);
         setFailedCalls(failed);
-        
-        // Filtrar llamadas COMPLETAMENTE procesadas para pestaña "Historial"
-        const completedCalls = allCalls.filter(call => {
-          const hasFeedback = call.tiene_feedback === true; // Solo feedback completo, no pendiente
-          const isCompleted = call.call_status === 'finalizada' || 
-                             call.call_status === 'transferida' || 
-                             call.call_status === 'colgada' ||
-                             call.call_status === 'exitosa' ||
-                             call.call_status === 'perdida';
-          
-          return hasFeedback && isCompleted;
-        });
-        
-        setAllCalls(completedCalls);
       }
+      
+      // Filtrar llamadas COMPLETAMENTE procesadas para pestaña "Historial"
+      const completedCalls = allCalls.filter(call => {
+        const hasFeedback = call.tiene_feedback === true; // Solo feedback completo, no pendiente
+        const isCompleted = call.call_status === 'finalizada' || 
+                           call.call_status === 'transferida' || 
+                           call.call_status === 'colgada' ||
+                           call.call_status === 'exitosa' ||
+                           call.call_status === 'perdida';
+        
+        return hasFeedback && isCompleted;
+      });
+      
+      setAllCalls(completedCalls);
       
       console.log('📊 [LIVE MONITOR] Clasificación final:', {
         activas: active.length,
