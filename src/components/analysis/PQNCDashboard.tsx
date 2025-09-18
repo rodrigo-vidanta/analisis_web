@@ -92,16 +92,7 @@ const PQNCDashboard: React.FC = () => {
   const [bookmarkStats, setBookmarkStats] = useState<Array<{ color: BookmarkColor; count: number }>>([]);
   
   // Inicializar filtros de fecha con últimos 30 días por defecto
-  const getDefaultDateFrom = () => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return date.toISOString().split('T')[0];
-  };
-  
-  const getDefaultDateTo = () => {
-    const date = new Date();
-    return date.toISOString().split('T')[0];
-  };
+  // Sin funciones de fecha por defecto
 
   // Sin filtros de fecha
   const [agentFilter, setAgentFilter] = useState('');
@@ -596,8 +587,6 @@ const PQNCDashboard: React.FC = () => {
     console.log(`🔍 [FILTROS] Iniciando filtrado. Total registros: ${calls.length}`);
     console.log(`🔍 [FILTROS] Filtros activos:`, {
       searchQuery: !!searchQuery,
-      dateFrom: !!dateFrom,
-      dateTo: !!dateTo,
       agentFilter: !!agentFilter,
       qualityFilter: !!qualityFilter,
       resultFilter: !!resultFilter,
@@ -607,13 +596,7 @@ const PQNCDashboard: React.FC = () => {
 
     // PRIMERO aplicar todos los filtros, LUEGO la búsqueda inteligente sobre el resultado
     
-    // Filtro de fechas
-    if (dateFrom) {
-      filtered = filtered.filter(call => new Date(call.start_time) >= new Date(dateFrom));
-    }
-    if (dateTo) {
-      filtered = filtered.filter(call => new Date(call.start_time) <= new Date(dateTo));
-    }
+    // Sin filtros de fecha
 
     // Filtros básicos
     if (agentFilter) {
@@ -1221,68 +1204,7 @@ const PQNCDashboard: React.FC = () => {
             <h4 className="text-md font-semibold text-slate-900 dark:text-white mb-4">Filtros Avanzados</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Desde
-                </label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => {
-                    setDateFrom(e.target.value);
-                    // Mostrar advertencia si excede 3 meses
-                    if (dateTo && !validateDateRange(e.target.value, dateTo)) {
-                      console.warn('⚠️ Rango mayor a 3 meses, puede afectar el rendimiento');
-                    }
-                  }}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200 ${
-                    !validateDateRange(dateFrom, dateTo) 
-                      ? 'border-red-500 dark:border-red-400' 
-                      : 'border-slate-300 dark:border-slate-600'
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Hasta
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => {
-                    setDateTo(e.target.value);
-                    // Mostrar advertencia si excede 3 meses
-                    if (dateFrom && !validateDateRange(dateFrom, e.target.value)) {
-                      console.warn('⚠️ Rango mayor a 3 meses, puede afectar el rendimiento');
-                    }
-                  }}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200 ${
-                    !validateDateRange(dateFrom, dateTo) 
-                      ? 'border-red-500 dark:border-red-400' 
-                      : 'border-slate-300 dark:border-slate-600'
-                  }`}
-                />
-              </div>
-              
-              {/* Advertencia visual si el rango excede 3 meses */}
-              {!validateDateRange(dateFrom, dateTo) && (
-                <div className="md:col-span-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <div>
-                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        ⚠️ Rango máximo excedido
-                      </p>
-                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                        El rango de fechas no puede ser mayor a 3 meses para mantener el rendimiento óptimo.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Sin filtros de fecha */}
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -1500,14 +1422,6 @@ const PQNCDashboard: React.FC = () => {
                   <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
                     Registro de Llamadas ({filteredCalls.length})
                   </h3>
-                  {(dateFrom || dateTo) && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Filtrado por fechas
-                    </span>
-                  )}
                 </div>
                 <span className="text-sm text-slate-500 dark:text-slate-400">
                   📊 Total en BD: {totalRecords.toLocaleString()}
