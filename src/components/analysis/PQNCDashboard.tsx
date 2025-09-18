@@ -72,7 +72,7 @@ const PQNCDashboard: React.FC = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
-  const [syncInterval, setSyncInterval] = useState(90); // segundos
+  const [syncInterval, setSyncInterval] = useState(120); // segundos (2 minutos)
   
   // Estados de filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -189,6 +189,38 @@ const PQNCDashboard: React.FC = () => {
 
   // Sin restricciones de rango de fechas
 
+  // Función auxiliar para obtener todos los registros con paginación automática
+  const fetchAllRecords = async (baseQuery: any): Promise<CallRecord[]> => {
+    const BATCH_SIZE = 1000;
+    let allRecords: CallRecord[] = [];
+    let hasMore = true;
+    let offset = 0;
+
+    while (hasMore) {
+      console.log(`📦 Cargando lote ${Math.floor(offset / BATCH_SIZE) + 1} (registros ${offset + 1}-${offset + BATCH_SIZE})`);
+      
+      const { data, error } = await baseQuery
+        .range(offset, offset + BATCH_SIZE - 1);
+
+      if (error) {
+        throw error;
+      }
+
+      if (data && data.length > 0) {
+        allRecords = [...allRecords, ...data];
+        console.log(`📊 Registros acumulados: ${allRecords.length}`);
+        
+        // Si recibimos menos de BATCH_SIZE registros, hemos llegado al final
+        hasMore = data.length === BATCH_SIZE;
+        offset += BATCH_SIZE;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return allRecords;
+  };
+
   const loadCalls = async (forceReload = false) => {
     setLoading(true);
     setError(null);
@@ -233,18 +265,30 @@ const PQNCDashboard: React.FC = () => {
       }
 
       // Cargar según topRecords seleccionado
-      const limit = topRecords === 999999 ? undefined : topRecords;
-      console.log(`📊 Cargando ${limit || 'TODOS'} los registros`);
+      let data: CallRecord[];
       
-      let query = dataQuery.order('start_time', { ascending: false });
-      if (limit) {
-        query = query.limit(limit);
-      }
-      
-      const { data, error: fetchError } = await query;
-
-      if (fetchError) {
-        throw fetchError;
+      if (topRecords >= 3000) {
+        // Para 3K, 5K y TODOS, usar paginación automática para superar límite de Supabase
+        console.log(`📊 Cargando ${topRecords === 999999 ? 'TODOS' : topRecords} registros con paginación automática`);
+        const baseQuery = dataQuery.order('start_time', { ascending: false });
+        const allData = await fetchAllRecords(baseQuery);
+        
+        // Si es un límite específico (3K o 5K), cortar al límite solicitado
+        data = topRecords === 999999 ? allData : allData.slice(0, topRecords);
+        console.log(`🗃️ Total de registros cargados desde BD:`, data.length);
+      } else {
+        // Para 1K, usar consulta normal (más eficiente)
+        console.log(`📊 Cargando ${topRecords} registros`);
+        const { data: limitedData, error: fetchError } = await dataQuery
+          .order('start_time', { ascending: false })
+          .limit(topRecords);
+        
+        if (fetchError) {
+          throw fetchError;
+        }
+        
+        data = limitedData || [];
+        console.log(`🗃️ Registros cargados desde BD:`, data.length);
       }
 
       setCalls(data || []);
@@ -444,7 +488,7 @@ const PQNCDashboard: React.FC = () => {
     );
   };
 
-  // Función de sincronización inteligente (solo nuevos registros)
+  // Función de sincronización inteligente que conserva el estado actual
   const syncNewRecords = async () => {
     if (!lastSyncTime) {
       console.log('🔄 Primera sincronización, cargando todos los datos...');
@@ -452,7 +496,28 @@ const PQNCDashboard: React.FC = () => {
     }
 
     try {
-      console.log('🔍 Buscando nuevos registros...');
+      console.log('🔄 Sincronización en segundo plano (conservando filtros y página)...');
+      
+      // Guardar estado actual antes de sincronizar (para conservar después)
+      const savedCurrentPage = currentPage;
+      const savedFilters = {
+        searchQuery,
+        dateFrom,
+        dateTo,
+        agentFilter,
+        qualityFilter,
+        resultFilter,
+        organizationFilter,
+        callTypeFilter,
+        directionFilter,
+        customerQualityFilter,
+        requiresFollowupFilter,
+        durationRangeFilter,
+        qualityScoreRangeFilter,
+        hasAudioFilter,
+        serviceOfferedFilter,
+        bookmarkFilter
+      };
       
       // Buscar solo registros más recientes que la última sincronización
       const { data: newRecords, error } = await pqncSupabaseAdmin
@@ -490,16 +555,17 @@ const PQNCDashboard: React.FC = () => {
       if (newRecords && newRecords.length > 0) {
         console.log(`🆕 Encontrados ${newRecords.length} nuevos registros`);
         
-        // Agregar nuevos registros al inicio de la lista
+        // Agregar nuevos registros al inicio de la lista sin perder el estado
         setCalls(prevCalls => {
           const updatedCalls = [...newRecords, ...prevCalls];
-          // Mantener solo los últimos 2000 registros para mejor filtrado
-          return updatedCalls.slice(0, 2000);
+          // Mantener límite según topRecords para evitar problemas de memoria
+          const maxRecords = topRecords === 999999 ? 10000 : Math.max(topRecords * 2, 2000);
+          return updatedCalls.slice(0, maxRecords);
         });
         
         setLastSyncTime(new Date().toISOString());
         
-        // Actualizar conteo total
+        // Actualizar conteo total sin afectar filtros
         const { count } = await pqncSupabaseAdmin
           .from('calls')
           .select('*', { count: 'exact', head: true });
@@ -507,8 +573,10 @@ const PQNCDashboard: React.FC = () => {
         if (count) {
           setTotalRecords(count);
         }
+        
+        console.log(`✅ Sincronización completada. Estado conservado: página ${savedCurrentPage}, ${Object.keys(savedFilters).filter(key => savedFilters[key as keyof typeof savedFilters]).length} filtros activos`);
       } else {
-        console.log('✅ No hay nuevos registros');
+        console.log('✅ No hay nuevos registros. Estado conservado.');
       }
     } catch (err) {
       console.error('❌ Error en sincronización automática:', err);
@@ -1004,8 +1072,10 @@ const PQNCDashboard: React.FC = () => {
   // SORTING: Aplicar ordenamiento a todos los registros filtrados primero
   const sortedFilteredCalls = applySorting(filteredCalls);
   
-  // Aplicar filtro de top records después del sorting
-  const topFilteredCalls = sortedFilteredCalls.slice(0, topRecords);
+  // Aplicar filtro de top records después del sorting (solo si no es "TODOS")
+  const topFilteredCalls = topRecords === 999999 
+    ? sortedFilteredCalls 
+    : sortedFilteredCalls.slice(0, topRecords);
   
   // Usar los registros ya ordenados y limitados
   const sortedCalls = topFilteredCalls;

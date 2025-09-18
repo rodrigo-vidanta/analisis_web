@@ -1,5 +1,57 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 2.0.4 - Paginación Inteligente + Refresh Optimizado (Enero 2025)
+
+### ✨ **NUEVAS FUNCIONALIDADES**
+
+#### 📊 **PQNC Humans - Paginación Automática Completa**
+- **Problema resuelto**: Limitación de 1000 registros en Supabase superada
+- **Implementación**: Sistema de paginación automática por lotes
+- **Alcance**: Top 3K, 5K y TODOS ahora cargan registros reales
+- **Optimización**: Top 1K sigue usando consulta directa (más eficiente)
+- **Resultado**: Acceso completo a los 7762+ registros de la base de datos
+
+#### 🔄 **Refresh Automático Inteligente**
+- **Intervalo mejorado**: Cambiado de 90 segundos a 2 minutos
+- **Estado conservado**: Filtros, página actual, búsquedas y ordenamiento se mantienen
+- **Sincronización inteligente**: Solo busca registros nuevos, no recarga todo
+- **UX mejorado**: Sin interrupciones en la experiencia del usuario
+- **Logs informativos**: Estado conservado visible en consola
+
+### 🔧 **MEJORAS TÉCNICAS**
+
+#### 📦 **Sistema de Paginación Automática**
+```typescript
+// Función fetchAllRecords implementada
+const fetchAllRecords = async (baseQuery) => {
+  // Paginación automática por lotes de 1000
+  // Acumula todos los registros hasta completar
+}
+```
+
+#### 🎯 **Lógica Condicional Inteligente**
+- **≥3000 registros**: Paginación automática + slice al límite solicitado
+- **1000 registros**: Consulta directa optimizada
+- **TODOS (999999)**: Paginación completa sin límites
+
+#### 📋 **Logs de Progreso Detallados**
+```
+📦 Cargando lote 1 (registros 1-1000)
+📦 Cargando lote 2 (registros 1001-2000)
+📦 Cargando lote 3 (registros 2001-3000)
+🗃️ Total de registros cargados desde BD: 3000
+
+🔄 Sincronización en segundo plano (conservando filtros y página)
+✅ Sincronización completada. Estado conservado: página 3, 2 filtros activos
+```
+
+### 🛠️ **CORRECCIONES**
+- **Supabase límite hard**: Superado mediante paginación por lotes
+- **Estado perdido en refresh**: Conservación completa de filtros y navegación
+- **Performance mejorada**: Carga progresiva con feedback visual
+
+---
+
 ## ⚡ Versión 2.0.3 - Optimización Performance + Fixes Críticos (Enero 2025)
 
 ### 🚨 **PROBLEMAS CRÍTICOS IDENTIFICADOS Y CORREGIDOS**
