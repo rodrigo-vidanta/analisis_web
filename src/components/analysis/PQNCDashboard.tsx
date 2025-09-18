@@ -255,14 +255,7 @@ const PQNCDashboard: React.FC = () => {
           direction,
           start_time,
           audio_file_url,
-          audio_file_name,
-          agent_performance,
-          call_evaluation,
-          comunicacion_data,
-          customer_data,
-          service_offered,
-          script_analysis,
-          compliance_data
+          audio_file_name
         `);
 
       // Sin filtros complejos - carga simple y directa
@@ -847,17 +840,64 @@ const PQNCDashboard: React.FC = () => {
     await loadTranscript(call.id);
   };
 
+  const loadDetailedCallData = async (callId: string): Promise<CallRecord | null> => {
+    try {
+      console.log('🔍 Cargando datos detallados para llamada:', callId);
+      
+      const { data, error } = await pqncSupabaseAdmin
+        .from('calls')
+        .select(`
+          id,
+          agent_name,
+          customer_name,
+          call_type,
+          call_result,
+          duration,
+          quality_score,
+          customer_quality,
+          organization,
+          direction,
+          start_time,
+          audio_file_url,
+          audio_file_name,
+          agent_performance,
+          call_evaluation,
+          comunicacion_data,
+          customer_data,
+          service_offered,
+          script_analysis,
+          compliance_data
+        `)
+        .eq('id', callId)
+        .single();
+
+      if (error) {
+        console.warn('⚠️ Error cargando datos detallados, usando datos básicos:', error);
+        return null;
+      }
+
+      console.log('📊 Datos detallados cargados:', {
+        id: data.id,
+        agent_performance: !!data.agent_performance,
+        call_evaluation: !!data.call_evaluation,
+        compliance_data: !!data.compliance_data,
+        customer_data: !!data.customer_data
+      });
+
+      return data;
+    } catch (err) {
+      console.error('❌ Error cargando datos detallados:', err);
+      return null;
+    }
+  };
+
   const openDetailedView = async (call: CallRecord) => {
     console.log('🔍 Abriendo vista detallada para llamada:', call.id, call.agent_name);
-    console.log('📊 Datos de la llamada:', {
-      id: call.id,
-      agent_performance: !!call.agent_performance,
-      call_evaluation: !!call.call_evaluation,
-      compliance_data: !!call.compliance_data,
-      customer_data: !!call.customer_data
-    });
     
-    setSelectedCallForDetail(call);
+    // Cargar datos detallados o usar los básicos si falla
+    const detailedCall = await loadDetailedCallData(call.id) || call;
+    
+    setSelectedCallForDetail(detailedCall);
     setShowDetailedView(true);
     await loadTranscript(call.id);
   };
