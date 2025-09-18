@@ -25,9 +25,15 @@ interface CallRecord {
   organization: string;
   direction: string;
   start_time: string;
-  agent_performance: any;
-  call_evaluation: any;
-  comunicacion_data: any;
+  audio_file_url?: string;
+  audio_file_name?: string;
+  agent_performance?: any;
+  call_evaluation?: any;
+  comunicacion_data?: any;
+  customer_data?: any;
+  service_offered?: any;
+  script_analysis?: any;
+  compliance_data?: any;
 }
 
 interface CallSegment {
@@ -249,7 +255,14 @@ const PQNCDashboard: React.FC = () => {
           direction,
           start_time,
           audio_file_url,
-          audio_file_name
+          audio_file_name,
+          agent_performance,
+          call_evaluation,
+          comunicacion_data,
+          customer_data,
+          service_offered,
+          script_analysis,
+          compliance_data
         `);
 
       // Sin filtros complejos - carga simple y directa
@@ -807,17 +820,23 @@ const PQNCDashboard: React.FC = () => {
 
   const loadTranscript = async (callId: string) => {
     try {
+      console.log('🔍 Cargando transcripción para call ID:', callId);
+      
       const { data, error } = await pqncSupabaseAdmin
         .from('call_segments')
         .select('*')
         .eq('call_id', callId)
         .order('segment_index', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error en consulta call_segments:', error);
+        throw error;
+      }
       
+      console.log('📋 Segmentos encontrados:', data?.length || 0);
       setTranscript(data || []);
     } catch (err) {
-      console.error('Error loading transcript:', err);
+      console.error('❌ Error loading transcript:', err);
       setError('Error al cargar la transcripción');
     }
   };
@@ -829,6 +848,15 @@ const PQNCDashboard: React.FC = () => {
   };
 
   const openDetailedView = async (call: CallRecord) => {
+    console.log('🔍 Abriendo vista detallada para llamada:', call.id, call.agent_name);
+    console.log('📊 Datos de la llamada:', {
+      id: call.id,
+      agent_performance: !!call.agent_performance,
+      call_evaluation: !!call.call_evaluation,
+      compliance_data: !!call.compliance_data,
+      customer_data: !!call.customer_data
+    });
+    
     setSelectedCallForDetail(call);
     setShowDetailedView(true);
     await loadTranscript(call.id);
@@ -1623,10 +1651,18 @@ const PQNCDashboard: React.FC = () => {
                       <td className="px-4 py-4">
                         <div className="flex justify-center">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full truncate max-w-full ${
-                            call.call_result === 'seguimiento_programado' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                             call.call_result === 'venta_concretada' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            call.call_result === 'seguimiento_programado' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                             call.call_result === 'no_interesado' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                            call.call_result === 'abandonada' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400' :
+                            call.call_result === 'abandonada' ? 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400' :
+                            call.call_result === 'reagenda' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                            call.call_result === 'no_contesta' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                            call.call_result === 'ocupado' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                            call.call_result === 'fuera_perfil' ? 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400' :
+                            call.call_result === 'callback' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                            call.call_result === 'informacion_enviada' ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400' :
+                            call.call_result === 'numero_equivocado' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
+                            call.call_result === 'no_califica' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400' :
                             'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                           }`} title={call.call_result.replace('_', ' ')}>
                             {call.call_result.replace('_', ' ')}
