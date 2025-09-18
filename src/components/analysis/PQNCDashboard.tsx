@@ -228,6 +228,7 @@ const PQNCDashboard: React.FC = () => {
   };
 
   const loadCalls = async (forceReload = false) => {
+    console.log('🚀 INICIANDO loadCalls...');
     setLoading(true);
     setError(null);
 
@@ -261,10 +262,12 @@ const PQNCDashboard: React.FC = () => {
       // Sin filtros complejos - carga simple y directa
 
       // Obtener conteo con filtros aplicados
+      console.log('📊 Ejecutando consulta de conteo...');
       const { count, error: countError } = await countQuery;
 
       if (countError) {
-        console.warn('⚠️ Error obteniendo conteo:', countError);
+        console.error('❌ Error obteniendo conteo:', countError);
+        throw countError;
       } else {
         setTotalRecords(count || 0);
         console.log(`📊 Registros en rango: ${count || 0}`);
@@ -297,9 +300,11 @@ const PQNCDashboard: React.FC = () => {
         console.log(`🗃️ Registros cargados desde BD:`, data.length);
       }
 
+      console.log('✅ Datos cargados, estableciendo estado...');
       setCalls(data || []);
       setLastSyncTime(new Date().toISOString());
       
+      console.log('🔄 Cargando servicios adicionales...');
       // OPTIMIZACIÓN: Cargar feedback y bookmarks solo para primeros 100 registros
       if (data && data.length > 0) {
         const firstBatch = data.slice(0, 100).map(call => call.id);
@@ -307,10 +312,12 @@ const PQNCDashboard: React.FC = () => {
         loadBookmarksForCalls(firstBatch);
       }
       
+      console.log('🎉 LoadCalls completado exitosamente');
     } catch (err) {
       console.error('❌ Error loading calls:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
+      console.log('🏁 Finalizando loadCalls, setLoading(false)');
       setLoading(false);
     }
   };

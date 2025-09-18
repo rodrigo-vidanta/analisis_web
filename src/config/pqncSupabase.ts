@@ -23,7 +23,8 @@ export const pqncSupabase = createClient(pqncSupabaseUrl, pqncSupabaseAnonKey, {
 export const pqncSupabaseAdmin = createClient(pqncSupabaseUrl, pqncSupabaseServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
-    persistSession: false
+    persistSession: false,
+    storageKey: 'pqnc-admin-auth' // Clave diferente para evitar conflictos
   },
   global: {
     headers: {
