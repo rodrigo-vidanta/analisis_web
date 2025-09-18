@@ -94,7 +94,9 @@ const PQNCDashboard: React.FC = () => {
   // Inicializar filtros de fecha con últimos 30 días por defecto
   // Sin funciones de fecha por defecto
 
-  // Sin filtros de fecha
+  // Filtros de fecha opcionales (sin restricciones)
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
   const [resultFilter, setResultFilter] = useState('');
@@ -174,7 +176,7 @@ const PQNCDashboard: React.FC = () => {
   // Aplicar filtros
   useEffect(() => {
     applyFilters();
-  }, [calls, searchQuery, agentFilter, qualityFilter, resultFilter, organizationFilter, callTypeFilter, directionFilter, customerQualityFilter, requiresFollowupFilter, durationRangeFilter, qualityScoreRangeFilter, hasAudioFilter, serviceOfferedFilter, bookmarkFilter, bookmarkMap, ponderacionConfig]);
+  }, [calls, searchQuery, dateFrom, dateTo, agentFilter, qualityFilter, resultFilter, organizationFilter, callTypeFilter, directionFilter, customerQualityFilter, requiresFollowupFilter, durationRangeFilter, qualityScoreRangeFilter, hasAudioFilter, serviceOfferedFilter, bookmarkFilter, bookmarkMap, ponderacionConfig]);
 
   // Ajustar itemsPerPage cuando cambie topRecords
   useEffect(() => {
@@ -593,7 +595,13 @@ const PQNCDashboard: React.FC = () => {
 
     // PRIMERO aplicar todos los filtros, LUEGO la búsqueda inteligente sobre el resultado
     
-    // Sin filtros de fecha
+    // Filtros de fecha opcionales
+    if (dateFrom) {
+      filtered = filtered.filter(call => new Date(call.start_time) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+      filtered = filtered.filter(call => new Date(call.start_time) <= new Date(dateTo));
+    }
 
     // Filtros básicos
     if (agentFilter) {
@@ -1201,7 +1209,30 @@ const PQNCDashboard: React.FC = () => {
             <h4 className="text-md font-semibold text-slate-900 dark:text-white mb-4">Filtros Avanzados</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-              {/* Sin filtros de fecha */}
+              {/* Filtros de fecha opcionales */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Desde (opcional)
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Hasta (opcional)
+                </label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">

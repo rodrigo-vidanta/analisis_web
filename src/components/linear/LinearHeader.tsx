@@ -14,7 +14,7 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
   currentMode,
   onToggleSidebar
 }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const getModuleTitle = () => {
     switch (currentMode) {
@@ -87,6 +87,17 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
                 {(user?.first_name || user?.email || 'U').charAt(0).toUpperCase()}
               </span>
             </div>
+            
+            {/* Logout button */}
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+              title="Cerrar sesión"
+            >
+              <svg className="w-5 h-5 text-gray-500 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>

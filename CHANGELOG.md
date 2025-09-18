@@ -1,5 +1,46 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## ⚡ Versión 2.0.3 - Optimización Performance + Fixes Críticos (Enero 2025)
+
+### 🚨 **PROBLEMAS CRÍTICOS IDENTIFICADOS Y CORREGIDOS**
+
+#### 🔧 **Crisis de Configuración Supabase**
+- **Problema**: Cambios en storage keys rompieron sesiones existentes
+- **Causa**: Modificación de `pqnc-supabase-auth` → `pqnc-main-auth-2024`
+- **Impacto**: Login bloqueado, aplicación inaccesible
+- **Solución**: Rollback a configuración original estable
+- **Lección**: NO cambiar storage keys en producción
+
+#### 🚀 **Performance Crítico - URLs Masivas**
+- **Problema**: URLs de 50KB+ causaban `net::ERR_FAILED`
+- **Causa**: Consultas con 1000+ IDs en feedback/bookmarks
+- **Impacto**: Errores de red, funcionalidad rota
+- **Solución**: Límite 50 IDs por consulta, carga progresiva
+- **Resultado**: LCP mejorado 2.7s → 1.36s (49% mejor)
+
+#### 🗄️ **Errores de Estructura de Base de Datos**
+- **Problema**: Consultas a columnas inexistentes (`color_palette`)
+- **Causa**: Desconocimiento de estructura real de BD
+- **Impacto**: Error 400 en app_themes, bloqueo de inicialización
+- **Solución**: Mapeo correcto a `theme_config`
+- **Lección**: Verificar estructura real antes de consultar
+
+#### 📊 **Filtros Simplificados para Escalabilidad**
+- **Problema**: Filtros complejos no escalaban a millones de registros
+- **Causa**: Validaciones restrictivas, límites artificiales
+- **Impacto**: Performance pobre, restricciones innecesarias
+- **Solución**: Tops 1K/3K/5K/TODOS, 100 registros/página
+- **Resultado**: Preparado para millones de registros
+
+### ✅ **FUNCIONALIDADES AGREGADAS**
+
+#### 🔓 **Mejoras de UX**
+- **Linear Mode**: Botón de logout agregado
+- **Login**: Funcionalidad "recordar mi cuenta" implementada
+- **Filtros**: Fecha opcional sin restricciones en filtros avanzados
+
+---
+
 ## 🔧 Versión 2.0.2 - Fixes Críticos Filtros PQNC (Enero 2025)
 
 ### 🚨 **BUGS CRÍTICOS CORREGIDOS**
