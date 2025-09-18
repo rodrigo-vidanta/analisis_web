@@ -184,7 +184,7 @@ const PQNCDashboard: React.FC = () => {
   // Aplicar filtros
   useEffect(() => {
     applyFilters();
-  }, [calls, searchQuery, dateFrom, dateTo, agentFilter, qualityFilter, resultFilter, organizationFilter, callTypeFilter, directionFilter, customerQualityFilter, requiresFollowupFilter, durationRangeFilter, qualityScoreRangeFilter, hasAudioFilter, serviceOfferedFilter, bookmarkFilter, bookmarkMap]);
+  }, [calls, searchQuery, dateFrom, dateTo, agentFilter, qualityFilter, resultFilter, organizationFilter, callTypeFilter, directionFilter, customerQualityFilter, requiresFollowupFilter, durationRangeFilter, qualityScoreRangeFilter, hasAudioFilter, serviceOfferedFilter, bookmarkFilter, bookmarkMap, ponderacionConfig]);
 
   // Ajustar itemsPerPage cuando cambie topRecords
   useEffect(() => {
@@ -582,8 +582,12 @@ const PQNCDashboard: React.FC = () => {
     const naturalLanguageMatches = filtered.filter(call => {
       // Detectar patrones comunes
       if (searchTerm.includes('venta') || searchTerm.includes('exitosa') || searchTerm.includes('conversion')) {
-        return call.call_result?.toLowerCase().includes('venta') || 
-               call.call_result?.toLowerCase().includes('exitosa');
+        const result = call.call_result?.toLowerCase().includes('venta') || 
+                      call.call_result?.toLowerCase().includes('exitosa');
+        if (result) {
+          console.log(`🔍 [BÚSQUEDA] Encontrada venta: ${call.id} - ${call.call_result}`);
+        }
+        return result;
       }
       if (searchTerm.includes('no interesado') || searchTerm.includes('rechazo')) {
         return call.call_result?.toLowerCase().includes('no_interesado') ||
@@ -619,6 +623,18 @@ const PQNCDashboard: React.FC = () => {
   const applyFilters = () => {
     let filtered = [...calls];
 
+    console.log(`🔍 [FILTROS] Iniciando filtrado. Total registros: ${calls.length}`);
+    console.log(`🔍 [FILTROS] Filtros activos:`, {
+      searchQuery: !!searchQuery,
+      dateFrom: !!dateFrom,
+      dateTo: !!dateTo,
+      agentFilter: !!agentFilter,
+      qualityFilter: !!qualityFilter,
+      resultFilter: !!resultFilter,
+      organizationFilter: !!organizationFilter,
+      bookmarkFilter: !!bookmarkFilter
+    });
+
     // PRIMERO aplicar todos los filtros, LUEGO la búsqueda inteligente sobre el resultado
     
     // Filtro de fechas
@@ -631,17 +647,39 @@ const PQNCDashboard: React.FC = () => {
 
     // Filtros básicos
     if (agentFilter) {
-      filtered = filtered.filter(call => call.agent_name === agentFilter);
+      filtered = filtered.filter(call => call.agent_name && call.agent_name === agentFilter);
     }
     if (qualityFilter) {
       const [min, max] = qualityFilter.split('-').map(Number);
       filtered = filtered.filter(call => call.quality_score >= min && call.quality_score <= max);
     }
     if (resultFilter) {
-      filtered = filtered.filter(call => call.call_result === resultFilter);
+      console.log(`🔍 [FILTRO] Aplicando filtro de resultado: "${resultFilter}"`);
+      const beforeCount = filtered.length;
+      
+      // Mejorar filtro para manejar variaciones
+      filtered = filtered.filter(call => {
+        if (!call.call_result) return false;
+        
+        // Normalizar para comparación
+        const callResult = call.call_result.toLowerCase().trim();
+        const filterValue = resultFilter.toLowerCase().trim();
+        
+        // Búsqueda exacta O parcial para flexibilidad
+        return callResult === filterValue || callResult.includes(filterValue);
+      });
+      
+      const afterCount = filtered.length;
+      console.log(`🔍 [FILTRO] Resultado: ${beforeCount} → ${afterCount} registros`);
+      
+      if (afterCount === 0 && beforeCount > 0) {
+        console.warn(`⚠️ [FILTRO] Filtro "${resultFilter}" no produjo resultados. Valores únicos en BD:`, 
+          [...new Set(calls.map(c => c.call_result).filter(Boolean))].slice(0, 10)
+        );
+      }
     }
     if (organizationFilter) {
-      filtered = filtered.filter(call => call.organization === organizationFilter);
+      filtered = filtered.filter(call => call.organization && call.organization === organizationFilter);
     }
 
     // BOOKMARKS: Filtro por color de marcador
@@ -655,10 +693,10 @@ const PQNCDashboard: React.FC = () => {
 
     // Filtros adicionales avanzados
     if (callTypeFilter.length > 0) {
-      filtered = filtered.filter(call => callTypeFilter.includes(call.call_type));
+      filtered = filtered.filter(call => call.call_type && callTypeFilter.includes(call.call_type));
     }
     if (directionFilter.length > 0) {
-      filtered = filtered.filter(call => directionFilter.includes(call.direction));
+      filtered = filtered.filter(call => call.direction && directionFilter.includes(call.direction));
     }
     if (customerQualityFilter.length > 0) {
       filtered = filtered.filter(call => call.customer_quality && customerQualityFilter.includes(call.customer_quality));
@@ -733,6 +771,12 @@ const PQNCDashboard: React.FC = () => {
     
     setFilteredCalls(filtered);
     setCurrentPage(1);
+    
+    console.log(`✅ [FILTROS] Filtrado completado: ${calls.length} → ${filtered.length} registros`);
+    
+    if (filtered.length === 0 && calls.length > 0) {
+      console.warn(`⚠️ [FILTROS] Sin resultados. Revisar filtros activos.`);
+    }
   };
 
   const loadTranscript = async (callId: string) => {

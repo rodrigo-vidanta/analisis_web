@@ -1,5 +1,21 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 2.0.2 (Enero 2025)
+
+### Fixes Críticos Filtros PQNC Humans
+
+#### Bugs Críticos Corregidos (CRÍTICO)
+- **useEffect dependencies**: Bug que impedía re-filtrado al cambiar ponderación
+- **Filtro call_result**: Mejorado para búsqueda exacta + parcial
+- **Valores null/undefined**: Validación en agentFilter, organizationFilter
+- **Debug detallado**: Logs para troubleshooting de filtros problemáticos
+
+#### Sistema de Diagnóstico Implementado (NUEVO)
+- **Logs de filtrado**: Inicio, progreso y resultado de cada filtro
+- **Debug de ventas**: Específico para call_result matching
+- **Warning de 0 resultados**: Con valores únicos de BD mostrados
+- **Troubleshooting**: Para identificar filtros que no funcionan
+
 ## Versión 2.0.1 (Enero 2025)
 
 ### Debug y Optimizaciones Live Monitor

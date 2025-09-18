@@ -1,5 +1,30 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión 2.0.2 - Fixes Críticos Filtros PQNC (Enero 2025)
+
+### 🚨 **BUGS CRÍTICOS CORREGIDOS**
+
+#### 🔍 **Filtros PQNC Humans - Fixes Críticos**
+- **useEffect dependencies**: Agregado `ponderacionConfig` a dependencias
+- **Filtro call_result**: Mejorado para manejar variaciones (exacta + parcial)
+- **Valores null/undefined**: Validación agregada en agentFilter, organizationFilter, etc.
+- **Debug system**: Logs detallados para troubleshooting de filtros
+- **Búsqueda inteligente**: Logs específicos para ventas concretadas
+
+#### 🔧 **Mejoras de Diagnóstico**
+- **Logs de inicio**: Total de registros y filtros activos
+- **Logs por filtro**: Antes/después del filtrado
+- **Warning de 0 resultados**: Con valores únicos de BD
+- **Logs de ventas**: Específicos para call_result matching
+
+#### 📊 **Proyecto Clever Ideas**
+- **Separación completa**: Proyecto independiente creado
+- **Solo 2 módulos**: Agent Studio + Análisis AI
+- **Sin conexión git**: Directorio independiente
+- **Puerto 3000**: Para evitar conflictos
+
+---
+
 ## 🔍 Versión 2.0.1 - Debug y Optimizaciones (Enero 2025)
 
 ### 🛠️ **MEJORAS Y CORRECCIONES**
