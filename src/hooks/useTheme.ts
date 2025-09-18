@@ -5,7 +5,7 @@ export interface ThemeConfig {
   theme_name: string;
   display_name: string;
   description: string;
-  color_palette: any;
+  theme_config: any;
   is_active: boolean;
 }
 
@@ -17,23 +17,33 @@ export const useTheme = () => {
   // Cargar tema activo desde la base de datos
   const loadActiveTheme = async () => {
     try {
-      // Usar tema por defecto (system_config no disponible)
-      console.log('🎨 Usando tema por defecto (system_config no disponible)');
-      setCurrentTheme('default');
-      
-      // Aplicar tema al documento
-      applyThemeToDocument('default');
+      // Cargar configuración de tema activo
+      const { data: themeConfig, error: configError } = await supabase
+        .from('system_config')
+        .select('config_value')
+        .eq('config_key', 'app_theme')
+        .single();
 
-      // Usar temas por defecto (app_themes no disponible)
-      setAvailableThemes([
-        {
-          theme_name: 'default',
-          display_name: 'Tema Por Defecto',
-          description: 'Tema oscuro por defecto',
-          color_palette: {},
-          is_active: true
-        }
-      ]);
+      if (configError) {
+        console.log('No theme config found, using default');
+        setCurrentTheme('default');
+      } else {
+        const activeThemeName = themeConfig.config_value?.active_theme || 'default';
+        setCurrentTheme(activeThemeName);
+        
+        // Aplicar tema al documento
+        applyThemeToDocument(activeThemeName);
+      }
+
+      // Cargar temas disponibles
+      const { data: themes, error: themesError } = await supabase
+        .from('app_themes')
+        .select('theme_name, display_name, description, theme_config, is_active')
+        .order('display_name');
+
+      if (!themesError && themes) {
+        setAvailableThemes(themes);
+      }
 
     } catch (error) {
       console.error('Error loading theme:', error);
