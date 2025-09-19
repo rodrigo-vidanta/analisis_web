@@ -142,8 +142,35 @@ const PQNCDashboard: React.FC = () => {
   ]);
 
 
+  // TEMPORAL: Consultar tipos de call_result únicos
+  const queryUniqueCallResults = async () => {
+    try {
+      console.log('🔍 Consultando tipos únicos de call_result...');
+      const { data, error } = await pqncSupabaseAdmin
+        .from('calls')
+        .select('call_result')
+        .not('call_result', 'is', null);
+      
+      if (error) {
+        console.error('❌ Error consultando call_result:', error);
+        return;
+      }
+      
+      const uniqueResults = [...new Set(data.map(item => item.call_result))].sort();
+      console.log('📊 TIPOS ÚNICOS DE CALL_RESULT ENCONTRADOS:');
+      uniqueResults.forEach((result, index) => {
+        console.log(`${index + 1}. "${result}"`);
+      });
+      console.log(`\n📈 Total de tipos diferentes: ${uniqueResults.length}`);
+      
+    } catch (err) {
+      console.error('❌ Error en consulta:', err);
+    }
+  };
+
   // Cargar datos iniciales y configurar sincronización
   useEffect(() => {
+    queryUniqueCallResults(); // TEMPORAL: Ejecutar consulta de tipos
     loadCalls();
     
     // Configurar sincronización automática
