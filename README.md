@@ -1,4 +1,4 @@
-# 🚀 PQNC AI Platform v2.0.4
+# 🚀 PQNC AI Platform v2.0.5
 
 ## 📋 **Descripción**
 
@@ -173,7 +173,7 @@ Para soporte técnico o preguntas:
 
 ---
 
-**🎓 PQNC AI Platform v2.0.4** - Plataforma integral de IA para análisis y entrenamiento
+**🎓 PQNC AI Platform v2.0.5** - Plataforma integral de IA para análisis y entrenamiento
 
 ## 📂 **Proyectos Relacionados**
 

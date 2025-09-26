@@ -1,5 +1,84 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 2.0.5 - Live Monitor Optimizado + Transferencia Personalizada (Enero 2025)
+
+### ✨ **NUEVAS FUNCIONALIDADES**
+
+#### 📞 **Live Monitor - Detección Automática de Cambios de Estado**
+- **Problema resuelto**: Cambios de llamada activa → finalizada no se detectaban automáticamente
+- **Implementación**: Sistema de detección robusta de cambios de estado
+- **Detección granular**: Identifica cambios específicos sin re-render innecesario
+- **Indicadores visuales**: Punto verde cuando detecta cambios + logs informativos
+- **Performance**: Comparación eficiente usando Maps para estados de llamadas
+
+#### 🔄 **Refresh Manual sin Recarga de Página**
+- **Botón de actualización**: Disponible en esquina superior derecha del Live Monitor
+- **Actualización on-demand**: Permite refresh inmediato sin recargar página completa
+- **Indicador visual**: Muestra "Actualizando..." durante el proceso
+- **Accesibilidad**: Siempre visible para uso manual cuando sea necesario
+
+#### 📝 **Transferencia con Texto Personalizado**
+- **Campo personalizado**: Textarea para mensajes de transferencia personalizados
+- **Sanitización robusta**: Solo permite letras y espacios para compatibilidad con API VAPI
+- **Validación en tiempo real**: Límite de 200 caracteres con feedback visual
+- **Modo dual**: Opciones predefinidas O texto personalizado
+- **Seguridad JSON**: Previene ruptura de estructura JSON en API
+
+### 🔧 **MEJORAS TÉCNICAS**
+
+#### 🎯 **Detección Inteligente de Cambios**
+```typescript
+// Sistema de comparación de estados mejorado
+const currentAllCalls = new Map();
+const newAllCalls = new Map();
+// Detecta: activa→finalizada, cambios checkpoint, nuevas llamadas
+```
+
+#### 🧹 **Sanitización de Texto para API VAPI**
+```typescript
+const sanitizeTransferText = (text: string): string => {
+  return text
+    .replace(/[^a-zA-Z\s]/g, '')  // Solo letras y espacios
+    .replace(/\s+/g, ' ')        // Espacios normalizados
+    .trim()                       // Trim automático
+    .substring(0, 200);          // Límite de longitud
+};
+```
+
+#### ⚡ **Optimizaciones de Performance**
+- **Intervalo optimizado**: Refresh cada 3 segundos (más frecuente)
+- **Actualización condicional**: Solo actualiza cuando hay cambios reales
+- **Logs optimizados**: Eliminados logs excesivos, solo cambios importantes
+- **Memoria eficiente**: Comparaciones rápidas sin recrear objetos
+
+### 🐛 **CORRECCIONES**
+
+#### 🔍 **Live Monitor - Detección de Cambios**
+- **Antes**: Solo detectaba cambios de checkpoint, no cambios de estado
+- **Después**: Detecta automáticamente activa → finalizada sin refresh manual
+- **Resultado**: Experiencia fluida sin necesidad de recargar página
+
+#### 📊 **Logs de Consola**
+- **Antes**: Logs excesivos que saturaban la consola
+- **Después**: Solo logs informativos de cambios importantes
+- **Resultado**: Consola limpia y performance mejorada
+
+### 🎯 **IMPACTO EN USUARIO**
+
+#### 👥 **Para Supervisores**
+- **Detección automática**: Ya no necesitan refrescar manualmente para ver llamadas finalizadas
+- **Transferencia personalizada**: Mensajes específicos para cada situación
+- **Feedback visual**: Saben cuándo el sistema detecta cambios
+- **Control manual**: Botón de refresh disponible cuando sea necesario
+
+#### 🔧 **Para Desarrolladores**
+- **Código limpio**: Sanitización robusta previene errores en API
+- **Performance optimizada**: Menos operaciones innecesarias
+- **Logs útiles**: Información relevante sin spam
+- **Mantenibilidad**: Código bien documentado y estructurado
+
+---
+
 ## 🚀 Versión 2.0.4 - Paginación Inteligente + Refresh Optimizado (Enero 2025)
 
 ### ✨ **NUEVAS FUNCIONALIDADES**

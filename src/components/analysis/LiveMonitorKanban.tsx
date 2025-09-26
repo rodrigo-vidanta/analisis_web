@@ -83,6 +83,14 @@ const LiveMonitorKanban: React.FC = () => {
   const [transferReason, setTransferReason] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
   const [hangupLoading, setHangupLoading] = useState(false);
+  
+  // Estados para texto personalizado de transferencia
+  const [customTransferText, setCustomTransferText] = useState('');
+  const [useCustomText, setUseCustomText] = useState(false);
+  
+  // Estado para mostrar indicador de actualización
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+  const [hasRecentChanges, setHasRecentChanges] = useState(false);
 
   // Función para ejecutar feedback
   const executeGlobalFeedback = async () => {
@@ -146,6 +154,19 @@ const LiveMonitorKanban: React.FC = () => {
     "Mi supervisor estaba escuchando la llamada y quiere darle un beneficio exclusivo inmediatamente"
   ];
 
+  // Función para sanitizar texto personalizado para API VAPI
+  const sanitizeTransferText = (text: string): string => {
+    return text
+      // Remover caracteres especiales y números
+      .replace(/[^a-zA-Z\s]/g, '')
+      // Remover espacios múltiples
+      .replace(/\s+/g, ' ')
+      // Trim espacios al inicio y final
+      .trim()
+      // Limitar longitud para evitar problemas con API
+      .substring(0, 200);
+  };
+
   // Función para transferir llamada a través de webhook de Railway
   const handleTransferCall = async (reason: string) => {
     if (!selectedCall?.call_id) {
@@ -176,11 +197,16 @@ const LiveMonitorKanban: React.FC = () => {
         console.log('No se pudo extraer contexto adicional');
       }
 
+      // Usar texto personalizado si está habilitado y tiene contenido
+      const finalMessage = useCustomText && customTransferText.trim() 
+        ? sanitizeTransferText(customTransferText)
+        : reason;
+      
       const transferData = {
         action: "transfer",
         call_id: selectedCall.call_id,
         control_url: selectedCall.control_url,
-        message: reason,
+        message: finalMessage,
         destination: {
           number: "+523222264000",
           extension: "60973"
@@ -350,20 +376,10 @@ const LiveMonitorKanban: React.FC = () => {
       
       const allCalls = await liveMonitorService.getActiveCalls() as KanbanCall[];
       
-      console.log('🔍 [LIVE MONITOR] Llamadas obtenidas:', allCalls.length);
-      if (allCalls.length > 0) {
-        console.log('🔍 [LIVE MONITOR] Primera llamada:', {
-          call_id: allCalls[0].call_id?.slice(-8),
-          call_status: allCalls[0].call_status,
-          duracion_segundos: allCalls[0].duracion_segundos,
-          audio_ruta_bucket: allCalls[0].audio_ruta_bucket ? 'SÍ' : 'NO',
-          checkpoint_venta_actual: allCalls[0].checkpoint_venta_actual
-        });
-      } else {
-        console.warn('⚠️ [LIVE MONITOR] No se obtuvieron llamadas');
+      // Log minimal para refreshes
+      if (!isRefresh) {
+        console.log(`🔍 [LIVE MONITOR] Carga inicial: ${allCalls.length} llamadas`);
       }
-      
-      // Actualización silenciosa en background
       
       // Clasificar llamadas por estado
       const active: KanbanCall[] = [];
@@ -415,28 +431,89 @@ const LiveMonitorKanban: React.FC = () => {
         }
       });
       
-      // Actualización inteligente que detecta cambios en checkpoints
+      // Actualización inteligente que detecta cambios sin re-render innecesario
       if (isRefresh) {
-        // Comparar no solo call_ids sino también checkpoints para detectar movimientos
-        const activeIds = active.map(c => `${c.call_id}:${c.checkpoint_venta_actual}`);
-        const currentActiveIds = activeCalls.map(c => `${c.call_id}:${c.checkpoint_venta_actual}`);
+        // Crear mapas completos de todas las llamadas (activas, finalizadas, fallidas)
+        const currentAllCalls = new Map();
+        [...activeCalls, ...finishedCalls, ...failedCalls].forEach(call => {
+          currentAllCalls.set(call.call_id, {
+            status: call.call_status,
+            checkpoint: call.checkpoint_venta_actual,
+            duration: call.duracion_segundos,
+            hasFeedback: call.tiene_feedback
+          });
+        });
         
-        const finishedIds = finished.map(c => c.call_id);
-        const currentFinishedIds = finishedCalls.map(c => c.call_id);
+        const newAllCalls = new Map();
+        [...active, ...finished, ...failed].forEach(call => {
+          newAllCalls.set(call.call_id, {
+            status: call.call_status,
+            checkpoint: call.checkpoint_venta_actual,
+            duration: call.duracion_segundos,
+            hasFeedback: call.tiene_feedback
+          });
+        });
         
-        const failedIds = failed.map(c => c.call_id);
-        const currentFailedIds = failedCalls.map(c => c.call_id);
+        // Detectar cambios específicos
+        let hasChanges = false;
+        const changes = [];
         
-        const activeChanged = JSON.stringify(activeIds) !== JSON.stringify(currentActiveIds);
-        const finishedChanged = JSON.stringify(finishedIds) !== JSON.stringify(currentFinishedIds);
-        const failedChanged = JSON.stringify(failedIds) !== JSON.stringify(currentFailedIds);
+        // 1. Verificar llamadas que cambiaron de activa a finalizada
+        for (const [callId, currentState] of currentAllCalls) {
+          const newState = newAllCalls.get(callId);
+          
+          if (newState) {
+            // La llamada sigue existiendo, verificar cambios de estado
+            if (currentState.status === 'activa' && newState.status !== 'activa') {
+              hasChanges = true;
+              changes.push(`📞 Llamada ${callId.slice(-8)} cambió de activa a ${newState.status}`);
+            }
+            // Verificar cambios de checkpoint
+            if (currentState.checkpoint !== newState.checkpoint) {
+              hasChanges = true;
+              changes.push(`🔄 Llamada ${callId.slice(-8)} cambió checkpoint: ${currentState.checkpoint} → ${newState.checkpoint}`);
+            }
+            // Verificar cambios de duración (llamada finalizada)
+            if (currentState.duration !== newState.duration && newState.duration > 0) {
+              hasChanges = true;
+              changes.push(`⏱️ Llamada ${callId.slice(-8)} finalizada con duración: ${newState.duration}s`);
+            }
+          } else {
+            // La llamada ya no existe en la nueva consulta (posiblemente finalizada y movida)
+            if (currentState.status === 'activa') {
+              hasChanges = true;
+              changes.push(`📞 Llamada ${callId.slice(-8)} desapareció de activas (posiblemente finalizada)`);
+            }
+          }
+        }
         
-        if (activeChanged) setActiveCalls(active);
-        if (finishedChanged) setFinishedCalls(finished);
-        if (failedChanged) setFailedCalls(failed);
+        // 2. Verificar nuevas llamadas activas
+        for (const [callId, newState] of newAllCalls) {
+          if (!currentAllCalls.has(callId) && newState.status === 'activa') {
+            hasChanges = true;
+            changes.push(`🆕 Nueva llamada activa: ${callId.slice(-8)}`);
+          }
+        }
+        
+        // Log de cambios si los hay
+        if (hasChanges && changes.length > 0) {
+          console.log('🔄 Cambios detectados:', changes);
+          setLastUpdateTime(new Date());
+          setHasRecentChanges(true);
+          // Reset indicador después de 2 segundos
+          setTimeout(() => setHasRecentChanges(false), 2000);
+        }
+        
+        // Solo actualizar si hay cambios detectados
+        if (hasChanges) {
+          setActiveCalls(active);
+          setFinishedCalls(finished);
+          setFailedCalls(failed);
+        }
+        
         // Filtrar llamadas COMPLETAMENTE procesadas para pestaña "Historial"
         const completedCalls = allCalls.filter(call => {
-          const hasFeedback = call.tiene_feedback === true; // Solo feedback completo, no pendiente
+          const hasFeedback = call.tiene_feedback === true;
           const isCompleted = call.call_status === 'finalizada' || 
                              call.call_status === 'transferida' || 
                              call.call_status === 'colgada' ||
@@ -467,19 +544,14 @@ const LiveMonitorKanban: React.FC = () => {
       
       setAllCalls(completedCalls);
       
-      console.log('📊 [LIVE MONITOR] Clasificación final:', {
-        activas: active.length,
-        finalizadas: finished.length,
-        fallidas: failed.length,
-        historial: completedCalls.length
-      });
-      
-      if (active.length > 0) {
-        console.log('🟢 [LIVE MONITOR] Llamadas activas:', active.map(call => ({
-          call_id: call.call_id?.slice(-8),
-          call_status: call.call_status,
-          checkpoint: call.checkpoint_venta_actual
-        })));
+      // Log resumen solo en carga inicial
+      if (!isRefresh) {
+        console.log('📊 [LIVE MONITOR] Clasificación:', {
+          activas: active.length,
+          finalizadas: finished.length,
+          fallidas: failed.length,
+          historial: completedCalls.length
+        });
       }
       
     } catch (error) {
@@ -514,7 +586,7 @@ const LiveMonitorKanban: React.FC = () => {
     };
 
     loadInitialData();
-    // Actualizar cada 3 segundos para mayor responsividad a cambios de checkpoint
+    // Actualizar cada 3 segundos para detectar cambios de estado más rápidamente
     const interval = setInterval(() => loadCalls(true), 3000);
     return () => clearInterval(interval);
   }, []);
@@ -834,13 +906,36 @@ const LiveMonitorKanban: React.FC = () => {
       <div className="max-w-[95vw] mx-auto space-y-4">
         
         {/* Header */}
-        <div className="text-center">
+        <div className="text-center relative">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
             Live Monitor - Vista Kanban
           </h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            Gestión visual del proceso de ventas por checkpoints
+          <p className="text-slate-600 dark:text-slate-400 flex items-center justify-center space-x-2">
+            <span>Gestión visual del proceso de ventas por checkpoints</span>
+            {hasRecentChanges && (
+              <span className="inline-flex items-center text-xs text-green-600 dark:text-green-400">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
+                Actualizado
+              </span>
+            )}
           </p>
+          
+          {/* Botón de refresh manual */}
+          <button
+            onClick={() => loadCalls(true)}
+            disabled={isUpdating}
+            className="absolute top-0 right-0 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-3 py-1 rounded-lg text-sm font-medium flex items-center space-x-1 transition-colors"
+          >
+            <svg 
+              className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>{isUpdating ? 'Actualizando...' : 'Actualizar'}</span>
+          </button>
         </div>
 
         {/* Tabs */}
@@ -1619,30 +1714,85 @@ const LiveMonitorKanban: React.FC = () => {
                   Solicitar Transferencia
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                  Selecciona el motivo de la transferencia:
+                  Selecciona el motivo de la transferencia o escribe un mensaje personalizado:
                 </p>
                 
-                <div className="space-y-2 mb-6">
-                  {transferReasons.map((reason, index) => (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        setTransferReason(reason);
-                        handleTransferCall(reason);
-                      }}
-                      disabled={transferLoading}
-                      className="w-full text-left p-3 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg text-xs text-slate-900 dark:text-white transition-colors disabled:opacity-50"
-                    >
-                      <span className="font-medium text-blue-600 dark:text-blue-400">Opción {index + 1}:</span>
-                      <br />
-                      {reason}
-                    </button>
-                  ))}
+                {/* Opción de texto personalizado */}
+                <div className="mb-4">
+                  <label className="flex items-center space-x-2 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={useCustomText}
+                      onChange={(e) => setUseCustomText(e.target.checked)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Usar mensaje personalizado
+                    </span>
+                  </label>
+                  
+                  {useCustomText && (
+                    <div className="mt-2">
+                      <textarea
+                        value={customTransferText}
+                        onChange={(e) => setCustomTransferText(e.target.value)}
+                        placeholder="Escribe tu mensaje personalizado para la transferencia (solo letras y espacios)..."
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                        rows={3}
+                        maxLength={200}
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Solo se permiten letras y espacios. Máximo 200 caracteres.
+                      </p>
+                    </div>
+                  )}
                 </div>
+                
+                {/* Opciones predefinidas - Solo mostrar si no se usa texto personalizado */}
+                {!useCustomText && (
+                  <div className="space-y-2 mb-6">
+                    {transferReasons.map((reason, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setTransferReason(reason);
+                          handleTransferCall(reason);
+                        }}
+                        disabled={transferLoading}
+                        className="w-full text-left p-3 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg text-xs text-slate-900 dark:text-white transition-colors disabled:opacity-50"
+                      >
+                        <span className="font-medium text-blue-600 dark:text-blue-400">Opción {index + 1}:</span>
+                        <br />
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Botón para enviar texto personalizado */}
+                {useCustomText && (
+                  <div className="mb-6">
+                    <button
+                      onClick={() => handleTransferCall(customTransferText)}
+                      disabled={transferLoading || !customTransferText.trim()}
+                      className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      </svg>
+                      {transferLoading ? 'Transfiriendo...' : 'Enviar Transferencia Personalizada'}
+                    </button>
+                  </div>
+                )}
                 
                 <div className="flex space-x-3">
                   <button
-                    onClick={() => setShowTransferModal(false)}
+                    onClick={() => {
+                      setShowTransferModal(false);
+                      setUseCustomText(false);
+                      setCustomTransferText('');
+                      setTransferReason('');
+                    }}
                     disabled={transferLoading}
                     className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm"
                   >
