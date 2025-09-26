@@ -56,6 +56,7 @@ interface KanbanCall extends LiveCallData {
   resort_ofertado?: string;
   principales_objeciones?: string;
   resumen_llamada?: string;
+  conversacion_completa?: any;
 }
 
 const LiveMonitorKanban: React.FC = () => {
@@ -91,6 +92,10 @@ const LiveMonitorKanban: React.FC = () => {
   // Estado para mostrar indicador de actualización
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
   const [hasRecentChanges, setHasRecentChanges] = useState(false);
+  
+  // Estado para conversación en tiempo real
+  const [currentConversation, setCurrentConversation] = useState<Array<{speaker: string, message: string, timestamp: string}>>([]);
+  const [conversationUpdateTime, setConversationUpdateTime] = useState<Date>(new Date());
 
   // Función para ejecutar feedback
   const executeGlobalFeedback = async () => {
@@ -165,6 +170,81 @@ const LiveMonitorKanban: React.FC = () => {
       .trim()
       // Limitar longitud para evitar problemas con API
       .substring(0, 200);
+  };
+
+  // Función para parsear conversación en tiempo real
+  const parseConversation = (conversacionCompleta: any): Array<{speaker: string, message: string, timestamp: string}> => {
+    if (!conversacionCompleta) return [];
+    
+    try {
+      let conversationData;
+      
+      // Si es string, parsear JSON
+      if (typeof conversacionCompleta === 'string') {
+        conversationData = JSON.parse(conversacionCompleta);
+      } else {
+        conversationData = conversacionCompleta;
+      }
+      
+      const conversation = conversationData.conversacion || '';
+      if (!conversation) return [];
+      
+      // Dividir por líneas y parsear cada mensaje
+      const lines = conversation.split('\n').filter(line => line.trim());
+      const messages = [];
+      
+      for (const line of lines) {
+        // Buscar patrón [timestamp] Speaker: message
+        const match = line.match(/^\[(.+?)\]\s+(\w+):\s+(.+)$/);
+        if (match) {
+          const [, timestamp, speaker, message] = match;
+          messages.push({
+            speaker: speaker.toLowerCase(),
+            message: message.trim(),
+            timestamp: timestamp.trim()
+          });
+        }
+      }
+      
+      return messages;
+    } catch (error) {
+      console.error('Error parseando conversación:', error);
+      return [];
+    }
+  };
+
+  // Función para actualizar conversación de manera suave
+  const updateConversation = (newConversation: Array<{speaker: string, message: string, timestamp: string}>) => {
+    setCurrentConversation(prevConversation => {
+      // Si no hay cambios, no actualizar
+      if (JSON.stringify(prevConversation) === JSON.stringify(newConversation)) {
+        return prevConversation;
+      }
+      
+      // Si hay nuevos mensajes, actualizar suavemente
+      if (newConversation.length > prevConversation.length) {
+        console.log(`💬 Nuevos mensajes detectados: ${newConversation.length - prevConversation.length}`);
+        setConversationUpdateTime(new Date());
+      }
+      
+      return newConversation;
+    });
+  };
+
+  // Función para renderizar campo condicionalmente
+  const renderField = (label: string, value: any, formatter?: (val: any) => string) => {
+    if (!value && value !== 0) return null;
+    
+    const displayValue = formatter ? formatter(value) : value;
+    
+    return (
+      <div className="flex justify-between">
+        <span className="text-slate-500 dark:text-slate-400">{label}:</span>
+        <span className="font-medium text-slate-900 dark:text-white text-right">
+          {displayValue}
+        </span>
+      </div>
+    );
   };
 
   // Función para transferir llamada a través de webhook de Railway
@@ -591,6 +671,28 @@ const LiveMonitorKanban: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Efecto para actualizar conversación automáticamente
+  useEffect(() => {
+    if (!selectedCall || selectedCall.call_status !== 'activa') {
+      setCurrentConversation([]);
+      return;
+    }
+
+    // Actualizar conversación cada 2 segundos para llamadas activas
+    const conversationInterval = setInterval(() => {
+      if (selectedCall && selectedCall.call_status === 'activa') {
+        const newConversation = parseConversation(selectedCall.conversacion_completa);
+        updateConversation(newConversation);
+      }
+    }, 2000);
+
+    // Actualización inicial
+    const initialConversation = parseConversation(selectedCall.conversacion_completa);
+    updateConversation(initialConversation);
+
+    return () => clearInterval(conversationInterval);
+  }, [selectedCall?.call_id, selectedCall?.call_status]);
+
   // Agrupar llamadas activas por checkpoint con ordenamiento
   const groupCallsByCheckpoint = (calls: KanbanCall[]) => {
     const groups: Record<CheckpointKey, KanbanCall[]> = {
@@ -857,7 +959,7 @@ const LiveMonitorKanban: React.FC = () => {
 
   return (
     <div className={`min-h-screen ${themeClasses.background} p-4 transition-colors duration-300`}>
-      {/* Estilos CSS personalizados para animaciones de checkpoint */}
+      {/* Estilos CSS personalizados para animaciones de checkpoint y chat */}
       <style>{`
         .checkpoint-pulse-blue {
           background: rgba(59, 130, 246, 0.15);
@@ -891,6 +993,40 @@ const LiveMonitorKanban: React.FC = () => {
         @keyframes checkpoint-pulse-red {
           0%, 100% { background-color: rgba(239, 68, 68, 0.3); }
           50% { background-color: rgba(239, 68, 68, 0.6); }
+        }
+        
+        /* Animaciones para chat en tiempo real */
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes slideInFromRight {
+          from {
+            opacity: 0;
+            transform: translateX(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        
+        @keyframes slideInFromLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
         
         /* Asegurar que el texto esté por encima del sombreado */
@@ -1330,7 +1466,57 @@ const LiveMonitorKanban: React.FC = () => {
 
               {/* Contenido del modal */}
               <div className="p-4">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Resumen de la llamada - Al top */}
+                {(() => {
+                  let resumen = selectedCall.resumen_llamada;
+                  
+                  // PRIORIZAR datos_llamada.resumen (tiempo real)
+                  if (selectedCall.datos_llamada) {
+                    try {
+                      const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
+                        ? JSON.parse(selectedCall.datos_llamada) 
+                        : selectedCall.datos_llamada;
+                      
+                      if (datosLlamada.resumen) {
+                        resumen = datosLlamada.resumen;
+                      }
+                    } catch (e) {
+                      console.log('Error parseando datos_llamada para resumen');
+                    }
+                  }
+                  
+                  // Si sigue sin resumen para llamadas activas, mostrar mensaje de estado
+                  if (!resumen && selectedCall.call_status === 'activa') {
+                    resumen = 'Llamada en progreso - el resumen se actualiza conforme avanza la conversación';
+                  }
+                  
+                  return resumen ? (
+                    <div className="mb-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center justify-between">
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Resumen de la Llamada
+                        </div>
+                        {selectedCall.call_status === 'activa' && (
+                          <div className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
+                            Tiempo real
+                          </div>
+                        )}
+                      </h4>
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                          {resumen}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+                
+                {/* Grid de información: Personal, Viaje, Detalles */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                   
                   {/* Información Personal Completa */}
                   <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
@@ -1341,52 +1527,14 @@ const LiveMonitorKanban: React.FC = () => {
                       Información Personal
                     </h4>
                     <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Nombre Completo:</span>
-                        <span className="font-medium text-slate-900 dark:text-white text-right">
-                          {selectedCall.nombre_completo || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">WhatsApp:</span>
-                        <span className="font-medium text-slate-900 dark:text-white text-right">
-                          {selectedCall.nombre_whatsapp || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Teléfono:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">{selectedCall.whatsapp}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Email:</span>
-                        <span className="font-medium text-slate-900 dark:text-white text-right">
-                          {selectedCall.email || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Ciudad:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.ciudad_residencia || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Estado Civil:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.estado_civil || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Edad:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.edad || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Etapa:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.etapa || 'N/A'}
-                        </span>
-                      </div>
+                      {renderField('Nombre Completo', selectedCall.nombre_completo)}
+                      {renderField('WhatsApp', selectedCall.nombre_whatsapp)}
+                      {renderField('Teléfono', selectedCall.whatsapp)}
+                      {renderField('Email', selectedCall.email)}
+                      {renderField('Ciudad', selectedCall.ciudad_residencia)}
+                      {renderField('Estado Civil', selectedCall.estado_civil)}
+                      {renderField('Edad', selectedCall.edad)}
+                      {renderField('Etapa', selectedCall.etapa)}
                     </div>
                   </div>
 
@@ -1399,62 +1547,15 @@ const LiveMonitorKanban: React.FC = () => {
                       Información de Viaje
                     </h4>
                     <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Checkpoint:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.checkpoint_venta_actual || 'checkpoint #1'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Grupo:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.composicion_familiar_numero ? `${selectedCall.composicion_familiar_numero}p` : 
-                           selectedCall.tamano_grupo ? `${selectedCall.tamano_grupo}p` : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Viaja con:</span>
-                        <span className="font-medium text-slate-900 dark:text-white text-right">
-                          {selectedCall.viaja_con || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Destino:</span>
-                        <span className="font-medium text-slate-900 dark:text-white text-right">
-                          {selectedCall.destino_preferido?.replace('_', ' ') || 
-                           selectedCall.destino_preferencia?.join(', ') || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Menores:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.cantidad_menores !== null ? selectedCall.cantidad_menores : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Noches:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.numero_noches || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Mes Preferencia:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.mes_preferencia || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Interés Principal:</span>
-                        <span className="font-medium text-slate-900 dark:text-white text-right">
-                          {selectedCall.interes_principal || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Campaña:</span>
-                        <span className="font-medium text-slate-900 dark:text-white text-right">
-                          {selectedCall.campana_origen || 'N/A'}
-                        </span>
-                      </div>
+                      {renderField('Checkpoint', selectedCall.checkpoint_venta_actual, (val) => val || 'checkpoint #1')}
+                      {renderField('Grupo', selectedCall.composicion_familiar_numero || selectedCall.tamano_grupo, (val) => `${val}p`)}
+                      {renderField('Viaja con', selectedCall.viaja_con)}
+                      {renderField('Destino', selectedCall.destino_preferido?.replace('_', ' ') || selectedCall.destino_preferencia?.join(', '))}
+                      {renderField('Menores', selectedCall.cantidad_menores)}
+                      {renderField('Noches', selectedCall.numero_noches)}
+                      {renderField('Mes Preferencia', selectedCall.mes_preferencia)}
+                      {renderField('Interés Principal', selectedCall.interes_principal)}
+                      {renderField('Campaña', selectedCall.campana_origen)}
                     </div>
                   </div>
 
@@ -1467,60 +1568,15 @@ const LiveMonitorKanban: React.FC = () => {
                       Detalles de Llamada
                     </h4>
                     <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Duración:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.duracion_segundos ? `${Math.floor(selectedCall.duracion_segundos / 60)}:${(selectedCall.duracion_segundos % 60).toString().padStart(2, '0')}` : 'En curso'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Nivel Interés:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.nivel_interes || 'En evaluación'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Precio Ofertado:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          ${(selectedCall.propuesta_economica_ofrecida || selectedCall.precio_ofertado)?.toLocaleString() || 'Sin oferta'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Resort:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.resort_ofertado || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Habitación:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.habitacion_ofertada || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Tipo Llamada:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.tipo_llamada || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Oferta Presentada:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {selectedCall.oferta_presentada ? 'Sí' : 'No'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Costo Total:</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          ${selectedCall.costo_total || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Objeciones:</span>
-                        <span className="font-medium text-slate-900 dark:text-white text-right">
-                          {selectedCall.principales_objeciones || 'Sin objeciones'}
-                        </span>
-                      </div>
+                      {renderField('Duración', selectedCall.duracion_segundos, (val) => val ? `${Math.floor(val / 60)}:${(val % 60).toString().padStart(2, '0')}` : 'En curso')}
+                      {renderField('Nivel Interés', selectedCall.nivel_interes, (val) => val || 'En evaluación')}
+                      {renderField('Precio Ofertado', selectedCall.propuesta_economica_ofrecida || selectedCall.precio_ofertado, (val) => `$${val?.toLocaleString()}`)}
+                      {renderField('Resort', selectedCall.resort_ofertado)}
+                      {renderField('Habitación', selectedCall.habitacion_ofertada)}
+                      {renderField('Tipo Llamada', selectedCall.tipo_llamada)}
+                      {renderField('Oferta Presentada', selectedCall.oferta_presentada, (val) => val ? 'Sí' : 'No')}
+                      {renderField('Costo Total', selectedCall.costo_total, (val) => `$${val}`)}
+                      {renderField('Objeciones', selectedCall.principales_objeciones, (val) => val || 'Sin objeciones')}
                     </div>
 
                     {/* Grabación para llamadas finalizadas */}
@@ -1650,56 +1706,69 @@ const LiveMonitorKanban: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Resumen de la llamada - Abarcar solo las primeras 2 columnas */}
-                <div className="lg:col-span-2">
-                  {(() => {
-                    let resumen = selectedCall.resumen_llamada;
-                    
-                    // PRIORIZAR datos_llamada.resumen (tiempo real)
-                    if (selectedCall.datos_llamada) {
-                      try {
-                        const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
-                          ? JSON.parse(selectedCall.datos_llamada) 
-                          : selectedCall.datos_llamada;
-                        
-                        if (datosLlamada.resumen) {
-                          resumen = datosLlamada.resumen;
-                        }
-                      } catch (e) {
-                        console.log('Error parseando datos_llamada para resumen');
-                      }
-                    }
-                    
-                    // Si sigue sin resumen para llamadas activas, mostrar mensaje de estado
-                    if (!resumen && selectedCall.call_status === 'activa') {
-                      resumen = 'Llamada en progreso - el resumen se actualiza conforme avanza la conversación';
-                    }
-                    
-                    return resumen ? (
-                      <div className="mt-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
-                        <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center justify-between">
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Resumen de la Llamada
-                          </div>
-                          {selectedCall.call_status === 'activa' && (
-                            <div className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
-                              <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
-                              Tiempo real
-                            </div>
-                          )}
-                        </h4>
-                        <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
-                          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                            {resumen}
-                          </p>
-                        </div>
+                
+                {/* Conversación en Tiempo Real - Solo para llamadas activas */}
+                {selectedCall.call_status === 'activa' && (
+                  <div className="mt-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Conversación en Tiempo Real
                       </div>
-                    ) : null;
-                  })()}
-                </div>
+                      <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-1 animate-pulse"></div>
+                        En vivo
+                      </div>
+                    </h4>
+                    
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 max-h-80 overflow-y-auto">
+                      <div className="p-3 space-y-3">
+                        {currentConversation.length > 0 ? (
+                          currentConversation.map((msg, index) => (
+                            <div 
+                              key={`${msg.timestamp}-${index}`} 
+                              className={`flex ${msg.speaker === 'agente' ? 'justify-start' : 'justify-end'} transition-all duration-300 ease-in-out`}
+                              style={{
+                                animation: `fadeInUp 0.3s ease-out ${index * 0.1}s both`
+                              }}
+                            >
+                              <div className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg transition-all duration-200 ${
+                                msg.speaker === 'agente' 
+                                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-900/40' 
+                                  : 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-900/40'
+                              }`}>
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-xs font-medium opacity-75">
+                                    {msg.speaker === 'agente' ? '🤖 Agente IA' : '👤 Cliente'}
+                                  </span>
+                                  <span className="text-xs opacity-60">
+                                    {msg.timestamp}
+                                  </span>
+                                </div>
+                                <p className="text-sm leading-relaxed">
+                                  {msg.message}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8">
+                            <div className="flex items-center justify-center space-x-2 text-slate-500 dark:text-slate-400">
+                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
+                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                            </div>
+                            <p className="text-sm mt-2">
+                              Esperando conversación...
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

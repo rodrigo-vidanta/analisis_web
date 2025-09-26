@@ -178,7 +178,8 @@ class LiveMonitorService {
           habitacion_ofertada,
           resort_ofertado,
           principales_objeciones,
-          resumen_llamada
+          resumen_llamada,
+          conversacion_completa
         `)
         .order('fecha_llamada', { ascending: false })
         .limit(20); // Obtener últimas 20 llamadas (activas + recién finalizadas)
@@ -273,7 +274,8 @@ class LiveMonitorService {
           habitacion_ofertada: call.habitacion_ofertada,
           resort_ofertado: call.resort_ofertado,
           principales_objeciones: call.principales_objeciones,
-          resumen_llamada: call.resumen_llamada
+          resumen_llamada: call.resumen_llamada,
+          conversacion_completa: call.conversacion_completa
         };
       });
 
