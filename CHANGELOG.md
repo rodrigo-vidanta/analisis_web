@@ -1,5 +1,134 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 2.1.0 - AI Models Manager Completo (Septiembre 2025)
+
+### ✨ **NUEVAS FUNCIONALIDADES PRINCIPALES**
+
+#### 🤖 **AI Models Manager - Módulo Completo ElevenLabs**
+- **Integración completa ElevenLabs API**: Acceso a todas las funcionalidades profesionales
+- **5 pestañas especializadas**: Biblioteca de Voces, Text to Speech, Speech to Speech, Speech to Text, Efectos de Sonido
+- **Biblioteca de voces avanzada**: 1000+ voces con filtros inteligentes por idioma, género, edad, caso de uso
+- **Interfaz superior a ElevenLabs oficial**: Diseño más intuitivo y funcional que la app original
+
+#### 🎤 **Text to Speech Profesional**
+- **Soporte completo modelos**: eleven_v3, eleven_multilingual_v2, eleven_english_v2, eleven_turbo_v2_5
+- **Configuración avanzada**: Estabilidad, Similarity, Style, Speaker Boost, Speech Rate
+- **Tags ElevenLabs v3**: 50+ tags oficiales categorizados (emociones, estilos, efectos)
+- **Inserción inteligente de tags**: Botones categorizados con preview
+- **Historial completo**: Últimos 20 audios con descarga y reutilización
+
+#### 🔄 **Speech to Speech Innovador**
+- **Grabación en tiempo real**: Acceso a micrófono con MediaRecorder API
+- **Modelos especializados**: eleven_multilingual_sts_v2, eleven_english_sts_v2
+- **Configuración independiente**: Settings específicos para STS
+- **Historial dedicado**: Gestión separada de conversiones de voz
+- **Limpieza automática**: Audio anterior se borra al iniciar nueva grabación
+
+#### 🎵 **Efectos de Sonido Creativos**
+- **Generación por prompt**: Descripción en texto → efecto de sonido
+- **Traducción automática**: Español → Inglés para mejor generación
+- **Configuración de duración**: Control preciso de longitud del efecto
+- **Historial especializado**: Últimos 20 efectos con reutilización
+
+### 🔧 **SISTEMA DE GESTIÓN AVANZADO**
+
+#### 👥 **Rol "Productor" Implementado**
+- **Nuevo rol especializado**: Acceso controlado a funciones de IA
+- **Permisos granulares**: Checkboxes por funcionalidad (TTS, STS, STT, SFX)
+- **Acceso por defecto**: Biblioteca de voces y STT incluidos
+- **Configuración flexible**: Admin puede habilitar funciones adicionales
+
+#### 💰 **Sistema de Tokens Robusto**
+- **Límites configurables**: Mensuales y diarios por usuario
+- **Consumo en tiempo real**: Tracking automático de uso
+- **Indicador visual**: Círculo de progreso alrededor del avatar
+- **Admins ilimitados**: Sin restricciones para administradores
+- **Verificación previa**: Validación antes de cada operación
+
+#### 🗄️ **Almacenamiento Profesional**
+- **Supabase Storage**: Bucket dedicado `ai_manager`
+- **URLs públicas**: Acceso directo a archivos generados
+- **Organización automática**: Carpetas por tipo de generación
+- **Persistencia completa**: Historial conservado entre sesiones
+
+### 🎨 **EXPERIENCIA DE USUARIO SUPERIOR**
+
+#### 🎯 **Interfaz Intuitiva**
+- **Diseño fluido**: Mejor que la app oficial de ElevenLabs
+- **Filtros inteligentes**: Búsqueda por múltiples criterios
+- **Reproducción integrada**: Play/pause sin salir de la interfaz
+- **Botones de acción**: Descargar, reutilizar, reproducir en cada elemento
+
+#### 🌓 **Compatibilidad Dual**
+- **Temas completos**: Linear y Corporativo perfectamente soportados
+- **Modo oscuro/claro**: Todos los componentes adaptados
+- **Iconografía vectorial**: Sin emojis, solo iconos profesionales
+- **Responsive design**: Funcional en todas las resoluciones
+
+#### 📱 **Gestión de Preferencias**
+- **Persistencia dual**: localStorage + base de datos
+- **Sincronización cross-device**: Configuración disponible en cualquier dispositivo
+- **Cache inteligente**: Carga rápida de preferencias frecuentes
+- **Backup automático**: Configuración guardada en BD
+
+### 🔧 **MEJORAS TÉCNICAS**
+
+#### 🚀 **Performance Optimizada**
+- **Carga paralela**: Múltiples APIs consultadas simultáneamente
+- **Cache inteligente**: Voces y modelos cacheados localmente
+- **Lazy loading**: Componentes cargados bajo demanda
+- **Debouncing**: Búsquedas optimizadas sin spam de requests
+
+#### 🔒 **Seguridad Robusta**
+- **Service role**: Operaciones de BD con permisos elevados
+- **RLS configurado**: Row Level Security en todas las tablas
+- **Validación de tokens**: Verificación antes de cada operación
+- **CORS configurado**: Reproducción de audio sin restricciones
+
+#### 📊 **Base de Datos Especializada**
+```sql
+-- 5 nuevas tablas para AI Models
+ai_user_preferences     -- Configuración de usuario
+ai_audio_generations    -- Historial de generaciones
+ai_sound_effects_history -- Efectos de sonido
+ai_stt_history         -- Speech to text
+ai_token_limits        -- Límites y uso de tokens
+```
+
+### 🛠️ **CORRECCIONES CRÍTICAS**
+
+#### 🔧 **Speech to Speech Fixes**
+- **Modelo correcto**: eleven_multilingual_sts_v2 (no eleven_v3)
+- **Formato de audio**: WebM con codecs opus para compatibilidad
+- **Configuración separada**: Settings independientes de TTS
+- **Historial dedicado**: Gestión específica para STS
+
+#### 🎵 **Reproducción de Audio**
+- **CORS configurado**: `crossOrigin = 'anonymous'` para Supabase
+- **Fallback inteligente**: Blob URL si falla la URL del bucket
+- **Error handling**: Manejo robusto de errores de reproducción
+
+#### 💾 **Persistencia de Datos**
+- **Service role**: Bypass de RLS para operaciones backend
+- **Mapeo correcto**: Preferencias UI ↔ columnas BD
+- **Validación de tipos**: TypeScript estricto en todas las interfaces
+
+### 🎯 **IMPACTO EN USUARIO**
+
+#### 👨‍💼 **Para Productores**
+- **Herramientas profesionales**: Acceso a tecnología de vanguardia
+- **Flujo optimizado**: Más eficiente que usar ElevenLabs directamente
+- **Control granular**: Configuración avanzada de cada parámetro
+- **Historial completo**: Nunca perder trabajo anterior
+
+#### 👨‍💻 **Para Administradores**
+- **Control total**: Gestión de límites y permisos por usuario
+- **Visibilidad completa**: Tracking de uso y consumo
+- **Configuración flexible**: Habilitar/deshabilitar funciones por rol
+- **Escalabilidad**: Sistema preparado para cientos de usuarios
+
+---
+
 ## 🚀 Versión 2.0.5 - Live Monitor Optimizado + Transferencia Personalizada (Enero 2025)
 
 ### ✨ **NUEVAS FUNCIONALIDADES**

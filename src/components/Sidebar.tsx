@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
 import { useUserProfile } from '../hooks/useUserProfile';
 import useAnalysisPermissions from '../hooks/useAnalysisPermissions';
+import TokenUsageIndicator from './TokenUsageIndicator';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -199,8 +200,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       label: 'Academia',
       active: appMode === 'academia',
       onClick: () => setAppMode('academia')
+    }] : []),
+
+    // AI Models Manager - Solo para Admin y Productor
+    ...((user?.role_name === 'admin' || user?.role_name === 'productor') ? [{
+      icon: (
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      ),
+      label: 'AI Models',
+      active: appMode === 'ai-models',
+      onClick: () => setAppMode('ai-models')
     }] : [])
   ];
+
 
   // Admin al final
   const adminItem: MenuItemProps | null = user?.role_name === 'admin' ? {
@@ -288,21 +302,30 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         {!isCollapsed && user && (
           <div className="p-4 border-t border-slate-200 dark:border-slate-700">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center overflow-hidden">
-                {profile?.avatar_url ? (
-                  <img 
-                    src={profile.avatar_url} 
-                    alt="Avatar" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      console.warn('❌ Error cargando avatar en sidebar:', profile.avatar_url);
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <span className="text-xs font-semibold text-white">
-                    {user.full_name?.charAt(0).toUpperCase() || 'U'}
-                  </span>
+              <div className="relative">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center overflow-hidden">
+                  {profile?.avatar_url ? (
+                    <img 
+                      src={profile.avatar_url} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.warn('❌ Error cargando avatar en sidebar:', profile.avatar_url);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold text-white">
+                      {user.full_name?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Indicador de tokens alrededor del avatar */}
+                {(user.role_name === 'productor' || user.role_name === 'admin') && (
+                  <div className="absolute -inset-2 flex items-center justify-center">
+                    <TokenUsageIndicator size="lg" />
+                  </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">

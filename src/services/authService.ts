@@ -199,8 +199,8 @@ class AuthService {
         return ['admin', 'evaluator'].includes(this.currentUser.role_name);
       
       case 'academia':
-        // Academia disponible para todos los roles autenticados
-        return true;
+        // Academia solo para vendedores
+        return this.currentUser.role_name === 'vendedor';
       
       default:
         // Para otros módulos, usar verificación de permisos si existe

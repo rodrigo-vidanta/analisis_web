@@ -59,7 +59,7 @@ class AudioStreamProcessor extends AudioWorkletProcessor {
   decodeMulaw(mulawArray) {
     const pcmArray = new Int16Array(mulawArray.length);
     const mulawToLinear = [
-      -32124, -31100, -30076, -29052, -28028, -27004, -25980, -24956,
+      -32124, -31100, -30076, -29052, -28028, -27004, -25980, -24954,
       -23932, -22908, -21884, -20860, -19836, -18812, -17788, -16764,
       -15996, -15484, -14972, -14460, -13948, -13436, -12924, -12412,
       -11900, -11388, -10876, -10364, -9852, -9340, -8828, -8316,

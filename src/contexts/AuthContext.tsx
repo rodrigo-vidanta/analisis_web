@@ -17,7 +17,7 @@ interface AuthContextType extends AuthState {
   canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | null;
+  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | null;
   refreshUser: () => Promise<void>;
 }
 

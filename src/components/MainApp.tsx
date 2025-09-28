@@ -18,6 +18,8 @@ import LinearLayout from './linear/LinearLayout';
 import LinearLiveMonitor from './linear/LinearLiveMonitor';
 // Academia
 import AcademiaDashboard from './academia/AcademiaDashboard';
+// AI Models Manager
+import AIModelsManager from './ai-models/AIModelsManager';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -242,6 +244,8 @@ function MainApp() {
             <AcademiaDashboard />
           </ProtectedRoute>
         );
+      case 'ai-models':
+        return <AIModelsManager />;
       case 'admin':
         return (
           user?.role_name === 'admin' ? (
