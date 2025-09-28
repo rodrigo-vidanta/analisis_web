@@ -4,6 +4,7 @@ import { useAppStore } from '../stores/appStore';
 import { useUserProfile } from '../hooks/useUserProfile';
 import useAnalysisPermissions from '../hooks/useAnalysisPermissions';
 import TokenUsageIndicator from './TokenUsageIndicator';
+import type { TokenLimits } from '../services/tokenService';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -105,6 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const { user, canAccessModule } = useAuth();
   const { profile } = useUserProfile();
   const { appMode, setAppMode } = useAppStore();
+  const [tokenInfo, setTokenInfo] = useState<TokenLimits | null>(null);
   const { natalia, pqnc, liveMonitor } = useAnalysisPermissions();
   const [analysisMode, setAnalysisMode] = useState<'natalia' | 'pqnc'>('natalia');
 
@@ -112,6 +114,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     setAnalysisMode(mode);
     setAppMode('analisis');
     // Aquí podrías agregar lógica adicional para cambiar el submódulo
+  };
+
+  const handleTokenInfoChange = (info: TokenLimits | null) => {
+    setTokenInfo(info);
+  };
+
+  const getRemainingTokens = () => {
+    if (!tokenInfo) return null;
+    if (tokenInfo.monthly_limit === -1) return '∞';
+    return (tokenInfo.monthly_limit - tokenInfo.current_month_usage).toLocaleString();
   };
 
   const menuItems: MenuItemProps[] = [
@@ -324,7 +336,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 {/* Indicador de tokens alrededor del avatar */}
                 {(user.role_name === 'productor' || user.role_name === 'admin') && (
                   <div className="absolute -inset-2 flex items-center justify-center">
-                    <TokenUsageIndicator size="lg" />
+                    <TokenUsageIndicator size="lg" onTokenInfoChange={handleTokenInfoChange} />
                   </div>
                 )}
               </div>
@@ -332,9 +344,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
                   {user.full_name || user.email}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
-                  {user.role_name}
-                </p>
+                <div className="flex items-center space-x-2">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                    {user.role_name}
+                  </p>
+                  {(user.role_name === 'productor' || user.role_name === 'admin') && getRemainingTokens() && (
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                      • {getRemainingTokens()} tokens
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

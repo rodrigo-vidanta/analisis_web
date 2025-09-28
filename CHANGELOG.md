@@ -1,5 +1,30 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 2.1.1 - Indicador de Tokens Mejorado (Septiembre 2025)
+
+### ✨ **MEJORAS DE UX**
+
+#### 🎯 **Indicador de Tokens Refinado**
+- **Porcentaje removido**: Eliminado texto del centro del círculo para interfaz más limpia
+- **Tokens restantes visibles**: Información al lado del rol del usuario con texto pequeño
+- **Formato inteligente**: `• 7,500 tokens` para usuarios normales, `• ∞ tokens` para admins
+- **Tooltip reposicionado**: Emergente hacia la derecha para evitar cortes en el borde
+- **Flecha corregida**: Apunta correctamente al avatar desde la derecha
+
+#### 🔧 **Mejoras Técnicas**
+- **Callback implementado**: `onTokenInfoChange` para comunicación entre componentes
+- **Cálculo automático**: Tokens restantes = límite - uso actual
+- **Actualización en tiempo real**: Información sincronizada cada 30 segundos
+- **Manejo de admins**: Tokens ilimitados correctamente mostrados como `∞`
+
+### 🎨 **Experiencia Visual Mejorada**
+- **Interfaz más limpia**: Solo círculo de progreso alrededor del avatar
+- **Información contextual**: Tokens restantes siempre visibles para roles relevantes
+- **Tooltip completo**: Información detallada sin cortes por posicionamiento
+- **Consistencia visual**: Funciona perfectamente en ambos temas (Linear/Corporativo)
+
+---
+
 ## 🚀 Versión 2.1.0 - AI Models Manager Completo (Septiembre 2025)
 
 ### ✨ **NUEVAS FUNCIONALIDADES PRINCIPALES**

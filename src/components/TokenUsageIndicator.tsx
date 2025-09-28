@@ -5,11 +5,13 @@ import { tokenService, type TokenLimits } from '../services/tokenService';
 interface TokenUsageIndicatorProps {
   size?: 'sm' | 'md' | 'lg';
   showDetails?: boolean;
+  onTokenInfoChange?: (tokenInfo: TokenLimits | null) => void;
 }
 
 const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({ 
   size = 'md', 
-  showDetails = false 
+  showDetails = false,
+  onTokenInfoChange
 }) => {
   const { user } = useAuth();
   const [tokenInfo, setTokenInfo] = useState<TokenLimits | null>(null);
@@ -32,10 +34,11 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
     try {
       const info = await tokenService.getUserTokenInfo(user.id);
       setTokenInfo(info);
+      onTokenInfoChange?.(info);
       } catch (error) {
         console.error('Error cargando info de tokens:', error);
         // Datos dummy para desarrollo
-        setTokenInfo({
+        const dummyInfo = {
           user_id: user.id,
           monthly_limit: user.role_name === 'admin' ? -1 : 10000,
           daily_limit: user.role_name === 'admin' ? -1 : 500,
@@ -44,7 +47,9 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
           monthly_usage_percentage: user.role_name === 'admin' ? 0 : 25,
           daily_usage_percentage: user.role_name === 'admin' ? 0 : 30,
           warning_threshold: 80
-        });
+        };
+        setTokenInfo(dummyInfo);
+        onTokenInfoChange?.(dummyInfo);
       } finally {
       setLoading(false);
     }
@@ -105,31 +110,32 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
           />
         </svg>
         
-        {/* Porcentaje en el centro */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className={`${sizeConfig.text} font-bold ${textColor}`}>
-            {Math.round(usagePercentage)}%
-          </span>
-        </div>
       </div>
 
       {/* Tooltip con detalles */}
       {showTooltip && (
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50">
+        <div className="absolute bottom-full left-full ml-2 z-50">
           <div className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-3 py-2 rounded-lg shadow-xl text-xs whitespace-nowrap">
             <div className="space-y-1">
               <div className="font-semibold">Uso de Tokens - {user.full_name}</div>
-              <div>Mensual: {tokenInfo.current_month_usage.toLocaleString()}/{tokenInfo.monthly_limit.toLocaleString()}</div>
-              <div>Diario: {tokenInfo.current_day_usage.toLocaleString()}/{tokenInfo.daily_limit.toLocaleString()}</div>
+              <div>Mensual: {tokenInfo.monthly_limit === -1 
+                ? `${tokenInfo.current_month_usage.toLocaleString()}/∞`
+                : `${tokenInfo.current_month_usage.toLocaleString()}/${tokenInfo.monthly_limit.toLocaleString()}`
+              }</div>
+              <div>Diario: {tokenInfo.daily_limit === -1 
+                ? `${tokenInfo.current_day_usage.toLocaleString()}/∞`
+                : `${tokenInfo.current_day_usage.toLocaleString()}/${tokenInfo.daily_limit.toLocaleString()}`
+              }</div>
               <div className={`font-medium ${usagePercentage > 80 ? 'text-red-300' : 'text-green-300'}`}>
-                {usagePercentage > 90 ? '⚠️ Límite casi alcanzado' : 
+                {tokenInfo.monthly_limit === -1 ? '🔓 Tokens ilimitados' :
+                 usagePercentage > 90 ? '⚠️ Límite casi alcanzado' : 
                  usagePercentage > 80 ? '⚡ Uso alto' : 
                  '✅ Uso normal'}
               </div>
             </div>
-            {/* Flecha del tooltip */}
-            <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-              <div className="border-4 border-transparent border-t-slate-900 dark:border-t-slate-100"></div>
+            {/* Flecha del tooltip apuntando hacia la izquierda */}
+            <div className="absolute top-1/2 right-full transform -translate-y-1/2">
+              <div className="border-4 border-transparent border-r-slate-900 dark:border-r-slate-100"></div>
             </div>
           </div>
         </div>
