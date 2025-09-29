@@ -69,8 +69,108 @@ const LiveMonitorKanban: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   
+  // Estados para sorting
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  
   // Hook de tema para aplicar estilos
   const { getThemeClasses, isLinearTheme } = useTheme();
+
+  // Componente SortableHeader
+  const SortableHeader: React.FC<{
+    field: string;
+    children: React.ReactNode;
+    className?: string;
+  }> = ({ field, children, className = "" }) => {
+    const handleSort = () => {
+      let direction: 'asc' | 'desc' = 'asc';
+      if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+        direction = 'desc';
+      }
+      setSortConfig({ key: field, direction });
+    };
+
+    return (
+      <th 
+        className={`px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors ${className}`}
+        onClick={handleSort}
+      >
+        <div className="flex items-center space-x-1">
+          <span>{children}</span>
+          <div className="flex flex-col">
+            <svg 
+              className={`w-3 h-3 ${sortConfig?.key === field && sortConfig.direction === 'asc' ? 'text-blue-500' : 'text-slate-400'}`} 
+              fill="currentColor" 
+              viewBox="0 0 20 20"
+            >
+              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            <svg 
+              className={`w-3 h-3 -mt-1 ${sortConfig?.key === field && sortConfig.direction === 'desc' ? 'text-blue-500' : 'text-slate-400'}`} 
+              fill="currentColor" 
+              viewBox="0 0 20 20"
+            >
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </div>
+        </div>
+      </th>
+    );
+  };
+
+  // Función para ordenar datos
+  const sortData = (data: KanbanCall[]) => {
+    if (!sortConfig) return data;
+
+    return [...data].sort((a, b) => {
+      let aValue: any = '';
+      let bValue: any = '';
+
+      switch (sortConfig.key) {
+        case 'cliente':
+          aValue = a.nombre_completo || a.nombre_whatsapp || '';
+          bValue = b.nombre_completo || b.nombre_whatsapp || '';
+          break;
+        case 'agente':
+          aValue = a.agent_name || '';
+          bValue = b.agent_name || '';
+          break;
+        case 'telefono':
+          aValue = a.whatsapp || '';
+          bValue = b.whatsapp || '';
+          break;
+        case 'duracion':
+          aValue = a.duracion_segundos || 0;
+          bValue = b.duracion_segundos || 0;
+          break;
+        case 'fecha':
+          aValue = new Date(a.created_at || 0);
+          bValue = new Date(b.created_at || 0);
+          break;
+        case 'checkpoint':
+          aValue = a.checkpoint_venta_actual || '';
+          bValue = b.checkpoint_venta_actual || '';
+          break;
+        case 'estado':
+          aValue = a.call_status || '';
+          bValue = b.call_status || '';
+          break;
+        case 'precio':
+          aValue = a.precio_paquete || 0;
+          bValue = b.precio_paquete || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  };
   
   // Estados para feedback y controles
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -1217,48 +1317,137 @@ const LiveMonitorKanban: React.FC = () => {
             )}
 
             {selectedTab === 'finished' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {finishedCalls.map(call => (
-                  <div key={call.call_id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow"
-                       onClick={() => setSelectedCall(call)}>
-                    <div className="flex items-center space-x-2 mb-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                        {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-white">
-                          {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Finalizada • {call.duracion_segundos ? `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {call.es_venta_exitosa !== null && (
-                      <div className="flex items-center text-xs">
-                        {call.es_venta_exitosa ? (
-                          <>
-                            <svg className="w-3 h-3 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="text-green-600 dark:text-green-400">Venta Exitosa</span>
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-3 h-3 mr-1 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            <span className="text-red-600 dark:text-red-400">No Cerrada</span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                  <thead className="bg-slate-50 dark:bg-slate-900">
+                    <tr>
+                      <SortableHeader field="cliente" className="w-64">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span>Cliente</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="agente" className="w-48">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                          </svg>
+                          <span>Agente</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="telefono" className="w-32">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          <span>Teléfono</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="duracion" className="w-24">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Duración</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="checkpoint" className="w-40">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Checkpoint</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="fecha" className="w-32">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>Fecha</span>
+                        </div>
+                      </SortableHeader>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-20">
+                        Estado
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                    {sortData(finishedCalls).map((call) => (
+                      <tr 
+                        key={call.call_id}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                        onClick={() => setSelectedCall(call)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                              {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-slate-900 dark:text-white">
+                                {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-900 dark:text-white">
+                            {call.agent_name || 'No asignado'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-900 dark:text-white">
+                            {call.whatsapp || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-900 dark:text-white">
+                            {Math.floor((call.duracion_segundos || 0) / 60)}:{String((call.duracion_segundos || 0) % 60).padStart(2, '0')}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            {call.checkpoint_venta_actual || 'No definido'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-900 dark:text-white">
+                            {call.created_at ? new Date(call.created_at).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {call.es_venta_exitosa !== null ? (
+                            call.es_venta_exitosa ? (
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Exitosa
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                No cerrada
+                              </span>
+                            )
+                          ) : (
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                              Pendiente
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
                 
                 {finishedCalls.length === 0 && (
-                  <div className="col-span-full text-center py-12">
+                  <div className="text-center py-12">
                     <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -1269,43 +1458,114 @@ const LiveMonitorKanban: React.FC = () => {
             )}
 
             {selectedTab === 'failed' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {failedCalls.map(call => (
-                  <div 
-                    key={call.call_id} 
-                    className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                    onClick={() => {
-                      setSelectedCall(call);
-                      handleFeedbackRequest('perdida');
-                    }}
-                  >
-                    <div className="flex items-center space-x-2 mb-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-700 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                        {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-white">
-                          {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
-                        </p>
-                        <p className="text-xs text-red-600 dark:text-red-400">
-                          No contestó • 0:00
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-xs text-red-600 dark:text-red-400">
-                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Clic para marcar como perdida
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                  <thead className="bg-slate-50 dark:bg-slate-900">
+                    <tr>
+                      <SortableHeader field="cliente" className="w-64">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span>Cliente</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="agente" className="w-48">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                          </svg>
+                          <span>Agente</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="telefono" className="w-32">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          <span>Teléfono</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="estado" className="w-32">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Estado</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="fecha" className="w-32">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>Fecha</span>
+                        </div>
+                      </SortableHeader>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-20">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                    {sortData(failedCalls).map((call) => (
+                      <tr 
+                        key={call.call_id}
+                        className="hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
+                        onClick={() => {
+                          setSelectedCall(call);
+                          handleFeedbackRequest('perdida');
+                        }}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-700 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                              {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-slate-900 dark:text-white">
+                                {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-900 dark:text-white">
+                            {call.agent_name || 'No asignado'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-900 dark:text-white">
+                            {call.whatsapp || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                            {call.call_status || 'Fallida'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-900 dark:text-white">
+                            {call.created_at ? new Date(call.created_at).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Marcar perdida
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
                 
                 {failedCalls.length === 0 && (
-                  <div className="col-span-full text-center py-12">
+                  <div className="text-center py-12">
                     <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <p className="text-slate-500 dark:text-slate-400">No hay llamadas fallidas</p>
                   </div>
@@ -1318,31 +1578,61 @@ const LiveMonitorKanban: React.FC = () => {
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                   <thead className="bg-slate-50 dark:bg-slate-900">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
-                        Cliente
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
-                        Checkpoint
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
-                        Duración
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
-                        Precio
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
-                        Fecha
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                      <SortableHeader field="cliente" className="w-64">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span>Cliente</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="estado" className="w-32">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Estado</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="checkpoint" className="w-40">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Checkpoint</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="duracion" className="w-24">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Duración</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="precio" className="w-24">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                          </svg>
+                          <span>Precio</span>
+                        </div>
+                      </SortableHeader>
+                      <SortableHeader field="fecha" className="w-32">
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>Fecha</span>
+                        </div>
+                      </SortableHeader>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-20">
                         Feedback
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                    {allCalls.map((call) => (
+                    {sortData(allCalls).map((call) => (
                       <tr 
                         key={call.call_id}
                         className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"

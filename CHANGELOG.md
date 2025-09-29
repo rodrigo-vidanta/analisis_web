@@ -1,5 +1,73 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 2.1.2 - Live Monitor Mejorado con Sorting (Septiembre 2025)
+
+### ✨ **MEJORAS DEL LIVE MONITOR**
+
+#### 📊 **Presentación Profesional de Datos**
+- **Llamadas finalizadas**: Cambiado de formato tarjetas a tabla profesional igual al historial
+- **Llamadas fallidas**: Cambiado de formato tarjetas a tabla profesional con columnas organizadas
+- **Consistencia visual**: Todas las pestañas ahora siguen el mismo patrón de presentación
+- **Información estructurada**: Datos organizados en columnas claras y legibles
+
+#### 🔄 **Sistema de Sorting Completo**
+- **Componente SortableHeader**: Implementado con iconos de ordenamiento ascendente/descendente
+- **Sorting en 3 pestañas**: Finalizadas, Fallidas y Todas las llamadas
+- **Campos ordenables**: Cliente, Agente, Teléfono, Duración, Checkpoint, Fecha, Estado, Precio
+- **Indicadores visuales**: Flechas que muestran la dirección del ordenamiento activo
+- **Hover effects**: Columnas resaltadas al pasar el mouse
+
+#### 📋 **Columnas Implementadas**
+
+##### **Llamadas Finalizadas:**
+- 👤 Cliente (avatar + nombre)
+- 👨‍💼 Agente asignado
+- 📞 Teléfono/WhatsApp
+- ⏱️ Duración (formato MM:SS)
+- ✅ Checkpoint actual
+- 📅 Fecha de creación
+- 🎯 Estado (Exitosa/No cerrada/Pendiente con iconos)
+
+##### **Llamadas Fallidas:**
+- 👤 Cliente (avatar + nombre)
+- 👨‍💼 Agente asignado
+- 📞 Teléfono/WhatsApp
+- ❌ Estado de la llamada
+- 📅 Fecha de creación
+- ⚠️ Acciones ("Marcar perdida")
+
+##### **Todas las Llamadas:**
+- 👤 Cliente completo
+- 📊 Estado actual
+- ✅ Checkpoint del proceso
+- ⏱️ Duración de llamada
+- 💰 Precio del paquete
+- 📅 Fecha de creación
+- 📝 Estado de feedback
+
+### 🔧 **MEJORAS TÉCNICAS**
+
+#### ⚡ **Componente SortableHeader Reutilizable**
+- **Lógica de ordenamiento**: Manejo automático de ascendente/descendente
+- **Indicadores visuales**: SVG arrows con estados activo/inactivo
+- **Hover effects**: Transiciones suaves en columnas
+- **Accesibilidad**: Cursor pointer y feedback visual
+
+#### 🎯 **Función sortData Inteligente**
+- **Múltiples tipos de datos**: Texto, números, fechas
+- **Mapeo de campos**: Switch case para diferentes propiedades
+- **Ordenamiento estable**: Mantiene orden relativo en empates
+- **Performance optimizada**: Sorting eficiente sin re-renders innecesarios
+
+### 🎨 **EXPERIENCIA DE USUARIO MEJORADA**
+- **Formato consistente**: Todas las pestañas siguen el patrón del historial
+- **Información organizada**: Datos estructurados en columnas claras
+- **Interactividad**: Click en columnas para ordenar, click en filas para detalles
+- **Responsive design**: Scroll horizontal en pantallas pequeñas
+- **Estados visuales**: Colores diferenciados por tipo de llamada
+
+---
+
 ## 🚀 Versión 2.1.1 - Indicador de Tokens Mejorado (Septiembre 2025)
 
 ### ✨ **MEJORAS DE UX**
