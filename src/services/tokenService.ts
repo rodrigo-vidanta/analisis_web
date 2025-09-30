@@ -547,11 +547,27 @@ class TokenService {
       }
 
       // Actualizar uso de tokens
+      // Primero obtener los valores actuales
+      const { data: currentData, error: fetchError } = await supabaseAdmin
+        .from('ai_token_limits')
+        .select('current_month_usage, current_day_usage')
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      // Calcular nuevos valores
+      const newMonthUsage = (currentData.current_month_usage || 0) + tokensUsed;
+      const newDayUsage = (currentData.current_day_usage || 0) + tokensUsed;
+
+      // Actualizar con valores calculados
       const { error } = await supabaseAdmin
         .from('ai_token_limits')
         .update({
-          current_month_usage: supabaseAdmin.raw(`current_month_usage + ${tokensUsed}`),
-          current_day_usage: supabaseAdmin.raw(`current_day_usage + ${tokensUsed}`),
+          current_month_usage: newMonthUsage,
+          current_day_usage: newDayUsage,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId);
