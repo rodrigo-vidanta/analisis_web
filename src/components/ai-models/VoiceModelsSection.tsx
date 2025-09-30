@@ -2350,11 +2350,18 @@ const VoiceModelsSection: React.FC = () => {
               <input
                 type="range"
                 min="1"
-                max="60"
+                max="30"
                 value={effectDuration}
                 onChange={(e) => setEffectDuration(parseInt(e.target.value))}
                 className="w-full accent-green-500"
               />
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>1s</span>
+                <span>30s (máximo oficial)</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Límite máximo de ElevenLabs para efectos de sonido
+              </p>
             </div>
 
             <div>
@@ -2370,6 +2377,14 @@ const VoiceModelsSection: React.FC = () => {
                 onChange={(e) => setEffectInfluence(parseFloat(e.target.value))}
                 className="w-full accent-green-500"
               />
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>0.0 (libre)</span>
+                <span>1.0 (estricto)</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Controla qué tan fielmente el efecto sigue tu descripción. 
+                Valores bajos permiten más creatividad, valores altos siguen el prompt exactamente.
+              </p>
             </div>
           </div>
 
@@ -2379,7 +2394,7 @@ const VoiceModelsSection: React.FC = () => {
               
               // Verificar límites de tokens antes de generar
               if (user?.id) {
-                const tokensRequired = 25; // Estimación para efectos de sonido
+                const tokensRequired = 100; // Costo real según API de ElevenLabs (character-cost: 100)
                 const { tokenService } = await import('../../services/tokenService');
                 const canUse = await tokenService.canUseTokens(user.id, 'sound-effects', tokensRequired);
                 
@@ -2429,7 +2444,7 @@ const VoiceModelsSection: React.FC = () => {
                     audio_file_url: audioUrl,
                     character_count: effectPrompt.length,
                     duration_seconds: effectDuration,
-                    cost_credits: 10, // Costo estimado para efectos
+                    cost_credits: 100, // Costo real según API ElevenLabs
                     status: 'completed',
                     created_at: new Date().toISOString(),
                     // Campos locales
@@ -2456,7 +2471,7 @@ const VoiceModelsSection: React.FC = () => {
                     character_count: effectPrompt.length,
                     duration_seconds: effectDuration,
                     file_size_bytes: result.audioBlob.size,
-                    cost_credits: 10,
+                    cost_credits: 100, // Costo real según API ElevenLabs
                     status: 'completed'
                   };
 
@@ -2490,7 +2505,7 @@ const VoiceModelsSection: React.FC = () => {
                   
                   // Consumir tokens después de generación exitosa
                   if (user?.id) {
-                    const tokensUsed = 25; // Costo de efectos de sonido
+                    const tokensUsed = 100; // Costo real según API de ElevenLabs
                     const { tokenService } = await import('../../services/tokenService');
                     await tokenService.consumeTokens(user.id, 'sound-effects', tokensUsed);
                     
