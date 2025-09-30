@@ -100,26 +100,59 @@ const TokenManagement: React.FC = () => {
       const finalMonthlyLimit = monthlyLimit === 0 ? -1 : monthlyLimit;
       const finalDailyLimit = dailyLimit === 0 ? -1 : dailyLimit;
 
-      const tokenData = {
-        user_id: userId,
-        monthly_limit: finalMonthlyLimit,
-        daily_limit: finalDailyLimit,
-        current_month: new Date().toISOString().slice(0, 10),
-        current_day: new Date().toISOString().slice(0, 10),
-        auto_reset_monthly: true,
-        auto_reset_daily: true,
-        notifications_enabled: true,
-        warning_threshold: 0.8,
-        updated_at: new Date().toISOString()
-      };
+      console.log('💾 Actualizando límites para usuario:', { userId, monthlyLimit: finalMonthlyLimit, dailyLimit: finalDailyLimit });
 
-      const { error } = await supabaseAdmin
+      // Verificar si el registro ya existe
+      const { data: existingRecord, error: checkError } = await supabaseAdmin
         .from('ai_token_limits')
-        .upsert([tokenData]);
+        .select('user_id')
+        .eq('user_id', userId)
+        .single();
 
-      if (error) throw error;
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
 
-      console.log('✅ Límites de tokens actualizados:', { userId, monthlyLimit: finalMonthlyLimit, dailyLimit: finalDailyLimit });
+      if (existingRecord) {
+        // Actualizar registro existente
+        const { error } = await supabaseAdmin
+          .from('ai_token_limits')
+          .update({
+            monthly_limit: finalMonthlyLimit,
+            daily_limit: finalDailyLimit,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId);
+
+        if (error) throw error;
+        console.log('✅ Registro existente actualizado');
+      } else {
+        // Crear nuevo registro
+        const tokenData = {
+          user_id: userId,
+          monthly_limit: finalMonthlyLimit,
+          daily_limit: finalDailyLimit,
+          current_month_usage: 0,
+          current_day_usage: 0,
+          current_month: new Date().toISOString().slice(0, 10),
+          current_day: new Date().toISOString().slice(0, 10),
+          auto_reset_monthly: true,
+          auto_reset_daily: true,
+          notifications_enabled: true,
+          warning_threshold: 0.8,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await supabaseAdmin
+          .from('ai_token_limits')
+          .insert([tokenData]);
+
+        if (error) throw error;
+        console.log('✅ Nuevo registro creado');
+      }
+
+      console.log('✅ Límites de tokens actualizados exitosamente');
       
       // Recargar datos
       await loadData();
