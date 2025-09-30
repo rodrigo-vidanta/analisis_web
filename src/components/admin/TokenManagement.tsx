@@ -28,7 +28,6 @@ const TokenManagement: React.FC = () => {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showAllUsers, setShowAllUsers] = useState(false);
 
   useEffect(() => {
@@ -335,11 +334,6 @@ const TokenManagement: React.FC = () => {
                 <>Mostrando {Math.min(3, tokenConfigs.length)} de {tokenConfigs.length} usuarios más recientes</>
               )}
             </span>
-            {selectedUserId && (
-              <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                Usuario seleccionado para presets
-              </span>
-            )}
           </div>
           
           {!searchQuery.trim() && tokenConfigs.length > 3 && (
@@ -370,14 +364,6 @@ const TokenManagement: React.FC = () => {
               {/* Header del usuario */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  {/* Checkbox de selección */}
-                  <input
-                    type="checkbox"
-                    checked={selectedUserId === userConfig.user_id}
-                    onChange={(e) => setSelectedUserId(e.target.checked ? userConfig.user_id : null)}
-                    className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600"
-                  />
-                  
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
                     {userConfig.full_name.charAt(0).toUpperCase()}
                   </div>
@@ -411,7 +397,71 @@ const TokenManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* Configuración de límites */}
+              {/* Presets rápidos */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                  ⚡ Presets Rápidos
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <button
+                    onClick={() => {
+                      setTokenConfigs(prev => prev.map(config => 
+                        config.user_id === userConfig.user_id
+                          ? { ...config, monthly_limit: 5000, daily_limit: 200 }
+                          : config
+                      ));
+                    }}
+                    className="px-3 py-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                  >
+                    <div className="font-medium">Básico</div>
+                    <div className="text-xs">5K/200</div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setTokenConfigs(prev => prev.map(config => 
+                        config.user_id === userConfig.user_id
+                          ? { ...config, monthly_limit: 15000, daily_limit: 750 }
+                          : config
+                      ));
+                    }}
+                    className="px-3 py-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                  >
+                    <div className="font-medium">Pro</div>
+                    <div className="text-xs">15K/750</div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setTokenConfigs(prev => prev.map(config => 
+                        config.user_id === userConfig.user_id
+                          ? { ...config, monthly_limit: 50000, daily_limit: 2000 }
+                          : config
+                      ));
+                    }}
+                    className="px-3 py-2 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+                  >
+                    <div className="font-medium">Premium</div>
+                    <div className="text-xs">50K/2K</div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setTokenConfigs(prev => prev.map(config => 
+                        config.user_id === userConfig.user_id
+                          ? { ...config, monthly_limit: -1, daily_limit: -1 }
+                          : config
+                      ));
+                    }}
+                    className="px-3 py-2 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors"
+                  >
+                    <div className="font-medium">∞</div>
+                    <div className="text-xs">Ilimitado</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Configuración manual de límites */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Límite mensual */}
                 <div>
@@ -538,107 +588,6 @@ const TokenManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Presets rápidos */}
-      <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-slate-900 dark:text-white">
-            ⚡ Presets Rápidos
-          </h3>
-          {!selectedUserId && (
-            <div className="text-sm text-orange-600 dark:text-orange-400 flex items-center space-x-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              <span>Selecciona un usuario</span>
-            </div>
-          )}
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button
-            onClick={() => {
-              if (!selectedUserId) {
-                alert('⚠️ Selecciona un usuario primero');
-                return;
-              }
-              // Aplicar preset básico solo al usuario seleccionado
-              setTokenConfigs(prev => prev.map(config => 
-                config.user_id === selectedUserId
-                  ? { ...config, monthly_limit: 5000, daily_limit: 200 }
-                  : config
-              ));
-            }}
-            disabled={!selectedUserId}
-            className="p-4 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <div className="font-medium">Básico</div>
-            <div className="text-sm">5K/mes • 200/día</div>
-          </button>
-          
-          <button
-            onClick={() => {
-              if (!selectedUserId) {
-                alert('⚠️ Selecciona un usuario primero');
-                return;
-              }
-              setTokenConfigs(prev => prev.map(config => 
-                config.user_id === selectedUserId
-                  ? { ...config, monthly_limit: 15000, daily_limit: 750 }
-                  : config
-              ));
-            }}
-            disabled={!selectedUserId}
-            className="p-4 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <div className="font-medium">Profesional</div>
-            <div className="text-sm">15K/mes • 750/día</div>
-          </button>
-          
-          <button
-            onClick={() => {
-              if (!selectedUserId) {
-                alert('⚠️ Selecciona un usuario primero');
-                return;
-              }
-              setTokenConfigs(prev => prev.map(config => 
-                config.user_id === selectedUserId
-                  ? { ...config, monthly_limit: 50000, daily_limit: 2000 }
-                  : config
-              ));
-            }}
-            disabled={!selectedUserId}
-            className="p-4 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <div className="font-medium">Premium</div>
-            <div className="text-sm">50K/mes • 2K/día</div>
-          </button>
-          
-          <button
-            onClick={() => {
-              if (!selectedUserId) {
-                alert('⚠️ Selecciona un usuario primero');
-                return;
-              }
-              setTokenConfigs(prev => prev.map(config => 
-                config.user_id === selectedUserId
-                  ? { ...config, monthly_limit: -1, daily_limit: -1 }
-                  : config
-              ));
-            }}
-            disabled={!selectedUserId}
-            className="p-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <div className="font-medium">Ilimitado</div>
-            <div className="text-sm">∞/mes • ∞/día</div>
-          </button>
-        </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
-          {selectedUserId 
-            ? 'Los presets se aplicarán solo al usuario seleccionado. Recuerda guardar después de aplicar.'
-            : 'Selecciona un usuario con el checkbox para aplicar presets.'
-          }
-        </p>
-      </div>
     </div>
   );
 };
