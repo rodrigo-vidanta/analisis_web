@@ -28,6 +28,7 @@ export interface AudioGeneration {
 }
 
 class AIModelsDbService {
+
   /**
    * Guardar generación de audio en la base de datos
    */
@@ -36,7 +37,9 @@ class AIModelsDbService {
       // Usar EXACTAMENTE los campos de la estructura real de la BD
       console.log('💾 Guardando generación:', { 
         generation_type: generation.generation_type,
-        user_id: generation.user_id 
+        user_id: generation.user_id,
+        voice_name: generation.voice_name,
+        original_text: generation.original_text?.substring(0, 50) + '...'
       });
       
       const dbRecord = {
@@ -68,9 +71,11 @@ class AIModelsDbService {
         .single();
 
       if (error) {
+        console.error('❌ Error de BD al guardar:', error);
         throw error;
       }
 
+      console.log('✅ Generación guardada exitosamente con ID:', data.id);
       return { success: true, id: data.id };
     } catch (error) {
       console.error('❌ Error guardando generación:', error);
@@ -78,11 +83,14 @@ class AIModelsDbService {
     }
   }
 
+
   /**
    * Obtener historial de generaciones del usuario
    */
   async getUserAudioHistory(userId: string, type?: 'tts' | 'stt' | 'sound_effect', limit: number = 100): Promise<{ success: boolean; data?: AudioGeneration[]; error?: string }> {
     try {
+      console.log('📊 Cargando historial para usuario:', userId, 'tipo:', type);
+      
       let query = supabaseAdmin
         .from('ai_audio_generations')
         .select('*')
@@ -101,7 +109,18 @@ class AIModelsDbService {
       const { data, error } = await query;
 
       if (error) {
+        console.error('❌ Error consultando historial:', error);
         throw error;
+      }
+
+      console.log('📋 Registros encontrados:', data?.length || 0);
+      if (data && data.length > 0) {
+        console.log('📄 Primer registro:', {
+          id: data[0].id,
+          generation_type: data[0].generation_type,
+          voice_name: data[0].voice_name,
+          created_at: data[0].created_at
+        });
       }
 
       // Mapear datos de BD a interfaz local

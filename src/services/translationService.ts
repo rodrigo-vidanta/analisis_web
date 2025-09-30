@@ -108,16 +108,16 @@ class TranslationService {
   }
 
   /**
-   * Heurística simple para detectar idioma
+   * Heurística mejorada para detectar idioma
    */
   private detectLanguageHeuristic(text: string): string {
     const lowerText = text.toLowerCase();
     
-    // Palabras comunes en español
-    const spanishWords = ['el', 'la', 'de', 'que', 'y', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'una', 'tiene', 'más', 'este', 'está', 'como', 'pero', 'sus', 'muy', 'todo', 'bien'];
+    // Palabras comunes en español (ampliadas)
+    const spanishWords = ['el', 'la', 'de', 'que', 'y', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'una', 'tiene', 'más', 'este', 'está', 'como', 'pero', 'sus', 'muy', 'todo', 'bien', 'bebe', 'bebé', 'niño', 'niña', 'llorando', 'gritando', 'riendo', 'cantando', 'hablando', 'corriendo', 'caminando', 'agua', 'fuego', 'viento', 'lluvia', 'música', 'sonido', 'ruido', 'animal', 'perro', 'gato', 'pájaro', 'coche', 'carro', 'casa', 'puerta', 'ventana'];
     
-    // Palabras comunes en inglés
-    const englishWords = ['the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 'by', 'from', 'they', 'she', 'or', 'an', 'will'];
+    // Palabras comunes en inglés (ampliadas)
+    const englishWords = ['the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 'by', 'from', 'they', 'she', 'or', 'an', 'will', 'baby', 'child', 'crying', 'screaming', 'laughing', 'singing', 'talking', 'running', 'walking', 'water', 'fire', 'wind', 'rain', 'music', 'sound', 'noise', 'animal', 'dog', 'cat', 'bird', 'car', 'house', 'door', 'window'];
     
     const words = lowerText.split(/\s+/);
     let spanishCount = 0;
@@ -128,11 +128,30 @@ class TranslationService {
       if (englishWords.includes(word)) englishCount++;
     });
     
-    // Detectar caracteres específicos del español
+    // Detectar caracteres específicos del español (peso mayor)
     const hasSpanishChars = /[ñáéíóúü¿¡]/i.test(text);
-    if (hasSpanishChars) spanishCount += 2;
+    if (hasSpanishChars) spanishCount += 3;
     
-    return spanishCount > englishCount ? 'es' : 'en';
+    // Patrones de terminaciones en español
+    const spanishEndings = /[aeiou]ndo$|[aeiou]r$|[aeiou]ción$|[aeiou]dad$/i;
+    if (spanishEndings.test(text)) spanishCount += 2;
+    
+    // Si no hay palabras reconocidas, asumir español por defecto
+    if (spanishCount === 0 && englishCount === 0) {
+      console.log('🔍 No se detectaron palabras conocidas, asumiendo español');
+      return 'es';
+    }
+    
+    const result = spanishCount > englishCount ? 'es' : 'en';
+    console.log('🔍 Detección de idioma:', { 
+      text: text.substring(0, 30), 
+      spanishCount, 
+      englishCount, 
+      hasSpanishChars, 
+      detected: result 
+    });
+    
+    return result;
   }
 
   /**
@@ -140,10 +159,20 @@ class TranslationService {
    * (Los efectos se generan mejor en inglés)
    */
   async translateForSoundEffects(text: string): Promise<TranslationResult> {
-    const detectedLang = this.detectLanguageHeuristic(text);
+    // Verificar si ya está en inglés usando palabras clave
+    const englishKeywords = ['baby', 'crying', 'child', 'screaming', 'laughing', 'singing', 'talking', 'running', 'walking', 'water', 'fire', 'wind', 'rain', 'music', 'sound', 'noise', 'animal', 'dog', 'cat', 'bird', 'car', 'house', 'door', 'window'];
+    const lowerText = text.toLowerCase();
+    const hasEnglishKeywords = englishKeywords.some(keyword => lowerText.includes(keyword));
     
-    if (detectedLang === 'en') {
+    console.log('🔍 Análisis de idioma para efectos:', { 
+      text, 
+      hasEnglishKeywords,
+      willTranslate: !hasEnglishKeywords
+    });
+    
+    if (hasEnglishKeywords) {
       // Ya está en inglés, no traducir
+      console.log('✅ Texto contiene palabras en inglés, no se traduce');
       return {
         success: true,
         translatedText: text,
@@ -153,8 +182,11 @@ class TranslationService {
       };
     }
     
-    // Traducir al inglés para mejor generación de efectos
-    return this.translateText(text, detectedLang, 'en');
+    // Asumir español y traducir al inglés para mejor generación de efectos
+    console.log('🌐 Traduciendo de español a inglés:', text);
+    const result = await this.translateText(text, 'es', 'en');
+    console.log('🌐 Resultado de translateText:', result);
+    return result;
   }
 
   /**

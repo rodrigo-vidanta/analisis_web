@@ -358,7 +358,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | null => {
+  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | null => {
     if (!authState.user) return null;
 
     // Orden de prioridad de módulos
@@ -368,6 +368,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Agent Studio para admin y developer
     if (authState.user.role_name === 'admin' || authState.user.role_name === 'developer') {
       return 'agent-studio';
+    }
+    
+    // AI Models para productor y admin
+    if (authState.user.role_name === 'productor' || authState.user.role_name === 'admin') {
+      return 'ai-models';
     }
     
     // Priorizar submódulos específicos de análisis

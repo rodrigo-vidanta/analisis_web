@@ -126,6 +126,36 @@ const VoiceModelsSection: React.FC = () => {
   
   // Estado para tokens del usuario
   const [userTokens, setUserTokens] = useState<{used: number, limit: number} | null>(null);
+
+  // Función para recargar historial
+  const reloadHistory = async () => {
+    if (!user?.id) return;
+    
+    console.log('🔄 Recargando historial completo...');
+    const historyResult = await aiModelsDbService.getUserAudioHistory(user.id);
+    
+    if (historyResult.success && historyResult.data) {
+      console.log('📊 Historial recargado:', historyResult.data.length, 'registros');
+      const ttsHistory = historyResult.data.filter((item: any) => item.generation_type === 'text_to_speech');
+      const stsHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_speech');
+      const sttHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_text');
+      const effectsHistory = historyResult.data.filter((item: any) => item.generation_type === 'sound_effect');
+      
+      console.log('📊 Historiales filtrados después de recargar:', { 
+        ttsHistory: ttsHistory.length, 
+        stsHistory: stsHistory.length,
+        sttHistory: sttHistory.length,
+        effectsHistory: effectsHistory.length
+      });
+      
+      setTtsHistory(ttsHistory);
+      setStsHistory(stsHistory);
+      setSttHistory(sttHistory);
+      setEffectsHistory(effectsHistory);
+    } else {
+      console.error('❌ Error recargando historial:', historyResult.error);
+    }
+  };
   
   // Filtros sofisticados
   const [searchQuery, setSearchQuery] = useState('');
@@ -342,7 +372,7 @@ const VoiceModelsSection: React.FC = () => {
           setRecentVoices([voicesData[0]]);
         }
 
-        // Cargar historial desde la base de datos
+        // Cargar historial desde la base de datos (incluyendo efectos)
         console.log('📊 Resultado del historial:', historyResult);
         if (historyResult.success && historyResult.data) {
           console.log('📊 Datos del historial:', historyResult.data);
@@ -351,11 +381,11 @@ const VoiceModelsSection: React.FC = () => {
           const sttHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_text');
           const effectsHistory = historyResult.data.filter((item: any) => item.generation_type === 'sound_effect');
           
-          console.log('📊 Historiales filtrados:', { 
+          console.log('📊 Historiales filtrados en carga inicial:', { 
             ttsHistory: ttsHistory.length, 
             stsHistory: stsHistory.length,
-            sttHistory: sttHistory.length, 
-            effectsHistory: effectsHistory.length 
+            sttHistory: sttHistory.length,
+            effectsHistory: effectsHistory.length
           });
           
           setTtsHistory(ttsHistory);
@@ -1132,6 +1162,9 @@ const VoiceModelsSection: React.FC = () => {
                           } catch (error) {
                             console.log('⚠️ Bucket upload falló, usando URL temporal');
                           }
+                          
+                          // Recargar historial para mostrar el nuevo registro
+                          setTimeout(() => reloadHistory(), 1000);
                         } else {
                           console.error('❌ Error guardando STS en BD:', dbResult.error);
                         }
@@ -1202,21 +1235,42 @@ const VoiceModelsSection: React.FC = () => {
       </div>
 
       {/* Historial de STS */}
-      {stsHistory.length > 0 && (
+      {(stsHistory.length > 0 || user?.id) && (
         <div className={`${cardClass} rounded-2xl p-6`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-900 dark:text-white">
               Historial de Speech to Speech ({stsHistory.length})
             </h3>
-            {stsHistory.length > 20 && (
-              <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors">
-                Ver más
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={reloadHistory}
+                className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors flex items-center space-x-1"
+                title="Recargar historial desde BD"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Recargar</span>
               </button>
-            )}
+              {stsHistory.length > 20 && (
+                <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors">
+                  Ver más
+                </button>
+              )}
+            </div>
           </div>
           
           <div className="space-y-3 max-h-80 overflow-y-auto">
-            {stsHistory.slice(0, 20).map((item, index) => (
+            {stsHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p className="text-slate-500 dark:text-slate-400 mb-2">No hay conversiones de voz aún</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Las conversiones aparecerán aquí después de grabar y convertir</p>
+              </div>
+            ) : (
+              stsHistory.slice(0, 20).map((item, index) => (
               <div key={item.id} className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1302,7 +1356,7 @@ const VoiceModelsSection: React.FC = () => {
                   </button>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
           
           {stsHistory.length > 20 && (
@@ -1782,6 +1836,9 @@ const VoiceModelsSection: React.FC = () => {
                       } catch (error) {
                         console.log('⚠️ Bucket upload falló, usando URL temporal');
                       }
+                      
+                      // Recargar historial para mostrar el nuevo registro
+                      setTimeout(() => reloadHistory(), 1000);
                     } else {
                       console.error('❌ Error guardando en BD:', dbResult.error);
                     }
@@ -1824,14 +1881,42 @@ const VoiceModelsSection: React.FC = () => {
       </div>
 
       {/* Historial de TTS */}
-      {ttsHistory.length > 0 && (
+      {(ttsHistory.length > 0 || user?.id) && (
         <div className={`${cardClass} rounded-2xl p-6`}>
-          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">
-            Historial de Text to Speech ({ttsHistory.length})
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-slate-900 dark:text-white">
+              Historial de Text to Speech ({ttsHistory.length})
+            </h3>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={reloadHistory}
+                className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors flex items-center space-x-1"
+                title="Recargar historial desde BD"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Recargar</span>
+              </button>
+              {ttsHistory.length > 20 && (
+                <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors">
+                  Ver más
+                </button>
+              )}
+            </div>
+          </div>
           
           <div className="space-y-3 max-h-80 overflow-y-auto">
-            {ttsHistory.slice(0, 20).map((item, index) => (
+            {ttsHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <p className="text-slate-500 dark:text-slate-400 mb-2">No hay audios generados aún</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Los audios aparecerán aquí después de generarlos</p>
+              </div>
+            ) : (
+              ttsHistory.slice(0, 20).map((item, index) => (
               <div key={item.id} className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200">
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1925,7 +2010,7 @@ const VoiceModelsSection: React.FC = () => {
                   </button>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
           
           {ttsHistory.length > 20 && (
@@ -2237,6 +2322,14 @@ const VoiceModelsSection: React.FC = () => {
             <span className="text-sm text-slate-700 dark:text-slate-300">
               Auto-traducir al inglés
             </span>
+            {autoTranslate && (
+              <span className="text-xs text-green-600 dark:text-green-400 flex items-center space-x-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                </svg>
+                <span>Activo</span>
+              </span>
+            )}
           </label>
         </div>
 
@@ -2288,12 +2381,19 @@ const VoiceModelsSection: React.FC = () => {
               try {
                 let finalPrompt = effectPrompt;
                 if (autoTranslate) {
+                  console.log('🌐 Traduciendo efecto:', effectPrompt);
                   const translation = await translationService.translateForSoundEffects(effectPrompt);
-                  if (translation.success && translation.result && translation.result.translatedText !== effectPrompt) {
-                    finalPrompt = translation.result.translatedText;
+                  console.log('🌐 Resultado traducción:', translation);
+                  
+                  if (translation.success && translation.translatedText && translation.translatedText !== effectPrompt) {
+                    finalPrompt = translation.translatedText;
+                    console.log('✅ Texto traducido:', finalPrompt);
+                  } else {
+                    console.log('⚠️ No se tradujo o ya estaba en inglés');
                   }
                 }
 
+                console.log('🎵 Generando efecto con prompt final:', finalPrompt);
                 const result = await elevenLabsService.generateSoundEffect(
                   finalPrompt,
                   effectDuration,
@@ -2325,10 +2425,45 @@ const VoiceModelsSection: React.FC = () => {
                     audio_blob: result.audioBlob
                   };
 
-                  // Guardar en base de datos (sin bloquear la UI)
-                  aiModelsDbService.saveAudioGeneration(newEffect).then(dbResult => {
+                  // Subir al bucket de Supabase
+                  const fileName = `sfx_${Date.now()}.mp3`;
+                  const uploadPromise = elevenLabsService.uploadAudioToStorage(result.audioBlob, fileName);
+
+                  // Guardar efecto en ai_audio_generations
+                  const effectForDb = {
+                    user_id: user?.id || '',
+                    generation_type: 'sound_effect',
+                    original_text: effectPrompt,
+                    translated_text: finalPrompt !== effectPrompt ? finalPrompt : undefined,
+                    voice_id: 'sound_effect',
+                    voice_name: 'Efecto de Sonido',
+                    model_id: 'eleven_sound_effects',
+                    voice_settings: { duration: effectDuration },
+                    audio_file_url: audioUrl, // URL temporal primero
+                    character_count: effectPrompt.length,
+                    duration_seconds: effectDuration,
+                    file_size_bytes: result.audioBlob.size,
+                    cost_credits: 10,
+                    status: 'completed'
+                  };
+
+                  aiModelsDbService.saveAudioGeneration(effectForDb).then(async dbResult => {
                     if (dbResult.success) {
-                      console.log('✅ Efecto guardado en BD:', dbResult.id);
+                      console.log('✅ Efecto guardado en ai_audio_generations:', dbResult.id);
+                      
+                      // Esperar a que se suba al bucket y actualizar URL
+                      try {
+                        const uploadResult = await uploadPromise;
+                        if (uploadResult.success && uploadResult.url && dbResult.id) {
+                          await aiModelsDbService.updateAudioUrl(dbResult.id, uploadResult.url);
+                          console.log('✅ URL del efecto actualizada en BD');
+                        }
+                      } catch (error) {
+                        console.log('⚠️ Bucket upload de efecto falló, usando URL temporal');
+                      }
+                      
+                      // Recargar historial para mostrar el nuevo registro
+                      setTimeout(() => reloadHistory(), 1000);
                     } else {
                       console.error('❌ Error guardando efecto en BD:', dbResult.error);
                     }
@@ -2399,9 +2534,40 @@ const VoiceModelsSection: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {
-                      if (effect.audio_url) {
-                        const audio = new Audio(effect.audio_url);
+                      const audioUrl = (effect as any).audio_file_url || effect.audio_url;
+                      console.log('🎵 Reproduciendo efecto:', { 
+                        audioUrl, 
+                        hasBlob: !!effect.audio_blob,
+                        effectId: effect.id
+                      });
+                      
+                      if (audioUrl) {
+                        const audio = new Audio();
+                        
+                        // Configurar CORS y headers
+                        audio.crossOrigin = 'anonymous';
+                        audio.preload = 'auto';
+                        
+                        audio.onloadstart = () => console.log('🔄 Cargando efecto...');
+                        audio.oncanplay = () => console.log('✅ Efecto listo');
+                        audio.onerror = (e) => {
+                          console.error('❌ Error reproduciendo efecto desde URL:', e);
+                          
+                          // Fallback: usar blob si está disponible
+                          if (effect.audio_blob) {
+                            console.log('🔄 Intentando fallback con blob...');
+                            const blobUrl = elevenLabsService.createAudioUrl(effect.audio_blob);
+                            const fallbackAudio = new Audio(blobUrl);
+                            fallbackAudio.play().catch(err => console.error('❌ Fallback efecto falló:', err));
+                          } else {
+                            console.error('❌ No hay blob disponible para fallback');
+                          }
+                        };
+                        
+                        audio.src = audioUrl;
                         audio.play().catch(console.error);
+                      } else {
+                        console.error('❌ No hay URL de audio disponible para efecto');
                       }
                     }}
                     className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors duration-200"

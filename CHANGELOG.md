@@ -1,5 +1,61 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 2.1.3 - AI Models Historial y Traducción Corregidos (Septiembre 2025)
+
+### ✨ **CORRECCIONES CRÍTICAS AI MODELS**
+
+#### 🎵 **Efectos de Sonido Completamente Funcionales**
+- **Historial persistente**: Los efectos de sonido ahora se guardan y persisten al recargar la página
+- **Tabla correcta**: Uso de `ai_sound_effects` para almacenamiento específico de efectos
+- **Reproducción mejorada**: Audio se reproduce correctamente con logs detallados
+- **Carga optimizada**: Historial se carga desde tabla específica con mapeo correcto
+
+#### 🌐 **Traducción Automática Corregida**
+- **Detección mejorada**: Algoritmo simplificado para detectar idioma de efectos de sonido
+- **Traducción funcional**: "bebe llorando" → "crying baby" correctamente
+- **Lógica conservadora**: Asume español por defecto, traduce a inglés para mejor calidad
+- **Indicador visual**: Muestra "Activo" cuando auto-traducir está habilitado
+- **Logs detallados**: Proceso completo de traducción visible en consola
+
+#### 👥 **Acceso de Roles Corregido**
+- **Productores**: Acceso directo a AI Models sin errores de permisos
+- **Sin errores**: Eliminados intentos de acceso a Live Monitor para productores
+- **Módulo por defecto**: `getFirstAvailableModule()` prioriza AI Models para productores
+
+### 🔧 **MEJORAS TÉCNICAS**
+
+#### 📊 **Sistema de Historial Robusto**
+- **Carga paralela**: Audio y efectos se cargan simultáneamente
+- **Mapeo correcto**: Datos de BD mapeados a interfaz correctamente
+- **Recarga automática**: Historial se actualiza después de cada generación
+- **Botones de recarga**: Disponibles en todos los historiales para debug
+
+#### 🎯 **Traducción Inteligente**
+- **Detección por palabras clave**: Lista específica de términos en inglés
+- **Fallback español**: Si no detecta inglés, asume español y traduce
+- **API MyMemory**: Traducción gratuita funcionando correctamente
+- **Calidad mejorada**: Efectos en inglés generan mejor audio
+
+#### 🗄️ **Base de Datos Verificada**
+- **Tablas confirmadas**: `ai_audio_generations`, `ai_sound_effects`, `ai_user_preferences`, `ai_token_limits`
+- **Estructura validada**: Conexión directa para verificar esquemas reales
+- **Guardado correcto**: Efectos en tabla específica, audio en tabla general
+- **Persistencia garantizada**: Datos se mantienen entre sesiones
+
+### 🎨 **EXPERIENCIA DE USUARIO MEJORADA**
+- **Flujo sin errores**: Productores acceden directamente a su módulo
+- **Traducción transparente**: Proceso visible con logs informativos
+- **Historial completo**: Todos los tipos de generación persisten correctamente
+- **Reproducción confiable**: Audio se reproduce con fallbacks robustos
+
+### 🧪 **CASOS DE PRUEBA VALIDADOS**
+- ✅ **"bebe llorando"** → Traduce a "crying baby" → Audio correcto
+- ✅ **"baby crying"** → Mantiene original → Audio correcto  
+- ✅ **Recarga de página** → Historial persiste en todas las pestañas
+- ✅ **Login productor** → Acceso directo a AI Models sin errores
+
+---
+
 ## 🚀 Versión 2.1.2 - Live Monitor Mejorado con Sorting (Septiembre 2025)
 
 ### ✨ **MEJORAS DEL LIVE MONITOR**
