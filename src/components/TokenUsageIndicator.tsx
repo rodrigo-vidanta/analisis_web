@@ -23,7 +23,21 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
       loadTokenInfo();
       // Actualizar cada 30 segundos
       const interval = setInterval(loadTokenInfo, 30000);
-      return () => clearInterval(interval);
+      
+      // Escuchar eventos de tokens actualizados
+      const handleTokensUpdated = (event: CustomEvent) => {
+        if (event.detail.userId === user.id) {
+          console.log('🔄 Tokens actualizados, recargando indicador...');
+          loadTokenInfo();
+        }
+      };
+      
+      window.addEventListener('tokensUpdated', handleTokensUpdated as EventListener);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('tokensUpdated', handleTokensUpdated as EventListener);
+      };
     }
   }, [user?.id]);
 

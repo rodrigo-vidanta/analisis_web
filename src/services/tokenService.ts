@@ -561,6 +561,12 @@ class TokenService {
       }
 
       console.log(`💰 Tokens consumidos: ${tokensUsed} (${operation})`);
+      
+      // Disparar evento para actualizar indicadores
+      window.dispatchEvent(new CustomEvent('tokensUpdated', { 
+        detail: { userId, tokensUsed, operation } 
+      }));
+      
       return { success: true };
     } catch (error) {
       console.error('❌ Error consumiendo tokens:', error);

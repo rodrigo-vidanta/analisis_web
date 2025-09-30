@@ -2376,6 +2376,19 @@ const VoiceModelsSection: React.FC = () => {
           <button
             onClick={async () => {
               if (!effectPrompt.trim()) return;
+              
+              // Verificar límites de tokens antes de generar
+              if (user?.id) {
+                const tokensRequired = 25; // Estimación para efectos de sonido
+                const { tokenService } = await import('../../services/tokenService');
+                const canUse = await tokenService.canUseTokens(user.id, 'sound-effects', tokensRequired);
+                
+                if (!canUse.allowed) {
+                  alert(`❌ ${canUse.reason}`);
+                  return;
+                }
+              }
+              
               setIsGenerating(true);
               
               try {
@@ -2474,6 +2487,22 @@ const VoiceModelsSection: React.FC = () => {
                   // 🎵 REPRODUCIR AUTOMÁTICAMENTE
                   const audio = new Audio(audioUrl);
                   audio.play().catch(console.error);
+                  
+                  // Consumir tokens después de generación exitosa
+                  if (user?.id) {
+                    const tokensUsed = 25; // Costo de efectos de sonido
+                    const { tokenService } = await import('../../services/tokenService');
+                    await tokenService.consumeTokens(user.id, 'sound-effects', tokensUsed);
+                    
+                    // Actualizar display de tokens
+                    const updatedTokenInfo = await tokenService.getUserTokenInfo(user.id);
+                    if (updatedTokenInfo) {
+                      setUserTokens({
+                        used: updatedTokenInfo.current_month_usage,
+                        limit: updatedTokenInfo.monthly_limit
+                      });
+                    }
+                  }
                   
                   // NO borrar prompt para permitir regeneración fácil
                   // setEffectPrompt('');
