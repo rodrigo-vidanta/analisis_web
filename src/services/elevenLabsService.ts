@@ -712,21 +712,24 @@ class ElevenLabsService {
   }
 
   /**
-   * Estimar costo de generación
+   * Estimar costo de generación basado en API real de ElevenLabs
    */
   estimateCost(text: string, modelId: string): { characters: number; estimatedCredits: number } {
     const characters = text.length;
     
-    // Factores de costo por modelo (aproximados)
+    // Factores de costo por modelo (basados en API real)
     const costFactors: Record<string, number> = {
-      'eleven_multilingual_v2': 1,
-      'eleven_turbo_v2': 0.3,
-      'eleven_multilingual_v1': 1,
-      'eleven_monolingual_v1': 1
+      'eleven_multilingual_v2': 1.0,    // 1 token por carácter (verificado)
+      'eleven_v3': 1.0,                 // 1 token por carácter
+      'eleven_turbo_v2_5': 0.3,         // Modelo turbo más económico
+      'eleven_english_v2': 1.0,         // 1 token por carácter
+      'eleven_multilingual_v1': 1.0,    // 1 token por carácter
+      'eleven_monolingual_v1': 1.0      // 1 token por carácter
     };
 
-    const factor = costFactors[modelId] || 1;
-    const estimatedCredits = Math.ceil(characters * factor / 1000);
+    const factor = costFactors[modelId] || 1.0;
+    // Cálculo real: 1 token por carácter (no dividir entre 1000)
+    const estimatedCredits = Math.ceil(characters * factor);
 
     return { characters, estimatedCredits };
   }

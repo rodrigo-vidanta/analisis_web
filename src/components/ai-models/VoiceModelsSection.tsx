@@ -1091,7 +1091,7 @@ const VoiceModelsSection: React.FC = () => {
                   
                   // Verificar tokens antes de convertir
                   if (user?.id) {
-                    const tokensRequired = 100; // Estimación para STS
+                    const tokensRequired = 25; // Costo real según API ElevenLabs (character-cost: 25)
                     const { tokenService } = await import('../../services/tokenService');
                     const canUse = await tokenService.canUseTokens(user.id, 'speech-to-speech', tokensRequired);
                     
@@ -1180,7 +1180,7 @@ const VoiceModelsSection: React.FC = () => {
                       // Consumir tokens
                       if (user?.id) {
                         const { tokenService } = await import('../../services/tokenService');
-                        await tokenService.consumeTokens(user.id, 'speech-to-speech', 100);
+                        await tokenService.consumeTokens(user.id, 'speech-to-speech', 25); // Costo real según API
                         
                         // Actualizar display
                         const updatedTokenInfo = await tokenService.getUserTokenInfo(user.id);
