@@ -7,6 +7,7 @@ interface User {
   id: string;
   email: string;
   full_name: string;
+  department: string;
   role_name: string;
   is_active: boolean;
 }
@@ -14,6 +15,7 @@ interface User {
 interface UserTokenConfig extends TokenLimits {
   email: string;
   full_name: string;
+  department: string;
   role_name: string;
 }
 
@@ -21,32 +23,61 @@ const TokenManagement: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [tokenConfigs, setTokenConfigs] = useState<UserTokenConfig[]>([]);
+  const [filteredConfigs, setFilteredConfigs] = useState<UserTokenConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [showAllUsers, setShowAllUsers] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Efecto para filtrar usuarios
+  useEffect(() => {
+    let filtered = tokenConfigs;
+
+    // Aplicar filtro de búsqueda
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(config => 
+        config.full_name.toLowerCase().includes(query) ||
+        config.email.toLowerCase().includes(query) ||
+        config.department?.toLowerCase().includes(query)
+      );
+    }
+
+    // Mostrar solo últimos 3 si no hay búsqueda y no se forzó mostrar todos
+    if (!searchQuery.trim() && !showAllUsers) {
+      filtered = filtered.slice(0, 3);
+    }
+
+    setFilteredConfigs(filtered);
+  }, [tokenConfigs, searchQuery, showAllUsers]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Cargar usuarios productores
+      // Cargar usuarios productores (ordenados por fecha de creación, más recientes primero)
       const { data: usersData, error: usersError } = await supabaseAdmin
         .from('auth_users')
         .select(`
           id,
           email,
           full_name,
+          department,
           is_active,
           role_id,
+          created_at,
           auth_roles!inner(name)
         `)
         .eq('auth_roles.name', 'productor')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
       if (usersError) throw usersError;
 
@@ -54,6 +85,7 @@ const TokenManagement: React.FC = () => {
         id: user.id,
         email: user.email,
         full_name: user.full_name || user.email,
+        department: user.department || 'Sin departamento',
         role_name: user.auth_roles?.name || 'productor',
         is_active: user.is_active
       })) || [];
@@ -77,8 +109,8 @@ const TokenManagement: React.FC = () => {
           daily_limit: tokenConfig?.daily_limit || 500,
           current_month_usage: tokenConfig?.current_month_usage || 0,
           current_day_usage: tokenConfig?.current_day_usage || 0,
-          monthly_usage_percentage: tokenConfig ? (tokenConfig.current_month_usage / tokenConfig.monthly_limit) * 100 : 0,
-          daily_usage_percentage: tokenConfig ? (tokenConfig.current_day_usage / tokenConfig.daily_limit) * 100 : 0,
+          monthly_usage_percentage: tokenConfig && tokenConfig.monthly_limit > 0 ? (tokenConfig.current_month_usage / tokenConfig.monthly_limit) * 100 : 0,
+          daily_usage_percentage: tokenConfig && tokenConfig.daily_limit > 0 ? (tokenConfig.current_day_usage / tokenConfig.daily_limit) * 100 : 0,
           warning_threshold: (tokenConfig?.warning_threshold || 0.8) * 100
         };
       });
@@ -220,7 +252,7 @@ const TokenManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
             Gestión de Tokens AI Models
@@ -229,15 +261,34 @@ const TokenManagement: React.FC = () => {
             Configura límites de tokens para usuarios productores
           </p>
         </div>
-        <button
-          onClick={loadData}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span>Actualizar</span>
-        </button>
+        
+        <div className="flex items-center space-x-3">
+          {/* Buscador */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nombre, email o departamento..."
+              className="pl-10 pr-4 py-2 w-80 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-white"
+            />
+          </div>
+          
+          <button
+            onClick={loadData}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Actualizar</span>
+          </button>
+        </div>
       </div>
 
       {/* Información de costos */}
@@ -273,21 +324,60 @@ const TokenManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Información de usuarios y controles */}
+      {tokenConfigs.length > 0 && (
+        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-slate-600 dark:text-slate-400">
+              {searchQuery.trim() ? (
+                <>Mostrando {filteredConfigs.length} de {tokenConfigs.length} usuarios</>
+              ) : (
+                <>Mostrando {Math.min(3, tokenConfigs.length)} de {tokenConfigs.length} usuarios más recientes</>
+              )}
+            </span>
+            {selectedUserId && (
+              <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                Usuario seleccionado para presets
+              </span>
+            )}
+          </div>
+          
+          {!searchQuery.trim() && tokenConfigs.length > 3 && (
+            <button
+              onClick={() => setShowAllUsers(!showAllUsers)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+            >
+              {showAllUsers ? 'Mostrar solo últimos 3' : `Ver todos (${tokenConfigs.length})`}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Lista de usuarios productores */}
-      {tokenConfigs.length === 0 ? (
+      {filteredConfigs.length === 0 ? (
         <div className="text-center py-12">
           <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
           </svg>
-          <p className="text-slate-500 dark:text-slate-400">No hay usuarios productores registrados</p>
+          <p className="text-slate-500 dark:text-slate-400">
+            {searchQuery.trim() ? 'No se encontraron usuarios con ese criterio' : 'No hay usuarios productores registrados'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {tokenConfigs.map((userConfig) => (
+          {filteredConfigs.map((userConfig) => (
             <div key={userConfig.user_id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
               {/* Header del usuario */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
+                  {/* Checkbox de selección */}
+                  <input
+                    type="checkbox"
+                    checked={selectedUserId === userConfig.user_id}
+                    onChange={(e) => setSelectedUserId(e.target.checked ? userConfig.user_id : null)}
+                    className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600"
+                  />
+                  
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
                     {userConfig.full_name.charAt(0).toUpperCase()}
                   </div>
@@ -297,6 +387,9 @@ const TokenManagement: React.FC = () => {
                     </h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                       {userConfig.email} • {userConfig.role_name}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      {userConfig.department}
                     </p>
                   </div>
                 </div>
@@ -447,20 +540,36 @@ const TokenManagement: React.FC = () => {
 
       {/* Presets rápidos */}
       <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-6">
-        <h3 className="font-semibold text-slate-900 dark:text-white mb-4">
-          ⚡ Presets Rápidos
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-slate-900 dark:text-white">
+            ⚡ Presets Rápidos
+          </h3>
+          {!selectedUserId && (
+            <div className="text-sm text-orange-600 dark:text-orange-400 flex items-center space-x-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span>Selecciona un usuario</span>
+            </div>
+          )}
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <button
             onClick={() => {
-              // Aplicar preset básico a todos
-              setTokenConfigs(prev => prev.map(config => ({
-                ...config,
-                monthly_limit: 5000,
-                daily_limit: 200
-              })));
+              if (!selectedUserId) {
+                alert('⚠️ Selecciona un usuario primero');
+                return;
+              }
+              // Aplicar preset básico solo al usuario seleccionado
+              setTokenConfigs(prev => prev.map(config => 
+                config.user_id === selectedUserId
+                  ? { ...config, monthly_limit: 5000, daily_limit: 200 }
+                  : config
+              ));
             }}
-            className="p-4 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+            disabled={!selectedUserId}
+            className="p-4 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <div className="font-medium">Básico</div>
             <div className="text-sm">5K/mes • 200/día</div>
@@ -468,13 +577,18 @@ const TokenManagement: React.FC = () => {
           
           <button
             onClick={() => {
-              setTokenConfigs(prev => prev.map(config => ({
-                ...config,
-                monthly_limit: 15000,
-                daily_limit: 750
-              })));
+              if (!selectedUserId) {
+                alert('⚠️ Selecciona un usuario primero');
+                return;
+              }
+              setTokenConfigs(prev => prev.map(config => 
+                config.user_id === selectedUserId
+                  ? { ...config, monthly_limit: 15000, daily_limit: 750 }
+                  : config
+              ));
             }}
-            className="p-4 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+            disabled={!selectedUserId}
+            className="p-4 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <div className="font-medium">Profesional</div>
             <div className="text-sm">15K/mes • 750/día</div>
@@ -482,13 +596,18 @@ const TokenManagement: React.FC = () => {
           
           <button
             onClick={() => {
-              setTokenConfigs(prev => prev.map(config => ({
-                ...config,
-                monthly_limit: 50000,
-                daily_limit: 2000
-              })));
+              if (!selectedUserId) {
+                alert('⚠️ Selecciona un usuario primero');
+                return;
+              }
+              setTokenConfigs(prev => prev.map(config => 
+                config.user_id === selectedUserId
+                  ? { ...config, monthly_limit: 50000, daily_limit: 2000 }
+                  : config
+              ));
             }}
-            className="p-4 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+            disabled={!selectedUserId}
+            className="p-4 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <div className="font-medium">Premium</div>
             <div className="text-sm">50K/mes • 2K/día</div>
@@ -496,20 +615,28 @@ const TokenManagement: React.FC = () => {
           
           <button
             onClick={() => {
-              setTokenConfigs(prev => prev.map(config => ({
-                ...config,
-                monthly_limit: -1,
-                daily_limit: -1
-              })));
+              if (!selectedUserId) {
+                alert('⚠️ Selecciona un usuario primero');
+                return;
+              }
+              setTokenConfigs(prev => prev.map(config => 
+                config.user_id === selectedUserId
+                  ? { ...config, monthly_limit: -1, daily_limit: -1 }
+                  : config
+              ));
             }}
-            className="p-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors"
+            disabled={!selectedUserId}
+            className="p-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <div className="font-medium">Ilimitado</div>
             <div className="text-sm">∞/mes • ∞/día</div>
           </button>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
-          Los presets se aplican a todos los usuarios. Guarda individualmente después de aplicar.
+          {selectedUserId 
+            ? 'Los presets se aplicarán solo al usuario seleccionado. Recuerda guardar después de aplicar.'
+            : 'Selecciona un usuario con el checkbox para aplicar presets.'
+          }
         </p>
       </div>
     </div>
