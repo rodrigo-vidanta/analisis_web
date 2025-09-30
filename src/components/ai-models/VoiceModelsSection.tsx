@@ -2538,8 +2538,30 @@ const VoiceModelsSection: React.FC = () => {
                       console.log('🎵 Reproduciendo efecto:', { 
                         audioUrl, 
                         hasBlob: !!effect.audio_blob,
-                        effectId: effect.id
+                        effectId: effect.id,
+                        isProduction: window.location.hostname !== 'localhost'
                       });
+                      
+                      // En producción, priorizar blob sobre URL del bucket
+                      const isProduction = window.location.hostname !== 'localhost';
+                      
+                      if (isProduction && effect.audio_blob) {
+                        console.log('🏭 Producción: usando blob directamente');
+                        const blobUrl = elevenLabsService.createAudioUrl(effect.audio_blob);
+                        const audio = new Audio(blobUrl);
+                        audio.play().catch(err => {
+                          console.error('❌ Error reproduciendo blob en producción:', err);
+                          // Fallback a URL del bucket
+                          if (audioUrl) {
+                            console.log('🔄 Fallback a URL del bucket...');
+                            const fallbackAudio = new Audio();
+                            fallbackAudio.crossOrigin = 'anonymous';
+                            fallbackAudio.src = audioUrl;
+                            fallbackAudio.play().catch(console.error);
+                          }
+                        });
+                        return;
+                      }
                       
                       if (audioUrl) {
                         const audio = new Audio();
