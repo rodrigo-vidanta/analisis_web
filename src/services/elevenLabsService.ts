@@ -348,6 +348,15 @@ class ElevenLabsService {
       formData.append('file', audioFile);
       formData.append('model_id', modelId);
 
+      // Debug temporal para verificar parámetros
+      console.log('🔍 STT Debug:', {
+        fileName: audioFile.name,
+        fileSize: audioFile.size,
+        fileType: audioFile.type,
+        modelId: modelId,
+        formDataEntries: Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `File(${value.name})` : value])
+      });
+
       const result = await this.makeRequest('/speech-to-text', {
         method: 'POST',
         headers: {
