@@ -925,17 +925,92 @@ const VoiceModelsSection: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
             {/* Opción 1: Grabar audio */}
-            <div className={`p-4 border-2 border-dashed rounded-xl transition-all duration-300 ${
+            <div className={`p-4 border-2 border-dashed rounded-xl transition-all duration-300 cursor-pointer ${
               !uploadedAudio 
-                ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' 
+                ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-600' 
                 : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50'
-            }`}>
+            }`}
+            onClick={async () => {
+              if (uploadedAudio) return; // No hacer nada si hay archivo subido
+              
+              if (!isRecording) {
+                // Limpiar audio anterior
+                setRecordedAudio(null);
+                
+                // Solicitar permisos de micrófono
+                try {
+                  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                  setMicPermission('granted');
+                  localStorage.setItem('mic_permission_ai_models', 'granted');
+                  
+                  // Configurar MediaRecorder con formato compatible
+                  const options = { mimeType: 'audio/webm;codecs=opus' };
+                  const recorder = new MediaRecorder(stream, options);
+                  const chunks: BlobPart[] = [];
+                  
+                  recorder.ondataavailable = (e) => chunks.push(e.data);
+                  recorder.onstop = () => {
+                    const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+                    setRecordedAudio(audioBlob);
+                    console.log('🎤 Audio grabado:', {
+                      size: audioBlob.size,
+                      type: audioBlob.type
+                    });
+                  };
+                  
+                  setMediaRecorder(recorder);
+                  recorder.start();
+                  setIsRecording(true);
+                  
+                  console.log('🎤 Grabación iniciada');
+                } catch (error) {
+                  console.error('❌ Error accediendo al micrófono:', error);
+                  setMicPermission('denied');
+                  localStorage.setItem('mic_permission_ai_models', 'denied');
+                }
+              } else {
+                // Detener grabación
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                  mediaRecorder.stop();
+                  mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                  setIsRecording(false);
+                  setMediaRecorder(null);
+                  console.log('🎤 Grabación detenida');
+                }
+              }
+            }}
+            >
               <div className="text-center">
-                <svg className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                <h4 className="font-medium text-slate-900 dark:text-white mb-1">Grabar Audio</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Usa tu micrófono</p>
+                <div className={`w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center transition-all duration-300 ${
+                  isRecording
+                    ? 'bg-red-500 animate-pulse'
+                    : micPermission === 'denied' || uploadedAudio
+                      ? 'bg-slate-300 dark:bg-slate-600'
+                      : 'bg-blue-500 hover:bg-blue-600'
+                } text-white`}>
+                  {isRecording ? (
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 6h12v12H6z"/>
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  )}
+                </div>
+                <h4 className="font-medium text-slate-900 dark:text-white mb-1">
+                  {isRecording ? 'Grabando...' : 'Grabar Audio'}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isRecording 
+                    ? 'Clic para detener'
+                    : uploadedAudio
+                      ? 'Archivo subido activo'
+                    : micPermission === 'denied'
+                      ? 'Micrófono denegado'
+                      : 'Clic para grabar'
+                  }
+                </p>
               </div>
             </div>
 
@@ -1024,88 +1099,6 @@ const VoiceModelsSection: React.FC = () => {
             </div>
           )}
 
-          {/* Controles de grabación */}
-          <div className="flex flex-col items-center space-y-4">
-            <button
-              onClick={async () => {
-                if (!isRecording) {
-                  // Limpiar audio anterior
-                  setRecordedAudio(null);
-                  setUploadedAudio(null); // También limpiar archivo subido
-                  
-                  // Solicitar permisos de micrófono
-                  try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    setMicPermission('granted');
-                    localStorage.setItem('mic_permission_ai_models', 'granted');
-                    
-                    // Configurar MediaRecorder con formato compatible
-                    const options = { mimeType: 'audio/webm;codecs=opus' };
-                    const recorder = new MediaRecorder(stream, options);
-                    const chunks: BlobPart[] = [];
-                    
-                    recorder.ondataavailable = (e) => chunks.push(e.data);
-                    recorder.onstop = () => {
-                      const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-                      setRecordedAudio(audioBlob);
-                      console.log('🎤 Audio grabado:', {
-                        size: audioBlob.size,
-                        type: audioBlob.type
-                      });
-                    };
-                    
-                    setMediaRecorder(recorder);
-                    recorder.start();
-                    setIsRecording(true);
-                    
-                    console.log('🎤 Grabación iniciada');
-                  } catch (error) {
-                    console.error('❌ Error accediendo al micrófono:', error);
-                    setMicPermission('denied');
-                    localStorage.setItem('mic_permission_ai_models', 'denied');
-                  }
-                } else {
-                  // Detener grabación
-                  if (mediaRecorder) {
-                    mediaRecorder.stop();
-                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                    setIsRecording(false);
-                    console.log('⏹️ Grabación detenida');
-                  }
-                }
-              }}
-              disabled={micPermission === 'denied' || uploadedAudio !== null}
-              className={`w-24 h-24 rounded-full transition-all duration-300 flex items-center justify-center ${
-                isRecording
-                  ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                  : micPermission === 'denied' || uploadedAudio
-                    ? 'bg-slate-300 dark:bg-slate-600 cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600'
-              } disabled:bg-slate-300 disabled:cursor-not-allowed`}
-            >
-              {isRecording ? (
-                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 6h12v12H6z"/>
-                </svg>
-              ) : (
-                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                </svg>
-              )}
-            </button>
-            
-            <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
-              {isRecording 
-                ? 'Grabando... Haz clic para detener' 
-                : uploadedAudio
-                  ? 'Archivo subido - Usa el botón convertir'
-                : micPermission === 'denied'
-                  ? 'Micrófono no disponible'
-                  : 'Haz clic para grabar o sube un archivo arriba'
-              }
-            </p>
-          </div>
 
           {/* Configuración de STS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl">
