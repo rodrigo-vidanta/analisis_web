@@ -3,7 +3,7 @@ import CatChaseEasterEgg from './CatChaseEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión nightly manual
-  const version = 'Nightly v.2.1.0';
+  const version = 'Nightly v.2.1.4';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);

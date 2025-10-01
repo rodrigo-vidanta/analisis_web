@@ -1,6 +1,6 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
-## 🎨 Versión 2.1.0 - AI Models UX Refinado y STT Completo (Octubre 2025)
+## 🎨 Versión 2.1.4 - AI Models UX Refinado y STT Completo (Octubre 2025)
 
 ### ✨ **MEJORAS PRINCIPALES**
 
