@@ -224,6 +224,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       label: 'AI Models',
       active: appMode === 'ai-models',
       onClick: () => setAppMode('ai-models')
+    }] : []),
+
+    // Administración de Prompts - Solo para Admin
+    ...(user?.role_name === 'admin' ? [{
+      icon: (
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+      ),
+      label: 'Prompts Manager',
+      active: appMode === 'prompts-manager',
+      onClick: () => setAppMode('prompts-manager')
     }] : [])
   ];
 
