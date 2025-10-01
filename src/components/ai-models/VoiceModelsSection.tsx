@@ -16,6 +16,7 @@ const VoiceModelsSection: React.FC = () => {
   const [apiKeyValid, setApiKeyValid] = useState<boolean | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('library');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [currentPlayingAudio, setCurrentPlayingAudio] = useState<HTMLAudioElement | null>(null);
   
   // Estados principales
   const [selectedVoice, setSelectedVoice] = useState<ElevenLabsVoice | null>(null);
@@ -642,6 +643,41 @@ const VoiceModelsSection: React.FC = () => {
 
   const getCurrentTabColors = () => tabColors[activeSubTab] || tabColors['text-to-speech'];
 
+  // Función global para manejar reproducción de audio
+  const playAudio = (audioUrl: string, audioId: string) => {
+    // Pausar audio actual si existe
+    if (currentPlayingAudio) {
+      currentPlayingAudio.pause();
+      currentPlayingAudio.currentTime = 0;
+      setCurrentPlayingAudio(null);
+      setPlayingVoiceId(null);
+    }
+
+    // Si es el mismo audio, solo pausar
+    if (playingVoiceId === audioId) {
+      return;
+    }
+
+    // Reproducir nuevo audio
+    const audio = new Audio(audioUrl);
+    audio.crossOrigin = 'anonymous';
+    
+    audio.onended = () => {
+      setCurrentPlayingAudio(null);
+      setPlayingVoiceId(null);
+    };
+    
+    audio.onerror = () => {
+      setCurrentPlayingAudio(null);
+      setPlayingVoiceId(null);
+    };
+
+    audio.play().then(() => {
+      setCurrentPlayingAudio(audio);
+      setPlayingVoiceId(audioId);
+    }).catch(console.error);
+  };
+
   const subTabs = [
     { 
       id: 'library' as const, 
@@ -1026,7 +1062,7 @@ const VoiceModelsSection: React.FC = () => {
               <div className="text-center">
                 <div className={`w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center transition-all duration-300 ${
                   isRecording
-                    ? 'bg-red-500 animate-pulse'
+                    ? 'bg-red-500 playing-red'
                     : micPermission === 'denied' || uploadedAudio
                       ? 'bg-slate-300 dark:bg-slate-600'
                       : 'bg-blue-500 hover:bg-blue-600'
@@ -1587,7 +1623,7 @@ const VoiceModelsSection: React.FC = () => {
 
           {/* Tags de ElevenLabs v3 */}
           {getModelCapabilities(selectedModel).supportsTags && (
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border border-purple-100 dark:border-purple-800/30">
+            <div className="p-4 bg-gradient-to-r from-purple-50/60 to-pink-50/60 dark:from-purple-900/10 dark:to-pink-900/10 rounded-xl border border-purple-100/50 dark:border-purple-800/20">
               <div className="flex items-center space-x-2 mb-3">
                 <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -2023,7 +2059,11 @@ const VoiceModelsSection: React.FC = () => {
               }
             }}
             disabled={isGenerating || !selectedVoice || !textToGenerate.trim()}
-              className={`w-full h-14 bg-gradient-to-r ${getCurrentTabColors().gradient} hover:from-${getCurrentTabColors().primary}-600 hover:to-${getCurrentTabColors().primary}-600 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3 disabled:cursor-not-allowed`}
+              className={`w-full h-14 ${
+                isGenerating 
+                  ? 'generating-progress' 
+                  : `bg-gradient-to-r ${getCurrentTabColors().gradient} hover:from-${getCurrentTabColors().primary}-600 hover:to-${getCurrentTabColors().primary}-600`
+              } disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3 disabled:cursor-not-allowed`}
           >
             {isGenerating ? (
               <>
@@ -3020,6 +3060,56 @@ const VoiceModelsSection: React.FC = () => {
         .playing-amber {
           animation: orbit-glow 2s ease-in-out infinite;
           box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .playing-red {
+          animation: orbit-glow 2s ease-in-out infinite;
+          box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+
+        @keyframes red-recording-glow {
+          0% {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+            transform: scale(1);
+          }
+          50% {
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
+            transform: scale(1.05);
+          }
+          100% {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+            transform: scale(1);
+          }
+        }
+
+        .playing-red {
+          animation: red-recording-glow 1.8s ease-in-out infinite;
+        }
+
+        /* Progress bar animado para botones generando */
+        @keyframes progress-bloom {
+          0% {
+            background-position: 0% 50%;
+            box-shadow: 0 0 15px rgba(147, 51, 234, 0.3);
+          }
+          50% {
+            background-position: 100% 50%;
+            box-shadow: 0 0 25px rgba(147, 51, 234, 0.5);
+          }
+          100% {
+            background-position: 0% 50%;
+            box-shadow: 0 0 15px rgba(147, 51, 234, 0.3);
+          }
+        }
+
+        .generating-progress {
+          background: linear-gradient(90deg, 
+            rgba(147, 51, 234, 0.8) 0%, 
+            rgba(147, 51, 234, 1) 50%, 
+            rgba(147, 51, 234, 0.8) 100%
+          );
+          background-size: 200% 100%;
+          animation: progress-bloom 2s ease-in-out infinite;
         }
       `}</style>
     </div>
