@@ -345,7 +345,7 @@ class ElevenLabsService {
   ): Promise<{ success: boolean; result?: SpeechToTextResult; error?: string }> {
     try {
       const formData = new FormData();
-      formData.append('audio', audioFile);
+      formData.append('file', audioFile);
       formData.append('model_id', modelId);
 
       const result = await this.makeRequest('/speech-to-text', {
