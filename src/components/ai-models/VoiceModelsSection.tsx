@@ -42,6 +42,7 @@ const VoiceModelsSection: React.FC = () => {
   const [optimizeLatency, setOptimizeLatency] = useState<number>(0);
   const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
   const voiceSpeedRef = useRef<number>(1.0);
+  const stsFileInputRef = useRef<HTMLInputElement>(null);
 
   // Tags oficiales de ElevenLabs v3 (verificados y funcionando)
   const elevenLabsTags = [
@@ -114,7 +115,9 @@ const VoiceModelsSection: React.FC = () => {
   // Estados para Speech to Speech
   const [isRecording, setIsRecording] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
+  const [uploadedAudio, setUploadedAudio] = useState<File | null>(null);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isDragOverSts, setIsDragOverSts] = useState(false);
   const [micPermission, setMicPermission] = useState<'granted' | 'denied' | 'prompt' | null>(null);
   const [stsModel, setStsModel] = useState<string>('eleven_multilingual_sts_v2');
   const [stsSettings, setStsSettings] = useState<VoiceSettings>({
@@ -914,10 +917,94 @@ const VoiceModelsSection: React.FC = () => {
               Speech to Speech
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Graba tu voz y conviértela usando la voz seleccionada
+              Graba tu voz o sube un archivo de audio para convertirlo usando la voz seleccionada
             </p>
-            
           </div>
+
+          {/* Opciones de entrada de audio */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* Opción 1: Grabar audio */}
+            <div className={`p-4 border-2 border-dashed rounded-xl transition-all duration-300 ${
+              !uploadedAudio 
+                ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' 
+                : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50'
+            }`}>
+              <div className="text-center">
+                <svg className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <h4 className="font-medium text-slate-900 dark:text-white mb-1">Grabar Audio</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Usa tu micrófono</p>
+              </div>
+            </div>
+
+            {/* Opción 2: Subir archivo */}
+            <div 
+              className={`p-4 border-2 border-dashed rounded-xl transition-all duration-300 cursor-pointer ${
+                isDragOverSts
+                  ? 'border-purple-400 dark:border-purple-500 bg-purple-100 dark:bg-purple-900/30'
+                  : uploadedAudio
+                    ? 'border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20'
+                    : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 hover:border-purple-300 dark:hover:border-purple-700'
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOverSts(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setIsDragOverSts(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragOverSts(false);
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                  const file = files[0];
+                  // Verificar que sea un archivo de audio soportado
+                  const supportedFormats = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/webm'];
+                  if (supportedFormats.includes(file.type) || file.name.match(/\.(mp3|wav|flac|ogg|webm|m4a)$/i)) {
+                    setUploadedAudio(file);
+                    setRecordedAudio(null); // Limpiar grabación si existe
+                  } else {
+                    alert('❌ Formato no soportado. Usa: MP3, WAV, FLAC, OGG, WebM, M4A');
+                  }
+                }
+              }}
+              onClick={() => stsFileInputRef.current?.click()}
+            >
+              <div className="text-center">
+                <svg className="w-8 h-8 text-purple-600 dark:text-purple-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <h4 className="font-medium text-slate-900 dark:text-white mb-1">
+                  {uploadedAudio ? uploadedAudio.name : 'Subir Archivo'}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {uploadedAudio 
+                    ? `${(uploadedAudio.size / 1024 / 1024).toFixed(2)} MB`
+                    : 'MP3, WAV, FLAC, OGG, WebM, M4A'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Input oculto para archivos */}
+          <input
+            ref={stsFileInputRef}
+            type="file"
+            accept=".mp3,.wav,.flac,.ogg,.webm,.m4a,audio/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setUploadedAudio(file);
+                setRecordedAudio(null); // Limpiar grabación si existe
+              }
+            }}
+            className="hidden"
+          />
 
           {/* Estado del micrófono */}
           {micPermission === 'denied' && (
@@ -944,6 +1031,7 @@ const VoiceModelsSection: React.FC = () => {
                 if (!isRecording) {
                   // Limpiar audio anterior
                   setRecordedAudio(null);
+                  setUploadedAudio(null); // También limpiar archivo subido
                   
                   // Solicitar permisos de micrófono
                   try {
@@ -986,11 +1074,13 @@ const VoiceModelsSection: React.FC = () => {
                   }
                 }
               }}
-              disabled={micPermission === 'denied'}
+              disabled={micPermission === 'denied' || uploadedAudio !== null}
               className={`w-24 h-24 rounded-full transition-all duration-300 flex items-center justify-center ${
                 isRecording
                   ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                  : 'bg-blue-500 hover:bg-blue-600'
+                  : micPermission === 'denied' || uploadedAudio
+                    ? 'bg-slate-300 dark:bg-slate-600 cursor-not-allowed'
+                    : 'bg-blue-500 hover:bg-blue-600'
               } disabled:bg-slate-300 disabled:cursor-not-allowed`}
             >
               {isRecording ? (
@@ -1005,8 +1095,15 @@ const VoiceModelsSection: React.FC = () => {
               )}
             </button>
             
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              {isRecording ? 'Grabando... Haz clic para detener' : 'Haz clic para grabar'}
+            <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+              {isRecording 
+                ? 'Grabando... Haz clic para detener' 
+                : uploadedAudio
+                  ? 'Archivo subido - Usa el botón convertir'
+                : micPermission === 'denied'
+                  ? 'Micrófono no disponible'
+                  : 'Haz clic para grabar o sube un archivo arriba'
+              }
             </p>
           </div>
 
@@ -1072,21 +1169,43 @@ const VoiceModelsSection: React.FC = () => {
           </div>
 
           {/* Audio grabado */}
-          {recordedAudio && (
+          {(recordedAudio || uploadedAudio) && (
             <div className="space-y-4">
               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl">
-                <h4 className="font-medium text-slate-900 dark:text-white mb-2">
-                  Audio Grabado
-                </h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-slate-900 dark:text-white">
+                    Audio {uploadedAudio ? 'Subido' : 'Grabado'}
+                  </h4>
+                  <button
+                    onClick={() => {
+                      setRecordedAudio(null);
+                      setUploadedAudio(null);
+                      if (stsFileInputRef.current) {
+                        stsFileInputRef.current.value = '';
+                      }
+                    }}
+                    className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 transition-colors"
+                    title="Limpiar audio"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
                 <audio controls className="w-full">
-                  <source src={URL.createObjectURL(recordedAudio)} type="audio/webm" />
+                  <source src={URL.createObjectURL(uploadedAudio || recordedAudio!)} type={uploadedAudio?.type || 'audio/webm'} />
                 </audio>
+                {uploadedAudio && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    {uploadedAudio.name} • {(uploadedAudio.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                )}
               </div>
 
               {/* Botón para convertir */}
               <button
                 onClick={async () => {
-                  if (!selectedVoice || !recordedAudio) return;
+                  if (!selectedVoice || (!recordedAudio && !uploadedAudio)) return;
                   
                   
                   // Verificar tokens antes de convertir
@@ -1104,8 +1223,15 @@ const VoiceModelsSection: React.FC = () => {
                   setIsGenerating(true);
                   
                   try {
-                    // Convertir Blob a File
-                    const audioFile = new File([recordedAudio], 'recorded_audio.webm', { type: 'audio/webm' });
+                    // Usar audio grabado o archivo subido
+                    const audioFile = uploadedAudio || new File([recordedAudio!], 'recorded_audio.webm', { type: 'audio/webm' });
+                    
+                    console.log('🎤 Procesando audio:', {
+                      fileName: audioFile.name,
+                      size: audioFile.size,
+                      type: audioFile.type,
+                      source: uploadedAudio ? 'uploaded' : 'recorded'
+                    });
                     
                     const result = await elevenLabsService.speechToSpeech(
                       audioFile,
@@ -1212,7 +1338,7 @@ const VoiceModelsSection: React.FC = () => {
                     setIsGenerating(false);
                   }
                 }}
-                disabled={isGenerating || !selectedVoice || !recordedAudio}
+                disabled={isGenerating || !selectedVoice || (!recordedAudio && !uploadedAudio)}
                 className="w-full h-14 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3"
               >
                 {isGenerating ? (
