@@ -341,7 +341,7 @@ class ElevenLabsService {
    */
   async speechToText(
     audioFile: File,
-    modelId: string = 'eleven_multilingual_v2'
+    modelId: string = 'scribe_v1'
   ): Promise<{ success: boolean; result?: SpeechToTextResult; error?: string }> {
     try {
       const formData = new FormData();

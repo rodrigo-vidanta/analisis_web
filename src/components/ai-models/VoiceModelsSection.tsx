@@ -2402,7 +2402,7 @@ const VoiceModelsSection: React.FC = () => {
             if (!sttFile) return;
             setSttLoading(true);
             try {
-              const result = await elevenLabsService.speechToText(sttFile, 'eleven_multilingual_v2');
+              const result = await elevenLabsService.speechToText(sttFile, 'scribe_v1');
               if (result.success && result.result) {
                 setSttResult(result.result.text);
                 setSttHistory(prev => [{
