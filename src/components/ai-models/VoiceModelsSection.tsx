@@ -1406,13 +1406,53 @@ const VoiceModelsSection: React.FC = () => {
       {/* Área de generación con configuración avanzada */}
       <div className={`${cardClass} rounded-2xl p-6`}>
         <div className="space-y-6">
-          <textarea
-            value={textToGenerate}
-            onChange={(e) => setTextToGenerate(e.target.value)}
-            placeholder="Escribe el texto que quieres convertir a audio..."
-            className="w-full h-40 p-4 bg-slate-50 dark:bg-slate-900/50 border-0 rounded-xl focus:ring-2 focus:ring-purple-500/20 resize-none transition-all duration-300 text-slate-900 dark:text-white placeholder-slate-400"
-            maxLength={5000}
-          />
+          <div className="relative">
+            <textarea
+              value={textToGenerate}
+              onChange={(e) => setTextToGenerate(e.target.value)}
+              placeholder="Escribe el texto que quieres convertir a audio..."
+              className="w-full h-40 p-4 bg-slate-50 dark:bg-slate-900/50 border-0 rounded-xl focus:ring-2 focus:ring-purple-500/20 resize-none transition-all duration-300 text-slate-900 dark:text-white placeholder-slate-400 font-mono"
+              maxLength={5000}
+              style={{
+                lineHeight: '1.6',
+                letterSpacing: '0.025em'
+              }}
+            />
+            {/* Overlay para mostrar tags como etiquetas visuales */}
+            <div 
+              className="absolute inset-0 p-4 pointer-events-none overflow-hidden rounded-xl"
+              style={{
+                lineHeight: '1.6',
+                letterSpacing: '0.025em',
+                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
+              }}
+            >
+              {textToGenerate.split(/(\[[^\]]+\])/).map((part, index) => {
+                if (part.match(/^\[[^\]]+\]$/)) {
+                  // Es un tag, mostrarlo como etiqueta visual
+                  return (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2 py-1 mx-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700"
+                      style={{
+                        fontSize: '0.75rem',
+                        lineHeight: '1.6'
+                      }}
+                    >
+                      {part}
+                    </span>
+                  );
+                } else {
+                  // Es texto normal, mostrarlo transparente para que se vea el textarea debajo
+                  return (
+                    <span key={index} className="text-transparent">
+                      {part}
+                    </span>
+                  );
+                }
+              })}
+            </div>
+          </div>
           
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-500 dark:text-slate-400">
