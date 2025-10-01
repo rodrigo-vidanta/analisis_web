@@ -1,5 +1,72 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎨 Versión 2.1.0 - AI Models UX Refinado y STT Completo (Octubre 2025)
+
+### ✨ **MEJORAS PRINCIPALES**
+
+#### 🎨 **Diseño Homologado y Minimalista**
+- **Esquema de colores elegante**: Cada pestaña con color específico y significado funcional
+  - 📚 Biblioteca: Índigo (conocimiento)
+  - 🎤 Text to Speech: Púrpura (creatividad)
+  - 💬 Speech to Speech: Azul (comunicación)
+  - 📝 Speech to Text: Esmeralda (transcripción)
+  - 🔊 Sound Effects: Ámbar (energía sonora)
+- **Sin tutifruti de colores**: Paleta cohesiva y profesional
+- **Efectos bloom/orbit**: Animaciones elegantes durante reproducción de audio
+- **Tags visuales mejorados**: Fondo translúcido y mejor legibilidad
+
+#### 🎵 **Control de Audio Global Inteligente**
+- **Un solo audio**: Sin ecos ni superposiciones
+- **Play/Pause inteligente**: Clic en mismo botón pausa, diferente cambia
+- **Efectos por pestaña**: Bloom específico según color de sección
+- **Íconos dinámicos**: ▶️ ↔ ⏸️ según estado
+
+#### 📱 **Layout TTS Optimizado**
+- **Selector de voz minimalista**: 50% menos espacio, información esencial
+- **Tags visuales**: Sistema mejorado sin errores React
+- **Textarea optimizado**: Font monospace, gradiente sutil, mejor contraste
+- **Sin scroll molesto**: Elementos principales siempre visibles
+
+#### 🎤 **Speech to Speech Mejorado**
+- **Upload de archivos**: Drag & Drop + selector de archivos
+- **Formatos ElevenLabs**: Solo MP3, WAV, FLAC, OGG, WebM, M4A soportados
+- **Interfaz unificada**: Sin redundancia de botones de micrófono
+- **Estados inteligentes**: Grabación y upload mutuamente excluyentes
+
+#### 📝 **Speech to Text Completamente Funcional**
+- **Error 422 solucionado**: Modelo `scribe_v1` correcto, parámetro `file` en lugar de `audio`
+- **Content-Type corregido**: FormData sin interferencia de application/json
+- **Respuesta completa**: Idioma detectado, confianza, palabras, timestamps
+- **Historial navegable**: Ver completo, copiar, usar en TTS
+
+### 🔧 **CORRECCIONES TÉCNICAS**
+
+#### 🧹 **Logs de Producción Limpiados**
+- **Sin spam**: Eliminados logs verbosos de desarrollo
+- **Solo errores críticos**: console.error preservado
+- **Experiencia profesional**: Consola limpia en producción
+
+#### ⚡ **Efectos Visuales Avanzados**
+- **Progress bars**: En lugar de spinners grises aburridos
+- **Animaciones CSS**: orbit-glow, bloom-pulse, red-recording-glow
+- **Grabación elegante**: Efecto bloom rojo en lugar de parpadeo
+- **Transiciones suaves**: Todos los elementos con animaciones fluidas
+
+#### 🎯 **Funcionalidades Preservadas**
+- **Todas las pestañas**: Biblioteca, TTS, STS, STT, Sound Effects
+- **Token management**: Sistema completo operativo
+- **Historial completo**: Con botones de acción en cada elemento
+- **Configuraciones avanzadas**: Semilla, estilo, speaker boost para v3
+
+### 📊 **ESTADÍSTICAS DE LA SESIÓN**
+- **Commits realizados**: 25+ commits con mejoras específicas
+- **Archivos modificados**: VoiceModelsSection.tsx, elevenLabsService.ts, aiModelsDbService.ts
+- **Líneas agregadas**: 500+ líneas de mejoras
+- **Funcionalidades nuevas**: Upload STS, STT completo, control audio global
+- **Bugs corregidos**: Error 422 STT, JSX corrupto, logs spam
+
+---
+
 ## 🚀 Versión 2.1.3 - AI Models Historial y Traducción Corregidos (Septiembre 2025)
 
 ### ✨ **CORRECCIONES CRÍTICAS AI MODELS**
