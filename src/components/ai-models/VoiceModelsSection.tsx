@@ -596,6 +596,52 @@ const VoiceModelsSection: React.FC = () => {
     ? 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
     : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700';
 
+  // Esquema de colores elegante por pestaña
+  const tabColors = {
+    'library': {
+      primary: 'indigo', // Biblioteca - Azul índigo (conocimiento)
+      gradient: 'from-indigo-500 to-indigo-600',
+      bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+      border: 'border-indigo-200 dark:border-indigo-800',
+      text: 'text-indigo-700 dark:text-indigo-300',
+      button: 'bg-indigo-500 hover:bg-indigo-600'
+    },
+    'text-to-speech': {
+      primary: 'purple', // TTS - Púrpura (creatividad)
+      gradient: 'from-purple-500 to-purple-600',
+      bg: 'bg-purple-50 dark:bg-purple-900/20',
+      border: 'border-purple-200 dark:border-purple-800',
+      text: 'text-purple-700 dark:text-purple-300',
+      button: 'bg-purple-500 hover:bg-purple-600'
+    },
+    'speech-to-speech': {
+      primary: 'blue', // STS - Azul (comunicación)
+      gradient: 'from-blue-500 to-blue-600',
+      bg: 'bg-blue-50 dark:bg-blue-900/20',
+      border: 'border-blue-200 dark:border-blue-800',
+      text: 'text-blue-700 dark:text-blue-300',
+      button: 'bg-blue-500 hover:bg-blue-600'
+    },
+    'speech-to-text': {
+      primary: 'emerald', // STT - Verde esmeralda (transcripción)
+      gradient: 'from-emerald-500 to-emerald-600',
+      bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+      border: 'border-emerald-200 dark:border-emerald-800',
+      text: 'text-emerald-700 dark:text-emerald-300',
+      button: 'bg-emerald-500 hover:bg-emerald-600'
+    },
+    'sound-effects': {
+      primary: 'amber', // Efectos - Ámbar (sonido/energía)
+      gradient: 'from-amber-500 to-amber-600',
+      bg: 'bg-amber-50 dark:bg-amber-900/20',
+      border: 'border-amber-200 dark:border-amber-800',
+      text: 'text-amber-700 dark:text-amber-300',
+      button: 'bg-amber-500 hover:bg-amber-600'
+    }
+  };
+
+  const getCurrentTabColors = () => tabColors[activeSubTab] || tabColors['text-to-speech'];
+
   const subTabs = [
     { 
       id: 'library' as const, 
@@ -765,8 +811,8 @@ const VoiceModelsSection: React.FC = () => {
                         onClick={(e) => playVoicePreview(voice, e)}
                         className={`relative w-16 h-16 rounded-full transition-all duration-300 flex-shrink-0 ${
                           isPlaying 
-                            ? `bg-gradient-to-br ${gradient} shadow-xl shadow-purple-500/30 scale-110` 
-                            : `bg-gradient-to-br ${gradient} opacity-90 hover:opacity-100 hover:shadow-lg hover:scale-105`
+                            ? `bg-gradient-to-br ${getCurrentTabColors().gradient} playing-${getCurrentTabColors().primary} scale-110` 
+                            : `bg-gradient-to-br ${getCurrentTabColors().gradient} opacity-90 hover:opacity-100 hover:shadow-lg hover:scale-105`
                         }`}
                       >
                         <div className="absolute inset-0 rounded-full bg-white/10"></div>
@@ -952,17 +998,14 @@ const VoiceModelsSection: React.FC = () => {
                   recorder.onstop = () => {
                     const audioBlob = new Blob(chunks, { type: 'audio/webm' });
                     setRecordedAudio(audioBlob);
-                    console.log('🎤 Audio grabado:', {
-                      size: audioBlob.size,
-                      type: audioBlob.type
-                    });
+                    // Audio grabado exitosamente
                   };
                   
                   setMediaRecorder(recorder);
                   recorder.start();
                   setIsRecording(true);
                   
-                  console.log('🎤 Grabación iniciada');
+                  // Grabación iniciada
                 } catch (error) {
                   console.error('❌ Error accediendo al micrófono:', error);
                   setMicPermission('denied');
@@ -975,7 +1018,7 @@ const VoiceModelsSection: React.FC = () => {
                   mediaRecorder.stream.getTracks().forEach(track => track.stop());
                   setIsRecording(false);
                   setMediaRecorder(null);
-                  console.log('🎤 Grabación detenida');
+                  // Grabación detenida
                 }
               }
             }}
@@ -1219,12 +1262,7 @@ const VoiceModelsSection: React.FC = () => {
                     // Usar audio grabado o archivo subido
                     const audioFile = uploadedAudio || new File([recordedAudio!], 'recorded_audio.webm', { type: 'audio/webm' });
                     
-                    console.log('🎤 Procesando audio:', {
-                      fileName: audioFile.name,
-                      size: audioFile.size,
-                      type: audioFile.type,
-                      source: uploadedAudio ? 'uploaded' : 'recorded'
-                    });
+                    // Procesando audio para conversión
                     
                     const result = await elevenLabsService.speechToSpeech(
                       audioFile,
@@ -1985,7 +2023,7 @@ const VoiceModelsSection: React.FC = () => {
               }
             }}
             disabled={isGenerating || !selectedVoice || !textToGenerate.trim()}
-            className="w-full h-14 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3 disabled:cursor-not-allowed"
+              className={`w-full h-14 bg-gradient-to-r ${getCurrentTabColors().gradient} hover:from-${getCurrentTabColors().primary}-600 hover:to-${getCurrentTabColors().primary}-600 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3 disabled:cursor-not-allowed`}
           >
             {isGenerating ? (
               <>
@@ -2923,6 +2961,65 @@ const VoiceModelsSection: React.FC = () => {
         .dark .tag-textarea::placeholder {
           color: rgb(100 116 139);
           opacity: 0.8;
+        }
+
+        /* Efectos de reproducción de audio */
+        @keyframes orbit-glow {
+          0% {
+            box-shadow: 0 0 20px rgba(147, 51, 234, 0.3);
+            transform: scale(1);
+          }
+          50% {
+            box-shadow: 0 0 30px rgba(147, 51, 234, 0.5);
+            transform: scale(1.05);
+          }
+          100% {
+            box-shadow: 0 0 20px rgba(147, 51, 234, 0.3);
+            transform: scale(1);
+          }
+        }
+
+        @keyframes bloom-pulse {
+          0%, 100% {
+            box-shadow: 0 0 15px rgba(147, 51, 234, 0.4);
+          }
+          50% {
+            box-shadow: 0 0 25px rgba(147, 51, 234, 0.6);
+          }
+        }
+
+        .playing-audio {
+          animation: orbit-glow 2s ease-in-out infinite;
+        }
+
+        .playing-audio-bloom {
+          animation: bloom-pulse 1.5s ease-in-out infinite;
+        }
+
+        /* Efectos por color de pestaña */
+        .playing-indigo {
+          animation: orbit-glow 2s ease-in-out infinite;
+          box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .playing-purple {
+          animation: orbit-glow 2s ease-in-out infinite;
+          box-shadow: 0 0 20px rgba(147, 51, 234, 0.4);
+        }
+
+        .playing-blue {
+          animation: orbit-glow 2s ease-in-out infinite;
+          box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .playing-emerald {
+          animation: orbit-glow 2s ease-in-out infinite;
+          box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .playing-amber {
+          animation: orbit-glow 2s ease-in-out infinite;
+          box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
         }
       `}</style>
     </div>
