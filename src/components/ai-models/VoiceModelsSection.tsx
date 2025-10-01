@@ -1406,53 +1406,18 @@ const VoiceModelsSection: React.FC = () => {
       {/* Área de generación con configuración avanzada */}
       <div className={`${cardClass} rounded-2xl p-6`}>
         <div className="space-y-6">
-          <div className="relative">
-            <textarea
-              value={textToGenerate}
-              onChange={(e) => setTextToGenerate(e.target.value)}
-              placeholder="Escribe el texto que quieres convertir a audio..."
-              className="w-full h-40 p-4 bg-slate-50 dark:bg-slate-900/50 border-0 rounded-xl focus:ring-2 focus:ring-purple-500/20 resize-none transition-all duration-300 text-slate-900 dark:text-white placeholder-slate-400"
-              maxLength={5000}
-              style={{
-                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-                lineHeight: '1.6',
-                letterSpacing: '0.025em'
-              }}
-            />
-            
-            {/* Indicador visual de tags debajo del textarea */}
-            {textToGenerate.match(/\[[^\]]+\]/g) && (
-              <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
-                <div className="flex items-center space-x-2 mb-2">
-                  <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                  <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                    Tags Detectados:
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(textToGenerate.match(/\[[^\]]+\]/g) || []).map((tag, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700 cursor-pointer hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors"
-                      onClick={() => {
-                        // Eliminar este tag específico del texto
-                        const newText = textToGenerate.replace(tag, '');
-                        setTextToGenerate(newText);
-                      }}
-                      title="Clic para eliminar del texto"
-                    >
-                      {tag}
-                      <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <textarea
+            value={textToGenerate}
+            onChange={(e) => setTextToGenerate(e.target.value)}
+            placeholder="Escribe el texto que quieres convertir a audio..."
+            className="tag-textarea w-full h-40 p-4 border-0 rounded-xl focus:ring-2 focus:ring-purple-500/20 resize-none transition-all duration-300 text-slate-900 dark:text-white"
+            maxLength={5000}
+            style={{
+              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+              lineHeight: '1.6',
+              letterSpacing: '0.025em'
+            }}
+          />
           
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-500 dark:text-slate-400">
@@ -2807,6 +2772,38 @@ const VoiceModelsSection: React.FC = () => {
         
         .hover\\:scale-102:hover {
           transform: scale(1.02);
+        }
+
+        /* Estilos para textarea con tags destacados */
+        .tag-textarea {
+          background: linear-gradient(135deg, 
+            rgb(248 250 252) 0%, 
+            rgb(241 245 249) 100%
+          );
+        }
+
+        .dark .tag-textarea {
+          background: linear-gradient(135deg, 
+            rgb(15 23 42) 0%, 
+            rgb(30 41 59) 100%
+          );
+        }
+
+        /* Selección con color púrpura */
+        .tag-textarea::selection {
+          background-color: rgba(147, 51, 234, 0.3);
+          color: inherit;
+        }
+
+        /* Placeholder mejorado */
+        .tag-textarea::placeholder {
+          color: rgb(148 163 184);
+          opacity: 0.7;
+        }
+
+        .dark .tag-textarea::placeholder {
+          color: rgb(100 116 139);
+          opacity: 0.8;
         }
       `}</style>
     </div>
