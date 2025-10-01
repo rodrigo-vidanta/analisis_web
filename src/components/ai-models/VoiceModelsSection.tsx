@@ -1497,27 +1497,21 @@ const VoiceModelsSection: React.FC = () => {
                         audio.crossOrigin = 'anonymous';
                         audio.preload = 'auto';
                         
-                        audio.onloadstart = () => console.log('🔄 Cargando audio STS...');
-                        audio.oncanplay = () => console.log('✅ Audio STS listo');
-                        audio.onerror = (e) => {
-                          console.error('❌ Error reproduciendo STS:', e);
-                          
-                          // Fallback: usar blob si está disponible
-                          if (item.audio_blob) {
-                            const blobUrl = elevenLabsService.createAudioUrl(item.audio_blob);
-                            const fallbackAudio = new Audio(blobUrl);
-                            fallbackAudio.play().catch(err => console.error('❌ Fallback STS falló:', err));
-                          }
-                        };
-                        
-                        audio.src = audioUrl;
-                        audio.play().catch(console.error);
+                        playAudio(audioUrl, `sts_${item.id}`);
                       }
                     }}
-                    className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors duration-200"
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      playingVoiceId === `sts_${item.id}`
+                        ? `${getCurrentTabColors().bg} ${getCurrentTabColors().text} playing-${getCurrentTabColors().primary} scale-110`
+                        : `bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50`
+                    }`}
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z"/>
+                      {playingVoiceId === `sts_${item.id}` ? (
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                      ) : (
+                        <path d="M8 5v14l11-7z"/>
+                      )}
                     </svg>
                   </button>
                   
@@ -2166,14 +2160,21 @@ const VoiceModelsSection: React.FC = () => {
                           }
                         };
                         
-                        audio.src = audioUrl;
-                        audio.play().catch(console.error);
+                        playAudio(audioUrl, `tts_${item.id}`);
                       }
                     }}
-                    className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors duration-200"
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      playingVoiceId === `tts_${item.id}`
+                        ? `${getCurrentTabColors().bg} ${getCurrentTabColors().text} playing-${getCurrentTabColors().primary} scale-110`
+                        : `bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50`
+                    }`}
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z"/>
+                      {playingVoiceId === `tts_${item.id}` ? (
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                      ) : (
+                        <path d="M8 5v14l11-7z"/>
+                      )}
                     </svg>
                   </button>
                   
@@ -2832,16 +2833,23 @@ const VoiceModelsSection: React.FC = () => {
                           }
                         };
                         
-                        audio.src = audioUrl;
-                        audio.play().catch(console.error);
+                        playAudio(audioUrl, `effect_${effect.id}`);
                       } else {
                         console.error('❌ No hay URL de audio disponible para efecto');
                       }
                     }}
-                    className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors duration-200"
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      playingVoiceId === `effect_${effect.id}`
+                        ? `${getCurrentTabColors().bg} ${getCurrentTabColors().text} playing-${getCurrentTabColors().primary} scale-110`
+                        : `bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50`
+                    }`}
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z"/>
+                      {playingVoiceId === `effect_${effect.id}` ? (
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                      ) : (
+                        <path d="M8 5v14l11-7z"/>
+                      )}
                     </svg>
                   </button>
                   
