@@ -94,13 +94,20 @@ class ElevenLabsService {
   private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     
+    // No establecer Content-Type para FormData (el navegador lo hace automáticamente)
+    const headers: Record<string, string> = {
+      'xi-api-key': this.apiKey,
+      ...options.headers as Record<string, string>
+    };
+    
+    // Solo agregar Content-Type si no es FormData
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'xi-api-key': this.apiKey,
-        'Content-Type': 'application/json',
-        ...options.headers
-      }
+      headers
     });
 
     if (!response.ok) {
