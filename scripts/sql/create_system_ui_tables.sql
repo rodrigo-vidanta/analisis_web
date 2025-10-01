@@ -3,7 +3,7 @@
 -- Base de datos para administración de prompts y UI
 -- ============================================
 
--- Tabla para versiones de prompts
+-- Tabla para versiones de prompts (específica para VAPI)
 CREATE TABLE IF NOT EXISTS prompt_versions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   workflow_id VARCHAR(255) NOT NULL,
@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
   node_id VARCHAR(255) NOT NULL,
   node_name VARCHAR(255) NOT NULL,
   prompt_content TEXT NOT NULL,
+  prompt_type VARCHAR(100) DEFAULT 'system_message', -- system_message, user_message, assistant_message
+  checkpoint_name VARCHAR(255), -- Checkpoint 1: Saludo, etc.
+  message_index INTEGER, -- Índice en el array de mensajes
+  parameter_key VARCHAR(500) NOT NULL, -- assistant.model.messages[0]
+  seconds_from_start INTEGER DEFAULT 0,
   version_number INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_by VARCHAR(255) NOT NULL,
@@ -23,7 +28,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
   failed_executions INTEGER DEFAULT 0,
   
   -- Índices para optimización
-  CONSTRAINT unique_active_prompt UNIQUE (workflow_id, node_id, is_active) DEFERRABLE INITIALLY DEFERRED
+  CONSTRAINT unique_active_prompt UNIQUE (workflow_id, node_id, parameter_key, is_active) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- Tabla para métricas de workflows

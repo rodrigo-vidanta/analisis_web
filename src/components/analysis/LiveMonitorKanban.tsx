@@ -381,7 +381,7 @@ const LiveMonitorKanban: React.FC = () => {
       const finalMessage = useCustomText && customTransferText.trim() 
         ? sanitizeTransferText(customTransferText)
         : reason;
-      
+
       const transferData = {
         action: "transfer",
         call_id: selectedCall.call_id,
@@ -727,11 +727,11 @@ const LiveMonitorKanban: React.FC = () => {
       // Log resumen solo en carga inicial
       if (!isRefresh) {
         console.log('📊 [LIVE MONITOR] Clasificación:', {
-          activas: active.length,
-          finalizadas: finished.length,
-          fallidas: failed.length,
-          historial: completedCalls.length
-        });
+        activas: active.length,
+        finalizadas: finished.length,
+        fallidas: failed.length,
+        historial: completedCalls.length
+      });
       }
       
     } catch (error) {
@@ -1384,13 +1384,13 @@ const LiveMonitorKanban: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                              {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-                            </div>
+                        {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
+                      </div>
                             <div className="ml-3">
                               <div className="text-sm font-medium text-slate-900 dark:text-white">
-                                {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
-                              </div>
-                            </div>
+                          {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
+                      </div>
+                    </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1423,15 +1423,15 @@ const LiveMonitorKanban: React.FC = () => {
                             call.es_venta_exitosa ? (
                               <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
                                 Exitosa
                               </span>
-                            ) : (
+                        ) : (
                               <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
                                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                                 No cerrada
                               </span>
                             )
@@ -1510,29 +1510,29 @@ const LiveMonitorKanban: React.FC = () => {
                   <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
                     {sortData(failedCalls).map((call) => (
                       <tr 
-                        key={call.call_id}
+                    key={call.call_id} 
                         className="hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
-                        onClick={() => {
-                          setSelectedCall(call);
-                          handleFeedbackRequest('perdida');
-                        }}
-                      >
+                    onClick={() => {
+                      setSelectedCall(call);
+                      handleFeedbackRequest('perdida');
+                    }}
+                  >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-700 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                              {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-                            </div>
+                      <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-700 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                        {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
+                      </div>
                             <div className="ml-3">
                               <div className="text-sm font-medium text-slate-900 dark:text-white">
-                                {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
-                              </div>
-                            </div>
-                          </div>
+                          {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
+                      </div>
+                    </div>
+                    </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-slate-900 dark:text-white">
                             {call.agent_name || 'No asignado'}
-                          </div>
+                  </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-slate-900 dark:text-white">
@@ -1999,19 +1999,19 @@ const LiveMonitorKanban: React.FC = () => {
                 
                 {/* Conversación en Tiempo Real - Solo para llamadas activas */}
                 {selectedCall.call_status === 'activa' && (
-                  <div className="mt-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                      <div className="mt-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center justify-between">
-                      <div className="flex items-center">
+                          <div className="flex items-center">
                         <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
+                            </svg>
                         Conversación en Tiempo Real
-                      </div>
+                          </div>
                       <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
                         <div className="w-2 h-2 bg-blue-500 rounded-full mr-1 animate-pulse"></div>
                         En vivo
-                      </div>
-                    </h4>
+                            </div>
+                        </h4>
                     
                     <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 max-h-80 overflow-y-auto">
                       <div className="p-3 space-y-3">
@@ -2039,9 +2039,9 @@ const LiveMonitorKanban: React.FC = () => {
                                 </div>
                                 <p className="text-sm leading-relaxed">
                                   {msg.message}
-                                </p>
-                              </div>
-                            </div>
+                          </p>
+                        </div>
+                      </div>
                           ))
                         ) : (
                           <div className="text-center py-8">
@@ -2049,7 +2049,7 @@ const LiveMonitorKanban: React.FC = () => {
                               <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
                               <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
                               <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-                            </div>
+                </div>
                             <p className="text-sm mt-2">
                               Esperando conversación...
                             </p>
@@ -2109,23 +2109,23 @@ const LiveMonitorKanban: React.FC = () => {
                 
                 {/* Opciones predefinidas - Solo mostrar si no se usa texto personalizado */}
                 {!useCustomText && (
-                  <div className="space-y-2 mb-6">
-                    {transferReasons.map((reason, index) => (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          setTransferReason(reason);
-                          handleTransferCall(reason);
-                        }}
-                        disabled={transferLoading}
-                        className="w-full text-left p-3 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg text-xs text-slate-900 dark:text-white transition-colors disabled:opacity-50"
-                      >
-                        <span className="font-medium text-blue-600 dark:text-blue-400">Opción {index + 1}:</span>
-                        <br />
-                        {reason}
-                      </button>
-                    ))}
-                  </div>
+                <div className="space-y-2 mb-6">
+                  {transferReasons.map((reason, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setTransferReason(reason);
+                        handleTransferCall(reason);
+                      }}
+                      disabled={transferLoading}
+                      className="w-full text-left p-3 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg text-xs text-slate-900 dark:text-white transition-colors disabled:opacity-50"
+                    >
+                      <span className="font-medium text-blue-600 dark:text-blue-400">Opción {index + 1}:</span>
+                      <br />
+                      {reason}
+                    </button>
+                  ))}
+                </div>
                 )}
                 
                 {/* Botón para enviar texto personalizado */}
