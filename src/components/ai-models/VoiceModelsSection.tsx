@@ -186,33 +186,73 @@ const VoiceModelsSection: React.FC = () => {
     return capabilities;
   };
 
-  // Función para insertar tag en el texto (formato ElevenLabs v3: [tag])
+  // Función para insertar tag visual en el editor
   const insertTag = (tagValue: string) => {
     const tag = `[${tagValue}]`;
-    const textarea = document.querySelector('textarea[placeholder*="Escribe el texto"]') as HTMLTextAreaElement;
-    
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const currentText = textToGenerate;
-      const selectedText = currentText.substring(start, end);
+    const editableDiv = document.querySelector('div[contenteditable]') as HTMLDivElement;
+
+    if (editableDiv) {
+      // Obtener la selección actual
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        
+        // Crear elemento de etiqueta
+        const tagElement = document.createElement('span');
+        tagElement.setAttribute('data-tag', tagValue);
+        tagElement.className = 'inline-flex items-center px-2 py-1 mx-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700 cursor-pointer';
+        tagElement.contentEditable = 'false';
+        tagElement.textContent = tag;
+        tagElement.title = 'Clic para eliminar';
+        
+        // Agregar evento para eliminar
+        tagElement.addEventListener('click', (e) => {
+          e.preventDefault();
+          tagElement.remove();
+          // Actualizar estado
+          const textContent = editableDiv.textContent || '';
+          setTextToGenerate(textContent);
+        });
+
+        // Insertar el elemento
+        range.insertNode(tagElement);
+        
+        // Agregar espacio después del tag
+        const spaceNode = document.createTextNode(' ');
+        range.setStartAfter(tagElement);
+        range.insertNode(spaceNode);
+        
+        // Posicionar cursor después del espacio
+        range.setStartAfter(spaceNode);
+        range.setEndAfter(spaceNode);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // Si no hay selección, agregar al final
+        const tagElement = document.createElement('span');
+        tagElement.setAttribute('data-tag', tagValue);
+        tagElement.className = 'inline-flex items-center px-2 py-1 mx-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700 cursor-pointer';
+        tagElement.contentEditable = 'false';
+        tagElement.textContent = tag;
+        tagElement.title = 'Clic para eliminar';
+        
+        tagElement.addEventListener('click', (e) => {
+          e.preventDefault();
+          tagElement.remove();
+          const textContent = editableDiv.textContent || '';
+          setTextToGenerate(textContent);
+        });
+
+        editableDiv.appendChild(tagElement);
+        editableDiv.appendChild(document.createTextNode(' '));
+      }
+
+      // Actualizar estado
+      const textContent = editableDiv.textContent || '';
+      setTextToGenerate(textContent);
       
-      // Si hay texto seleccionado, insertar tag antes del texto
-      const newText = selectedText 
-        ? currentText.substring(0, start) + tag + ' ' + selectedText + currentText.substring(end)
-        : currentText.substring(0, start) + tag + ' ' + currentText.substring(end);
-      
-      setTextToGenerate(newText);
-      
-      // Posicionar cursor después del tag
-      setTimeout(() => {
-        textarea.focus();
-        const newPosition = start + tag.length + 1; // +1 por el espacio
-        textarea.setSelectionRange(newPosition, newPosition);
-      }, 0);
-    } else {
-      // Si no hay textarea enfocada, agregar al final
-      setTextToGenerate(prev => prev + tag + ' ');
+      // Enfocar el editor
+      editableDiv.focus();
     }
   };
 
@@ -1407,51 +1447,71 @@ const VoiceModelsSection: React.FC = () => {
       <div className={`${cardClass} rounded-2xl p-6`}>
         <div className="space-y-6">
           <div className="relative">
-            <textarea
-              value={textToGenerate}
-              onChange={(e) => setTextToGenerate(e.target.value)}
-              placeholder="Escribe el texto que quieres convertir a audio..."
-              className="w-full h-40 p-4 bg-slate-50 dark:bg-slate-900/50 border-0 rounded-xl focus:ring-2 focus:ring-purple-500/20 resize-none transition-all duration-300 text-slate-900 dark:text-white placeholder-slate-400 font-mono"
-              maxLength={5000}
-              style={{
-                lineHeight: '1.6',
-                letterSpacing: '0.025em'
+            {/* Editor visual con tags */}
+            <div
+              contentEditable
+              suppressContentEditableWarning={true}
+              onInput={(e) => {
+                const div = e.target as HTMLDivElement;
+                // Extraer solo el texto plano, manteniendo los tags
+                let textContent = '';
+                div.childNodes.forEach(node => {
+                  if (node.nodeType === Node.TEXT_NODE) {
+                    textContent += node.textContent;
+                  } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const element = node as HTMLElement;
+                    if (element.getAttribute('data-tag')) {
+                      textContent += `[${element.getAttribute('data-tag')}]`;
+                    } else {
+                      textContent += element.textContent;
+                    }
+                  }
+                });
+                setTextToGenerate(textContent);
               }}
-            />
-            {/* Overlay para mostrar tags como etiquetas visuales */}
-            <div 
-              className="absolute inset-0 p-4 pointer-events-none overflow-hidden rounded-xl"
+              className="w-full h-40 p-4 bg-slate-50 dark:bg-slate-900/50 border-0 rounded-xl focus:ring-2 focus:ring-purple-500/20 resize-none transition-all duration-300 text-slate-900 dark:text-white overflow-y-auto"
               style={{
-                lineHeight: '1.6',
-                letterSpacing: '0.025em',
-                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
+                outline: 'none',
+                whiteSpace: 'pre-wrap',
+                wordWrap: 'break-word',
+                lineHeight: '1.6'
               }}
+              data-placeholder="Escribe el texto que quieres convertir a audio..."
             >
               {textToGenerate.split(/(\[[^\]]+\])/).map((part, index) => {
                 if (part.match(/^\[[^\]]+\]$/)) {
                   // Es un tag, mostrarlo como etiqueta visual
+                  const tagValue = part.slice(1, -1); // Remover corchetes
                   return (
                     <span
                       key={index}
-                      className="inline-flex items-center px-2 py-1 mx-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700"
-                      style={{
-                        fontSize: '0.75rem',
-                        lineHeight: '1.6'
+                      data-tag={tagValue}
+                      className="inline-flex items-center px-2 py-1 mx-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700 cursor-pointer"
+                      contentEditable={false}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // Eliminar el tag al hacer clic
+                        const newText = textToGenerate.replace(part, '');
+                        setTextToGenerate(newText);
                       }}
+                      title="Clic para eliminar"
                     >
                       {part}
                     </span>
                   );
                 } else {
-                  // Es texto normal, mostrarlo transparente para que se vea el textarea debajo
-                  return (
-                    <span key={index} className="text-transparent">
-                      {part}
-                    </span>
-                  );
+                  // Es texto normal
+                  return <span key={index}>{part}</span>;
                 }
               })}
             </div>
+            
+            {/* Placeholder personalizado */}
+            {textToGenerate === '' && (
+              <div className="absolute inset-0 p-4 pointer-events-none text-slate-400 dark:text-slate-500">
+                Escribe el texto que quieres convertir a audio...
+              </div>
+            )}
           </div>
           
           <div className="flex items-center justify-between text-sm">
