@@ -202,6 +202,10 @@ class AuthService {
         // Academia solo para vendedores
         return this.currentUser.role_name === 'vendedor';
       
+      case 'live-chat':
+        // Live Chat disponible para todos los usuarios autenticados
+        return true;
+      
       default:
         // Para otros módulos, usar verificación de permisos si existe
         if (subModule) {

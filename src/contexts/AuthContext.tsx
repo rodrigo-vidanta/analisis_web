@@ -3,7 +3,7 @@
 // ============================================
 
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { authService, type User, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
+import { authService, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import { pqncSupabase as supabase } from '../config/pqncSupabase';
 
@@ -17,7 +17,7 @@ interface AuthContextType extends AuthState {
   canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | null;
+  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | 'live-chat' | null;
   refreshUser: () => Promise<void>;
 }
 
@@ -358,7 +358,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | null => {
+  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | 'live-chat' | null => {
     if (!authState.user) return null;
 
     // Orden de prioridad de módulos
@@ -379,6 +379,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (canAccessModule('analisis') && canAccessSubModule('natalia')) return 'natalia';
     if (canAccessModule('analisis') && canAccessSubModule('pqnc')) return 'pqnc';
     if (canAccessLiveMonitor()) return 'live-monitor';
+    
+    // Live Chat disponible para todos los usuarios autenticados
+    if (canAccessModule('live-chat')) return 'live-chat';
     
     // Academia disponible para todos
     if (canAccessModule('academia')) return 'academia';

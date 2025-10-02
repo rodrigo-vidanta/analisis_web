@@ -1,5 +1,70 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 💬 Versión 3.0.0 - Módulo Live Chat Completo (Octubre 2025)
+
+### ✨ **NUEVA FUNCIONALIDAD PRINCIPAL**
+
+#### 💬 **Módulo Live Chat Empresarial**
+- **Integración completa con UChat API**: Conexión real con plataforma UChat
+- **Arquitectura de lienzo estructurado**: Secciones fijas con altura calculada
+- **3 columnas independientes**: Conversaciones, Bloques por Día, Chat
+- **Datos reales de producción**: Sincronización con base `pqnc_ia` y `system_ui`
+
+#### 🎯 **Características Avanzadas**
+- **Scroll individual por columna**: Sin scroll global de página
+- **Pestañas completamente fijas**: Nunca se mueven con scroll
+- **Conversación desde abajo**: Últimos mensajes siempre visibles
+- **Input fijo**: Separado del historial pero en grupo visual
+- **Redimensionamiento de columnas**: Divisores arrastrables con localStorage
+- **Adaptación automática al sidebar**: Se ajusta a colapsado/expandido
+
+#### 🗄️ **Base de Datos y Sincronización**
+- **Tablas UChat**: `uchat_bots`, `uchat_conversations`, `uchat_messages`
+- **Función `exec_sql`**: Para cambios automáticos futuros
+- **Sincronización real**: Desde `prospectos`, `mensajes_whatsapp`, `conversaciones_whatsapp`
+- **Búsqueda por `id_uchat`**: Conexión con datos de UChat
+- **Mensajes con formato Markdown**: Procesamiento de saltos de línea
+
+#### 🎨 **Diseño Profesional**
+- **Gradientes elegantes**: Avatares y botones con efectos visuales
+- **Sombras sutiles**: Elementos con profundidad
+- **Estados visuales**: Indicadores de conversaciones activas/transferidas
+- **Tipografía profesional**: Jerarquía clara y legible
+- **Paleta empresarial**: Azul, púrpura, slate para aspecto corporativo
+
+#### 🔧 **Funcionalidades Técnicas**
+- **Altura fija total**: Respeta header (120px) y footer (64px)
+- **Scroll contenido**: `overscrollBehavior: 'contain'` en cada área
+- **Prevención de propagación**: `stopPropagation()` en eventos wheel
+- **Persistencia de preferencias**: Anchos de columna en localStorage
+- **Detección de sidebar**: MutationObserver para cambios dinámicos
+
+### 🚀 **Arquitectura Implementada**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ [FIJO] Live Chat | Conversaciones | Analíticas | Config │ ← NUNCA SE MUEVE
+├─────────────────────────────────────────────────────────┤
+│ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────────┐ │
+│ │[FIJO] Header│ │ │[FIJO] Header│ │ │[FIJO] Header    │ │ ← ALTURA FIJA
+│ ├─────────────┤ │ ├─────────────┤ │ ├─────────────────┤ │
+│ │[SCROLL]     │ │ │[SCROLL]     │ │ │[SCROLL] Mensajes│ │ ← SCROLL INDIVIDUAL
+│ │Conversaciones│ │ │Bloques      │ │ │(desde abajo)    │ │   CONTENIDO
+│ │   320px     │ │ │   280px     │ │ │    Resto        │ │
+│ │             │ │ │             │ │ ├─────────────────┤ │
+│ │             │ │ │             │ │ │[FIJO] Input     │ │ ← SIEMPRE VISIBLE
+│ └─────────────┘ │ └─────────────┘ │ └─────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 🔧 **Próximas Mejoras (v3.0.1)**
+- Corrección de ajuste automático al sidebar
+- Integración directa con UChat API en tiempo real
+- Webhook para recepción automática de mensajes
+- Sistema de asignación de agentes avanzado
+
+---
+
 ## 🎨 Versión 2.1.4 - AI Models UX Refinado y STT Completo (Octubre 2025)
 
 ### ✨ **MEJORAS PRINCIPALES**

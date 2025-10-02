@@ -23,6 +23,8 @@ import AIModelsManager from './ai-models/AIModelsManager';
 
 // Prompts Manager
 import PromptsManager from './prompts/PromptsManager';
+// Live Chat
+import LiveChatModule from './chat/LiveChatModule';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -172,7 +174,7 @@ function MainApp() {
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia') => {
+  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia' | 'live-chat') => {
     setAppMode(mode);
     // Resetear steps cuando cambies de modo para evitar problemas
     if (mode !== 'constructor') {
@@ -265,6 +267,12 @@ function MainApp() {
               </div>
             </div>
           )
+        );
+      case 'live-chat':
+        return (
+          <ProtectedRoute requireModule="live-chat">
+            <LiveChatModule />
+          </ProtectedRoute>
         );
       case 'admin':
         return (

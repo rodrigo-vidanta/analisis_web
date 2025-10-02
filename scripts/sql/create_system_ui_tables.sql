@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
   prompt_type VARCHAR(100) DEFAULT 'system_message', -- system_message, user_message, assistant_message
   checkpoint_name VARCHAR(255), -- Checkpoint 1: Saludo, etc.
   message_index INTEGER, -- Índice en el array de mensajes
-  parameter_key VARCHAR(500) NOT NULL, -- assistant.model.messages[0]
+  parameter_key VARCHAR(500) NOT NULL, -- jsonBody.assistant.model.messages[0] o responseBody.assistant.model.messages[0]
   seconds_from_start INTEGER DEFAULT 0,
   version_number INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -27,8 +27,33 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
   successful_executions INTEGER DEFAULT 0,
   failed_executions INTEGER DEFAULT 0,
   
+  -- Campos adicionales para configuración VAPI completa
+  vapi_config JSONB, -- Configuración completa del assistant
+  tools_config JSONB, -- Configuración de tools/funciones
+  voice_config JSONB, -- Configuración de voz
+  transcriber_config JSONB, -- Configuración de transcripción
+  
   -- Índices para optimización
   CONSTRAINT unique_active_prompt UNIQUE (workflow_id, node_id, parameter_key, is_active) DEFERRABLE INITIALLY DEFERRED
+);
+
+-- Tabla para configuraciones VAPI completas (versionado de toda la config)
+CREATE TABLE IF NOT EXISTS vapi_config_versions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  workflow_id VARCHAR(255) NOT NULL,
+  workflow_name VARCHAR(255) NOT NULL,
+  node_id VARCHAR(255) NOT NULL,
+  node_name VARCHAR(255) NOT NULL,
+  config_type VARCHAR(100) NOT NULL, -- 'jsonBody' o 'responseBody'
+  full_config JSONB NOT NULL, -- Configuración completa de VAPI
+  version_number INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by VARCHAR(255) NOT NULL,
+  is_active BOOLEAN DEFAULT FALSE,
+  change_description TEXT,
+  
+  -- Índices para optimización
+  CONSTRAINT unique_active_vapi_config UNIQUE (workflow_id, node_id, is_active) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- Tabla para métricas de workflows

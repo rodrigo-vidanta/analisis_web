@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { n8nProxyService } from '../../services/n8nProxyService';
+import { n8nLocalProxyService } from '../../services/n8nLocalProxyService';
 import { promptsDbService } from '../../services/promptsDbService';
 import { type PromptVersion, type WorkflowMetrics } from '../../config/supabaseSystemUI';
+import VAPIConfigEditor from './VAPIConfigEditor';
 
 interface WorkflowWithPrompts {
   id: string;
@@ -30,25 +31,35 @@ const PromptsManager: React.FC = () => {
   const loadWorkflows = async () => {
     setLoading(true);
     try {
-      // Buscar workflows específicos de VAPI
-      const vapiWorkflows = await n8nProxyService.searchWorkflows('vapi');
-      const nataliaWorkflows = await n8nProxyService.searchWorkflows('natalia');
+      console.log('🔄 Cargando workflows desde n8n...');
       
-      if (vapiWorkflows.success && nataliaWorkflows.success) {
-        const allWorkflows = [
-          ...(vapiWorkflows.workflows || []),
-          ...(nataliaWorkflows.workflows || [])
-        ];
-
-        // Eliminar duplicados
-        const uniqueWorkflows = allWorkflows.filter((workflow, index, self) => 
-          index === self.findIndex(w => w.id === workflow.id)
+      // Obtener workflows desde n8n
+      const result = await n8nLocalProxyService.getWorkflows();
+      
+      console.log('📊 Resultado de n8n:', { 
+        success: result.success, 
+        workflowsCount: result.workflows?.length || 0,
+        error: result.error 
+      });
+      
+      if (result.success && result.workflows) {
+        // Filtrar solo los workflows específicos que solicitaste
+        const targetWorkflows = ['[VAPI] Agent-Natalia inbound', 'Trigger llamada vapi'];
+        const filteredWorkflows = result.workflows.filter(workflow => 
+          targetWorkflows.some(target => 
+            workflow.name.toLowerCase().includes(target.toLowerCase()) ||
+            target.toLowerCase().includes(workflow.name.toLowerCase())
+          )
         );
+        
+        console.log('🎯 Workflows filtrados:', filteredWorkflows.map(w => ({ id: w.id, name: w.name })));
 
         // Procesar workflows y extraer prompts
         const processedWorkflows = await Promise.all(
-          uniqueWorkflows.map(async (workflow) => {
-            const prompts = n8nProxyService.extractPromptsFromWorkflow(workflow);
+          filteredWorkflows.map(async (workflow) => {
+            console.log('🔍 Procesando workflow:', workflow.name);
+            const prompts = n8nLocalProxyService.extractPromptsFromWorkflow(workflow);
+            console.log('📝 Prompts extraídos:', prompts.length);
             
             // Obtener métricas (por ahora mock, luego implementar proxy)
             const metricsResult = { 
@@ -80,10 +91,13 @@ const PromptsManager: React.FC = () => {
           })
         );
 
+        console.log('✅ Workflows procesados:', processedWorkflows.length);
         setWorkflows(processedWorkflows);
+      } else {
+        console.error('❌ Error obteniendo workflows:', result.error);
       }
     } catch (error) {
-      console.error('Error cargando workflows:', error);
+      console.error('❌ Error cargando workflows:', error);
     } finally {
       setLoading(false);
     }
@@ -91,10 +105,9 @@ const PromptsManager: React.FC = () => {
 
   const loadPromptVersions = async (workflowId: string, nodeId: string) => {
     try {
-      const result = await promptsDbService.getPromptVersions(workflowId, nodeId);
-      if (result.success && result.versions) {
-        setPromptVersions(result.versions);
-      }
+      // Temporalmente deshabilitado hasta crear las tablas en System_UI
+      console.log('Cargando versiones para:', { workflowId, nodeId });
+      setPromptVersions([]); // Array vacío por ahora
     } catch (error) {
       console.error('Error cargando versiones:', error);
     }
@@ -102,7 +115,7 @@ const PromptsManager: React.FC = () => {
 
   const filteredWorkflows = workflows.filter(workflow =>
     workflow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    workflow.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    workflow.tags.some(tag => (tag.name || tag).toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   if (loading) {
@@ -189,85 +202,40 @@ const PromptsManager: React.FC = () => {
         </div>
 
         {/* Contenido principal */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-6">
           
-          {/* Panel izquierdo: Lista de workflows */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-              <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+          {/* Selector de workflow */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <div className="flex items-center justify-between">
+              <div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                   Workflows VAPI ({filteredWorkflows.length})
                 </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Selecciona un workflow para editar sus prompts
+                </p>
               </div>
               
-              <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+              <select
+                value={selectedWorkflow?.id || ''}
+                onChange={(e) => {
+                  const workflow = filteredWorkflows.find(w => w.id === e.target.value);
+                  setSelectedWorkflow(workflow || null);
+                }}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white min-w-[300px]"
+              >
+                <option value="">Seleccionar workflow...</option>
                 {filteredWorkflows.map((workflow) => (
-                  <div
-                    key={workflow.id}
-                    onClick={() => setSelectedWorkflow(workflow)}
-                    className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                      selectedWorkflow?.id === workflow.id
-                        ? 'bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800'
-                        : 'bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-slate-900 dark:text-white text-sm">
-                        {workflow.name}
-                      </h4>
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          workflow.active ? 'bg-green-500' : 'bg-slate-400'
-                        }`}></div>
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {workflow.prompts.length} prompts
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {workflow.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {workflow.tags.slice(0, 3).map((tag, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 text-xs bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                        {workflow.tags.length > 3 && (
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            +{workflow.tags.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {workflow.metrics && (
-                      <div className="mt-2 flex items-center space-x-4 text-xs text-slate-500 dark:text-slate-400">
-                        <span>Éxito: {workflow.metrics.success_rate.toFixed(1)}%</span>
-                        <span>Ejecuciones: {workflow.metrics.total_executions}</span>
-                      </div>
-                    )}
-                  </div>
+                  <option key={workflow.id} value={workflow.id}>
+                    {workflow.name} ({workflow.prompts.length} prompts)
+                  </option>
                 ))}
-                
-                {filteredWorkflows.length === 0 && (
-                  <div className="text-center py-8">
-                    <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p className="text-slate-500 dark:text-slate-400">
-                      No se encontraron workflows VAPI
-                    </p>
-                  </div>
-                )}
-              </div>
+              </select>
             </div>
           </div>
 
-          {/* Panel derecho: Detalles del workflow seleccionado */}
-          <div className="lg:col-span-2">
+          {/* Editor de ancho completo */}
+          <div>
             {selectedWorkflow ? (
               <div className="space-y-6">
                 
@@ -312,70 +280,22 @@ const PromptsManager: React.FC = () => {
                           key={index}
                           className="px-3 py-1 text-sm bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full"
                         >
-                          {tag}
+                          {tag.name || tag}
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Lista de prompts */}
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                  <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                      Prompts del Workflow
-                    </h3>
-                  </div>
-                  
-                  <div className="p-4 space-y-4">
-                    {selectedWorkflow.prompts.map((prompt, index) => (
-                      <div
-                        key={index}
-                        onClick={() => {
-                          setSelectedPrompt(prompt);
-                          loadPromptVersions(selectedWorkflow.id, prompt.node_id);
-                        }}
-                        className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ${
-                          selectedPrompt?.node_id === prompt.node_id
-                            ? 'bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600'
-                            : 'bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h4 className="font-medium text-slate-900 dark:text-white">
-                              {prompt.node_name}
-                            </h4>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                              {prompt.node_type} • {prompt.parameter_key}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                              v{promptVersions.find(v => v.node_id === prompt.node_id && v.is_active)?.version_number || 1}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2">
-                          {prompt.prompt_content}
-                        </p>
-                      </div>
-                    ))}
-                    
-                    {selectedWorkflow.prompts.length === 0 && (
-                      <div className="text-center py-8">
-                        <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <p className="text-slate-500 dark:text-slate-400">
-                          No se detectaron prompts en este workflow
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {/* Editor VAPI de ancho completo */}
+                <VAPIConfigEditor
+                  workflowId={selectedWorkflow.id}
+                  workflowName={selectedWorkflow.name}
+                  nodeId={selectedWorkflow.prompts[0]?.node_id || 'default'}
+                  nodeName={selectedWorkflow.prompts[0]?.node_name || 'VAPI Node'}
+                  nodeType={selectedWorkflow.prompts[0]?.node_type || 'vapi'}
+                  onConfigUpdated={loadWorkflows}
+                />
 
               </div>
             ) : (

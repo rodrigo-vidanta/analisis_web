@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Database Connection</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .debug-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 16px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .status-ok { color: #10b981; }
+        .status-error { color: #ef4444; }
+        .status-warning { color: #f59e0b; }
+        pre {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 4px;
+        }
+        .btn:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Database Connection</h1>
+    
+    <div class="debug-card">
+        <h2>📊 Estado de la Conexión</h2>
+        <div id="connection-status">
+            <p>🔄 Verificando conexión...</p>
+        </div>
+        <button class="btn" onclick="testConnection()">🔄 Probar Conexión</button>
+    </div>
+
+    <div class="debug-card">
+        <h2>🗄️ Verificar Tablas</h2>
+        <div id="tables-status">
+            <p>🔄 Verificando tablas...</p>
+        </div>
+        <button class="btn" onclick="checkTables()">🔍 Verificar Tablas</button>
+    </div>
+
+    <div class="debug-card">
+        <h2>💬 Verificar Conversaciones</h2>
+        <div id="conversations-status">
+            <p>🔄 Verificando conversaciones...</p>
+        </div>
+        <button class="btn" onclick="checkConversations()">📋 Verificar Conversaciones</button>
+    </div>
+
+    <div class="debug-card">
+        <h2>🔧 Instrucciones</h2>
+        <ol>
+            <li><strong>Crear tablas:</strong> Ejecuta el SQL en Supabase SQL Editor</li>
+            <li><strong>Verificar conexión:</strong> Usa los botones de arriba</li>
+            <li><strong>Refrescar app:</strong> Ve a Live Chat y haz clic en "Actualizar"</li>
+        </ol>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://hmmfuhqgvsehkizlfzga.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ2NzI2NzQsImV4cCI6MjA1MDI0ODY3NH0.Qs8Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7E';
+
+        async function testConnection() {
+            const status = document.getElementById('connection-status');
+            status.innerHTML = '<p>🔄 Probando conexión...</p>';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                if (response.ok) {
+                    status.innerHTML = '<p class="status-ok">✅ Conexión exitosa a Supabase</p>';
+                } else {
+                    status.innerHTML = `<p class="status-error">❌ Error de conexión: ${response.status}</p>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<p class="status-error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkTables() {
+            const status = document.getElementById('tables-status');
+            status.innerHTML = '<p>🔄 Verificando tablas...</p>';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/uchat_bots?select=count`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                if (response.ok) {
+                    status.innerHTML = '<p class="status-ok">✅ Tabla uchat_bots existe</p>';
+                } else if (response.status === 404) {
+                    status.innerHTML = '<p class="status-error">❌ Tabla uchat_bots NO existe - Ejecuta el SQL</p>';
+                } else {
+                    status.innerHTML = `<p class="status-error">❌ Error verificando tablas: ${response.status}</p>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<p class="status-error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkConversations() {
+            const status = document.getElementById('conversations-status');
+            status.innerHTML = '<p>🔄 Verificando conversaciones...</p>';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/uchat_conversations?select=*`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.length > 0) {
+                        status.innerHTML = `<p class="status-ok">✅ ${data.length} conversaciones encontradas</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    } else {
+                        status.innerHTML = '<p class="status-warning">⚠️ No hay conversaciones - Ejecuta el SQL completo</p>';
+                    }
+                } else {
+                    status.innerHTML = `<p class="status-error">❌ Error: ${response.status}</p>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<p class="status-error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        // Verificar automáticamente al cargar
+        window.onload = function() {
+            testConnection();
+            setTimeout(checkTables, 1000);
+            setTimeout(checkConversations, 2000);
+        };
+    </script>
+</body>
+</html>
