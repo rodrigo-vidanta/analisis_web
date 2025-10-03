@@ -2,10 +2,13 @@
   "providers": ["node"],
   "phases": {
     "setup": {
-      "nixPkgs": ["nodejs_18", "npm"]
+      "nixPkgs": ["nodejs_18"]
+    },
+    "install": {
+      "cmds": ["npm ci"]
     },
     "build": {
-      "cmds": ["npm ci", "npm run build"]
+      "cmds": ["npm run build"]
     },
     "start": {
       "cmd": "npm run preview"

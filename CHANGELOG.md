@@ -1,5 +1,44 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión 3.0.6 - Railway Nixpacks Fix Simplificado (Octubre 2025)
+
+### ✅ **CORRECCIÓN NIXPACKS NPM ERROR**
+
+#### 🚀 **Problema Específico: Error 'undefined variable npm'**
+- **Issue**: Nixpacks no puede resolver la variable `npm` en el entorno Nix
+- **Error**: `error: undefined variable 'npm' at /app/.nixpacks/nixpkgs-*.nix:19:19`
+- **Causa raíz**: Configuración de nixPkgs con npm explícito causa conflicto
+- **Solución**: Simplificación de configuración usando solo Node.js
+
+#### 🔧 **Configuración Simplificada**
+- **`.nixpacks.toml`**: Removido `npm` de nixPkgs, solo `nodejs_18`
+- **Fases separadas**: `install` y `build` como fases independientes
+- **railway.toml**: Simplificado, removido buildCommand duplicado
+- **Procfile**: Comando web directo como respaldo
+
+#### 📋 **Nueva Configuración**
+```toml
+[providers]
+node = true
+
+[phases.setup]
+nixPkgs = ['nodejs_18']  # Solo Node.js, npm viene incluido
+
+[phases.install]
+cmds = ['npm ci']
+
+[phases.build]
+cmds = ['npm run build']
+```
+
+#### 🎯 **Estrategia de Resolución**
+- **Node.js incluye npm**: No especificar npm por separado
+- **Fases separadas**: install y build independientes
+- **Configuración mínima**: Menos complejidad = menos errores
+- **Múltiples respaldos**: Procfile, .dockerignore, exclusiones
+
+---
+
 ## 🔧 Versión 3.0.5 - Railway Deploy Fix Mejorado (Octubre 2025)
 
 ### ✅ **CORRECCIÓN AVANZADA DE DEPLOY**

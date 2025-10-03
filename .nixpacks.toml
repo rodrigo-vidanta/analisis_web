@@ -2,11 +2,13 @@
 node = true
 
 [phases.setup]
-nixPkgs = ['nodejs_18', 'npm']
-nixOverlays = []
+nixPkgs = ['nodejs_18']
+
+[phases.install]
+cmds = ['npm ci']
 
 [phases.build]
-cmds = ['npm ci', 'npm run build']
+cmds = ['npm run build']
 
 [phases.start]
 cmd = 'npm run preview'
