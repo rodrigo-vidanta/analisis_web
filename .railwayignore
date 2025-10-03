@@ -1,0 +1,23 @@
+# Supabase Edge Functions (Deno)
+supabase/
+
+# Development files
+.env.local
+.env.development
+*.log
+node_modules/
+.git/
+
+# Build artifacts
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

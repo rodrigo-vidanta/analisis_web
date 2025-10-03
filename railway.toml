@@ -1,13 +1,13 @@
 [build]
 builder = "nixpacks"
+buildCommand = "npm ci && npm run build"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "npm run preview"
 healthcheckPath = "/"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 10
 
-[variables]
-# Variables de entorno se configuran en Railway Dashboard
+[env]
 NODE_ENV = "production"

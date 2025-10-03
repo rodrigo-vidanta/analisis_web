@@ -1,5 +1,43 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 3.0.4 - Fix Railway Deploy + Modo Oscuro (Octubre 2025)
+
+### ✅ **CORRECCIÓN CRÍTICA DE DEPLOY**
+
+#### 🚀 **Problema Resuelto: Error de build en Railway**
+- **Issue**: Railway detectaba incorrectamente el proyecto como Deno en lugar de Node.js
+- **Causa raíz**: Archivos de Supabase Edge Functions confundían el detector de Nixpacks
+- **Error**: `/bin/bash: line 1: npm: command not found`
+- **Solución**: Configuración explícita de Railway y Nixpacks para Node.js
+
+#### 🔧 **Archivos de Configuración Agregados**
+- **`railway.toml`**: Configuración específica de Railway con Node.js
+- **`.nixpacks.toml`**: Especificación explícita de Node.js 18 y npm
+- **`.railwayignore`**: Exclusión de archivos Supabase que causan confusión
+
+#### 📋 **Configuración de Deploy**
+```toml
+[build]
+builder = "nixpacks"
+buildCommand = "npm ci && npm run build"
+
+[deploy]
+startCommand = "npm run preview"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+
+[env]
+NODE_ENV = "production"
+```
+
+#### 🎯 **Resultado Esperado**
+- **Build correcto**: Detección de Node.js en lugar de Deno
+- **Dependencias**: npm install funcionando correctamente
+- **Start**: Servidor iniciando con `npm run preview`
+- **Healthcheck**: Verificación de salud en ruta raíz
+
+---
+
 ## 🌙 Versión 3.0.3 - Modo Oscuro Completo Live Chat (Octubre 2025)
 
 ### ✅ **IMPLEMENTACIÓN MODO OSCURO**
