@@ -1,5 +1,44 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión 3.0.5 - Railway Deploy Fix Mejorado (Octubre 2025)
+
+### ✅ **CORRECCIÓN AVANZADA DE DEPLOY**
+
+#### 🚀 **Problema Persistente: Railway sigue detectando Deno**
+- **Issue**: A pesar de configuración inicial, Nixpacks sigue priorizando Deno
+- **Causa raíz**: `supabase/functions/n8n-proxy/deno.json` confunde el detector
+- **Error persistente**: `/bin/bash: line 1: npm: command not found`
+- **Solución mejorada**: Configuración múltiple y exclusiones específicas
+
+#### 🔧 **Configuraciones Mejoradas**
+- **`.nixpacks.toml`**: Agregado `[providers] node = true` para forzar Node.js
+- **`.dockerignore`**: Exclusión específica de archivos Deno y Supabase
+- **`.railwayignore`**: Patrones más específicos para evitar confusión
+- **`Procfile`**: Archivo alternativo para especificar comando web
+- **`railway.toml`**: Variable `NIXPACKS_NODE_VERSION = "18"`
+
+#### 📋 **Archivos de Configuración Completos**
+```toml
+# .nixpacks.toml
+[providers]
+node = true
+
+[phases.setup]
+nixPkgs = ['nodejs_18', 'npm']
+
+# railway.toml  
+[env]
+NIXPACKS_NODE_VERSION = "18"
+```
+
+#### 🎯 **Estrategia Multi-Archivo**
+- **Procfile**: `web: npm run preview`
+- **nixpacks.json**: Configuración JSON alternativa
+- **Exclusiones**: Archivos Supabase completamente ignorados
+- **Variables**: Forzar versión Node.js específica
+
+---
+
 ## 🚀 Versión 3.0.4 - Fix Railway Deploy + Modo Oscuro (Octubre 2025)
 
 ### ✅ **CORRECCIÓN CRÍTICA DE DEPLOY**

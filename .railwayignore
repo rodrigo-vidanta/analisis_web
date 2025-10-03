@@ -1,5 +1,10 @@
-# Supabase Edge Functions (Deno)
+# Supabase Edge Functions (Deno) - Causa confusión en Nixpacks
 supabase/
+**/supabase/
+supabase/**/*
+**/deno.json
+**/deno.lock
+**/*.ts.map
 
 # Development files
 .env.local
@@ -21,3 +26,7 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Temporary files
+/tmp/
+*.tmp
