@@ -1,5 +1,94 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## ✅ Versión 3.0.8 - Deploy Railway Exitoso + Documentación (Octubre 2025)
+
+### 🎉 **DEPLOY EXITOSO EN RAILWAY**
+
+#### ✅ **Confirmación: Proyecto desplegado correctamente**
+- **Estado**: ✅ Deploy exitoso en Railway
+- **URL**: Funcionando correctamente en producción
+- **Build**: Sin errores, todas las fases completadas
+- **Healthcheck**: Pasando correctamente
+
+#### 📚 **Documentación del Proceso de Resolución**
+
+##### **🔍 Problema Original:**
+Railway detectaba incorrectamente el proyecto como **Deno** en lugar de **Node.js**
+
+##### **🔄 Proceso de Resolución (Iterativo):**
+
+**1. Primera Detección (v3.0.4):**
+- **Error**: `npm: command not found`
+- **Causa**: Nixpacks detectaba Deno por archivos Supabase
+- **Solución intentada**: Configuración básica de Railway
+
+**2. Configuración Avanzada (v3.0.5):**
+- **Error persistente**: Seguía detectando Deno
+- **Causa**: `supabase/functions/n8n-proxy/deno.json` confundía detector
+- **Solución intentada**: Múltiples archivos de configuración
+
+**3. Error Nixpacks (v3.0.6):**
+- **Error**: `undefined variable 'npm'`
+- **Causa**: Configuración nixPkgs con npm explícito
+- **Solución intentada**: Simplificación de configuración
+
+**4. Incompatibilidad Vite (v3.0.7):**
+- **Error**: `Vite requires Node.js version 20.19+ or 22.12+`
+- **Causa**: Node.js 18.20.5 vs Vite 7.1.4
+- **Solución final**: Actualización a Node.js 20+
+
+##### **🎯 Solución Final Exitosa:**
+```toml
+# .nixpacks.toml
+[providers]
+node = true
+
+[phases.setup]
+nixPkgs = ['nodejs_20']  # ← CLAVE: Node.js 20+
+
+# package.json
+"engines": {
+  "node": ">=20.19.0"  # ← CLAVE: Especificar versión mínima
+}
+
+# railway.toml
+[env]
+NIXPACKS_NODE_VERSION = "20"  # ← CLAVE: Variable de entorno
+```
+
+#### 📋 **Archivos de Configuración Final**
+- **`.nixpacks.toml`**: Configuración principal con Node.js 20
+- **`railway.toml`**: Variables de entorno y comandos
+- **`.dockerignore`**: Exclusión de archivos Supabase
+- **`.railwayignore`**: Patrones específicos para Railway
+- **`Procfile`**: Comando web de respaldo
+- **`nixpacks.json`**: Configuración JSON alternativa
+
+#### 🔑 **Lecciones Aprendidas para Futuras Modificaciones**
+
+##### **✅ Hacer:**
+1. **Verificar compatibilidad de versiones** antes de actualizar dependencias
+2. **Usar Node.js 20+** para proyectos con Vite 7.x
+3. **Excluir archivos Supabase** del build de Railway
+4. **Configurar múltiples archivos** para mayor compatibilidad
+5. **Especificar versiones explícitamente** en engines
+
+##### **❌ Evitar:**
+1. **Mezclar Deno y Node.js** en el mismo directorio de build
+2. **Usar versiones Node.js < 20** con Vite 7.x
+3. **Configuraciones complejas** en nixPkgs (menos es más)
+4. **Omitir variables de entorno** de versión
+5. **No documentar el proceso** de resolución
+
+#### 🚀 **Estado Final**
+- **Railway**: ✅ Deploy exitoso
+- **Live Chat**: ✅ Funcional sin modificaciones
+- **Modo oscuro**: ✅ Completamente implementado
+- **Sidebar adaptativo**: ✅ Funcionando perfectamente
+- **Todas las funcionalidades**: ✅ Preservadas al 100%
+
+---
+
 ## 🚀 Versión 3.0.7 - Node.js 20+ para Vite 7.1.4 (Octubre 2025)
 
 ### ✅ **CORRECCIÓN VERSIÓN NODE.JS**
