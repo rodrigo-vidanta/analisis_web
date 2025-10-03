@@ -1,5 +1,36 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 3.0.7 - Node.js 20+ para Vite 7.1.4 (Octubre 2025)
+
+### ✅ **CORRECCIÓN VERSIÓN NODE.JS**
+
+#### 🚀 **Problema Identificado: Incompatibilidad de versiones**
+- **Issue**: Vite 7.1.4 requiere Node.js 20.19+ pero Railway usaba 18.20.5
+- **Error**: `You are using Node.js 18.20.5. Vite requires Node.js version 20.19+ or 22.12+`
+- **Error secundario**: `crypto.hash is not a function` (relacionado con versión Node.js)
+- **Solución**: Actualización a Node.js 20+ en todas las configuraciones
+
+#### 🔧 **Configuraciones Actualizadas**
+- **`.nixpacks.toml`**: `nodejs_18` → `nodejs_20`
+- **`nixpacks.json`**: `nodejs_18` → `nodejs_20`
+- **`railway.toml`**: `NIXPACKS_NODE_VERSION = "20"`
+- **`package.json`**: `engines.node` → `>=20.19.0`
+
+#### 📋 **Compatibilidad Vite**
+- **Vite 7.1.4**: Requiere Node.js 20.19+ o 22.12+
+- **Railway**: Ahora usará Node.js 20.x
+- **Local**: Sigue funcionando (ya tienes versión compatible)
+- **Build**: Debería resolver error `crypto.hash`
+
+#### 🎯 **Sin Cambios Funcionales**
+- **Live Chat**: ✅ Sin modificaciones
+- **Modo oscuro**: ✅ Preservado
+- **Sidebar adaptativo**: ✅ Intacto
+- **Layout fijo**: ✅ Sin cambios
+- **Funcionalidades**: ✅ Todas preservadas
+
+---
+
 ## 🔧 Versión 3.0.6 - Railway Nixpacks Fix Simplificado (Octubre 2025)
 
 ### ✅ **CORRECCIÓN NIXPACKS NPM ERROR**

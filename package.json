@@ -1,10 +1,10 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "3.0.6",
+  "version": "3.0.7",
   "type": "module",
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.19.0",
     "npm": ">=9.0.0"
   },
   "scripts": {
