@@ -490,10 +490,10 @@ const LiveChatCanvas: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex items-center justify-center h-96 bg-white dark:bg-gray-900">
         <div className="flex flex-col items-center space-y-4">
-          <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin"></div>
-          <p className="text-sm text-slate-500">Cargando conversaciones reales...</p>
+          <div className="w-8 h-8 border-2 border-slate-200 dark:border-gray-600 border-t-slate-600 dark:border-t-gray-400 rounded-full animate-spin"></div>
+          <p className="text-sm text-slate-500 dark:text-gray-400">Cargando conversaciones reales...</p>
         </div>
       </div>
     );
@@ -501,7 +501,7 @@ const LiveChatCanvas: React.FC = () => {
 
   return (
     <div 
-      className="bg-white"
+      className="bg-white dark:bg-gray-900"
       style={{ 
         position: 'fixed',
         top: `${headerHeight}px`, // Debajo del menú fijo
@@ -514,7 +514,7 @@ const LiveChatCanvas: React.FC = () => {
     >
       {/* SECCIÓN 1: Lista de Conversaciones - CAJA INDEPENDIENTE */}
       <div 
-        className="bg-white border-r border-slate-200"
+        className="bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700"
         style={{ 
           width: `${adjustedConversationsWidth}px`,
           height: '100%',
@@ -526,7 +526,7 @@ const LiveChatCanvas: React.FC = () => {
       >
         {/* Header fijo de la caja */}
         <div 
-          className="p-4 border-b border-slate-100 bg-white"
+          className="p-4 border-b border-slate-100 dark:border-gray-700 bg-white dark:bg-gray-800"
           style={{ 
             flexShrink: 0,
             height: '200px'
@@ -534,14 +534,14 @@ const LiveChatCanvas: React.FC = () => {
         >
             <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-lg font-semibold text-slate-900">Conversaciones</h1>
-              <p className="text-xs text-slate-500">
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Conversaciones</h1>
+              <p className="text-xs text-slate-500 dark:text-gray-400">
                 Datos reales de UChat • Sidebar: {sidebarCollapsed ? 'Colapsado (+192px)' : 'Expandido'}
               </p>
             </div>
             <button 
               onClick={loadConversations}
-              className="text-xs px-2 py-1 text-slate-600 bg-slate-50 border border-slate-200 rounded hover:bg-slate-100"
+              className="text-xs px-2 py-1 text-slate-600 dark:text-gray-300 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded hover:bg-slate-100 dark:hover:bg-gray-600"
             >
               Actualizar
             </button>
@@ -549,23 +549,23 @@ const LiveChatCanvas: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="text-center">
-              <div className="text-lg font-semibold text-slate-900">{metrics.totalConversations}</div>
-              <div className="text-xs text-slate-500">Total</div>
+              <div className="text-lg font-semibold text-slate-900 dark:text-white">{metrics.totalConversations}</div>
+              <div className="text-xs text-slate-500 dark:text-gray-400">Total</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-semibold text-emerald-600">{metrics.activeConversations}</div>
-              <div className="text-xs text-slate-500">Activas</div>
+              <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
+              <div className="text-xs text-slate-500 dark:text-gray-400">Activas</div>
             </div>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-500 w-4 h-4" />
             <input
               type="text"
               placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-300"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-300 dark:focus:ring-gray-500"
             />
           </div>
         </div>
@@ -586,10 +586,10 @@ const LiveChatCanvas: React.FC = () => {
           {filteredConversations.map((conversation) => (
             <div
               key={conversation.id}
-              className={`p-4 border-b border-slate-50 cursor-pointer transition-all duration-200 ${
+              className={`p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer transition-all duration-200 ${
                 selectedConversation?.id === conversation.id
-                  ? 'bg-blue-50 border-l-4 border-l-blue-500 shadow-sm'
-                  : 'hover:bg-slate-25'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500 shadow-sm'
+                  : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
               }`}
               onClick={() => setSelectedConversation(conversation)}
             >
@@ -602,16 +602,16 @@ const LiveChatCanvas: React.FC = () => {
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-sm font-semibold text-slate-900 truncate">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                       {conversation.customer_name}
                     </h3>
                     {getStatusIndicator(conversation.status)}
                   </div>
                   
-                  <p className="text-xs text-slate-500 mb-1">{conversation.customer_phone}</p>
-                  <p className="text-xs text-blue-600 font-medium mb-2">{conversation.metadata?.etapa}</p>
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{conversation.customer_phone}</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{conversation.metadata?.etapa}</p>
                   
-                  <div className="flex items-center justify-between text-xs text-slate-400">
+                  <div className="flex items-center justify-between text-xs text-slate-400 dark:text-gray-500">
                     <span>{conversation.message_count} mensajes</span>
                     <span>{formatTimeAgo(conversation.last_message_at)}</span>
                   </div>
@@ -624,7 +624,7 @@ const LiveChatCanvas: React.FC = () => {
 
       {/* DIVISOR REDIMENSIONABLE 1 */}
       <div 
-        className="w-1 bg-slate-200 hover:bg-slate-300 cursor-col-resize flex items-center justify-center group"
+        className="w-1 bg-slate-200 dark:bg-gray-600 hover:bg-slate-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
         style={{ 
           height: '100%',
           flexShrink: 0,
@@ -632,14 +632,14 @@ const LiveChatCanvas: React.FC = () => {
         }}
         onMouseDown={(e) => handleMouseDown(e, 'conversations')}
       >
-        <GripVertical className="w-3 h-3 text-slate-400 group-hover:text-slate-600" />
+        <GripVertical className="w-3 h-3 text-slate-400 dark:text-gray-400 group-hover:text-slate-600 dark:group-hover:text-gray-300" />
       </div>
 
       {/* SECCIÓN 2: Bloques de Conversación - CAJA INDEPENDIENTE */}
       {selectedConversation && (
         <>
           <div 
-            className="bg-white border-r border-slate-200"
+            className="bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700"
             style={{ 
               width: `${columnWidths.blocks}px`,
               height: '100%',
@@ -651,14 +651,14 @@ const LiveChatCanvas: React.FC = () => {
           >
             {/* Header fijo de la caja */}
             <div 
-              className="p-4 border-b border-slate-100 bg-white"
+              className="p-4 border-b border-slate-100 dark:border-gray-700 bg-white dark:bg-gray-800"
               style={{ 
                 flexShrink: 0,
                 height: '80px'
               }}
             >
-              <h3 className="text-sm font-semibold text-slate-900 mb-1">Bloques por Día</h3>
-              <p className="text-xs text-slate-500">{selectedConversation.customer_name}</p>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Bloques por Día</h3>
+              <p className="text-xs text-slate-500 dark:text-gray-400">{selectedConversation.customer_name}</p>
             </div>
 
             {/* Área de scroll INDIVIDUAL de la caja */}
@@ -677,21 +677,21 @@ const LiveChatCanvas: React.FC = () => {
               {conversationBlocks.map((block) => (
                 <div
                   key={block.date}
-                  className="p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-25 transition-all duration-200"
+                  className="p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer hover:bg-slate-25 dark:hover:bg-gray-700/50 transition-all duration-200"
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center space-x-2 mb-2">
-                        <Calendar className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm font-semibold text-slate-900">
+                        <Calendar className="w-4 h-4 text-slate-400 dark:text-gray-500" />
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
                           {formatDate(block.date)}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-gray-400">
                         {block.message_count} mensajes
                       </p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 dark:text-gray-500" />
                   </div>
                 </div>
               ))}
@@ -700,7 +700,7 @@ const LiveChatCanvas: React.FC = () => {
 
           {/* DIVISOR REDIMENSIONABLE 2 */}
           <div 
-            className="w-1 bg-slate-200 hover:bg-slate-300 cursor-col-resize flex items-center justify-center group"
+            className="w-1 bg-slate-200 dark:bg-gray-600 hover:bg-slate-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
             style={{ 
               height: '100%',
               flexShrink: 0,
@@ -708,7 +708,7 @@ const LiveChatCanvas: React.FC = () => {
             }}
             onMouseDown={(e) => handleMouseDown(e, 'blocks')}
           >
-            <GripVertical className="w-3 h-3 text-slate-400 group-hover:text-slate-600" />
+            <GripVertical className="w-3 h-3 text-slate-400 dark:text-gray-400 group-hover:text-slate-600 dark:group-hover:text-gray-300" />
           </div>
         </>
       )}
@@ -716,7 +716,7 @@ const LiveChatCanvas: React.FC = () => {
       {/* SECCIÓN 3: Ventana de Chat - GRUPO (Mensajes + Input) */}
       {selectedConversation ? (
         <div 
-          className="bg-white flex-1"
+          className="bg-white dark:bg-gray-800 flex-1"
           style={{ 
             height: '100%',
             display: 'flex',
@@ -726,7 +726,7 @@ const LiveChatCanvas: React.FC = () => {
         >
           {/* Header fijo del chat */}
           <div 
-            className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-slate-100"
+            className="p-4 border-b border-slate-100 dark:border-gray-700 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-gray-800 dark:to-gray-700"
             style={{ 
               flexShrink: 0,
               height: '80px'
@@ -740,13 +740,13 @@ const LiveChatCanvas: React.FC = () => {
                   </span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                     {selectedConversation.customer_name}
                   </h3>
-                  <div className="flex items-center space-x-2 text-sm text-slate-600">
+                  <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-300">
                     <Phone className="w-4 h-4" />
                     <span>{selectedConversation.customer_phone}</span>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                    <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
                       {selectedConversation.metadata?.etapa}
                     </span>
                   </div>
@@ -755,7 +755,7 @@ const LiveChatCanvas: React.FC = () => {
 
               <button
                 onClick={() => setSelectedConversation(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-lg transition-colors"
+                className="p-2 text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -765,7 +765,7 @@ const LiveChatCanvas: React.FC = () => {
           {/* Área de mensajes - SCROLL INDIVIDUAL (hacia arriba desde abajo) */}
           <div 
             ref={messagesScrollRef}
-            className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-slate-25 to-white"
+            className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-slate-25 to-white dark:from-gray-800 dark:to-gray-900"
             style={{ 
               overscrollBehavior: 'contain',
               scrollbarWidth: 'thin',
@@ -778,13 +778,13 @@ const LiveChatCanvas: React.FC = () => {
             }}
           >
             {allMessages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-slate-500">
+              <div className="flex items-center justify-center h-full text-slate-500 dark:text-gray-400">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <MessageSquare className="w-8 h-8 text-slate-400" />
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="w-8 h-8 text-slate-400 dark:text-gray-500" />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-2">No hay mensajes</h3>
-                  <p className="text-sm">Esta conversación aún no tiene mensajes</p>
+                  <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">No hay mensajes</h3>
+                  <p className="text-sm text-slate-600 dark:text-gray-400">Esta conversación aún no tiene mensajes</p>
                 </div>
               </div>
             ) : (
@@ -799,7 +799,7 @@ const LiveChatCanvas: React.FC = () => {
                     <div key={message.id}>
                       {showDate && (
                         <div className="flex justify-center my-6">
-                          <span className="px-4 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full shadow-sm">
+                          <span className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-full shadow-sm">
                             {formatDate(message.created_at)}
                           </span>
                         </div>
@@ -808,16 +808,16 @@ const LiveChatCanvas: React.FC = () => {
                       <div className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
                         <div className={`max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
                           
-                          <div className={`text-xs text-slate-500 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                          <div className={`text-xs text-slate-500 dark:text-gray-400 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
                             {message.sender_name || (isCustomer ? 'Cliente' : isBot ? 'Bot Vidanta' : 'Agente')}
                           </div>
 
                           <div className={`relative px-4 py-3 rounded-2xl shadow-sm ${
                             isCustomer 
-                              ? 'bg-white border border-slate-200 text-slate-900' 
+                              ? 'bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-slate-900 dark:text-white' 
                               : isBot
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-slate-900 text-white'
+                                ? 'bg-blue-500 dark:bg-blue-600 text-white'
+                                : 'bg-slate-900 dark:bg-gray-800 text-white'
                           }`}>
                             {message.content && (
                               <div className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -826,7 +826,7 @@ const LiveChatCanvas: React.FC = () => {
                             )}
 
                             <div className={`text-xs mt-2 ${
-                              isCustomer ? 'text-slate-400' : 'text-white text-opacity-75'
+                              isCustomer ? 'text-slate-400 dark:text-gray-400' : 'text-white text-opacity-75'
                             }`}>
                               {formatTime(message.created_at)}
                             </div>
@@ -861,7 +861,7 @@ const LiveChatCanvas: React.FC = () => {
 
           {/* Input FIJO - Separado del historial pero en el mismo grupo */}
           <div 
-            className="p-4 border-t border-slate-200 bg-white"
+            className="p-4 border-t border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800"
             style={{ 
               flexShrink: 0,
               height: '80px'
@@ -875,7 +875,7 @@ const LiveChatCanvas: React.FC = () => {
                   onKeyPress={handleKeyPress}
                   placeholder="Escribe un mensaje..."
                   rows={1}
-                  className="w-full px-4 py-3 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none shadow-sm"
+                  className="w-full px-4 py-3 text-sm border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none shadow-sm"
                   style={{ height: '44px' }}
                 />
               </div>
@@ -896,13 +896,13 @@ const LiveChatCanvas: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-slate-500 bg-white">
+        <div className="flex-1 flex items-center justify-center text-slate-500 dark:text-gray-400 bg-white dark:bg-gray-800">
           <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <MessageSquare className="w-10 h-10 text-blue-500" />
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+              <MessageSquare className="w-10 h-10 text-blue-500 dark:text-blue-400" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-3">Selecciona una conversación</h3>
-            <p className="text-sm text-slate-600">Elige una conversación para ver el historial completo</p>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-3">Selecciona una conversación</h3>
+            <p className="text-sm text-slate-600 dark:text-gray-400">Elige una conversación para ver el historial completo</p>
           </div>
         </div>
       )}

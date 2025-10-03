@@ -61,49 +61,49 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
       
       case 'settings':
         return (
-          <div className="p-6 bg-slate-25">
+          <div className="p-6 bg-slate-25 dark:bg-gray-900">
             <div className="max-w-4xl">
               <div className="mb-6">
-                <h2 className="text-lg font-semibold text-slate-900 mb-2">Configuración</h2>
-                <p className="text-sm text-slate-600">Gestiona la configuración del sistema de chat</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Configuración</h2>
+                <p className="text-sm text-slate-600 dark:text-gray-400">Gestiona la configuración del sistema de chat</p>
               </div>
               
-              <div className="bg-white border border-slate-200 rounded-lg p-6">
+              <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-6">
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-sm font-medium text-slate-900 mb-3">API de UChat</h3>
+                    <h3 className="text-sm font-medium text-slate-900 dark:text-white mb-3">API de UChat</h3>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1">API Key</label>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">API Key</label>
                         <input 
                           type="password" 
                           value="hBOeQll3yFUY6Br6jHL3OPJ0fVdCXWMhRM7F3Za4AD21WCAl3Q0LEEu2nbj5"
                           readOnly
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-slate-50"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-700 text-slate-900 dark:text-white rounded-md"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1">URL de la API</label>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">URL de la API</label>
                         <input 
                           type="text" 
                           value="https://www.uchat.com.au/api"
                           readOnly
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-slate-50"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-700 text-slate-900 dark:text-white rounded-md"
                         />
                       </div>
                     </div>
                   </div>
                   
-                  <div className="border-t border-slate-100 pt-6">
-                    <h3 className="text-sm font-medium text-slate-900 mb-3">Handoff Automático</h3>
+                  <div className="border-t border-slate-100 dark:border-gray-700 pt-6">
+                    <h3 className="text-sm font-medium text-slate-900 dark:text-white mb-3">Handoff Automático</h3>
                     <div className="space-y-3">
                       <label className="flex items-center">
-                        <input type="checkbox" checked readOnly className="rounded border-slate-300" />
-                        <span className="ml-2 text-sm text-slate-700">Activar transferencia automática</span>
+                        <input type="checkbox" checked readOnly className="rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700" />
+                        <span className="ml-2 text-sm text-slate-700 dark:text-gray-300">Activar transferencia automática</span>
                       </label>
                       <label className="flex items-center">
-                        <input type="checkbox" checked readOnly className="rounded border-slate-300" />
-                        <span className="ml-2 text-sm text-slate-700">Deshabilitar bot al recibir mensaje</span>
+                        <input type="checkbox" checked readOnly className="rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700" />
+                        <span className="ml-2 text-sm text-slate-700 dark:text-gray-300">Deshabilitar bot al recibir mensaje</span>
                       </label>
                     </div>
                   </div>
@@ -115,35 +115,35 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
       
       case 'analytics':
         return (
-          <div className="p-6 bg-slate-25">
+          <div className="p-6 bg-slate-25 dark:bg-gray-900">
             <div className="max-w-6xl">
               <div className="mb-6">
-                <h2 className="text-lg font-semibold text-slate-900 mb-2">Analíticas</h2>
-                <p className="text-sm text-slate-600">Métricas y estadísticas del sistema de chat</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Analíticas</h2>
+                <p className="text-sm text-slate-600 dark:text-gray-400">Métricas y estadísticas del sistema de chat</p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white border border-slate-200 rounded-lg p-4">
-                  <div className="text-2xl font-semibold text-slate-900">{metrics.totalConversations}</div>
-                  <div className="text-xs text-slate-500 uppercase tracking-wide">Total Conversaciones</div>
+                <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4">
+                  <div className="text-2xl font-semibold text-slate-900 dark:text-white">{metrics.totalConversations}</div>
+                  <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">Total Conversaciones</div>
                 </div>
-                <div className="bg-white border border-slate-200 rounded-lg p-4">
-                  <div className="text-2xl font-semibold text-emerald-600">{metrics.activeConversations}</div>
-                  <div className="text-xs text-slate-500 uppercase tracking-wide">Activas</div>
+                <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4">
+                  <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
+                  <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">Activas</div>
                 </div>
-                <div className="bg-white border border-slate-200 rounded-lg p-4">
-                  <div className="text-2xl font-semibold text-blue-600">{metrics.transferredConversations}</div>
-                  <div className="text-xs text-slate-500 uppercase tracking-wide">Transferidas</div>
+                <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4">
+                  <div className="text-2xl font-semibold text-blue-600 dark:text-blue-400">{metrics.transferredConversations}</div>
+                  <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">Transferidas</div>
                 </div>
-                <div className="bg-white border border-slate-200 rounded-lg p-4">
-                  <div className="text-2xl font-semibold text-slate-600">{metrics.handoffRate.toFixed(0)}%</div>
-                  <div className="text-xs text-slate-500 uppercase tracking-wide">Tasa Handoff</div>
+                <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4">
+                  <div className="text-2xl font-semibold text-slate-600 dark:text-gray-300">{metrics.handoffRate.toFixed(0)}%</div>
+                  <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">Tasa Handoff</div>
                 </div>
               </div>
               
-              <div className="bg-white border border-slate-200 rounded-lg p-6">
-                <h3 className="text-sm font-medium text-slate-900 mb-4">Próximamente</h3>
-                <div className="space-y-3 text-sm text-slate-600">
+              <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-6">
+                <h3 className="text-sm font-medium text-slate-900 dark:text-white mb-4">Próximamente</h3>
+                <div className="space-y-3 text-sm text-slate-600 dark:text-gray-400">
                   <div>• Gráficos de tendencias de conversaciones</div>
                   <div>• Métricas de tiempo de respuesta</div>
                   <div>• Análisis de satisfacción del cliente</div>
@@ -160,16 +160,16 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
   };
 
   return (
-    <div className={`h-full flex flex-col bg-white ${className}`}>
+    <div className={`h-full flex flex-col bg-white dark:bg-gray-900 ${className}`}>
       {/* Navigation FIJA - No se mueve con scroll */}
-      <div className="border-b border-slate-100 px-6 py-4 bg-white sticky top-0 z-20">
+      <div className="border-b border-slate-100 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-800 sticky top-0 z-20">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-8">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-slate-900 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                 <MessageCircle className="w-4 h-4 text-white" />
               </div>
-              <h1 className="text-lg font-semibold text-slate-900">Live Chat</h1>
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Live Chat</h1>
             </div>
             
             <nav className="flex space-x-1">
@@ -177,8 +177,8 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
                 onClick={() => setActiveView('dashboard')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   activeView === 'dashboard'
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-slate-100 dark:bg-gray-700 text-slate-900 dark:text-white'
+                    : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Conversaciones
@@ -187,8 +187,8 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
                 onClick={() => setActiveView('analytics')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   activeView === 'analytics'
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-slate-100 dark:bg-gray-700 text-slate-900 dark:text-white'
+                    : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Analíticas
@@ -197,8 +197,8 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
                 onClick={() => setActiveView('settings')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   activeView === 'settings'
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-slate-100 dark:bg-gray-700 text-slate-900 dark:text-white'
+                    : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Configuración
