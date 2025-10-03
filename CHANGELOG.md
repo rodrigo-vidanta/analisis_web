@@ -1,5 +1,36 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión 3.0.1 - Checkpoint Live Chat Estable (Octubre 2025)
+
+### ✅ **CHECKPOINT DE ESTABILIDAD**
+
+#### 🔧 **Correcciones y Estabilización**
+- **Restauración de versión funcional**: Recuperada versión estable del `LiveChatCanvas.tsx`
+- **Corrección de errores JSX**: Eliminados errores de sintaxis que impedían compilación
+- **Limpieza de archivos duplicados**: Removidos archivos temporales y versiones de prueba
+- **Verificación de permisos**: Confirmado acceso completo para perfil evaluador
+
+#### 🎯 **Funcionalidades Confirmadas**
+- **Layout fijo profesional**: Columnas con altura fija y scroll independiente
+- **Pestañas siempre visibles**: Header fijo que nunca desaparece
+- **Área de chat expandida**: Se muestra completa sin necesidad de hacer clic
+- **Input fijo funcional**: Campo de mensaje siempre accesible
+- **Conversación desde abajo**: Últimos mensajes visibles por defecto
+- **Redimensionamiento**: Columnas ajustables con persistencia en localStorage
+
+#### 🔐 **Permisos y Acceso**
+- **Evaluador**: Acceso completo confirmado al módulo Live Chat
+- **Todos los perfiles**: Funcionalidad disponible para usuarios autenticados
+- **Navegación**: Visible en sidebar con ícono animado
+
+#### 📋 **Estado del Sistema**
+- **Sin errores de linting**: Código limpio y sin warnings
+- **Estructura JSX válida**: Sintaxis correcta en todos los componentes
+- **Versión estable**: Lista para desarrollo incremental
+- **Checkpoint seguro**: Punto de restauración confiable
+
+---
+
 ## 💬 Versión 3.0.0 - Módulo Live Chat Completo (Octubre 2025)
 
 ### ✨ **NUEVA FUNCIONALIDAD PRINCIPAL**
