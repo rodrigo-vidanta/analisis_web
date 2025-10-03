@@ -73,12 +73,12 @@ const LiveChatCanvas: React.FC = () => {
 
   // Estado del sidebar (para ajustar posición)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // Detectar estado real del sidebar desde el DOM o localStorage
-    const sidebarElement = document.querySelector('[data-sidebar-collapsed]');
-    if (sidebarElement) {
-      return sidebarElement.getAttribute('data-sidebar-collapsed') === 'true';
+    // Detectar estado real del sidebar desde las clases CSS del contenido principal
+    const mainContent = document.querySelector('.flex-1.flex.flex-col');
+    if (mainContent && mainContent.classList.contains('lg:ml-16')) {
+      return true; // Sidebar colapsado
     }
-    return window.innerWidth < 1024;
+    return false; // Sidebar expandido por defecto
   });
 
   // Referencias para scroll y redimensionamiento
@@ -120,38 +120,46 @@ const LiveChatCanvas: React.FC = () => {
   }, [columnWidths]);
 
   useEffect(() => {
-    // Detectar cambios en el sidebar
-    const handleResize = () => {
-      // Detectar estado real del sidebar
-      const sidebarElement = document.querySelector('[data-sidebar-collapsed]');
-      if (sidebarElement) {
-        const isCollapsed = sidebarElement.getAttribute('data-sidebar-collapsed') === 'true';
+    // Detectar cambios en el sidebar observando las clases CSS del contenido principal
+    const detectSidebarState = () => {
+      const mainContent = document.querySelector('.flex-1.flex.flex-col');
+      if (mainContent) {
+        const isCollapsed = mainContent.classList.contains('lg:ml-16');
         setSidebarCollapsed(isCollapsed);
-      } else {
-        setSidebarCollapsed(window.innerWidth < 1024);
+        console.log('🔍 Sidebar detectado:', isCollapsed ? 'Colapsado' : 'Expandido');
       }
     };
 
-    // Observar cambios en el DOM del sidebar
-    const observer = new MutationObserver(() => {
-      handleResize();
+    // Observar cambios en las clases del contenido principal
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          detectSidebarState();
+        }
+      });
     });
 
-    const sidebarElement = document.querySelector('.sidebar') || document.body;
-    observer.observe(sidebarElement, { 
-      attributes: true, 
-      attributeFilter: ['data-sidebar-collapsed', 'class'],
-      subtree: true 
-    });
+    // Buscar el contenido principal y observarlo
+    const mainContent = document.querySelector('.flex-1.flex.flex-col');
+    if (mainContent) {
+      observer.observe(mainContent, { 
+        attributes: true, 
+        attributeFilter: ['class']
+      });
+    }
 
-    window.addEventListener('resize', handleResize);
-    
     // Verificar estado inicial
-    handleResize();
+    detectSidebarState();
+
+    // También observar cambios en el tamaño de ventana
+    const handleResize = () => {
+      detectSidebarState();
+    };
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
       observer.disconnect();
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -471,6 +479,10 @@ const LiveChatCanvas: React.FC = () => {
   const footerHeight = 64;  // Altura del footer fijo
   const availableHeight = `calc(100vh - ${headerHeight + footerHeight}px)`;
   const leftOffset = sidebarWidth;
+  
+  // Calcular ancho ajustado para la primera columna cuando el sidebar está colapsado
+  const sidebarSpaceGained = sidebarCollapsed ? (256 - 64) : 0; // 192px de espacio extra
+  const adjustedConversationsWidth = columnWidths.conversations + sidebarSpaceGained;
 
   // ============================================
   // RENDERIZADO PRINCIPAL - LIENZO ESTRUCTURADO
@@ -504,7 +516,7 @@ const LiveChatCanvas: React.FC = () => {
       <div 
         className="bg-white border-r border-slate-200"
         style={{ 
-          width: `${columnWidths.conversations}px`,
+          width: `${adjustedConversationsWidth}px`,
           height: '100%',
           flexShrink: 0,
           display: 'flex',
@@ -524,7 +536,7 @@ const LiveChatCanvas: React.FC = () => {
             <div>
               <h1 className="text-lg font-semibold text-slate-900">Conversaciones</h1>
               <p className="text-xs text-slate-500">
-                Datos reales de UChat • Sidebar: {sidebarCollapsed ? 'Colapsado' : 'Expandido'}
+                Datos reales de UChat • Sidebar: {sidebarCollapsed ? 'Colapsado (+192px)' : 'Expandido'}
               </p>
             </div>
             <button 

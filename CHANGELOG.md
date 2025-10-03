@@ -1,5 +1,35 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión 3.0.2 - Fix Sidebar Adaptativo Live Chat (Octubre 2025)
+
+### ✅ **CORRECCIÓN CRÍTICA**
+
+#### 🔧 **Problema Resuelto: Columna 1 no se expandía con sidebar colapsado**
+- **Issue**: La primera columna (conversaciones) no aprovechaba el espacio extra cuando el sidebar se colapsaba
+- **Causa raíz**: Detección incorrecta del estado del sidebar usando atributos inexistentes
+- **Solución**: Implementada detección basada en clases CSS reales del contenido principal
+
+#### 🎯 **Mejoras Implementadas**
+- **Detección inteligente**: Observa clases CSS `lg:ml-16` (colapsado) vs `lg:ml-64` (expandido)
+- **MutationObserver mejorado**: Detecta cambios en tiempo real en las clases del contenido principal
+- **Expansión automática**: +192px de ancho extra cuando sidebar está colapsado
+- **Indicador visual**: Header muestra "Colapsado (+192px)" o "Expandido"
+- **Logs de debugging**: Console logs para verificar detección del estado
+
+#### 📊 **Comportamiento Funcional**
+- **Sidebar expandido**: Columna 1 = 320px (ancho base)
+- **Sidebar colapsado**: Columna 1 = 512px (320px + 192px extra)
+- **Transición suave**: Cambio automático y fluido
+- **Sin afectar otras columnas**: Columnas 2 y 3 mantienen comportamiento original
+
+#### 🧪 **Verificación**
+- **Detección automática**: ✅ Funcional
+- **Expansión dinámica**: ✅ Funcional  
+- **Indicador visual**: ✅ Funcional
+- **Sin errores de linting**: ✅ Código limpio
+
+---
+
 ## 🔧 Versión 3.0.1 - Checkpoint Live Chat Estable (Octubre 2025)
 
 ### ✅ **CHECKPOINT DE ESTABILIDAD**
