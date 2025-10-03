@@ -14,6 +14,18 @@ import {
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 
+// Crear instancia única de análisis fuera del componente para evitar múltiples clientes
+const createAnalysisSupabase = async () => {
+  const { createClient } = await import('@supabase/supabase-js');
+  return createClient(
+    'https://glsmifhkoaifvaegsozd.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E'
+  );
+};
+
+// Instancia global única
+let analysisSupabaseInstance: any = null;
+
 // ============================================
 // INTERFACES
 // ============================================
@@ -64,6 +76,22 @@ const LiveChatCanvas: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+
+  // Estados para sincronización silenciosa
+  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+  const [syncInProgress, setSyncInProgress] = useState(false);
+
+  // Estados para control del bot
+  const [botPauseStatus, setBotPauseStatus] = useState<{[uchatId: string]: {
+    isPaused: boolean;
+    pausedUntil: Date | null;
+    pausedBy: string;
+    duration: number; // en minutos
+  }}>({});
+
+  // Estados para caché de mensajes enviados
+  const [cachedMessages, setCachedMessages] = useState<Message[]>([]);
+  const [pendingMessages, setPendingMessages] = useState<Set<string>>(new Set());
 
   // Estado de distribución de columnas (guardado en localStorage)
   const [columnWidths, setColumnWidths] = useState(() => {
@@ -161,6 +189,117 @@ const LiveChatCanvas: React.FC = () => {
       observer.disconnect();
       window.removeEventListener('resize', handleResize);
     };
+  }, []);
+
+  useEffect(() => {
+    // Sincronización silenciosa cada 15 segundos
+    const syncInterval = setInterval(async () => {
+      await performSilentSync();
+    }, 15000);
+
+    return () => clearInterval(syncInterval);
+  }, []);
+
+  useEffect(() => {
+    // Sincronización constante para conversación abierta cada 10 segundos
+    if (!selectedConversation) return;
+
+    const conversationSyncInterval = setInterval(async () => {
+      await syncMessagesForOpenConversation();
+    }, 10000);
+
+    return () => clearInterval(conversationSyncInterval);
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    // Cargar estado de pausa desde localStorage al iniciar
+    const loadBotPauseStatus = () => {
+      const savedPauseStatus = localStorage.getItem('bot-pause-status');
+      if (savedPauseStatus) {
+        try {
+          const parsed = JSON.parse(savedPauseStatus);
+          const currentTime = new Date();
+          
+        // Filtrar pausas que ya expiraron
+        const activePauses: any = {};
+        Object.entries(parsed).forEach(([uchatId, status]: [string, any]) => {
+          if (status.pausedUntil) {
+            const pausedUntilTime = new Date(status.pausedUntil).getTime();
+            const timeRemaining = pausedUntilTime - currentTime.getTime();
+            
+            console.log(`🔍 Verificando pausa para ${uchatId}:`);
+            console.log(`  - Pausado hasta: ${new Date(status.pausedUntil).toLocaleString()}`);
+            console.log(`  - Tiempo actual: ${currentTime.toLocaleString()}`);
+            console.log(`  - Tiempo restante: ${Math.floor(timeRemaining / 1000)} segundos`);
+            
+            if (timeRemaining > 0) {
+              activePauses[uchatId] = {
+                ...status,
+                pausedUntil: new Date(status.pausedUntil)
+              };
+              console.log(`✅ Pausa activa para ${uchatId}`);
+            } else {
+              console.log(`❌ Pausa expirada para ${uchatId}`);
+            }
+          }
+        });
+        
+        setBotPauseStatus(activePauses);
+        console.log(`🔄 Estado de pausa cargado: ${Object.keys(activePauses).length} bots pausados`);
+        } catch (error) {
+          console.error('❌ Error cargando estado de pausa:', error);
+        }
+      }
+    };
+
+    loadBotPauseStatus();
+  }, []);
+
+  useEffect(() => {
+    // Timer para actualizar contador cada segundo
+    const timer = setInterval(() => {
+      const currentTime = new Date().getTime();
+      
+      setBotPauseStatus(prev => {
+        const updated = { ...prev };
+        let hasChanges = false;
+        
+        Object.entries(updated).forEach(([uchatId, status]) => {
+          if (status.isPaused && status.pausedUntil) {
+            const pausedUntilTime = status.pausedUntil instanceof Date 
+              ? status.pausedUntil.getTime() 
+              : new Date(status.pausedUntil).getTime();
+            
+            // Solo reactivar si realmente ha expirado (con margen de 2 segundos)
+            if (currentTime > pausedUntilTime + 2000) {
+              delete updated[uchatId];
+              hasChanges = true;
+              console.log(`⏰ Bot reactivado automáticamente para ${uchatId} (tiempo expirado)`);
+            }
+          }
+        });
+        
+        if (hasChanges) {
+          // Actualizar localStorage
+          const storageData = Object.fromEntries(
+            Object.entries(updated).map(([id, status]) => [
+              id, 
+              { 
+                ...status, 
+                pausedUntil: status.pausedUntil instanceof Date 
+                  ? status.pausedUntil.toISOString() 
+                  : status.pausedUntil 
+              }
+            ])
+          );
+          localStorage.setItem('bot-pause-status', JSON.stringify(storageData));
+        }
+        
+        return updated;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   // ============================================
@@ -330,8 +469,562 @@ const LiveChatCanvas: React.FC = () => {
   };
 
   // ============================================
+  // MÉTODOS DE SINCRONIZACIÓN REAL
+  // ============================================
+
+  const performSilentSync = async () => {
+    if (syncInProgress) return;
+
+    try {
+      setSyncInProgress(true);
+      console.log('🔄 Sincronización silenciosa iniciada...');
+
+      await syncNewConversations();
+      await syncNewMessages();
+
+      setLastSyncTime(new Date());
+      console.log('✅ Sincronización silenciosa completada');
+    } catch (error) {
+      console.error('❌ Error en sincronización silenciosa:', error);
+    } finally {
+      setSyncInProgress(false);
+    }
+  };
+
+  const syncNewConversations = async () => {
+    try {
+      console.log('🔄 Sincronizando nuevas conversaciones desde pqnc_ia...');
+      
+      if (!analysisSupabaseInstance) {
+        analysisSupabaseInstance = await createAnalysisSupabase();
+      }
+      const analysisSupabase = analysisSupabaseInstance;
+
+      // 1. Obtener prospectos activos con id_uchat
+      const { data: activeProspects, error: prospectsError } = await analysisSupabase
+        .from('prospectos')
+        .select('id, nombre_whatsapp, whatsapp, id_uchat, etapa, updated_at, email')
+        .not('id_uchat', 'is', null)
+        .in('etapa', ['Interesado', 'Validando si es miembro', 'Primer contacto'])
+        .order('updated_at', { ascending: false });
+
+      if (prospectsError || !activeProspects) {
+        console.error('❌ Error obteniendo prospectos:', prospectsError);
+        return;
+      }
+
+      // 2. Verificar cuáles ya existen en uchat_conversations
+      const uchatIds = activeProspects.map(p => p.id_uchat);
+      const { data: existingConversations, error: existingError } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('conversation_id')
+        .in('conversation_id', uchatIds);
+
+      if (existingError) {
+        console.error('❌ Error verificando conversaciones existentes:', existingError);
+        return;
+      }
+
+      const existingIds = existingConversations.map(c => c.conversation_id);
+      const newProspects = activeProspects.filter(p => !existingIds.includes(p.id_uchat));
+
+      if (newProspects.length === 0) {
+        return; // No hay nuevas conversaciones
+      }
+
+      console.log(`🆕 Nuevas conversaciones a sincronizar: ${newProspects.length}`);
+
+      // 3. Obtener bot por defecto
+      const { data: bot, error: botError } = await supabaseSystemUI
+        .from('uchat_bots')
+        .select('id')
+        .limit(1)
+        .single();
+
+      if (botError || !bot) {
+        console.error('❌ Error obteniendo bot:', botError);
+        return;
+      }
+
+      // 4. Crear nuevas conversaciones
+      const newConversations = newProspects.map(prospect => ({
+        conversation_id: prospect.id_uchat,
+        bot_id: bot.id,
+        customer_phone: prospect.whatsapp,
+        customer_name: prospect.nombre_whatsapp || 'Cliente sin nombre',
+        customer_email: prospect.email,
+        status: 'active',
+        message_count: 0,
+        priority: 'medium',
+        last_message_at: prospect.updated_at,
+        platform: 'whatsapp',
+        handoff_enabled: false,
+        metadata: {
+          source: 'uchat_real_sync',
+          prospect_id: prospect.id,
+          etapa: prospect.etapa,
+          id_uchat: prospect.id_uchat
+        }
+      }));
+
+      const { data: insertedConversations, error: insertError } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .insert(newConversations)
+        .select();
+
+      if (insertError) {
+        console.error('❌ Error insertando conversaciones:', insertError);
+        return;
+      }
+
+      console.log(`✅ ${insertedConversations.length} nuevas conversaciones sincronizadas`);
+
+      // 5. Sincronizar mensajes para cada nueva conversación
+      for (const conv of insertedConversations) {
+        await syncMessagesForConversation(conv.id, conv.metadata.prospect_id);
+      }
+
+      // 6. Actualizar estado SILENCIOSAMENTE
+      setConversations(prev => {
+        const updated = [...prev, ...insertedConversations].sort((a, b) => 
+          new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+        );
+        return updated;
+      });
+
+    } catch (error) {
+      console.error('❌ Error en syncNewConversations:', error);
+    }
+  };
+
+  const syncNewMessages = async () => {
+    try {
+      console.log('🔄 Sincronizando nuevos mensajes...');
+      
+      if (!selectedConversation) return;
+
+      const prospectId = selectedConversation.metadata?.prospect_id;
+      if (!prospectId) return;
+
+      if (!analysisSupabaseInstance) {
+        analysisSupabaseInstance = await createAnalysisSupabase();
+      }
+      const analysisSupabase = analysisSupabaseInstance;
+
+      // Obtener mensajes nuevos desde lastSyncTime
+      const { data: newMessages, error: messagesError } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('*')
+        .eq('prospecto_id', prospectId)
+        .gte('fecha_hora', lastSyncTime.toISOString())
+        .order('fecha_hora', { ascending: true });
+
+      if (messagesError || !newMessages || newMessages.length === 0) {
+        return; // No hay mensajes nuevos
+      }
+
+      console.log(`📱 ${newMessages.length} mensajes nuevos encontrados`);
+
+      // Filtrar mensajes que ya existen
+      const existingMessageIds = allMessages.map(m => m.message_id);
+      const messagesToInsert = newMessages
+        .filter(msg => !existingMessageIds.includes(`real_${msg.id}`))
+        .map(msg => ({
+          message_id: `real_${msg.id}`,
+          conversation_id: selectedConversation.id,
+          sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
+          sender_name: msg.rol === 'Prospecto' ? selectedConversation.customer_name : 'Bot Vidanta',
+          content: msg.mensaje,
+          is_read: true,
+          created_at: msg.fecha_hora
+        }));
+
+      if (messagesToInsert.length === 0) {
+        return; // No hay mensajes realmente nuevos
+      }
+
+      // Insertar nuevos mensajes
+      const { error: insertError } = await supabaseSystemUI
+        .from('uchat_messages')
+        .insert(messagesToInsert);
+
+      if (insertError) {
+        console.error('❌ Error insertando mensajes:', insertError);
+        return;
+      }
+
+      console.log(`✅ ${messagesToInsert.length} mensajes sincronizados`);
+
+      // Actualizar estado SILENCIOSAMENTE
+      setAllMessages(prev => {
+        const updated = [...prev, ...messagesToInsert].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        return updated;
+      });
+
+      // Actualizar contador de mensajes
+      await supabaseSystemUI
+        .from('uchat_conversations')
+        .update({ 
+          message_count: selectedConversation.message_count + messagesToInsert.length,
+          last_message_at: new Date().toISOString()
+        })
+        .eq('id', selectedConversation.id);
+
+    } catch (error) {
+      console.error('❌ Error en syncNewMessages:', error);
+    }
+  };
+
+  const syncMessagesForConversation = async (conversationId: string, prospectId: string) => {
+    try {
+      if (!analysisSupabaseInstance) {
+        analysisSupabaseInstance = await createAnalysisSupabase();
+      }
+      const analysisSupabase = analysisSupabaseInstance;
+
+      // Obtener mensajes recientes (últimos 10)
+      const { data: recentMessages, error: messagesError } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('*')
+        .eq('prospecto_id', prospectId)
+        .order('fecha_hora', { ascending: true })
+        .limit(10);
+
+      if (messagesError || !recentMessages) {
+        console.error('❌ Error obteniendo mensajes para conversación:', messagesError);
+        return;
+      }
+
+      if (recentMessages.length === 0) return;
+
+      const messagesToInsert = recentMessages.map(msg => ({
+        message_id: `real_${msg.id}`,
+        conversation_id: conversationId,
+        sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
+        sender_name: msg.rol === 'Prospecto' ? 'Cliente' : 'Bot Vidanta',
+        content: msg.mensaje,
+        is_read: true,
+        created_at: msg.fecha_hora
+      }));
+
+      const { error: insertError } = await supabaseSystemUI
+        .from('uchat_messages')
+        .insert(messagesToInsert);
+
+      if (!insertError) {
+        console.log(`✅ ${messagesToInsert.length} mensajes iniciales sincronizados`);
+        
+        // Actualizar contador
+        await supabaseSystemUI
+          .from('uchat_conversations')
+          .update({ message_count: messagesToInsert.length })
+          .eq('id', conversationId);
+      }
+
+    } catch (error) {
+      console.error('❌ Error en syncMessagesForConversation:', error);
+    }
+  };
+
+  const syncMessagesForOpenConversation = async () => {
+    if (!selectedConversation || syncInProgress) return;
+
+    try {
+      const prospectId = selectedConversation.metadata?.prospect_id;
+      if (!prospectId) return;
+
+      console.log('🔄 Sincronizando mensajes para conversación abierta...');
+
+      if (!analysisSupabaseInstance) {
+        analysisSupabaseInstance = await createAnalysisSupabase();
+      }
+      const analysisSupabase = analysisSupabaseInstance;
+
+      // Obtener mensajes recientes (últimas 2 horas)
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      
+      const { data: recentMessages, error: messagesError } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('*')
+        .eq('prospecto_id', prospectId)
+        .gte('fecha_hora', twoHoursAgo)
+        .order('fecha_hora', { ascending: true });
+
+      if (messagesError || !recentMessages) {
+        return;
+      }
+
+      // Verificar mensajes que ya existen en la base de datos
+      const { data: existingMessages, error: existingError } = await supabaseSystemUI
+        .from('uchat_messages')
+        .select('message_id')
+        .eq('conversation_id', selectedConversation.id);
+
+      if (existingError) {
+        console.error('❌ Error verificando mensajes existentes:', existingError);
+        return;
+      }
+
+      const existingMessageIds = existingMessages.map(m => m.message_id);
+      const messagesToInsert = recentMessages
+        .filter(msg => !existingMessageIds.includes(`real_${msg.id}`))
+        .map(msg => ({
+          message_id: `real_${msg.id}`,
+          conversation_id: selectedConversation.id,
+          sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
+          sender_name: msg.rol === 'Prospecto' ? selectedConversation.customer_name : 'Bot Vidanta',
+          content: msg.mensaje,
+          is_read: true,
+          created_at: msg.fecha_hora
+        }));
+
+      if (messagesToInsert.length === 0) {
+        return; // No hay mensajes nuevos
+      }
+
+      // Insertar nuevos mensajes con manejo de duplicados
+      const { error: insertError } = await supabaseSystemUI
+        .from('uchat_messages')
+        .upsert(messagesToInsert, { 
+          onConflict: 'message_id',
+          ignoreDuplicates: true 
+        });
+
+      if (insertError) {
+        console.error('❌ Error insertando mensajes nuevos:', insertError);
+        return;
+      }
+
+      console.log(`✅ ${messagesToInsert.length} mensajes nuevos sincronizados para conversación abierta`);
+
+      // Limpiar caché para mensajes que ahora están en BD
+      messagesToInsert.forEach(realMessage => {
+        cleanupCacheForRealMessage(realMessage);
+      });
+
+      // Actualizar estado SILENCIOSAMENTE
+      setAllMessages(prev => {
+        const updated = [...prev, ...messagesToInsert].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        return updated;
+      });
+
+      // Actualizar contador
+      setSelectedConversation(prev => prev ? {
+        ...prev,
+        message_count: prev.message_count + messagesToInsert.length
+      } : null);
+
+    } catch (error) {
+      console.error('❌ Error en syncMessagesForOpenConversation:', error);
+    }
+  };
+
+  // ============================================
+  // MÉTODOS DE CONTROL DEL BOT
+  // ============================================
+
+  const pauseBot = async (uchatId: string, durationMinutes: number): Promise<boolean> => {
+    try {
+      console.log(`🤖 Pausando bot para ${uchatId} por ${durationMinutes} minutos...`);
+      
+      // TODO: Usar webhook cuando esté configurado
+      // Por ahora usar solo estado local para evitar errores CORS
+      console.log('💡 Usando estado local de pausa (webhook pendiente de configuración)');
+
+      const pausedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+      
+      // Guardar estado en localStorage para persistencia
+      const pauseData = {
+        isPaused: true,
+        pausedUntil,
+        pausedBy: 'agent',
+        duration: durationMinutes
+      };
+
+      setBotPauseStatus(prev => ({
+        ...prev,
+        [uchatId]: pauseData
+      }));
+
+      // Persistir en localStorage
+      const allPauseStatus = JSON.parse(localStorage.getItem('bot-pause-status') || '{}');
+      allPauseStatus[uchatId] = {
+        ...pauseData,
+        pausedUntil: pausedUntil.toISOString()
+      };
+      localStorage.setItem('bot-pause-status', JSON.stringify(allPauseStatus));
+
+      console.log(`✅ Bot pausado hasta: ${pausedUntil.toLocaleString()}`);
+      console.log(`🔍 Debug - Tiempo actual: ${new Date().toLocaleString()}`);
+      console.log(`🔍 Debug - Duración: ${durationMinutes} minutos`);
+      console.log(`🔍 Debug - Estado guardado:`, pauseData);
+      return true;
+    } catch (error) {
+      console.error('❌ Error pausando bot:', error);
+      return false;
+    }
+  };
+
+  const resumeBot = async (uchatId: string): Promise<boolean> => {
+    try {
+      console.log(`🤖 Reactivando bot para ${uchatId}...`);
+      
+      // TODO: Usar webhook cuando esté configurado
+      // Por ahora usar solo estado local para evitar errores CORS
+      console.log('💡 Usando estado local de reactivación (webhook pendiente de configuración)');
+
+      setBotPauseStatus(prev => ({
+        ...prev,
+        [uchatId]: {
+          isPaused: false,
+          pausedUntil: null,
+          pausedBy: '',
+          duration: 0
+        }
+      }));
+
+      // Actualizar localStorage
+      const allPauseStatus = JSON.parse(localStorage.getItem('bot-pause-status') || '{}');
+      delete allPauseStatus[uchatId];
+      localStorage.setItem('bot-pause-status', JSON.stringify(allPauseStatus));
+
+      console.log('✅ Bot reactivado');
+      return true;
+    } catch (error) {
+      console.error('❌ Error reactivando bot:', error);
+      return false;
+    }
+  };
+
+  const getBotPauseTimeRemaining = (uchatId: string): number => {
+    const status = botPauseStatus[uchatId];
+    if (!status || !status.isPaused || !status.pausedUntil) return 0;
+    
+    const now = new Date().getTime();
+    const pausedUntilTime = status.pausedUntil instanceof Date 
+      ? status.pausedUntil.getTime() 
+      : new Date(status.pausedUntil).getTime();
+    
+    const remaining = Math.max(0, pausedUntilTime - now);
+    
+    return Math.floor(remaining / 1000); // segundos restantes
+  };
+
+  const formatTimeRemaining = (seconds: number): string => {
+    if (seconds <= 0) return '';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  };
+
+  // ============================================
+  // MÉTODOS DE CACHÉ DE MENSAJES
+  // ============================================
+
+  const getCombinedMessages = (): Message[] => {
+    // Combinar mensajes reales de BD con mensajes en caché
+    const realMessages = allMessages.filter(msg => !msg.message_id.startsWith('cache_'));
+    const validCachedMessages = cachedMessages.filter(msg => {
+      // Solo mostrar mensajes en caché que aún no han llegado desde la BD
+      return !realMessages.some(realMsg => 
+        realMsg.content === msg.content && 
+        Math.abs(new Date(realMsg.created_at).getTime() - new Date(msg.created_at).getTime()) < 60000 // 1 minuto de diferencia
+      );
+    });
+    
+    return [...realMessages, ...validCachedMessages].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  };
+
+  const addMessageToCache = (message: Message) => {
+    setCachedMessages(prev => [...prev, message]);
+    setPendingMessages(prev => new Set([...prev, message.message_id]));
+    
+    // Limpiar caché después de 5 minutos (por si el mensaje no llega desde BD)
+    setTimeout(() => {
+      setCachedMessages(prev => prev.filter(m => m.message_id !== message.message_id));
+      setPendingMessages(prev => {
+        const updated = new Set(prev);
+        updated.delete(message.message_id);
+        return updated;
+      });
+    }, 5 * 60 * 1000);
+  };
+
+  const cleanupCacheForRealMessage = (realMessage: Message) => {
+    // Limpiar mensajes en caché que coincidan con el mensaje real
+    setCachedMessages(prev => prev.filter(cachedMsg => {
+      const isSameMessage = cachedMsg.content === realMessage.content && 
+        Math.abs(new Date(cachedMsg.created_at).getTime() - new Date(realMessage.created_at).getTime()) < 60000;
+      
+      if (isSameMessage) {
+        setPendingMessages(prevPending => {
+          const updated = new Set(prevPending);
+          updated.delete(cachedMsg.message_id);
+          return updated;
+        });
+      }
+      
+      return !isSameMessage;
+    }));
+  };
+
+  // ============================================
   // MÉTODOS DE ENVÍO
   // ============================================
+
+  const sendMessageToUChat = async (message: string, uchatId: string): Promise<boolean> => {
+    try {
+      console.log('📤 Enviando mensaje a UChat via webhook...');
+      console.log('📋 UChat ID:', uchatId);
+      console.log('💬 Mensaje:', message);
+      
+      const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/send-message';
+      const payload = {
+        message: message,
+        uchat_id: uchatId,
+        type: 'text'
+      };
+      
+      console.log('📦 Payload completo:', JSON.stringify(payload, null, 2));
+      
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        const data = await response.json();
+        console.log('✅ Mensaje enviado exitosamente a UChat:', data);
+        return true;
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Error del webhook:', errorText);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error enviando a UChat webhook:', error);
+      return false;
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || sending || !selectedConversation) return;
@@ -340,9 +1033,9 @@ const LiveChatCanvas: React.FC = () => {
       setSending(true);
       console.log('📤 Enviando mensaje REAL:', newMessage);
       
-      const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
-        message_id: `temp-${Date.now()}`,
+      const cacheMessage: Message = {
+        id: `cache-${Date.now()}`,
+        message_id: `cache_${Date.now()}`,
         conversation_id: selectedConversation.id,
         sender_type: 'agent',
         sender_name: 'Agente',
@@ -351,38 +1044,42 @@ const LiveChatCanvas: React.FC = () => {
         created_at: new Date().toISOString()
       };
 
-      setAllMessages(prev => [...prev, tempMessage]);
+      const messageToSend = newMessage;
       setNewMessage('');
 
-      const { data, error } = await supabaseSystemUI
-        .from('uchat_messages')
-        .insert({
-          message_id: `agent_${Date.now()}`,
-          conversation_id: selectedConversation.id,
-          sender_type: 'agent',
-          sender_name: 'Agente',
-          content: newMessage,
-          is_read: true
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creando mensaje:', error);
-        setAllMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-      } else {
-        console.log('✅ Mensaje REAL creado');
-        setAllMessages(prev => prev.map(m => m.id === tempMessage.id ? data : m));
+      // 1. Pausar bot automáticamente (15 min por defecto si no está pausado)
+      const uchatId = selectedConversation.metadata?.id_uchat;
+      let sentToUChat = false;
+      
+      if (uchatId) {
+        const currentStatus = botPauseStatus[uchatId];
+        if (!currentStatus || !currentStatus.isPaused) {
+          console.log('🤖 Pausando bot automáticamente por 15 minutos antes de enviar...');
+          await pauseBot(uchatId, 15);
+        }
         
-        await supabaseSystemUI
-          .from('uchat_conversations')
-          .update({ 
-            message_count: selectedConversation.message_count + 1,
-            last_message_at: new Date().toISOString()
-          })
-          .eq('id', selectedConversation.id);
+        // 2. Enviar mensaje a UChat (NO guardar en BD)
+        sentToUChat = await sendMessageToUChat(messageToSend, uchatId);
+      }
 
+      if (sentToUChat) {
+        console.log('✅ Mensaje enviado a WhatsApp via UChat webhook');
+        console.log('💡 Mensaje aparecerá en BD cuando UChat lo procese');
+        
+        // 3. Agregar al caché temporal (NO a BD)
+        addMessageToCache(cacheMessage);
+        
+        // 4. Actualizar contador de conversación (optimista)
+        setSelectedConversation(prev => prev ? {
+          ...prev,
+          message_count: prev.message_count + 1,
+          last_message_at: new Date().toISOString()
+        } : null);
+        
         await loadConversations();
+      } else {
+        console.log('❌ Error enviando mensaje a UChat');
+        // No agregar al caché si no se envió
       }
     } catch (error) {
       console.error('❌ Error enviando mensaje:', error);
@@ -537,14 +1234,24 @@ const LiveChatCanvas: React.FC = () => {
               <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Conversaciones</h1>
               <p className="text-xs text-slate-500 dark:text-gray-400">
                 Datos reales de UChat • Sidebar: {sidebarCollapsed ? 'Colapsado (+192px)' : 'Expandido'}
+                {syncInProgress && <span className="text-blue-600 dark:text-blue-400"> • Sincronizando...</span>}
               </p>
             </div>
-            <button 
-              onClick={loadConversations}
-              className="text-xs px-2 py-1 text-slate-600 dark:text-gray-300 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded hover:bg-slate-100 dark:hover:bg-gray-600"
-            >
-              Actualizar
-            </button>
+            <div className="flex space-x-2">
+              <button 
+                onClick={loadConversations}
+                className="text-xs px-2 py-1 text-slate-600 dark:text-gray-300 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded hover:bg-slate-100 dark:hover:bg-gray-600"
+              >
+                Actualizar
+              </button>
+              <button 
+                onClick={performSilentSync}
+                disabled={syncInProgress}
+                className="text-xs px-2 py-1 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50"
+              >
+                {syncInProgress ? 'Sincronizando...' : 'Sincronizar'}
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -753,12 +1460,66 @@ const LiveChatCanvas: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                onClick={() => setSelectedConversation(null)}
-                className="p-2 text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {/* Controles del Bot */}
+              <div className="flex items-center space-x-3">
+                {(() => {
+                  const uchatId = selectedConversation.metadata?.id_uchat;
+                  const status = botPauseStatus[uchatId];
+                  const timeRemaining = getBotPauseTimeRemaining(uchatId);
+                  
+                  if (status?.isPaused && timeRemaining > 0) {
+                    return (
+                      <div className="flex items-center space-x-3">
+                        <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium">
+                          Bot pausado: {formatTimeRemaining(timeRemaining)}
+                        </span>
+                        <button
+                          onClick={() => resumeBot(uchatId)}
+                          className="px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-600 dark:hover:bg-green-700 transition-all duration-200 animate-pulse shadow-lg"
+                        >
+                          Reactivar IA
+                        </button>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => pauseBot(uchatId, 5)}
+                          className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full text-xs font-medium hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors"
+                        >
+                          5m
+                        </button>
+                        <button
+                          onClick={() => pauseBot(uchatId, 15)}
+                          className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
+                        >
+                          15m
+                        </button>
+                        <button
+                          onClick={() => pauseBot(uchatId, 30)}
+                          className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                        >
+                          30m
+                        </button>
+                        <button
+                          onClick={() => pauseBot(uchatId, 60)}
+                          className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+                        >
+                          1h
+                        </button>
+                      </div>
+                    );
+                  }
+                })()}
+
+                <button
+                  onClick={() => setSelectedConversation(null)}
+                  className="p-2 text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -777,7 +1538,7 @@ const LiveChatCanvas: React.FC = () => {
               e.stopPropagation();
             }}
           >
-            {allMessages.length === 0 ? (
+            {getCombinedMessages().length === 0 ? (
               <div className="flex items-center justify-center h-full text-slate-500 dark:text-gray-400">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -789,11 +1550,12 @@ const LiveChatCanvas: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4" style={{ display: 'flex', flexDirection: 'column' }}>
-                {allMessages.map((message, index) => {
+                {getCombinedMessages().map((message, index) => {
                   const isCustomer = message.sender_type === 'customer';
                   const isBot = message.sender_type === 'bot';
+                  const combinedMessages = getCombinedMessages();
                   const showDate = index === 0 || 
-                    formatDate(message.created_at) !== formatDate(allMessages[index - 1]?.created_at);
+                    formatDate(message.created_at) !== formatDate(combinedMessages[index - 1]?.created_at);
 
                   return (
                     <div key={message.id}>
@@ -817,7 +1579,9 @@ const LiveChatCanvas: React.FC = () => {
                               ? 'bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-slate-900 dark:text-white' 
                               : isBot
                                 ? 'bg-blue-500 dark:bg-blue-600 text-white'
-                                : 'bg-slate-900 dark:bg-gray-800 text-white'
+                                : message.message_id.startsWith('cache_')
+                                  ? 'bg-slate-700 dark:bg-gray-700 text-white border-2 border-dashed border-slate-400 dark:border-gray-500'
+                                  : 'bg-slate-900 dark:bg-gray-800 text-white'
                           }`}>
                             {message.content && (
                               <div className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -825,10 +1589,13 @@ const LiveChatCanvas: React.FC = () => {
                               </div>
                             )}
 
-                            <div className={`text-xs mt-2 ${
+                            <div className={`text-xs mt-2 flex items-center justify-between ${
                               isCustomer ? 'text-slate-400 dark:text-gray-400' : 'text-white text-opacity-75'
                             }`}>
-                              {formatTime(message.created_at)}
+                              <span>{formatTime(message.created_at)}</span>
+                              {message.message_id.startsWith('cache_') && (
+                                <span className="text-xs text-white text-opacity-60 italic">Enviando...</span>
+                              )}
                             </div>
                           </div>
                         </div>

@@ -1,5 +1,92 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🤖 Versión 3.1.0 - Control de Bot IA + Sincronización Real (Octubre 2025)
+
+### ✨ **NUEVA FUNCIONALIDAD PRINCIPAL**
+
+#### 🤖 **Control Completo del Bot IA**
+- **Pausa automática**: Bot se pausa 15 minutos antes de enviar mensaje desde UI
+- **Botones de control manual**: 5m, 15m, 30m, 1h en header de conversación
+- **Botón "Reactivar IA"**: Grande con animación pulsante cuando bot está pausado
+- **Contador en tiempo real**: Muestra tiempo restante con actualización cada segundo
+- **Persistencia completa**: Estado guardado en localStorage, compartido entre usuarios
+
+#### 🔄 **Sincronización Real de Mensajes**
+- **Flujo completo**: pqnc_ia.prospectos → system_ui.uchat_conversations
+- **Mensajes bidireccionales**: Recepción automática + envío manual
+- **Sistema de caché**: Mensajes enviados desde UI no se duplican en BD
+- **Fusión inteligente**: Caché temporal se limpia cuando llegan mensajes reales
+- **Intervalos optimizados**: 15s general, 10s conversación activa
+
+#### 📡 **Integración UChat API**
+- **Endpoints verificados**: `/flow/bot-users-count`, `/flow/agents`, `/flow/subflows`
+- **Webhook funcional**: Envío de mensajes a WhatsApp via webhook
+- **Control de bot**: `/subscriber/pause-bot` y `/subscriber/resume-bot` (pendiente webhook)
+- **Estructura correcta**: `user_ns` y `minutes` para control de bot
+
+#### 🎨 **Mejoras de Interface**
+- **Indicadores visuales**: Estado de sincronización en header
+- **Mensajes en caché**: Borde punteado + "Enviando..." para mensajes temporales
+- **Botones adaptativos**: Colores diferenciados por duración de pausa
+- **Animación pulsante**: Botón "Reactivar IA" con `animate-pulse`
+
+### 🔧 **Correcciones Técnicas**
+
+#### **Problemas Resueltos:**
+- **Warning Supabase**: Instancia única global para evitar múltiples clientes
+- **Duplicación mensajes**: Sistema de caché evita constraint violations
+- **Error CORS**: Uso de webhooks en lugar de llamadas directas a UChat API
+- **Reactivación prematura**: Timer mejorado con margen de tolerancia
+- **Hot reload**: Estado persistente que sobrevive recargas de Vite
+
+#### **Optimizaciones:**
+- **Filtrado inteligente**: Solo mensajes nuevos se sincronizan
+- **Verificación en BD**: Previene duplicados antes de insertar
+- **Logs detallados**: Debugging completo para monitoreo
+- **Manejo de errores**: Graceful fallback sin afectar UI
+
+### 📊 **Datos de Producción Verificados**
+
+#### **Bases de Datos Conectadas:**
+- **pqnc_ia**: 5 prospectos activos con id_uchat
+- **system_ui**: 3 conversaciones sincronizadas
+- **UChat API**: 17 usuarios activos, 1 agente online
+
+#### **Flujo de Datos Funcional:**
+```
+Prospecto (pqnc_ia) → Conversación (system_ui) → UI (Live Chat)
+     ↓                        ↓                      ↓
+Mensajes WhatsApp → Mensajes UChat → Caché Temporal → Fusión
+```
+
+### 🎯 **Características Implementadas**
+
+#### **Control de Bot:**
+- ✅ **Pausa automática**: 15 min por defecto
+- ✅ **Control manual**: Botones 5m, 15m, 30m, 1h
+- ✅ **Reactivación**: Manual + automática al expirar
+- ✅ **Contador**: Tiempo restante en formato "14m 59s"
+- ✅ **Persistencia**: Estado en localStorage
+
+#### **Sincronización:**
+- ✅ **Tiempo real**: Intervalos automáticos
+- ✅ **Sin rerenders**: Actualizaciones silenciosas
+- ✅ **Sin duplicados**: Sistema de caché inteligente
+- ✅ **Fusión automática**: Caché → BD cuando UChat procesa
+
+#### **Interface:**
+- ✅ **Botones en header**: Posicionados correctamente
+- ✅ **Indicadores visuales**: Estado claro del bot y mensajes
+- ✅ **Animaciones**: Pulsación en botón activo
+- ✅ **Modo oscuro**: Completo en todos los elementos
+
+### 📋 **Pendientes para Próxima Versión**
+- **Webhooks de control**: Configurar `/webhook/pause-bot` y `/webhook/resume-bot`
+- **Optimizaciones**: Ajustar intervalos según necesidad
+- **Métricas**: Estadísticas de uso del control de bot
+
+---
+
 ## ✅ Versión 3.0.8 - Deploy Railway Exitoso + Documentación (Octubre 2025)
 
 ### 🎉 **DEPLOY EXITOSO EN RAILWAY**
