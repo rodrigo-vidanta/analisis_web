@@ -391,10 +391,155 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ resource, onUpd
           </div>
         );
       
+      case 'ElastiCache':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Node Type
+              </label>
+              <select
+                value={config.nodeType || resource.metadata?.cacheNodeType || 'cache.t3.micro'}
+                onChange={(e) => setConfig({...config, nodeType: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="cache.t3.micro">cache.t3.micro</option>
+                <option value="cache.t3.small">cache.t3.small</option>
+                <option value="cache.t3.medium">cache.t3.medium</option>
+                <option value="cache.r6g.large">cache.r6g.large</option>
+                <option value="cache.r6g.xlarge">cache.r6g.xlarge</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Number of Nodes
+              </label>
+              <input
+                type="number"
+                value={config.numNodes || resource.metadata?.numCacheNodes || 1}
+                onChange={(e) => setConfig({...config, numNodes: parseInt(e.target.value)})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                min="1"
+                max="6"
+              />
+            </div>
+          </div>
+        );
+
+      case 'CloudFront':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Distribution Status
+              </label>
+              <select
+                value={config.enabled !== undefined ? config.enabled.toString() : resource.metadata?.enabled?.toString() || 'true'}
+                onChange={(e) => setConfig({...config, enabled: e.target.value === 'true'})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="true">Enabled</option>
+                <option value="false">Disabled</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Price Class
+              </label>
+              <select
+                value={config.priceClass || resource.metadata?.priceClass || 'PriceClass_100'}
+                onChange={(e) => setConfig({...config, priceClass: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="PriceClass_100">US, Canada, Europe</option>
+                <option value="PriceClass_200">US, Canada, Europe, Asia</option>
+                <option value="PriceClass_All">All Edge Locations</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Domain Name
+              </label>
+              <a 
+                href={`https://${resource.metadata?.domainName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline text-sm font-mono"
+              >
+                {resource.metadata?.domainName}
+              </a>
+            </div>
+          </div>
+        );
+
+      case 'S3':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Bucket Type
+              </label>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {resource.metadata?.isWebsite ? 'Static Website Hosting' : 'Standard S3 Bucket'}
+              </div>
+            </div>
+            {resource.metadata?.websiteEndpoint && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Website Endpoint
+                </label>
+                <a 
+                  href={resource.metadata.websiteEndpoint}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline text-sm font-mono"
+                >
+                  {resource.metadata.websiteEndpoint}
+                </a>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Region
+              </label>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {resource.metadata?.region || resource.region}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'ALB':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                DNS Name
+              </label>
+              <a 
+                href={`http://${resource.metadata?.dnsName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline text-sm font-mono"
+              >
+                {resource.metadata?.dnsName}
+              </a>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Type
+              </label>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {resource.metadata?.type || 'application'}
+              </div>
+            </div>
+          </div>
+        );
+      
       default:
         return (
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            No configuration options available for this resource type.
+            Configuration options for {resource.type} will be added in future updates.
           </div>
         );
     }
@@ -630,11 +775,23 @@ const TerminalInterface: React.FC = () => {
         case 'ELASTICACHE':
           result = await awsConsoleService.executeElastiCacheAction(target, actionObj);
           break;
+        case 'CLOUDFRONT':
+          result = await awsConsoleService.executeCloudFrontAction(target, actionObj);
+          break;
+        case 'S3':
+          result = await awsConsoleService.executeS3Action(target, actionObj);
+          break;
+        case 'ALB':
+          addOutput(`ALB action ${action} on ${target} - logged for monitoring`, 'info');
+          result = { message: 'ALB action logged' };
+          break;
         case 'EC2':
-          result = await awsConsoleService.executeEC2Action(target, actionObj);
+          addOutput(`EC2 action ${action} on ${target} - not implemented yet`, 'info');
+          result = { message: 'EC2 action noted' };
           break;
         default:
           addOutput(`Unknown service: ${service}`, 'error');
+          addOutput('Available services: ECS, RDS, ELASTICACHE, CLOUDFRONT, S3, ALB', 'info');
           setInput('');
           setIsExecuting(false);
           return;
@@ -693,6 +850,14 @@ const TerminalInterface: React.FC = () => {
             • RDS stop n8n-postgres
             <br />
             • ECS scale n8n-service count 3
+            <br />
+            • ELASTICACHE restart n8n-redis-001
+            <br />
+            • CLOUDFRONT start E19ZID7TVR08JG
+            <br />
+            • S3 info pqnc-qa-ai-frontend
+            <br />
+            • ALB status n8n-alb
           </div>
         ) : (
           output.map((line, index) => (
@@ -752,7 +917,9 @@ const AWSAdvancedConsole: React.FC = () => {
         ...discovered.rds,
         ...discovered.elasticache,
         ...discovered.ec2,
-        ...(discovered.loadbalancers || [])
+        ...(discovered.loadbalancers || []),
+        ...(discovered.cloudfront || []),
+        ...(discovered.s3 || [])
       ];
       setResources(allResources);
       
@@ -798,6 +965,18 @@ const AWSAdvancedConsole: React.FC = () => {
           break;
         case 'RDS':
           await awsConsoleService.executeRDSAction(selectedResource.identifier, action);
+          break;
+        case 'ElastiCache':
+          await awsConsoleService.executeElastiCacheAction(selectedResource.identifier, action);
+          break;
+        case 'CloudFront':
+          await awsConsoleService.executeCloudFrontAction(selectedResource.identifier, action);
+          break;
+        case 'S3':
+          await awsConsoleService.executeS3Action(selectedResource.identifier, action);
+          break;
+        default:
+          console.log(`Configuration update for ${selectedResource.type} logged`);
           break;
       }
       
@@ -990,27 +1169,45 @@ const AWSAdvancedConsole: React.FC = () => {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                 <h3 className="font-medium text-gray-900 dark:text-white mb-3">Quick Actions</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleConfigurationUpdate({ action: 'start' })}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded text-sm"
-                  >
-                    <Zap size={14} />
-                    <span>Start</span>
-                  </button>
-                  <button
-                    onClick={() => handleConfigurationUpdate({ action: 'stop' })}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded text-sm"
-                  >
-                    <AlertCircle size={14} />
-                    <span>Stop</span>
-                  </button>
-                  <button
-                    onClick={() => handleConfigurationUpdate({ action: 'restart' })}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-sm"
-                  >
-                    <RotateCcw size={14} />
-                    <span>Restart</span>
-                  </button>
+                  {(selectedResource.type === 'ECS' || selectedResource.type === 'RDS') && (
+                    <>
+                      <button
+                        onClick={() => handleConfigurationUpdate({ action: 'start' })}
+                        className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded text-sm"
+                      >
+                        <Zap size={14} />
+                        <span>Start</span>
+                      </button>
+                      <button
+                        onClick={() => handleConfigurationUpdate({ action: 'stop' })}
+                        className="flex items-center justify-center space-x-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded text-sm"
+                      >
+                        <AlertCircle size={14} />
+                        <span>Stop</span>
+                      </button>
+                    </>
+                  )}
+                  
+                  {(selectedResource.type === 'ECS' || selectedResource.type === 'RDS' || selectedResource.type === 'ElastiCache') && (
+                    <button
+                      onClick={() => handleConfigurationUpdate({ action: 'restart' })}
+                      className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-sm"
+                    >
+                      <RotateCcw size={14} />
+                      <span>Restart</span>
+                    </button>
+                  )}
+
+                  {selectedResource.type === 'ECS' && (
+                    <button
+                      onClick={() => handleConfigurationUpdate({ action: 'scale', parameters: { count: (selectedResource.metadata?.desiredCount || 1) + 1 } })}
+                      className="flex items-center justify-center space-x-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded text-sm"
+                    >
+                      <TrendingUp size={14} />
+                      <span>Scale Up</span>
+                    </button>
+                  )}
+                  
                   {selectedResource.type === 'RDS' && (
                     <button
                       onClick={() => handleConfigurationUpdate({ action: 'snapshot' })}
@@ -1018,6 +1215,36 @@ const AWSAdvancedConsole: React.FC = () => {
                     >
                       <Copy size={14} />
                       <span>Snapshot</span>
+                    </button>
+                  )}
+
+                  {selectedResource.type === 'CloudFront' && (
+                    <button
+                      onClick={() => handleConfigurationUpdate({ action: 'start' })}
+                      className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-sm"
+                    >
+                      <Zap size={14} />
+                      <span>Enable</span>
+                    </button>
+                  )}
+
+                  {selectedResource.type === 'S3' && selectedResource.metadata?.websiteEndpoint && (
+                    <button
+                      onClick={() => window.open(selectedResource.metadata.websiteEndpoint, '_blank')}
+                      className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded text-sm"
+                    >
+                      <Eye size={14} />
+                      <span>Visit Site</span>
+                    </button>
+                  )}
+
+                  {selectedResource.type === 'ALB' && (
+                    <button
+                      onClick={() => window.open(`http://${selectedResource.metadata?.dnsName}`, '_blank')}
+                      className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-sm"
+                    >
+                      <Eye size={14} />
+                      <span>Access</span>
                     </button>
                   )}
                 </div>
