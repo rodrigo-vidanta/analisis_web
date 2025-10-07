@@ -2,14 +2,15 @@ import React, { useState, createContext, useContext } from 'react';
 import { Moon, Sun, Monitor, BarChart3, Network, Server, Database, Cloud, Settings, Activity, Terminal } from 'lucide-react';
 import './aws-manager.css';
 
-import AWSOverview from './AWSOverview';
-import InteractiveArchitectureDiagram from './InteractiveArchitectureDiagram';
-import AWSArchitectureDiagram from './AWSArchitectureDiagram';
-import AWSServiceFlow from './AWSServiceFlow';
-import AWSConsole from './AWSConsole';
-import AWSAdvancedConsole from './AWSAdvancedConsole';
-import AWSRealTimeMonitor from './AWSRealTimeMonitor';
-import AWSMigrationController from './AWSMigrationController';
+// Lazy load components to avoid circular dependencies
+const AWSOverview = React.lazy(() => import('./AWSOverview'));
+const InteractiveArchitectureDiagram = React.lazy(() => import('./InteractiveArchitectureDiagram'));
+const AWSArchitectureDiagram = React.lazy(() => import('./AWSArchitectureDiagram'));
+const AWSServiceFlow = React.lazy(() => import('./AWSServiceFlow'));
+const AWSConsole = React.lazy(() => import('./AWSConsole'));
+const AWSAdvancedConsole = React.lazy(() => import('./AWSAdvancedConsole'));
+const AWSRealTimeMonitor = React.lazy(() => import('./AWSRealTimeMonitor'));
+const AWSMigrationController = React.lazy(() => import('./AWSMigrationController'));
 
 type Theme = 'light' | 'dark';
 
@@ -58,26 +59,36 @@ const AWSManager: React.FC<AWSManagerProps> = ({
   ];
 
   const renderContent = () => {
-    switch (activeTab) {
-      case 'overview':
-        return <AWSOverview />;
-      case 'architecture':
-        return <InteractiveArchitectureDiagram />;
-      case 'diagram':
-        return <AWSArchitectureDiagram />;
-      case 'flow':
-        return <AWSServiceFlow />;
-      case 'console':
-        return <AWSConsole />;
-      case 'advanced':
-        return <AWSAdvancedConsole />;
-      case 'monitor':
-        return <AWSRealTimeMonitor />;
-      case 'migration':
-        return <AWSMigrationController />;
-      default:
-        return <AWSOverview />;
-    }
+    return (
+      <React.Suspense fallback={
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      }>
+        {(() => {
+          switch (activeTab) {
+            case 'overview':
+              return <AWSOverview />;
+            case 'architecture':
+              return <InteractiveArchitectureDiagram />;
+            case 'diagram':
+              return <AWSArchitectureDiagram />;
+            case 'flow':
+              return <AWSServiceFlow />;
+            case 'console':
+              return <AWSConsole />;
+            case 'advanced':
+              return <AWSAdvancedConsole />;
+            case 'monitor':
+              return <AWSRealTimeMonitor />;
+            case 'migration':
+              return <AWSMigrationController />;
+            default:
+              return <AWSOverview />;
+          }
+        })()}
+      </React.Suspense>
+    );
   };
 
   return (

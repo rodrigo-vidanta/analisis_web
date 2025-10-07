@@ -50,7 +50,7 @@ function MainApp() {
     );
   }
 
-  const { user, isLoading, isAuthenticated, getFirstAvailableModule } = authData;
+  const { user, isLoading, isAuthenticated, canAccessModule, getFirstAvailableModule } = authData;
   const { 
     currentStep, 
     projectType, 
