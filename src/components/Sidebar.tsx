@@ -103,7 +103,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
-  const { user, canAccessModule } = useAuth();
+  const { user, canAccessModule, canAccessLiveMonitor } = useAuth();
   const { profile } = useUserProfile();
   const { appMode, setAppMode } = useAppStore();
   const [tokenInfo, setTokenInfo] = useState<TokenLimits | null>(null);
@@ -188,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     }] : []),
 
     // Live Monitor - nuevo módulo con permisos específicos
-    ...(liveMonitor ? [{
+    ...(canAccessLiveMonitor() ? [{
       icon: (
         <div className="relative">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
