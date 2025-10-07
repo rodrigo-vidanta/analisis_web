@@ -106,10 +106,10 @@ export const AWS_CREDENTIALS_CONFIG = {
 // Utilidades para validación de credenciales
 export const validateAWSCredentials = (): boolean => {
   const hasEnvCredentials = 
-    process.env.AWS_ACCESS_KEY_ID && 
-    process.env.AWS_SECRET_ACCESS_KEY;
+    import.meta.env.VITE_AWS_ACCESS_KEY_ID && 
+    import.meta.env.VITE_AWS_SECRET_ACCESS_KEY;
     
-  // En el navegador no podemos verificar archivos del sistema
+  // En el navegador verificar variables de Vite
   const isClient = typeof window !== 'undefined';
   
   if (isClient) {
@@ -122,8 +122,8 @@ export const validateAWSCredentials = (): boolean => {
 
 // Credenciales AWS (usar variables de entorno en producción)
 export const AWS_REAL_CREDENTIALS = {
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'CONFIGURE_IN_ENV',
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'CONFIGURE_IN_ENV',
+  accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || 'CONFIGURE_IN_ENV',
+  secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY || 'CONFIGURE_IN_ENV',
   region: 'us-west-2'
 };
 

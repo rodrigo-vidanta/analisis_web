@@ -65,8 +65,8 @@ import type { AWSResource, ResourceMetrics, ServiceAction, ConsoleCommand } from
 const AWS_CONFIG = {
   region: 'us-west-2',
   credentials: {
-    accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY
+    accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || 'CONFIGURE_IN_ENV',
+    secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY || 'CONFIGURE_IN_ENV'
   }
 };
 
