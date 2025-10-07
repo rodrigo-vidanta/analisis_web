@@ -21,7 +21,7 @@ import {
   TrendingUp,
   Shield
 } from 'lucide-react';
-import { awsConsoleServiceBrowser as awsConsoleService } from '../../services/awsConsoleServiceBrowser';
+import { awsConsoleServiceProduction as awsConsoleService } from '../../services/awsConsoleServiceProduction';
 import type { AWSResource, ResourceMetrics, ServiceAction, ConsoleCommand } from '../../types/aws';
 
 interface ResourceCardProps {

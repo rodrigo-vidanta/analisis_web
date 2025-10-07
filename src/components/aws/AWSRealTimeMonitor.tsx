@@ -13,7 +13,7 @@ import {
   Database,
   Server
 } from 'lucide-react';
-import { awsConsoleServiceBrowser as awsConsoleService } from '../../services/awsConsoleServiceBrowser';
+import { awsConsoleServiceProduction as awsConsoleService } from '../../services/awsConsoleServiceProduction';
 import type { AWSResource, ResourceMetrics } from '../../types/aws';
 
 interface MetricChartProps {
