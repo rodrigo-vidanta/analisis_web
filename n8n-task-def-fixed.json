@@ -1,0 +1,119 @@
+{
+  "family": "n8n-production",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::307621978585:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "n8n",
+      "image": "n8nio/n8n:0.200.0",
+      "portMappings": [
+        {
+          "containerPort": 5678,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "DB_TYPE",
+          "value": "postgresdb"
+        },
+        {
+          "name": "DB_POSTGRESDB_HOST",
+          "value": "n8n-postgres.c9memqg6633m.us-west-2.rds.amazonaws.com"
+        },
+        {
+          "name": "DB_POSTGRESDB_DATABASE",
+          "value": "postgres"
+        },
+        {
+          "name": "DB_POSTGRESDB_USER",
+          "value": "n8nuser"
+        },
+        {
+          "name": "DB_POSTGRESDB_PASSWORD",
+          "value": "N8n_Secure_2024!"
+        },
+        {
+          "name": "DB_POSTGRESDB_PORT",
+          "value": "5432"
+        },
+        {
+          "name": "N8N_PROTOCOL",
+          "value": "http"
+        },
+        {
+          "name": "N8N_HOST",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "N8N_PORT",
+          "value": "5678"
+        },
+        {
+          "name": "WEBHOOK_URL",
+          "value": "https://ai.vidanta.com"
+        },
+        {
+          "name": "N8N_METRICS",
+          "value": "true"
+        },
+        {
+          "name": "N8N_LOG_LEVEL",
+          "value": "info"
+        },
+        {
+          "name": "GENERIC_TIMEZONE",
+          "value": "America/Mexico_City"
+        },
+        {
+          "name": "N8N_DISABLE_UI",
+          "value": "false"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "us-west-2"
+        },
+        {
+          "name": "VAPI_ALLOWED_IPS",
+          "value": "44.229.228.186,44.238.177.138"
+        },
+        {
+          "name": "N8N_BASIC_AUTH_ACTIVE",
+          "value": "true"
+        },
+        {
+          "name": "N8N_BASIC_AUTH_USER",
+          "value": "admin"
+        },
+        {
+          "name": "N8N_BASIC_AUTH_PASSWORD",
+          "value": "vidanta2024!"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/n8n-production",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:5678/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

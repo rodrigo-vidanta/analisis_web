@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidanta AI Architecture - Professional Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #0078d4;
+            --primary-hover: #106ebe;
+            --secondary-color: #323130;
+            --background-light: #faf9f8;
+            --background-white: #ffffff;
+            --border-light: #e1dfdd;
+            --text-primary: #323130;
+            --text-secondary: #605e5c;
+            --success-color: #107c10;
+            --warning-color: #ff8c00;
+            --error-color: #d13438;
+            --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
+            --shadow-heavy: 0 8px 16px rgba(0,0,0,0.16);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-light);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: var(--background-white);
+            border-bottom: 1px solid var(--border-light);
+            padding: 24px 32px;
+            box-shadow: var(--shadow-light);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background-color: var(--background-light);
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-indicator.online {
+            color: var(--success-color);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .nav-tabs {
+            background-color: var(--background-white);
+            border-radius: 8px;
+            box-shadow: var(--shadow-light);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .nav-tabs-header {
+            display: flex;
+            border-bottom: 1px solid var(--border-light);
+            overflow-x: auto;
+        }
+
+        .nav-tab {
+            padding: 16px 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            position: relative;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .nav-tab:hover {
+            background-color: var(--background-light);
+            color: var(--text-primary);
+        }
+
+        .nav-tab.active {
+            color: var(--primary-color);
+            background-color: var(--background-white);
+        }
+
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 32px;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .content-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .content-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            background-color: var(--background-white);
+            color: var(--text-primary);
+        }
+
+        .btn:hover {
+            box-shadow: var(--shadow-light);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+
+        .card {
+            background-color: var(--background-white);
+            border-radius: 8px;
+            box-shadow: var(--shadow-light);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            background-color: var(--background-light);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0;
+        }
+
+        .card-description {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 8px 0 0 0;
+            line-height: 1.5;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .diagram-container {
+            background-color: var(--background-white);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 24px;
+            overflow: auto;
+            min-height: 400px;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+            background-color: #fafafa;
+            border-radius: 4px;
+            padding: 20px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .info-card {
+            background-color: var(--background-white);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .info-card:hover {
+            box-shadow: var(--shadow-medium);
+        }
+
+        .info-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .info-card-icon {
+            width: 32px;
+            height: 32px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .info-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .info-card-content {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.success {
+            background-color: #f3f9f3;
+            color: var(--success-color);
+        }
+
+        .link-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .link-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .link-list li:last-child {
+            border-bottom: none;
+        }
+
+        .link-list a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .link-list a:hover {
+            text-decoration: underline;
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background-color: var(--background-white);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .zoom-controls {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            border: 1px solid var(--border-light);
+            background-color: var(--background-white);
+            color: var(--text-primary);
+            cursor: pointer;
+            box-shadow: var(--shadow-medium);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .zoom-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        @media print {
+            body {
+                background-color: white;
+            }
+            
+            .header, .nav-tabs-header, .content-actions, .zoom-controls {
+                display: none !important;
+            }
+            
+            .container {
+                padding: 0;
+                max-width: none;
+            }
+            
+            .tab-content {
+                display: block !important;
+                padding: 20px 0;
+            }
+            
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
+                margin-bottom: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .header {
+                padding: 16px 24px;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+            
+            .nav-tab {
+                padding: 12px 16px;
+                font-size: 13px;
+            }
+            
+            .tab-content {
+                padding: 16px;
+            }
+            
+            .content-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .zoom-controls {
+                bottom: 16px;
+                right: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <div class="header-icon">
+                    <i class="fas fa-sitemap"></i>
+                </div>
+                <div>
+                    <h1>Vidanta AI Architecture</h1>
+                    <p>Sistema de Llamadas AI con Integración WhatsApp</p>
+                </div>
+            </div>
+            <div class="status-indicators">
+                <div class="status-indicator online">
+                    <i class="fas fa-circle"></i>
+                    AWS Online
+                </div>
+                <div class="status-indicator online">
+                    <i class="fas fa-database"></i>
+                    RDS Active
+                </div>
+                <div class="status-indicator online">
+                    <i class="fas fa-memory"></i>
+                    Redis Active
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <div class="nav-tabs-header">
+                <button class="nav-tab active" onclick="showTab('overview')">
+                    <i class="fas fa-chart-line"></i>
+                    Overview
+                </button>
+                <button class="nav-tab" onclick="showTab('high-level')">
+                    <i class="fas fa-layer-group"></i>
+                    High Level
+                </button>
+                <button class="nav-tab" onclick="showTab('technical')">
+                    <i class="fas fa-cogs"></i>
+                    Technical
+                </button>
+                <button class="nav-tab" onclick="showTab('flow')">
+                    <i class="fas fa-project-diagram"></i>
+                    Service Flow
+                </button>
+                <button class="nav-tab" onclick="showTab('aws-console')">
+                    <i class="fas fa-cloud"></i>
+                    AWS Console
+                </button>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overview" class="tab-content active">
+                <div class="content-header">
+                    <h2 class="content-title">
+                        <i class="fas fa-chart-line"></i>
+                        Project Overview
+                    </h2>
+                </div>
+
+                <div class="metrics-row">
+                    <div class="metric-card">
+                        <div class="metric-value">68%</div>
+                        <div class="metric-label">Cost Reduction</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">&lt;50ms</div>
+                        <div class="metric-label">VAPI Latency</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">100</div>
+                        <div class="metric-label">Concurrent Calls</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">99.9%</div>
+                        <div class="metric-label">Uptime Target</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-bullseye"></i>
+                            Executive Summary
+                        </h3>
+                        <p class="card-description">
+                            Automated lead generation and qualification system using conversational AI
+                        </p>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-target"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Objective</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    Automated lead generation and qualification through conversational AI
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-mobile-alt"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Channels</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    WhatsApp Business + AI Phone Calls + Human Escalation
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <h4 class="info-card-title">AI Technology</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    VAPI + n8n + GPT-4 + Real-time Analytics
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-cloud"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Infrastructure</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    AWS Primary + GCP Failover + Multi-region
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-server"></i>
+                            Current Deployment Status
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <h4 class="info-card-title">PostgreSQL RDS</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge success">
+                                        <i class="fas fa-check-circle"></i>
+                                        Active
+                                    </span>
+                                    <br>db.r6g.large Multi-AZ
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-memory"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Redis ElastiCache</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge success">
+                                        <i class="fas fa-check-circle"></i>
+                                        Active
+                                    </span>
+                                    <br>cache.r6g.large Cluster
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-docker"></i>
+                                    </div>
+                                    <h4 class="info-card-title">ECS n8n</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge success">
+                                        <i class="fas fa-check-circle"></i>
+                                        Running
+                                    </span>
+                                    <br>2 Fargate Instances
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-globe"></i>
+                                    </div>
+                                    <h4 class="info-card-title">DNS Route 53</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge success">
+                                        <i class="fas fa-check-circle"></i>
+                                        Configured
+                                    </span>
+                                    <br>ai.vidanta.com
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-route"></i>
+                            Customer Journey Flow
+                        </h3>
+                        <p class="card-description">
+                            Complete flow from social media leads to appointment booking
+                        </p>
+                    </div>
+                    <div class="card-content">
+                        <div class="diagram-container">
+                            <div class="mermaid">
+graph LR
+    A[Social Media Lead] --> B[WhatsApp Message]
+    B --> C[AI Discovery]
+    C --> D{Qualified?}
+    D -->|Yes| E[VAPI AI Call]
+    D -->|No| F[Nurture Sequence]
+    E --> G{Need Human?}
+    G -->|Yes| H[Transfer to Agent]
+    G -->|No| I[Appointment Booked]
+    H --> I
+    
+    classDef start fill:#d4edda,stroke:#155724,stroke-width:2px
+    classDef process fill:#cce5ff,stroke:#0066cc,stroke-width:2px
+    classDef decision fill:#fff3cd,stroke:#856404,stroke-width:2px
+    classDef end fill:#e7d4f7,stroke:#6f42c1,stroke-width:2px
+    
+    class A start
+    class B,C,E,F,H process
+    class D,G decision
+    class I end
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- High Level Tab -->
+            <div id="high-level" class="tab-content">
+                <div class="content-header">
+                    <h2 class="content-title">
+                        <i class="fas fa-layer-group"></i>
+                        High Level Architecture
+                    </h2>
+                    <div class="content-actions">
+                        <button class="btn btn-primary" onclick="printDiagram('high-level')">
+                            <i class="fas fa-print"></i>
+                            Print
+                        </button>
+                        <button class="btn" onclick="downloadDiagram('high-level')">
+                            <i class="fas fa-download"></i>
+                            Download SVG
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-sitemap"></i>
+                            Complete System Architecture
+                        </h3>
+                        <p class="card-description">
+                            Overview of the complete system showing flow from social media leads to human escalation, 
+                            including VAPI integration, WhatsApp Business, and multi-cloud infrastructure.
+                        </p>
+                    </div>
+                    <div class="card-content">
+                        <div class="diagram-container">
+                            <div class="mermaid" id="high-level-diagram">
+graph TB
+    subgraph Customer[Customer Journey]
+        A[Social Media Leads] --> B[WhatsApp Business]
+        B --> C[AI Discovery Bot]
+        C --> D[Call Trigger]
+        D --> E[VAPI AI Call]
+        E --> F[Human Escalation]
+        F --> G[Cisco PBX]
+    end
+
+    subgraph AWS[AWS Multi-Region Primary]
+        subgraph DNS[DNS and CDN]
+            H[Route 53 DNS]
+            I[CloudFront CDN]
+        end
+
+        subgraph App[Application Layer]
+            J[Admin Frontend]
+            K[n8n Middleware]
+            L[Analytics Dashboard]
+        end
+
+        subgraph Data[Data Layer]
+            M[PostgreSQL RDS]
+            N[Redis Cache]
+            O[S3 Storage]
+        end
+
+        subgraph Infra[Infrastructure]
+            P[ECS Fargate]
+            Q[Application LB]
+            R[VPC Security]
+        end
+    end
+
+    subgraph GCP[Google Cloud Failover]
+        S[GKE Cluster]
+        T[Cloud SQL]
+        U[Memorystore]
+        V[Global LB]
+    end
+
+    subgraph VAPI[VAPI Integration]
+        W[VAPI Oregon]
+        X[Tools Integration]
+        Y[Call Analytics]
+    end
+
+    subgraph Telecom[Telecom Layer]
+        Z[SIP Trunk]
+        AA[Cisco PBX]
+        BB[PSTN Network]
+    end
+
+    A --> B
+    B --> C
+    C --> K
+    K --> W
+    W --> X
+    X --> K
+    W --> Z
+    Z --> AA
+    AA --> BB
+
+    H --> Q
+    Q --> P
+    P --> K
+    K --> M
+    K --> N
+    J --> I
+    I --> O
+
+    H -.-> V
+    V -.-> S
+    S -.-> T
+    S -.-> U
+
+    K <--> W
+    W --> Y
+
+    classDef aws fill:#ff9900,stroke:#232f3e,stroke-width:2px,color:#fff
+    classDef gcp fill:#4285f4,stroke:#1a73e8,stroke-width:2px,color:#fff
+    classDef vapi fill:#00d2ff,stroke:#0099cc,stroke-width:2px,color:#fff
+    classDef customer fill:#28a745,stroke:#1e7e34,stroke-width:2px,color:#fff
+    classDef telecom fill:#6f42c1,stroke:#59359a,stroke-width:2px,color:#fff
+
+    class H,I,J,K,L,M,N,O,P,Q,R aws
+    class S,T,U,V gcp
+    class W,X,Y vapi
+    class A,B,C,D,E,F customer
+    class Z,AA,BB telecom
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technical Tab -->
+            <div id="technical" class="tab-content">
+                <div class="content-header">
+                    <h2 class="content-title">
+                        <i class="fas fa-cogs"></i>
+                        Technical Architecture
+                    </h2>
+                    <div class="content-actions">
+                        <button class="btn btn-primary" onclick="printDiagram('technical')">
+                            <i class="fas fa-print"></i>
+                            Print
+                        </button>
+                        <button class="btn" onclick="downloadDiagram('technical')">
+                            <i class="fas fa-download"></i>
+                            Download SVG
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-network-wired"></i>
+                            Detailed Technical Infrastructure
+                        </h3>
+                        <p class="card-description">
+                            Complete technical diagram showing all infrastructure components, network configuration, 
+                            security groups, and detailed service specifications including GCP failover.
+                        </p>
+                    </div>
+                    <div class="card-content">
+                        <div class="diagram-container">
+                            <div class="mermaid" id="technical-diagram">
+graph TB
+    subgraph Global[Global DNS Layer]
+        DNS[Route 53 DNS<br/>ai.vidanta.com<br/>Health Checks]
+        HC1[Health Check AWS]
+        HC2[Health Check GCP]
+    end
+
+    subgraph AWSCLOUD[AWS us-west-2 PRIMARY]
+        subgraph Public[Public Subnets DMZ]
+            ALB[Application Load Balancer<br/>Internet-facing<br/>SSL Termination]
+            NAT[NAT Gateway<br/>Outbound Internet]
+        end
+
+        subgraph Private[Private Subnets Apps]
+            subgraph ECS[ECS Fargate Cluster]
+                N8N1[n8n Instance 1<br/>4 vCPU 8GB RAM<br/>us-west-2a]
+                N8N2[n8n Instance 2<br/>4 vCPU 8GB RAM<br/>us-west-2b]
+                N8NW1[n8n Worker 1<br/>Queue Processing<br/>us-west-2a]
+                N8NW2[n8n Worker 2<br/>Queue Processing<br/>us-west-2b]
+            end
+        end
+
+        subgraph Database[Database Subnets]
+            RDS[RDS PostgreSQL<br/>db.r6g.large<br/>Multi-AZ<br/>100GB GP3]
+            REDIS[ElastiCache Redis<br/>cache.r6g.large<br/>2 Nodes Cluster<br/>Multi-AZ Failover]
+        end
+
+        subgraph Storage[Storage Layer]
+            S3MAIN[S3 Primary<br/>Recordings Assets]
+            S3BACKUP[S3 Backup<br/>Cross-Region]
+        end
+    end
+
+    subgraph GCPCLOUD[Google Cloud SECONDARY]
+        subgraph GLB_SUB[Global Load Balancer]
+            GLB[Global LB<br/>Anycast IP<br/>SSL Proxy]
+        end
+
+        subgraph GKE_SUB[GKE Cluster]
+            GKE[GKE Autopilot<br/>us-central1]
+            N8NGCP1[n8n Pod 1<br/>4 vCPU 8GB]
+            N8NGCP2[n8n Pod 2<br/>4 vCPU 8GB]
+        end
+
+        subgraph DataGCP[Data Layer GCP]
+            CLOUDSQL[Cloud SQL PostgreSQL<br/>db-custom-4-16384<br/>Regional HA]
+            MEMSTORE[Memorystore Redis<br/>Standard Tier<br/>5GB Memory]
+        end
+    end
+
+    subgraph VAPICLOUD[VAPI Integration Oregon]
+        VAPI1[VAPI Server 1<br/>44.229.228.186<br/>us-west-2 EC2]
+        VAPI2[VAPI Server 2<br/>44.238.177.138<br/>us-west-2 EC2]
+        VAPITOOLS[Tools API<br/>Webhooks Callbacks]
+    end
+
+    DNS --> HC1
+    DNS --> HC2
+    HC1 --> ALB
+    HC2 -.-> GLB
+
+    ALB --> N8N1
+    ALB --> N8N2
+    N8N1 --> RDS
+    N8N2 --> RDS
+    N8N1 --> REDIS
+    N8N2 --> REDIS
+    
+    N8N1 <--> VAPI1
+    N8N2 <--> VAPI2
+    VAPI1 --> VAPITOOLS
+    VAPI2 --> VAPITOOLS
+    VAPITOOLS --> N8N1
+    VAPITOOLS --> N8N2
+
+    GLB -.-> GKE
+    N8NGCP1 -.-> CLOUDSQL
+    N8NGCP2 -.-> CLOUDSQL
+    N8NGCP1 -.-> MEMSTORE
+    N8NGCP2 -.-> MEMSTORE
+
+    RDS -.-> CLOUDSQL
+    REDIS -.-> MEMSTORE
+    S3MAIN --> S3BACKUP
+
+    classDef aws fill:#ff9900,stroke:#232f3e,stroke-width:2px,color:#fff
+    classDef gcp fill:#4285f4,stroke:#1a73e8,stroke-width:2px,color:#fff
+    classDef vapi fill:#00d2ff,stroke:#0099cc,stroke-width:2px,color:#fff
+
+    class DNS,ALB,NAT,N8N1,N8N2,N8NW1,N8NW2,RDS,REDIS,S3MAIN,S3BACKUP aws
+    class GLB,GKE,N8NGCP1,N8NGCP2,CLOUDSQL,MEMSTORE gcp
+    class VAPI1,VAPI2,VAPITOOLS vapi
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Flow Tab -->
+            <div id="flow" class="tab-content">
+                <div class="content-header">
+                    <h2 class="content-title">
+                        <i class="fas fa-project-diagram"></i>
+                        Service Flow
+                    </h2>
+                    <div class="content-actions">
+                        <button class="btn btn-primary" onclick="printDiagram('flow')">
+                            <i class="fas fa-print"></i>
+                            Print
+                        </button>
+                        <button class="btn" onclick="downloadDiagram('flow')">
+                            <i class="fas fa-download"></i>
+                            Download SVG
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-stream"></i>
+                            Complete Service Flow
+                        </h3>
+                        <p class="card-description">
+                            Detailed sequence diagram showing the complete flow from lead seeing advertisement 
+                            to human escalation, including all database and service interactions.
+                        </p>
+                    </div>
+                    <div class="card-content">
+                        <div class="diagram-container">
+                            <div class="mermaid" id="flow-diagram">
+sequenceDiagram
+    participant Lead
+    participant Social as Social Media
+    participant WhatsApp
+    participant WAI as WhatsApp AI
+    participant N8N
+    participant PG as PostgreSQL
+    participant Redis
+    participant VAPI
+    participant Tools
+    participant Agent as Human Agent
+
+    Note over Lead,Social: Lead Generation Phase
+    Lead->>Social: Views advertisement
+    Social->>WhatsApp: Click contact
+    WhatsApp->>WAI: Initial message received
+    WAI->>PG: Register new lead
+    PG-->>WAI: Lead ID created
+    
+    Note over WAI,N8N: Discovery and Qualification Phase
+    WAI->>N8N: Trigger discovery workflow
+    N8N->>Redis: Cache session data
+    N8N->>Tools: Execute discovery tools
+    Tools->>PG: Query lead history
+    PG-->>Tools: Lead data
+    Tools-->>N8N: Compiled information
+    N8N->>WAI: Personalized response
+    WAI->>WhatsApp: Message to lead
+    WhatsApp->>Lead: AI Response
+    
+    alt Lead qualified for call
+        Note over WAI,VAPI: Call Initiation Phase
+        WAI->>N8N: Trigger call workflow
+        N8N->>PG: Register call intent
+        N8N->>Redis: Queue call job
+        
+        N8N->>Tools: Prepare call context
+        Tools->>PG: Get complete profile
+        PG-->>Tools: Lead data and history
+        Tools-->>N8N: Compiled context
+        
+        N8N->>N8N: Compose VAPI JSON
+        N8N->>VAPI: POST call initiate
+        VAPI-->>N8N: Call ID and Status
+        N8N->>PG: Register call started
+        N8N->>Redis: Cache call context
+        
+        Note over VAPI,Tools: During Call Phase
+        VAPI->>Lead: Phone call
+        Lead->>VAPI: Conversation
+        
+        loop During conversation
+            VAPI->>Tools: Tool calls webhooks
+            Tools->>PG: Query update data
+            Tools->>Redis: Cache responses
+            Tools-->>VAPI: Tool response
+            VAPI->>VAPI: Process with AI
+            VAPI->>Lead: AI Response
+        end
+        
+        alt Escalation required
+            Note over VAPI,Agent: Human Escalation Phase
+            VAPI->>N8N: Webhook escalation needed
+            N8N->>PG: Log escalation request
+            N8N->>Redis: Queue transfer
+            VAPI->>Agent: Transfer call
+            Agent->>Lead: Human conversation
+        end
+        
+        Note over VAPI,PG: Call Completion Phase
+        VAPI->>N8N: Webhook call ended
+        N8N->>PG: Register call summary
+        N8N->>Redis: Clear call cache
+        N8N->>Tools: Post-call processing
+        Tools->>PG: Update lead status
+        Tools->>PG: Create follow-up tasks
+        
+    else Lead not qualified
+        WAI->>N8N: Continue nurturing workflow
+        N8N->>PG: Update lead score
+        N8N->>Redis: Schedule follow-up
+    end
+
+    Note over PG,Tools: Analytics and Reporting
+    PG->>Tools: Trigger analytics
+    Tools->>PG: Generate reports
+    Tools->>Redis: Cache metrics
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AWS Console Tab -->
+            <div id="aws-console" class="tab-content">
+                <div class="content-header">
+                    <h2 class="content-title">
+                        <i class="fas fa-cloud"></i>
+                        AWS Console Access
+                    </h2>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-external-link-alt"></i>
+                            Direct Console Links
+                        </h3>
+                        <p class="card-description">
+                            Quick access to your AWS resources and monitoring dashboards
+                        </p>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <h4 class="info-card-title">RDS PostgreSQL</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <ul class="link-list">
+                                        <li>
+                                            <a href="https://us-west-2.console.aws.amazon.com/rds/home?region=us-west-2#databases:" target="_blank">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                View n8n-postgres in RDS Console
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-memory"></i>
+                                    </div>
+                                    <h4 class="info-card-title">ElastiCache Redis</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <ul class="link-list">
+                                        <li>
+                                            <a href="https://us-west-2.console.aws.amazon.com/elasticache/home?region=us-west-2#redis:" target="_blank">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                View n8n-redis in ElastiCache Console
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-docker"></i>
+                                    </div>
+                                    <h4 class="info-card-title">ECS Cluster</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <ul class="link-list">
+                                        <li>
+                                            <a href="https://us-west-2.console.aws.amazon.com/ecs/home?region=us-west-2#clusters" target="_blank">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                View n8n-production in ECS Console
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-network-wired"></i>
+                                    </div>
+                                    <h4 class="info-card-title">VPC and Networking</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <ul class="link-list">
+                                        <li>
+                                            <a href="https://us-west-2.console.aws.amazon.com/vpc/home?region=us-west-2#vpcs:" target="_blank">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                View n8n-vpc in VPC Console
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-globe"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Route 53 DNS</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <ul class="link-list">
+                                        <li>
+                                            <a href="https://console.aws.amazon.com/route53/v2/hostedzones" target="_blank">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                View ai.vidanta.com in Route 53
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <h4 class="info-card-title">CloudWatch</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <ul class="link-list">
+                                        <li>
+                                            <a href="https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2" target="_blank">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                View metrics in CloudWatch
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-info-circle"></i>
+                            Resource Information
+                        </h3>
+                        <p class="card-description">
+                            Technical details and endpoints for your deployed resources
+                        </p>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <h4 class="info-card-title">PostgreSQL Endpoint</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <code>n8n-postgres.c9memqg6633m.us-west-2.rds.amazonaws.com:5432</code>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-memory"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Redis Endpoint</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <code>n8n-redis.7w6q9d.ng.0001.usw2.cache.amazonaws.com:6379</code>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-network-wired"></i>
+                                    </div>
+                                    <h4 class="info-card-title">VPC ID</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <code>vpc-05eb3d8651aff5257</code>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-globe"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Hosted Zone ID</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <code>Z05991931MBGUXOLH9HO2</code>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-docker"></i>
+                                    </div>
+                                    <h4 class="info-card-title">ECS Cluster</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <code>n8n-production</code>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Region</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <code>us-west-2 (Oregon)</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomAll(1.2)" title="Zoom In">
+            <i class="fas fa-plus"></i>
+        </button>
+        <button class="zoom-btn" onclick="zoomAll(0.8)" title="Zoom Out">
+            <i class="fas fa-minus"></i>
+        </button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Reset Zoom">
+            <i class="fas fa-home"></i>
+        </button>
+    </div>
+
+    <script>
+        // Initialize Mermaid with stable configuration
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#f8f9fa',
+                primaryTextColor: '#323130',
+                primaryBorderColor: '#0078d4',
+                lineColor: '#605e5c'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            },
+            sequence: {
+                useMaxWidth: true,
+                wrap: true
+            }
+        });
+
+        let currentZoom = 1;
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+
+            // Re-render mermaid diagrams for the active tab
+            setTimeout(() => {
+                const activeTab = document.getElementById(tabName);
+                const diagrams = activeTab.querySelectorAll('.mermaid');
+                diagrams.forEach(diagram => {
+                    if (!diagram.getAttribute('data-processed')) {
+                        mermaid.init(undefined, diagram);
+                    }
+                });
+            }, 100);
+        }
+
+        function printDiagram(diagramId) {
+            const printContent = document.getElementById(diagramId).innerHTML;
+            const printWindow = window.open('', '', 'height=800,width=1200');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Vidanta AI Architecture - ${diagramId}</title>
+                    <style>
+                        body { 
+                            font-family: 'Segoe UI', Arial, sans-serif; 
+                            margin: 20px; 
+                            color: #323130;
+                        }
+                        .diagram-container { 
+                            border: 1px solid #e1dfdd; 
+                            padding: 20px; 
+                            border-radius: 8px;
+                        }
+                        .mermaid { 
+                            text-align: center; 
+                            background: #fafafa;
+                            padding: 20px;
+                            border-radius: 4px;
+                        }
+                        h1 {
+                            color: #0078d4;
+                            border-bottom: 2px solid #e1dfdd;
+                            padding-bottom: 10px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>Vidanta AI Architecture - ${diagramId.replace('-', ' ').toUpperCase()}</h1>
+                    <div class="diagram-container">
+                        ${printContent}
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.print();
+            }, 1000);
+        }
+
+        function downloadDiagram(diagramId) {
+            const svg = document.querySelector(`#${diagramId}-diagram svg`);
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+                const svgUrl = URL.createObjectURL(svgBlob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = svgUrl;
+                downloadLink.download = `vidanta-ai-${diagramId}.svg`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(svgUrl);
+            }
+        }
+
+        function zoomAll(factor) {
+            currentZoom *= factor;
+            currentZoom = Math.max(0.5, Math.min(3, currentZoom));
+            
+            document.querySelectorAll('.mermaid').forEach(diagram => {
+                diagram.style.transform = `scale(${currentZoom})`;
+                diagram.style.transformOrigin = 'center';
+                diagram.style.transition = 'transform 0.3s ease';
+            });
+        }
+
+        function resetZoom() {
+            currentZoom = 1;
+            document.querySelectorAll('.mermaid').forEach(diagram => {
+                diagram.style.transform = 'scale(1)';
+                diagram.style.transition = 'transform 0.3s ease';
+            });
+        }
+
+        // Initialize diagrams after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                // Initialize all diagrams using the stable API
+                mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

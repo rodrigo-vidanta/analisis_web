@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidanta AI Architecture - Diagram Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #FF9900 0%, #232F3E 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 1.1em;
+            font-weight: 500;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .tab.active {
+            color: #FF9900;
+            background: white;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #FF9900;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .diagram-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+
+        .diagram-title {
+            font-size: 1.5em;
+            color: #232F3E;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .diagram-description {
+            color: #6c757d;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .mermaid {
+            text-align: center;
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #FF9900;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #e6880a;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .info-panel {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-panel h3 {
+            color: #232F3E;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #FF9900;
+        }
+
+        .info-item strong {
+            color: #232F3E;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .footer {
+            background: #232F3E;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .zoom-controls {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .zoom-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: #FF9900;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+        }
+
+        .zoom-btn:hover {
+            transform: scale(1.1);
+            background: #e6880a;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+            
+            .tabs, .controls, .zoom-controls, .footer {
+                display: none !important;
+            }
+            
+            .tab-content {
+                display: block !important;
+                padding: 20px 0;
+            }
+            
+            .diagram-container {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
+                margin-bottom: 30px;
+            }
+            
+            .mermaid {
+                background: white !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .tab {
+                padding: 12px 20px;
+                font-size: 1em;
+            }
+            
+            .tab-content {
+                padding: 20px;
+            }
+            
+            .controls {
+                justify-content: center;
+            }
+            
+            .zoom-controls {
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏗️ Vidanta AI Architecture</h1>
+            <p>Sistema Completo de Llamadas AI con WhatsApp Integration</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('overview')">📊 Resumen</button>
+            <button class="tab" onclick="showTab('high-level')">🎯 Alto Nivel</button>
+            <button class="tab" onclick="showTab('technical')">🔧 Técnico Detallado</button>
+            <button class="tab" onclick="showTab('flow')">🔄 Flujo de Servicios</button>
+            <button class="tab" onclick="showTab('aws-console')">🖥️ Consola AWS</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="info-panel">
+                <h3>🎯 Resumen Ejecutivo del Proyecto</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>🎯 Objetivo</strong>
+                        Sistema automatizado de generación y calificación de leads mediante IA conversacional
+                    </div>
+                    <div class="info-item">
+                        <strong>📱 Canales</strong>
+                        WhatsApp Business + Llamadas telefónicas AI + Escalación humana
+                    </div>
+                    <div class="info-item">
+                        <strong>🤖 Tecnología IA</strong>
+                        VAPI + n8n + GPT-4 + Análisis en tiempo real
+                    </div>
+                    <div class="info-item">
+                        <strong>☁️ Infraestructura</strong>
+                        AWS (Primary) + GCP (Failover) + Multi-región
+                    </div>
+                    <div class="info-item">
+                        <strong>💰 Ahorro</strong>
+                        68% reducción vs Railway (~$1,100/mes ahorro)
+                    </div>
+                    <div class="info-item">
+                        <strong>⚡ Performance</strong>
+                        <50ms latencia con VAPI + 100 llamadas simultáneas
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h3>🚀 Estado Actual del Despliegue</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>🗄️ PostgreSQL RDS</strong>
+                        ✅ Desplegado - db.r6g.large Multi-AZ
+                    </div>
+                    <div class="info-item">
+                        <strong>🔴 Redis ElastiCache</strong>
+                        ✅ Activo - cache.r6g.large Cluster Mode
+                    </div>
+                    <div class="info-item">
+                        <strong>🐳 ECS n8n</strong>
+                        ✅ Corriendo - 2 instancias Fargate
+                    </div>
+                    <div class="info-item">
+                        <strong>🌍 DNS Route 53</strong>
+                        ✅ Configurado - ai.vidanta.com
+                    </div>
+                    <div class="info-item">
+                        <strong>🔒 Security Groups</strong>
+                        ✅ Configurado - VAPI IPs whitelisted
+                    </div>
+                    <div class="info-item">
+                        <strong>📊 Monitoreo</strong>
+                        ✅ CloudWatch + Health Checks activos
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h3>🎯 Customer Journey</h3>
+                <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 15px;">
+                    <div class="mermaid">
+                        graph LR
+                            A[🎯 Lead Social Media] --> B[📱 WhatsApp Message]
+                            B --> C[🤖 AI Discovery]
+                            C --> D{Qualified?}
+                            D -->|Yes| E[📞 VAPI AI Call]
+                            D -->|No| F[📝 Nurture Sequence]
+                            E --> G{Need Human?}
+                            G -->|Yes| H[👨‍💼 Transfer to Agent]
+                            G -->|No| I[📅 Appointment Booked]
+                            H --> I
+                            
+                            classDef start fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#fff
+                            classDef process fill:#2196F3,stroke:#1976D2,stroke-width:2px,color:#fff
+                            classDef decision fill:#FF9800,stroke:#F57C00,stroke-width:2px,color:#fff
+                            classDef end fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px,color:#fff
+                            
+                            class A start
+                            class B,C,E,F,H process
+                            class D,G decision
+                            class I end
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- High Level Tab -->
+        <div id="high-level" class="tab-content">
+            <div class="controls">
+                <button class="btn btn-primary" onclick="printDiagram('high-level')">
+                    🖨️ Imprimir Diagrama
+                </button>
+                <button class="btn btn-secondary" onclick="downloadDiagram('high-level')">
+                    💾 Descargar SVG
+                </button>
+                <button class="btn btn-success" onclick="zoomDiagram('high-level', 1.2)">
+                    🔍 Zoom In
+                </button>
+            </div>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">🎯 Arquitectura de Alto Nivel - Vidanta AI System</div>
+                <div class="diagram-description">
+                    Vista general del sistema completo mostrando el flujo desde leads en redes sociales hasta la escalación humana, 
+                    incluyendo la integración con VAPI, WhatsApp Business, y la infraestructura multi-cloud.
+                </div>
+                <div class="mermaid" id="high-level-diagram">
+                    graph TB
+                        subgraph "📱 CUSTOMER JOURNEY"
+                            A[🎯 Leads Redes Sociales] --> B[📱 WhatsApp Business]
+                            B --> C[🤖 IA Discovery WhatsApp]
+                            C --> D[📞 Trigger Llamada AI]
+                            D --> E[☎️ VAPI AI Call]
+                            E --> F[👨‍💼 Escalación Humana]
+                            F --> G[🏢 Cisco PBX]
+                        end
+
+                        subgraph "☁️ AWS MULTI-REGION (Primary: us-west-2)"
+                            subgraph "🌐 DNS & CDN Layer"
+                                H[🌍 Route 53 DNS]
+                                I[⚡ CloudFront CDN]
+                            end
+
+                            subgraph "🖥️ Application Layer"
+                                J[🎛️ Frontend Admin]
+                                K[🔄 n8n Middleware]
+                                L[📊 Analytics Dashboard]
+                            end
+
+                            subgraph "💾 Data Layer"
+                                M[🗄️ PostgreSQL RDS]
+                                N[🔴 Redis Cache]
+                                O[🪣 S3 Storage]
+                            end
+
+                            subgraph "🔧 Infrastructure"
+                                P[🐳 ECS Fargate]
+                                Q[⚖️ Application LB]
+                                R[🔒 VPC + Security]
+                            end
+                        end
+
+                        subgraph "☁️ GOOGLE CLOUD (Fallback)"
+                            S[🔄 GKE Cluster]
+                            T[🗄️ Cloud SQL]
+                            U[🔴 Memorystore]
+                            V[⚖️ Global LB]
+                        end
+
+                        subgraph "🤖 VAPI INTEGRATION"
+                            W[📞 VAPI Oregon]
+                            X[🛠️ Tools Integration]
+                            Y[📊 Call Analytics]
+                        end
+
+                        subgraph "📞 TELECOM LAYER"
+                            Z[📡 SIP Trunk]
+                            AA[🏢 Cisco PBX]
+                            BB[☎️ PSTN Network]
+                        end
+
+                        %% Flujo principal
+                        A --> B --> C --> K
+                        K --> W
+                        W --> X
+                        X --> K
+                        W --> Z
+                        Z --> AA
+                        AA --> BB
+
+                        %% Infraestructura
+                        H --> Q
+                        Q --> P
+                        P --> K
+                        K --> M
+                        K --> N
+                        J --> I
+                        I --> O
+
+                        %% Fallback
+                        H -.-> V
+                        V -.-> S
+                        S -.-> T
+                        S -.-> U
+
+                        %% VAPI Integration
+                        K <--> W
+                        W --> Y
+
+                        %% Styling
+                        classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+                        classDef gcp fill:#4285F4,stroke:#1a73e8,stroke-width:2px,color:#fff
+                        classDef vapi fill:#00D2FF,stroke:#0099CC,stroke-width:2px,color:#fff
+                        classDef customer fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#fff
+                        classDef telecom fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px,color:#fff
+
+                        class H,I,J,K,L,M,N,O,P,Q,R aws
+                        class S,T,U,V gcp
+                        class W,X,Y vapi
+                        class A,B,C,D,E,F customer
+                        class Z,AA,BB telecom
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Tab -->
+        <div id="technical" class="tab-content">
+            <div class="controls">
+                <button class="btn btn-primary" onclick="printDiagram('technical')">
+                    🖨️ Imprimir Diagrama
+                </button>
+                <button class="btn btn-secondary" onclick="downloadDiagram('technical')">
+                    💾 Descargar SVG
+                </button>
+                <button class="btn btn-success" onclick="zoomDiagram('technical', 1.2)">
+                    🔍 Zoom In
+                </button>
+            </div>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">🔧 Arquitectura Técnica Detallada</div>
+                <div class="diagram-description">
+                    Diagrama técnico completo mostrando todos los componentes de infraestructura, configuración de red, 
+                    security groups, y especificaciones detalladas de cada servicio incluyendo el failover a GCP.
+                </div>
+                <div class="mermaid" id="technical-diagram">
+                    graph TB
+                        subgraph "🌍 GLOBAL DNS LAYER"
+                            DNS[🌍 Route 53 DNS<br/>ai.vidanta.com<br/>Health Checks]
+                            HC1[🩺 Health Check AWS]
+                            HC2[🩺 Health Check GCP]
+                        end
+
+                        subgraph "☁️ AWS us-west-2 (PRIMARY)"
+                            subgraph "🌐 Public Subnets (DMZ)"
+                                ALB[⚖️ Application Load Balancer<br/>Internet-facing<br/>SSL Termination]
+                                NAT[🔄 NAT Gateway<br/>Outbound Internet]
+                            end
+
+                            subgraph "🔒 Private Subnets (Apps)"
+                                subgraph "🐳 ECS Fargate Cluster"
+                                    N8N1[🔄 n8n Instance 1<br/>4 vCPU, 8GB RAM<br/>us-west-2a]
+                                    N8N2[🔄 n8n Instance 2<br/>4 vCPU, 8GB RAM<br/>us-west-2b]
+                                    N8NW1[👷 n8n Worker 1<br/>Queue Processing<br/>us-west-2a]
+                                    N8NW2[👷 n8n Worker 2<br/>Queue Processing<br/>us-west-2b]
+                                    FRONTEND[🖥️ Admin Frontend<br/>React App<br/>2 vCPU, 4GB RAM]
+                                end
+                            end
+
+                            subgraph "🗄️ Database Subnets"
+                                RDS[🗄️ RDS PostgreSQL<br/>db.r6g.large<br/>Multi-AZ<br/>100GB GP3 Encrypted]
+                                REDIS[🔴 ElastiCache Redis<br/>cache.r6g.large<br/>2 Nodes Cluster<br/>Multi-AZ Failover]
+                            end
+
+                            subgraph "📦 Storage Layer"
+                                S3MAIN[🪣 S3 Primary<br/>Recordings & Assets]
+                                S3BACKUP[🪣 S3 Backup<br/>Cross-Region Replication]
+                            end
+                        end
+
+                        subgraph "☁️ GOOGLE CLOUD (SECONDARY FAILOVER)"
+                            subgraph "🌐 Global Load Balancer"
+                                GLB[⚖️ Global LB<br/>Anycast IP<br/>SSL Proxy]
+                            end
+
+                            subgraph "🐳 GKE Cluster"
+                                GKE[🐳 GKE Autopilot<br/>us-central1]
+                                N8NGCP1[🔄 n8n Pod 1<br/>4 vCPU, 8GB]
+                                N8NGCP2[🔄 n8n Pod 2<br/>4 vCPU, 8GB]
+                            end
+
+                            subgraph "🗄️ Data Layer GCP"
+                                CLOUDSQL[🗄️ Cloud SQL PostgreSQL<br/>db-custom-4-16384<br/>Regional HA]
+                                MEMSTORE[🔴 Memorystore Redis<br/>Standard Tier<br/>5GB Memory]
+                            end
+                        end
+
+                        subgraph "🤖 VAPI INTEGRATION (Oregon)"
+                            VAPI1[📞 VAPI Server 1<br/>44.229.228.186<br/>us-west-2 EC2]
+                            VAPI2[📞 VAPI Server 2<br/>44.238.177.138<br/>us-west-2 EC2]
+                            VAPITOOLS[🛠️ Tools API<br/>Webhooks & Callbacks]
+                        end
+
+                        %% DNS Routing
+                        DNS --> HC1
+                        DNS --> HC2
+                        HC1 --> ALB
+                        HC2 -.-> GLB
+
+                        %% AWS Primary Flow
+                        ALB --> N8N1
+                        ALB --> N8N2
+                        N8N1 --> RDS
+                        N8N2 --> RDS
+                        N8N1 --> REDIS
+                        N8N2 --> REDIS
+                        
+                        %% VAPI Integration
+                        N8N1 <--> VAPI1
+                        N8N2 <--> VAPI2
+                        VAPI1 --> VAPITOOLS
+                        VAPI2 --> VAPITOOLS
+                        VAPITOOLS --> N8N1
+                        VAPITOOLS --> N8N2
+
+                        %% GCP Failover (Dotted lines)
+                        GLB -.-> GKE
+                        N8NGCP1 -.-> CLOUDSQL
+                        N8NGCP2 -.-> CLOUDSQL
+                        N8NGCP1 -.-> MEMSTORE
+                        N8NGCP2 -.-> MEMSTORE
+
+                        %% Data Replication
+                        RDS -.-> CLOUDSQL
+                        REDIS -.-> MEMSTORE
+                        S3MAIN --> S3BACKUP
+
+                        %% Styling
+                        classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+                        classDef gcp fill:#4285F4,stroke:#1a73e8,stroke-width:2px,color:#fff
+                        classDef vapi fill:#00D2FF,stroke:#0099CC,stroke-width:2px,color:#fff
+
+                        class DNS,ALB,NAT,N8N1,N8N2,N8NW1,N8NW2,FRONTEND,RDS,REDIS,S3MAIN,S3BACKUP aws
+                        class GLB,GKE,N8NGCP1,N8NGCP2,CLOUDSQL,MEMSTORE gcp
+                        class VAPI1,VAPI2,VAPITOOLS vapi
+                </div>
+            </div>
+        </div>
+
+        <!-- Flow Tab -->
+        <div id="flow" class="tab-content">
+            <div class="controls">
+                <button class="btn btn-primary" onclick="printDiagram('flow')">
+                    🖨️ Imprimir Flujo
+                </button>
+                <button class="btn btn-secondary" onclick="downloadDiagram('flow')">
+                    💾 Descargar SVG
+                </button>
+            </div>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">🔄 Flujo Completo de Servicios</div>
+                <div class="diagram-description">
+                    Sequence diagram detallado mostrando el flujo completo desde que un lead ve publicidad hasta la 
+                    escalación humana, incluyendo todas las interacciones con bases de datos y servicios.
+                </div>
+                <div class="mermaid" id="flow-diagram">
+                    sequenceDiagram
+                        participant Lead as 🎯 Lead
+                        participant Social as 📱 Redes Sociales
+                        participant WhatsApp as 📱 WhatsApp Business
+                        participant WAI as 🤖 WhatsApp AI
+                        participant N8N as 🔄 n8n Middleware
+                        participant PG as 🗄️ PostgreSQL
+                        participant Redis as 🔴 Redis Cache
+                        participant VAPI as 📞 VAPI AI
+                        participant Tools as 🛠️ n8n Tools
+                        participant SIP as 📡 SIP Trunk
+                        participant Cisco as 🏢 Cisco PBX
+                        participant Agent as 👨‍💼 Human Agent
+
+                        Note over Lead,Social: 🎯 LEAD GENERATION PHASE
+                        Lead->>Social: Ve publicidad/contenido
+                        Social->>WhatsApp: Click "Contactar"
+                        WhatsApp->>WAI: Mensaje inicial recibido
+                        WAI->>PG: Registrar nuevo lead
+                        PG-->>WAI: Lead ID creado
+                        
+                        Note over WAI,N8N: 🔍 DISCOVERY & QUALIFICATION PHASE
+                        WAI->>N8N: Trigger discovery workflow
+                        N8N->>Redis: Cache session data
+                        N8N->>Tools: Ejecutar discovery tools
+                        Tools->>PG: Consultar historial
+                        PG-->>Tools: Datos del lead
+                        Tools-->>N8N: Información compilada
+                        N8N->>WAI: Respuesta personalizada
+                        WAI->>WhatsApp: Mensaje al lead
+                        WhatsApp->>Lead: Respuesta AI
+                        
+                        alt Lead calificado para llamada
+                            Note over WAI,VAPI: 📞 CALL INITIATION PHASE
+                            WAI->>N8N: Trigger call workflow
+                            N8N->>PG: Registrar intent de llamada
+                            N8N->>Redis: Queue call job
+                            
+                            N8N->>Tools: Preparar contexto llamada
+                            Tools->>PG: Obtener perfil completo
+                            PG-->>Tools: Datos del lead + historial
+                            Tools-->>N8N: Contexto compilado
+                            
+                            N8N->>N8N: Componer JSON VAPI
+                            N8N->>VAPI: POST /call/initiate
+                            VAPI-->>N8N: Call ID + Status
+                            N8N->>PG: Registrar call started
+                            N8N->>Redis: Cache call context
+                            
+                            Note over VAPI,Tools: 🔄 DURING CALL PHASE
+                            VAPI->>Lead: Llamada telefónica
+                            Lead->>VAPI: Conversación
+                            
+                            loop Durante conversación
+                                VAPI->>Tools: Tool calls (webhooks)
+                                Tools->>PG: Consultar/Actualizar datos
+                                Tools->>Redis: Cache respuestas
+                                Tools-->>VAPI: Respuesta tool
+                                VAPI->>VAPI: Procesar con AI
+                                VAPI->>Lead: Respuesta AI
+                            end
+                            
+                            alt Escalación requerida
+                                Note over VAPI,Agent: 👨‍💼 HUMAN ESCALATION PHASE
+                                VAPI->>N8N: Webhook escalation_needed
+                                N8N->>PG: Log escalation request
+                                N8N->>Redis: Queue transfer
+                                VAPI->>SIP: Initiate transfer
+                                SIP->>Cisco: SIP INVITE
+                                Cisco->>Agent: Ring agent
+                                Agent->>Cisco: Answer
+                                Cisco->>SIP: Transfer complete
+                                SIP->>VAPI: Transfer confirmed
+                                VAPI->>Agent: Call transferred
+                                Agent->>Lead: Human conversation
+                            end
+                            
+                            Note over VAPI,PG: 📝 CALL COMPLETION PHASE
+                            VAPI->>N8N: Webhook call_ended
+                            N8N->>PG: Registrar call summary
+                            N8N->>Redis: Clear call cache
+                            N8N->>Tools: Post-call processing
+                            Tools->>PG: Actualizar lead status
+                            Tools->>PG: Crear follow-up tasks
+                            
+                        else Lead no calificado
+                            WAI->>N8N: Continue nurturing workflow
+                            N8N->>PG: Update lead score
+                            N8N->>Redis: Schedule follow-up
+                        end
+
+                        Note over PG,Tools: 📊 ANALYTICS & REPORTING
+                        PG->>Tools: Trigger analytics
+                        Tools->>PG: Generar reportes
+                        Tools->>Redis: Cache metrics
+                </div>
+            </div>
+        </div>
+
+        <!-- AWS Console Tab -->
+        <div id="aws-console" class="tab-content">
+            <div class="info-panel">
+                <h3>🖥️ Enlaces Directos a la Consola AWS</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>🗄️ RDS PostgreSQL</strong>
+                        <a href="https://us-west-2.console.aws.amazon.com/rds/home?region=us-west-2#databases:" target="_blank">
+                            Ver n8n-postgres en RDS Console
+                        </a>
+                    </div>
+                    <div class="info-item">
+                        <strong>🔴 ElastiCache Redis</strong>
+                        <a href="https://us-west-2.console.aws.amazon.com/elasticache/home?region=us-west-2#redis:" target="_blank">
+                            Ver n8n-redis en ElastiCache Console
+                        </a>
+                    </div>
+                    <div class="info-item">
+                        <strong>🐳 ECS Cluster</strong>
+                        <a href="https://us-west-2.console.aws.amazon.com/ecs/home?region=us-west-2#clusters" target="_blank">
+                            Ver n8n-production en ECS Console
+                        </a>
+                    </div>
+                    <div class="info-item">
+                        <strong>🌐 VPC y Networking</strong>
+                        <a href="https://us-west-2.console.aws.amazon.com/vpc/home?region=us-west-2#vpcs:" target="_blank">
+                            Ver n8n-vpc en VPC Console
+                        </a>
+                    </div>
+                    <div class="info-item">
+                        <strong>🌍 Route 53 DNS</strong>
+                        <a href="https://console.aws.amazon.com/route53/v2/hostedzones" target="_blank">
+                            Ver ai.vidanta.com en Route 53
+                        </a>
+                    </div>
+                    <div class="info-item">
+                        <strong>📊 CloudWatch</strong>
+                        <a href="https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2" target="_blank">
+                            Ver métricas en CloudWatch
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h3>🔧 Información Técnica de Recursos</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>PostgreSQL Endpoint</strong>
+                        n8n-postgres.c9memqg6633m.us-west-2.rds.amazonaws.com:5432
+                    </div>
+                    <div class="info-item">
+                        <strong>Redis Endpoint</strong>
+                        n8n-redis.7w6q9d.ng.0001.usw2.cache.amazonaws.com:6379
+                    </div>
+                    <div class="info-item">
+                        <strong>VPC ID</strong>
+                        vpc-05eb3d8651aff5257
+                    </div>
+                    <div class="info-item">
+                        <strong>Hosted Zone ID</strong>
+                        Z05991931MBGUXOLH9HO2
+                    </div>
+                    <div class="info-item">
+                        <strong>ECS Cluster</strong>
+                        n8n-production
+                    </div>
+                    <div class="info-item">
+                        <strong>Region</strong>
+                        us-west-2 (Oregon)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomAll(1.2)" title="Zoom In">+</button>
+        <button class="zoom-btn" onclick="zoomAll(0.8)" title="Zoom Out">-</button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Reset Zoom">⌂</button>
+    </div>
+
+    <div class="footer">
+        <p>© 2024 Vidanta AI Architecture - Powered by AWS + VAPI + n8n</p>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#FF9900',
+                primaryTextColor: '#232F3E',
+                primaryBorderColor: '#232F3E',
+                lineColor: '#6c757d'
+            }
+        });
+
+        let currentZoom = 1;
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function printDiagram(diagramId) {
+            const printContent = document.getElementById(diagramId).innerHTML;
+            const printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Vidanta AI Architecture - ${diagramId}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .diagram-container { border: 1px solid #ddd; padding: 20px; }
+                        .mermaid { text-align: center; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Vidanta AI Architecture</h1>
+                    <div class="diagram-container">
+                        ${printContent}
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        function downloadDiagram(diagramId) {
+            const svg = document.querySelector(`#${diagramId} svg`);
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+                const svgUrl = URL.createObjectURL(svgBlob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = svgUrl;
+                downloadLink.download = `vidanta-ai-${diagramId}.svg`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            }
+        }
+
+        function zoomDiagram(diagramId, factor) {
+            const diagram = document.getElementById(`${diagramId}-diagram`);
+            if (diagram) {
+                currentZoom *= factor;
+                diagram.style.transform = `scale(${currentZoom})`;
+                diagram.style.transformOrigin = 'center';
+            }
+        }
+
+        function zoomAll(factor) {
+            currentZoom *= factor;
+            document.querySelectorAll('.mermaid').forEach(diagram => {
+                diagram.style.transform = `scale(${currentZoom})`;
+                diagram.style.transformOrigin = 'center';
+                diagram.style.transition = 'transform 0.3s ease';
+            });
+        }
+
+        function resetZoom() {
+            currentZoom = 1;
+            document.querySelectorAll('.mermaid').forEach(diagram => {
+                diagram.style.transform = 'scale(1)';
+            });
+        }
+
+        // Auto-refresh diagrams every 30 seconds (for live updates)
+        setInterval(() => {
+            mermaid.init();
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidanta AI Architecture - Static Version</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #faf9f8;
+            color: #323130;
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e1dfdd;
+            padding: 24px 32px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #0078d4, #106ebe);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #323130;
+            margin: 0;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #605e5c;
+            margin: 0;
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background-color: #f3f9f3;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #107c10;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .nav-tabs {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .nav-tabs-header {
+            display: flex;
+            border-bottom: 1px solid #e1dfdd;
+            overflow-x: auto;
+        }
+
+        .nav-tab {
+            padding: 16px 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #605e5c;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            position: relative;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .nav-tab:hover {
+            background-color: #faf9f8;
+            color: #323130;
+        }
+
+        .nav-tab.active {
+            color: #0078d4;
+            background-color: #ffffff;
+        }
+
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #0078d4;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 32px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e1dfdd;
+            background-color: #faf9f8;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #323130;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background-color: #ffffff;
+            border: 1px solid #e1dfdd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0078d4;
+            margin-bottom: 8px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #605e5c;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .info-card {
+            background-color: #ffffff;
+            border: 1px solid #e1dfdd;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .info-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .info-card-icon {
+            width: 32px;
+            height: 32px;
+            background-color: #0078d4;
+            color: white;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .info-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #323130;
+            margin: 0;
+        }
+
+        .info-card-content {
+            font-size: 13px;
+            color: #605e5c;
+            line-height: 1.5;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            background-color: #f3f9f3;
+            color: #107c10;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid #e1dfdd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            background-color: #ffffff;
+            color: #323130;
+            margin: 4px;
+        }
+
+        .btn-primary {
+            background-color: #0078d4;
+            color: white;
+            border-color: #0078d4;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        ul li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e1dfdd;
+        }
+
+        ul li:last-child {
+            border-bottom: none;
+        }
+
+        a {
+            color: #0078d4;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        code {
+            background-color: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        /* Static diagram styling */
+        .static-diagram {
+            background-color: #fafafa;
+            border: 1px solid #e1dfdd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .flow-step {
+            display: inline-block;
+            background-color: #0078d4;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 120px;
+        }
+
+        .flow-arrow {
+            display: inline-block;
+            margin: 0 10px;
+            font-size: 18px;
+            color: #605e5c;
+        }
+
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .service-box {
+            background-color: #ffffff;
+            border: 2px solid #0078d4;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .service-box:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+            transform: translateY(-2px);
+        }
+
+        .service-icon {
+            font-size: 24px;
+            color: #0078d4;
+            margin-bottom: 8px;
+        }
+
+        .service-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #323130;
+            margin-bottom: 4px;
+        }
+
+        .service-desc {
+            font-size: 12px;
+            color: #605e5c;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <div class="header-icon">
+                    <i class="fas fa-sitemap"></i>
+                </div>
+                <div>
+                    <h1>Vidanta AI Architecture</h1>
+                    <p>Sistema de Llamadas AI con Integración WhatsApp</p>
+                </div>
+            </div>
+            <div class="status-indicators">
+                <div class="status-indicator">
+                    <i class="fas fa-circle"></i>
+                    AWS Online
+                </div>
+                <div class="status-indicator">
+                    <i class="fas fa-database"></i>
+                    RDS Active
+                </div>
+                <div class="status-indicator">
+                    <i class="fas fa-memory"></i>
+                    Redis Active
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <div class="nav-tabs-header">
+                <button class="nav-tab active" onclick="showTab('overview')">
+                    <i class="fas fa-chart-line"></i>
+                    Overview
+                </button>
+                <button class="nav-tab" onclick="showTab('architecture')">
+                    <i class="fas fa-layer-group"></i>
+                    Architecture
+                </button>
+                <button class="nav-tab" onclick="showTab('flow')">
+                    <i class="fas fa-project-diagram"></i>
+                    Service Flow
+                </button>
+                <button class="nav-tab" onclick="showTab('aws-console')">
+                    <i class="fas fa-cloud"></i>
+                    AWS Console
+                </button>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overview" class="tab-content active">
+                <div class="metrics-row">
+                    <div class="metric-card">
+                        <div class="metric-value">68%</div>
+                        <div class="metric-label">Cost Reduction</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">&lt;50ms</div>
+                        <div class="metric-label">VAPI Latency</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">100</div>
+                        <div class="metric-label">Concurrent Calls</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">99.9%</div>
+                        <div class="metric-label">Uptime Target</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-bullseye"></i>
+                            Executive Summary
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-target"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Objective</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    Automated lead generation and qualification through conversational AI
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-mobile-alt"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Channels</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    WhatsApp Business + AI Phone Calls + Human Escalation
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <h4 class="info-card-title">AI Technology</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    VAPI + n8n + GPT-4 + Real-time Analytics
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-cloud"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Infrastructure</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    AWS Primary + GCP Failover + Multi-region
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-route"></i>
+                            Customer Journey Flow
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="static-diagram">
+                            <div class="flow-step">Social Media Lead</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">WhatsApp Message</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">AI Discovery</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">VAPI AI Call</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">Human Escalation</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">Appointment</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-server"></i>
+                            Current Deployment Status
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <h4 class="info-card-title">PostgreSQL RDS</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge">
+                                        <i class="fas fa-check-circle"></i>
+                                        Active
+                                    </span>
+                                    <br>db.r6g.large Multi-AZ
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-memory"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Redis ElastiCache</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge">
+                                        <i class="fas fa-check-circle"></i>
+                                        Active
+                                    </span>
+                                    <br>cache.r6g.large Cluster
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-docker"></i>
+                                    </div>
+                                    <h4 class="info-card-title">ECS n8n</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge">
+                                        <i class="fas fa-check-circle"></i>
+                                        Running
+                                    </span>
+                                    <br>2 Fargate Instances
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-globe"></i>
+                                    </div>
+                                    <h4 class="info-card-title">DNS Route 53</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge">
+                                        <i class="fas fa-check-circle"></i>
+                                        Configured
+                                    </span>
+                                    <br>ai.vidanta.com
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Architecture Tab -->
+            <div id="architecture" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-sitemap"></i>
+                            System Architecture
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="architecture-grid">
+                            <div class="service-box">
+                                <div class="service-icon"><i class="fas fa-globe"></i></div>
+                                <div class="service-title">Route 53 DNS</div>
+                                <div class="service-desc">ai.vidanta.com<br/>Global DNS with failover</div>
+                            </div>
+                            <div class="service-box">
+                                <div class="service-icon"><i class="fas fa-balance-scale"></i></div>
+                                <div class="service-title">Application LB</div>
+                                <div class="service-desc">SSL Termination<br/>Health Checks</div>
+                            </div>
+                            <div class="service-box">
+                                <div class="service-icon"><i class="fas fa-docker"></i></div>
+                                <div class="service-title">ECS Fargate</div>
+                                <div class="service-desc">n8n Instances<br/>Auto-scaling</div>
+                            </div>
+                            <div class="service-box">
+                                <div class="service-icon"><i class="fas fa-database"></i></div>
+                                <div class="service-title">PostgreSQL RDS</div>
+                                <div class="service-desc">db.r6g.large<br/>Multi-AZ</div>
+                            </div>
+                            <div class="service-box">
+                                <div class="service-icon"><i class="fas fa-memory"></i></div>
+                                <div class="service-title">Redis Cache</div>
+                                <div class="service-desc">cache.r6g.large<br/>Queue Processing</div>
+                            </div>
+                            <div class="service-box">
+                                <div class="service-icon"><i class="fas fa-phone"></i></div>
+                                <div class="service-title">VAPI Integration</div>
+                                <div class="service-desc">Oregon Servers<br/>&lt;50ms Latency</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 30px;">
+                            <button class="btn btn-primary" onclick="window.print()">
+                                <i class="fas fa-print"></i>
+                                Print Architecture
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Flow Tab -->
+            <div id="flow" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-stream"></i>
+                            Complete Service Flow
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <h4>Phase 1: Lead Generation</h4>
+                        <div class="static-diagram">
+                            <div class="flow-step">Social Media Ad</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">WhatsApp Contact</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">AI Discovery Bot</div>
+                        </div>
+
+                        <h4>Phase 2: Qualification & Call</h4>
+                        <div class="static-diagram">
+                            <div class="flow-step">Lead Qualification</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">n8n Workflow</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">VAPI AI Call</div>
+                        </div>
+
+                        <h4>Phase 3: Escalation & Completion</h4>
+                        <div class="static-diagram">
+                            <div class="flow-step">Tool Integration</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">Human Escalation</div>
+                            <div class="flow-arrow">→</div>
+                            <div class="flow-step">Appointment Booking</div>
+                        </div>
+
+                        <div style="margin-top: 30px;">
+                            <button class="btn btn-primary" onclick="window.print()">
+                                <i class="fas fa-print"></i>
+                                Print Flow
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AWS Console Tab -->
+            <div id="aws-console" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-cloud"></i>
+                            AWS Console Access
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <h4>Direct Console Links:</h4>
+                        <ul>
+                            <li><strong>RDS PostgreSQL:</strong> <a href="https://us-west-2.console.aws.amazon.com/rds/home?region=us-west-2#databases:" target="_blank">View n8n-postgres</a></li>
+                            <li><strong>ElastiCache Redis:</strong> <a href="https://us-west-2.console.aws.amazon.com/elasticache/home?region=us-west-2#redis:" target="_blank">View n8n-redis</a></li>
+                            <li><strong>ECS Cluster:</strong> <a href="https://us-west-2.console.aws.amazon.com/ecs/home?region=us-west-2#clusters" target="_blank">View n8n-production</a></li>
+                            <li><strong>VPC Networking:</strong> <a href="https://us-west-2.console.aws.amazon.com/vpc/home?region=us-west-2#vpcs:" target="_blank">View n8n-vpc</a></li>
+                            <li><strong>Route 53 DNS:</strong> <a href="https://console.aws.amazon.com/route53/v2/hostedzones" target="_blank">View ai.vidanta.com</a></li>
+                            <li><strong>CloudWatch:</strong> <a href="https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2" target="_blank">View Metrics</a></li>
+                        </ul>
+
+                        <h4>Resource Information:</h4>
+                        <ul>
+                            <li><strong>PostgreSQL Endpoint:</strong> <code>n8n-postgres.c9memqg6633m.us-west-2.rds.amazonaws.com:5432</code></li>
+                            <li><strong>Redis Endpoint:</strong> <code>n8n-redis.7w6q9d.ng.0001.usw2.cache.amazonaws.com:6379</code></li>
+                            <li><strong>VPC ID:</strong> <code>vpc-05eb3d8651aff5257</code></li>
+                            <li><strong>Hosted Zone ID:</strong> <code>Z05991931MBGUXOLH9HO2</code></li>
+                            <li><strong>ECS Cluster:</strong> <code>n8n-production</code></li>
+                            <li><strong>Region:</strong> <code>us-west-2 (Oregon)</code></li>
+                        </ul>
+
+                        <div style="margin-top: 30px;">
+                            <button class="btn btn-primary" onclick="window.print()">
+                                <i class="fas fa-print"></i>
+                                Print Console Info
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

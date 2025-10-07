@@ -159,8 +159,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Admins tienen acceso completo
     if (authState.user.role_name === 'admin') return true;
     
-    // Developers no tienen acceso a análisis
-    if (authState.user.role_name === 'developer') return false;
+    // Developers tienen acceso a análisis
+    if (authState.user.role_name === 'developer') return true;
     
     // Evaluators: verificar permisos específicos (implementaremos verificación asíncrona)
     if (authState.user.role_name === 'evaluator') {
@@ -365,13 +365,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (canAccessModule('constructor')) return 'constructor';
     if (canAccessModule('plantillas')) return 'plantillas';
     
-    // Agent Studio para admin y developer
-    if (authState.user.role_name === 'admin' || authState.user.role_name === 'developer') {
+    // Agent Studio solo para admin (NO developer)
+    if (authState.user.role_name === 'admin') {
       return 'agent-studio';
     }
     
-    // AI Models para productor y admin
-    if (authState.user.role_name === 'productor' || authState.user.role_name === 'admin') {
+    // AI Models para productor, admin y developer
+    if (['productor', 'admin', 'developer'].includes(authState.user.role_name)) {
       return 'ai-models';
     }
     

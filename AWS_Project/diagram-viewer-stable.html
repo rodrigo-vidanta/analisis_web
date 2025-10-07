@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidanta AI Architecture - Stable Version</title>
+    <!-- Using older, more stable version of Mermaid -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #faf9f8;
+            color: #323130;
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e1dfdd;
+            padding: 24px 32px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #0078d4, #106ebe);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #323130;
+            margin: 0;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #605e5c;
+            margin: 0;
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background-color: #faf9f8;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #107c10;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .nav-tabs {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .nav-tabs-header {
+            display: flex;
+            border-bottom: 1px solid #e1dfdd;
+            overflow-x: auto;
+        }
+
+        .nav-tab {
+            padding: 16px 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #605e5c;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            position: relative;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .nav-tab:hover {
+            background-color: #faf9f8;
+            color: #323130;
+        }
+
+        .nav-tab.active {
+            color: #0078d4;
+            background-color: #ffffff;
+        }
+
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #0078d4;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 32px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e1dfdd;
+            background-color: #faf9f8;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #323130;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .diagram-container {
+            background-color: #ffffff;
+            border: 1px solid #e1dfdd;
+            border-radius: 8px;
+            padding: 24px;
+            overflow: auto;
+            min-height: 400px;
+        }
+
+        .mermaid {
+            text-align: center;
+            background-color: #fafafa;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 10px 0;
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background-color: #ffffff;
+            border: 1px solid #e1dfdd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0078d4;
+            margin-bottom: 8px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #605e5c;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .info-card {
+            background-color: #ffffff;
+            border: 1px solid #e1dfdd;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .info-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .info-card-icon {
+            width: 32px;
+            height: 32px;
+            background-color: #0078d4;
+            color: white;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .info-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #323130;
+            margin: 0;
+        }
+
+        .info-card-content {
+            font-size: 13px;
+            color: #605e5c;
+            line-height: 1.5;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            background-color: #f3f9f3;
+            color: #107c10;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid #e1dfdd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            background-color: #ffffff;
+            color: #323130;
+            margin: 4px;
+        }
+
+        .btn-primary {
+            background-color: #0078d4;
+            color: white;
+            border-color: #0078d4;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        ul li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e1dfdd;
+        }
+
+        ul li:last-child {
+            border-bottom: none;
+        }
+
+        a {
+            color: #0078d4;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        code {
+            background-color: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <div class="header-icon">
+                    <i class="fas fa-sitemap"></i>
+                </div>
+                <div>
+                    <h1>Vidanta AI Architecture</h1>
+                    <p>Sistema de Llamadas AI con Integración WhatsApp</p>
+                </div>
+            </div>
+            <div class="status-indicators">
+                <div class="status-indicator">
+                    <i class="fas fa-circle"></i>
+                    AWS Online
+                </div>
+                <div class="status-indicator">
+                    <i class="fas fa-database"></i>
+                    RDS Active
+                </div>
+                <div class="status-indicator">
+                    <i class="fas fa-memory"></i>
+                    Redis Active
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <div class="nav-tabs-header">
+                <button class="nav-tab active" onclick="showTab('overview')">
+                    <i class="fas fa-chart-line"></i>
+                    Overview
+                </button>
+                <button class="nav-tab" onclick="showTab('high-level')">
+                    <i class="fas fa-layer-group"></i>
+                    High Level
+                </button>
+                <button class="nav-tab" onclick="showTab('technical')">
+                    <i class="fas fa-cogs"></i>
+                    Technical
+                </button>
+                <button class="nav-tab" onclick="showTab('aws-console')">
+                    <i class="fas fa-cloud"></i>
+                    AWS Console
+                </button>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overview" class="tab-content active">
+                <div class="metrics-row">
+                    <div class="metric-card">
+                        <div class="metric-value">68%</div>
+                        <div class="metric-label">Cost Reduction</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">&lt;50ms</div>
+                        <div class="metric-label">VAPI Latency</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">100</div>
+                        <div class="metric-label">Concurrent Calls</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">99.9%</div>
+                        <div class="metric-label">Uptime Target</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-bullseye"></i>
+                            Executive Summary
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-target"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Objective</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    Automated lead generation and qualification through conversational AI
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-mobile-alt"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Channels</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    WhatsApp Business + AI Phone Calls + Human Escalation
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <h4 class="info-card-title">AI Technology</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    VAPI + n8n + GPT-4 + Real-time Analytics
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-cloud"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Infrastructure</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    AWS Primary + GCP Failover + Multi-region
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-route"></i>
+                            Customer Journey Flow
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="diagram-container">
+                            <div class="mermaid">
+graph LR
+    A[Social Media] --> B[WhatsApp]
+    B --> C[AI Discovery]
+    C --> D[VAPI Call]
+    D --> E[Human Agent]
+    E --> F[Appointment]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-server"></i>
+                            Current Deployment Status
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <h4 class="info-card-title">PostgreSQL RDS</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge">
+                                        <i class="fas fa-check-circle"></i>
+                                        Active
+                                    </span>
+                                    <br>db.r6g.large Multi-AZ
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-memory"></i>
+                                    </div>
+                                    <h4 class="info-card-title">Redis ElastiCache</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge">
+                                        <i class="fas fa-check-circle"></i>
+                                        Active
+                                    </span>
+                                    <br>cache.r6g.large Cluster
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-docker"></i>
+                                    </div>
+                                    <h4 class="info-card-title">ECS n8n</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge">
+                                        <i class="fas fa-check-circle"></i>
+                                        Running
+                                    </span>
+                                    <br>2 Fargate Instances
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <div class="info-card-icon">
+                                        <i class="fas fa-globe"></i>
+                                    </div>
+                                    <h4 class="info-card-title">DNS Route 53</h4>
+                                </div>
+                                <div class="info-card-content">
+                                    <span class="status-badge">
+                                        <i class="fas fa-check-circle"></i>
+                                        Configured
+                                    </span>
+                                    <br>ai.vidanta.com
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- High Level Tab -->
+            <div id="high-level" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-sitemap"></i>
+                            System Architecture
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="diagram-container">
+                            <div class="mermaid">
+graph TB
+    subgraph AWS[AWS Infrastructure]
+        A[Route 53 DNS] --> B[Application LB]
+        B --> C[ECS Fargate]
+        C --> D[n8n Middleware]
+        D --> E[PostgreSQL RDS]
+        D --> F[Redis Cache]
+    end
+
+    subgraph GCP[GCP Failover]
+        G[Global LB] --> H[GKE Cluster]
+        H --> I[Cloud SQL]
+        H --> J[Memorystore]
+    end
+
+    subgraph VAPI[VAPI Integration]
+        K[VAPI Server 1]
+        L[VAPI Server 2]
+        M[Tools API]
+    end
+
+    D --> K
+    D --> L
+    K --> M
+    L --> M
+    M --> D
+
+    A -.-> G
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <button class="btn btn-primary" onclick="window.print()">
+                                <i class="fas fa-print"></i>
+                                Print Diagram
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technical Tab -->
+            <div id="technical" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-network-wired"></i>
+                            Technical Infrastructure
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="diagram-container">
+                            <div class="mermaid">
+graph TB
+    DNS[Route 53 DNS]
+    ALB[Application Load Balancer]
+    N8N1[n8n Instance 1<br/>4 vCPU 8GB]
+    N8N2[n8n Instance 2<br/>4 vCPU 8GB]
+    RDS[PostgreSQL<br/>db.r6g.large]
+    REDIS[Redis<br/>cache.r6g.large]
+    VAPI1[VAPI Server 1]
+    VAPI2[VAPI Server 2]
+
+    DNS --> ALB
+    ALB --> N8N1
+    ALB --> N8N2
+    N8N1 --> RDS
+    N8N2 --> RDS
+    N8N1 --> REDIS
+    N8N2 --> REDIS
+    N8N1 --> VAPI1
+    N8N2 --> VAPI2
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <button class="btn btn-primary" onclick="window.print()">
+                                <i class="fas fa-print"></i>
+                                Print Diagram
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AWS Console Tab -->
+            <div id="aws-console" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-cloud"></i>
+                            AWS Console Links
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <h4>Direct Console Access:</h4>
+                        <ul>
+                            <li><strong>RDS PostgreSQL:</strong> <a href="https://us-west-2.console.aws.amazon.com/rds/home?region=us-west-2#databases:" target="_blank">n8n-postgres</a></li>
+                            <li><strong>ElastiCache Redis:</strong> <a href="https://us-west-2.console.aws.amazon.com/elasticache/home?region=us-west-2#redis:" target="_blank">n8n-redis</a></li>
+                            <li><strong>ECS Cluster:</strong> <a href="https://us-west-2.console.aws.amazon.com/ecs/home?region=us-west-2#clusters" target="_blank">n8n-production</a></li>
+                            <li><strong>VPC Networking:</strong> <a href="https://us-west-2.console.aws.amazon.com/vpc/home?region=us-west-2#vpcs:" target="_blank">n8n-vpc</a></li>
+                            <li><strong>Route 53 DNS:</strong> <a href="https://console.aws.amazon.com/route53/v2/hostedzones" target="_blank">ai.vidanta.com</a></li>
+                            <li><strong>CloudWatch:</strong> <a href="https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2" target="_blank">Metrics & Logs</a></li>
+                        </ul>
+
+                        <h4>Resource Endpoints:</h4>
+                        <ul>
+                            <li><strong>PostgreSQL:</strong> <code>n8n-postgres.c9memqg6633m.us-west-2.rds.amazonaws.com:5432</code></li>
+                            <li><strong>Redis:</strong> <code>n8n-redis.7w6q9d.ng.0001.usw2.cache.amazonaws.com:6379</code></li>
+                            <li><strong>VPC ID:</strong> <code>vpc-05eb3d8651aff5257</code></li>
+                            <li><strong>Hosted Zone:</strong> <code>Z05991931MBGUXOLH9HO2</code></li>
+                            <li><strong>ECS Cluster:</strong> <code>n8n-production</code></li>
+                            <li><strong>Region:</strong> <code>us-west-2 (Oregon)</code></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mermaid with the most basic configuration
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

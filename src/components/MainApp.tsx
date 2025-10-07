@@ -26,6 +26,9 @@ import PromptsManager from './prompts/PromptsManager';
 // Live Chat
 import LiveChatModule from './chat/LiveChatModule';
 
+// AWS Manager
+import AWSManager from './aws/AWSManager';
+
 function MainApp() {
   // Verificación de seguridad para AuthContext
   let authData;
@@ -174,7 +177,7 @@ function MainApp() {
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia' | 'live-chat') => {
+  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia' | 'live-chat' | 'aws-manager') => {
     setAppMode(mode);
     // Resetear steps cuando cambies de modo para evitar problemas
     if (mode !== 'constructor') {
@@ -286,6 +289,26 @@ function MainApp() {
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
                   No tienes permisos para acceder a la administración del sistema
+                </p>
+              </div>
+            </div>
+          )
+        );
+      case 'aws-manager':
+        return (
+          user?.role_name === 'admin' ? (
+            <AWSManager 
+              darkMode={appMode === 'constructor' ? darkMode : localDarkMode}
+              onToggleDarkMode={handleToggleDarkMode}
+            />
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Acceso Denegado
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Solo administradores pueden acceder al AWS Manager
                 </p>
               </div>
             </div>

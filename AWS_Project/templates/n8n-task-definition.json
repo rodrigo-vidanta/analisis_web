@@ -1,0 +1,129 @@
+{
+  "family": "n8n-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "n8n",
+      "image": "n8nio/n8n:latest",
+      "portMappings": [
+        {
+          "containerPort": 5678,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "DB_TYPE",
+          "value": "postgresdb"
+        },
+        {
+          "name": "DB_POSTGRESDB_HOST",
+          "value": "${RDS_ENDPOINT}"
+        },
+        {
+          "name": "DB_POSTGRESDB_DATABASE",
+          "value": "n8n"
+        },
+        {
+          "name": "DB_POSTGRESDB_USER",
+          "value": "n8nuser"
+        },
+        {
+          "name": "DB_POSTGRESDB_PORT",
+          "value": "5432"
+        },
+        {
+          "name": "REDIS_HOST",
+          "value": "${REDIS_ENDPOINT}"
+        },
+        {
+          "name": "REDIS_PORT",
+          "value": "6379"
+        },
+        {
+          "name": "N8N_PROTOCOL",
+          "value": "https"
+        },
+        {
+          "name": "WEBHOOK_URL",
+          "value": "https://n8n.${DOMAIN}"
+        },
+        {
+          "name": "N8N_HOST",
+          "value": "n8n.${DOMAIN}"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "us-west-2"
+        },
+        {
+          "name": "VAPI_ALLOWED_IPS",
+          "value": "44.229.228.186,44.238.177.138"
+        },
+        {
+          "name": "N8N_PORT",
+          "value": "5678"
+        },
+        {
+          "name": "N8N_EDITOR_BASE_URL",
+          "value": "https://n8n.${DOMAIN}/"
+        },
+        {
+          "name": "EXECUTIONS_MODE",
+          "value": "queue"
+        },
+        {
+          "name": "QUEUE_BULL_REDIS_HOST",
+          "value": "${REDIS_ENDPOINT}"
+        },
+        {
+          "name": "QUEUE_BULL_REDIS_PORT",
+          "value": "6379"
+        },
+        {
+          "name": "N8N_METRICS",
+          "value": "true"
+        },
+        {
+          "name": "N8N_LOG_LEVEL",
+          "value": "info"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_POSTGRESDB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:rds/n8n/password"
+        },
+        {
+          "name": "N8N_ENCRYPTION_KEY",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:n8n/encryption/key"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/n8n",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:5678/healthz || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

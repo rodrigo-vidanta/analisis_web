@@ -187,27 +187,51 @@ class AuthService {
     // Lógica específica por módulo ya que userPermissions está vacío
     switch (module) {
       case 'constructor':
-        // Admin y Developer pueden acceder al constructor
-        return ['admin', 'developer'].includes(this.currentUser.role_name);
+        // Solo Admin puede acceder al constructor (NO developer)
+        return this.currentUser.role_name === 'admin';
       
       case 'plantillas':
-        // Solo Admin y Developer pueden ver plantillas
-        return ['admin', 'developer'].includes(this.currentUser.role_name);
+        // Solo Admin puede ver plantillas (NO developer)
+        return this.currentUser.role_name === 'admin';
+      
+      case 'agent-studio':
+        // Solo Admin puede acceder a agent-studio (NO developer)
+        return this.currentUser.role_name === 'admin';
       
       case 'analisis':
-        // Solo Admin y Evaluator pueden ver análisis
-        return ['admin', 'evaluator'].includes(this.currentUser.role_name);
+        // Admin, Evaluator y Developer pueden ver análisis
+        return ['admin', 'evaluator', 'developer'].includes(this.currentUser.role_name);
       
       case 'academia':
-        // Academia solo para vendedores
-        return this.currentUser.role_name === 'vendedor';
+        // Academia para vendedores y developers
+        return ['vendedor', 'developer'].includes(this.currentUser.role_name);
+      
+      case 'ai-models':
+        // AI Models para productor, admin y developer
+        return ['productor', 'admin', 'developer'].includes(this.currentUser.role_name);
       
       case 'live-chat':
         // Live Chat disponible para todos los usuarios autenticados
         return true;
       
+      case 'live-monitor':
+        // Live Monitor para admin, evaluator y developer
+        return ['admin', 'evaluator', 'developer'].includes(this.currentUser.role_name);
+      
+      case 'admin':
+        // Solo Admin puede acceder a administración (NO developer)
+        return this.currentUser.role_name === 'admin';
+      
       default:
-        // Para otros módulos, usar verificación de permisos si existe
+        // Para módulos nuevos (como AWS), permitir a admin y developer
+        if (this.currentUser.role_name === 'admin') return true;
+        if (this.currentUser.role_name === 'developer') {
+          // Developer puede acceder a todo excepto los módulos restringidos
+          const restrictedModules = ['admin', 'constructor', 'plantillas', 'agent-studio'];
+          return !restrictedModules.includes(module);
+        }
+        
+        // Para otros roles, usar verificación de permisos si existe
         if (subModule) {
           return this.userPermissions.some(
             p => p.module === module && p.sub_module === subModule

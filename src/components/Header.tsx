@@ -8,10 +8,10 @@ interface HeaderProps {
   progress: number;
   progressText: string;
   darkMode: boolean;
-  appMode?: 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin';
+  appMode?: 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager';
   onToggleDarkMode: () => void;
   onReset: () => void;
-  onModeChange?: (mode: 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin') => void;
+  onModeChange?: (mode: 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager') => void;
   simplified?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -59,7 +59,8 @@ const Header = ({
                  appMode === 'natalia' ? 'Análisis Natalia IA' :
                  appMode === 'pqnc' ? 'Análisis PQNC Humans' :
                  appMode === 'live-monitor' ? 'Monitor en Vivo' :
-                 appMode === 'admin' ? 'Administración' : 'PQNC AI'}
+                 appMode === 'admin' ? 'Administración' :
+                 appMode === 'aws-manager' ? 'AWS Manager' : 'PQNC AI'}
               </h1>
               
               {/* Barra de progreso para constructor */}
@@ -80,6 +81,46 @@ const Header = ({
 
             {/* Controles de usuario */}
             <div className="flex items-center space-x-3">
+              
+              {/* Botones de navegación para admin */}
+              {user?.role_name === 'admin' && (
+                <div className="hidden md:flex items-center space-x-2">
+                  <button 
+                    onClick={() => onModeChange?.('aws-manager')}
+                    className={`relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium ${
+                      appMode === 'aws-manager'
+                        ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md'
+                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                    title="AWS Manager - Gestión de Infraestructura"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                      </svg>
+                      <span>AWS</span>
+                    </div>
+                  </button>
+                  
+                  <button 
+                    onClick={() => onModeChange?.('admin')}
+                    className={`relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium ${
+                      appMode === 'admin'
+                        ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md'
+                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                    title="Administración del Sistema"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span>Admin</span>
+                    </div>
+                  </button>
+                </div>
+              )}
               
               {/* Toggle tema */}
               <button
@@ -298,6 +339,25 @@ const Header = ({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                     <span>Análisis</span>
+                  </div>
+                </button>
+              )}
+              
+              {user?.role_name === 'admin' && (
+                <button 
+                  onClick={() => onModeChange?.('aws-manager')}
+                  className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
+                    appMode === 'aws-manager'
+                      ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md'
+                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                  title="AWS Manager - Gestión de Infraestructura"
+                >
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                    </svg>
+                    <span>AWS</span>
                   </div>
                 </button>
               )}

@@ -1,0 +1,502 @@
+# ============================================================================
+# CONTROL MAESTRO DE MIGRACIÓN RAILWAY → AWS
+# ============================================================================
+# Archivo único para gestionar toda la migración de servicios
+# Autor: Sistema de migración autónoma con Cursor + AWS CLI
+# Fecha: 2025-10-03
+
+metadata:
+  project_name: "railway-to-aws-migration"
+  version: "1.0.0"
+  region_primary: "us-west-2"  # Oregon - Óptimo para latencia con VAPI
+  region_secondary: "us-east-1"
+  domain: "ai.vidanta.com"  # Dominio real configurado
+  environment: "production"
+  
+  # Configuración específica para VAPI
+  vapi_integration:
+    ips_allowed: 
+      - "44.229.228.186/32"  # VAPI Oregon
+      - "44.238.177.138/32"  # VAPI Oregon
+    region_optimized: "us-west-2"  # Oregon - Misma región que VAPI
+    latency_target: "<50ms"  # Objetivo de latencia
+    
+  # Optimizaciones de red
+  network_optimization:
+    enable_enhanced_networking: true
+    enable_placement_groups: true
+    instance_types_optimized: ["c5n.large", "c5n.xlarge", "m5n.large"]
+
+# ============================================================================
+# INFRAESTRUCTURA ACTUAL EN RAILWAY
+# ============================================================================
+current_infrastructure:
+  railway:
+    region: "us-east4"
+    services:
+      n8n:
+        type: "workflow_automation"
+        components:
+          - name: "n8n-main"
+            type: "application"
+            build: "nixpacks"
+            runtime: "nodejs_20"
+          - name: "n8n-worker"
+            type: "worker"
+            build: "nixpacks"
+            runtime: "nodejs_20"
+        database: "postgresql_shared"
+        cache: "redis_shared"
+        
+      postgresql:
+        type: "database"
+        engine: "postgresql"
+        version: "15"
+        storage: "persistent"
+        
+      redis:
+        type: "cache"
+        engine: "redis"
+        version: "7"
+        persistence: "enabled"
+        
+      frontend:
+        type: "static_site"
+        framework: "react"
+        build_tool: "vite"
+        runtime: "nodejs_20"
+        server: "caddy"
+        build_command: "npm run build"
+        start_command: "npm run preview"
+        healthcheck: "/"
+
+# ============================================================================
+# ARQUITECTURA OBJETIVO EN AWS
+# ============================================================================
+target_infrastructure:
+  aws:
+    networking:
+      vpc:
+        cidr: "10.0.0.0/16"
+        availability_zones: ["us-west-2a", "us-west-2b", "us-west-2c"]
+        public_subnets: ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+        private_subnets: ["10.0.10.0/24", "10.0.20.0/24", "10.0.30.0/24"]
+        
+    services:
+      n8n:
+        compute:
+          platform: "ecs_fargate"
+          cpu: "2048"  # 2 vCPU
+          memory: "4096"  # 4 GB
+          min_capacity: 2
+          max_capacity: 10
+          target_cpu: 70
+        database:
+          engine: "rds_postgresql"
+          version: "15.4"
+          instance_class: "db.t3.medium"
+          storage: "100gb"
+          multi_az: true
+          backup_retention: 7
+        load_balancer:
+          type: "application_load_balancer"
+          scheme: "internet-facing"
+          ssl_certificate: "acm"
+          
+      supabase:
+        compute:
+          platform: "ecs_fargate"
+          services:
+            auth:
+              cpu: "1024"
+              memory: "2048"
+            realtime:
+              cpu: "1024"
+              memory: "2048"
+            storage:
+              cpu: "512"
+              memory: "1024"
+        database:
+          engine: "rds_postgresql"
+          version: "15.4"
+          instance_class: "db.r6g.large"
+          extensions: ["pgvector", "pg_stat_statements"]
+          storage: "200gb"
+        storage:
+          s3_bucket: "supabase-storage"
+          cloudfront: "enabled"
+          
+      redis:
+        platform: "elasticache"
+        engine: "redis"
+        version: "7.0"
+        node_type: "cache.r6g.large"
+        num_nodes: 3
+        multi_az: true
+        automatic_failover: true
+        
+      frontend:
+        hosting: "s3_cloudfront"
+        s3_bucket: "frontend-static"
+        cloudfront:
+          price_class: "PriceClass_100"
+          compress: true
+          cache_behaviors:
+            - path: "/api/*"
+              ttl: 0
+            - path: "/*"
+              ttl: 86400
+
+# ============================================================================
+# PLAN DE MIGRACIÓN POR FASES
+# ============================================================================
+migration_phases:
+  phase_1:
+    name: "Preparación y Configuración Base"
+    duration: "1-2 días"
+    status: "pending"
+    tasks:
+      - id: "setup_aws_cli"
+        name: "Configurar AWS CLI y credenciales"
+        status: "pending"
+        commands:
+          - "aws configure"
+          - "aws sts get-caller-identity"
+        validation: "aws sts get-caller-identity"
+        
+      - id: "create_vpc"
+        name: "Crear VPC y networking"
+        status: "pending"
+        dependencies: ["setup_aws_cli"]
+        commands:
+          - "aws ec2 create-vpc --cidr-block 10.0.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=migration-vpc},{Key=Project,Value=railway-migration}]'"
+          - "aws ec2 create-subnet --vpc-id ${VPC_ID} --cidr-block 10.0.1.0/24 --availability-zone us-west-2a"
+          - "aws ec2 create-subnet --vpc-id ${VPC_ID} --cidr-block 10.0.2.0/24 --availability-zone us-west-2b"
+          - "aws ec2 create-subnet --vpc-id ${VPC_ID} --cidr-block 10.0.3.0/24 --availability-zone us-west-2c"
+          - "aws ec2 create-subnet --vpc-id ${VPC_ID} --cidr-block 10.0.10.0/24 --availability-zone us-west-2a"
+          - "aws ec2 create-subnet --vpc-id ${VPC_ID} --cidr-block 10.0.20.0/24 --availability-zone us-west-2b"
+          - "aws ec2 create-subnet --vpc-id ${VPC_ID} --cidr-block 10.0.30.0/24 --availability-zone us-west-2c"
+          - "aws ec2 create-internet-gateway"
+          - "aws ec2 attach-internet-gateway --vpc-id ${VPC_ID} --internet-gateway-id ${IGW_ID}"
+        validation: "aws ec2 describe-vpcs --filters Name=tag:Name,Values=migration-vpc"
+        
+      - id: "create_security_groups"
+        name: "Configurar Security Groups"
+        status: "pending"
+        dependencies: ["create_vpc"]
+        commands:
+          - "aws ec2 create-security-group --group-name n8n-sg --description 'Security group for n8n with VAPI access' --vpc-id ${VPC_ID}"
+          - "aws ec2 create-security-group --group-name rds-sg --description 'Security group for RDS' --vpc-id ${VPC_ID}"
+          - "aws ec2 create-security-group --group-name redis-sg --description 'Security group for Redis' --vpc-id ${VPC_ID}"
+          - "aws ec2 create-security-group --group-name alb-sg --description 'Security group for ALB with VAPI access' --vpc-id ${VPC_ID}"
+          # Reglas para VAPI - n8n
+          - "aws ec2 authorize-security-group-ingress --group-id ${N8N_SG_ID} --protocol tcp --port 5678 --cidr 44.229.228.186/32"
+          - "aws ec2 authorize-security-group-ingress --group-id ${N8N_SG_ID} --protocol tcp --port 5678 --cidr 44.238.177.138/32"
+          - "aws ec2 authorize-security-group-ingress --group-id ${N8N_SG_ID} --protocol tcp --port 443 --cidr 44.229.228.186/32"
+          - "aws ec2 authorize-security-group-ingress --group-id ${N8N_SG_ID} --protocol tcp --port 443 --cidr 44.238.177.138/32"
+          # Reglas para VAPI - ALB
+          - "aws ec2 authorize-security-group-ingress --group-id ${ALB_SG_ID} --protocol tcp --port 80 --cidr 0.0.0.0/0"
+          - "aws ec2 authorize-security-group-ingress --group-id ${ALB_SG_ID} --protocol tcp --port 443 --cidr 0.0.0.0/0"
+          - "aws ec2 authorize-security-group-ingress --group-id ${ALB_SG_ID} --protocol tcp --port 443 --cidr 44.229.228.186/32"
+          - "aws ec2 authorize-security-group-ingress --group-id ${ALB_SG_ID} --protocol tcp --port 443 --cidr 44.238.177.138/32"
+        validation: "aws ec2 describe-security-groups --filters Name=vpc-id,Values=${VPC_ID}"
+
+  phase_2:
+    name: "Migración de Bases de Datos"
+    duration: "2-3 días"
+    status: "pending"
+    tasks:
+      - id: "backup_railway_db"
+        name: "Backup de PostgreSQL en Railway"
+        status: "pending"
+        commands:
+          - "pg_dump ${RAILWAY_POSTGRES_URL} > railway_backup.sql"
+        validation: "ls -la railway_backup.sql"
+        
+      - id: "create_rds_postgresql"
+        name: "Crear RDS PostgreSQL para n8n"
+        status: "pending"
+        dependencies: ["create_security_groups"]
+        commands:
+          - "aws rds create-db-subnet-group --db-subnet-group-name n8n-subnet-group --db-subnet-group-description 'Subnet group for n8n RDS' --subnet-ids ${PRIVATE_SUBNET_IDS}"
+          - "aws rds create-db-instance --db-instance-identifier n8n-postgres --db-instance-class db.t3.medium --engine postgres --engine-version 15.4 --master-username n8nuser --master-user-password ${DB_PASSWORD} --allocated-storage 100 --vpc-security-group-ids ${RDS_SG_ID} --db-subnet-group-name n8n-subnet-group --backup-retention-period 7 --multi-az --tags Key=Name,Value=n8n-postgres Key=Project,Value=railway-migration"
+        validation: "aws rds describe-db-instances --db-instance-identifier n8n-postgres"
+        
+      - id: "restore_data_to_rds"
+        name: "Restaurar datos en RDS"
+        status: "pending"
+        dependencies: ["create_rds_postgresql", "backup_railway_db"]
+        commands:
+          - "psql ${AWS_RDS_URL} < railway_backup.sql"
+        validation: "psql ${AWS_RDS_URL} -c '\\dt'"
+        
+      - id: "create_elasticache_redis"
+        name: "Crear ElastiCache Redis"
+        status: "pending"
+        dependencies: ["create_security_groups"]
+        commands:
+          - "aws elasticache create-cache-subnet-group --cache-subnet-group-name redis-subnet-group --cache-subnet-group-description 'Subnet group for Redis' --subnet-ids ${PRIVATE_SUBNET_IDS}"
+          - "aws elasticache create-replication-group --replication-group-id redis-cluster --description 'Redis cluster for migration' --num-cache-clusters 3 --cache-node-type cache.r6g.large --engine redis --engine-version 7.0 --cache-subnet-group-name redis-subnet-group --security-group-ids ${REDIS_SG_ID} --automatic-failover-enabled --multi-az-enabled --tags Key=Name,Value=redis-cluster Key=Project,Value=railway-migration"
+        validation: "aws elasticache describe-replication-groups --replication-group-id redis-cluster"
+
+  phase_3:
+    name: "Migración de Aplicaciones"
+    duration: "3-4 días"
+    status: "pending"
+    tasks:
+      - id: "create_ecs_cluster"
+        name: "Crear ECS Cluster"
+        status: "pending"
+        dependencies: ["create_vpc"]
+        commands:
+          - "aws ecs create-cluster --cluster-name migration-cluster --capacity-providers FARGATE FARGATE_SPOT --default-capacity-provider-strategy capacityProvider=FARGATE,weight=1 --tags key=Name,value=migration-cluster key=Project,value=railway-migration"
+        validation: "aws ecs describe-clusters --clusters migration-cluster"
+        
+      - id: "create_n8n_task_definition"
+        name: "Crear Task Definition para n8n"
+        status: "pending"
+        dependencies: ["create_ecs_cluster"]
+        task_definition: |
+          {
+            "family": "n8n-task",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "2048",
+            "memory": "4096",
+            "executionRoleArn": "${ECS_EXECUTION_ROLE_ARN}",
+            "taskRoleArn": "${ECS_TASK_ROLE_ARN}",
+            "containerDefinitions": [
+              {
+                "name": "n8n",
+                "image": "n8nio/n8n:latest",
+                "portMappings": [{"containerPort": 5678, "protocol": "tcp"}],
+                "environment": [
+                  {"name": "DB_TYPE", "value": "postgresdb"},
+                  {"name": "DB_POSTGRESDB_HOST", "value": "${RDS_ENDPOINT}"},
+                  {"name": "DB_POSTGRESDB_DATABASE", "value": "n8n"},
+                  {"name": "DB_POSTGRESDB_USER", "value": "n8nuser"},
+                  {"name": "REDIS_HOST", "value": "${REDIS_ENDPOINT}"},
+                  {"name": "N8N_PROTOCOL", "value": "https"},
+                  {"name": "WEBHOOK_URL", "value": "https://n8n.${DOMAIN}"}
+                ],
+                "secrets": [
+                  {"name": "DB_POSTGRESDB_PASSWORD", "valueFrom": "${DB_PASSWORD_SECRET_ARN}"}
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/ecs/n8n",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                  }
+                }
+              }
+            ]
+          }
+        commands:
+          - "aws ecs register-task-definition --cli-input-json file://n8n-task-definition.json"
+        validation: "aws ecs describe-task-definition --task-definition n8n-task"
+        
+      - id: "create_alb"
+        name: "Crear Application Load Balancer"
+        status: "pending"
+        dependencies: ["create_security_groups"]
+        commands:
+          - "aws elbv2 create-load-balancer --name migration-alb --subnets ${PUBLIC_SUBNET_IDS} --security-groups ${ALB_SG_ID} --scheme internet-facing --type application --tags Key=Name,Value=migration-alb Key=Project,Value=railway-migration"
+          - "aws elbv2 create-target-group --name n8n-targets --protocol HTTP --port 5678 --vpc-id ${VPC_ID} --target-type ip --health-check-path /healthz"
+        validation: "aws elbv2 describe-load-balancers --names migration-alb"
+        
+      - id: "deploy_n8n_service"
+        name: "Desplegar servicio n8n en ECS"
+        status: "pending"
+        dependencies: ["create_n8n_task_definition", "create_alb"]
+        commands:
+          - "aws ecs create-service --cluster migration-cluster --service-name n8n-service --task-definition n8n-task:1 --desired-count 2 --launch-type FARGATE --network-configuration 'awsvpcConfiguration={subnets=[${PRIVATE_SUBNET_IDS}],securityGroups=[${N8N_SG_ID}],assignPublicIp=DISABLED}' --load-balancers targetGroupArn=${N8N_TARGET_GROUP_ARN},containerName=n8n,containerPort=5678 --tags key=Name,value=n8n-service key=Project,value=railway-migration"
+        validation: "aws ecs describe-services --cluster migration-cluster --services n8n-service"
+
+  phase_4:
+    name: "Migración Frontend y DNS"
+    duration: "1-2 días"
+    status: "pending"
+    tasks:
+      - id: "create_s3_bucket"
+        name: "Crear S3 bucket para frontend"
+        status: "pending"
+        commands:
+          - "aws s3 mb s3://frontend-${PROJECT_NAME}-${RANDOM_SUFFIX}"
+          - "aws s3 website s3://frontend-${PROJECT_NAME}-${RANDOM_SUFFIX} --index-document index.html --error-document error.html"
+        validation: "aws s3 ls s3://frontend-${PROJECT_NAME}-${RANDOM_SUFFIX}"
+        
+      - id: "build_and_upload_frontend"
+        name: "Build y upload del frontend"
+        status: "pending"
+        dependencies: ["create_s3_bucket"]
+        commands:
+          - "npm run build"
+          - "aws s3 sync ./dist s3://frontend-${PROJECT_NAME}-${RANDOM_SUFFIX} --delete"
+        validation: "aws s3 ls s3://frontend-${PROJECT_NAME}-${RANDOM_SUFFIX}/index.html"
+        
+      - id: "create_cloudfront"
+        name: "Crear CloudFront distribution"
+        status: "pending"
+        dependencies: ["build_and_upload_frontend"]
+        commands:
+          - "aws cloudfront create-distribution --distribution-config file://cloudfront-config.json"
+        validation: "aws cloudfront list-distributions"
+        
+      - id: "setup_route53"
+        name: "Configurar Route 53 DNS"
+        status: "pending"
+        dependencies: ["create_cloudfront", "create_alb"]
+        commands:
+          - "aws route53 create-hosted-zone --name ${DOMAIN} --caller-reference $(date +%s)"
+          - "aws route53 change-resource-record-sets --hosted-zone-id ${HOSTED_ZONE_ID} --change-batch file://dns-records.json"
+        validation: "aws route53 list-resource-record-sets --hosted-zone-id ${HOSTED_ZONE_ID}"
+
+  phase_5:
+    name: "Testing y Optimización"
+    duration: "2-3 días"
+    status: "pending"
+    tasks:
+      - id: "health_checks"
+        name: "Configurar health checks"
+        status: "pending"
+        commands:
+          - "aws route53 create-health-check --caller-reference $(date +%s) --health-check-config Type=HTTPS,ResourcePath=/healthz,FullyQualifiedDomainName=${DOMAIN}"
+        validation: "aws route53 list-health-checks"
+        
+      - id: "monitoring_setup"
+        name: "Configurar CloudWatch monitoring"
+        status: "pending"
+        commands:
+          - "aws cloudwatch put-dashboard --dashboard-name migration-dashboard --dashboard-body file://dashboard-config.json"
+          - "aws cloudwatch put-metric-alarm --alarm-name high-cpu --alarm-description 'High CPU usage' --metric-name CPUUtilization --namespace AWS/ECS --statistic Average --period 300 --threshold 80 --comparison-operator GreaterThanThreshold"
+        validation: "aws cloudwatch list-dashboards"
+        
+      - id: "performance_testing"
+        name: "Testing de rendimiento"
+        status: "pending"
+        commands:
+          - "curl -I https://${DOMAIN}/healthz"
+          - "ab -n 1000 -c 10 https://${DOMAIN}/"
+        validation: "curl -s https://${DOMAIN}/healthz | grep -q 'OK'"
+
+# ============================================================================
+# VARIABLES DE ENTORNO Y SECRETOS
+# ============================================================================
+environment_variables:
+  global:
+    AWS_REGION: "us-west-2"  # Oregon - Óptimo para VAPI
+    PROJECT_NAME: "railway-migration"
+    ENVIRONMENT: "production"
+    DOMAIN: "ai.vidanta.com"
+    HOSTED_ZONE_ID: "Z05991931MBGUXOLH9HO2"
+    VAPI_IP_1: "44.229.228.186"
+    VAPI_IP_2: "44.238.177.138"
+    
+  secrets:
+    - name: "DB_PASSWORD"
+      description: "Password para RDS PostgreSQL"
+      aws_secret_name: "rds/n8n/password"
+      
+    - name: "RAILWAY_POSTGRES_URL"
+      description: "URL de conexión a PostgreSQL en Railway"
+      aws_secret_name: "railway/postgres/url"
+      
+    - name: "N8N_ENCRYPTION_KEY"
+      description: "Clave de encriptación para n8n"
+      aws_secret_name: "n8n/encryption/key"
+
+# ============================================================================
+# COMANDOS DE ROLLBACK
+# ============================================================================
+rollback_procedures:
+  emergency_rollback:
+    description: "Rollback completo a Railway en caso de emergencia"
+    steps:
+      - "Cambiar DNS para apuntar de vuelta a Railway"
+      - "Activar servicios en Railway"
+      - "Sincronizar datos desde AWS a Railway"
+    commands:
+      - "aws route53 change-resource-record-sets --hosted-zone-id ${HOSTED_ZONE_ID} --change-batch file://rollback-dns.json"
+      
+  partial_rollback:
+    description: "Rollback de servicios individuales"
+    n8n:
+      - "aws ecs update-service --cluster migration-cluster --service n8n-service --desired-count 0"
+      - "Reactivar n8n en Railway"
+    frontend:
+      - "Cambiar DNS del frontend a Railway"
+      - "aws cloudfront create-invalidation --distribution-id ${DISTRIBUTION_ID} --paths '/*'"
+
+# ============================================================================
+# MONITOREO Y ALERTAS
+# ============================================================================
+monitoring:
+  metrics:
+    - name: "ECS CPU Utilization"
+      threshold: 80
+      action: "scale_out"
+      
+    - name: "RDS Connections"
+      threshold: 80
+      action: "alert"
+      
+    - name: "ALB Response Time"
+      threshold: 1000
+      action: "alert"
+      
+    - name: "CloudFront Error Rate"
+      threshold: 5
+      action: "alert"
+      
+  alerts:
+    sns_topic: "migration-alerts"
+    endpoints:
+      - "email:admin@tudominio.com"
+      - "slack:webhook_url"
+
+# ============================================================================
+# COSTOS ESTIMADOS
+# ============================================================================
+cost_estimation:
+  monthly_aws_costs:
+    compute:
+      ecs_fargate: "$150-300"
+      
+    database:
+      rds_postgresql: "$100-200"
+      elasticache_redis: "$80-150"
+      
+    networking:
+      alb: "$20-30"
+      cloudfront: "$10-50"
+      route53: "$5-10"
+      
+    storage:
+      s3: "$5-20"
+      ebs: "$10-30"
+      
+    total_estimated: "$380-890/month"
+    
+  railway_current: "$200-400/month"
+  
+  migration_savings: "Potencial ahorro después de optimización"
+
+# ============================================================================
+# LOGS Y TRACKING
+# ============================================================================
+execution_log:
+  start_time: null
+  end_time: null
+  current_phase: null
+  current_task: null
+  errors: []
+  warnings: []
+  completed_tasks: []
+  
+status_tracking:
+  overall_progress: 0
+  phase_progress: {}
+  last_updated: null
+  next_action: "Configurar AWS CLI y credenciales"

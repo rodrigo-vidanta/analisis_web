@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidanta AI Architecture - Debug Version</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #0078d4;
+            --primary-hover: #106ebe;
+            --secondary-color: #323130;
+            --background-light: #faf9f8;
+            --background-white: #ffffff;
+            --border-light: #e1dfdd;
+            --text-primary: #323130;
+            --text-secondary: #605e5c;
+            --success-color: #107c10;
+            --warning-color: #ff8c00;
+            --error-color: #d13438;
+            --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-light);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: var(--background-white);
+            border-bottom: 1px solid var(--border-light);
+            padding: 24px 32px;
+            box-shadow: var(--shadow-light);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .debug-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .debug-title {
+            font-weight: bold;
+            color: #dc3545;
+            margin-bottom: 8px;
+        }
+
+        .debug-log {
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .nav-tabs {
+            background-color: var(--background-white);
+            border-radius: 8px;
+            box-shadow: var(--shadow-light);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .nav-tabs-header {
+            display: flex;
+            border-bottom: 1px solid var(--border-light);
+            overflow-x: auto;
+        }
+
+        .nav-tab {
+            padding: 16px 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            position: relative;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .nav-tab:hover {
+            background-color: var(--background-light);
+            color: var(--text-primary);
+        }
+
+        .nav-tab.active {
+            color: var(--primary-color);
+            background-color: var(--background-white);
+        }
+
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 32px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background-color: var(--background-white);
+            border-radius: 8px;
+            box-shadow: var(--shadow-light);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            background-color: var(--background-light);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .diagram-container {
+            background-color: var(--background-white);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 24px;
+            overflow: auto;
+            min-height: 400px;
+        }
+
+        .mermaid {
+            display: block;
+            text-align: center;
+            background-color: #fafafa;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 10px 0;
+            border: 2px dashed #ccc;
+        }
+
+        .test-diagram {
+            background-color: #e8f5e8;
+            border: 2px solid #28a745;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            background-color: var(--background-white);
+            color: var(--text-primary);
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <div class="header-icon">
+                    <i class="fas fa-bug"></i>
+                </div>
+                <div>
+                    <h1>Vidanta AI Architecture - Debug Mode</h1>
+                    <p>Diagnosticando problemas de Mermaid.js</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Debug Panel -->
+        <div class="debug-panel">
+            <div class="debug-title">DEBUG LOG - Mermaid Diagnostics</div>
+            <div class="debug-log" id="debug-log">
+Iniciando diagnóstico...
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <div class="nav-tabs-header">
+                <button class="nav-tab active" onclick="showTab('test')">
+                    <i class="fas fa-vial"></i>
+                    Test Diagrams
+                </button>
+                <button class="nav-tab" onclick="showTab('overview')">
+                    <i class="fas fa-chart-line"></i>
+                    Overview
+                </button>
+                <button class="nav-tab" onclick="showTab('aws-console')">
+                    <i class="fas fa-cloud"></i>
+                    AWS Console
+                </button>
+            </div>
+
+            <!-- Test Tab -->
+            <div id="test" class="tab-content active">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-flask"></i>
+                            Mermaid Syntax Tests
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <button class="btn btn-primary" onclick="testDiagram1()">Test Simple Graph</button>
+                        <button class="btn btn-primary" onclick="testDiagram2()">Test Flowchart</button>
+                        <button class="btn btn-primary" onclick="testDiagram3()">Test Sequence</button>
+                        <button class="btn btn-primary" onclick="clearTests()">Clear Tests</button>
+
+                        <h4>Test 1: Simple Graph</h4>
+                        <div class="test-diagram" id="test1"></div>
+
+                        <h4>Test 2: Flowchart</h4>
+                        <div class="test-diagram" id="test2"></div>
+
+                        <h4>Test 3: Sequence Diagram</h4>
+                        <div class="test-diagram" id="test3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overview" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-chart-line"></i>
+                            Project Overview
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="diagram-container">
+                            <h4>Customer Journey (Working Version)</h4>
+                            <div class="mermaid" id="overview-diagram">
+graph LR
+A[Social Media] --> B[WhatsApp]
+B --> C[AI Discovery]
+C --> D[VAPI Call]
+D --> E[Human Agent]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AWS Console Tab -->
+            <div id="aws-console" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-cloud"></i>
+                            AWS Console Links
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <ul>
+                            <li><strong>RDS:</strong> <a href="https://us-west-2.console.aws.amazon.com/rds/home?region=us-west-2#databases:" target="_blank">n8n-postgres</a></li>
+                            <li><strong>ElastiCache:</strong> <a href="https://us-west-2.console.aws.amazon.com/elasticache/home?region=us-west-2#redis:" target="_blank">n8n-redis</a></li>
+                            <li><strong>ECS:</strong> <a href="https://us-west-2.console.aws.amazon.com/ecs/home?region=us-west-2#clusters" target="_blank">n8n-production</a></li>
+                            <li><strong>VPC:</strong> <a href="https://us-west-2.console.aws.amazon.com/vpc/home?region=us-west-2#vpcs:" target="_blank">n8n-vpc</a></li>
+                        </ul>
+
+                        <h4>Resource Information:</h4>
+                        <ul>
+                            <li><strong>PostgreSQL:</strong> <code>n8n-postgres.c9memqg6633m.us-west-2.rds.amazonaws.com:5432</code></li>
+                            <li><strong>Redis:</strong> <code>n8n-redis.7w6q9d.ng.0001.usw2.cache.amazonaws.com:6379</code></li>
+                            <li><strong>VPC:</strong> <code>vpc-05eb3d8651aff5257</code></li>
+                            <li><strong>Region:</strong> <code>us-west-2 (Oregon)</code></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Debug logging function
+        function debugLog(message) {
+            const debugElement = document.getElementById('debug-log');
+            const timestamp = new Date().toLocaleTimeString();
+            debugElement.textContent += `[${timestamp}] ${message}\n`;
+            debugElement.scrollTop = debugElement.scrollHeight;
+            console.log(`[MERMAID DEBUG] ${message}`);
+        }
+
+        // Error handling for Mermaid
+        window.addEventListener('error', function(e) {
+            debugLog(`ERROR: ${e.message} at ${e.filename}:${e.lineno}`);
+        });
+
+        // Test if Mermaid is loaded
+        debugLog('Checking if Mermaid is loaded...');
+        if (typeof mermaid !== 'undefined') {
+            debugLog(`✅ Mermaid loaded successfully. Version: ${mermaid.version || 'unknown'}`);
+        } else {
+            debugLog('❌ Mermaid not loaded');
+        }
+
+        // Initialize Mermaid with extensive logging
+        debugLog('Initializing Mermaid...');
+        
+        try {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'default',
+                logLevel: 'debug',
+                securityLevel: 'loose',
+                flowchart: {
+                    useMaxWidth: true,
+                    htmlLabels: false
+                }
+            });
+            debugLog('✅ Mermaid initialized successfully');
+        } catch (error) {
+            debugLog(`❌ Mermaid initialization error: ${error.message}`);
+        }
+
+        function testDiagram1() {
+            debugLog('Testing simple graph...');
+            const element = document.getElementById('test1');
+            const graphDefinition = `
+graph LR
+A[Start] --> B[End]
+`;
+            
+            debugLog(`Graph definition: ${graphDefinition.trim()}`);
+            
+            try {
+                element.innerHTML = `<div class="mermaid">${graphDefinition}</div>`;
+                mermaid.init(undefined, element.querySelector('.mermaid'));
+                debugLog('✅ Simple graph test passed');
+            } catch (error) {
+                debugLog(`❌ Simple graph test failed: ${error.message}`);
+                element.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+            }
+        }
+
+        function testDiagram2() {
+            debugLog('Testing flowchart...');
+            const element = document.getElementById('test2');
+            const graphDefinition = `
+flowchart TD
+A[Start] --> B[Process]
+B --> C[End]
+`;
+            
+            debugLog(`Flowchart definition: ${graphDefinition.trim()}`);
+            
+            try {
+                element.innerHTML = `<div class="mermaid">${graphDefinition}</div>`;
+                mermaid.init(undefined, element.querySelector('.mermaid'));
+                debugLog('✅ Flowchart test passed');
+            } catch (error) {
+                debugLog(`❌ Flowchart test failed: ${error.message}`);
+                element.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+            }
+        }
+
+        function testDiagram3() {
+            debugLog('Testing sequence diagram...');
+            const element = document.getElementById('test3');
+            const graphDefinition = `
+sequenceDiagram
+participant A
+participant B
+A->>B: Hello
+B-->>A: Hi
+`;
+            
+            debugLog(`Sequence definition: ${graphDefinition.trim()}`);
+            
+            try {
+                element.innerHTML = `<div class="mermaid">${graphDefinition}</div>`;
+                mermaid.init(undefined, element.querySelector('.mermaid'));
+                debugLog('✅ Sequence diagram test passed');
+            } catch (error) {
+                debugLog(`❌ Sequence diagram test failed: ${error.message}`);
+                element.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+            }
+        }
+
+        function clearTests() {
+            debugLog('Clearing all tests...');
+            document.getElementById('test1').innerHTML = '';
+            document.getElementById('test2').innerHTML = '';
+            document.getElementById('test3').innerHTML = '';
+        }
+
+        function showTab(tabName) {
+            debugLog(`Switching to tab: ${tabName}`);
+            
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+
+            // Try to render diagrams in the active tab
+            if (tabName === 'overview') {
+                debugLog('Attempting to render overview diagram...');
+                try {
+                    const diagram = document.querySelector('#overview-diagram');
+                    if (diagram && !diagram.getAttribute('data-processed')) {
+                        mermaid.init(undefined, diagram);
+                        debugLog('✅ Overview diagram rendered successfully');
+                    }
+                } catch (error) {
+                    debugLog(`❌ Overview diagram failed: ${error.message}`);
+                }
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('DOM Content Loaded');
+            debugLog('Checking Mermaid configuration...');
+            
+            try {
+                debugLog(`Mermaid config: ${JSON.stringify(mermaid.getConfig())}`);
+            } catch (error) {
+                debugLog(`Error getting Mermaid config: ${error.message}`);
+            }
+            
+            // Test basic functionality
+            debugLog('Testing basic Mermaid functionality...');
+            setTimeout(() => {
+                try {
+                    // Try to render the overview diagram
+                    const overviewDiagram = document.querySelector('#overview-diagram');
+                    if (overviewDiagram) {
+                        debugLog('Found overview diagram, attempting to render...');
+                        mermaid.init(undefined, overviewDiagram);
+                        debugLog('✅ Overview diagram initialization completed');
+                    }
+                } catch (error) {
+                    debugLog(`❌ Overview diagram initialization failed: ${error.message}`);
+                    debugLog(`Error stack: ${error.stack}`);
+                }
+            }, 1000);
+        });
+
+        // Additional debugging
+        debugLog('Script loaded successfully');
+        debugLog(`Browser: ${navigator.userAgent}`);
+        debugLog(`Mermaid object available: ${typeof mermaid !== 'undefined'}`);
+    </script>
+</body>
+</html>

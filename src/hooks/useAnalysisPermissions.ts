@@ -30,9 +30,9 @@ export const useAnalysisPermissions = () => {
       return;
     }
 
-    // Developers no tienen acceso
+    // Developers tienen acceso a análisis y live monitor, pero NO a admin/constructor/plantillas
     if (user.role_name === 'developer') {
-      setPermissions({ natalia: false, pqnc: false, liveMonitor: false, loading: false });
+      setPermissions({ natalia: true, pqnc: true, liveMonitor: true, loading: false });
       return;
     }
 

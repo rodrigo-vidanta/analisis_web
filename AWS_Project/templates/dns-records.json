@@ -1,0 +1,72 @@
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "${DOMAIN}",
+        "Type": "A",
+        "SetIdentifier": "aws-primary",
+        "Failover": "PRIMARY",
+        "AliasTarget": {
+          "DNSName": "${ALB_DNS_NAME}",
+          "EvaluateTargetHealth": true,
+          "HostedZoneId": "${ALB_HOSTED_ZONE_ID}"
+        },
+        "HealthCheckId": "${AWS_HEALTH_CHECK_ID}"
+      }
+    },
+    {
+      "Action": "UPSERT", 
+      "ResourceRecordSet": {
+        "Name": "${DOMAIN}",
+        "Type": "A",
+        "SetIdentifier": "gcp-secondary",
+        "Failover": "SECONDARY",
+        "TTL": 60,
+        "ResourceRecords": [
+          {
+            "Value": "${GCP_LOAD_BALANCER_IP}"
+          }
+        ],
+        "HealthCheckId": "${GCP_HEALTH_CHECK_ID}"
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "www.${DOMAIN}",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "${DOMAIN}"
+          }
+        ]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "n8n.${DOMAIN}",
+        "Type": "A",
+        "AliasTarget": {
+          "DNSName": "${ALB_DNS_NAME}",
+          "EvaluateTargetHealth": true,
+          "HostedZoneId": "${ALB_HOSTED_ZONE_ID}"
+        }
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "api.${DOMAIN}",
+        "Type": "A", 
+        "AliasTarget": {
+          "DNSName": "${ALB_DNS_NAME}",
+          "EvaluateTargetHealth": true,
+          "HostedZoneId": "${ALB_HOSTED_ZONE_ID}"
+        }
+      }
+    }
+  ]
+}
