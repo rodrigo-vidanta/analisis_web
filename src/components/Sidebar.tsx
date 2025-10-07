@@ -254,6 +254,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     }] : [])
   ];
 
+  // AWS Manager - Para Admin y Developer
+  const awsItem: MenuItemProps | null = canAccessModule('aws-manager') ? {
+    icon: (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4" />
+      </svg>
+    ),
+    label: 'AWS Manager',
+    active: appMode === 'aws-manager',
+    onClick: () => setAppMode('aws-manager')
+  } : null;
 
   // Admin al final
   const adminItem: MenuItemProps | null = user?.role_name === 'admin' ? {
@@ -329,6 +341,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
             <MenuItem key={index} {...item} isCollapsed={isCollapsed} />
           ))}
         </nav>
+
+        {/* AWS Manager - Para Admin y Developer */}
+        {awsItem && (
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+            <MenuItem {...awsItem} isCollapsed={isCollapsed} />
+          </div>
+        )}
 
         {/* Admin al final */}
         {adminItem && (

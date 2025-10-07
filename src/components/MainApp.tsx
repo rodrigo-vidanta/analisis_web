@@ -296,7 +296,7 @@ function MainApp() {
         );
       case 'aws-manager':
         return (
-          user?.role_name === 'admin' ? (
+          canAccessModule('aws-manager') ? (
             <AWSManager 
               darkMode={appMode === 'constructor' ? darkMode : localDarkMode}
               onToggleDarkMode={handleToggleDarkMode}
@@ -308,7 +308,7 @@ function MainApp() {
                   Acceso Denegado
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Solo administradores pueden acceder al AWS Manager
+                  No tienes permisos para acceder al AWS Manager
                 </p>
               </div>
             </div>
