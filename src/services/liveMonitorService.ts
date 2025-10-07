@@ -194,7 +194,13 @@ class LiveMonitorService {
       }
 
       // Obtener datos de los prospectos relacionados
-      const prospectIds = data.map(call => call.prospecto);
+      const prospectIds = data.map(call => call.prospecto).filter(id => id !== null && id !== undefined);
+      
+      if (prospectIds.length === 0) {
+        console.warn('⚠️ No hay IDs de prospectos válidos');
+        return [];
+      }
+
       const { data: prospectosData, error: prospectError } = await analysisSupabase
         .from('prospectos')
         .select('*')
@@ -889,7 +895,13 @@ class LiveMonitorService {
       }
 
       // Obtener datos de los prospectos relacionados
-      const prospectIds = data.map(call => call.prospecto);
+      const prospectIds = data.map(call => call.prospecto).filter(id => id !== null && id !== undefined);
+      
+      if (prospectIds.length === 0) {
+        console.warn('⚠️ No hay IDs de prospectos válidos');
+        return [];
+      }
+
       const { data: prospectosData, error: prospectError } = await analysisSupabase
         .from('prospectos')
         .select('*')
