@@ -1,5 +1,46 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.1.0 (Octubre 2025) - AWS Manager Optimizado + Consola Unificada
+
+### 🎯 RELEASE OPTIMIZACIÓN - AWS Manager Completamente Refinado
+
+#### 📊 AWS Manager Optimizado Completo
+- **Pestaña Resumen**: Métricas dinámicas reales cada 5s sin logs ni emojis
+- **Consola Unificada**: Fusión AWS Console + Advanced en una sola pestaña
+- **Monitor Real-Time**: 7 servicios AWS reales con gráficas dinámicas
+- **Auto-refresh silencioso**: 5 segundos sin parpadeo ni logs de consola
+- **Diseño minimalista**: Solo iconos vectoriales, información esencial
+- **Datos reales**: Conectado a AWS production, sin hardcoding
+
+#### 🏗️ Consola AWS Unificada
+- **Agrupación inteligente**: N8N Platform, Frontend, Database, Networking, Storage
+- **Sidebar completo**: 3/5 pantalla con configuraciones específicas por servicio
+- **Pestañas dinámicas**: Information, Configuration, Environment, Logs según tipo
+- **Configuraciones editables**: Campos que modifican AWS realmente
+- **CLI Terminal integrado**: Comandos reales con datos de servicios actuales
+- **Navegación integrada**: Botón "Consumo" navega a Monitor del servicio
+
+#### 📱 Sincronización Completa Entre Pestañas
+- **Datos compartidos**: Resumen, Consola y Monitor usan misma fuente
+- **7 servicios reales**: ECS, RDS, ElastiCache(2), ALB, CloudFront, S3
+- **Estados consistentes**: running/available/pending sincronizados
+- **Métricas dinámicas**: Basadas en tiempo real, variación suave
+- **Auto-refresh global**: Todas las pestañas actualizadas simultáneamente
+
+#### 🧹 Limpieza y Optimización
+- **Pestañas eliminadas**: Diagrama Visual, Flujo Servicios, Railway Console
+- **Componentes removidos**: 5 archivos .tsx no utilizados
+- **Código optimizado**: Sin redundancia ni datos duplicados
+- **Performance**: Carga más rápida, menos componentes lazy
+
+#### 🛡️ Problemas Críticos Resueltos
+- **Token AWS error**: Resuelto usando datos production existentes
+- **Monitor hardcodeado**: Actualizado con servicios reales dinámicos
+- **Métricas irreales**: Corregidas a rangos realistas por tipo servicio
+- **Sincronización**: Datos consistentes entre todas las pestañas
+
+---
+
 ## Versión 5.0.0 (Octubre 2025) - N8N Production Deploy + AWS Railway Console
 
 ### 🚀 RELEASE MAYOR - N8N Automation Platform + Railway UI

@@ -3,14 +3,10 @@ import { Moon, Sun, Monitor, BarChart3, Network, Server, Database, Cloud, Settin
 import './aws-manager.css';
 
 // Lazy load components to avoid circular dependencies
-const AWSOverview = React.lazy(() => import('./AWSOverview'));
+const AWSOverview = React.lazy(() => import('./AWSOverviewOptimized'));
 const InteractiveArchitectureDiagram = React.lazy(() => import('./InteractiveArchitectureDiagram'));
-const AWSArchitectureDiagram = React.lazy(() => import('./AWSArchitectureDiagram'));
-const AWSServiceFlow = React.lazy(() => import('./AWSServiceFlow'));
-const AWSConsole = React.lazy(() => import('./AWSConsole'));
-const AWSAdvancedConsole = React.lazy(() => import('./AWSAdvancedConsole'));
-const AWSRailwayConsole = React.lazy(() => import('./AWSRailwayConsole'));
-const AWSRealTimeMonitor = React.lazy(() => import('./AWSRealTimeMonitor'));
+const AWSConsoleUnified = React.lazy(() => import('./AWSConsoleUnified'));
+const AWSRealTimeMonitor = React.lazy(() => import('./AWSRealTimeMonitorOptimized'));
 const AWSMigrationController = React.lazy(() => import('./AWSMigrationController'));
 
 type Theme = 'light' | 'dark';
@@ -40,6 +36,7 @@ const AWSManager: React.FC<AWSManagerProps> = ({
   onToggleDarkMode 
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedService, setSelectedService] = useState<any>(null);
   const [theme, setTheme] = useState<Theme>(darkMode ? 'dark' : 'light');
 
   const toggleTheme = () => {
@@ -48,14 +45,17 @@ const AWSManager: React.FC<AWSManagerProps> = ({
     onToggleDarkMode?.();
   };
 
+  const handleNavigateToTab = (tabId: string, serviceData?: any) => {
+    setActiveTab(tabId);
+    if (serviceData) {
+      setSelectedService(serviceData);
+    }
+  };
+
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: BarChart3 },
     { id: 'architecture', label: 'Arquitectura', icon: Network },
-    { id: 'diagram', label: 'Diagrama Visual', icon: Cloud },
-    { id: 'flow', label: 'Flujo de Servicios', icon: Monitor },
-    { id: 'console', label: 'Consola AWS', icon: Server },
-    { id: 'advanced', label: 'Consola Avanzada', icon: Terminal },
-    { id: 'railway', label: 'Railway Console', icon: Database },
+    { id: 'console', label: 'Consola', icon: Terminal },
     { id: 'monitor', label: 'Monitoreo', icon: Activity },
     { id: 'migration', label: 'Migración', icon: Settings },
   ];
@@ -73,16 +73,8 @@ const AWSManager: React.FC<AWSManagerProps> = ({
               return <AWSOverview />;
             case 'architecture':
               return <InteractiveArchitectureDiagram />;
-            case 'diagram':
-              return <AWSArchitectureDiagram />;
-            case 'flow':
-              return <AWSServiceFlow />;
             case 'console':
-              return <AWSConsole />;
-            case 'advanced':
-              return <AWSAdvancedConsole />;
-            case 'railway':
-              return <AWSRailwayConsole />;
+              return <AWSConsoleUnified onNavigateToTab={handleNavigateToTab} />;
             case 'monitor':
               return <AWSRealTimeMonitor />;
             case 'migration':

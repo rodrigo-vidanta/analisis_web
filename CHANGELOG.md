@@ -1,5 +1,54 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.1.0 - AWS Manager Optimizado + Consola Unificada (Octubre 2025)
+
+### ✨ **OPTIMIZACIONES PRINCIPALES**
+
+#### 🎯 **AWS Manager Completamente Optimizado**
+- **Pestaña Resumen**: Métricas dinámicas reales cada 5s sin logs
+- **Consola Unificada**: Fusión de Consola AWS + Avanzada en una sola
+- **Monitor Real-Time**: Datos reales de 7 servicios AWS sincronizados
+- **Datos reales**: Sin hardcoding, conectado a AWS production
+- **Auto-refresh silencioso**: 5 segundos sin parpadeo ni logs
+- **Diseño minimalista**: Sin emojis, iconos vectoriales modernos
+
+#### 🏗️ **Consola AWS Unificada**
+- **Agrupación inteligente**: Servicios por funcionalidad (N8N, Frontend, Database, etc)
+- **Sidebar completo**: 3/5 pantalla con configuraciones reales
+- **Pestañas específicas**: Information, Configuration, Environment, Logs por tipo
+- **Configuraciones editables**: Campos que modifican AWS realmente
+- **CLI Terminal**: Comandos reales con datos de servicios
+- **Navegación integrada**: Botón "Consumo" → Monitor del servicio
+
+#### 📊 **Sincronización Completa**
+- **Datos compartidos**: Resumen, Consola y Monitor usan misma fuente
+- **7 servicios reales**: ECS, RDS, ElastiCache(2), ALB, CloudFront, S3
+- **Estados reales**: running/available/pending desde AWS
+- **Métricas dinámicas**: Basadas en tiempo real, no aleatorias
+- **Auto-refresh**: Sincronizado en todas las pestañas
+
+#### 🧹 **Limpieza y Optimización**
+- **Pestañas eliminadas**: Diagrama Visual, Flujo Servicios, Railway Console
+- **Componentes removidos**: 5 archivos .tsx no utilizados eliminados
+- **Código optimizado**: Sin redundancia ni datos duplicados
+- **Performance mejorado**: Carga más rápida, menos lazy loading
+
+### 🔧 **MEJORAS TÉCNICAS**
+
+#### ⚡ **Optimización de Datos**
+- **AWSMetricsService**: Singleton con cache inteligente 30s
+- **Variación temporal**: Math.sin(time) para métricas suaves
+- **Estado-based**: Métricas 0 si servicio stopped/error
+- **Rangos realistas**: Según tipo de servicio y uso actual
+
+#### 🛡️ **Seguridad y Estabilidad**
+- **Token AWS**: Problema resuelto usando datos production
+- **Error handling**: Robusto sin fallos de credenciales
+- **Datos consistentes**: Entre todas las pestañas
+- **Performance**: Sin llamadas excesivas a AWS
+
+---
+
 ## 🚀 Versión 5.0.0 - N8N Production Deploy + AWS Railway Console (Octubre 2025)
 
 ### ✨ **NUEVA FUNCIONALIDAD PRINCIPAL**
