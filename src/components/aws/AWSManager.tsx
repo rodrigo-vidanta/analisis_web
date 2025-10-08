@@ -9,6 +9,7 @@ const AWSArchitectureDiagram = React.lazy(() => import('./AWSArchitectureDiagram
 const AWSServiceFlow = React.lazy(() => import('./AWSServiceFlow'));
 const AWSConsole = React.lazy(() => import('./AWSConsole'));
 const AWSAdvancedConsole = React.lazy(() => import('./AWSAdvancedConsole'));
+const AWSRailwayConsole = React.lazy(() => import('./AWSRailwayConsole'));
 const AWSRealTimeMonitor = React.lazy(() => import('./AWSRealTimeMonitor'));
 const AWSMigrationController = React.lazy(() => import('./AWSMigrationController'));
 
@@ -54,6 +55,7 @@ const AWSManager: React.FC<AWSManagerProps> = ({
     { id: 'flow', label: 'Flujo de Servicios', icon: Monitor },
     { id: 'console', label: 'Consola AWS', icon: Server },
     { id: 'advanced', label: 'Consola Avanzada', icon: Terminal },
+    { id: 'railway', label: 'Railway Console', icon: Database },
     { id: 'monitor', label: 'Monitoreo', icon: Activity },
     { id: 'migration', label: 'Migración', icon: Settings },
   ];
@@ -79,6 +81,8 @@ const AWSManager: React.FC<AWSManagerProps> = ({
               return <AWSConsole />;
             case 'advanced':
               return <AWSAdvancedConsole />;
+            case 'railway':
+              return <AWSRailwayConsole />;
             case 'monitor':
               return <AWSRealTimeMonitor />;
             case 'migration':

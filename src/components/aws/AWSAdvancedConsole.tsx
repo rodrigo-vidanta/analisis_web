@@ -548,6 +548,7 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ resource, onUpd
   const tabs = [
     { id: 'config', label: 'Configuration', icon: Settings },
     { id: 'env', label: 'Environment', icon: Code },
+    { id: 'git', label: 'Git/CI-CD', icon: GitBranch },
     { id: 'details', label: 'Details', icon: Eye },
     { id: 'logs-runtime', label: 'Runtime Logs', icon: FileText },
     { id: 'logs-deploy', label: 'Deploy Logs', icon: Terminal }
@@ -557,14 +558,14 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ resource, onUpd
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-4 px-4">
+        <nav className="flex flex-wrap gap-2 sm:space-x-4 px-4 py-2 overflow-x-auto">
           {tabs.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
