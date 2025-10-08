@@ -1,5 +1,45 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.2.0 (Octubre 2025) - Módulo Prospectos + Análisis IA Rediseñado
+
+### 🚀 RELEASE FUNCIONALIDADES - Módulos de Gestión y Análisis
+
+#### 📊 Módulo Prospectos Completo
+- **Data grid avanzado**: 23 prospectos reales desde analysisSupabase
+- **Filtros inteligentes**: Etapa, score (Q Reto/Premium/Elite), campaña origen
+- **Sorting dinámico**: Click en headers para ordenamiento
+- **Sidebar detallado**: Información completa con animaciones Framer Motion
+- **Historial llamadas**: Data grid integrado con navegación automática
+- **Vinculación Live Chat**: Verificación uchat_conversations y navegación
+- **Diseño minimalista**: Sin emojis, iconos Lucide, layout compacto
+
+#### 🧠 Análisis IA Rediseñado (antes Natalia IA)
+- **Renombrado**: 'Natalia IA' → 'Análisis IA' más descriptivo
+- **Diseño PQNC Humans**: Replicación fiel del layout superior
+- **Datos híbridos**: call_analysis_summary + llamadas_ventas enriquecidos
+- **Gráfica radar**: Chart.js tipo red con calificaciones visuales
+- **Sidebar prospecto**: Click iniciales/nombre abre información completa
+- **Modal optimizado**: Centrado como PQNC, z-index correcto
+- **Audio integrado**: Reproductor HTML5 nativo sin descarga
+- **Transcripción chat**: Conversación parseada con roles diferenciados
+
+#### 🔗 Integración Completa Entre Módulos
+- **Navegación inteligente**: Prospectos → Análisis IA automático
+- **Sidebar cruzado**: Análisis IA → información prospecto
+- **Live Chat vinculado**: Botón condicional si conversación activa
+- **Datos sincronizados**: Información consistente entre módulos
+- **localStorage + CustomEvents**: Comunicación entre componentes
+
+#### 🎨 Mejoras Técnicas y Visuales
+- **Animaciones elegantes**: Framer Motion sin rebotes molestos
+- **Layout responsive**: Padding correcto, columnas optimizadas
+- **Score base 100**: Barras sin desbordamiento, métricas precisas
+- **Z-index jerarquía**: Modal 50, sidebar prospecto 100
+- **Error handling**: Manejo robusto de objetos en feedback
+- **Performance**: Auto-refresh silencioso, cache inteligente
+
+---
+
 ## Versión 5.1.0 (Octubre 2025) - AWS Manager Optimizado + Consola Unificada
 
 ### 🎯 RELEASE OPTIMIZACIÓN - AWS Manager Completamente Refinado

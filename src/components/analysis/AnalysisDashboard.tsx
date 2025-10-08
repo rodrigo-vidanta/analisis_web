@@ -169,6 +169,40 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
     loadLastRecords(10);
   }, []);
 
+  // Efecto separado para manejar call_id desde Prospectos
+  useEffect(() => {
+    // Capturar call_id desde localStorage si viene desde Prospectos
+    const savedCallId = localStorage.getItem('natalia-search-call-id');
+    if (savedCallId) {
+      setSearchCallId(savedCallId);
+      localStorage.removeItem('natalia-search-call-id'); // Limpiar después de usar
+    }
+    
+    // Escuchar evento personalizado desde Prospectos
+    const handleNataliaSearch = (event: any) => {
+      const callId = event.detail;
+      if (callId) {
+        setSearchCallId(callId);
+      }
+    };
+    
+    window.addEventListener('natalia-search-call-id', handleNataliaSearch);
+    
+    return () => {
+      window.removeEventListener('natalia-search-call-id', handleNataliaSearch);
+    };
+  }, []);
+
+  // Efecto para hacer búsqueda automática cuando searchCallId cambia
+  useEffect(() => {
+    if (searchCallId && searchCallId.length > 0) {
+      const timer = setTimeout(() => {
+        searchById();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [searchCallId]);
+
   useEffect(() => {
     applyFilters();
   }, [minScore, filterCategory, filterInteres, filterDate, showOnlyIntelligent, allData]);

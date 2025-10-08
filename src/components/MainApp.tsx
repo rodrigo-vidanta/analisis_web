@@ -29,6 +29,12 @@ import LiveChatModule from './chat/LiveChatModule';
 // AWS Manager
 import AWSManager from './aws/AWSManager';
 
+// Prospectos Manager
+import ProspectosManager from './prospectos/ProspectosManager';
+
+// Analysis IA Complete
+import AnalysisIAComplete from './analysis/AnalysisIAComplete';
+
 function MainApp() {
   // Verificación de seguridad para AuthContext
   let authData;
@@ -231,7 +237,7 @@ function MainApp() {
       case 'natalia':
         return (
           <ProtectedRoute requireModule="analisis" requireSubModule="natalia">
-            <AnalysisDashboard forceMode="natalia" />
+            <AnalysisIAComplete />
           </ProtectedRoute>
         );
       case 'pqnc':
@@ -314,6 +320,39 @@ function MainApp() {
             </div>
           )
         );
+
+      case 'prospectos':
+        return (
+          canAccessModule('prospectos') ? (
+            <ProspectosManager 
+              onNavigateToLiveChat={(prospectoId) => {
+                setAppMode('live-chat');
+                // TODO: Pasar prospectoId al live chat para abrir conversación específica
+              }}
+              onNavigateToNatalia={(callId) => {
+                setAppMode('natalia');
+                // Pasar callId mediante URL params o localStorage para que Natalia lo capture
+                localStorage.setItem('natalia-search-call-id', callId);
+                setTimeout(() => {
+                  // Trigger search después de que el componente se monte
+                  window.dispatchEvent(new CustomEvent('natalia-search-call-id', { detail: callId }));
+                }, 500);
+              }}
+            />
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Acceso Denegado
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  No tienes permisos para acceder a Prospectos
+                </p>
+              </div>
+            </div>
+          )
+        );
+
       case 'constructor':
       default:
         return (

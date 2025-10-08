@@ -1,8 +1,34 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
-## 🚀 Versión 5.1.0 - AWS Manager Optimizado + Consola Unificada (Octubre 2025)
+## 🚀 Versión 5.2.0 - Módulo Prospectos + Análisis IA Rediseñado (Octubre 2025)
 
-### ✨ **OPTIMIZACIONES PRINCIPALES**
+### ✨ **NUEVAS FUNCIONALIDADES PRINCIPALES**
+
+#### 📊 **Módulo Prospectos Completo**
+- **Data grid avanzado**: 23 prospectos reales con filtros y sorting
+- **Sidebar detallado**: Información completa con animaciones elegantes
+- **Filtros inteligentes**: Por etapa, score, campaña origen
+- **Historial llamadas**: Data grid integrado con navegación a Análisis IA
+- **Vinculación Live Chat**: Botón condicional si hay conversación activa
+- **Diseño minimalista**: Sin emojis, iconos vectoriales, animaciones suaves
+
+#### 🧠 **Análisis IA Rediseñado (antes Natalia IA)**
+- **Diseño PQNC Humans**: Replicación fiel del diseño superior
+- **Datos híbridos**: call_analysis_summary + llamadas_ventas
+- **Gráfica radar**: Visualización tipo red de performance
+- **Sidebar prospecto**: Click en iniciales/nombre abre información completa
+- **Audio integrado**: Reproductor nativo sin botones innecesarios
+- **Transcripción chat**: Conversación parseada como mensajes
+- **Métricas reales**: Score base 100, checkpoint /5, duración real
+
+#### 🔗 **Integración Completa Entre Módulos**
+- **Prospectos → Análisis IA**: Click en llamada navega automáticamente
+- **Análisis IA → Prospecto**: Click en nombre abre sidebar completo
+- **Live Chat vinculado**: Verificación de conversaciones activas
+- **Navegación inteligente**: localStorage + CustomEvents
+- **Datos sincronizados**: Información consistente entre módulos
+
+### ✨ **OPTIMIZACIONES ANTERIORES MANTENIDAS**
 
 #### 🎯 **AWS Manager Completamente Optimizado**
 - **Pestaña Resumen**: Métricas dinámicas reales cada 5s sin logs
