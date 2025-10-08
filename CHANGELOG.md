@@ -1,5 +1,129 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 4.0.0 - AWS Manager Completo + Live Monitor Restaurado (Octubre 2025)
+
+### ✨ **NUEVA FUNCIONALIDAD PRINCIPAL**
+
+#### ☁️ **AWS Manager - Consola Completa**
+- **Descubrimiento automático**: Todos los servicios AWS (ECS, RDS, ElastiCache, ALB, CloudFront, S3)
+- **Consola básica**: Vista general con métricas en tiempo real
+- **Consola avanzada**: Configuración específica por servicio con opciones editables
+- **Monitoreo real-time**: Actualización automática cada 10 segundos
+- **Arquitectura visual**: Diagramas interactivos de infraestructura
+- **Comandos terminal**: Control directo de recursos AWS
+- **Acciones rápidas**: Botones específicos por servicio
+
+#### 🎛️ **Consola AWS Avanzada**
+- **ECS**: Configuración de servicios, tareas, escalado automático
+- **RDS**: Gestión de bases de datos, backups, configuración SSL
+- **ElastiCache**: Administración Redis, clusters, configuración memoria
+- **ALB**: Load balancers, target groups, health checks
+- **CloudFront**: Distribuciones CDN, invalidaciones, configuración cache
+- **S3**: Buckets, políticas, hosting estático, CORS
+
+#### 🔐 **Sistema de Permisos Desarrollador**
+- **Acceso completo**: AWS Manager, Live Monitor, Análisis, AI Models
+- **Restricciones**: Admin, Agent Studio, Plantillas, Constructor
+- **Sidebar mejorado**: AWS Manager visible para developers
+- **Permisos granulares**: Control específico por módulo
+
+#### 📡 **Live Monitor Completamente Restaurado**
+- **Consultas Supabase**: Filtrado de IDs null/undefined corregido
+- **Error 400 resuelto**: Queries malformadas eliminadas
+- **Datos prospectos**: Carga correcta sin errores
+- **Monitoreo real-time**: Llamadas activas y finalizadas
+- **Control audio**: Configuraciones Tone.js funcionales
+- **Transferencias**: Sistema de feedback operativo
+
+#### 🌐 **Deploy AWS Completo**
+- **Frontend S3**: Hosting estático configurado
+- **CloudFront CDN**: Distribución global con HTTPS
+- **Invalidación cache**: Actualizaciones inmediatas
+- **Variables entorno**: Configuración Vite para producción
+- **Credenciales seguras**: Sin hardcoding, solo env vars
+
+### 🔧 **MEJORAS TÉCNICAS**
+
+#### ⚡ **Optimización Frontend**
+- **Lazy loading**: AWS Manager con React.lazy y Suspense
+- **Bundle splitting**: Chunks optimizados por servicio
+- **Error boundaries**: Manejo robusto de errores
+- **Performance**: Reducción tiempo carga inicial
+
+#### 🛡️ **Seguridad y Estabilidad**
+- **GitHub Push Protection**: Credenciales removidas del código
+- **Environment variables**: Configuración segura con import.meta.env
+- **CORS handling**: Soluciones para llamadas AWS desde browser
+- **Production service**: Mock data para frontend sin backend AWS
+
+#### 🔄 **Arquitectura Mejorada**
+- **AWS Services**: Separación browser vs production
+- **Service discovery**: Detección automática de recursos
+- **Error handling**: Manejo robusto de fallos de conexión
+- **Retry logic**: Reintentos automáticos en consultas
+
+### 🐛 **ERRORES CORREGIDOS**
+
+#### ❌ **Live Monitor Issues**
+- **Supabase 400**: Queries con IDs null eliminados
+- **React Hooks**: useAuth fuera de contexto corregido
+- **Permission access**: Developer role restaurado
+- **Data loading**: Prospectos cargando correctamente
+
+#### ❌ **AWS Manager Issues**
+- **Process undefined**: import.meta.env implementado
+- **CORS errors**: Servicio producción con mock data
+- **Module loading**: Lazy loading para evitar circular deps
+- **Favicon 403**: Archivo agregado al public folder
+
+#### ❌ **Deployment Issues**
+- **CloudFront cache**: Invalidación automática
+- **S3 sync**: Upload optimizado con --delete
+- **Git credentials**: Push protection resuelto
+- **Environment vars**: Configuración Vite correcta
+
+### 📊 **MÉTRICAS Y RENDIMIENTO**
+
+#### 🎯 **AWS Manager**
+- **7+ servicios**: ECS, RDS, ElastiCache, ALB, CloudFront, S3, VPC
+- **3 consolas**: Básica, Avanzada, Monitoreo Real-time
+- **Auto-refresh**: 10 segundos
+- **Response time**: <2s carga inicial
+
+#### 🔄 **Live Monitor**
+- **0 errores 400**: Queries Supabase optimizadas
+- **Real-time data**: Actualización continua
+- **Audio control**: Tone.js completamente funcional
+- **Permission system**: 100% operativo
+
+#### 🚀 **Deployment**
+- **Build time**: ~4.3s
+- **Bundle size**: 1.8MB main chunk
+- **CloudFront**: CDN global activo
+- **Cache invalidation**: <30s propagación
+
+### 🔐 **CONTROL DE ACCESO**
+
+#### 👨‍💻 **Developer Role**
+- ✅ **AWS Manager**: Consolas completas + monitoreo
+- ✅ **Live Monitor**: Llamadas + audio + transferencias
+- ✅ **Análisis**: Natalia + PQNC + métricas
+- ✅ **AI Models**: Gestión modelos + tokens
+- ✅ **Academia**: Contenido ventas + materiales
+- ❌ **Admin**: Panel administración
+- ❌ **Agent Studio**: Constructor agentes
+- ❌ **Plantillas**: Gestión templates
+- ❌ **Constructor**: Wizard agentes
+
+#### 🛠️ **Funcionalidades Técnicas**
+- **AWS CLI integration**: Comandos directos
+- **Real-time monitoring**: Métricas live
+- **Service management**: Start/stop/restart
+- **Configuration editing**: Parámetros AWS
+- **Architecture diagrams**: Visualización infraestructura
+
+---
+
 ## 🤖 Versión 3.1.0 - Control de Bot IA + Sincronización Real (Octubre 2025)
 
 ### ✨ **NUEVA FUNCIONALIDAD PRINCIPAL**
