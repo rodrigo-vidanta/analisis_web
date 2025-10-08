@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, Settings, Code, Eye, FileText, Terminal, 
   GitBranch, Database, Server, Globe, Shield,
@@ -377,6 +377,12 @@ const AWSRailwayConsole: React.FC = () => {
   const [selectedService, setSelectedService] = useState<AWSResource | null>(null);
   const [sliderOpen, setSliderOpen] = useState(false);
 
+  // Debug effect para ver cambios en resources
+  useEffect(() => {
+    console.log('🔄 Resources state changed:', resources);
+    console.log('🔄 Resources length:', resources.length);
+  }, [resources]);
+
   useEffect(() => {
     loadResources();
   }, []);
@@ -384,17 +390,31 @@ const AWSRailwayConsole: React.FC = () => {
   const loadResources = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Loading resources...');
       const allResources = await awsConsoleService.discoverAllResources();
-      setResources(allResources);
+      console.log('📦 Raw resources from service:', allResources);
+      console.log('📦 Type of allResources:', typeof allResources);
+      console.log('📦 Is array?', Array.isArray(allResources));
+      // Asegurar que allResources sea un array
+      const validResources = Array.isArray(allResources) ? allResources : [];
+      console.log('✅ Valid resources to set:', validResources);
+      setResources(validResources);
+      console.log('🎯 Resources state should be updated');
     } catch (error) {
-      console.error('Error loading resources:', error);
+      console.error('❌ Error loading resources:', error);
+      // En caso de error, asegurar que resources sea un array vacío
+      setResources([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Agrupar servicios por funcionalidad
-  const groupServices = (): ServiceGroup[] => {
+  // Agrupar servicios por funcionalidad usando useMemo
+  const serviceGroups = useMemo((): ServiceGroup[] => {
+    // Validar que resources sea un array
+    const validResources = Array.isArray(resources) ? resources : [];
+    console.log('🔍 Processing resources for grouping:', validResources);
+    
     const groups: ServiceGroup[] = [
       {
         id: 'compute',
@@ -402,7 +422,7 @@ const AWSRailwayConsole: React.FC = () => {
         description: 'Application hosting and container services',
         icon: Server,
         color: 'blue',
-        services: resources.filter(r => r.type === 'ECS')
+        services: validResources.filter(r => r.type === 'ECS')
       },
       {
         id: 'database',
@@ -410,7 +430,7 @@ const AWSRailwayConsole: React.FC = () => {
         description: 'Managed database and caching services',
         icon: Database,
         color: 'green',
-        services: resources.filter(r => ['RDS', 'ElastiCache'].includes(r.type))
+        services: validResources.filter(r => ['RDS', 'ElastiCache'].includes(r.type))
       },
       {
         id: 'networking',
@@ -418,7 +438,7 @@ const AWSRailwayConsole: React.FC = () => {
         description: 'Load balancers, CDN, and networking services',
         icon: Network,
         color: 'purple',
-        services: resources.filter(r => ['ALB', 'CloudFront'].includes(r.type))
+        services: validResources.filter(r => ['ALB', 'CloudFront'].includes(r.type))
       },
       {
         id: 'storage',
@@ -426,12 +446,14 @@ const AWSRailwayConsole: React.FC = () => {
         description: 'Object storage and file systems',
         icon: HardDrive,
         color: 'orange',
-        services: resources.filter(r => r.type === 'S3')
+        services: validResources.filter(r => r.type === 'S3')
       }
     ];
 
-    return groups.filter(group => group.services.length > 0);
-  };
+    const filteredGroups = groups.filter(group => group.services.length > 0);
+    console.log('📊 Service groups created:', filteredGroups);
+    return filteredGroups;
+  }, [resources]);
 
   const handleServiceClick = (service: AWSResource) => {
     setSelectedService(service);
@@ -460,10 +482,10 @@ const AWSRailwayConsole: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Infrastructure Overview
+            🚀 Infrastructure Overview
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage your AWS services in Railway-style interface
+            Manage your AWS services in Railway-style interface • Fixed v2
           </p>
         </div>
         <button
@@ -475,90 +497,109 @@ const AWSRailwayConsole: React.FC = () => {
         </button>
       </div>
 
+      {/* Debug Info */}
+      <div className="mb-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <h3 className="font-medium text-gray-900 dark:text-white mb-2">Debug Info:</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Resources loaded: {resources.length} | Service groups: {serviceGroups.length}
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Resources: {resources.map(r => r.type).join(', ')}
+        </p>
+      </div>
+
       {/* Service Groups */}
       <div className="space-y-8">
-        {groupServices().map(group => {
-          const Icon = group.icon;
-          return (
-            <div key={group.id} className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 bg-${group.color}-100 dark:bg-${group.color}-900 rounded-lg`}>
-                  <Icon className={`text-${group.color}-600 dark:text-${group.color}-400`} size={20} />
+        {serviceGroups.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 dark:text-gray-400">
+              No service groups available. Resources: {resources.length}
+            </p>
+          </div>
+        ) : (
+          serviceGroups.map(group => {
+            const Icon = group.icon;
+            return (
+              <div key={group.id} className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 bg-${group.color}-100 dark:bg-${group.color}-900 rounded-lg`}>
+                    <Icon className={`text-${group.color}-600 dark:text-${group.color}-400`} size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {group.name}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {group.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {group.name}
-                  </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {group.description}
-                  </p>
-                </div>
-              </div>
 
-              {/* Services Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.services.map(service => (
-                  <div
-                    key={service.identifier}
-                    onClick={() => handleServiceClick(service)}
-                    className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:shadow-md transition-all hover:border-blue-300 dark:hover:border-blue-600"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${getServiceStatusColor(service.status)}`} />
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {service.name}
-                        </span>
-                      </div>
-                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">
-                        {service.type}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">Status</span>
-                        <span className={`font-medium ${
-                          service.status === 'running' ? 'text-green-600 dark:text-green-400' :
-                          service.status === 'stopped' ? 'text-red-600 dark:text-red-400' :
-                          'text-yellow-600 dark:text-yellow-400'
-                        }`}>
-                          {service.status}
-                        </span>
-                      </div>
-                      
-                      {service.metadata?.region && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Region</span>
-                          <span className="text-gray-900 dark:text-white">{service.metadata.region}</span>
-                        </div>
-                      )}
-                      
-                      {service.metadata?.lastDeployment && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Last Deploy</span>
-                          <span className="text-gray-900 dark:text-white">
-                            {new Date(service.metadata.lastDeployment).toLocaleDateString()}
+                {/* Services Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {group.services.map(service => (
+                    <div
+                      key={service.identifier}
+                      onClick={() => handleServiceClick(service)}
+                      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:shadow-md transition-all hover:border-blue-300 dark:hover:border-blue-600"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${getServiceStatusColor(service.status)}`} />
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {service.name}
                           </span>
                         </div>
-                      )}
-                    </div>
-
-                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                          <Clock size={14} />
-                          <span>Last week via Docker Image</span>
+                        <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">
+                          {service.type}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Status</span>
+                          <span className={`font-medium ${
+                            service.status === 'running' ? 'text-green-600 dark:text-green-400' :
+                            service.status === 'stopped' ? 'text-red-600 dark:text-red-400' :
+                            'text-yellow-600 dark:text-yellow-400'
+                          }`}>
+                            {service.status}
+                          </span>
                         </div>
-                        <ArrowRight size={16} className="text-gray-400" />
+                        
+                        {service.metadata?.region && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Region</span>
+                            <span className="text-gray-900 dark:text-white">{service.metadata.region}</span>
+                          </div>
+                        )}
+                        
+                        {service.metadata?.lastDeployment && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Last Deploy</span>
+                            <span className="text-gray-900 dark:text-white">
+                              {new Date(service.metadata.lastDeployment).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <Clock size={14} />
+                            <span>Last week via Docker Image</span>
+                          </div>
+                          <ArrowRight size={16} className="text-gray-400" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* Service Configuration Slider */}

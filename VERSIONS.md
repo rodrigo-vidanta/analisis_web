@@ -1,5 +1,40 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.0.0 (Octubre 2025) - N8N Production Deploy + AWS Railway Console
+
+### 🚀 RELEASE MAYOR - N8N Automation Platform + Railway UI
+
+#### 🤖 N8N Automation Platform Completo
+- **Deploy production**: ECS Fargate + RDS PostgreSQL + CloudFront SSL
+- **SSL automático**: Certificado AWS sin dominio propio
+- **SPA routing**: CloudFront Custom Error Pages para rutas directas
+- **PostgreSQL access**: ECS tasks para gestión segura de base de datos
+- **User management**: Roles y permisos desde PostgreSQL
+- **Version**: n8nio/n8n:latest v1.114.3 (oficial)
+
+#### 🎨 AWS Railway Console - Interfaz Moderna
+- **Service grouping**: Compute, Database, Networking, Storage
+- **Slider lateral**: 2/3 pantalla con configuración completa
+- **Service-specific tabs**: Pestañas por tipo de servicio
+- **Git integration**: Repository connection y auto-deploy setup
+- **Responsive design**: Mobile-friendly con navegación optimizada
+- **Real-time metrics**: CPU, Memory, Requests, Uptime por servicio
+
+#### 🔧 Gestión PostgreSQL VPC-Segura
+- **ECS Tasks**: PostgreSQL client en contenedores temporales
+- **VPC internal access**: Sin exposición externa de base de datos
+- **Automated SQL**: Comandos con logs en CloudWatch
+- **User roles**: Gestión directa de roleSlug en tabla user
+- **Security cleanup**: Configuraciones temporales removidas
+
+#### 🛡️ Problemas Críticos Resueltos
+- **SSL Conflict**: Parameter group personalizado (rds.force_ssl=0)
+- **Task Definition**: Imagen oficial vs manual npm install
+- **CloudFront SPA**: Custom Error Pages 404→200
+- **Security Groups**: Acceso público optimizado solo donde necesario
+
+---
+
 ## Versión 4.0.0 (Octubre 2025) - AWS Manager + Live Monitor Restaurado
 
 ### 🚀 RELEASE MAYOR - Infraestructura AWS Completa

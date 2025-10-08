@@ -1,8 +1,54 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
-## 🚀 Versión 4.0.0 - AWS Manager Completo + Live Monitor Restaurado (Octubre 2025)
+## 🚀 Versión 5.0.0 - N8N Production Deploy + AWS Railway Console (Octubre 2025)
 
 ### ✨ **NUEVA FUNCIONALIDAD PRINCIPAL**
+
+#### 🤖 **N8N Automation Platform - Deploy Completo**
+- **Infraestructura AWS**: ECS Fargate + RDS PostgreSQL + CloudFront SSL
+- **SSL automático**: Certificado AWS sin dominio propio requerido
+- **SPA routing**: CloudFront configurado para rutas directas
+- **Gestión usuarios**: Acceso directo a PostgreSQL desde AWS VPC
+- **Production ready**: Configuración según documentación oficial n8n
+- **URL HTTPS**: CloudFront con SSL global y CDN
+
+#### 🎨 **AWS Railway Console - Interfaz Moderna**
+- **Diseño Railway-style**: Agrupación de servicios por funcionalidad
+- **Slider lateral**: Configuración completa por servicio (2/3 pantalla)
+- **Service groups**: Compute, Database, Networking, Storage
+- **Pestañas específicas**: Deployments, Variables, Metrics, Settings por tipo
+- **Git integration**: Configuración repositorio y auto-deploy
+- **Responsive design**: Mobile-friendly con overflow scrolling
+
+#### 🔧 **Gestión PostgreSQL desde AWS VPC**
+- **ECS Tasks temporales**: PostgreSQL client en contenedores
+- **Acceso seguro**: Desde VPC interna sin exposición externa
+- **Comandos SQL**: Automatizados con logs en CloudWatch
+- **User management**: Roles y permisos directos en base de datos
+- **Cleanup automático**: Tasks temporales auto-eliminadas
+
+### 🔧 **MEJORAS TÉCNICAS**
+
+#### 🛡️ **Seguridad y Estabilidad**
+- **Parameter Group personalizado**: SSL opcional para n8n
+- **Security Groups optimizados**: Acceso público solo donde necesario
+- **VPC privada**: RDS en subnets privadas
+- **SSL termination**: CloudFront edge locations
+- **Task definitions**: Optimizadas según best practices
+
+#### 🔄 **Arquitectura Mejorada**
+- **ECS sobre EKS**: Menor complejidad, managed services
+- **RDS sobre PostgreSQL pods**: Mayor robustez y backup automático
+- **CloudFront sobre K8s LB**: SSL automático y CDN global
+- **Custom Error Pages**: Soporte completo SPA routing
+
+#### ⚡ **Optimización N8N**
+- **Imagen oficial**: n8nio/n8n:latest v1.114.3
+- **Health checks**: Optimizados (60s vs 180s)
+- **Variables oficiales**: Según documentación n8n
+- **Logs estructurados**: CloudWatch integration
+
+### ✨ **FUNCIONALIDADES ANTERIORES MANTENIDAS**
 
 #### ☁️ **AWS Manager - Consola Completa**
 - **Descubrimiento automático**: Todos los servicios AWS (ECS, RDS, ElastiCache, ALB, CloudFront, S3)
