@@ -1,184 +1,101 @@
-# 🚀 PQNC AI Platform v2.0.5
+# 🚀 PQNC QA AI Platform v5.2.0
 
-## 📋 **Descripción**
+Plataforma empresarial completa para gestión de prospectos, análisis de llamadas con IA y monitoreo en tiempo real.
 
-Plataforma integral de IA para análisis de llamadas y entrenamiento de vendedores, con sistema gamificado tipo Duolingo y interfaz dual intercambiable.
+## 🎯 Módulos Principales
 
-## ✨ **Funcionalidades Principales**
+### 🔧 Agent Studio
+Creación y gestión de agentes inteligentes de conversación.
 
-### 🎓 **Academia de Ventas Gamificada**
-- **Sistema tipo Duolingo** para entrenamiento de vendedores
-- **Llamadas virtuales** con asistentes de IA (VAPI)
-- **3 niveles progresivos** con actividades diversificadas
-- **Sistema XP/Logros** con badges y ranking competitivo
-- **Panel administrativo** para gestión de contenido
+### 🧠 Análisis IA
+Análisis inteligente de llamadas con métricas, transcripción y gráficas radar.
 
-### 📊 **Live Monitor Kanban**
-- **Vista Kanban** con 5 checkpoints de venta
-- **Monitoreo en tiempo real** de llamadas activas
-- **Controles de llamada** (transferir, colgar)
-- **Feedback obligatorio** para todas las acciones
+### 👥 PQNC Humans
+Análisis avanzado de llamadas con sistema de feedback y bookmarks.
 
-### 🎨 **Sistema Dual de UIs**
-- **UI Corporativa**: Diseño homologado con efectos elegantes
-- **UI Linear**: Diseño minimalista estilo Linear.app
-- **Intercambio dinámico** desde panel de administración
+### 📺 Live Monitor
+Monitoreo en tiempo real de llamadas activas y transferencias.
 
-### 🔧 **Análisis Avanzado**
-- **Natalia IA**: Análisis automático de llamadas
-- **PQNC Humans**: Análisis manual especializado
-- **Métricas detalladas** y reportes personalizados
+### 💬 Live Chat
+Chat en tiempo real integrado con WhatsApp via UChat.
 
-## 🛠️ **Tecnologías**
+### 🤖 AI Models
+Gestión de modelos de IA, voces y generación de contenido.
 
-### Frontend
-- **React 18** + **TypeScript**
-- **Tailwind CSS** para styling responsive
-- **Vite** para desarrollo rápido
-- **Zustand** para manejo de estado
+### 📝 Prompts Manager
+Gestión de prompts con versionado y métricas de performance.
 
-### Backend & Servicios
-- **Supabase** para base de datos y autenticación
-- **VAPI** para llamadas virtuales con IA
-- **PostgreSQL** como base de datos principal
-- **Railway** para webhooks y proxy
+### ☁️ AWS Manager
+Gestión completa de infraestructura AWS con métricas en tiempo real.
 
-### Librerías Especializadas
-- **@vapi-ai/web**: SDK para llamadas virtuales
-- **lucide-react**: Iconos vectoriales modernos
-- **tone.js**: Procesamiento de audio avanzado
+### 📊 Prospectos
+Sistema completo de gestión de prospectos con historial de llamadas.
 
-## 🚀 **Instalación y Configuración**
+## 🛠️ Stack Tecnológico
 
-### 1. Clonar Repositorio
-```bash
-git clone https://github.com/rodrigo-vidanta/analisis_web.git
-cd analisis_web
-```
+- **Frontend**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS + Framer Motion
+- **Estado**: Zustand
+- **Base de Datos**: 4 instancias Supabase especializadas
+- **Gráficas**: Chart.js
+- **Iconos**: Lucide React
+- **Despliegue**: AWS S3 + CloudFront
 
-### 2. Instalar Dependencias
+## 📊 Bases de Datos
+
+### analysisSupabase
+- **Prospectos**: Gestión completa de clientes
+- **Análisis IA**: Métricas y calificaciones
+- **Llamadas**: Historial y transcripciones
+
+### pqncSupabase  
+- **PQNC Humans**: Análisis avanzado
+- **Administración**: Usuarios y tokens
+
+### supabaseSystemUI
+- **Live Chat**: Conversaciones y mensajes
+- **Prompts**: Versionado y métricas
+
+### supabaseMain
+- **AI Models**: Modelos y configuraciones
+
+## 🚀 Instalación Rápida
+
 ```bash
 npm install
-```
-
-### 3. Configurar Variables de Entorno
-```env
-# Supabase Principal
-VITE_MAIN_SUPABASE_URL=your_main_supabase_url
-VITE_MAIN_SUPABASE_ANON_KEY=your_main_anon_key
-
-# Supabase PQNC
-VITE_PQNC_SUPABASE_URL=your_pqnc_supabase_url
-VITE_PQNC_SUPABASE_ANON_KEY=your_pqnc_anon_key
-
-# VAPI Configuration
-VITE_VAPI_PUBLIC_KEY=your_vapi_public_key
-```
-
-### 4. Configurar Base de Datos
-```bash
-# Ejecutar migraciones en orden
-psql -d your_db < scripts/sql/create_academia_tables.sql
-psql -d your_db < scripts/sql/populate_academia_initial_data.sql
-psql -d your_db < scripts/sql/cleanup_and_setup_themes.sql
-```
-
-### 5. Iniciar Desarrollo
-```bash
 npm run dev
 ```
 
-## 📱 **Uso de la Plataforma**
+## 📋 Características v5.2.0
 
-### 🎓 **Academia de Ventas**
-1. **Accede** al módulo Academia desde el sidebar
-2. **Explora niveles** disponibles en el dashboard
-3. **Completa actividades**: Llamadas, quiz, juegos, repaso
-4. **Gana XP y logros** por cada actividad completada
-5. **Compite** en el ranking con otros vendedores
+- ✅ **Módulo Prospectos**: Data grid con 23+ prospectos reales
+- ✅ **Análisis IA**: Rediseñado con gráficas radar
+- ✅ **Live Chat**: Ordenamiento automático como WhatsApp
+- ✅ **AWS Manager**: 7 servicios monitoreados en tiempo real
+- ✅ **Navegación**: Integración completa entre módulos
+- ✅ **Performance**: Sin re-renders ni interrupciones
 
-### 📊 **Live Monitor**
-1. **Accede** al Live Monitor (permisos requeridos)
-2. **Monitorea llamadas** en tiempo real por checkpoints
-3. **Usa controles** de transferencia y colgar
-4. **Proporciona feedback** obligatorio para cada llamada
+## 🔗 Navegación Inteligente
 
-### ⚙️ **Administración**
-1. **Gestiona usuarios** y permisos
-2. **Configura temas** de la aplicación
-3. **Administra Academia**: Asistentes virtuales y niveles
-4. **Monitorea sistema** y configuraciones
+- **Prospectos ↔ Live Chat**: Navegación automática a conversación
+- **Prospectos → Análisis IA**: Click en llamada abre análisis
+- **Análisis IA ↔ Prospecto**: Click en nombre abre sidebar
+- **Sidebar chat**: Verde si activo, gris si inactivo
 
-## 🎨 **Temas Disponibles**
+## 🎨 UX Optimizada
 
-### 🏢 **Tema Corporativo**
-- Paleta homologada con colores indigo elegantes
-- Efectos sutiles: shimmer, glow, gradientes
-- Iconos vectorizados modernos
-- Animaciones fluidas y profesionales
+- Animaciones suaves con Framer Motion
+- Sin emojis, solo iconos vectoriales
+- Diseño minimalista y profesional
+- Auto-refresh silencioso
+- Sincronización inteligente sin interrupciones
 
-### ⚡ **Tema Linear**
-- Diseño minimalista estilo Linear.app
-- Colores de contraste sobrios
-- Micro-interacciones suaves
-- Layout completamente diferente
+## 📄 Documentación
 
-## 📊 **Estructura del Proyecto**
+Cada módulo incluye README específico con:
+- Descripción y componentes
+- Conexiones de base de datos
+- Dependencias y permisos
+- Funcionalidades y navegación
 
-```
-src/
-├── components/
-│   ├── academia/           # Módulo Academia completo
-│   ├── analysis/           # Live Monitor y análisis
-│   ├── admin/              # Panel administrativo
-│   ├── linear/             # Componentes UI Linear
-│   └── ...
-├── services/
-│   ├── academiaService.ts  # Servicio Academia
-│   ├── authService.ts      # Autenticación
-│   └── ...
-├── hooks/
-│   ├── useTheme.ts         # Gestión de temas
-│   ├── useUserProfile.ts   # Perfil de usuario
-│   └── ...
-└── config/
-    ├── supabase.ts         # Configuración Supabase
-    └── ...
-```
-
-## 🔐 **Roles y Permisos**
-
-- **Admin**: Acceso completo a todos los módulos
-- **Developer**: Constructor, Agent Studio, Plantillas
-- **Evaluator**: Análisis, Live Monitor (con permisos específicos)
-- **User**: Academia (disponible para todos)
-
-## 🎯 **Roadmap**
-
-### v2.1.0 - Mejoras Academia
-- Constructor visual de niveles
-- Editor avanzado de asistentes virtuales
-- Análitica detallada de rendimiento
-
-### v2.2.0 - Funcionalidades Avanzadas  
-- Modo multijugador/competitivo
-- Integración con CRM
-- Notificaciones push
-
-## 📞 **Soporte**
-
-Para soporte técnico o preguntas:
-- **Email**: soporte@pqnc.ai
-- **Documentación**: Ver archivos en `/src/components/academia/README.md`
-
----
-
-**🎓 PQNC AI Platform v2.0.5** - Plataforma integral de IA para análisis y entrenamiento
-
-## 📂 **Proyectos Relacionados**
-
-### 🧠 **Clever Ideas AI Platform**
-- **Ubicación**: `/Users/darigsamuelrosalesrobledo/Documents/clever-ideas-ai-platform/`
-- **Módulos**: Agent Studio + Análisis AI únicamente
-- **Cliente**: Clever Ideas (versión simplificada)
-- **Estado**: Independiente, no conectado a git
+Ver `/src/components/[modulo]/README.md` para detalles específicos.

@@ -99,7 +99,6 @@ function MainApp() {
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    console.log('🎨 Detectando preferencia de tema:', { savedTheme, systemPrefersDark });
     
     // Prioridad: 1) Tema guardado, 2) Preferencia del sistema
     const shouldBeDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
@@ -117,15 +116,13 @@ function MainApp() {
       document.documentElement.classList.remove('dark');
     }
     
-    console.log(`🎨 Tema inicial aplicado: ${shouldBeDark ? 'Oscuro' : 'Claro'}`);
   }, []);
 
   useEffect(() => {
     // Para constructor, usar darkMode del store
     // Para otros módulos, usar localDarkMode
-    const shouldBeDark = appMode === 'constructor' ? darkMode : localDarkMode;
+    const shouldBeDark = appMode === 'agent-studio' ? darkMode : localDarkMode;
     
-    console.log('🔄 Aplicando tema:', { appMode, darkMode, localDarkMode, shouldBeDark });
     
     if (shouldBeDark) {
       document.documentElement.classList.add('dark');
@@ -135,6 +132,23 @@ function MainApp() {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode, localDarkMode, appMode]);
+
+  // Listener para navegación a Live Chat desde sidebars
+  useEffect(() => {
+    const handleNavigateToLiveChat = (event: CustomEvent) => {
+      const prospectoId = event.detail;
+      if (prospectoId) {
+        setAppMode('live-chat');
+        localStorage.setItem('livechat-prospect-id', prospectoId);
+      }
+    };
+
+    window.addEventListener('navigate-to-livechat', handleNavigateToLiveChat as EventListener);
+    
+    return () => {
+      window.removeEventListener('navigate-to-livechat', handleNavigateToLiveChat as EventListener);
+    };
+  }, []);
 
   // Listener para redirecciones desde AccessDenied
   useEffect(() => {
@@ -159,7 +173,7 @@ function MainApp() {
     if (isAuthenticated && user && !hasInitializedRedirect) {
       // Solo redirigir automáticamente en el login inicial, no cuando el usuario selecciona constructor manualmente
       const firstModule = getFirstAvailableModule();
-      if (firstModule && firstModule !== 'constructor' && appMode === 'constructor') {
+      if (firstModule && firstModule !== 'agent-studio' && appMode === 'agent-studio') {
         setAppMode(firstModule);
       }
       setHasInitializedRedirect(true);
@@ -169,16 +183,14 @@ function MainApp() {
   const handleToggleDarkMode = () => {
     console.log('🌙 Cambiando tema desde:', { darkMode, localDarkMode, appMode });
     
-    if (appMode === 'constructor') {
+    if (appMode === 'agent-studio') {
       // En constructor, usar el store global y sincronizar local
       toggleDarkMode();
       setLocalDarkMode(!darkMode);
-      console.log('🔄 Constructor: toggleDarkMode del store + sync local');
     } else {
       // En otros módulos, cambiar solo estado local
       const newDarkMode = !localDarkMode;
       setLocalDarkMode(newDarkMode);
-      console.log(`🔄 Otros módulos: localDarkMode = ${newDarkMode}`);
     }
   };
 
@@ -211,12 +223,6 @@ function MainApp() {
   // Función para renderizar contenido según el modo
   const renderContent = () => {
     switch (appMode) {
-      case 'plantillas':
-        return (
-          <ProtectedRoute requireModule="plantillas">
-            <AdminDashboard />
-          </ProtectedRoute>
-        );
       case 'agent-studio':
         return (
           user?.role_name === 'admin' || user?.role_name === 'developer' ? (
@@ -304,7 +310,7 @@ function MainApp() {
         return (
           canAccessModule('aws-manager') ? (
             <AWSManager 
-              darkMode={appMode === 'constructor' ? darkMode : localDarkMode}
+              darkMode={appMode === 'agent-studio' ? darkMode : localDarkMode}
               onToggleDarkMode={handleToggleDarkMode}
             />
           ) : (
@@ -327,7 +333,7 @@ function MainApp() {
             <ProspectosManager 
               onNavigateToLiveChat={(prospectoId) => {
                 setAppMode('live-chat');
-                // TODO: Pasar prospectoId al live chat para abrir conversación específica
+                localStorage.setItem('livechat-prospect-id', prospectoId);
               }}
               onNavigateToNatalia={(callId) => {
                 setAppMode('natalia');
@@ -353,25 +359,18 @@ function MainApp() {
           )
         );
 
-      case 'constructor':
       default:
         return (
-          <ProtectedRoute requireModule="constructor">
-            {currentStep === 0 ? (
-              <ProjectSelector 
-                onNext={setCurrentStep}
-                onProjectTypeChange={setProjectType}
-              />
-            ) : (
-              <IndividualAgentWizard 
-                currentStep={currentStep}
-                onStepChange={setCurrentStep}
-                projectType={projectType || 'individual'}
-                onNext={() => setCurrentStep(currentStep + 1)}
-                onPrevious={() => setCurrentStep(Math.max(1, currentStep - 1))}
-              />
-            )}
-          </ProtectedRoute>
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Bienvenido a PQNC AI Platform
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Selecciona un módulo del menú lateral para comenzar
+              </p>
+            </div>
+          </div>
         );
     }
   };
@@ -381,9 +380,9 @@ function MainApp() {
   // Si el tema Linear está activo, usar layout completamente diferente
   if (isLinearTheme) {
     return (
-      <div className={`${(appMode === 'constructor' ? darkMode : localDarkMode) ? 'dark' : ''}`}>
+      <div className={`${(appMode === 'agent-studio' ? darkMode : localDarkMode) ? 'dark' : ''}`}>
         <LinearLayout
-          darkMode={appMode === 'constructor' ? darkMode : localDarkMode}
+          darkMode={appMode === 'agent-studio' ? darkMode : localDarkMode}
           onToggleDarkMode={handleToggleDarkMode}
           currentMode={appMode}
         >
@@ -418,7 +417,7 @@ function MainApp() {
             currentStep={currentStep}
             progress={progress}
             progressText={getProgressText()}
-            darkMode={appMode === 'constructor' ? darkMode : localDarkMode}
+            darkMode={appMode === 'agent-studio' ? darkMode : localDarkMode}
             appMode={appMode}
             onToggleDarkMode={handleToggleDarkMode}
             onReset={resetApp}

@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 
 type ProjectType = 'individual' | 'squad' | '';
-type AppMode = 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | 'prompts-manager' | 'live-chat' | 'aws-manager';
+type AppMode = 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | 'prompts-manager' | 'live-chat' | 'aws-manager' | 'prospectos';
 
 interface AppState {
   currentStep: number;
@@ -23,11 +23,11 @@ export const useAppStore = create<AppState>((set) => ({
   currentStep: 1,
   projectType: '',
   darkMode: false,
-  appMode: 'constructor',
+  appMode: 'agent-studio',
   
   setCurrentStep: (step) => set({ currentStep: step }),
   setProjectType: (type) => set({ projectType: type }),
   toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
   setAppMode: (mode) => set({ appMode: mode, currentStep: 1, projectType: '' }),
-  resetApp: () => set({ currentStep: 1, projectType: '', darkMode: false, appMode: 'constructor' }),
+  resetApp: () => set({ currentStep: 1, projectType: '', darkMode: false, appMode: 'agent-studio' }),
 }));

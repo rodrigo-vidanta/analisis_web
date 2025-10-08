@@ -10,7 +10,11 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import Chart from 'chart.js/auto';
 // import DetailedCallView from './DetailedCallView'; // Comentado por incompatibilidad
 import { motion, AnimatePresence } from 'framer-motion';
-// Componente Sidebar del Prospecto (extraído de ProspectosManager)
+
+// Importar el sidebar original del módulo Prospectos
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+
+// Sidebar del Prospecto - VERSIÓN COMPLETA como en ProspectosManager
 interface ProspectoSidebarProps {
   prospecto: any;
   isOpen: boolean;
@@ -18,6 +22,83 @@ interface ProspectoSidebarProps {
 }
 
 const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, onClose }) => {
+  const [hasActiveChat, setHasActiveChat] = useState(false);
+  const [llamadas, setLlamadas] = useState<any[]>([]);
+
+  // Verificar si hay conversación activa y cargar llamadas
+  useEffect(() => {
+    if (prospecto?.id) {
+      checkActiveChat(prospecto.id);
+      loadLlamadasProspecto(prospecto.id);
+    }
+  }, [prospecto]);
+
+  const loadLlamadasProspecto = async (prospectoId: string) => {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select(`
+          call_id,
+          fecha_llamada,
+          duracion_segundos,
+          es_venta_exitosa,
+          call_status,
+          tipo_llamada,
+          nivel_interes,
+          probabilidad_cierre,
+          precio_ofertado,
+          costo_total,
+          tiene_feedback,
+          feedback_resultado
+        `)
+        .eq('prospecto', prospectoId)
+        .order('fecha_llamada', { ascending: false });
+
+      if (error) {
+        console.error('Error loading llamadas:', error);
+        return;
+      }
+
+      setLlamadas(data || []);
+    } catch (error) {
+      console.error('Error loading llamadas:', error);
+    }
+  };
+
+  const checkActiveChat = async (prospectoId: string) => {
+    try {
+      // Verificar conversación activa usando los mismos métodos que ProspectosManager
+      const { data: dataByProspectId, error: errorProspectId } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('id, metadata')
+        .eq('status', 'active');
+      
+      let hasActiveByProspectId = false;
+      if (dataByProspectId && !errorProspectId) {
+        hasActiveByProspectId = dataByProspectId.some(conv => 
+          conv.metadata?.prospect_id === prospectoId
+        );
+      }
+      
+      let hasActiveByPhone = false;
+      if (prospecto?.whatsapp && !hasActiveByProspectId) {
+        const { data: dataByPhone, error: errorPhone } = await supabaseSystemUI
+          .from('uchat_conversations')
+          .select('id')
+          .eq('customer_phone', prospecto.whatsapp)
+          .eq('status', 'active')
+          .limit(1);
+        
+        hasActiveByPhone = dataByPhone && dataByPhone.length > 0;
+      }
+      
+      setHasActiveChat(hasActiveByProspectId || hasActiveByPhone);
+    } catch (error) {
+      console.error('Error checking active chat:', error);
+      setHasActiveChat(false);
+    }
+  };
+
   if (!prospecto) return null;
 
   const getStatusColor = (etapa: string) => {
@@ -76,12 +157,30 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                     </p>
                   </div>
                 </div>
-                <button 
-                  onClick={onClose}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                >
-                  <X size={24} className="text-gray-400" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      if (hasActiveChat) {
+                        window.dispatchEvent(new CustomEvent('navigate-to-livechat', { detail: prospecto.id }));
+                      }
+                    }}
+                    disabled={!hasActiveChat}
+                    className={`p-2 rounded-full transition-colors shadow-lg ${
+                      hasActiveChat 
+                        ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer' 
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    }`}
+                    title={hasActiveChat ? "Ir a conversación activa" : "No hay conversación activa"}
+                  >
+                    <MessageSquare size={20} />
+                  </button>
+                  <button 
+                    onClick={onClose}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  >
+                    <X size={24} className="text-gray-400" />
+                  </button>
+                </div>
               </div>
               
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -174,6 +273,64 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                   </div>
                 </div>
 
+                {/* Información de Viaje (si aplica) */}
+                {(prospecto.destino_preferencia || prospecto.tamano_grupo || prospecto.cantidad_menores || prospecto.viaja_con) && (
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Activity size={18} />
+                      Información de Viaje
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {prospecto.destino_preferencia && (
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Destinos Preferencia</label>
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {Array.isArray(prospecto.destino_preferencia) ? 
+                              prospecto.destino_preferencia.join(', ') : 
+                              prospecto.destino_preferencia}
+                          </div>
+                        </div>
+                      )}
+                      {prospecto.tamano_grupo && (
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Tamaño Grupo</label>
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {prospecto.tamano_grupo} personas
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timeline */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Clock size={18} />
+                    Timeline
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">Creado</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString() : 'No disponible'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">Última Actualización</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {prospecto.updated_at ? new Date(prospecto.updated_at).toLocaleDateString() : 'No disponible'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Observaciones */}
                 {prospecto.observaciones && (
                   <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
@@ -186,6 +343,77 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                     </p>
                   </div>
                 )}
+
+                {/* Historial de Llamadas - IGUAL QUE EN PROSPECTOS */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Phone size={18} />
+                    Historial de Llamadas ({llamadas.length})
+                  </h3>
+                  
+                  {llamadas.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-600">
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Fecha</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Duración</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Estado</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Interés</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Precio</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Resultado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {llamadas.map((llamada, index) => (
+                            <tr
+                              key={llamada.call_id}
+                              className="border-b border-gray-100 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                            >
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {new Date(llamada.fecha_llamada).toLocaleDateString('es-MX')}
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {Math.floor(llamada.duracion_segundos / 60)}:{(llamada.duracion_segundos % 60).toString().padStart(2, '0')}
+                              </td>
+                              <td className="py-2 px-2">
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  llamada.call_status === 'finalizada' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                  llamada.call_status === 'activa' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
+                                  'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                                }`}>
+                                  {llamada.call_status}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {llamada.nivel_interes}
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                ${parseFloat(llamada.precio_ofertado || '0').toLocaleString()}
+                              </td>
+                              <td className="py-2 px-2">
+                                <div className="flex items-center gap-1">
+                                  {llamada.es_venta_exitosa ? (
+                                    <CheckCircle size={12} className="text-green-600 dark:text-green-400" />
+                                  ) : (
+                                    <AlertTriangle size={12} className="text-orange-600 dark:text-orange-400" />
+                                  )}
+                                  <span className="text-gray-900 dark:text-white">
+                                    {llamada.es_venta_exitosa ? 'Exitosa' : 'Seguimiento'}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                      No hay llamadas registradas para este prospecto
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -194,6 +422,7 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
     </AnimatePresence>
   );
 };
+
 
 // Interfaces adaptadas para Análisis IA
 interface AnalysisRecord {
@@ -799,18 +1028,22 @@ const AnalysisIAComplete: React.FC = () => {
     if (!prospectoId) return;
     
     try {
+      
       const { data, error } = await analysisSupabase
         .from('prospectos')
         .select('*')
         .eq('id', prospectoId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error loading prospecto:', error);
+        return;
+      }
 
       setSelectedProspecto(data);
       setShowProspectoSidebar(true);
     } catch (error) {
-      console.error('Error loading prospecto:', error);
+      console.error('❌ Error loading prospecto:', error);
     }
   };
 
@@ -1350,17 +1583,24 @@ const AnalysisIAComplete: React.FC = () => {
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
                   <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => selectedCallForDetail.prospecto && handleProspectoClick(selectedCallForDetail.prospecto)}
-                      className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-lg hover:shadow-xl transition-all cursor-pointer group"
-                      title="Ver información del prospecto"
-                    >
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">
-                          {(selectedCallForDetail.prospecto_nombre || 'P').charAt(0).toUpperCase()}
-                        </span>
+                    <div className="relative">
+                      <button
+                        onClick={() => selectedCallForDetail.prospecto && handleProspectoClick(selectedCallForDetail.prospecto)}
+                        className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+                        title="Ver información del prospecto"
+                      >
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">
+                            {(selectedCallForDetail.prospecto_nombre || 'P').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      </button>
+                      
+                      {/* Lupa con animación heartbeat */}
+                      <div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-800 rounded-full shadow-lg border-2 border-blue-500 animate-pulse">
+                        <Eye size={12} className="text-blue-600 dark:text-blue-400" />
                       </div>
-                    </button>
+                    </div>
                     <div 
                       onClick={() => selectedCallForDetail.prospecto && handleProspectoClick(selectedCallForDetail.prospecto)}
                       className="cursor-pointer hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-lg p-2 transition-colors"

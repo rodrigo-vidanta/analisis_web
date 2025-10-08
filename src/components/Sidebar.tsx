@@ -127,31 +127,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   };
 
   const menuItems: MenuItemProps[] = [
-    // Constructor
-    ...(canAccessModule('constructor') ? [{
-      icon: (
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      ),
-      label: 'Constructor',
-      active: appMode === 'constructor',
-      onClick: () => setAppMode('constructor')
-    }] : []),
 
-    // Plantillas
-    ...(canAccessModule('plantillas') ? [{
-      icon: (
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      ),
-      label: 'Plantillas',
-      active: appMode === 'plantillas',
-      onClick: () => setAppMode('plantillas')
-    }] : []),
-
-    // Agent Studio - Solo para Admin y Developer
+    // 1. Agent Studio (PRIMERO)
     ...((user?.role_name === 'admin' || user?.role_name === 'developer') ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,7 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('agent-studio')
     }] : []),
 
-    // Natalia IA como módulo independiente - PERMISOS ESPECÍFICOS
+    // 2. Análisis IA (SEGUNDO)
     ...(canAccessModule('analisis') && natalia ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -175,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('natalia')
     }] : []),
 
-    // PQNC Humans como módulo independiente - PERMISOS ESPECÍFICOS
+    // 3. PQNC Humans (TERCERO)
     ...(canAccessModule('analisis') && pqnc ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,7 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('pqnc')
     }] : []),
 
-    // Live Monitor - nuevo módulo con permisos específicos
+    // 4. Live Monitor (CUARTO)
     ...(canAccessLiveMonitor() ? [{
       icon: (
         <div className="relative">
@@ -202,43 +179,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('live-monitor')
     }] : []),
 
-    // Academia de Ventas
-    ...(canAccessModule('academia') ? [{
-      icon: (
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-        </svg>
-      ),
-      label: 'Academia',
-      active: appMode === 'academia',
-      onClick: () => setAppMode('academia')
-    }] : []),
-
-    // AI Models Manager - Solo para Admin y Productor
-    ...((user?.role_name === 'admin' || user?.role_name === 'productor') ? [{
-      icon: (
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-      ),
-      label: 'AI Models',
-      active: appMode === 'ai-models',
-      onClick: () => setAppMode('ai-models')
-    }] : []),
-
-    // Administración de Prompts - Solo para Admin
-    ...(user?.role_name === 'admin' ? [{
-      icon: (
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>
-      ),
-      label: 'Prompts Manager',
-      active: appMode === 'prompts-manager',
-      onClick: () => setAppMode('prompts-manager')
-    }] : []),
-
-    // Live Chat - Disponible para usuarios autenticados
+    // 5. Live Chat - Chat Monitor (QUINTO)
     ...(canAccessModule('live-chat') ? [{
       icon: (
         <div className="relative">
@@ -251,6 +192,42 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       label: 'Live Chat',
       active: appMode === 'live-chat',
       onClick: () => setAppMode('live-chat')
+    }] : []),
+
+    // 6. AI Models (SEXTO)
+    ...((user?.role_name === 'admin' || user?.role_name === 'productor' || user?.role_name === 'developer') ? [{
+      icon: (
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      ),
+      label: 'AI Models',
+      active: appMode === 'ai-models',
+      onClick: () => setAppMode('ai-models')
+    }] : []),
+
+    // 7. Prompts Manager (SÉPTIMO)
+    ...((user?.role_name === 'admin' || user?.role_name === 'developer') ? [{
+      icon: (
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+      ),
+      label: 'Prompts Manager',
+      active: appMode === 'prompts-manager',
+      onClick: () => setAppMode('prompts-manager')
+    }] : []),
+
+    // Academia para vendedores y developers (mantener al final)
+    ...((user?.role_name === 'vendedor' || user?.role_name === 'developer') ? [{
+      icon: (
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      ),
+      label: 'Academia',
+      active: appMode === 'academia',
+      onClick: () => setAppMode('academia')
     }] : [])
   ];
 

@@ -131,6 +131,90 @@ const LiveChatCanvas: React.FC = () => {
     loadMetrics();
   }, []);
 
+  // Efecto separado para selección automática después de cargar conversaciones
+  useEffect(() => {
+    // Verificar si hay un prospecto específico para seleccionar
+    const prospectoId = localStorage.getItem('livechat-prospect-id');
+    if (prospectoId && conversations.length > 0) {
+      localStorage.removeItem('livechat-prospect-id');
+      selectConversationByProspectId(prospectoId);
+    }
+  }, [conversations]); // Se ejecuta cuando las conversaciones cambian
+
+  const selectConversationByProspectId = (prospectoId: string) => {
+    // Método 1: Buscar por prospect_id en metadata
+    let conversation = conversations.find(conv => 
+      conv.metadata?.prospect_id === prospectoId
+    );
+    
+    if (conversation) {
+      setSelectedConversation(conversation);
+      return;
+    }
+    
+    // Método 2: Buscar por whatsapp del prospecto
+    loadProspectoAndFindConversation(prospectoId);
+  };
+
+  const loadProspectoAndFindConversation = async (prospectoId: string) => {
+    try {
+      const { data: prospecto, error } = await analysisSupabase
+        .from('prospectos')
+        .select('whatsapp, id_uchat')
+        .eq('id', prospectoId)
+        .single();
+
+      if (error || !prospecto) return;
+
+      // Buscar por whatsapp (customer_phone)
+      let conversation = conversations.find(conv => 
+        conv.customer_phone === prospecto.whatsapp
+      );
+
+      if (conversation) {
+        setSelectedConversation(conversation);
+        return;
+      }
+
+      // Buscar variaciones de teléfono
+      const phoneVariations = [
+        prospecto.whatsapp,
+        prospecto.whatsapp.replace('+52', ''),
+        prospecto.whatsapp.replace('52', ''),
+        `+52${prospecto.whatsapp}`,
+        `52${prospecto.whatsapp}`
+      ];
+
+      for (const phoneVar of phoneVariations) {
+        conversation = conversations.find(conv => 
+          conv.customer_phone === phoneVar || 
+          conv.customer_phone.includes(phoneVar) ||
+          phoneVar.includes(conv.customer_phone)
+        );
+        
+        if (conversation) {
+          setSelectedConversation(conversation);
+          return;
+        }
+      }
+
+      // Buscar por id_uchat
+      if (prospecto.id_uchat) {
+        conversation = conversations.find(conv => 
+          conv.conversation_id === prospecto.id_uchat
+        );
+
+        if (conversation) {
+          setSelectedConversation(conversation);
+          return;
+        }
+      }
+
+    } catch (error) {
+      // Silencioso
+    }
+  };
+
   useEffect(() => {
     if (selectedConversation) {
       loadMessagesAndBlocks(selectedConversation.id);
@@ -192,24 +276,44 @@ const LiveChatCanvas: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Sincronización silenciosa cada 15 segundos
+    // Sincronización silenciosa cada 15 segundos (solo si no hay usuario escribiendo)
     const syncInterval = setInterval(async () => {
-      await performSilentSync();
+      // No sincronizar si el usuario está escribiendo
+      const activeElement = document.activeElement;
+      const isTyping = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.getAttribute('contenteditable') === 'true'
+      );
+      
+      if (!isTyping && !sending) {
+        await performSilentSync();
+      }
     }, 15000);
 
     return () => clearInterval(syncInterval);
-  }, []);
+  }, [sending]);
 
   useEffect(() => {
     // Sincronización constante para conversación abierta cada 10 segundos
     if (!selectedConversation) return;
 
     const conversationSyncInterval = setInterval(async () => {
-      await syncMessagesForOpenConversation();
+      // No sincronizar si el usuario está escribiendo
+      const activeElement = document.activeElement;
+      const isTyping = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.getAttribute('contenteditable') === 'true'
+      );
+      
+      if (!isTyping && !sending) {
+        await syncMessagesForOpenConversation();
+      }
     }, 10000);
 
     return () => clearInterval(conversationSyncInterval);
-  }, [selectedConversation]);
+  }, [selectedConversation, sending]);
 
   useEffect(() => {
     // Cargar estado de pausa desde localStorage al iniciar
@@ -353,7 +457,6 @@ const LiveChatCanvas: React.FC = () => {
   const loadConversations = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Cargando conversaciones reales...');
       
       const { data, error } = await supabaseSystemUI
         .from('uchat_conversations')
@@ -367,7 +470,6 @@ const LiveChatCanvas: React.FC = () => {
         return;
       }
 
-      console.log('✅ Conversaciones REALES cargadas:', data.length);
       setConversations(data || []);
     } catch (error) {
       console.error('❌ Error cargando conversaciones:', error);
@@ -402,7 +504,6 @@ const LiveChatCanvas: React.FC = () => {
 
   const loadMessagesAndBlocks = async (conversationId: string) => {
     try {
-      console.log('🔄 Cargando mensajes para conversación...');
       
       const { data: messages, error } = await supabaseSystemUI
         .from('uchat_messages')
@@ -474,16 +575,14 @@ const LiveChatCanvas: React.FC = () => {
 
   const performSilentSync = async () => {
     if (syncInProgress) return;
-
+    
     try {
       setSyncInProgress(true);
-      console.log('🔄 Sincronización silenciosa iniciada...');
 
       await syncNewConversations();
       await syncNewMessages();
 
       setLastSyncTime(new Date());
-      console.log('✅ Sincronización silenciosa completada');
     } catch (error) {
       console.error('❌ Error en sincronización silenciosa:', error);
     } finally {
@@ -493,7 +592,6 @@ const LiveChatCanvas: React.FC = () => {
 
   const syncNewConversations = async () => {
     try {
-      console.log('🔄 Sincronizando nuevas conversaciones desde pqnc_ia...');
       
       if (!analysisSupabaseInstance) {
         analysisSupabaseInstance = await createAnalysisSupabase();
@@ -599,7 +697,6 @@ const LiveChatCanvas: React.FC = () => {
 
   const syncNewMessages = async () => {
     try {
-      console.log('🔄 Sincronizando nuevos mensajes...');
       
       if (!selectedConversation) return;
 
@@ -716,10 +813,13 @@ const LiveChatCanvas: React.FC = () => {
       if (!insertError) {
         console.log(`✅ ${messagesToInsert.length} mensajes iniciales sincronizados`);
         
-        // Actualizar contador
+        // Actualizar contador y timestamp
         await supabaseSystemUI
           .from('uchat_conversations')
-          .update({ message_count: messagesToInsert.length })
+          .update({ 
+            message_count: messagesToInsert.length,
+            last_message_at: new Date().toISOString()
+          })
           .eq('id', conversationId);
       }
 
@@ -735,7 +835,6 @@ const LiveChatCanvas: React.FC = () => {
       const prospectId = selectedConversation.metadata?.prospect_id;
       if (!prospectId) return;
 
-      console.log('🔄 Sincronizando mensajes para conversación abierta...');
 
       if (!analysisSupabaseInstance) {
         analysisSupabaseInstance = await createAnalysisSupabase();
@@ -1031,7 +1130,6 @@ const LiveChatCanvas: React.FC = () => {
 
     try {
       setSending(true);
-      console.log('📤 Enviando mensaje REAL:', newMessage);
       
       const cacheMessage: Message = {
         id: `cache-${Date.now()}`,
@@ -1063,20 +1161,44 @@ const LiveChatCanvas: React.FC = () => {
       }
 
       if (sentToUChat) {
-        console.log('✅ Mensaje enviado a WhatsApp via UChat webhook');
-        console.log('💡 Mensaje aparecerá en BD cuando UChat lo procese');
         
         // 3. Agregar al caché temporal (NO a BD)
         addMessageToCache(cacheMessage);
         
-        // 4. Actualizar contador de conversación (optimista)
-        setSelectedConversation(prev => prev ? {
-          ...prev,
-          message_count: prev.message_count + 1,
-          last_message_at: new Date().toISOString()
-        } : null);
+        // 4. Actualizar contador de conversación en BD y estado
+        const newTimestamp = new Date().toISOString();
         
-        await loadConversations();
+        // Actualizar en base de datos
+        const { error: updateError } = await supabaseSystemUI
+          .from('uchat_conversations')
+          .update({ 
+            message_count: selectedConversation.message_count + 1,
+            last_message_at: newTimestamp
+          })
+          .eq('id', selectedConversation.id);
+        
+        // Actualizar estado local
+        const updatedConversation = selectedConversation ? {
+          ...selectedConversation,
+          message_count: selectedConversation.message_count + 1,
+          last_message_at: newTimestamp
+        } : null;
+        
+        // Actualizar solo la conversación específica en el estado sin recargar todo
+        setConversations(prevConversations => {
+          const updated = prevConversations.map(conv => 
+            conv.id === selectedConversation.id 
+              ? { ...conv, message_count: conv.message_count + 1, last_message_at: newTimestamp }
+              : conv
+          );
+          
+          // Reordenar solo en memoria sin llamada a BD
+          return updated.sort((a, b) => 
+            new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          );
+        });
+        
+        setSelectedConversation(updatedConversation);
       } else {
         console.log('❌ Error enviando mensaje a UChat');
         // No agregar al caché si no se envió
