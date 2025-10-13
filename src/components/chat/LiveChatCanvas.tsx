@@ -13,6 +13,7 @@ import {
   GripVertical
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { analysisSupabase } from '../../config/analysisSupabase';
 
 // Crear instancia única de análisis fuera del componente para evitar múltiples clientes
 const createAnalysisSupabase = async () => {
@@ -32,16 +33,18 @@ let analysisSupabaseInstance: any = null;
 
 interface Conversation {
   id: string;
-  conversation_id: string;
-  customer_phone: string;
-  customer_name: string;
-  customer_email?: string;
-  status: string;
-  message_count: number;
-  priority: string;
-  last_message_at: string;
-  metadata: any;
-  created_at: string;
+  prospecto_id: string;
+  numero_telefono?: string;
+  nombre_contacto?: string;
+  estado?: string;
+  mensajes_no_leidos?: number;
+  updated_at: string;
+  ultimo_mensaje_preview?: string;
+  ultimo_mensaje_sender?: string;
+  fecha_inicio: string;
+  summary?: string;
+  resultado?: string;
+  tipo: string;
 }
 
 interface Message {
@@ -75,11 +78,14 @@ const LiveChatCanvas: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
+  const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
   const [sending, setSending] = useState(false);
+  const [sendingToConversation, setSendingToConversation] = useState<string | null>(null);
 
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   const [syncInProgress, setSyncInProgress] = useState(false);
+  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
 
   // Estados para control del bot
   const [botPauseStatus, setBotPauseStatus] = useState<{[uchatId: string]: {
@@ -129,7 +135,119 @@ const LiveChatCanvas: React.FC = () => {
   useEffect(() => {
     loadConversations();
     loadMetrics();
+    setupRealtimeSubscription();
+    
+    return () => {
+      // Cleanup realtime subscription
+      if (realtimeChannel) {
+        realtimeChannel.unsubscribe();
+      }
+    };
   }, []);
+
+  const setupRealtimeSubscription = () => {
+    console.log('🔌 Configurando Realtime para sorting automático...');
+    
+    // Suscribirse a cambios en mensajes_whatsapp para reordenar conversaciones
+    const channel = analysisSupabase
+      .channel('live-chat-messages')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'mensajes_whatsapp' 
+      }, (payload) => {
+        console.log('📨 Nuevo mensaje recibido:', payload.new);
+        handleNewMessageForSorting(payload.new);
+      })
+      .subscribe((status) => {
+        console.log('📡 Realtime status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime conectado para sorting automático');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error en canal Realtime');
+        }
+      });
+
+    setRealtimeChannel(channel);
+  };
+
+  const handleNewMessageForSorting = (newMessage: any) => {
+    console.log('🔄 Reordenando conversaciones por nuevo mensaje...');
+    
+    // Buscar la conversación que corresponde a este mensaje
+    const messageProspectoId = newMessage.prospecto_id;
+    const messageTimestamp = newMessage.fecha_hora || newMessage.created_at;
+    
+    setConversations(prev => {
+      const updatedConversations = prev.map(conv => {
+        if (conv.prospecto_id === messageProspectoId) {
+          // Actualizar la conversación con el nuevo timestamp
+          return {
+            ...conv,
+            updated_at: messageTimestamp,
+            ultimo_mensaje_preview: newMessage.mensaje?.substring(0, 100) || '',
+            ultimo_mensaje_sender: newMessage.rol || ''
+          };
+        }
+        return conv;
+      });
+      
+      // Reordenar por updated_at DESC (más reciente primero)
+      const sortedConversations = updatedConversations.sort((a, b) => 
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
+      
+      console.log('✅ Conversaciones reordenadas, primera:', sortedConversations[0]?.customer_name);
+      return sortedConversations;
+    });
+  };
+
+  const handleRealtimeConversationChange = (payload: any) => {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+    
+    switch (eventType) {
+      case 'INSERT':
+        // Nueva conversación
+        setConversations(prev => {
+          const updated = [newRecord, ...prev];
+          return updated.sort((a, b) => 
+            new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          );
+        });
+        break;
+        
+      case 'UPDATE':
+        // Conversación actualizada (nuevo mensaje)
+        setConversations(prev => {
+          const updated = prev.map(conv => 
+            conv.id === newRecord.id ? newRecord : conv
+          );
+          return updated.sort((a, b) => 
+            new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          );
+        });
+        
+        // Actualizar unread counts si no es la conversación activa
+        if (selectedConversation?.id !== newRecord.id && newRecord.unread_count > 0) {
+          setUnreadCounts(prev => ({
+            ...prev,
+            [newRecord.id]: newRecord.unread_count
+          }));
+        } else if (selectedConversation?.id === newRecord.id) {
+          // Si es la conversación activa, mantener unread_count en 0
+          setUnreadCounts(prev => ({
+            ...prev,
+            [newRecord.id]: 0
+          }));
+        }
+        break;
+        
+      case 'DELETE':
+        // Conversación eliminada
+        setConversations(prev => prev.filter(conv => conv.id !== oldRecord.id));
+        break;
+    }
+  };
 
   // Efecto separado para selección automática después de cargar conversaciones
   useEffect(() => {
@@ -218,8 +336,49 @@ const LiveChatCanvas: React.FC = () => {
   useEffect(() => {
     if (selectedConversation) {
       loadMessagesAndBlocks(selectedConversation.id);
+      // Marcar como leída al seleccionar
+      markConversationAsRead(selectedConversation.id);
     }
   }, [selectedConversation]);
+
+  const markConversationAsRead = async (conversationId: string) => {
+    // Actualizar unread_count a 0 en base de datos
+    await supabaseSystemUI
+      .from('uchat_conversations')
+      .update({ unread_count: 0 })
+      .eq('id', conversationId);
+
+    // Actualizar estado local
+    setUnreadCounts(prev => ({
+      ...prev,
+      [conversationId]: 0
+    }));
+  };
+
+  const incrementUnreadCount = async (conversationId: string, increment: number = 1) => {
+    // Solo incrementar si NO es la conversación activa
+    if (selectedConversation?.id === conversationId) return;
+
+    // Actualizar en base de datos
+    const { data: currentConv } = await supabaseSystemUI
+      .from('uchat_conversations')
+      .select('unread_count')
+      .eq('id', conversationId)
+      .single();
+
+    const newUnreadCount = (currentConv?.unread_count || 0) + increment;
+
+    await supabaseSystemUI
+      .from('uchat_conversations')
+      .update({ unread_count: newUnreadCount })
+      .eq('id', conversationId);
+
+    // Actualizar estado local
+    setUnreadCounts(prev => ({
+      ...prev,
+      [conversationId]: newUnreadCount
+    }));
+  };
 
   useEffect(() => {
     // SCROLL AL FINAL para mostrar últimos mensajes
@@ -276,44 +435,209 @@ const LiveChatCanvas: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Sincronización silenciosa cada 15 segundos (solo si no hay usuario escribiendo)
-    const syncInterval = setInterval(async () => {
-      // No sincronizar si el usuario está escribiendo
-      const activeElement = document.activeElement;
-      const isTyping = activeElement && (
-        activeElement.tagName === 'INPUT' || 
-        activeElement.tagName === 'TEXTAREA' ||
-        activeElement.getAttribute('contenteditable') === 'true'
-      );
-      
-      if (!isTyping && !sending) {
-        await performSilentSync();
+    // Polling optimizado para mensajes de conversación activa (3 segundos)
+    const messagesInterval = setInterval(async () => {
+      if (selectedConversation && !sending) {
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (
+          activeElement.tagName === 'INPUT' || 
+          activeElement.tagName === 'TEXTAREA'
+        );
+        
+        if (!isTyping) {
+          await syncMessagesForOpenConversation();
+        }
       }
-    }, 15000);
+    }, 3000);
 
-    return () => clearInterval(syncInterval);
-  }, [sending]);
+    return () => clearInterval(messagesInterval);
+  }, [selectedConversation, sending]);
 
   useEffect(() => {
-    // Sincronización constante para conversación abierta cada 10 segundos
-    if (!selectedConversation) return;
+    // Polling deshabilitado temporalmente para debugging
+    // const conversationsInterval = setInterval(async () => {
+    //   if (!sending && !syncInProgress) {
+    //     // Cargar conversaciones sin setLoading para evitar parpadeos
+    //     await loadConversationsQuiet();
+    //   }
+    // }, 5000);
 
-    const conversationSyncInterval = setInterval(async () => {
-      // No sincronizar si el usuario está escribiendo
-      const activeElement = document.activeElement;
-      const isTyping = activeElement && (
-        activeElement.tagName === 'INPUT' || 
-        activeElement.tagName === 'TEXTAREA' ||
-        activeElement.getAttribute('contenteditable') === 'true'
-      );
+    // return () => clearInterval(conversationsInterval);
+  }, [sending, syncInProgress]);
+
+  const parseHistoricMessages = (summary: string, conversationId: string) => {
+    try {
+      // El summary puede contener mensajes históricos en formato JSON o texto
+      const historicMessages = [];
       
-      if (!isTyping && !sending) {
-        await syncMessagesForOpenConversation();
+      if (summary.includes('[') && summary.includes(']')) {
+        // Si es JSON array
+        const parsed = JSON.parse(summary);
+        parsed.forEach((msg: any, index: number) => {
+          historicMessages.push({
+            id: `historic_${conversationId}_${index}`,
+            message_id: `historic_${conversationId}_${index}`,
+            conversation_id: conversationId,
+            sender_type: msg.rol === 'Prospecto' ? 'customer' : 'bot',
+            sender_name: msg.rol === 'Prospecto' ? 'Cliente' : 'Bot Vidanta',
+            content: msg.mensaje || msg.content || msg,
+            is_read: true,
+            created_at: msg.fecha_hora || msg.timestamp || new Date().toISOString()
+          });
+        });
+      } else {
+        // Si es texto plano, crear un mensaje único
+        historicMessages.push({
+          id: `historic_${conversationId}_summary`,
+          message_id: `historic_${conversationId}_summary`,
+          conversation_id: conversationId,
+          sender_type: 'bot',
+          sender_name: 'Sistema',
+          content: summary,
+          is_read: true,
+          created_at: new Date().toISOString()
+        });
       }
-    }, 10000);
+      
+      return historicMessages;
+    } catch (error) {
+      console.error('❌ Error parseando summary:', error);
+      return [];
+    }
+  };
 
-    return () => clearInterval(conversationSyncInterval);
-  }, [selectedConversation, sending]);
+  const loadConversationsFromMessages = async () => {
+    try {
+      console.log('🔄 Generando conversaciones dinámicamente desde mensajes_whatsapp...');
+      
+      // Obtener todos los prospecto_id únicos que tienen mensajes
+      const { data: uniqueProspectos, error: prospectoError } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('prospecto_id')
+        .not('prospecto_id', 'is', null);
+
+      if (prospectoError) {
+        console.error('❌ Error obteniendo prospectos:', prospectoError);
+        return;
+      }
+
+      // Crear Set para prospecto_id únicos
+      const prospectoIds = [...new Set(uniqueProspectos?.map(p => p.prospecto_id) || [])];
+      console.log(`📊 ${prospectoIds.length} prospectos únicos encontrados con mensajes`);
+
+      const conversations = [];
+
+      // Para cada prospecto, crear una conversación
+      for (const prospectoId of prospectoIds) {
+        // Obtener último mensaje del prospecto
+        const { data: lastMessage } = await analysisSupabase
+          .from('mensajes_whatsapp')
+          .select('*')
+          .eq('prospecto_id', prospectoId)
+          .order('fecha_hora', { ascending: false })
+          .limit(1)
+          .single();
+
+        // Obtener información del prospecto incluyendo id_uchat
+        const { data: prospecto } = await analysisSupabase
+          .from('prospectos')
+          .select('nombre_completo, whatsapp, id_uchat')
+          .eq('id', prospectoId)
+          .single();
+
+        // Contar mensajes totales
+        const { count } = await analysisSupabase
+          .from('mensajes_whatsapp')
+          .select('*', { count: 'exact', head: true })
+          .eq('prospecto_id', prospectoId);
+
+        if (lastMessage) {
+          conversations.push({
+            id: lastMessage.conversacion_id || prospectoId, // Usar conversacion_id o prospecto_id como fallback
+            prospecto_id: prospectoId,
+            nombre_contacto: prospecto?.nombre_completo || 'Sin nombre',
+            customer_name: prospecto?.nombre_completo || 'Sin nombre', // ✅ Agregar para UI
+            customer_phone: prospecto?.whatsapp || '',
+            numero_telefono: prospecto?.whatsapp || '',
+            estado: 'activa',
+            mensajes_no_leidos: 0,
+            updated_at: lastMessage.fecha_hora,
+            ultimo_mensaje_preview: lastMessage.mensaje?.substring(0, 100) || '',
+            ultimo_mensaje_sender: lastMessage.rol || '',
+            fecha_inicio: lastMessage.fecha_hora,
+            tipo: 'INBOUND',
+            total_mensajes: count || 0,
+            // Agregar metadata para compatibilidad
+            metadata: {
+              id_uchat: prospecto?.id_uchat || ''
+            }
+          });
+        }
+      }
+
+      // Ordenar por último mensaje
+      conversations.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+      console.log(`✅ ${conversations.length} conversaciones generadas dinámicamente`);
+      console.log('📊 Sample conversaciones:', conversations.slice(0, 3).map(c => ({ 
+        id: c.id, 
+        prospecto_id: c.prospecto_id, 
+        nombre: c.nombre_contacto,
+        mensajes: c.total_mensajes 
+      })));
+      
+      setConversations(conversations);
+
+      // Inicializar unread_counts
+      const unreadMap: { [key: string]: number } = {};
+      conversations.forEach(conv => {
+        unreadMap[conv.id] = conv.mensajes_no_leidos || 0;
+      });
+      setUnreadCounts(unreadMap);
+
+    } catch (error) {
+      console.error('❌ Error en loadConversationsFromMessages:', error);
+    }
+  };
+
+  const loadConversationsQuiet = async () => {
+    try {
+      const { data, error } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('*')
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
+
+      if (error) return;
+
+      // Actualizar solo si hay cambios reales (evitar parpadeos)
+      setConversations(prevConversations => {
+        if (JSON.stringify(prevConversations) === JSON.stringify(data)) {
+          return prevConversations; // No hay cambios, no re-render
+        }
+        return data || [];
+      });
+      
+      // Actualizar unread_counts solo si hay cambios
+      if (data) {
+        setUnreadCounts(prevUnread => {
+          const newUnreadMap: { [key: string]: number } = {};
+          data.forEach(conv => {
+            newUnreadMap[conv.id] = conv.unread_count || 0;
+          });
+          
+          // Solo actualizar si hay diferencias
+          if (JSON.stringify(prevUnread) !== JSON.stringify(newUnreadMap)) {
+            return newUnreadMap;
+          }
+          return prevUnread;
+        });
+      }
+    } catch (error) {
+      // Silencioso
+    }
+  };
+
 
   useEffect(() => {
     // Cargar estado de pausa desde localStorage al iniciar
@@ -458,19 +782,8 @@ const LiveChatCanvas: React.FC = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabaseSystemUI
-        .from('uchat_conversations')
-        .select('*')
-        .order('last_message_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('❌ Error:', error);
-        setConversations([]);
-        return;
-      }
-
-      setConversations(data || []);
+      // Generar conversaciones directamente desde mensajes_whatsapp (sin RPC)
+      await loadConversationsFromMessages();
     } catch (error) {
       console.error('❌ Error cargando conversaciones:', error);
       setConversations([]);
@@ -504,25 +817,89 @@ const LiveChatCanvas: React.FC = () => {
 
   const loadMessagesAndBlocks = async (conversationId: string) => {
     try {
+      console.log('🔍 Cargando mensajes para conversación UUID:', conversationId);
       
-      const { data: messages, error } = await supabaseSystemUI
-        .from('uchat_messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('❌ Error cargando mensajes:', error);
+      // Primero obtener el prospecto_id desde la conversación
+      const selectedConv = conversations.find(c => c.id === conversationId);
+      const prospectoId = selectedConv?.prospecto_id;
+      
+      console.log('🔗 Vinculando por prospecto_id:', prospectoId);
+      console.log('🔍 Conversación encontrada:', selectedConv);
+      
+      if (!prospectoId) {
+        console.error('❌ No se encontró prospecto_id para la conversación');
+        console.error('❌ Conversaciones disponibles:', conversations.map(c => ({ id: c.id, prospecto_id: c.prospecto_id })));
         setAllMessages([]);
         setConversationBlocks([]);
         return;
       }
 
-      console.log(`✅ ${messages.length} mensajes REALES cargados`);
-      setAllMessages(messages || []);
+      // 1. Cargar mensajes de últimas 24 horas por prospecto_id
+      const { data: recentMessages, error: recentError } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('*')
+        .eq('prospecto_id', prospectoId)
+        .order('fecha_hora', { ascending: true });
+
+      console.log('📊 Mensajes últimas 24h por prospecto_id:', { count: recentMessages?.length, error: recentError });
+
+      // 2. Cargar mensajes históricos desde conversaciones_whatsapp (bloques de 24h)
+      const { data: historicData, error: historicError } = await analysisSupabase
+        .from('conversaciones_whatsapp')
+        .select('summary') // El campo que contiene los mensajes históricos
+        .eq('prospecto_id', prospectoId)
+        .single();
+
+      console.log('📊 Mensajes históricos:', { hasData: !!historicData, error: historicError });
+
+      let allMessages = [];
+      
+      // Combinar mensajes recientes
+      if (recentMessages) {
+        allMessages.push(...recentMessages);
+      }
+      
+      // Parsear mensajes históricos desde summary
+      if (historicData?.summary) {
+        try {
+          const historicMessages = parseHistoricMessages(historicData.summary, conversationId);
+          allMessages.push(...historicMessages);
+        } catch (error) {
+          console.error('❌ Error parseando mensajes históricos:', error);
+        }
+      }
+
+      // Ordenar todos los mensajes por fecha
+      allMessages.sort((a, b) => 
+        new Date(a.fecha_hora || a.created_at).getTime() - 
+        new Date(b.fecha_hora || b.created_at).getTime()
+      );
+
+      console.log(`📊 Total mensajes combinados: ${allMessages.length}`);
+
+      // Adaptar mensajes al formato Message interface
+      const adaptedMessages: Message[] = allMessages.map(msg => ({
+        id: msg.id || msg.message_id,
+        message_id: msg.message_id || msg.id,
+        conversation_id: conversationId,
+        sender_type: msg.rol === 'Prospecto' ? 'customer' : 
+                    msg.rol === 'AI' ? 'bot' : 
+                    msg.rol === 'Vendedor' ? 'agent' : 
+                    msg.sender_type || 'bot',
+        sender_name: msg.rol === 'Prospecto' ? 'Cliente' : 
+                    msg.rol === 'AI' ? 'Bot Vidanta' : 
+                    msg.rol === 'Vendedor' ? 'Agente' : 
+                    msg.sender_name || 'Bot',
+        content: msg.mensaje || msg.content,
+        is_read: true,
+        created_at: msg.created_at || msg.fecha_hora
+      }));
+
+      console.log(`✅ ${adaptedMessages.length} mensajes REALES cargados (${recentMessages?.length || 0} recientes + ${adaptedMessages.length - (recentMessages?.length || 0)} históricos)`);
+      setAllMessages(adaptedMessages);
 
       // Agrupar mensajes en bloques de 24 horas
-      const blocks = groupMessagesByDay(messages || []);
+      const blocks = groupMessagesByDay(adaptedMessages);
       setConversationBlocks(blocks);
 
       // Marcar mensajes como leídos
@@ -536,7 +913,7 @@ const LiveChatCanvas: React.FC = () => {
     const blocks: { [date: string]: Message[] } = {};
     
     messages.forEach(message => {
-      const date = new Date(message.created_at).toISOString().split('T')[0];
+      const date = new Date(message.created_at || message.fecha_hora).toISOString().split('T')[0];
       if (!blocks[date]) {
         blocks[date] = [];
       }
@@ -575,7 +952,7 @@ const LiveChatCanvas: React.FC = () => {
 
   const performSilentSync = async () => {
     if (syncInProgress) return;
-    
+
     try {
       setSyncInProgress(true);
 
@@ -697,10 +1074,25 @@ const LiveChatCanvas: React.FC = () => {
 
   const syncNewMessages = async () => {
     try {
-      
-      if (!selectedConversation) return;
+      // Sincronizar mensajes para TODAS las conversaciones, no solo la seleccionada
+      await syncAllConversationsMessages();
+    } catch (error) {
+      console.error('❌ Error en syncNewMessages:', error);
+    }
+  };
 
-      const prospectId = selectedConversation.metadata?.prospect_id;
+  const syncAllConversationsMessages = async () => {
+    // Sincronizar mensajes para todas las conversaciones y actualizar unread_count
+    for (const conversation of conversations) {
+      if (conversation.metadata?.prospect_id) {
+        await syncMessagesForConversationWithUnread(conversation);
+      }
+    }
+  };
+
+  const syncMessagesForConversationWithUnread = async (conversation: Conversation) => {
+    try {
+      const prospectId = conversation.metadata?.prospect_id;
       if (!prospectId) return;
 
       if (!analysisSupabaseInstance) {
@@ -911,11 +1303,41 @@ const LiveChatCanvas: React.FC = () => {
         return updated;
       });
 
-      // Actualizar contador
+      // Actualizar contador y timestamp si hay nuevos mensajes
+      if (messagesToInsert.length > 0) {
+        const newTimestamp = new Date().toISOString();
+        
+        // Actualizar en base de datos
+        await supabaseSystemUI
+          .from('uchat_conversations')
+          .update({ 
+            message_count: selectedConversation.message_count + messagesToInsert.length,
+            last_message_at: newTimestamp,
+            // No incrementar unread_count porque el usuario está viendo esta conversación
+            unread_count: 0
+          })
+          .eq('id', selectedConversation.id);
+
+        // Actualizar estado local
       setSelectedConversation(prev => prev ? {
         ...prev,
-        message_count: prev.message_count + messagesToInsert.length
+          message_count: prev.message_count + messagesToInsert.length,
+          last_message_at: newTimestamp
       } : null);
+
+        // Reordenar conversaciones localmente
+        setConversations(prevConversations => {
+          const updated = prevConversations.map(conv => 
+            conv.id === selectedConversation.id 
+              ? { ...conv, message_count: conv.message_count + messagesToInsert.length, last_message_at: newTimestamp }
+              : conv
+          );
+          
+          return updated.sort((a, b) => 
+            new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          );
+        });
+      }
 
     } catch (error) {
       console.error('❌ Error en syncMessagesForOpenConversation:', error);
@@ -1037,10 +1459,15 @@ const LiveChatCanvas: React.FC = () => {
     // Combinar mensajes reales de BD con mensajes en caché
     const realMessages = allMessages.filter(msg => !msg.message_id.startsWith('cache_'));
     const validCachedMessages = cachedMessages.filter(msg => {
-      // Solo mostrar mensajes en caché que aún no han llegado desde la BD
+      // Solo mostrar mensajes en caché de la conversación activa
+      if (msg.conversation_id !== selectedConversation?.id) {
+        return false;
+      }
+      
+      // Y que aún no han llegado desde la BD
       return !realMessages.some(realMsg => 
         realMsg.content === msg.content && 
-        Math.abs(new Date(realMsg.created_at).getTime() - new Date(msg.created_at).getTime()) < 60000 // 1 minuto de diferencia
+        Math.abs(new Date(realMsg.created_at).getTime() - new Date(msg.created_at).getTime()) < 60000
       );
     });
     
@@ -1130,6 +1557,7 @@ const LiveChatCanvas: React.FC = () => {
 
     try {
       setSending(true);
+      setSendingToConversation(selectedConversation.id);
       
       const cacheMessage: Message = {
         id: `cache-${Date.now()}`,
@@ -1165,17 +1593,28 @@ const LiveChatCanvas: React.FC = () => {
         // 3. Agregar al caché temporal (NO a BD)
         addMessageToCache(cacheMessage);
         
-        // 4. Actualizar contador de conversación en BD y estado
+        // 4. Guardar mensaje en mensajes_whatsapp (pqnc_ai)
         const newTimestamp = new Date().toISOString();
         
-        // Actualizar en base de datos
-        const { error: updateError } = await supabaseSystemUI
-          .from('uchat_conversations')
-          .update({ 
-            message_count: selectedConversation.message_count + 1,
-            last_message_at: newTimestamp
-          })
-          .eq('id', selectedConversation.id);
+        console.log('💾 Guardando mensaje en mensajes_whatsapp...');
+        const { error: saveError } = await analysisSupabase
+          .from('mensajes_whatsapp')
+          .insert({
+            mensaje: messageToSend,
+            rol: 'Vendedor',
+            intencion: 'Respuesta_agente',
+            sentimiento: 'Neutro',
+            prospecto_id: selectedConversation.prospecto_id,
+            conversacion_id: selectedConversation.id,
+            fecha_hora: newTimestamp,
+            adjuntos: '[]'
+          });
+
+        if (saveError) {
+          console.error('❌ Error guardando mensaje:', saveError);
+        } else {
+          console.log('✅ Mensaje guardado en mensajes_whatsapp');
+        }
         
         // Actualizar estado local
         const updatedConversation = selectedConversation ? {
@@ -1199,6 +1638,11 @@ const LiveChatCanvas: React.FC = () => {
         });
         
         setSelectedConversation(updatedConversation);
+        
+        // Forzar recarga deshabilitada temporalmente para debugging
+        // setTimeout(() => {
+        //   loadConversationsQuiet();
+        // }, 2000);
       } else {
         console.log('❌ Error enviando mensaje a UChat');
         // No agregar al caché si no se envió
@@ -1208,6 +1652,7 @@ const LiveChatCanvas: React.FC = () => {
       setAllMessages(prev => prev.filter(m => m.id.startsWith('temp-')));
     } finally {
       setSending(false);
+      setSendingToConversation(null);
     }
   };
 
@@ -1230,6 +1675,29 @@ const LiveChatCanvas: React.FC = () => {
           messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
         }
       }, 100);
+    }
+  };
+
+  const scrollToDateInMessages = (targetDate: string) => {
+    console.log('📅 Navegando a fecha:', targetDate);
+    
+    if (!messagesScrollRef.current) return;
+
+    // Buscar el primer mensaje de esa fecha
+    const targetElement = messagesScrollRef.current.querySelector(`[data-date="${targetDate}"]`);
+    
+    if (targetElement) {
+      console.log('✅ Elemento encontrado, haciendo scroll...');
+      targetElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start',
+        inline: 'nearest'
+      });
+    } else {
+      console.log('❌ No se encontró elemento para fecha:', targetDate);
+      // Fallback: buscar por contenido de fecha
+      const allDateHeaders = messagesScrollRef.current.querySelectorAll('[data-date]');
+      console.log('🔍 Fechas disponibles:', Array.from(allDateHeaders).map(el => el.getAttribute('data-date')));
     }
   };
 
@@ -1359,20 +1827,9 @@ const LiveChatCanvas: React.FC = () => {
                 {syncInProgress && <span className="text-blue-600 dark:text-blue-400"> • Sincronizando...</span>}
               </p>
             </div>
-            <div className="flex space-x-2">
-              <button 
-                onClick={loadConversations}
-                className="text-xs px-2 py-1 text-slate-600 dark:text-gray-300 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded hover:bg-slate-100 dark:hover:bg-gray-600"
-              >
-                Actualizar
-              </button>
-              <button 
-                onClick={performSilentSync}
-                disabled={syncInProgress}
-                className="text-xs px-2 py-1 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50"
-              >
-                {syncInProgress ? 'Sincronizando...' : 'Sincronizar'}
-              </button>
+            <div className="flex items-center text-xs text-slate-500 dark:text-gray-400">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+              Tiempo real activo
             </div>
           </div>
 
@@ -1420,7 +1877,14 @@ const LiveChatCanvas: React.FC = () => {
                   ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500 shadow-sm'
                   : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
               }`}
-              onClick={() => setSelectedConversation(conversation)}
+              onClick={() => {
+                console.log('👆 CONVERSACIÓN SELECCIONADA:', {
+                  id: conversation.id,
+                  prospecto_id: conversation.prospecto_id,
+                  nombre_contacto: conversation.nombre_contacto
+                });
+                setSelectedConversation(conversation);
+              }}
             >
               <div className="flex items-start space-x-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -1434,7 +1898,15 @@ const LiveChatCanvas: React.FC = () => {
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                       {conversation.customer_name}
                     </h3>
+                    <div className="flex items-center gap-2">
+                      {/* Indicador de mensajes no leídos */}
+                      {(conversation.unread_count || unreadCounts[conversation.id] || 0) > 0 && (
+                        <div className="bg-green-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                          {Math.min(conversation.unread_count || unreadCounts[conversation.id] || 0, 99)}
+                        </div>
+                      )}
                     {getStatusIndicator(conversation.status)}
+                    </div>
                   </div>
                   
                   <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{conversation.customer_phone}</p>
@@ -1507,6 +1979,7 @@ const LiveChatCanvas: React.FC = () => {
                 <div
                   key={block.date}
                   className="p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer hover:bg-slate-25 dark:hover:bg-gray-700/50 transition-all duration-200"
+                  onClick={() => scrollToDateInMessages(block.date)}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -1682,7 +2155,10 @@ const LiveChatCanvas: React.FC = () => {
                   return (
                     <div key={message.id}>
                       {showDate && (
-                        <div className="flex justify-center my-6">
+                        <div 
+                          className="flex justify-center my-6"
+                          data-date={formatDate(message.created_at)}
+                        >
                           <span className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-full shadow-sm">
                             {formatDate(message.created_at)}
                           </span>
@@ -1715,7 +2191,7 @@ const LiveChatCanvas: React.FC = () => {
                               isCustomer ? 'text-slate-400 dark:text-gray-400' : 'text-white text-opacity-75'
                             }`}>
                               <span>{formatTime(message.created_at)}</span>
-                              {message.message_id.startsWith('cache_') && (
+                              {message.message_id.startsWith('cache_') && message.conversation_id === sendingToConversation && (
                                 <span className="text-xs text-white text-opacity-60 italic">Enviando...</span>
                               )}
                             </div>

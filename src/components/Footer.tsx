@@ -3,7 +3,7 @@ import CatChaseEasterEgg from './CatChaseEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión nightly manual
-  const version = 'v5.2.0 - Prospectos + Análisis IA';
+  const version = 'v5.3.0 - Proyecto Optimizado';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);

@@ -1,8 +1,43 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
-## 🚀 Versión 5.2.0 - Módulo Prospectos + Análisis IA Rediseñado (Octubre 2025)
+## 🚀 Versión 5.3.0 - Limpieza Completa + Optimización de Tokens (Octubre 2025)
 
-### ✨ **NUEVAS FUNCIONALIDADES PRINCIPALES**
+### 🧹 **LIMPIEZA Y OPTIMIZACIÓN COMPLETA**
+
+#### 🗑️ **Eliminación de Archivos Temporales**
+- **Archivos de prueba**: test_db_insert.js, debug HTMLs, dev.log
+- **Configuraciones temporales**: CloudFront, VAPI configs obsoletos
+- **Scripts de setup**: create-uchat-*.js, create-tables-*.js (15+ archivos)
+- **Documentación obsoleta**: CHANGELOG_COMPLETO.md, Live Chat READMEs duplicados
+- **Proxies temporales**: audio_proxy_server.js, simple-proxy.js
+
+#### 📚 **Documentación Completa por Módulo**
+- **README específico**: Cada módulo con descripción, BD, dependencias
+- **README principal**: Completamente reescrito para v5.3.0
+- **Configuraciones**: /src/config/README.md con todas las bases de datos
+- **Servicios**: /src/services/README.md con funcionalidades
+- **Información clara**: Conexiones, permisos, navegación por módulo
+
+#### 🔧 **Reorganización del Sidebar**
+- **Constructor y Plantillas**: Eliminados completamente
+- **Nuevo orden**: Agent Studio → Análisis IA → PQNC Humans → Live Monitor → Live Chat → AI Models → Prompts Manager
+- **appMode por defecto**: 'agent-studio' (no 'constructor')
+- **Dependencias**: Limpiadas de appStore.ts y MainApp.tsx
+
+#### ⚡ **Optimización de Performance Live Chat**
+- **Sin re-renders**: Update local sin loadConversations()
+- **Sincronización inteligente**: No interrumpe escritura del usuario
+- **Ordenamiento**: Como WhatsApp Web sin parpadeos
+- **Navegación automática**: Selección de conversación por prospect_id
+- **UX optimizada**: Campo de texto mantiene foco
+
+#### 🧹 **Limpieza de Logs de Producción**
+- **Debug logs**: Eliminados de todos los módulos
+- **Console.log**: Solo logs de error importantes
+- **Sincronización**: Silenciosa sin logs innecesarios
+- **Performance**: Reducción de ruido en console
+
+### ✨ **FUNCIONALIDADES ANTERIORES MANTENIDAS**
 
 #### 📊 **Módulo Prospectos Completo**
 - **Data grid avanzado**: 23 prospectos reales con filtros y sorting

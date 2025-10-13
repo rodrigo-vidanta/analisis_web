@@ -1,5 +1,43 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.3.0 (Octubre 2025) - Limpieza Completa + Optimización
+
+### 🧹 RELEASE OPTIMIZACIÓN - Proyecto Limpio y Eficiente
+
+#### 🗑️ Eliminación Masiva de Archivos Temporales
+- **15+ archivos eliminados**: test_db_insert.js, debug HTMLs, configs temporales
+- **Scripts de setup**: create-uchat-*.js, create-tables-*.js removidos
+- **Documentación obsoleta**: CHANGELOG_COMPLETO.md, Live Chat READMEs duplicados
+- **Proxies temporales**: audio_proxy_server.js, simple-proxy.js eliminados
+- **Configuraciones VAPI**: vapi_config_fix.json, vapi_config_ultra_optimizada.json
+
+#### 📚 Documentación Completa y Organizada
+- **10 READMEs específicos**: Cada módulo con descripción, BD, dependencias
+- **README principal**: Completamente reescrito para v5.3.0
+- **Arquitectura clara**: Conexiones entre módulos documentadas
+- **Bases de datos**: 4 Supabase instances explicadas
+- **Navegación**: Flujo entre módulos documentado
+
+#### 🔧 Reorganización Completa del Sidebar
+- **Constructor y Plantillas**: Eliminados completamente del proyecto
+- **Nuevo orden lógico**: Agent Studio (1°) → Análisis IA (2°) → PQNC Humans (3°) → Live Monitor (4°) → Live Chat (5°) → AI Models (6°) → Prompts Manager (7°)
+- **appMode por defecto**: 'agent-studio' reemplaza 'constructor'
+- **AppMode type**: Limpiado de módulos obsoletos
+
+#### ⚡ Optimización Performance y UX
+- **Live Chat sin re-renders**: Update local sin llamadas a BD
+- **Sincronización inteligente**: No interrumpe escritura del usuario
+- **Logs limpiados**: Solo logs de error importantes
+- **Navegación fluida**: Sin parpadeos ni interrupciones
+
+#### 🎯 Optimización para Tokens
+- **Código limpio**: Sin archivos temporales ni debug
+- **Documentación eficiente**: READMEs concisos y específicos
+- **Estructura simplificada**: Fácil navegación y comprensión
+- **Performance**: Reducción de ruido y archivos innecesarios
+
+---
+
 ## Versión 5.2.0 (Octubre 2025) - Módulo Prospectos + Análisis IA Rediseñado
 
 ### 🚀 RELEASE FUNCIONALIDADES - Módulos de Gestión y Análisis

@@ -203,8 +203,8 @@ class AuthService {
         return ['admin', 'evaluator', 'developer'].includes(this.currentUser.role_name);
       
       case 'academia':
-        // Academia para vendedores y developers
-        return ['vendedor', 'developer'].includes(this.currentUser.role_name);
+        // Academia para Admin, Developer y Evaluator
+        return ['admin', 'developer', 'evaluator'].includes(this.currentUser.role_name);
       
       case 'ai-models':
         // AI Models para productor, admin y developer
