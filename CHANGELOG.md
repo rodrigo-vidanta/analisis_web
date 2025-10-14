@@ -1,5 +1,40 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.4.0 - Temas Globales + Acentos por Módulo + UI Homologada (Octubre 2025)
+
+### 🎨 Temas Globales (solo Admin)
+- **Renombrados**: "Linear Design" → "Tema Estudio"; "Diseño corporativo" → "Tema Corporativo".
+- **Selector global solo Administrador**: Administración → Preferencias del sistema → Temas de la aplicación.
+- **Bloqueo para usuarios**: `allow_user_theme_selection: false` persistido en configuración global.
+
+### 🧱 Tokens de diseño y homogeneización visual
+- **Variables CSS globales**: `--module-accent`, `--btn-primary-*`, paleta base por tema.
+- **Acento por módulo**: Colores coherentes para `pqnc`, `natalia`, `prospectos`, `live-monitor`, `live-chat`, `ai-models`, `agent-studio`, `aws-manager`, `admin`, `academia`.
+- **Utilidades homogéneas**: `.u-btn-primary`, `.u-close` para botones primarios y de cierre en todos los módulos.
+- **Sin impacto en visibilidad**: Los módulos visibles dependen de permisos, no del tema.
+
+### 🖼️ UI Ancha y Modales Ampliados (PQNC Humans)
+- **Contenedor ancho autoajustable** cuando se usa PQNC Humans desde el dashboard de análisis.
+- **Modal de Transcripción** ampliado a `max-w-6xl`.
+- **Vista Detallada**: `max-w-[96rem]` y `max-h-[92vh]` para mayor área útil.
+
+### 🔧 Cambios Técnicos
+- `MainApp`: establece `data-module` global para aplicar acentos por módulo.
+- `SystemPreferences`: renombrado de temas y persistencia admin-only.
+- `useTheme`: persistencia con `allow_user_theme_selection: false`.
+- `index.css`: variables de tema, mapa de acentos por módulo y utilidades homogéneas.
+
+### 📁 Archivos Relevantes
+- `src/components/analysis/AnalysisDashboard.tsx`
+- `src/components/analysis/PQNCDashboard.tsx`
+- `src/components/analysis/DetailedCallView.tsx`
+- `src/components/MainApp.tsx`
+- `src/components/admin/SystemPreferences.tsx`
+- `src/hooks/useTheme.ts`
+- `src/index.css`
+
+---
+
 ## 🚀 Versión 5.3.0 - Limpieza Completa + Optimización de Tokens (Octubre 2025)
 
 ### 🧹 **LIMPIEZA Y OPTIMIZACIÓN COMPLETA**

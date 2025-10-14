@@ -1130,8 +1130,8 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-7xl h-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-[96rem] h-full max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
           <div>

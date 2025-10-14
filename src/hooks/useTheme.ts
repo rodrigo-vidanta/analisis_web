@@ -75,7 +75,7 @@ export const useTheme = () => {
         p_config_key: 'app_theme',
         p_new_value: { 
           active_theme: themeName,
-          allow_user_theme_selection: true
+          allow_user_theme_selection: false
         }
       });
 

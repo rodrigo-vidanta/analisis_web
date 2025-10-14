@@ -1,5 +1,26 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.4.0 (Octubre 2025) - Temas Globales + Acentos por Módulo
+
+### 🎨 Cambios de UI y Arquitectura de Temas
+- Renombrado de temas: Tema Corporativo y Tema Estudio.
+- Selector de tema solo para Administrador en Administración → Preferencias del sistema.
+- Persistencia global: `allow_user_theme_selection: false` para impedir cambios por usuarios.
+- Variables CSS globales y utilidades para homogeneizar botones y cierres.
+- Acento por módulo aplicado con `data-module` sin alterar visibilidad.
+
+### 🔧 Implementación Técnica
+- `MainApp` aplica `data-module={appMode}` al contenedor raíz.
+- `SystemPreferences` renombra temas y actualiza config global.
+- `useTheme` persiste bloqueo de selección por usuario.
+- `index.css` define variables de acento por módulo y clases homogéneas.
+
+### 🧩 Impacto en módulos
+- PQNC Humans: contenedor ancho, modales ampliados.
+- Análisis IA: respeta ancho cuando se fuerza PQNC.
+- Live Chat, Academia, AI Models, Agent Studio, Prospectos, AWS Manager: sin cambios funcionales; paleta y acentos coherentes.
+
+---
 ## Versión 5.3.0 (Octubre 2025) - Limpieza Completa + Optimización
 
 ### 🧹 RELEASE OPTIMIZACIÓN - Proyecto Limpio y Eficiente

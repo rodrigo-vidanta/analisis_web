@@ -380,7 +380,9 @@ function MainApp() {
   // Si el tema Linear está activo, usar layout completamente diferente
   if (isLinearTheme) {
     return (
-      <div className={`${(appMode === 'agent-studio' ? darkMode : localDarkMode) ? 'dark' : ''}`}>
+      <div className={`${(appMode === 'agent-studio' ? darkMode : localDarkMode) ? 'dark' : ''}`}
+        data-module={appMode}
+      >
         <LinearLayout
           darkMode={appMode === 'agent-studio' ? darkMode : localDarkMode}
           onToggleDarkMode={handleToggleDarkMode}
@@ -396,7 +398,7 @@ function MainApp() {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       (appMode === 'constructor' ? darkMode : localDarkMode) ? 'dark' : ''
-    }`}>
+    }`} data-module={appMode}>
       <div className={`min-h-screen ${themeClasses.background} flex transition-all duration-300`}>
         
         {/* Sidebar with theme support */}

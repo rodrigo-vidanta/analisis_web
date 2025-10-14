@@ -514,7 +514,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className={selectedAnalysis === 'pqnc' ? 'w-full px-6 py-8' : 'max-w-7xl mx-auto px-6 py-8'}>
         <div className="mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent mb-2">
             Dashboard de Análisis de Llamadas

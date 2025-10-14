@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import CatChaseEasterEgg from './CatChaseEasterEgg';
 
 const Footer: React.FC = () => {
-  // Versión nightly manual
-  const version = 'v5.3.0 - Proyecto Optimizado';
+  // Versión actual
+  const version = 'v5.4.0 - Temas Globales + Acentos por Módulo';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);

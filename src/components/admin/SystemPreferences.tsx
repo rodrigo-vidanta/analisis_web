@@ -3,14 +3,8 @@ import { pqncSupabase as supabase } from '../../config/pqncSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { systemConfigEvents } from '../../utils/systemConfigEvents';
 
-interface SystemConfig {
-  id: string;
-  config_key: string;
-  config_value: any;
-  config_type: string;
-  display_name: string;
-  description: string;
-}
+// Nota: tipos reservados para futuras ampliaciones de preferencias
+// (se omiten variables no usadas para evitar warnings)
 
 interface AppTheme {
   id: string;
@@ -51,13 +45,13 @@ const SystemPreferences: React.FC = () => {
         .delete()
         .not('theme_name', 'in', '(default,linear_theme)');
 
-      // 2. Crear/actualizar tema por defecto (Corporativo)
+      // 2. Crear/actualizar tema por defecto (Tema Corporativo)
       await supabase
         .from('app_themes')
         .upsert({
           theme_name: 'default',
-          display_name: 'Diseño Corporativo',
-          description: 'Diseño actual de la aplicación con gradientes y colores corporativos',
+          display_name: 'Tema Corporativo',
+          description: 'Estilo corporativo con gradientes y paleta institucional homologada',
           theme_config: {
             primary: "rgb(59, 130, 246)",
             secondary: "rgb(129, 140, 248)", 
@@ -69,13 +63,13 @@ const SystemPreferences: React.FC = () => {
           is_active: true
         }, { onConflict: 'theme_name' });
 
-      // 3. Crear/actualizar tema Linear
+      // 3. Crear/actualizar tema Estudio (Linear)
       await supabase
         .from('app_themes')
         .upsert({
           theme_name: 'linear_theme',
-          display_name: 'Linear Design',
-          description: 'Diseño elegante y minimalista inspirado en Linear.app con colores sutiles y animaciones fluidas',
+          display_name: 'Tema Estudio',
+          description: 'Estilo minimalista tipo Estudio con superficies limpias y animaciones sutiles',
           theme_config: {
             primary: "rgb(99, 102, 241)",
             secondary: "rgb(129, 140, 248)",
@@ -125,7 +119,7 @@ const SystemPreferences: React.FC = () => {
       setThemes(themesData || []);
 
       // Cargar tema activo
-      const { data: themeConfigData, error: themeConfigError } = await supabase
+      const { data: themeConfigData } = await supabase
         .from('system_config')
         .select('*')
         .eq('config_key', 'app_theme')
@@ -173,7 +167,7 @@ const SystemPreferences: React.FC = () => {
         const fileExt = logoFile.name.split('.').pop();
         const fileName = `logo-${Date.now()}.${fileExt}`;
         
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('system-assets')
           .upload(fileName, logoFile);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   Search, 
   Phone,
@@ -15,17 +15,20 @@ import {
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
 
-// Crear instancia única de análisis fuera del componente para evitar múltiples clientes
-const createAnalysisSupabase = async () => {
-  const { createClient } = await import('@supabase/supabase-js');
-  return createClient(
-    'https://glsmifhkoaifvaegsozd.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E'
-  );
+// Utilidades de log (silenciar en producción)
+const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
+const logDev = (...args: any[]) => {
+  if (enableRtDebug) console.log(...args);
 };
-
-// Instancia global única
-let analysisSupabaseInstance: any = null;
+const lastErrLogRef: { current: Record<string, number> } = { current: {} };
+const logErrThrottled = (key: string, ...args: any[]) => {
+  const now = Date.now();
+  const last = lastErrLogRef.current[key] || 0;
+  if (now - last > 15000) { // máx 1 cada 15s por canal
+    console.error(...args);
+    lastErrLogRef.current[key] = now;
+  }
+};
 
 // ============================================
 // INTERFACES
@@ -36,15 +39,22 @@ interface Conversation {
   prospecto_id: string;
   numero_telefono?: string;
   nombre_contacto?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  status?: string;
   estado?: string;
   mensajes_no_leidos?: number;
+  unread_count?: number;
   updated_at: string;
+  last_message_at?: string;
+  message_count?: number;
   ultimo_mensaje_preview?: string;
   ultimo_mensaje_sender?: string;
   fecha_inicio: string;
   summary?: string;
   resultado?: string;
   tipo: string;
+  metadata?: any;
 }
 
 interface Message {
@@ -86,6 +96,11 @@ const LiveChatCanvas: React.FC = () => {
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   const [syncInProgress, setSyncInProgress] = useState(false);
   const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
+  const [convRealtimeChannel, setConvRealtimeChannel] = useState<any>(null);
+  const [uchatRealtimeChannel, setUchatRealtimeChannel] = useState<any>(null);
+  const realtimeRetryRef = useRef<number>(0);
+  const convRetryRef = useRef<number>(0);
+  const uchatRetryRef = useRef<number>(0);
 
   // Estados para control del bot
   const [botPauseStatus, setBotPauseStatus] = useState<{[uchatId: string]: {
@@ -119,6 +134,9 @@ const LiveChatCanvas: React.FC = () => {
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const conversationsScrollRef = useRef<HTMLDivElement>(null);
   const blocksScrollRef = useRef<HTMLDivElement>(null);
+  const userScrolledAwayRef = useRef<boolean>(false);
+  const reorderTimerRef = useRef<number | null>(null);
+  const loadRequestIdRef = useRef<number>(0);
 
   const [metrics, setMetrics] = useState({
     totalConversations: 0,
@@ -142,11 +160,17 @@ const LiveChatCanvas: React.FC = () => {
       if (realtimeChannel) {
         realtimeChannel.unsubscribe();
       }
+      if (convRealtimeChannel) {
+        convRealtimeChannel.unsubscribe();
+      }
+      if (uchatRealtimeChannel) {
+        uchatRealtimeChannel.unsubscribe();
+      }
     };
   }, []);
 
   const setupRealtimeSubscription = () => {
-    console.log('🔌 Configurando Realtime para sorting automático...');
+    logDev('🔌 Configurando Realtime para sorting automático...');
     
     // Suscribirse a cambios en mensajes_whatsapp para reordenar conversaciones
     const channel = analysisSupabase
@@ -160,15 +184,118 @@ const LiveChatCanvas: React.FC = () => {
         handleNewMessageForSorting(payload.new);
       })
       .subscribe((status) => {
-        console.log('📡 Realtime status:', status);
+        logDev('📡 Realtime status:', status);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Realtime conectado para sorting automático');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Error en canal Realtime');
+          realtimeRetryRef.current = 0;
+          logDev('✅ Realtime conectado para sorting automático');
+        } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+          logErrThrottled('messages', '❌ Error en canal Realtime (mensajes) -', status);
+          const delay = Math.min(1000 * (realtimeRetryRef.current + 1), 10000);
+          realtimeRetryRef.current += 1;
+          setTimeout(() => {
+            try { channel.unsubscribe(); } catch {}
+            setRealtimeChannel(null);
+            setupRealtimeSubscription();
+          }, delay);
         }
       });
 
     setRealtimeChannel(channel);
+
+    // Suscribirse a cambios en conversaciones_whatsapp (last_message_at) para reordenar con metadatos
+    const convChannel = analysisSupabase
+      .channel('live-chat-conv-meta')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'conversaciones_whatsapp'
+      }, (payload) => {
+        const rec = payload.new;
+        if (!rec) return;
+        // Actualizar por prospecto_id
+        const prospectoId = rec.prospecto_id;
+        const ts = rec.last_message_at || rec.updated_at;
+        setConversations(prev => {
+          const updated = prev.map(conv =>
+            conv.prospecto_id === prospectoId
+              ? { ...conv, last_message_at: ts, updated_at: ts, ultimo_mensaje_preview: conv.ultimo_mensaje_preview }
+              : conv
+          );
+          return updated.sort((a, b) =>
+            new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
+          );
+        });
+      })
+      .subscribe((status) => {
+        logDev('📡 Realtime conversaciones_whatsapp:', status);
+        if (status === 'SUBSCRIBED') {
+          convRetryRef.current = 0;
+        } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+          logErrThrottled('conv_meta', '❌ Error en canal Realtime (conversaciones_whatsapp) -', status);
+          const delay = Math.min(1000 * (convRetryRef.current + 1), 10000);
+          convRetryRef.current += 1;
+          setTimeout(() => {
+            try { convChannel.unsubscribe(); } catch {}
+            setConvRealtimeChannel(null);
+            setupRealtimeSubscription();
+          }, delay);
+        }
+      });
+    setConvRealtimeChannel(convChannel);
+
+    // Suscribirse a cambios en uchat_conversations para unread_count y conteos
+    const uchatChannel = supabaseSystemUI
+      .channel('live-chat-uchat-conv')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'uchat_conversations'
+      }, (payload) => {
+        const rec = payload.new;
+        if (!rec) return;
+        // Mapear por id_uchat (conversation_id en uchat)
+        const uchatId = rec.conversation_id;
+        setConversations(prev => {
+          const updated = prev.map(conv => {
+            if (conv.metadata?.id_uchat === uchatId) {
+              const ts = rec.last_message_at || conv.last_message_at || conv.updated_at;
+              return {
+                ...conv,
+                last_message_at: rec.last_message_at || conv.last_message_at,
+                updated_at: ts,
+                message_count: rec.message_count ?? conv.message_count,
+                unread_count: rec.unread_count ?? conv.unread_count
+              };
+            }
+            return conv;
+          });
+          return updated.sort((a, b) =>
+            new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
+          );
+        });
+        // Actualizar mapa de unread
+        setUnreadCounts(prev => {
+          const matched = conversations.find(c => c.metadata?.id_uchat === uchatId);
+          if (!matched) return prev;
+          return { ...prev, [matched.id]: Number(rec.unread_count ?? 0) };
+        });
+      })
+      .subscribe((status) => {
+        logDev('📡 Realtime uchat_conversations:', status);
+        if (status === 'SUBSCRIBED') {
+          uchatRetryRef.current = 0;
+        } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+          logErrThrottled('uchat_conv', '❌ Error en canal Realtime (uchat_conversations) -', status);
+          const delay = Math.min(1000 * (uchatRetryRef.current + 1), 10000);
+          uchatRetryRef.current += 1;
+          setTimeout(() => {
+            try { uchatChannel.unsubscribe(); } catch {}
+            setUchatRealtimeChannel(null);
+            setupRealtimeSubscription();
+          }, delay);
+        }
+      });
+    setUchatRealtimeChannel(uchatChannel);
   };
 
   const handleNewMessageForSorting = (newMessage: any) => {
@@ -177,6 +304,7 @@ const LiveChatCanvas: React.FC = () => {
     // Buscar la conversación que corresponde a este mensaje
     const messageProspectoId = newMessage.prospecto_id;
     const messageTimestamp = newMessage.fecha_hora || newMessage.created_at;
+    const messageRole = newMessage.rol;
     
     setConversations(prev => {
       const updatedConversations = prev.map(conv => {
@@ -185,6 +313,8 @@ const LiveChatCanvas: React.FC = () => {
           return {
             ...conv,
             updated_at: messageTimestamp,
+            last_message_at: messageTimestamp,
+            message_count: (conv.message_count || 0) + 1,
             ultimo_mensaje_preview: newMessage.mensaje?.substring(0, 100) || '',
             ultimo_mensaje_sender: newMessage.rol || ''
           };
@@ -192,14 +322,27 @@ const LiveChatCanvas: React.FC = () => {
         return conv;
       });
       
-      // Reordenar por updated_at DESC (más reciente primero)
+      // Reordenar por last_message_at/updated_at DESC (más reciente primero)
       const sortedConversations = updatedConversations.sort((a, b) => 
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
       );
       
       console.log('✅ Conversaciones reordenadas, primera:', sortedConversations[0]?.customer_name);
       return sortedConversations;
     });
+
+    // Incrementar unread si no es la conversación activa y el mensaje no es del agente
+    const activeProspect = selectedConversation?.prospecto_id;
+    const isActive = activeProspect && activeProspect === messageProspectoId;
+    if (!isActive && messageRole !== 'Vendedor') {
+      const targetConv = conversations.find(c => c.prospecto_id === messageProspectoId);
+      if (targetConv) {
+        setUnreadCounts(prev => ({
+          ...prev,
+          [targetConv.id]: (prev[targetConv.id] || 0) + 1
+        }));
+      }
+    }
   };
 
   const handleRealtimeConversationChange = (payload: any) => {
@@ -381,8 +524,12 @@ const LiveChatCanvas: React.FC = () => {
   };
 
   useEffect(() => {
-    // SCROLL AL FINAL para mostrar últimos mensajes
+    // Auto-scroll solo si el usuario no está escribiendo ni se desplazó manualmente
+    const activeElement = document.activeElement as HTMLElement | null;
+    const isTyping = !!activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
+    if (!isTyping && !userScrolledAwayRef.current) {
     scrollToBottom();
+    }
   }, [allMessages]);
 
   useEffect(() => {
@@ -551,7 +698,7 @@ const LiveChatCanvas: React.FC = () => {
           .select('*', { count: 'exact', head: true })
           .eq('prospecto_id', prospectoId);
 
-        if (lastMessage) {
+      if (lastMessage) {
           conversations.push({
             id: lastMessage.conversacion_id || prospectoId, // Usar conversacion_id o prospecto_id como fallback
             prospecto_id: prospectoId,
@@ -559,14 +706,17 @@ const LiveChatCanvas: React.FC = () => {
             customer_name: prospecto?.nombre_completo || 'Sin nombre', // ✅ Agregar para UI
             customer_phone: prospecto?.whatsapp || '',
             numero_telefono: prospecto?.whatsapp || '',
-            estado: 'activa',
-            mensajes_no_leidos: 0,
-            updated_at: lastMessage.fecha_hora,
+          estado: 'activa',
+          status: 'active',
+          mensajes_no_leidos: 0,
+          unread_count: 0,
+          updated_at: lastMessage.fecha_hora,
+          last_message_at: lastMessage.fecha_hora,
             ultimo_mensaje_preview: lastMessage.mensaje?.substring(0, 100) || '',
             ultimo_mensaje_sender: lastMessage.rol || '',
             fecha_inicio: lastMessage.fecha_hora,
-            tipo: 'INBOUND',
-            total_mensajes: count || 0,
+          tipo: 'INBOUND',
+          message_count: count || 0,
             // Agregar metadata para compatibilidad
             metadata: {
               id_uchat: prospecto?.id_uchat || ''
@@ -575,8 +725,10 @@ const LiveChatCanvas: React.FC = () => {
         }
       }
 
-      // Ordenar por último mensaje
-      conversations.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+      // Ordenar por último mensaje (last_message_at si existe, si no updated_at)
+      conversations.sort((a, b) => 
+        new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
+      );
 
       console.log(`✅ ${conversations.length} conversaciones generadas dinámicamente`);
       console.log('📊 Sample conversaciones:', conversations.slice(0, 3).map(c => ({ 
@@ -591,7 +743,7 @@ const LiveChatCanvas: React.FC = () => {
       // Inicializar unread_counts
       const unreadMap: { [key: string]: number } = {};
       conversations.forEach(conv => {
-        unreadMap[conv.id] = conv.mensajes_no_leidos || 0;
+        unreadMap[conv.id] = Number(conv.unread_count ?? conv.mensajes_no_leidos ?? 0);
       });
       setUnreadCounts(unreadMap);
 
@@ -846,9 +998,9 @@ const LiveChatCanvas: React.FC = () => {
       // 2. Cargar mensajes históricos desde conversaciones_whatsapp (bloques de 24h)
       const { data: historicData, error: historicError } = await analysisSupabase
         .from('conversaciones_whatsapp')
-        .select('summary') // El campo que contiene los mensajes históricos
+        .select('summary')
         .eq('prospecto_id', prospectoId)
-        .single();
+        .maybeSingle();
 
       console.log('📊 Mensajes históricos:', { hasData: !!historicData, error: historicError });
 
@@ -970,10 +1122,7 @@ const LiveChatCanvas: React.FC = () => {
   const syncNewConversations = async () => {
     try {
       
-      if (!analysisSupabaseInstance) {
-        analysisSupabaseInstance = await createAnalysisSupabase();
-      }
-      const analysisSupabase = analysisSupabaseInstance;
+      // Usar cliente importado único
 
       // 1. Obtener prospectos activos con id_uchat
       const { data: activeProspects, error: prospectsError } = await analysisSupabase
@@ -1095,10 +1244,7 @@ const LiveChatCanvas: React.FC = () => {
       const prospectId = conversation.metadata?.prospect_id;
       if (!prospectId) return;
 
-      if (!analysisSupabaseInstance) {
-        analysisSupabaseInstance = await createAnalysisSupabase();
-      }
-      const analysisSupabase = analysisSupabaseInstance;
+      // Usar cliente importado único
 
       // Obtener mensajes nuevos desde lastSyncTime
       const { data: newMessages, error: messagesError } = await analysisSupabase
@@ -1168,10 +1314,7 @@ const LiveChatCanvas: React.FC = () => {
 
   const syncMessagesForConversation = async (conversationId: string, prospectId: string) => {
     try {
-      if (!analysisSupabaseInstance) {
-        analysisSupabaseInstance = await createAnalysisSupabase();
-      }
-      const analysisSupabase = analysisSupabaseInstance;
+      // Usar cliente importado único
 
       // Obtener mensajes recientes (últimos 10)
       const { data: recentMessages, error: messagesError } = await analysisSupabase
@@ -1327,14 +1470,19 @@ const LiveChatCanvas: React.FC = () => {
 
         // Reordenar conversaciones localmente
         setConversations(prevConversations => {
-          const updated = prevConversations.map(conv => 
-            conv.id === selectedConversation.id 
-              ? { ...conv, message_count: conv.message_count + messagesToInsert.length, last_message_at: newTimestamp }
-              : conv
-          );
+        const updated = prevConversations.map(conv => 
+          conv.id === selectedConversation.id 
+            ? { 
+                ...conv, 
+                message_count: (conv.message_count || 0) + messagesToInsert.length, 
+                last_message_at: newTimestamp,
+                updated_at: newTimestamp
+              }
+            : conv
+        );
           
           return updated.sort((a, b) => 
-            new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+            new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
           );
         });
       }
@@ -1352,11 +1500,23 @@ const LiveChatCanvas: React.FC = () => {
     try {
       console.log(`🤖 Pausando bot para ${uchatId} por ${durationMinutes} minutos...`);
       
-      // TODO: Usar webhook cuando esté configurado
-      // Por ahora usar solo estado local para evitar errores CORS
-      console.log('💡 Usando estado local de pausa (webhook pendiente de configuración)');
+      const ttlSec = Math.max(0, Math.floor(durationMinutes * 60));
+      const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Accept': 'application/json',
+          'livechat_auth': `4@Lt'\\o93BSkgA59MH[TSC"gERa+)jlgf|BWIR-7fAmM9o59}3.|W2k-JiRu(oeb`
+        },
+        body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec })
+      });
+      if (resp.status !== 200 && resp.status !== 201) {
+        const txt = await resp.text().catch(() => '');
+        console.error('❌ Error pause_bot webhook:', txt);
+        return false;
+      }
 
-      const pausedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+      const pausedUntil = new Date(Date.now() + ttlSec * 1000);
       
       // Guardar estado en localStorage para persistencia
       const pauseData = {
@@ -1394,9 +1554,20 @@ const LiveChatCanvas: React.FC = () => {
     try {
       console.log(`🤖 Reactivando bot para ${uchatId}...`);
       
-      // TODO: Usar webhook cuando esté configurado
-      // Por ahora usar solo estado local para evitar errores CORS
-      console.log('💡 Usando estado local de reactivación (webhook pendiente de configuración)');
+      const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Accept': 'application/json',
+          'livechat_auth': `4@Lt'\\o93BSkgA59MH[TSC"gERa+)jlgf|BWIR-7fAmM9o59}3.|W2k-JiRu(oeb`
+        },
+        body: JSON.stringify({ uchat_id: uchatId, ttl: 0 })
+      });
+      if (resp.status !== 200 && resp.status !== 201) {
+        const txt = await resp.text().catch(() => '');
+        console.error('❌ Error pause_bot webhook (resume):', txt);
+        return false;
+      }
 
       setBotPauseStatus(prev => ({
         ...prev,
@@ -1455,26 +1626,19 @@ const LiveChatCanvas: React.FC = () => {
   // MÉTODOS DE CACHÉ DE MENSAJES
   // ============================================
 
-  const getCombinedMessages = (): Message[] => {
-    // Combinar mensajes reales de BD con mensajes en caché
-    const realMessages = allMessages.filter(msg => !msg.message_id.startsWith('cache_'));
+  const combinedMessages = useMemo((): Message[] => {
+    const realMessages = allMessages.filter(msg => !msg.message_id?.startsWith('cache_'));
     const validCachedMessages = cachedMessages.filter(msg => {
-      // Solo mostrar mensajes en caché de la conversación activa
-      if (msg.conversation_id !== selectedConversation?.id) {
-        return false;
-      }
-      
-      // Y que aún no han llegado desde la BD
+      if (msg.conversation_id !== selectedConversation?.id) return false;
       return !realMessages.some(realMsg => 
         realMsg.content === msg.content && 
         Math.abs(new Date(realMsg.created_at).getTime() - new Date(msg.created_at).getTime()) < 60000
       );
     });
-    
     return [...realMessages, ...validCachedMessages].sort((a, b) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
-  };
+  }, [allMessages, cachedMessages, selectedConversation?.id]);
 
   const addMessageToCache = (message: Message) => {
     setCachedMessages(prev => [...prev, message]);
@@ -1523,7 +1687,8 @@ const LiveChatCanvas: React.FC = () => {
       const payload = {
         message: message,
         uchat_id: uchatId,
-        type: 'text'
+        type: 'text',
+        ttl: 180
       };
       
       console.log('📦 Payload completo:', JSON.stringify(payload, null, 2));
@@ -1678,6 +1843,14 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
+  // Marcar cuando el usuario se desplaza manualmente para no forzar auto-scroll
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    userScrolledAwayRef.current = distanceFromBottom > 120; // umbral 120px
+  }, []);
+
   const scrollToDateInMessages = (targetDate: string) => {
     console.log('📅 Navegando a fecha:', targetDate);
     
@@ -1727,11 +1900,12 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
-  const formatTimeAgo = (dateString: string) => {
+  const formatTimeAgo = (dateString?: string) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
     if (diffInMinutes < 1) return 'Ahora';
     if (diffInMinutes < 60) return `${diffInMinutes}m`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
@@ -1900,9 +2074,9 @@ const LiveChatCanvas: React.FC = () => {
                     </h3>
                     <div className="flex items-center gap-2">
                       {/* Indicador de mensajes no leídos */}
-                      {(conversation.unread_count || unreadCounts[conversation.id] || 0) > 0 && (
+                      {(Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0)) > 0 && (
                         <div className="bg-green-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                          {Math.min(conversation.unread_count || unreadCounts[conversation.id] || 0, 99)}
+                          {Math.min(Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0), 99)}
                         </div>
                       )}
                     {getStatusIndicator(conversation.status)}
@@ -1913,8 +2087,8 @@ const LiveChatCanvas: React.FC = () => {
                   <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{conversation.metadata?.etapa}</p>
                   
                   <div className="flex items-center justify-between text-xs text-slate-400 dark:text-gray-500">
-                    <span>{conversation.message_count} mensajes</span>
-                    <span>{formatTimeAgo(conversation.last_message_at)}</span>
+                    <span>{Number(conversation.message_count ?? 0)} mensajes</span>
+                    <span>{formatTimeAgo(conversation.last_message_at || conversation.updated_at)}</span>
                   </div>
                 </div>
               </div>
@@ -2129,11 +2303,12 @@ const LiveChatCanvas: React.FC = () => {
               flexDirection: 'column-reverse' // MOSTRAR DESDE ABAJO
             }}
             onWheel={(e) => {
-              // PREVENIR scroll global
               e.stopPropagation();
+              handleMessagesScroll();
             }}
+            onScroll={handleMessagesScroll}
           >
-            {getCombinedMessages().length === 0 ? (
+            {combinedMessages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-slate-500 dark:text-gray-400">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -2145,10 +2320,9 @@ const LiveChatCanvas: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4" style={{ display: 'flex', flexDirection: 'column' }}>
-                {getCombinedMessages().map((message, index) => {
+                {combinedMessages.map((message, index) => {
                   const isCustomer = message.sender_type === 'customer';
                   const isBot = message.sender_type === 'bot';
-                  const combinedMessages = getCombinedMessages();
                   const showDate = index === 0 || 
                     formatDate(message.created_at) !== formatDate(combinedMessages[index - 1]?.created_at);
 

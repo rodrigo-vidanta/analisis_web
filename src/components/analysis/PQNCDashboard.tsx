@@ -2009,7 +2009,7 @@ const PQNCDashboard: React.FC = () => {
               <div className="absolute inset-0 bg-slate-500 opacity-75"></div>
             </div>
 
-            <div className="inline-block align-bottom bg-white dark:bg-slate-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <div className="inline-block align-bottom bg-white dark:bg-slate-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full max-w-6xl">
               <div className="bg-white dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-medium text-slate-900 dark:text-white">

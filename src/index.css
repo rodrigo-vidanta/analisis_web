@@ -88,6 +88,15 @@
   --theme-accent: var(--corp-accent);
   --theme-gradient-from: var(--corp-primary);
   --theme-gradient-to: var(--corp-secondary);
+
+  /* Acento por módulo (valor por defecto = primario del tema) */
+  --module-accent: rgb(var(--theme-primary));
+  --module-accent-hover: rgb(var(--theme-primary-dark));
+  --module-accent-contrast: #ffffff;
+  /* Derivados para botones */
+  --btn-primary-bg: var(--module-accent);
+  --btn-primary-bg-hover: var(--module-accent-hover);
+  --btn-primary-text: var(--module-accent-contrast);
 }
 
 /* Tema Verde */
@@ -136,6 +145,11 @@
   --theme-text-dark: 248 250 252; /* slate-50 */
   --theme-text-muted: 100 116 139; /* slate-500 */
   --theme-text-muted-dark: 148 163 184; /* slate-400 */
+
+  /* En Linear, el acento por defecto también parte del primario */
+  --module-accent: rgb(var(--theme-primary));
+  --module-accent-hover: rgb(var(--theme-primary-dark));
+  --module-accent-contrast: #ffffff;
 }
 
 /* Clases para usar las variables de tema */
@@ -149,6 +163,34 @@
 
 .theme-gradient {
   background: linear-gradient(to right, rgb(var(--theme-gradient-from)), rgb(var(--theme-gradient-to)));
+}
+
+/* ==============================
+   Utilidades globales homogéneas
+   ============================== */
+.u-btn-primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: 1px solid var(--btn-primary-bg);
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.u-btn-primary:hover {
+  background: var(--btn-primary-bg-hover);
+  border-color: var(--btn-primary-bg-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.u-close {
+  color: rgb(var(--corp-gray-500));
+  transition: color 0.15s ease;
+}
+
+.u-close:hover {
+  color: rgb(var(--corp-gray-700));
 }
 
 /* Variables CSS minimalistas */
@@ -357,6 +399,69 @@ body {
   --linear-text-muted-dark: rgb(163, 163, 163);
   --linear-primary: rgb(99, 102, 241);
   --linear-primary-soft: rgba(99, 102, 241, 0.1);
+}
+
+/* ==============================
+   Acento por módulo (todos los temas)
+   ============================== */
+/* PQNC Humans */
+[data-module="pqnc"] {
+  --module-accent: rgb(79 70 229); /* indigo-600 */
+  --module-accent-hover: rgb(67 56 202);
+}
+
+/* Natalia IA */
+[data-module="natalia"] {
+  --module-accent: rgb(16 185 129); /* emerald-500 */
+  --module-accent-hover: rgb(5 150 105);
+}
+
+/* Prospectos */
+[data-module="prospectos"] {
+  --module-accent: rgb(14 165 233); /* sky-500 */
+  --module-accent-hover: rgb(2 132 199);
+}
+
+/* Live Monitor */
+[data-module="live-monitor"] {
+  --module-accent: rgb(6 182 212); /* cyan-500 */
+  --module-accent-hover: rgb(8 145 178);
+}
+
+/* Live Chat */
+[data-module="live-chat"] {
+  --module-accent: rgb(59 130 246); /* blue-500 */
+  --module-accent-hover: rgb(37 99 235);
+}
+
+/* AI Models */
+[data-module="ai-models"] {
+  --module-accent: rgb(217 70 239); /* fuchsia-500 */
+  --module-accent-hover: rgb(192 38 211);
+}
+
+/* Agent Studio */
+[data-module="agent-studio"] {
+  --module-accent: rgb(99 102 241); /* indigo-500 */
+  --module-accent-hover: rgb(79 70 229);
+}
+
+/* AWS Manager */
+[data-module="aws-manager"] {
+  --module-accent: rgb(245 158 11); /* amber-500 */
+  --module-accent-hover: rgb(217 119 6);
+}
+
+/* Administración */
+[data-module="admin"] {
+  --module-accent: rgb(139 92 246); /* violet-500 */
+  --module-accent-hover: rgb(124 58 237);
+}
+
+/* Academia */
+[data-module="academia"] {
+  --module-accent: rgb(168 85 247); /* purple-500 */
+  --module-accent-hover: rgb(147 51 234);
 }
 
 /* Backgrounds globales */

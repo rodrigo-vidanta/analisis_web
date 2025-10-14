@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -766,9 +767,28 @@ const LiveMonitorKanban: React.FC = () => {
     };
 
     loadInitialData();
-    // Actualizar cada 3 segundos para detectar cambios de estado más rápidamente
-    const interval = setInterval(() => loadCalls(true), 3000);
-    return () => clearInterval(interval);
+    // Realtime: escuchar updates en llamadas_ventas para refrescar al instante
+    const channel = analysisSupabase
+      .channel('live-monitor-calls')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'llamadas_ventas'
+      }, async (payload) => {
+        try {
+          await loadCalls(true);
+        } catch (e) {
+          console.error('Error refreshing calls on realtime:', e);
+        }
+      })
+      .subscribe();
+
+    // Polling de respaldo cada 10s
+    const interval = setInterval(() => loadCalls(true), 10000);
+    return () => {
+      clearInterval(interval);
+      try { channel.unsubscribe(); } catch {}
+    };
   }, []);
 
   // Efecto para actualizar conversación automáticamente
