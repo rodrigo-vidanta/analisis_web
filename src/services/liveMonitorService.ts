@@ -293,6 +293,14 @@ class LiveMonitorService {
       // Log solo resumen, no detalle por llamada
       console.log(`✅ Llamadas cargadas: ${combinedData.length}`);
       
+      // Debug: Log de primeras 3 llamadas para verificar datos
+      if (combinedData.length > 0) {
+        console.log('🔍 [DEBUG] Primeras 3 llamadas cargadas:');
+        combinedData.slice(0, 3).forEach(call => {
+          console.log(`  - ${call.call_id.slice(-8)}: ${call.call_status}, checkpoint: ${call.checkpoint_venta_actual}, prospecto: ${call.nombre_completo}`);
+        });
+      }
+      
       return combinedData;
     } catch (error) {
       console.error('💥 Error en getActiveCalls:', error);

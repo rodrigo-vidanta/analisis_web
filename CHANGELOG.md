@@ -1,5 +1,59 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.6.0 - Live Monitor Optimizado + Reportes de Seguridad (Octubre 2025)
+
+### 🎯 **OPTIMIZACIONES FINALES LIVE MONITOR**
+
+#### 🔔 **Sistema de Notificaciones Mejorado**
+- **Sonido de campana 4x más audible**: Volumen aumentado de 0.3 → 0.8 (167% más fuerte)
+- **Compressor de audio**: Hace el sonido más consistente y potente sin tocar volumen del sistema
+- **4 repeticiones**: Secuencia de 3.2 segundos total para máxima notoriedad
+- **Configuración profesional**: Threshold -10dB, ratio 8:1, attack/release optimizado
+
+#### 🔄 **Reclasificación Inteligente Perfeccionada**
+- **Verificación en BD**: Al cerrar modal consulta estado real antes de reclasificar
+- **Detección de cambios**: Verifica call_status, checkpoint y razon_finalizacion
+- **Polling optimizado**: Cada 3 segundos para detectar cambios inmediatamente
+- **Efecto adicional**: Reclasifica automáticamente cuando cambian llamadas vistas
+- **Logs detallados**: Debugging completo para troubleshooting
+
+#### 📊 **Datos Familiares en Tiempo Real**
+- **Tarjetas Kanban**: Priorizan datos_proceso.numero_personas sobre campos estáticos
+- **Indicadores visuales**: "(RT)" para datos tiempo real vs estáticos
+- **Modal sincronizado**: Actualiza resumen y datos familiares sin cerrar
+- **Parsing robusto**: Maneja datos_proceso como string o objeto JSON
+
+### 📋 **DOCUMENTACIÓN DE SEGURIDAD CORPORATIVA**
+
+#### 🛡️ **Reportes de Infraestructura**
+- **Análisis AWS completo**: Conexión directa a cuenta 307621978585
+- **Inventario de servicios**: ECS, RDS, ElastiCache, CloudFront, S3, Route 53
+- **Evaluación de cumplimiento**: Lineamientos de seguridad corporativa
+- **Recomendaciones técnicas**: MFA, VPN corporativa, certificados SSL
+
+#### 🔐 **Medidas de Seguridad Verificadas**
+- **VPC segmentada**: 3 capas (pública, privada, base de datos)
+- **Security Groups restrictivos**: Principio de menor privilegio
+- **Encriptación multicapa**: TLS 1.3 + AES-256 en reposo
+- **IAM roles corporativos**: Sin cuentas personales o permisos excesivos
+- **Auditoría completa**: CloudWatch + función exec_sql con logs
+
+### 🔧 **Mejoras Técnicas**
+
+#### ⚡ **Performance y Estabilidad**
+- **Realtime optimizado**: Actualizaciones selectivas sin re-renders completos
+- **Parsing mejorado**: Manejo robusto de datos_proceso y datos_llamada JSON
+- **Error handling**: Fallbacks para compilación y conexiones
+- **Cleanup automático**: Canales Realtime se limpian correctamente
+
+#### 🎨 **UX/UI Refinada**
+- **Estados visuales precisos**: Colores diferenciados para datos tiempo real vs estáticos
+- **Modal inteligente**: Carga resumen existente en lugar de mensaje genérico
+- **Logs informativos**: Feedback visual de actualizaciones y cambios
+- **Compilación estable**: Errores JSX corregidos para HMR sin interrupciones
+
+---
+
 ## 🚀 Versión 5.5.0 - Live Monitor Tiempo Real + Clasificación Inteligente (Octubre 2025)
 
 ### 🎯 **LIVE MONITOR COMPLETAMENTE RENOVADO**

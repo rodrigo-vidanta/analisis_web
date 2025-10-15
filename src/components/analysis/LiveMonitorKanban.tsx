@@ -3,7 +3,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { useTheme } from '../../hooks/useTheme';
 
-// Función para reproducir sonido de checkpoint completado
+// Función para reproducir sonido de checkpoint completado (4 repeticiones)
 const playCheckpointCompleteSound = () => {
   try {
     // Crear un contexto de audio
@@ -14,16 +14,26 @@ const playCheckpointCompleteSound = () => {
       setTimeout(() => {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
+        const compressor = audioContext.createDynamicsCompressor();
         
+        // Cadena de audio: oscillator -> gain -> compressor -> destination
         oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        gainNode.connect(compressor);
+        compressor.connect(audioContext.destination);
+        
+        // Configurar compressor para sonido más potente
+        compressor.threshold.setValueAtTime(-10, audioContext.currentTime);
+        compressor.knee.setValueAtTime(20, audioContext.currentTime);
+        compressor.ratio.setValueAtTime(8, audioContext.currentTime);
+        compressor.attack.setValueAtTime(0.01, audioContext.currentTime);
+        compressor.release.setValueAtTime(0.1, audioContext.currentTime);
         
         oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
         oscillator.type = 'sine';
         
-        // Envelope para sonido de campana
+        // Envelope para sonido de campana (volumen aumentado)
         gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0.8, audioContext.currentTime + 0.01); // Aumentado de 0.3 a 0.8
         gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
         
         oscillator.start(audioContext.currentTime);
@@ -31,10 +41,13 @@ const playCheckpointCompleteSound = () => {
       }, delay);
     };
     
-    // Secuencia de tonos para campana
-    playTone(800, 0.5, 0);     // Tono principal
-    playTone(1000, 0.3, 100);  // Armónico
-    playTone(600, 0.4, 200);   // Tono grave
+    // Reproducir secuencia 4 veces
+    for (let i = 0; i < 4; i++) {
+      const baseDelay = i * 800; // 800ms entre cada repetición
+      playTone(800, 0.5, baseDelay);     // Tono principal
+      playTone(1000, 0.3, baseDelay + 100);  // Armónico
+      playTone(600, 0.4, baseDelay + 200);   // Tono grave
+    }
     
   } catch (error) {
     console.warn('No se pudo reproducir el sonido de checkpoint:', error);
@@ -650,30 +663,19 @@ const LiveMonitorKanban: React.FC = () => {
         const hasDuration = call.duracion_segundos && call.duracion_segundos > 0;
         
         // 1. LLAMADAS REALMENTE ACTIVAS: 
-        // - call_status = 'activa' Y NO tienen razon_finalizacion Y NO tienen duración
-        // - TAMBIÉN llamadas en checkpoint #5 que AÚN NO han sido vistas (no se mueven automáticamente)
+        // - SOLO call_status = 'activa' Y NO tienen razon_finalizacion Y NO tienen duración
         if (call.call_status === 'activa' && !hasEndReason && !hasDuration) {
-          active.push(call);
-        }
-        else if (
-          call.call_status === 'activa' && 
-          call.checkpoint_venta_actual === 'checkpoint #5' && 
-          !wasViewed
-        ) {
-          // Llamadas en último checkpoint permanecen en activas hasta ser vistas
           active.push(call);
         }
         
         // 2. LLAMADAS TRANSFERIDAS:
-        // - call_status = 'transferida' (siempre van a transferidas)
-        // - razon_finalizacion = 'assistant-forwarded-call' (siempre van a transferidas)
+        // - call_status = 'transferida' (todas las transferidas van aquí)
+        // - razon_finalizacion = 'assistant-forwarded-call' (todas las transferidas van aquí)
         else if (
-          call.call_status === 'transferida' ||
-          razonFinalizacion === 'assistant-forwarded-call'
+          (call.call_status === 'transferida' || razonFinalizacion === 'assistant-forwarded-call') &&
+          !hasFeedback
         ) {
-          if (!hasFeedback) {
-            transferred.push(call);
-          }
+          transferred.push(call);
         }
         
         // 3. LLAMADAS QUE PARECEN ACTIVAS PERO YA TERMINARON:
@@ -916,34 +918,40 @@ const LiveMonitorKanban: React.FC = () => {
             console.log(`📞 Estado actualizado: ${rec.call_id?.slice(-8)} ${oldRec.call_status} → ${rec.call_status}`);
           }
           
-          // Actualización inteligente sin re-render completo
-          setActiveCalls(prevActive => {
-            return prevActive.map(call => 
-              call.call_id === rec.call_id 
-                ? { ...call, ...rec } // Actualizar datos completos de la llamada
-                : call
-            );
-          });
+          // Actualización inteligente de datos en todas las listas
+          const updateCallData = (calls: KanbanCall[]) => {
+            return calls.map(call => {
+              if (call.call_id === rec.call_id) {
+                console.log(`📊 Actualizando datos de llamada ${rec.call_id?.slice(-8)} en lista`);
+                
+                // Parsear datos_proceso para obtener datos familiares actualizados
+                let datosProcesoActualizados = rec.datos_proceso;
+                if (typeof rec.datos_proceso === 'string') {
+                  try {
+                    datosProcesoActualizados = JSON.parse(rec.datos_proceso);
+                  } catch (e) {
+                    datosProcesoActualizados = call.datos_proceso;
+                  }
+                }
+                
+                return { 
+                  ...call, 
+                  ...rec,
+                  datos_proceso: datosProcesoActualizados
+                };
+              }
+              return call;
+            });
+          };
           
-          setTransferredCalls(prevTransferred => {
-            return prevTransferred.map(call => 
-              call.call_id === rec.call_id 
-                ? { ...call, ...rec }
-                : call
-            );
-          });
-          
-          setFailedCalls(prevFailed => {
-            return prevFailed.map(call => 
-              call.call_id === rec.call_id 
-                ? { ...call, ...rec }
-                : call
-            );
-          });
+          setActiveCalls(updateCallData);
+          setTransferredCalls(updateCallData);
+          setFailedCalls(updateCallData);
         }
         
-        // Solo hacer loadCalls completo si hay cambios de estado que requieren reclasificación
+        // Hacer loadCalls completo si hay cambios de estado que requieren reclasificación
         if (rec && oldRec && rec.call_status !== oldRec.call_status) {
+          console.log(`🔄 Reclasificando por cambio de estado: ${oldRec.call_status} → ${rec.call_status}`);
           try {
             await loadCalls(true);
           } catch (e) {
@@ -958,49 +966,14 @@ const LiveMonitorKanban: React.FC = () => {
         }
       });
 
-    // Suscripción adicional para cambios en prospectos (datos familiares, etc.)
-    const prospectosChannel = analysisSupabase
-      .channel('live-monitor-prospectos')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'prospectos'
-      }, async (payload) => {
-        const updatedProspect = payload.new as any;
-        console.log(`👨‍👩‍👧‍👦 Prospecto actualizado: ${updatedProspect.id?.slice(-8)}`);
-        
-        // Actualizar datos del prospecto en todas las listas sin recargar completo
-        const updateProspectInCalls = (calls: KanbanCall[]) => {
-          return calls.map(call => 
-            call.prospecto_id === updatedProspect.id
-              ? {
-                  ...call,
-                  // Actualizar datos del prospecto
-                  nombre_completo: updatedProspect.nombre_completo || call.nombre_completo,
-                  nombre_whatsapp: updatedProspect.nombre_whatsapp || call.nombre_whatsapp,
-                  composicion_familiar_numero: updatedProspect.composicion_familiar_numero || call.composicion_familiar_numero,
-                  destino_preferencia: updatedProspect.destino_preferencia || call.destino_preferencia,
-                  tamano_grupo: updatedProspect.tamano_grupo || call.tamano_grupo,
-                  edad: updatedProspect.edad || call.edad,
-                  estado_civil: updatedProspect.estado_civil || call.estado_civil,
-                  etapa: updatedProspect.etapa || call.etapa
-                }
-              : call
-          );
-        };
-        
-        setActiveCalls(updateProspectInCalls);
-        setTransferredCalls(updateProspectInCalls);
-        setFailedCalls(updateProspectInCalls);
-      })
-      .subscribe();
+    // Los datos familiares se actualizan en llamadas_ventas, no en prospectos
+    // La suscripción principal ya maneja estos cambios
 
-    // Polling de respaldo cada 10s
-    const interval = setInterval(() => loadCalls(true), 10000);
+    // Polling más frecuente para detectar cambios rápidamente
+    const interval = setInterval(() => loadCalls(true), 3000); // Cada 3 segundos
     return () => {
       clearInterval(interval);
       try { channel.unsubscribe(); } catch {}
-      try { prospectosChannel.unsubscribe(); } catch {}
     };
   }, []);
 
@@ -1019,15 +992,40 @@ const LiveMonitorKanban: React.FC = () => {
     if (selectedCall) {
       console.log(`🚪 Modal cerrado para llamada: ${selectedCall.call_id.slice(-8)}`);
       
-      // Si la llamada estaba en checkpoint #5 o fue transferida, reclasificar
-      if (
-        selectedCall.checkpoint_venta_actual === 'checkpoint #5' ||
-        selectedCall.call_status === 'transferida' ||
-        (selectedCall.datos_llamada?.razon_finalizacion === 'assistant-forwarded-call')
-      ) {
-        console.log('🔄 Reclasificando llamada después de ver modal...');
-        setTimeout(() => loadCalls(true), 100);
-      }
+      // Verificar estado actual de la llamada en BD antes de reclasificar
+      const checkAndReclassify = async () => {
+        try {
+          const { data } = await analysisSupabase
+            .from('llamadas_ventas')
+            .select('call_status, checkpoint_venta_actual, datos_llamada')
+            .eq('call_id', selectedCall.call_id)
+            .single();
+          
+          if (data) {
+            console.log(`📊 Estado actual en BD: ${data.call_status}, checkpoint: ${data.checkpoint_venta_actual}`);
+            
+            // Si la llamada cambió de estado o está en checkpoint #5, reclasificar
+            const razonFinalizacion = data.datos_llamada?.razon_finalizacion;
+            
+            if (
+              data.call_status !== 'activa' ||
+              data.checkpoint_venta_actual === 'checkpoint #5' ||
+              razonFinalizacion === 'assistant-forwarded-call' ||
+              razonFinalizacion === 'customer-ended-call' ||
+              razonFinalizacion === 'assistant-ended-call'
+            ) {
+              console.log('🔄 Reclasificando llamada después de verificar BD...');
+              setTimeout(() => loadCalls(true), 100);
+            }
+          }
+        } catch (error) {
+          console.warn('Error verificando estado de llamada:', error);
+          // Fallback: reclasificar de todos modos
+          setTimeout(() => loadCalls(true), 100);
+        }
+      };
+      
+      checkAndReclassify();
     }
     
     setSelectedCall(null);
@@ -1072,8 +1070,40 @@ const LiveMonitorKanban: React.FC = () => {
         const newConversation = parseConversation(rec.conversacion_completa);
         updateConversation(newConversation);
         
-        // Actualizar el selectedCall con los nuevos datos
-        setSelectedCall(prev => prev ? { ...prev, ...rec } : null);
+        // Actualizar el selectedCall con los nuevos datos (incluyendo resumen y datos_proceso)
+        setSelectedCall(prev => {
+          if (prev && prev.call_id === rec.call_id) {
+            console.log(`📊 Actualizando datos completos de llamada seleccionada: ${rec.call_id?.slice(-8)}`);
+            
+            // Parsear datos_proceso si es string
+            let datosProcesoActualizados = rec.datos_proceso;
+            if (typeof rec.datos_proceso === 'string') {
+              try {
+                datosProcesoActualizados = JSON.parse(rec.datos_proceso);
+              } catch (e) {
+                datosProcesoActualizados = prev.datos_proceso;
+              }
+            }
+            
+            // Parsear datos_llamada para obtener resumen actualizado
+            let datosLlamadaActualizados = rec.datos_llamada;
+            if (typeof rec.datos_llamada === 'string') {
+              try {
+                datosLlamadaActualizados = JSON.parse(rec.datos_llamada);
+              } catch (e) {
+                datosLlamadaActualizados = prev.datos_llamada;
+              }
+            }
+            
+            return { 
+              ...prev, 
+              ...rec,
+              datos_proceso: datosProcesoActualizados,
+              datos_llamada: datosLlamadaActualizados
+            };
+          }
+          return prev;
+        });
       })
       .subscribe();
 
@@ -1084,6 +1114,14 @@ const LiveMonitorKanban: React.FC = () => {
       detailRealtimeChannelRef.current = null;
     };
   }, [selectedCall?.call_id, selectedCall?.call_status]);
+
+  // Efecto para reclasificar cuando cambie el conjunto de llamadas vistas
+  useEffect(() => {
+    if (viewedCalls.size > 0) {
+      console.log(`👁️ Llamadas vistas: ${viewedCalls.size}, reclasificando...`);
+      setTimeout(() => loadCalls(true), 500);
+    }
+  }, [viewedCalls.size]);
 
   // Agrupar llamadas activas por checkpoint con ordenamiento
   const groupCallsByCheckpoint = (calls: KanbanCall[]) => {
@@ -1181,9 +1219,9 @@ const LiveMonitorKanban: React.FC = () => {
           </div>
         </div>
 
-          {/* Información clave - PRIORIZAR llamadas_ventas sobre prospectos */}
+          {/* Información clave */}
         <div className="space-y-1">
-          {/* Destino - Datos dinámicos de llamadas_ventas primero */}
+          {/* Destino */}
           {(call.destino_preferido || call.destino_preferencia) && (
             <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1192,28 +1230,18 @@ const LiveMonitorKanban: React.FC = () => {
               <span className="truncate font-medium text-blue-600 dark:text-blue-400">
                 {call.destino_preferido?.replace('_', ' ') || call.destino_preferencia?.join(', ')}
               </span>
-              {call.destino_preferido && (
-                <svg className="w-3 h-3 ml-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              )}
             </div>
           )}
           
-          {/* Grupo familiar - PRIORIZAR llamadas_ventas (dinámico) */}
+          {/* Grupo familiar */}
           {(call.composicion_familiar_numero || call.tamano_grupo) && (
             <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
-              <span className={`font-semibold ${call.composicion_familiar_numero ? 'text-green-600 dark:text-green-400' : 'text-slate-600 dark:text-slate-400'}`}>
+              <span className="font-semibold text-green-600 dark:text-green-400">
                 {call.composicion_familiar_numero || call.tamano_grupo}p
               </span>
-              {call.composicion_familiar_numero && (
-                <svg className="w-3 h-3 ml-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              )}
             </div>
           )}
           
@@ -1232,7 +1260,7 @@ const LiveMonitorKanban: React.FC = () => {
             </div>
           )}
           
-          {/* Preferencias de vacaciones - Solo si están actualizadas */}
+          {/* Actividades preferidas */}
           {call.preferencia_vacaciones && call.preferencia_vacaciones.length > 0 && (
             <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1241,9 +1269,6 @@ const LiveMonitorKanban: React.FC = () => {
               <span className="truncate font-medium text-purple-600 dark:text-purple-400">
                 {call.preferencia_vacaciones.join(', ')}
               </span>
-              <svg className="w-3 h-3 ml-1 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
             </div>
           )}
           
@@ -2052,7 +2077,7 @@ const LiveMonitorKanban: React.FC = () => {
                 {(() => {
                   let resumen = selectedCall.resumen_llamada;
                   
-                  // PRIORIZAR datos_llamada.resumen (tiempo real)
+                  // PRIORIZAR datos_llamada.resumen (tiempo real) sobre resumen_llamada
                   if (selectedCall.datos_llamada) {
                     try {
                       const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
@@ -2067,9 +2092,19 @@ const LiveMonitorKanban: React.FC = () => {
                     }
                   }
                   
-                  // Si sigue sin resumen para llamadas activas, mostrar mensaje de estado
+                  // Si no hay resumen en datos_llamada, usar resumen_llamada
+                  if (!resumen && selectedCall.resumen_llamada) {
+                    resumen = selectedCall.resumen_llamada;
+                  }
+                  
+                  // Si aún no hay resumen para llamadas activas, mostrar mensaje dinámico
                   if (!resumen && selectedCall.call_status === 'activa') {
                     resumen = 'Llamada en progreso - el resumen se actualiza conforme avanza la conversación';
+                  }
+                  
+                  // Si no hay resumen para llamadas finalizadas, mostrar estado
+                  if (!resumen) {
+                    resumen = `Llamada ${selectedCall.call_status} - sin resumen disponible`;
                   }
                   
                   return resumen ? (
@@ -2130,7 +2165,32 @@ const LiveMonitorKanban: React.FC = () => {
                     </h4>
                     <div className="space-y-1 text-xs">
                       {renderField('Checkpoint', selectedCall.checkpoint_venta_actual, (val) => val || 'checkpoint #1')}
-                      {renderField('Grupo', selectedCall.composicion_familiar_numero || selectedCall.tamano_grupo, (val) => `${val}p`)}
+                      {renderField('Grupo', 
+                        (() => {
+                          // Priorizar datos_proceso.numero_personas (tiempo real) sobre campos estáticos
+                          try {
+                            const datosProc = typeof selectedCall.datos_proceso === 'string' 
+                              ? JSON.parse(selectedCall.datos_proceso) 
+                              : selectedCall.datos_proceso;
+                            return datosProc?.numero_personas || selectedCall.composicion_familiar_numero || selectedCall.tamano_grupo;
+                          } catch (e) {
+                            return selectedCall.composicion_familiar_numero || selectedCall.tamano_grupo;
+                          }
+                        })(), 
+                        (val) => `${val}p`
+                      )}
+                      {renderField('Actividades Preferidas', 
+                        (() => {
+                          try {
+                            const datosProc = typeof selectedCall.datos_proceso === 'string' 
+                              ? JSON.parse(selectedCall.datos_proceso) 
+                              : selectedCall.datos_proceso;
+                            return datosProc?.tipo_actividades;
+                          } catch (e) {
+                            return null;
+                          }
+                        })()
+                      )}
                       {renderField('Viaja con', selectedCall.viaja_con)}
                       {renderField('Destino', selectedCall.destino_preferido?.replace('_', ' ') || selectedCall.destino_preferencia?.join(', '))}
                       {renderField('Menores', selectedCall.cantidad_menores)}
