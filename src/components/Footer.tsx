@@ -3,7 +3,7 @@ import CatChaseEasterEgg from './CatChaseEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión actual
-  const version = 'v5.4.0 - Temas Globales + Acentos por Módulo';
+  const version = 'v5.5.0 - Live Monitor Tiempo Real + Clasificación Inteligente';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);

@@ -83,12 +83,14 @@ interface ConversationBlock {
 const LiveChatCanvas: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const selectedConversationRef = useRef<string | null>(null);
   const [conversationBlocks, setConversationBlocks] = useState<ConversationBlock[]>([]);
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
+  const [prospectNameById, setProspectNameById] = useState<{ [id: string]: string }>({});
   const [sending, setSending] = useState(false);
   const [sendingToConversation, setSendingToConversation] = useState<string | null>(null);
 
@@ -98,9 +100,12 @@ const LiveChatCanvas: React.FC = () => {
   const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
   const [convRealtimeChannel, setConvRealtimeChannel] = useState<any>(null);
   const [uchatRealtimeChannel, setUchatRealtimeChannel] = useState<any>(null);
+  const [uchatMessagesRealtimeChannel, setUchatMessagesRealtimeChannel] = useState<any>(null);
   const realtimeRetryRef = useRef<number>(0);
   const convRetryRef = useRef<number>(0);
   const uchatRetryRef = useRef<number>(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectBackoffRef = useRef<number>(0);
 
   // Estados para control del bot
   const [botPauseStatus, setBotPauseStatus] = useState<{[uchatId: string]: {
@@ -146,6 +151,19 @@ const LiveChatCanvas: React.FC = () => {
     handoffRate: 0
   });
 
+  // Total no leídos (suma local + servidor)
+  const totalUnread = useMemo(() => {
+    const localSum = Object.values(unreadCounts).reduce((a, b) => a + Number(b || 0), 0);
+    const serverSum = conversations.reduce((acc, c) => acc + Number(c.unread_count ?? c.mensajes_no_leidos ?? 0), 0);
+    // Evitar doble conteo si ambos tienen valores; priorizar máximo por conversación
+    const perConvMax = conversations.reduce((acc, c) => {
+      const localVal = Number(unreadCounts[c.id] || 0);
+      const serverVal = Number(c.unread_count ?? c.mensajes_no_leidos ?? 0);
+      return acc + Math.max(localVal, serverVal);
+    }, 0);
+    return perConvMax || serverSum || localSum;
+  }, [unreadCounts, conversations]);
+
   // ============================================
   // EFECTOS
   // ============================================
@@ -166,8 +184,39 @@ const LiveChatCanvas: React.FC = () => {
       if (uchatRealtimeChannel) {
         uchatRealtimeChannel.unsubscribe();
       }
+      if (uchatMessagesRealtimeChannel) {
+        uchatMessagesRealtimeChannel.unsubscribe();
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation?.id || null;
+  }, [selectedConversation]);
+
+  const scheduleReconnect = (source: string) => {
+    // Evitar múltiples timers concurrentes
+    if (reconnectTimerRef.current) return;
+    const delay = Math.min(1000 * Math.pow(2, reconnectBackoffRef.current), 10000);
+    reconnectBackoffRef.current = Math.min(reconnectBackoffRef.current + 1, 4);
+    logErrThrottled('reconnect', `♻️ Reintentando Realtime (${source}) en ${delay}ms`);
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      try { realtimeChannel?.unsubscribe(); } catch {}
+      try { convRealtimeChannel?.unsubscribe(); } catch {}
+      try { uchatRealtimeChannel?.unsubscribe(); } catch {}
+      try { uchatMessagesRealtimeChannel?.unsubscribe(); } catch {}
+      setRealtimeChannel(null);
+      setConvRealtimeChannel(null);
+      setUchatRealtimeChannel(null);
+      setUchatMessagesRealtimeChannel(null);
+      setupRealtimeSubscription();
+    }, delay);
+  };
 
   const setupRealtimeSubscription = () => {
     logDev('🔌 Configurando Realtime para sorting automático...');
@@ -180,23 +229,19 @@ const LiveChatCanvas: React.FC = () => {
         schema: 'public', 
         table: 'mensajes_whatsapp' 
       }, (payload) => {
-        console.log('📨 Nuevo mensaje recibido:', payload.new);
+        logDev('📨 Nuevo mensaje recibido:', payload.new);
         handleNewMessageForSorting(payload.new);
       })
       .subscribe((status) => {
         logDev('📡 Realtime status:', status);
         if (status === 'SUBSCRIBED') {
           realtimeRetryRef.current = 0;
+          reconnectBackoffRef.current = 0;
           logDev('✅ Realtime conectado para sorting automático');
         } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
           logErrThrottled('messages', '❌ Error en canal Realtime (mensajes) -', status);
-          const delay = Math.min(1000 * (realtimeRetryRef.current + 1), 10000);
           realtimeRetryRef.current += 1;
-          setTimeout(() => {
-            try { channel.unsubscribe(); } catch {}
-            setRealtimeChannel(null);
-            setupRealtimeSubscription();
-          }, delay);
+          scheduleReconnect('mensajes');
         }
       });
 
@@ -230,15 +275,11 @@ const LiveChatCanvas: React.FC = () => {
         logDev('📡 Realtime conversaciones_whatsapp:', status);
         if (status === 'SUBSCRIBED') {
           convRetryRef.current = 0;
+          reconnectBackoffRef.current = 0;
         } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
           logErrThrottled('conv_meta', '❌ Error en canal Realtime (conversaciones_whatsapp) -', status);
-          const delay = Math.min(1000 * (convRetryRef.current + 1), 10000);
           convRetryRef.current += 1;
-          setTimeout(() => {
-            try { convChannel.unsubscribe(); } catch {}
-            setConvRealtimeChannel(null);
-            setupRealtimeSubscription();
-          }, delay);
+          scheduleReconnect('conversaciones_whatsapp');
         }
       });
     setConvRealtimeChannel(convChannel);
@@ -284,18 +325,74 @@ const LiveChatCanvas: React.FC = () => {
         logDev('📡 Realtime uchat_conversations:', status);
         if (status === 'SUBSCRIBED') {
           uchatRetryRef.current = 0;
+          reconnectBackoffRef.current = 0;
         } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
           logErrThrottled('uchat_conv', '❌ Error en canal Realtime (uchat_conversations) -', status);
-          const delay = Math.min(1000 * (uchatRetryRef.current + 1), 10000);
           uchatRetryRef.current += 1;
-          setTimeout(() => {
-            try { uchatChannel.unsubscribe(); } catch {}
-            setUchatRealtimeChannel(null);
-            setupRealtimeSubscription();
-          }, delay);
+          scheduleReconnect('uchat_conversations');
         }
       });
     setUchatRealtimeChannel(uchatChannel);
+
+    // Suscribirse a INSERTs en uchat_messages para burbujear conversaciones arriba y actualizar unread
+    const uchatMsgChannel = supabaseSystemUI
+      .channel('live-chat-uchat-messages')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'uchat_messages'
+      }, (payload) => {
+        const msg = payload.new;
+        if (!msg) return;
+        const convId = msg.conversation_id;
+        const createdAt = msg.created_at || new Date().toISOString();
+
+        // Actualizar conversación (last_message_at, message_count)
+        setConversations(prev => {
+          const updated = prev.map(conv =>
+            conv.id === convId
+              ? {
+                  ...conv,
+                  last_message_at: createdAt,
+                  updated_at: createdAt,
+                  message_count: (conv.message_count || 0) + 1,
+                  // Sincronizar nombre desde prospecto si lo tenemos mapeado
+                  customer_name: conv.metadata?.prospect_id && prospectNameById[conv.metadata.prospect_id]
+                    ? prospectNameById[conv.metadata.prospect_id]
+                    : conv.customer_name,
+                  nombre_contacto: conv.metadata?.prospect_id && prospectNameById[conv.metadata.prospect_id]
+                    ? prospectNameById[conv.metadata.prospect_id]
+                    : conv.nombre_contacto
+                }
+              : conv
+          );
+          return updated.sort((a, b) =>
+            new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
+          );
+        });
+
+        // Incrementar unread si no es la conversación activa
+        if (selectedConversationRef.current !== convId && msg.sender_type !== 'agent') {
+          setUnreadCounts(prev => ({
+            ...prev,
+            [convId]: (prev[convId] || 0) + 1
+          }));
+        } else if (selectedConversationRef.current === convId) {
+          // Si es la activa y llega un mensaje, marcar leído inmediatamente
+          markConversationAsRead(convId);
+          markMessagesAsRead(convId);
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          reconnectBackoffRef.current = 0;
+        } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+          logErrThrottled('uchat_messages', '❌ Error en canal Realtime (uchat_messages) -', status);
+          scheduleReconnect('uchat_messages');
+        }
+      });
+
+    setUchatMessagesRealtimeChannel(uchatMsgChannel);
   };
 
   const handleNewMessageForSorting = (newMessage: any) => {
@@ -306,10 +403,11 @@ const LiveChatCanvas: React.FC = () => {
     const messageTimestamp = newMessage.fecha_hora || newMessage.created_at;
     const messageRole = newMessage.rol;
     
+    let matchedByProspect = false;
     setConversations(prev => {
       const updatedConversations = prev.map(conv => {
         if (conv.prospecto_id === messageProspectoId) {
-          // Actualizar la conversación con el nuevo timestamp
+          matchedByProspect = true;
           return {
             ...conv,
             updated_at: messageTimestamp,
@@ -321,12 +419,56 @@ const LiveChatCanvas: React.FC = () => {
         }
         return conv;
       });
-      
-      // Reordenar por last_message_at/updated_at DESC (más reciente primero)
+
+      if (!matchedByProspect) {
+        // Fallback: intentar empatar por teléfono o id_uchat del prospecto
+        (async () => {
+          try {
+            const { data: prospecto } = await analysisSupabase
+              .from('prospectos')
+              .select('whatsapp, id_uchat')
+              .eq('id', messageProspectoId)
+              .single();
+            if (!prospecto) return;
+
+            const phone = (prospecto.whatsapp || '').toString();
+            const variations = [
+              phone,
+              phone.replace('+52', ''),
+              phone.startsWith('52') ? phone.substring(2) : `52${phone}`,
+              `+52${phone}`,
+              `52${phone}`
+            ].filter(Boolean);
+
+            setConversations(prev2 => {
+              const updated2 = prev2.map(conv => {
+                const phoneMatch = variations.some(v =>
+                  (conv.customer_phone || '').includes(v) || v.includes(conv.customer_phone || '')
+                );
+                const uchatMatch = conv.metadata?.id_uchat && prospecto.id_uchat && conv.metadata.id_uchat === prospecto.id_uchat;
+                if (phoneMatch || uchatMatch) {
+                  return {
+                    ...conv,
+                    updated_at: messageTimestamp,
+                    last_message_at: messageTimestamp,
+                    message_count: (conv.message_count || 0) + 1,
+                    ultimo_mensaje_preview: newMessage.mensaje?.substring(0, 100) || '',
+                    ultimo_mensaje_sender: newMessage.rol || ''
+                  };
+                }
+                return conv;
+              });
+              return updated2.sort((a, b) =>
+                new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
+              );
+            });
+          } catch {}
+        })();
+      }
+
       const sortedConversations = updatedConversations.sort((a, b) => 
         new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
       );
-      
       console.log('✅ Conversaciones reordenadas, primera:', sortedConversations[0]?.customer_name);
       return sortedConversations;
     });
@@ -600,6 +742,28 @@ const LiveChatCanvas: React.FC = () => {
     return () => clearInterval(messagesInterval);
   }, [selectedConversation, sending]);
 
+  // Marcar como leído cuando la pestaña vuelve a foco o se hace visible
+  useEffect(() => {
+    const onFocus = () => {
+      if (selectedConversationRef.current && !userScrolledAwayRef.current) {
+        markConversationAsRead(selectedConversationRef.current);
+        markMessagesAsRead(selectedConversationRef.current);
+      }
+    };
+    const onVisibility = () => {
+      if (!document.hidden && selectedConversationRef.current && !userScrolledAwayRef.current) {
+        markConversationAsRead(selectedConversationRef.current);
+        markMessagesAsRead(selectedConversationRef.current);
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
   useEffect(() => {
     // Polling deshabilitado temporalmente para debugging
     // const conversationsInterval = setInterval(async () => {
@@ -626,7 +790,7 @@ const LiveChatCanvas: React.FC = () => {
             message_id: `historic_${conversationId}_${index}`,
             conversation_id: conversationId,
             sender_type: msg.rol === 'Prospecto' ? 'customer' : 'bot',
-            sender_name: msg.rol === 'Prospecto' ? 'Cliente' : 'Bot Vidanta',
+            sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 'AI',
             content: msg.mensaje || msg.content || msg,
             is_read: true,
             created_at: msg.fecha_hora || msg.timestamp || new Date().toISOString()
@@ -933,9 +1097,74 @@ const LiveChatCanvas: React.FC = () => {
   const loadConversations = async () => {
     try {
       setLoading(true);
-      
-      // Generar conversaciones directamente desde mensajes_whatsapp (sin RPC)
-      await loadConversationsFromMessages();
+      // Fuente de verdad: uchat_conversations (System UI)
+      const { data, error } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('*')
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error cargando uchat_conversations:', error);
+        setConversations([]);
+        setUnreadCounts({});
+        return;
+      }
+
+      const mapped: Conversation[] = (data || []).map((c: any) => ({
+        id: c.id,
+        prospecto_id: c.metadata?.prospect_id || '',
+        numero_telefono: c.customer_phone || '',
+        nombre_contacto: c.customer_name || 'Sin nombre',
+        customer_name: c.customer_name || 'Sin nombre',
+        customer_phone: c.customer_phone || '',
+        status: c.status || 'active',
+        mensajes_no_leidos: Number(c.unread_count || 0),
+        unread_count: Number(c.unread_count || 0),
+        updated_at: c.updated_at || c.created_at,
+        last_message_at: c.last_message_at || c.updated_at || c.created_at,
+        message_count: Number(c.message_count || 0),
+        ultimo_mensaje_preview: c.last_message_preview || '',
+        ultimo_mensaje_sender: c.last_message_sender || '',
+        fecha_inicio: c.created_at,
+        tipo: c.platform || 'INBOUND',
+        metadata: c.metadata || {}
+      }));
+
+      // Ordenar por last_message_at DESC
+      mapped.sort((a, b) =>
+        new Date(b.last_message_at || b.updated_at).getTime() - new Date(a.last_message_at || a.updated_at).getTime()
+      );
+
+      setConversations(mapped);
+
+      // Inicializar unread_counts
+      const unreadMap: { [key: string]: number } = {};
+      mapped.forEach(conv => {
+        unreadMap[conv.id] = Number(conv.unread_count ?? conv.mensajes_no_leidos ?? 0);
+      });
+      setUnreadCounts(unreadMap);
+
+      // Enriquecer nombres desde prospectos (sin bloquear UI)
+      const prospectIds = Array.from(new Set(mapped.map(c => c.prospecto_id).filter(Boolean)));
+      if (prospectIds.length > 0) {
+        try {
+          const { data: prospects } = await analysisSupabase
+            .from('prospectos')
+            .select('id, nombre_completo, nombre_whatsapp')
+            .in('id', prospectIds);
+          const nameMap: { [id: string]: string } = {};
+          (prospects || []).forEach(p => {
+            nameMap[p.id] = p.nombre_completo || p.nombre_whatsapp || nameMap[p.id] || '';
+          });
+          setProspectNameById(prev => ({ ...prev, ...nameMap }));
+          setConversations(prev => prev.map(c =>
+            c.prospecto_id && nameMap[c.prospecto_id]
+              ? { ...c, customer_name: nameMap[c.prospecto_id], nombre_contacto: nameMap[c.prospecto_id] }
+              : c
+          ));
+        } catch {}
+      }
     } catch (error) {
       console.error('❌ Error cargando conversaciones:', error);
       setConversations([]);
@@ -1038,9 +1267,9 @@ const LiveChatCanvas: React.FC = () => {
                     msg.rol === 'AI' ? 'bot' : 
                     msg.rol === 'Vendedor' ? 'agent' : 
                     msg.sender_type || 'bot',
-        sender_name: msg.rol === 'Prospecto' ? 'Cliente' : 
-                    msg.rol === 'AI' ? 'Bot Vidanta' : 
-                    msg.rol === 'Vendedor' ? 'Agente' : 
+        sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 
+                    msg.rol === 'AI' ? 'AI' : 
+                    msg.rol === 'Vendedor' ? 'Vendedor' : 
                     msg.sender_name || 'Bot',
         content: msg.mensaje || msg.content,
         is_read: true,
@@ -1268,7 +1497,7 @@ const LiveChatCanvas: React.FC = () => {
           message_id: `real_${msg.id}`,
           conversation_id: selectedConversation.id,
           sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
-          sender_name: msg.rol === 'Prospecto' ? selectedConversation.customer_name : 'Bot Vidanta',
+          sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 'AI',
           content: msg.mensaje,
           is_read: true,
           created_at: msg.fecha_hora
@@ -1335,7 +1564,7 @@ const LiveChatCanvas: React.FC = () => {
         message_id: `real_${msg.id}`,
         conversation_id: conversationId,
         sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
-        sender_name: msg.rol === 'Prospecto' ? 'Cliente' : 'Bot Vidanta',
+        sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 'AI',
         content: msg.mensaje,
         is_read: true,
         created_at: msg.fecha_hora
@@ -1371,11 +1600,6 @@ const LiveChatCanvas: React.FC = () => {
       if (!prospectId) return;
 
 
-      if (!analysisSupabaseInstance) {
-        analysisSupabaseInstance = await createAnalysisSupabase();
-      }
-      const analysisSupabase = analysisSupabaseInstance;
-
       // Obtener mensajes recientes (últimas 2 horas)
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
       
@@ -1408,7 +1632,7 @@ const LiveChatCanvas: React.FC = () => {
           message_id: `real_${msg.id}`,
           conversation_id: selectedConversation.id,
           sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
-          sender_name: msg.rol === 'Prospecto' ? selectedConversation.customer_name : 'Bot Vidanta',
+          sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 'AI',
           content: msg.mensaje,
           is_read: true,
           created_at: msg.fecha_hora
@@ -1729,7 +1953,7 @@ const LiveChatCanvas: React.FC = () => {
         message_id: `cache_${Date.now()}`,
         conversation_id: selectedConversation.id,
         sender_type: 'agent',
-        sender_name: 'Agente',
+        sender_name: 'Vendedor',
         content: newMessage,
         is_read: true,
         created_at: new Date().toISOString()
@@ -1849,6 +2073,11 @@ const LiveChatCanvas: React.FC = () => {
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     userScrolledAwayRef.current = distanceFromBottom > 120; // umbral 120px
+    // Si el usuario está cerca del fondo y hay conversación activa, marcar leído
+    if (!userScrolledAwayRef.current && selectedConversationRef.current) {
+      markConversationAsRead(selectedConversationRef.current);
+      markMessagesAsRead(selectedConversationRef.current);
+    }
   }, []);
 
   const scrollToDateInMessages = (targetDate: string) => {
@@ -2007,7 +2236,7 @@ const LiveChatCanvas: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="text-center">
               <div className="text-lg font-semibold text-slate-900 dark:text-white">{metrics.totalConversations}</div>
               <div className="text-xs text-slate-500 dark:text-gray-400">Total</div>
@@ -2015,6 +2244,10 @@ const LiveChatCanvas: React.FC = () => {
             <div className="text-center">
               <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
               <div className="text-xs text-slate-500 dark:text-gray-400">Activas</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">{totalUnread}</div>
+              <div className="text-xs text-slate-500 dark:text-gray-400">No leídos</div>
             </div>
           </div>
 
@@ -2343,7 +2576,7 @@ const LiveChatCanvas: React.FC = () => {
                         <div className={`max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
                           
                           <div className={`text-xs text-slate-500 dark:text-gray-400 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
-                            {message.sender_name || (isCustomer ? 'Cliente' : isBot ? 'Bot Vidanta' : 'Agente')}
+                          {message.sender_name || (isCustomer ? 'Prospecto' : isBot ? 'AI' : 'Vendedor')}
                           </div>
 
                           <div className={`relative px-4 py-3 rounded-2xl shadow-sm ${

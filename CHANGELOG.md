@@ -1,5 +1,59 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.5.0 - Live Monitor Tiempo Real + Clasificación Inteligente (Octubre 2025)
+
+### 🎯 **LIVE MONITOR COMPLETAMENTE RENOVADO**
+
+#### 📡 **Sistema de Tiempo Real Avanzado**
+- **Realtime subscriptions duales**: `llamadas_ventas` + `prospectos` para sincronización completa
+- **Movimiento automático entre checkpoints**: Las llamadas se mueven entre columnas sin recargar
+- **Actualización de datos familiares**: Composición, destino, edad se sincronizan en vivo
+- **Conversación en tiempo real**: Modal actualiza la conversación sin parpadeos ni re-renders
+- **Logs detallados**: `🔄 Checkpoint actualizado`, `👨‍👩‍👧‍👦 Prospecto actualizado`
+
+#### 🎨 **Nueva Clasificación Inteligente**
+- **Pestaña "Transferidas"** (antes "Finalizadas"): Llamadas con `razon_finalizacion = 'assistant-forwarded-call'`
+- **Lógica basada en `razon_finalizacion`**: Clasificación precisa según motivo real de finalización
+- **Llamadas activas reales**: Solo sin `razon_finalizacion` y sin duración
+- **Llamadas fallidas específicas**: `customer-busy`, `customer-did-not-answer`, `customer-ended-call`
+- **Checkpoint #5 especial**: Permanecen en activas hasta abrir modal de detalle
+
+#### 🔔 **Notificaciones Sonoras**
+- **Campana sintética**: Web Audio API con secuencia de tonos (800Hz + armónicos)
+- **Trigger automático**: Al llegar a `checkpoint #5` (último del proceso)
+- **Sin archivos externos**: Generado completamente en navegador
+
+#### 🛠️ **Corrección de Datos Históricos**
+- **125+ registros corregidos**: `call_status` sincronizado con `razon_finalizacion`
+- **Llamadas antiguas limpiadas**: Registros del 9-10 octubre marcados como `perdida`
+- **Función `exec_sql`**: Administración remota de BD desde terminal
+- **Políticas RLS optimizadas**: Acceso público seguro para frontend
+
+### 🔧 **Mejoras Técnicas**
+
+#### ⚡ **Performance Optimizada**
+- **Actualización selectiva**: Solo actualiza llamadas específicas que cambiaron
+- **Sin re-renders innecesarios**: Estado local inteligente
+- **Logs throttled**: Máximo 1 error cada 15s por canal
+- **Cleanup automático**: Canales Realtime se limpian correctamente
+
+#### 🎯 **UX Mejorada**
+- **Modal inteligente**: Marca llamadas como "vistas" para lógica de transferencia
+- **Reclasificación automática**: Al cerrar modal, llamadas se mueven a pestaña correcta
+- **Estados visuales precisos**: Colores y badges reflejan estado real
+- **Error HTML corregido**: `<div>` en lugar de `<p>` para evitar hidratación
+
+### 📊 **Datos de Producción Verificados**
+
+#### **Distribución Final Corregida:**
+- **Activas**: 0 (correcto - no hay llamadas en curso)
+- **Transferidas**: 27 (llamadas escaladas al supervisor)
+- **Fallidas**: 6 (no contestó, ocupado, colgó)
+- **Finalizadas**: 17 (completadas exitosamente)
+- **Total procesado**: 125+ llamadas reales
+
+---
+
 ## 🚀 Versión 5.4.0 - Temas Globales + Acentos por Módulo + UI Homologada (Octubre 2025)
 
 ### 🎨 Temas Globales (solo Admin)

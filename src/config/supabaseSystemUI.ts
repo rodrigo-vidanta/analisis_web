@@ -10,6 +10,7 @@ export const supabaseSystemUI = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    storageKey: 'systemui-auth'
   },
 });
 
@@ -18,6 +19,7 @@ export const supabaseSystemUIAdmin = createClient(supabaseUrl, supabaseServiceKe
   auth: {
     persistSession: false,
     autoRefreshToken: false,
+    storageKey: 'systemui-admin'
   },
 });
 

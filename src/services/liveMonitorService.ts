@@ -139,7 +139,11 @@ class LiveMonitorService {
    */
   async getActiveCalls(): Promise<LiveCallData[]> {
     try {
-      const { data, error } = await analysisSupabase
+      console.log('🔍 [DEBUG] Iniciando getActiveCalls...');
+      console.log('🔍 [DEBUG] URL Supabase:', 'https://glsmifhkoaifvaegsozd.supabase.co');
+      
+      // Selección mínima segura de columnas (evitar errores por columnas inexistentes)
+      let { data, error } = await analysisSupabase
         .from('llamadas_ventas')
         .select(`
           call_id,
@@ -155,60 +159,61 @@ class LiveMonitorService {
           datos_llamada,
           audio_ruta_bucket,
           prospecto,
-          es_venta_exitosa,
-          precio_ofertado,
-          requiere_seguimiento,
-          tipo_llamada,
-          oferta_presentada,
-          costo_total,
-          datos_proceso,
-          datos_objeciones,
-          tiene_feedback,
-          feedback_resultado,
-          feedback_comentarios,
-          feedback_user_email,
-          feedback_fecha,
           checkpoint_venta_actual,
-          composicion_familiar_numero,
-          destino_preferido,
-          preferencia_vacaciones,
-          numero_noches,
-          mes_preferencia,
-          propuesta_economica_ofrecida,
-          habitacion_ofertada,
-          resort_ofertado,
-          principales_objeciones,
-          resumen_llamada,
           conversacion_completa
         `)
         .order('fecha_llamada', { ascending: false })
-        .limit(20); // Obtener últimas 20 llamadas (activas + recién finalizadas)
+        .limit(50);
 
+      console.log('🔍 [DEBUG] Respuesta inicial:', { data, error, count: data?.length || 0 });
+
+      // Fallback ultraseguro si fallara por cualquier metadata
       if (error) {
-        console.error('❌ Error obteniendo llamadas activas:', error);
-        return [];
+        console.warn('⚠️ Reintentando getActiveCalls con selección ultra mínima por error:', error);
+        const fallback = await analysisSupabase
+          .from('llamadas_ventas')
+          .select(`call_id, call_status, fecha_llamada, prospecto`)
+          .order('fecha_llamada', { ascending: false })
+          .limit(50);
+        data = fallback.data || [];
+        error = fallback.error || null;
+        console.log('🔍 [DEBUG] Respuesta fallback:', { data, error, count: data?.length || 0 });
+        if (fallback.error) {
+          console.error('❌ Error también en fallback getActiveCalls:', fallback.error);
+          return [];
+        }
       }
 
       if (!data || data.length === 0) {
+        console.log('🔍 [DEBUG] No hay datos en llamadas_ventas');
+        console.log('🔍 [DEBUG] Esto puede ser porque:');
+        console.log('  1. La tabla está vacía (sin llamadas registradas)');
+        console.log('  2. RLS bloquea el acceso (necesita ser desactivado)');
+        console.log('  3. El usuario anon no tiene permisos de lectura');
+        console.log('🔍 [DEBUG] Para solucionarlo, ejecuta en el SQL Editor de Supabase:');
+        console.log('  ALTER TABLE public.llamadas_ventas DISABLE ROW LEVEL SECURITY;');
         return [];
       }
 
-      // Obtener datos de los prospectos relacionados
-      const prospectIds = data.map(call => call.prospecto).filter(id => id !== null && id !== undefined);
-      
-      if (prospectIds.length === 0) {
-        console.warn('⚠️ No hay IDs de prospectos válidos');
-        return [];
-      }
+      // Obtener datos de los prospectos relacionados (robusto ante errores)
+      const prospectIds = data
+        .map(call => call.prospecto)
+        .filter(id => id !== null && id !== undefined);
 
-      const { data: prospectosData, error: prospectError } = await analysisSupabase
-        .from('prospectos')
-        .select('*')
-        .in('id', prospectIds);
+      let prospectosData: any[] = [];
+      if (prospectIds.length > 0) {
+        const { data: pData, error: prospectError } = await analysisSupabase
+          .from('prospectos')
+          .select('*')
+          .in('id', prospectIds as string[]);
 
-      if (prospectError) {
-        console.error('❌ Error obteniendo datos de prospectos:', prospectError);
-        return [];
+        if (prospectError) {
+          console.warn('⚠️ Continuando sin datos de prospectos por error:', prospectError);
+        } else {
+          prospectosData = pData || [];
+        }
+      } else {
+        console.warn('⚠️ No hay IDs de prospectos válidos; se devolverán llamadas con datos mínimos');
       }
 
       // Combinar datos de llamadas con datos de prospectos
@@ -517,7 +522,8 @@ class LiveMonitorService {
   async updateCallStatus(callId: string, status: 'activa' | 'transferida' | 'colgada' | 'perdida' | 'exitosa'): Promise<boolean> {
     try {
       const updateData: any = { 
-        call_status: status
+        call_status: status,
+        updated_at: new Date().toISOString()
       };
       
       // Si la llamada se marca como finalizada, actualizar timestamp de finalización
@@ -588,7 +594,8 @@ class LiveMonitorService {
       const updateData: any = {
         monitor_url: monitorUrl,
         control_url: controlUrl,
-        call_status: 'activa'
+        call_status: 'activa',
+        updated_at: new Date().toISOString()
       };
 
       if (callSid) updateData.call_sid = callSid;
@@ -658,6 +665,7 @@ class LiveMonitorService {
             account_sid: callData.account_sid,
             call_status: 'activa',
             fecha_llamada: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
             duracion_segundos: 0,
             es_venta_exitosa: false,
             probabilidad_cierre: 0,
@@ -953,6 +961,60 @@ class LiveMonitorService {
     } catch (error) {
       console.error('💥 Error en getCallHistory24h:', error);
       return [];
+    }
+  }
+
+  // ============================================
+  // DATOS DE PRUEBA Y DEBUGGING
+  // ============================================
+
+  /**
+   * Crear datos de prueba si la tabla está vacía (solo para debugging)
+   */
+  async createTestDataIfEmpty(): Promise<void> {
+    try {
+      console.log('🔍 [DEBUG] Intentando crear datos de prueba...');
+      
+      // Crear algunos registros de prueba
+      const testCalls = [
+        {
+          call_id: `test_call_${Date.now()}_1`,
+          call_status: 'activa',
+          fecha_llamada: new Date().toISOString(),
+          prospecto: null, // Sin prospecto por ahora
+          duracion_segundos: 0,
+          monitor_url: 'wss://test.monitor.url/1',
+          control_url: 'https://test.control.url/1'
+        },
+        {
+          call_id: `test_call_${Date.now()}_2`,
+          call_status: 'finalizada',
+          fecha_llamada: new Date(Date.now() - 300000).toISOString(), // 5 min ago
+          prospecto: null,
+          duracion_segundos: 180,
+          audio_ruta_bucket: 'test/audio/path.mp3'
+        },
+        {
+          call_id: `test_call_${Date.now()}_3`,
+          call_status: 'perdida',
+          fecha_llamada: new Date(Date.now() - 600000).toISOString(), // 10 min ago
+          prospecto: null,
+          duracion_segundos: 0
+        }
+      ];
+
+      const { data, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .insert(testCalls)
+        .select();
+
+      if (error) {
+        console.error('❌ Error creando datos de prueba:', error);
+      } else {
+        console.log('✅ Datos de prueba creados:', data?.length || 0);
+      }
+    } catch (error) {
+      console.error('💥 Error en createTestDataIfEmpty:', error);
     }
   }
 

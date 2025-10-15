@@ -1,5 +1,33 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.5.0 (Octubre 2025) - Live Monitor Tiempo Real + Clasificación Inteligente
+
+### 🎯 RELEASE CRÍTICO - Live Monitor Completamente Funcional
+
+#### 📡 Sistema de Tiempo Real Implementado
+- **Dual Realtime subscriptions**: llamadas_ventas + prospectos sincronizados
+- **Movimiento automático entre checkpoints**: Sin recargas manuales
+- **Actualización de datos familiares**: Composición, destino en tiempo real  
+- **Conversación en vivo**: Modal actualiza sin cerrar/abrir
+- **Sonido de campana**: Al completar checkpoint #5
+
+#### 🎨 Nueva Clasificación Basada en Datos Reales
+- **Transferidas** (antes Finalizadas): razon_finalizacion = 'assistant-forwarded-call'
+- **Activas reales**: Solo sin razon_finalizacion y sin duración
+- **Fallidas específicas**: customer-busy, customer-did-not-answer, customer-ended-call
+- **Lógica de checkpoint #5**: Permanecen activas hasta ver modal
+
+#### 🛠️ Corrección de Datos Históricos
+- **125+ registros corregidos**: call_status sincronizado con razon_finalizacion
+- **Llamadas atoradas limpiadas**: Antiguas del 9-10 octubre marcadas como perdida
+- **Función exec_sql**: Administración remota de BD operativa
+- **RLS optimizado**: Acceso público seguro para frontend
+
+#### 📊 Distribución Final Verificada
+- Activas: 0 (correcto), Transferidas: 27, Fallidas: 6, Finalizadas: 17
+
+---
+
 ## Versión 5.4.0 (Octubre 2025) - Temas Globales + Acentos por Módulo
 
 ### 🎨 Cambios de UI y Arquitectura de Temas

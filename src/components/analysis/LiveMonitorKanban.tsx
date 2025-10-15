@@ -1,7 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { useTheme } from '../../hooks/useTheme';
+
+// Función para reproducir sonido de checkpoint completado
+const playCheckpointCompleteSound = () => {
+  try {
+    // Crear un contexto de audio
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Crear una secuencia de tonos para simular una campana
+    const playTone = (frequency: number, duration: number, delay: number = 0) => {
+      setTimeout(() => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        oscillator.type = 'sine';
+        
+        // Envelope para sonido de campana
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + duration);
+      }, delay);
+    };
+    
+    // Secuencia de tonos para campana
+    playTone(800, 0.5, 0);     // Tono principal
+    playTone(1000, 0.3, 100);  // Armónico
+    playTone(600, 0.4, 200);   // Tono grave
+    
+  } catch (error) {
+    console.warn('No se pudo reproducir el sonido de checkpoint:', error);
+  }
+};
 
 // Definición de checkpoints del proceso de venta
 const CHECKPOINTS = {
@@ -62,11 +100,12 @@ interface KanbanCall extends LiveCallData {
 
 const LiveMonitorKanban: React.FC = () => {
   const [activeCalls, setActiveCalls] = useState<KanbanCall[]>([]);
-  const [finishedCalls, setFinishedCalls] = useState<KanbanCall[]>([]);
+  const [transferredCalls, setTransferredCalls] = useState<KanbanCall[]>([]);  // Renombrado de finishedCalls
   const [failedCalls, setFailedCalls] = useState<KanbanCall[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'active' | 'finished' | 'failed' | 'all'>('active');
+  const [selectedTab, setSelectedTab] = useState<'active' | 'transferred' | 'failed' | 'all'>('active');  // Renombrado finished -> transferred
   const [allCalls, setAllCalls] = useState<KanbanCall[]>([]);
   const [selectedCall, setSelectedCall] = useState<KanbanCall | null>(null);
+  const [viewedCalls, setViewedCalls] = useState<Set<string>>(new Set()); // Track de llamadas vistas en modal
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   
@@ -196,6 +235,9 @@ const LiveMonitorKanban: React.FC = () => {
   
   // Estado para conversación en tiempo real
   const [currentConversation, setCurrentConversation] = useState<Array<{speaker: string, message: string, timestamp: string}>>([]);
+  const conversationScrollRef = useRef<HTMLDivElement>(null);
+  const userScrolledAwayInModalRef = useRef<boolean>(false);
+  const detailRealtimeChannelRef = useRef<any>(null);
   const [conversationUpdateTime, setConversationUpdateTime] = useState<Date>(new Date());
 
   // Función para ejecutar feedback
@@ -324,7 +366,14 @@ const LiveMonitorKanban: React.FC = () => {
       
       // Si hay nuevos mensajes, actualizar suavemente
       if (newConversation.length > prevConversation.length) {
-        console.log(`💬 Nuevos mensajes detectados: ${newConversation.length - prevConversation.length}`);
+        // Auto-scroll al final si el usuario no se ha desplazado manualmente hacia arriba
+        if (!userScrolledAwayInModalRef.current) {
+          requestAnimationFrame(() => {
+            if (conversationScrollRef.current) {
+              conversationScrollRef.current.scrollTop = conversationScrollRef.current.scrollHeight;
+            }
+          });
+        }
         setConversationUpdateTime(new Date());
       }
       
@@ -562,43 +611,92 @@ const LiveMonitorKanban: React.FC = () => {
         console.log(`🔍 [LIVE MONITOR] Carga inicial: ${allCalls.length} llamadas`);
       }
       
-      // Clasificar llamadas por estado
+      // Clasificar llamadas por estado con nueva lógica
       const active: KanbanCall[] = [];
-      const finished: KanbanCall[] = [];
+      const transferred: KanbanCall[] = [];
       const failed: KanbanCall[] = [];
       
       allCalls.forEach(call => {
-        const hasDuration = call.duracion_segundos && call.duracion_segundos > 0;
-        const hasRecording = call.audio_ruta_bucket && call.audio_ruta_bucket.length > 0;
-        const isZeroDuration = call.duracion_segundos === 0;
-        const hasNoRecording = !call.audio_ruta_bucket;
         const hasFeedback = call.tiene_feedback === true;
+        const wasViewed = viewedCalls.has(call.call_id);
         
-        // LÓGICA CORREGIDA DE CLASIFICACIÓN:
+        // Debug: Log de llamadas sospechosas
+        if (!isRefresh && call.call_status === 'activa') {
+          try {
+            const razon = call.datos_llamada?.razon_finalizacion || 
+                         (typeof call.datos_llamada === 'string' ? JSON.parse(call.datos_llamada)?.razon_finalizacion : null);
+            if (razon) {
+              console.log(`🔍 [DEBUG] Llamada ${call.call_id.slice(-8)} status='activa' pero razon='${razon}' - debería estar finalizada`);
+            }
+          } catch (e) {}
+        }
         
-        // 1. LLAMADAS ACTIVAS: call_status = 'activa'
-        if (call.call_status === 'activa') {
+        // NUEVA LÓGICA DE CLASIFICACIÓN BASADA EN DATOS REALES:
+        
+        // Extraer razon_finalizacion de datos_llamada
+        let razonFinalizacion = null;
+        try {
+          if (call.datos_llamada && typeof call.datos_llamada === 'object') {
+            razonFinalizacion = call.datos_llamada.razon_finalizacion;
+          } else if (call.datos_llamada && typeof call.datos_llamada === 'string') {
+            const parsed = JSON.parse(call.datos_llamada);
+            razonFinalizacion = parsed.razon_finalizacion;
+          }
+        } catch (e) {
+          // Ignorar errores de parsing
+        }
+        
+        const hasEndReason = razonFinalizacion && razonFinalizacion !== '';
+        const hasDuration = call.duracion_segundos && call.duracion_segundos > 0;
+        
+        // 1. LLAMADAS REALMENTE ACTIVAS: 
+        // - call_status = 'activa' Y NO tienen razon_finalizacion Y NO tienen duración
+        // - TAMBIÉN llamadas en checkpoint #5 que AÚN NO han sido vistas (no se mueven automáticamente)
+        if (call.call_status === 'activa' && !hasEndReason && !hasDuration) {
+          active.push(call);
+        }
+        else if (
+          call.call_status === 'activa' && 
+          call.checkpoint_venta_actual === 'checkpoint #5' && 
+          !wasViewed
+        ) {
+          // Llamadas en último checkpoint permanecen en activas hasta ser vistas
           active.push(call);
         }
         
-        // 2. LLAMADAS FINALIZADAS: Estados finalizados O duración + grabación
+        // 2. LLAMADAS TRANSFERIDAS:
+        // - call_status = 'transferida' (siempre van a transferidas)
+        // - razon_finalizacion = 'assistant-forwarded-call' (siempre van a transferidas)
         else if (
-          call.call_status === 'finalizada' || 
-          call.call_status === 'transferida' || 
-          call.call_status === 'colgada' ||
-          call.call_status === 'exitosa' ||
-          (hasDuration && hasRecording)
+          call.call_status === 'transferida' ||
+          razonFinalizacion === 'assistant-forwarded-call'
         ) {
-          // Solo mostrar si NO tienen feedback (requieren feedback para desaparecer)
           if (!hasFeedback) {
-            finished.push(call);
+            transferred.push(call);
           }
         }
         
-        // 3. LLAMADAS FALLIDAS: call_status = 'perdida' O sin conexión
+        // 3. LLAMADAS QUE PARECEN ACTIVAS PERO YA TERMINARON:
+        // Estas ya deberían estar corregidas en la BD, pero por si acaso
+        else if (call.call_status === 'activa' && hasEndReason) {
+          // Cualquier llamada "activa" con razon_finalizacion va a fallidas
+          if (!hasFeedback) {
+            failed.push(call);
+          }
+        }
+        
+        // 4. LLAMADAS FALLIDAS:
+        // - call_status = 'colgada', 'perdida'
+        // - razon_finalizacion indica falla: 'customer-busy', 'customer-did-not-answer', etc.
         else if (
+          call.call_status === 'colgada' ||
           call.call_status === 'perdida' ||
-          (isZeroDuration && hasNoRecording)
+          (hasEndReason && [
+            'customer-busy',
+            'customer-did-not-answer', 
+            'customer-ended-call',
+            'assistant-ended-call'
+          ].includes(razonFinalizacion))
         ) {
           // Solo mostrar si NO tienen feedback
           if (!hasFeedback) {
@@ -606,17 +704,17 @@ const LiveMonitorKanban: React.FC = () => {
           }
         }
         
-        // 4. FALLBACK: Casos no clasificados van a activas
-        else if (!hasFeedback) {
-          active.push(call);
-        }
+        // 5. LLAMADAS FINALIZADAS EXITOSAS:
+        // - call_status = 'finalizada', 'exitosa'
+        // - Tienen duración > 0
+        // Estas NO aparecen en pestañas activas, solo en historial con feedback
       });
       
       // Actualización inteligente que detecta cambios sin re-render innecesario
       if (isRefresh) {
-        // Crear mapas completos de todas las llamadas (activas, finalizadas, fallidas)
+        // Crear mapas completos de todas las llamadas (activas, transferidas, fallidas)
         const currentAllCalls = new Map();
-        [...activeCalls, ...finishedCalls, ...failedCalls].forEach(call => {
+        [...activeCalls, ...transferredCalls, ...failedCalls].forEach(call => {
           currentAllCalls.set(call.call_id, {
             status: call.call_status,
             checkpoint: call.checkpoint_venta_actual,
@@ -626,7 +724,7 @@ const LiveMonitorKanban: React.FC = () => {
         });
         
         const newAllCalls = new Map();
-        [...active, ...finished, ...failed].forEach(call => {
+        [...active, ...transferred, ...failed].forEach(call => {
           newAllCalls.set(call.call_id, {
             status: call.call_status,
             checkpoint: call.checkpoint_venta_actual,
@@ -688,7 +786,7 @@ const LiveMonitorKanban: React.FC = () => {
         // Solo actualizar si hay cambios detectados
         if (hasChanges) {
           setActiveCalls(active);
-          setFinishedCalls(finished);
+          setTransferredCalls(transferred);
           setFailedCalls(failed);
         }
         
@@ -707,7 +805,7 @@ const LiveMonitorKanban: React.FC = () => {
         setAllCalls(completedCalls);
       } else {
         setActiveCalls(active);
-        setFinishedCalls(finished);
+        setTransferredCalls(transferred);
         setFailedCalls(failed);
       }
       
@@ -729,10 +827,19 @@ const LiveMonitorKanban: React.FC = () => {
       if (!isRefresh) {
         console.log('📊 [LIVE MONITOR] Clasificación:', {
         activas: active.length,
-        finalizadas: finished.length,
+        transferidas: transferred.length,
         fallidas: failed.length,
         historial: completedCalls.length
       });
+        
+        // Log detallado de estados para debugging
+        const statusCount = allCalls.reduce((acc, call) => {
+          acc[call.call_status || 'null'] = (acc[call.call_status || 'null'] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        console.log('📊 [DEBUG] Estados reales en BD:', statusCount);
+        console.log('📊 [DEBUG] Llamadas vistas en modal:', viewedCalls.size);
       }
       
     } catch (error) {
@@ -770,16 +877,121 @@ const LiveMonitorKanban: React.FC = () => {
     // Realtime: escuchar updates en llamadas_ventas para refrescar al instante
     const channel = analysisSupabase
       .channel('live-monitor-calls')
+      // INSERT: nuevas llamadas deben aparecer inmediatamente
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'llamadas_ventas'
+      }, async (payload) => {
+        console.log('📨 Nueva llamada insertada:', payload.new?.call_id);
+        try {
+          await loadCalls(true);
+        } catch (e) {
+          console.error('Error refreshing calls on realtime (INSERT):', e);
+        }
+      })
+      // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'llamadas_ventas'
       }, async (payload) => {
-        try {
-          await loadCalls(true);
-        } catch (e) {
-          console.error('Error refreshing calls on realtime:', e);
+        const rec = payload.new as any;
+        const oldRec = payload.old as any;
+        
+        if (rec && oldRec) {
+          // Log específico para cambios de checkpoint
+          if (rec.checkpoint_venta_actual !== oldRec.checkpoint_venta_actual) {
+            console.log(`🔄 Checkpoint actualizado: ${rec.call_id?.slice(-8)} ${oldRec.checkpoint_venta_actual} → ${rec.checkpoint_venta_actual}`);
+            
+            // Sonido cuando llega al último checkpoint
+            if (rec.checkpoint_venta_actual === 'checkpoint #5') {
+              console.log('🔔 Llamada llegó al último checkpoint, reproduciendo sonido...');
+              playCheckpointCompleteSound();
+            }
+          }
+          
+          // Log para cambios de call_status
+          if (rec.call_status !== oldRec.call_status) {
+            console.log(`📞 Estado actualizado: ${rec.call_id?.slice(-8)} ${oldRec.call_status} → ${rec.call_status}`);
+          }
+          
+          // Actualización inteligente sin re-render completo
+          setActiveCalls(prevActive => {
+            return prevActive.map(call => 
+              call.call_id === rec.call_id 
+                ? { ...call, ...rec } // Actualizar datos completos de la llamada
+                : call
+            );
+          });
+          
+          setTransferredCalls(prevTransferred => {
+            return prevTransferred.map(call => 
+              call.call_id === rec.call_id 
+                ? { ...call, ...rec }
+                : call
+            );
+          });
+          
+          setFailedCalls(prevFailed => {
+            return prevFailed.map(call => 
+              call.call_id === rec.call_id 
+                ? { ...call, ...rec }
+                : call
+            );
+          });
         }
+        
+        // Solo hacer loadCalls completo si hay cambios de estado que requieren reclasificación
+        if (rec && oldRec && rec.call_status !== oldRec.call_status) {
+          try {
+            await loadCalls(true);
+          } catch (e) {
+            console.error('Error refreshing calls on realtime (UPDATE):', e);
+          }
+        }
+      })
+      .subscribe((status) => {
+        console.log('📡 Estado de suscripción Realtime:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Live Monitor conectado a Realtime - detectará cambios de checkpoint automáticamente');
+        }
+      });
+
+    // Suscripción adicional para cambios en prospectos (datos familiares, etc.)
+    const prospectosChannel = analysisSupabase
+      .channel('live-monitor-prospectos')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'prospectos'
+      }, async (payload) => {
+        const updatedProspect = payload.new as any;
+        console.log(`👨‍👩‍👧‍👦 Prospecto actualizado: ${updatedProspect.id?.slice(-8)}`);
+        
+        // Actualizar datos del prospecto en todas las listas sin recargar completo
+        const updateProspectInCalls = (calls: KanbanCall[]) => {
+          return calls.map(call => 
+            call.prospecto_id === updatedProspect.id
+              ? {
+                  ...call,
+                  // Actualizar datos del prospecto
+                  nombre_completo: updatedProspect.nombre_completo || call.nombre_completo,
+                  nombre_whatsapp: updatedProspect.nombre_whatsapp || call.nombre_whatsapp,
+                  composicion_familiar_numero: updatedProspect.composicion_familiar_numero || call.composicion_familiar_numero,
+                  destino_preferencia: updatedProspect.destino_preferencia || call.destino_preferencia,
+                  tamano_grupo: updatedProspect.tamano_grupo || call.tamano_grupo,
+                  edad: updatedProspect.edad || call.edad,
+                  estado_civil: updatedProspect.estado_civil || call.estado_civil,
+                  etapa: updatedProspect.etapa || call.etapa
+                }
+              : call
+          );
+        };
+        
+        setActiveCalls(updateProspectInCalls);
+        setTransferredCalls(updateProspectInCalls);
+        setFailedCalls(updateProspectInCalls);
       })
       .subscribe();
 
@@ -788,29 +1000,89 @@ const LiveMonitorKanban: React.FC = () => {
     return () => {
       clearInterval(interval);
       try { channel.unsubscribe(); } catch {}
+      try { prospectosChannel.unsubscribe(); } catch {}
     };
   }, []);
 
-  // Efecto para actualizar conversación automáticamente
+  // Manejar apertura del modal de detalle
+  const handleCallSelect = (call: KanbanCall) => {
+    setSelectedCall(call);
+    
+    // Marcar llamada como vista para la lógica de transferencia
+    setViewedCalls(prev => new Set(prev).add(call.call_id));
+    
+    console.log(`👁️ Modal abierto para llamada: ${call.call_id.slice(-8)} (checkpoint: ${call.checkpoint_venta_actual}, status: ${call.call_status})`);
+  };
+
+  // Manejar cierre del modal de detalle
+  const handleModalClose = () => {
+    if (selectedCall) {
+      console.log(`🚪 Modal cerrado para llamada: ${selectedCall.call_id.slice(-8)}`);
+      
+      // Si la llamada estaba en checkpoint #5 o fue transferida, reclasificar
+      if (
+        selectedCall.checkpoint_venta_actual === 'checkpoint #5' ||
+        selectedCall.call_status === 'transferida' ||
+        (selectedCall.datos_llamada?.razon_finalizacion === 'assistant-forwarded-call')
+      ) {
+        console.log('🔄 Reclasificando llamada después de ver modal...');
+        setTimeout(() => loadCalls(true), 100);
+      }
+    }
+    
+    setSelectedCall(null);
+  };
+
+  // Efecto para actualizar conversación en tiempo real (sin parpadeos)
   useEffect(() => {
+    // Limpiar canal anterior
+    try { detailRealtimeChannelRef.current?.unsubscribe?.(); } catch {}
+    detailRealtimeChannelRef.current = null;
+
     if (!selectedCall || selectedCall.call_status !== 'activa') {
       setCurrentConversation([]);
       return;
     }
 
-    // Actualizar conversación cada 2 segundos para llamadas activas
-    const conversationInterval = setInterval(() => {
-      if (selectedCall && selectedCall.call_status === 'activa') {
-        const newConversation = parseConversation(selectedCall.conversacion_completa);
+    // Cargar estado inicial
+    updateConversation(parseConversation(selectedCall.conversacion_completa));
+
+    // Suscribirse a cambios de la fila específica de la llamada activa
+    const channel = analysisSupabase
+      .channel(`live-monitor-call-${selectedCall.call_id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'llamadas_ventas',
+        filter: `call_id=eq.${selectedCall.call_id}`
+      }, (payload) => {
+        const rec = payload.new as any;
+        if (!rec) return;
+        
+        // Detectar cambio de checkpoint para reproducir sonido
+        const oldCheckpoint = selectedCall.checkpoint_venta_actual;
+        const newCheckpoint = rec.checkpoint_venta_actual;
+        
+        if (oldCheckpoint !== newCheckpoint && newCheckpoint === 'checkpoint #5') {
+          console.log('🔔 Llamada llegó al último checkpoint, reproduciendo sonido...');
+          playCheckpointCompleteSound();
+        }
+        
+        // Actualizar conversación
+        const newConversation = parseConversation(rec.conversacion_completa);
         updateConversation(newConversation);
-      }
-    }, 2000);
+        
+        // Actualizar el selectedCall con los nuevos datos
+        setSelectedCall(prev => prev ? { ...prev, ...rec } : null);
+      })
+      .subscribe();
 
-    // Actualización inicial
-    const initialConversation = parseConversation(selectedCall.conversacion_completa);
-    updateConversation(initialConversation);
+    detailRealtimeChannelRef.current = channel;
 
-    return () => clearInterval(conversationInterval);
+    return () => {
+      try { channel.unsubscribe(); } catch {}
+      detailRealtimeChannelRef.current = null;
+    };
   }, [selectedCall?.call_id, selectedCall?.call_status]);
 
   // Agrupar llamadas activas por checkpoint con ordenamiento
@@ -892,7 +1164,7 @@ const LiveMonitorKanban: React.FC = () => {
       <div
         key={call.call_id}
         className={`cursor-pointer transition-all duration-300 hover:bg-white/50 dark:hover:bg-slate-600/30 rounded-lg p-2 ${progressBgColors[checkpointNumber as keyof typeof progressBgColors] || progressBgColors[1]}`}
-        onClick={() => setSelectedCall(call)}
+        onClick={() => handleCallSelect(call)}
       >
         {/* Cliente - Compacto */}
         <div className="flex items-center space-x-2 mb-2">
@@ -1166,7 +1438,7 @@ const LiveMonitorKanban: React.FC = () => {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
             Live Monitor - Vista Kanban
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 flex items-center justify-center space-x-2">
+          <div className="text-slate-600 dark:text-slate-400 flex items-center justify-center space-x-2">
             <span>Gestión visual del proceso de ventas por checkpoints</span>
             {hasRecentChanges && (
               <span className="inline-flex items-center text-xs text-green-600 dark:text-green-400">
@@ -1174,7 +1446,7 @@ const LiveMonitorKanban: React.FC = () => {
                 Actualizado
               </span>
             )}
-          </p>
+          </div>
           
           {/* Botón de refresh manual */}
           <button
@@ -1217,9 +1489,9 @@ const LiveMonitorKanban: React.FC = () => {
             </button>
             
             <button
-              onClick={() => setSelectedTab('finished')}
+              onClick={() => setSelectedTab('transferred')}
               className={`px-6 py-4 text-sm font-medium transition-colors ${
-                selectedTab === 'finished'
+                selectedTab === 'transferred'
                   ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-b-2 border-green-500'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
@@ -1228,9 +1500,9 @@ const LiveMonitorKanban: React.FC = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>Finalizadas</span>
+                <span>Transferidas</span>
                 <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {finishedCalls.length}
+                  {transferredCalls.length}
                 </span>
               </div>
             </button>
@@ -1336,7 +1608,7 @@ const LiveMonitorKanban: React.FC = () => {
               </div>
             )}
 
-            {selectedTab === 'finished' && (
+            {selectedTab === 'transferred' && (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                   <thead className="bg-slate-50 dark:bg-slate-900">
@@ -1395,11 +1667,11 @@ const LiveMonitorKanban: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                    {sortData(finishedCalls).map((call) => (
+                    {sortData(transferredCalls).map((call) => (
                       <tr 
                         key={call.call_id}
                         className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
-                        onClick={() => setSelectedCall(call)}
+                        onClick={() => handleCallSelect(call)}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -1466,12 +1738,12 @@ const LiveMonitorKanban: React.FC = () => {
                   </tbody>
                 </table>
                 
-                {finishedCalls.length === 0 && (
+                {transferredCalls.length === 0 && (
                   <div className="text-center py-12">
                     <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="text-slate-500 dark:text-slate-400">No hay llamadas finalizadas</p>
+                    <p className="text-slate-500 dark:text-slate-400">No hay llamadas transferidas</p>
                   </div>
                 )}
               </div>
@@ -1533,7 +1805,7 @@ const LiveMonitorKanban: React.FC = () => {
                     key={call.call_id} 
                         className="hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
                     onClick={() => {
-                      setSelectedCall(call);
+                      handleCallSelect(call);
                       handleFeedbackRequest('perdida');
                     }}
                   >
@@ -1656,7 +1928,7 @@ const LiveMonitorKanban: React.FC = () => {
                       <tr 
                         key={call.call_id}
                         className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
-                        onClick={() => setSelectedCall(call)}
+                        onClick={() => handleCallSelect(call)}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -1734,7 +2006,7 @@ const LiveMonitorKanban: React.FC = () => {
         {/* Modal de detalles completo */}
         {selectedCall && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-               onClick={(e) => e.target === e.currentTarget && setSelectedCall(null)}>
+               onClick={(e) => e.target === e.currentTarget && handleModalClose()}>
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
               {/* Header */}
               <div className="p-4 border-b border-slate-200 dark:border-slate-700">
@@ -1764,7 +2036,7 @@ const LiveMonitorKanban: React.FC = () => {
                     </div>
                   </div>
                   <button
-                    onClick={() => setSelectedCall(null)}
+                    onClick={handleModalClose}
                     className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2033,7 +2305,12 @@ const LiveMonitorKanban: React.FC = () => {
                             </div>
                         </h4>
                     
-                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 max-h-80 overflow-y-auto">
+                    <div ref={conversationScrollRef} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 max-h-80 overflow-y-auto"
+                         onScroll={(e) => {
+                           const el = e.currentTarget as HTMLDivElement;
+                           const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                           userScrolledAwayInModalRef.current = distanceFromBottom > 120;
+                         }}>
                       <div className="p-3 space-y-3">
                         {currentConversation.length > 0 ? (
                           currentConversation.map((msg, index) => (
