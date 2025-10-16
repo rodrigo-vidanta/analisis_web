@@ -49,6 +49,7 @@ export interface LiveCallData {
   duracion_segundos: number;
   nivel_interes: any;
   datos_llamada: any;
+  datos_proceso: any; // ¡CRÍTICO! - Datos dinámicos de VAPI
   audio_ruta_bucket?: string;
   
   // Datos del prospecto (tabla prospectos)
@@ -86,6 +87,20 @@ export interface LiveCallData {
   feedback_comentarios?: string;
   feedback_user_email?: string;
   feedback_fecha?: string;
+  
+  // Campos dinámicos de VAPI (actualizados por tools en tiempo real)
+  checkpoint_venta_actual?: string;
+  composicion_familiar_numero?: number;
+  destino_preferido?: string;
+  preferencia_vacaciones?: string[];
+  numero_noches?: number;
+  mes_preferencia?: string;
+  propuesta_economica_ofrecida?: number;
+  habitacion_ofertada?: string;
+  resort_ofertado?: string;
+  principales_objeciones?: string;
+  resumen_llamada?: string;
+  conversacion_completa?: any;
 }
 
 // Mantener interfaz Prospect para compatibilidad
@@ -142,7 +157,7 @@ class LiveMonitorService {
       console.log('🔍 [DEBUG] Iniciando getActiveCalls...');
       console.log('🔍 [DEBUG] URL Supabase:', 'https://glsmifhkoaifvaegsozd.supabase.co');
       
-      // Selección mínima segura de columnas (evitar errores por columnas inexistentes)
+      // Selección COMPLETA incluyendo TODOS los campos dinámicos de VAPI
       let { data, error } = await analysisSupabase
         .from('llamadas_ventas')
         .select(`
@@ -157,10 +172,22 @@ class LiveMonitorService {
           duracion_segundos,
           nivel_interes,
           datos_llamada,
+          datos_proceso,
           audio_ruta_bucket,
           prospecto,
           checkpoint_venta_actual,
-          conversacion_completa
+          conversacion_completa,
+          composicion_familiar_numero,
+          destino_preferido,
+          preferencia_vacaciones,
+          numero_noches,
+          mes_preferencia,
+          edad,
+          propuesta_economica_ofrecida,
+          habitacion_ofertada,
+          resort_ofertado,
+          principales_objeciones,
+          resumen_llamada
         `)
         .order('fecha_llamada', { ascending: false })
         .limit(50);
@@ -234,6 +261,7 @@ class LiveMonitorService {
           duracion_segundos: call.duracion_segundos || 0,
           nivel_interes: call.nivel_interes,
           datos_llamada: call.datos_llamada,
+          datos_proceso: call.datos_proceso, // ¡CRÍTICO! - Datos dinámicos de VAPI
           audio_ruta_bucket: call.audio_ruta_bucket,
           
           // Datos del prospecto
@@ -244,7 +272,7 @@ class LiveMonitorService {
           etapa: prospecto?.etapa || 'Desconocida',
           temperatura_prospecto: prospecto?.temperatura_prospecto,
           observaciones: prospecto?.observaciones,
-          tamano_grupo: prospecto?.tamano_grupo,
+          tamano_grupo: call.composicion_familiar_numero || prospecto?.tamano_grupo,
           destino_preferencia: prospecto?.destino_preferencia,
           ciudad_residencia: prospecto?.ciudad_residencia,
           email: prospecto?.email,
@@ -274,7 +302,7 @@ class LiveMonitorService {
           feedback_user_email: call.feedback_user_email,
           feedback_fecha: call.feedback_fecha,
           
-          // Campos de checkpoint Kanban (dinámicos de llamadas_ventas)
+          // ¡CRÍTICO! - Campos dinámicos de VAPI que se actualizan en tiempo real
           checkpoint_venta_actual: call.checkpoint_venta_actual,
           composicion_familiar_numero: call.composicion_familiar_numero,
           destino_preferido: call.destino_preferido,
@@ -297,7 +325,24 @@ class LiveMonitorService {
       if (combinedData.length > 0) {
         console.log('🔍 [DEBUG] Primeras 3 llamadas cargadas:');
         combinedData.slice(0, 3).forEach(call => {
+          console.log(`🔍 [DEBUG RAW] Datos crudos para ${call.call_id.slice(-8)}:`, {
+            datos_proceso_type: typeof call.datos_proceso,
+            datos_proceso_raw: call.datos_proceso,
+            composicion_familiar_numero: call.composicion_familiar_numero
+          });
+          
+          let datosProc = {};
+          try {
+            datosProc = typeof call.datos_proceso === 'string' 
+              ? JSON.parse(call.datos_proceso || '{}') 
+              : call.datos_proceso || {};
+          } catch (e) {
+            console.error(`❌ Error parsing datos_proceso para ${call.call_id.slice(-8)}:`, e);
+          }
+          
           console.log(`  - ${call.call_id.slice(-8)}: ${call.call_status}, checkpoint: ${call.checkpoint_venta_actual}, prospecto: ${call.nombre_completo}`);
+          console.log(`    └─ Personas: composicion=${call.composicion_familiar_numero}, tamano_grupo=${call.tamano_grupo}, datos_proceso=${datosProc.numero_personas}`);
+          console.log(`    └─ Actividades: preferencia_vacaciones=${call.preferencia_vacaciones}, datos_proceso=${datosProc.tipo_actividades}`);
         });
       }
       
@@ -953,7 +998,7 @@ class LiveMonitorService {
           etapa: prospecto?.etapa || 'Finalizado',
           temperatura_prospecto: prospecto?.temperatura_prospecto,
           observaciones: prospecto?.observaciones,
-          tamano_grupo: prospecto?.tamano_grupo,
+          tamano_grupo: call.composicion_familiar_numero || prospecto?.tamano_grupo,
           destino_preferencia: prospecto?.destino_preferencia,
           ciudad_residencia: prospecto?.ciudad_residencia,
           email: prospecto?.email,

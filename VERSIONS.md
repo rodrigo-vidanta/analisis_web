@@ -1,5 +1,29 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.7.0 (Octubre 2025) - Live Monitor Reactivo + Análisis IA Mejorado
+
+### 🎯 RELEASE MAJOR - Sistema Completamente Reactivo
+
+#### 🔄 Live Monitor Reactivo en Tiempo Real
+- **Datos dinámicos**: Composición familiar, actividades y checkpoints se actualizan instantáneamente
+- **Reclasificación automática**: Llamadas finalizadas se mueven automáticamente sin intervención manual
+- **Sistema preserve**: Evita sobrescritura de datos actualizados por VAPI tools
+- **Polling inteligente**: Optimizado para no interferir con updates de Realtime
+
+#### 🧠 Análisis IA - Enfoque Continuidad y Discovery  
+- **Métricas actualizadas**: Enfoque en continuidad WhatsApp, discovery familiar y transferencias
+- **Gráfica radar calibrada**: Ponderaciones específicas para nuevos criterios de evaluación
+- **Agrupamiento colapsado**: Llamadas del mismo prospecto se agrupan para mejor organización
+- **Colores universales**: Sistema intuitivo verde=excelente, azul=bueno, rojo=crítico
+
+#### 🛠️ Correcciones Técnicas Críticas
+- **Mapeo de datos_proceso**: Solucionado para mostrar datos dinámicos correctamente
+- **Clasificación automática**: Basada en razon_finalizacion de datos_llamada
+- **Consultas optimizadas**: Incluye todos los campos necesarios para funcionamiento completo
+- **Interfaz limpia**: Eliminación de métricas de enfoque anterior (precios, ventas)
+
+---
+
 ## Versión 5.6.0 (Octubre 2025) - Live Monitor Optimizado + Documentación de Seguridad
 
 ### 🎯 RELEASE FINAL - Live Monitor Completamente Optimizado

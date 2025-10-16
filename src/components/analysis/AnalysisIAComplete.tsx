@@ -460,6 +460,11 @@ interface AnalysisRecord {
   prospecto_nombre?: string;
   prospecto_whatsapp?: string;
   prospecto_ciudad?: string;
+  
+  // Propiedades para agrupamiento
+  isGroupMain?: boolean;
+  isGroupSub?: boolean;
+  groupSize?: number;
 }
 
 interface CallSegment {
@@ -510,6 +515,10 @@ const AnalysisIAComplete: React.FC = () => {
   const [selectedCallForDetail, setSelectedCallForDetail] = useState<AnalysisRecord | null>(null);
   const [showTranscriptModal, setShowTranscriptModal] = useState(false);
   
+  // Estados para agrupamiento colapsado
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [groupedCalls, setGroupedCalls] = useState<Record<string, AnalysisRecord[]>>({});
+  
   // Estados del sidebar del prospecto
   const [showProspectoSidebar, setShowProspectoSidebar] = useState(false);
   const [selectedProspecto, setSelectedProspecto] = useState<any>(null);
@@ -559,7 +568,18 @@ const AnalysisIAComplete: React.FC = () => {
   // Aplicar filtros cuando cambien
   useEffect(() => {
     applyFilters();
-  }, [calls, searchQuery, dateFrom, dateTo, qualityFilter, categoryFilter, interestFilter, resultFilter]);
+  }, [calls, searchQuery, dateFrom, dateTo, qualityFilter, categoryFilter, interestFilter, resultFilter, collapsedGroups]);
+
+  // Inicializar grupos colapsados cuando cambien las llamadas
+  useEffect(() => {
+    if (calls.length > 0) {
+      const groups = groupCallsByProspect(calls);
+      const groupsWithMultipleCalls = Object.keys(groups).filter(key => groups[key].length > 1);
+      
+      // Colapsar automáticamente grupos con múltiples llamadas
+      setCollapsedGroups(new Set(groupsWithMultipleCalls));
+    }
+  }, [calls]);
 
   const loadCalls = async () => {
     try {
@@ -688,6 +708,55 @@ const AnalysisIAComplete: React.FC = () => {
     }
   };
 
+  // Función para agrupar llamadas por prospecto
+  const groupCallsByProspect = (callsToGroup: AnalysisRecord[]) => {
+    const groups: Record<string, AnalysisRecord[]> = {};
+    
+    callsToGroup.forEach(call => {
+      const prospectKey = call.prospecto_nombre || call.prospecto_id || 'Sin prospecto';
+      
+      if (!groups[prospectKey]) {
+        groups[prospectKey] = [];
+      }
+      groups[prospectKey].push(call);
+    });
+    
+    // Ordenar llamadas dentro de cada grupo (más reciente primero)
+    Object.keys(groups).forEach(prospectKey => {
+      groups[prospectKey].sort((a, b) => {
+        const dateA = new Date(a.created_at || a.fecha_llamada);
+        const dateB = new Date(b.created_at || b.fecha_llamada);
+        return dateB.getTime() - dateA.getTime(); // Más reciente primero
+      });
+    });
+    
+    setGroupedCalls(groups);
+    return groups;
+  };
+
+  // Función para obtener llamadas expandidas para mostrar en el grid
+  const getExpandedCalls = (groups: Record<string, AnalysisRecord[]>) => {
+    const expandedCalls: AnalysisRecord[] = [];
+    
+    Object.entries(groups).forEach(([prospectKey, callsInGroup]) => {
+      if (callsInGroup.length === 0) return;
+      
+      // Siempre mostrar la llamada más reciente (primera en el array ordenado)
+      const mainCall = { ...callsInGroup[0], isGroupMain: true, groupSize: callsInGroup.length };
+      expandedCalls.push(mainCall);
+      
+      // Si el grupo NO está colapsado, mostrar el resto de llamadas
+      if (!collapsedGroups.has(prospectKey)) {
+        callsInGroup.slice(1).forEach(call => {
+          const subCall = { ...call, isGroupSub: true, groupSize: callsInGroup.length };
+          expandedCalls.push(subCall);
+        });
+      }
+    });
+    
+    return expandedCalls;
+  };
+
   const applyFilters = () => {
     let filtered = [...calls];
 
@@ -698,7 +767,8 @@ const AnalysisIAComplete: React.FC = () => {
         call.call_id.toLowerCase().includes(query) ||
         call.categoria_desempeno?.toLowerCase().includes(query) ||
         call.nivel_interes_detectado?.toLowerCase().includes(query) ||
-        call.resultado_llamada?.toLowerCase().includes(query)
+        call.resultado_llamada?.toLowerCase().includes(query) ||
+        call.prospecto_nombre?.toLowerCase().includes(query)
       );
     }
 
@@ -737,7 +807,7 @@ const AnalysisIAComplete: React.FC = () => {
       filtered = filtered.filter(call => call.resultado_llamada === resultFilter);
     }
 
-    // Aplicar ordenamiento
+    // Aplicar ordenamiento ANTES de agrupar
     filtered.sort((a, b) => {
       const aValue = a[sortField as keyof AnalysisRecord];
       const bValue = b[sortField as keyof AnalysisRecord];
@@ -758,7 +828,11 @@ const AnalysisIAComplete: React.FC = () => {
       return 0;
     });
 
-    setFilteredCalls(filtered);
+    // Agrupar por prospecto y obtener lista expandida
+    const groups = groupCallsByProspect(filtered);
+    const expandedCalls = getExpandedCalls(groups);
+    
+    setFilteredCalls(expandedCalls);
   };
 
   const searchByCallId = async (callId: string) => {
@@ -909,6 +983,19 @@ const AnalysisIAComplete: React.FC = () => {
     }
   };
 
+  // Función para toggle de grupos colapsados
+  const toggleGroup = (prospectKey: string) => {
+    setCollapsedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(prospectKey)) {
+        newSet.delete(prospectKey);
+      } else {
+        newSet.add(prospectKey);
+      }
+      return newSet;
+    });
+  };
+
   const clearFilters = () => {
     setSearchQuery('');
     setDateFrom('');
@@ -931,17 +1018,62 @@ const AnalysisIAComplete: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Convertir calificaciones a scores numéricos
-    const labels = Object.keys(calificaciones).map(key => 
-      key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
+    // Convertir calificaciones a scores numéricos según los nuevos enums
+    const labelMap: Record<string, string> = {
+      'continuidad_whatsapp': 'Continuidad WhatsApp',
+      'tratamiento_formal': 'Tratamiento Formal',
+      'control_narrativo': 'Control Narrativo',
+      'discovery_familiar': 'Discovery Familiar',
+      'deteccion_interes': 'Detección Interés',
+      'manejo_objeciones': 'Manejo Objeciones',
+      'cumplimiento_reglas': 'Cumplimiento Reglas'
+    };
+    
+    // Filtrar y mapear labels (excluir calidad_cierre del enfoque anterior)
+    const filteredEntries = Object.entries(calificaciones).filter(([key]) => key !== 'calidad_cierre');
+    
+    const labels = filteredEntries.map(([key]) => 
+      labelMap[key] || key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
     );
-    const data = Object.values(calificaciones).map(value => {
+    
+    const data = filteredEntries.map(([, value]) => {
+      // Mapeo específico para los nuevos enums
       switch (value) {
-        case 'EXCELENTE': return 100;
-        case 'BUENO': return 75;
-        case 'REGULAR': return 50;
+        // Continuidad WhatsApp
+        case 'PERFECTO': return 100;
+        case 'BUENO': case 'BUENA': return 80;
         case 'DEFICIENTE': return 25;
-        default: return 0;
+        case 'NO_APLICABLE': return 50;
+        
+        // Tratamiento Formal
+        case 'REGULAR': return 60;
+        
+        // Control Narrativo
+        case 'CONTROLADO': return 90;
+        case 'PARCIAL': return 60;
+        case 'DESCONTROLADO': return 20;
+        
+        // Discovery Familiar
+        case 'COMPLETO': return 100;
+        case 'INCOMPLETO': return 40;
+        case 'NO_REALIZADO': return 10;
+        
+        // Detección Interés
+        case 'PRECISA': return 95;
+        case 'TARDÍA': return 70;
+        case 'TEMPRANA': return 80;
+        case 'IMPRECISA': return 30;
+        
+        // Manejo Objeciones
+        case 'EXCELENTE': return 100;
+        case 'BÁSICO': return 50;
+        case 'NO_HUBO': return 75; // No es malo si no hubo objeciones
+        
+        // Cumplimiento Reglas
+        case 'MALO': return 20;
+        
+        // Fallbacks
+        default: return 50;
       }
     });
 
@@ -950,16 +1082,16 @@ const AnalysisIAComplete: React.FC = () => {
       data: {
         labels,
         datasets: [{
-          label: 'Performance',
+          label: 'Evaluación de Continuidad y Discovery',
           data,
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          borderColor: 'rgba(59, 130, 246, 0.8)',
-          borderWidth: 2,
-          pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+          backgroundColor: 'rgba(16, 185, 129, 0.15)', // Verde esmeralda transparente
+          borderColor: 'rgba(16, 185, 129, 0.8)', // Verde esmeralda
+          borderWidth: 3,
+          pointBackgroundColor: 'rgba(16, 185, 129, 1)',
           pointBorderColor: '#fff',
           pointBorderWidth: 2,
-          pointRadius: 6,
-          pointHoverRadius: 8,
+          pointRadius: 7,
+          pointHoverRadius: 10,
           fill: true
         }]
       },
@@ -1066,10 +1198,10 @@ const AnalysisIAComplete: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-                Análisis IA
+                Análisis IA - Continuidad y Discovery
               </h1>
               <p className="text-slate-600 dark:text-slate-400 mt-1">
-                Análisis inteligente de llamadas con IA • {filteredCalls.length} de {totalRecords} registros
+                Evaluación de continuidad WhatsApp, discovery familiar y transferencias • {filteredCalls.length} de {totalRecords} registros
               </p>
             </div>
             
@@ -1162,15 +1294,15 @@ const AnalysisIAComplete: React.FC = () => {
 
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/30">
-                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="p-3 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Tasa Éxito</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Continuidad WhatsApp</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {((filteredCalls.filter(c => c.es_venta_exitosa).length / filteredCalls.length) * 100 || 0).toFixed(1)}%
+                  {((filteredCalls.filter(c => c.calificaciones?.continuidad_whatsapp === 'PERFECTO').length / filteredCalls.length) * 100 || 0).toFixed(1)}%
                 </p>
               </div>
             </div>
@@ -1178,15 +1310,15 @@ const AnalysisIAComplete: React.FC = () => {
 
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900/30">
-                <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 0h10m-9 0a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V6a2 2 0 00-2-2" />
+              <div className="p-3 rounded-full bg-violet-100 dark:bg-violet-900/30">
+                <svg className="w-6 h-6 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Filtrados</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Discovery Completo</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {filteredCalls.length}
+                  {((filteredCalls.filter(c => c.calificaciones?.discovery_familiar === 'COMPLETO').length / filteredCalls.length) * 100 || 0).toFixed(1)}%
                 </p>
               </div>
             </div>
@@ -1382,30 +1514,90 @@ const AnalysisIAComplete: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                    {paginatedCalls.map((call, index) => (
-                      <motion.tr
-                        key={call.analysis_id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.02, ease: "easeOut" }}
-                        onClick={() => openDetailedView(call)}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full">
-                              <User size={16} className="text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-slate-900 dark:text-white">
-                                {call.prospecto_nombre || 'Prospecto sin nombre'}
+                    {paginatedCalls.map((call, index) => {
+                      const prospectKey = call.prospecto_nombre || call.prospecto_id || 'Sin prospecto';
+                      const isGroupMain = call.isGroupMain;
+                      const isGroupSub = call.isGroupSub;
+                      const groupSize = call.groupSize || 1;
+                      const isCollapsed = collapsedGroups.has(prospectKey);
+                      
+                      return (
+                        <motion.tr
+                          key={call.analysis_id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.02, ease: "easeOut" }}
+                          onClick={() => openDetailedView(call)}
+                          className={`cursor-pointer transition-colors ${
+                            isGroupMain 
+                              ? 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-l-4 border-blue-500' 
+                              : isGroupSub 
+                                ? 'hover:bg-slate-25 dark:hover:bg-slate-800/30 bg-slate-25 dark:bg-slate-800/20 border-l-4 border-slate-300' 
+                                : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                          }`}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              {/* Botón de expansión/colapso para grupos */}
+                              {isGroupMain && groupSize > 1 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleGroup(prospectKey);
+                                  }}
+                                  className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full transition-colors"
+                                  title={isCollapsed ? `Expandir ${groupSize - 1} llamadas más` : `Colapsar grupo`}
+                                >
+                                  <svg 
+                                    className={`w-4 h-4 text-blue-600 dark:text-blue-400 transition-transform ${
+                                      isCollapsed ? 'rotate-0' : 'rotate-90'
+                                    }`} 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </button>
+                              )}
+                              
+                              {/* Indicador visual para sub-llamadas */}
+                              {isGroupSub && (
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
+                                </div>
+                              )}
+                              
+                              <div className={`p-2 rounded-full ${
+                                isGroupMain 
+                                  ? 'bg-blue-50 dark:bg-blue-900/20' 
+                                  : 'bg-slate-50 dark:bg-slate-800/50'
+                              }`}>
+                                <User size={16} className={
+                                  isGroupMain 
+                                    ? 'text-blue-600 dark:text-blue-400' 
+                                    : 'text-slate-500 dark:text-slate-400'
+                                } />
                               </div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                                {call.call_id.slice(0, 8)}...
+                              <div>
+                                <div className={`text-sm font-medium ${
+                                  isGroupMain 
+                                    ? 'text-slate-900 dark:text-white' 
+                                    : 'text-slate-600 dark:text-slate-300'
+                                }`}>
+                                  {call.prospecto_nombre || 'Prospecto sin nombre'}
+                                  {isGroupMain && groupSize > 1 && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                                      {groupSize} llamadas
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                                  {call.call_id.slice(0, 8)}...
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
                           <div>
                             {new Date(call.fecha_llamada || call.created_at).toLocaleDateString('es-MX')}
@@ -1500,7 +1692,8 @@ const AnalysisIAComplete: React.FC = () => {
                           </button>
                         </td>
                       </motion.tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1668,24 +1861,54 @@ const AnalysisIAComplete: React.FC = () => {
                       {selectedCallForDetail.calificaciones && (
                         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
                           <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                            Calificaciones Detalladas
+                            Evaluación de Continuidad y Discovery
                           </h3>
                           <div className="space-y-3">
-                            {Object.entries(selectedCallForDetail.calificaciones).map(([key, value]) => (
-                              <div key={key} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 rounded-lg">
-                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                  {key.replace(/_/g, ' ').toUpperCase()}
-                                </span>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                  value === 'EXCELENTE' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                                  value === 'BUENO' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                                  value === 'REGULAR' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                                  'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                                }`}>
-                                  {value}
-                                </span>
-                              </div>
-                            ))}
+                            {Object.entries(selectedCallForDetail.calificaciones)
+                              .filter(([key]) => key !== 'calidad_cierre') // Filtrar métrica del enfoque anterior
+                              .map(([key, value]) => {
+                                // Mapear nombres a español y enfoque actual
+                                const labelMap: Record<string, string> = {
+                                  'continuidad_whatsapp': 'CONTINUIDAD WHATSAPP',
+                                  'tratamiento_formal': 'TRATAMIENTO FORMAL',
+                                  'control_narrativo': 'CONTROL NARRATIVO',
+                                  'discovery_familiar': 'DISCOVERY FAMILIAR',
+                                  'deteccion_interes': 'DETECCIÓN INTERÉS',
+                                  'manejo_objeciones': 'MANEJO OBJECIONES',
+                                  'cumplimiento_reglas': 'CUMPLIMIENTO REGLAS'
+                                };
+                                
+                                const displayLabel = labelMap[key] || key.replace(/_/g, ' ').toUpperCase();
+                                
+                                return (
+                                  <div key={key} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 rounded-lg">
+                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                      {displayLabel}
+                                    </span>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                      // VERDE: Excelente (90-100%)
+                                      value === 'PERFECTO' || value === 'EXCELENTE' || value === 'COMPLETO' || value === 'PRECISA' ? 
+                                        'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                      // AZUL: Muy Bueno (75-89%)
+                                      value === 'BUENO' || value === 'BUENA' || value === 'CONTROLADO' || value === 'TEMPRANA' ? 
+                                        'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
+                                      // AMARILLO: Regular (50-74%)
+                                      value === 'REGULAR' || value === 'PARCIAL' || value === 'BÁSICO' || value === 'NO_HUBO' ? 
+                                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                      // NARANJA: Necesita Mejora (25-49%)
+                                      value === 'INCOMPLETO' || value === 'TARDÍA' || value === 'DEFICIENTE' ? 
+                                        'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' :
+                                      // ROJO: Crítico (0-24%)
+                                      value === 'NO_REALIZADO' || value === 'DESCONTROLADO' || value === 'IMPRECISA' || value === 'MALO' || value === 'FALLIDO' ? 
+                                        'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
+                                      // GRIS: No aplicable o neutro
+                                      'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                                    }`}>
+                                      {value}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                           </div>
                         </div>
                       )}
@@ -1806,17 +2029,47 @@ const AnalysisIAComplete: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Gráfica Radar de Performance */}
+                      {/* Gráfica Radar de Evaluación */}
                       {selectedCallForDetail.calificaciones && Object.keys(selectedCallForDetail.calificaciones).length > 0 && (
                         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
                           <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                            Análisis Visual de Performance
+                            Análisis Visual de Continuidad y Discovery
                           </h3>
                           <div className="relative h-80 flex items-center justify-center">
                             <canvas 
                               id={`radar-chart-${selectedCallForDetail.call_id}`}
                               className="max-w-full max-h-full"
                             />
+                          </div>
+                          
+                          {/* Leyenda de valores con código de colores universal */}
+                          <div className="mt-4 text-xs text-slate-600 dark:text-slate-400">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                <span><span className="font-medium text-green-700 dark:text-green-400">VERDE:</span> Excelente (90-100%)</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                <span><span className="font-medium text-blue-700 dark:text-blue-400">AZUL:</span> Muy Bueno (75-89%)</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                <span><span className="font-medium text-yellow-700 dark:text-yellow-400">AMARILLO:</span> Regular (50-74%)</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                                <span><span className="font-medium text-orange-700 dark:text-orange-400">NARANJA:</span> Necesita Mejora (25-49%)</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                <span><span className="font-medium text-red-700 dark:text-red-400">ROJO:</span> Crítico (0-24%)</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                                <span><span className="font-medium text-gray-700 dark:text-gray-400">GRIS:</span> No Aplicable</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}

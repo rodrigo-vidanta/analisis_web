@@ -1,5 +1,80 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.7.0 - Live Monitor Reactivo + Análisis IA Mejorado (Octubre 2025)
+
+### 🎯 **LIVE MONITOR COMPLETAMENTE REACTIVO**
+
+#### 🔄 **Sistema de Datos en Tiempo Real Perfeccionado**
+- **Consulta completa**: Incluye TODOS los campos dinámicos de VAPI (datos_proceso, composicion_familiar_numero, etc.)
+- **Mapeo corregido**: datos_proceso ahora se pasa correctamente al objeto LiveCallData
+- **Sistema preserve**: Mantiene datos actualizados por Realtime, evita sobrescritura con datos viejos
+- **Polling optimizado**: Reducido de 3s → 30s, solo para detectar llamadas nuevas
+- **Logs detallados**: Debugging completo para tracing de datos_proceso
+
+#### 🎯 **Reclasificación Automática de Llamadas Finalizadas**
+- **Detección automática**: Cuando call_status cambia de 'activa' → 'finalizada'
+- **Clasificación inteligente**: assistant-forwarded-call → Transferidas, customer-ended-call → Fallidas
+- **Sin intervención manual**: Llamadas se mueven automáticamente según razon_finalizacion
+- **Checkpoint #5 específico**: Movimiento automático a Transferidas al cerrar modal
+- **Logs específicos**: [AUTO-CLASSIFY] y [AUTO-DETECT] para debugging
+
+#### 📊 **Datos Familiares Dinámicos Solucionados**
+- **Prioridad correcta**: 1) datos_proceso.numero_personas, 2) composicion_familiar_numero, 3) tamano_grupo
+- **Actualización instantánea**: Cambios de VAPI aparecen inmediatamente en tarjetas Kanban
+- **Sin "planchado"**: Datos actualizados se mantienen, no se sobrescriben
+- **Modal reactivo**: Conversación y datos se actualizan sin parpadeos
+
+#### 🎨 **Interfaz Limpia Enfoque Continuidad**
+- **Precio ofertado eliminado**: De tarjetas Kanban, modal detalle y tabla historial
+- **Enfoque discovery**: Métricas centradas en continuidad WhatsApp y discovery familiar
+- **Colores intuitivos**: Verde=excelente, azul=bueno, amarillo=regular, etc.
+
+### 🧠 **ANÁLISIS IA - ENFOQUE CONTINUIDAD Y DISCOVERY**
+
+#### 📊 **Métricas Actualizadas al Nuevo Enfoque**
+- **Dashboard actualizado**: "Análisis IA - Continuidad y Discovery"
+- **Métricas nuevas**: "Continuidad WhatsApp" y "Discovery Completo" en lugar de "Tasa Éxito"
+- **Calificaciones filtradas**: Eliminada "Calidad de Cierre" del enfoque anterior
+- **Sistema de colores universal**: Verde=excelente, azul=bueno, amarillo=regular, naranja=mejora, rojo=crítico
+
+#### 🎨 **Gráfica Radar Calibrada**
+- **Ponderaciones específicas**: PERFECTO=100%, BUENO/BUENA=80%, CONTROLADO=90%, PRECISA=95%
+- **Colores actualizados**: Verde esmeralda para tema de continuidad
+- **Labels en español**: "Continuidad WhatsApp", "Discovery Familiar", etc.
+- **Leyenda visual**: Círculos de colores con rangos explicativos
+- **Filtrado inteligente**: Excluye métricas del enfoque anterior
+
+#### 📱 **Agrupamiento Colapsado de Llamadas**
+- **Agrupamiento por prospecto**: Todas las llamadas del mismo cliente se agrupan
+- **Vista colapsada**: Solo muestra la llamada más reciente por defecto
+- **Botón de expansión**: ">" para ver todas las llamadas del prospecto
+- **Indicadores visuales**: Badge "X llamadas", bordes de color, iconos diferenciados
+- **Sorting inteligente**: Funciona dentro de grupos, mantiene llamada principal
+- **Auto-colapso**: Grupos con múltiples llamadas se colapsan automáticamente
+
+#### 🔧 **Servicio de Análisis Nuevo Enfoque**
+- **callAnalysisService.ts**: Estructura completa para análisis de continuidad
+- **Enums definidos**: CONTINUIDAD_WHATSAPP, DISCOVERY_FAMILIAR, etc.
+- **Interfaces TypeScript**: CallAnalysisRequest, CallAnalysisResponse
+- **Métodos de análisis**: analyzeCall(), saveAnalysis(), reAnalyzeCall()
+- **Cálculo de scores**: Basado en ponderaciones del nuevo enfoque
+
+### 🛠️ **CORRECCIONES TÉCNICAS**
+
+#### 🔧 **Consultas de Base de Datos Optimizadas**
+- **Campos dinámicos incluidos**: datos_proceso, checkpoint_venta_actual, conversacion_completa
+- **Consulta fallback robusta**: Si falla consulta completa, usa selección mínima
+- **Logs de debugging**: Datos crudos vs parseados para troubleshooting
+- **Eliminación de campos inexistentes**: razon_finalizacion no existe como columna directa
+
+#### 🎯 **Lógica de Clasificación Mejorada**
+- **Criterios basados en datos reales**: assistant-forwarded-call, customer-ended-call
+- **Detección de llamadas zombie**: call_status='activa' pero con razon_finalizacion
+- **Clasificación automática**: Sin necesidad de intervención manual del vendedor
+- **Preserve mode**: Mantiene datos de Realtime durante polling
+
+---
+
 ## 🚀 Versión 5.6.0 - Live Monitor Optimizado + Reportes de Seguridad (Octubre 2025)
 
 ### 🎯 **OPTIMIZACIONES FINALES LIVE MONITOR**

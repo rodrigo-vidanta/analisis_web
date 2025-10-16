@@ -285,7 +285,7 @@ const LiveMonitorKanban: React.FC = () => {
       
       // Esperar y actualizar lista
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await loadCalls(true);
+      await loadCalls(true, true); // preserveRealtimeData=true
       
       // Cerrar modales
       setShowGlobalFeedbackModal(false);
@@ -509,7 +509,7 @@ const LiveMonitorKanban: React.FC = () => {
         setGlobalFeedbackComment('');
         // Actualizar estado en BD
         await liveMonitorService.updateCallStatus(selectedCall.call_id, 'transferida');
-        await loadCalls(true);
+        await loadCalls(true, true); // preserveRealtimeData=true
       } else {
         alert('Error al transferir la llamada');
       }
@@ -596,7 +596,7 @@ const LiveMonitorKanban: React.FC = () => {
         setGlobalFeedbackComment('');
         // Actualizar estado en BD
         await liveMonitorService.updateCallStatus(selectedCall.call_id, 'colgada');
-        await loadCalls(true);
+        await loadCalls(true, true); // preserveRealtimeData=true
       } else {
         alert('Error al colgar la llamada');
       }
@@ -609,7 +609,7 @@ const LiveMonitorKanban: React.FC = () => {
   };
 
   // Cargar llamadas desde la BD
-  const loadCalls = async (isRefresh = false) => {
+  const loadCalls = async (isRefresh = false, preserveRealtimeData = false) => {
     try {
       if (!isRefresh) {
         setLoading(true);
@@ -618,6 +618,36 @@ const LiveMonitorKanban: React.FC = () => {
       }
       
       const allCalls = await liveMonitorService.getActiveCalls() as KanbanCall[];
+      
+      // Si preserveRealtimeData=true, mantener datos actualizados por Realtime
+      let finalCalls = allCalls;
+      if (preserveRealtimeData) {
+        console.log('🔒 [PRESERVE] Manteniendo datos de Realtime, solo agregando llamadas nuevas');
+        
+        // Crear mapa de llamadas existentes con datos de Realtime
+        const existingCallsMap = new Map<string, KanbanCall>();
+        [...activeCalls, ...transferredCalls, ...failedCalls].forEach(call => {
+          existingCallsMap.set(call.call_id, call);
+        });
+        
+        // Solo actualizar con nuevas llamadas, preservar existentes
+        finalCalls = allCalls.map(newCall => {
+          const existingCall = existingCallsMap.get(newCall.call_id);
+          if (existingCall) {
+            // Mantener datos de Realtime, solo actualizar campos que no vienen de tools
+            return {
+              ...existingCall,
+              // Solo actualizar campos "estáticos" que no cambian por tools
+              fecha_llamada: newCall.fecha_llamada,
+              monitor_url: newCall.monitor_url,
+              control_url: newCall.control_url,
+              call_sid: newCall.call_sid,
+              // NO actualizar: datos_proceso, composicion_familiar_numero, etc.
+            };
+          }
+          return newCall; // Llamada nueva, usar datos completos
+        });
+      }
       
       // Log minimal para refreshes
       if (!isRefresh) {
@@ -629,7 +659,7 @@ const LiveMonitorKanban: React.FC = () => {
       const transferred: KanbanCall[] = [];
       const failed: KanbanCall[] = [];
       
-      allCalls.forEach(call => {
+      finalCalls.forEach(call => {
         const hasFeedback = call.tiene_feedback === true;
         const wasViewed = viewedCalls.has(call.call_id);
         
@@ -666,6 +696,26 @@ const LiveMonitorKanban: React.FC = () => {
         // - SOLO call_status = 'activa' Y NO tienen razon_finalizacion Y NO tienen duración
         if (call.call_status === 'activa' && !hasEndReason && !hasDuration) {
           active.push(call);
+        }
+        
+        // 1.5. LLAMADAS QUE PARECEN ACTIVAS PERO YA FINALIZARON (DETECCIÓN AUTOMÁTICA)
+        else if (call.call_status === 'activa' && (hasEndReason || hasDuration)) {
+          console.log(`🚨 [AUTO-DETECT] Llamada ${call.call_id.slice(-8)} parece activa pero ya finalizó - reclasificando`);
+          
+          // Clasificar según razón de finalización
+          if (razonFinalizacion === 'assistant-forwarded-call') {
+            console.log(`📋 [AUTO-DETECT] → Moviendo a TRANSFERIDAS (${razonFinalizacion})`);
+            transferred.push(call);
+          } else if (razonFinalizacion === 'customer-ended-call') {
+            console.log(`❌ [AUTO-DETECT] → Moviendo a FALLIDAS (${razonFinalizacion})`);
+            failed.push(call);
+          } else if (hasDuration) {
+            console.log(`⏱️ [AUTO-DETECT] → Moviendo a FALLIDAS (tiene duración: ${call.duracion_segundos}s)`);
+            failed.push(call);
+          } else {
+            console.log(`❓ [AUTO-DETECT] → Moviendo a FALLIDAS (estado desconocido)`);
+            failed.push(call);
+          }
         }
         
         // 2. LLAMADAS TRANSFERIDAS:
@@ -887,7 +937,7 @@ const LiveMonitorKanban: React.FC = () => {
       }, async (payload) => {
         console.log('📨 Nueva llamada insertada:', payload.new?.call_id);
         try {
-          await loadCalls(true);
+          await loadCalls(true, true); // preserveRealtimeData=true para no sobrescribir
         } catch (e) {
           console.error('Error refreshing calls on realtime (INSERT):', e);
         }
@@ -916,29 +966,74 @@ const LiveMonitorKanban: React.FC = () => {
           // Log para cambios de call_status
           if (rec.call_status !== oldRec.call_status) {
             console.log(`📞 Estado actualizado: ${rec.call_id?.slice(-8)} ${oldRec.call_status} → ${rec.call_status}`);
+            
+            // RECLASIFICACIÓN AUTOMÁTICA cuando llamada cambia de activa → finalizada
+            if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
+              console.log(`🎯 [AUTO-CLASSIFY] Llamada ${rec.call_id?.slice(-8)} finalizó - reclasificando automáticamente`);
+              
+              // Extraer razon_finalizacion para clasificar correctamente
+              let razonFinalizacion = null;
+              try {
+                const datosLlamada = typeof rec.datos_llamada === 'string' 
+                  ? JSON.parse(rec.datos_llamada) 
+                  : rec.datos_llamada;
+                razonFinalizacion = datosLlamada?.razon_finalizacion;
+              } catch (e) {
+                console.warn('Error parsing datos_llamada para razon_finalizacion');
+              }
+              
+              console.log(`🔍 [AUTO-CLASSIFY] Razón de finalización: ${razonFinalizacion}`);
+              
+              // Forzar reclasificación inmediata después de actualizar datos locales
+              setTimeout(() => {
+                console.log(`🔄 [AUTO-CLASSIFY] Ejecutando reclasificación automática para ${rec.call_id?.slice(-8)}`);
+                loadCalls(true, true); // preserveRealtimeData=true
+              }, 500);
+            }
           }
           
           // Actualización inteligente de datos en todas las listas
           const updateCallData = (calls: KanbanCall[]) => {
             return calls.map(call => {
               if (call.call_id === rec.call_id) {
-                console.log(`📊 Actualizando datos de llamada ${rec.call_id?.slice(-8)} en lista`);
+                console.log(`📊 [REALTIME] Actualizando llamada ${rec.call_id?.slice(-8)} - checkpoint: ${rec.checkpoint_venta_actual}`);
                 
                 // Parsear datos_proceso para obtener datos familiares actualizados
                 let datosProcesoActualizados = rec.datos_proceso;
                 if (typeof rec.datos_proceso === 'string') {
                   try {
                     datosProcesoActualizados = JSON.parse(rec.datos_proceso);
+                    console.log(`📊 [REALTIME] datos_proceso parseado:`, datosProcesoActualizados);
                   } catch (e) {
                     datosProcesoActualizados = call.datos_proceso;
                   }
                 }
                 
-                return { 
+                // Parsear datos_llamada también
+                let datosLlamadaActualizados = rec.datos_llamada;
+                if (typeof rec.datos_llamada === 'string') {
+                  try {
+                    datosLlamadaActualizados = JSON.parse(rec.datos_llamada);
+                  } catch (e) {
+                    datosLlamadaActualizados = call.datos_llamada;
+                  }
+                }
+                
+                const updatedCall = { 
                   ...call, 
                   ...rec,
-                  datos_proceso: datosProcesoActualizados
+                  datos_proceso: datosProcesoActualizados,
+                  datos_llamada: datosLlamadaActualizados
                 };
+                
+                console.log(`📊 [REALTIME] Llamada actualizada con datos:`, {
+                  checkpoint: updatedCall.checkpoint_venta_actual,
+                  numero_personas: datosProcesoActualizados?.numero_personas,
+                  tipo_actividades: datosProcesoActualizados?.tipo_actividades,
+                  composicion_familiar_numero: updatedCall.composicion_familiar_numero
+                });
+                
+                return updatedCall;
               }
               return call;
             });
@@ -949,11 +1044,15 @@ const LiveMonitorKanban: React.FC = () => {
           setFailedCalls(updateCallData);
         }
         
-        // Hacer loadCalls completo si hay cambios de estado que requieren reclasificación
+        // NO hacer loadCalls para evitar sobrescribir datos actualizados con datos viejos del prospecto
+        // La actualización local ya maneja todos los cambios necesarios
+        console.log(`✅ [REALTIME] Datos actualizados localmente para ${rec.call_id?.slice(-8)} - NO sobrescribiendo con prospecto`);
+        
+        // Solo hacer loadCalls si hay cambios de estado que requieren reclasificación
         if (rec && oldRec && rec.call_status !== oldRec.call_status) {
-          console.log(`🔄 Reclasificando por cambio de estado: ${oldRec.call_status} → ${rec.call_status}`);
+          console.log(`🔄 [REALTIME] Reclasificando por cambio de estado: ${oldRec.call_status} → ${rec.call_status}`);
           try {
-            await loadCalls(true);
+            await loadCalls(true, true); // preserveRealtimeData=true
           } catch (e) {
             console.error('Error refreshing calls on realtime (UPDATE):', e);
           }
@@ -969,8 +1068,13 @@ const LiveMonitorKanban: React.FC = () => {
     // Los datos familiares se actualizan en llamadas_ventas, no en prospectos
     // La suscripción principal ya maneja estos cambios
 
-    // Polling más frecuente para detectar cambios rápidamente
-    const interval = setInterval(() => loadCalls(true), 3000); // Cada 3 segundos
+    // NO usar polling frecuente - Realtime es suficiente para updates dinámicos
+    // Solo polling lento para detectar llamadas completamente nuevas que no lleguen por Realtime
+    const interval = setInterval(() => {
+      console.log('🔄 [POLLING] Verificación lenta de nuevas llamadas (preservando datos RT)');
+      loadCalls(true, true); // isRefresh=true, preserveRealtimeData=true
+    }, 30000); // Cada 30 segundos, no cada 3
+    
     return () => {
       clearInterval(interval);
       try { channel.unsubscribe(); } catch {}
@@ -989,46 +1093,58 @@ const LiveMonitorKanban: React.FC = () => {
 
   // Manejar cierre del modal de detalle
   const handleModalClose = () => {
-    if (selectedCall) {
-      console.log(`🚪 Modal cerrado para llamada: ${selectedCall.call_id.slice(-8)}`);
+    const currentCall = selectedCall;
+    setSelectedCall(null);
+    
+    if (currentCall) {
+      console.log(`🚪 Modal cerrado para llamada: ${currentCall.call_id.slice(-8)}`);
       
-      // Verificar estado actual de la llamada en BD antes de reclasificar
+      // LÓGICA ESPECÍFICA: Si está en checkpoint #5, mover automáticamente a "Transferidas"
+      if (currentCall.checkpoint_venta_actual === 'checkpoint #5') {
+        console.log('🎯 [CHECKPOINT #5] Llamada en Presentación de Oportunidad - moviendo automáticamente a Transferidas');
+        
+        // Marcar como vista para que se mueva a transferidas
+        setViewedCalls(prev => new Set([...prev, currentCall.call_id]));
+        
+        // Forzar reclasificación inmediata
+        setTimeout(() => loadCalls(true, true), 200);
+        return;
+      }
+      
+      // Verificar estado actual de la llamada en BD antes de reclasificar (para otros casos)
       const checkAndReclassify = async () => {
         try {
           const { data } = await analysisSupabase
             .from('llamadas_ventas')
             .select('call_status, checkpoint_venta_actual, datos_llamada')
-            .eq('call_id', selectedCall.call_id)
+            .eq('call_id', currentCall.call_id)
             .single();
           
           if (data) {
             console.log(`📊 Estado actual en BD: ${data.call_status}, checkpoint: ${data.checkpoint_venta_actual}`);
             
-            // Si la llamada cambió de estado o está en checkpoint #5, reclasificar
+            // Si la llamada cambió de estado, reclasificar
             const razonFinalizacion = data.datos_llamada?.razon_finalizacion;
             
             if (
               data.call_status !== 'activa' ||
-              data.checkpoint_venta_actual === 'checkpoint #5' ||
               razonFinalizacion === 'assistant-forwarded-call' ||
               razonFinalizacion === 'customer-ended-call' ||
               razonFinalizacion === 'assistant-ended-call'
             ) {
               console.log('🔄 Reclasificando llamada después de verificar BD...');
-              setTimeout(() => loadCalls(true), 100);
+              setTimeout(() => loadCalls(true, true), 100); // preserveRealtimeData=true
             }
           }
         } catch (error) {
           console.warn('Error verificando estado de llamada:', error);
           // Fallback: reclasificar de todos modos
-          setTimeout(() => loadCalls(true), 100);
+          setTimeout(() => loadCalls(true, true), 100); // preserveRealtimeData=true
         }
       };
       
       checkAndReclassify();
     }
-    
-    setSelectedCall(null);
   };
 
   // Efecto para actualizar conversación en tiempo real (sin parpadeos)
@@ -1119,7 +1235,7 @@ const LiveMonitorKanban: React.FC = () => {
   useEffect(() => {
     if (viewedCalls.size > 0) {
       console.log(`👁️ Llamadas vistas: ${viewedCalls.size}, reclasificando...`);
-      setTimeout(() => loadCalls(true), 500);
+      setTimeout(() => loadCalls(true, true), 500); // preserveRealtimeData=true
     }
   }, [viewedCalls.size]);
 
@@ -1233,17 +1349,53 @@ const LiveMonitorKanban: React.FC = () => {
             </div>
           )}
           
-          {/* Grupo familiar */}
-          {(call.composicion_familiar_numero || call.tamano_grupo) && (
-            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
-              <svg className="w-3 h-3 mr-1 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-              </svg>
-              <span className="font-semibold text-green-600 dark:text-green-400">
-                {call.composicion_familiar_numero || call.tamano_grupo}p
-              </span>
-            </div>
-          )}
+          {/* Grupo familiar - PRIORIZAR datos_proceso.numero_personas */}
+          {(() => {
+            // Extraer número de personas con prioridad correcta
+            let numeroPersonas = null;
+            let esActualizado = false;
+            
+            try {
+              // 1. PRIORIDAD MÁXIMA: datos_proceso.numero_personas (tiempo real)
+              const datosProc = typeof call.datos_proceso === 'string' 
+                ? JSON.parse(call.datos_proceso) 
+                : call.datos_proceso;
+              
+              if (datosProc?.numero_personas) {
+                numeroPersonas = datosProc.numero_personas;
+                esActualizado = true;
+                console.log(`👨‍👩‍👧‍👦 [DEBUG] Usando datos_proceso.numero_personas: ${numeroPersonas} para llamada ${call.call_id.slice(-8)}`);
+              }
+            } catch (e) {
+              // Ignorar errores de parsing
+            }
+            
+            // 2. SEGUNDA PRIORIDAD: composicion_familiar_numero (campo de llamada)
+            if (!numeroPersonas && call.composicion_familiar_numero) {
+              numeroPersonas = call.composicion_familiar_numero;
+              console.log(`👨‍👩‍👧‍👦 [DEBUG] Usando composicion_familiar_numero: ${numeroPersonas} para llamada ${call.call_id.slice(-8)}`);
+            }
+            
+            // 3. ÚLTIMA PRIORIDAD: tamano_grupo (campo del prospecto - puede estar desactualizado)
+            if (!numeroPersonas && call.tamano_grupo) {
+              numeroPersonas = call.tamano_grupo;
+              console.log(`👨‍👩‍👧‍👦 [DEBUG] Fallback a tamano_grupo: ${numeroPersonas} para llamada ${call.call_id.slice(-8)} (PUEDE ESTAR DESACTUALIZADO)`);
+            }
+            
+            return numeroPersonas ? (
+              <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+                <svg className="w-3 h-3 mr-1 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                </svg>
+                <span className={`font-semibold ${esActualizado ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
+                  {numeroPersonas}p
+                </span>
+                {esActualizado && (
+                  <span className="text-xs text-blue-600 dark:text-blue-400 ml-1">(RT)</span>
+                )}
+              </div>
+            ) : null;
+          })()}
           
           {/* Mes preferencia - Solo si está actualizado */}
           {call.mes_preferencia && (
@@ -1272,15 +1424,6 @@ const LiveMonitorKanban: React.FC = () => {
             </div>
           )}
           
-          {/* Precio ofertado */}
-          {(call.propuesta_economica_ofrecida || call.precio_ofertado) && (
-            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
-              <svg className="w-3 h-3 mr-1 flex-shrink-0 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-              </svg>
-              <span>${(call.propuesta_economica_ofrecida || call.precio_ofertado)?.toLocaleString()}</span>
-            </div>
-          )}
           
           {/* Nivel de interés */}
           {call.nivel_interes && (
@@ -1475,7 +1618,7 @@ const LiveMonitorKanban: React.FC = () => {
           
           {/* Botón de refresh manual */}
           <button
-            onClick={() => loadCalls(true)}
+            onClick={() => loadCalls(true, false)} // Manual refresh SÍ puede sobrescribir
             disabled={isUpdating}
             className="absolute top-0 right-0 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-3 py-1 rounded-lg text-sm font-medium flex items-center space-x-1 transition-colors"
           >
@@ -1987,9 +2130,6 @@ const LiveMonitorKanban: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
                           {call.duracion_segundos ? `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
-                          ${(call.propuesta_economica_ofrecida || call.precio_ofertado)?.toLocaleString() || 'Sin precio'}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                           {new Date(call.fecha_llamada).toLocaleString()}
                         </td>
@@ -2212,7 +2352,6 @@ const LiveMonitorKanban: React.FC = () => {
                     <div className="space-y-1 text-xs">
                       {renderField('Duración', selectedCall.duracion_segundos, (val) => val ? `${Math.floor(val / 60)}:${(val % 60).toString().padStart(2, '0')}` : 'En curso')}
                       {renderField('Nivel Interés', selectedCall.nivel_interes, (val) => val || 'En evaluación')}
-                      {renderField('Precio Ofertado', selectedCall.propuesta_economica_ofrecida || selectedCall.precio_ofertado, (val) => `$${val?.toLocaleString()}`)}
                       {renderField('Resort', selectedCall.resort_ofertado)}
                       {renderField('Habitación', selectedCall.habitacion_ofertada)}
                       {renderField('Tipo Llamada', selectedCall.tipo_llamada)}
