@@ -97,12 +97,47 @@ const getFileIcon = (tipo: string) => {
   return <FileText className="w-5 h-5" />;
 };
 
-const getFileType = (tipo: string): 'image' | 'audio' | 'video' | 'document' => {
+const getFileType = (tipo: string, filename: string): 'image' | 'audio' | 'video' | 'sticker' | 'document' => {
   const tipoLower = tipo.toLowerCase();
+  const filenameLower = filename.toLowerCase();
   
-  if (tipoLower.includes('imagen') || tipoLower.includes('image')) return 'image';
-  if (tipoLower.includes('audio') || tipoLower.includes('music')) return 'audio';
-  if (tipoLower.includes('video')) return 'video';
+  // Stickers de WhatsApp (suelen tener extensiones específicas o nombres cortos sin extensión)
+  // Los stickers NO tienen extensión o tienen .webp y son archivos pequeños
+  if (tipoLower.includes('sticker')) {
+    return 'sticker';
+  }
+  
+  // Archivos sin extensión o con extensiones raras que son de WhatsApp (probablemente stickers)
+  // Ejemplo: 148a1416ffa3e66bd3d9dabb8a91e2df.-4rkS
+  if (!filenameLower.match(/\.(jpg|jpeg|png|webp|gif|bmp|svg|mp3|mp4|pdf|doc|docx|zip|rar)$/i) && 
+      filenameLower.match(/\.-[a-z0-9]{4}$/i)) {
+    return 'sticker';
+  }
+  
+  // WebP y GIF son típicamente stickers/GIFs animados
+  if (filenameLower.match(/\.(webp|gif)$/i)) {
+    return 'sticker';
+  }
+  
+  // Documentos que son imágenes (WhatsApp a veces los marca como "Documento")
+  if (filenameLower.match(/\.(jpg|jpeg|png|bmp|svg)$/i)) {
+    return 'image';
+  }
+  
+  // Imágenes explícitas
+  if (tipoLower.includes('imagen') || tipoLower.includes('image')) {
+    return 'image';
+  }
+  
+  // Audio
+  if (tipoLower.includes('audio') || tipoLower.includes('music') || filenameLower.match(/\.(mp3|ogg|wav|m4a|aac)$/i)) {
+    return 'audio';
+  }
+  
+  // Video
+  if (tipoLower.includes('video') || filenameLower.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
+    return 'video';
+  }
   
   return 'document';
 };
@@ -180,10 +215,12 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
         const url = loadedUrls[key];
         const loading = loadingStates[key];
         const error = errors[key];
-        const fileType = getFileType(adjunto.tipo);
+        const fileType = getFileType(adjunto.tipo, adjunto.filename);
 
         return (
-          <div key={index} className="rounded-lg overflow-hidden bg-slate-50 dark:bg-gray-700/50">
+          <div key={index} className={`rounded-lg overflow-hidden ${
+            fileType === 'sticker' ? '' : 'bg-slate-50 dark:bg-gray-700/50'
+          }`}>
             {/* Loading State */}
             {loading && !url && (
               <div className="flex items-center justify-center p-4 space-x-2 text-slate-600 dark:text-gray-300">
@@ -200,6 +237,20 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                   <p className="text-sm font-medium">Error al cargar archivo</p>
                   <p className="text-xs opacity-75">{adjunto.filename}</p>
                 </div>
+              </div>
+            )}
+
+            {/* Sticker (sin fondo, más pequeño, estilo WhatsApp) */}
+            {url && fileType === 'sticker' && (
+              <div className="relative group inline-block">
+                <img 
+                  src={url} 
+                  alt="Sticker" 
+                  className="w-32 h-32 object-contain cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => window.open(url, '_blank')}
+                  loading="lazy"
+                  style={{ imageRendering: 'auto' }}
+                />
               </div>
             )}
 
