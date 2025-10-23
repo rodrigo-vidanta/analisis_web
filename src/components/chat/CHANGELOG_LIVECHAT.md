@@ -17,6 +17,41 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.4.1** - 23 Octubre 2025
+**Estado:** ✅ Producción
+
+#### **🎨 Mejora: Auto-Ajuste Inteligente de Imágenes**
+- **Detección automática de orientación**
+  - **Funcionalidad:** Detecta dimensiones naturales de cada imagen al cargarla
+  - **Cálculo:** Determina orientación (landscape, portrait, square) basado en ratio
+  - **Criterios:** 
+    - `ratio > 1.1` → Landscape (horizontal)
+    - `ratio < 0.9` → Portrait (vertical)
+    - `0.9 ≤ ratio ≤ 1.1` → Square (cuadrada)
+
+- **Ajustes visuales por orientación**
+  - **Landscape:** `max-w-md` (ancho completo limitado a 28rem)
+  - **Portrait:** `max-h-96` (altura limitada a 24rem para no ocupar mucho espacio vertical)
+  - **Square:** `max-w-sm` (tamaño balanceado de 24rem)
+  - **Stickers:** `128x128px` fijos con `object-contain`
+
+- **Mejoras de renderizado**
+  - **object-cover:** Mantiene aspect ratio en imágenes
+  - **object-contain:** Preserva stickers sin distorsión
+  - **Lazy loading:** Dimensiones se calculan solo cuando la imagen es visible
+  - **Transiciones suaves:** Hover effects optimizados
+
+- **Implementación técnica**
+  - **Estado:** `imageDimensions` con `{ width, height, orientation }`
+  - **Función:** `detectImageDimensions()` usa Image API
+  - **Función:** `getImageClasses()` retorna CSS dinámico según orientación
+  - **Archivo:** `MultimediaMessage.tsx`
+
+#### **📝 Archivos Modificados**
+- `src/components/chat/MultimediaMessage.tsx` (69 líneas agregadas)
+
+---
+
 ### **v5.4.0** - 23 Octubre 2025
 **Estado:** ✅ Producción
 
@@ -249,6 +284,8 @@ Cada entrada del changelog debe incluir:
 ## 🔍 BÚSQUEDA RÁPIDA
 
 ### **Por Versión**
+- [v5.4.1](#v541---23-octubre-2025) - Auto-ajuste inteligente de imágenes
+- [v5.4.0](#v540---23-octubre-2025) - Catálogo de Imágenes + Multimedia
 - [v5.3.3](#v533---23-octubre-2025) - Limpieza masiva de logs
 - [v5.3.2](#v532---23-octubre-2025) - Ventana 24h WhatsApp + Fix Realtime race condition
 - [v5.3.1](#v531---23-octubre-2025) - FIX: Contador mensajes no leídos (RLS bypass)
@@ -275,5 +312,5 @@ Cada entrada del changelog debe incluir:
 ---
 
 **Última actualización:** 23 Octubre 2025
-**Versión actual:** v5.4.0
+**Versión actual:** v5.4.1
 **Estado:** ✅ Producción estable
