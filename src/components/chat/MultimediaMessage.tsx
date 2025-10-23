@@ -7,11 +7,14 @@ import { useState, useEffect, useRef } from 'react';
 import { FileText, Download, Image, Music, Film, FileArchive, Loader } from 'lucide-react';
 
 interface Adjunto {
-  tipo: string;
-  bucket: string;
-  filename: string;
-  timestamp: string;
+  tipo?: string;
+  bucket?: string;
+  filename?: string;
+  archivo?: string; // Alias de filename (usado en webhook)
+  timestamp?: string;
   descripcion?: string;
+  destino?: string; // Para imágenes del catálogo
+  resort?: string; // Para imágenes del catálogo
 }
 
 interface MultimediaMessageProps {
@@ -40,13 +43,15 @@ export const needsBubble = (adjuntos: Adjunto[]): boolean => {
 // Helper para obtener tipo sin instanciar el componente
 const getFileTypeFromAdjunto = (adjunto: Adjunto): 'image' | 'audio' | 'video' | 'sticker' | 'document' => {
   // Validar que existan los campos básicos
-  if (!adjunto || !adjunto.filename) {
+  const filename = adjunto?.filename || adjunto?.archivo;
+  
+  if (!adjunto || !filename) {
     console.warn('⚠️ Adjunto inválido:', adjunto);
     return 'document';
   }
 
   const tipoLower = (adjunto.tipo || '').toLowerCase();
-  const filenameLower = adjunto.filename.toLowerCase();
+  const filenameLower = filename.toLowerCase();
   
   // Stickers de WhatsApp
   if (tipoLower.includes('sticker')) return 'sticker';
@@ -76,7 +81,14 @@ interface MultimediaCache {
 const urlCache = new Map<string, MultimediaCache>();
 
 const generateMediaUrl = async (adjunto: Adjunto): Promise<string> => {
-  const cacheKey = `${adjunto.bucket}/${adjunto.filename}`;
+  const filename = adjunto.filename || adjunto.archivo;
+  const bucket = adjunto.bucket || 'whatsapp-media';
+  
+  if (!filename) {
+    throw new Error('No se especificó filename o archivo');
+  }
+  
+  const cacheKey = `${bucket}/${filename}`;
   
   // Verificar cache
   const cached = urlCache.get(cacheKey);
@@ -93,14 +105,15 @@ const generateMediaUrl = async (adjunto: Adjunto): Promise<string> => {
         'x-api-token': '93fbcfc4-ccc9-4023-b820-86ef98f10122'
       },
       body: JSON.stringify({
-        filename: adjunto.filename,
-        bucket: adjunto.bucket,
+        filename: filename,
+        bucket: bucket,
         expirationMinutes: 30
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Error generando URL: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Error generando URL (${response.status}): ${errorText}`);
     }
 
     const data = await response.json();
@@ -123,8 +136,8 @@ const generateMediaUrl = async (adjunto: Adjunto): Promise<string> => {
   }
 };
 
-const getFileIcon = (tipo: string) => {
-  const tipoLower = tipo.toLowerCase();
+const getFileIcon = (tipo: string | undefined) => {
+  const tipoLower = (tipo || '').toLowerCase();
   
   if (tipoLower.includes('imagen') || tipoLower.includes('image')) {
     return <Image className="w-5 h-5" />;
@@ -238,7 +251,12 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
     if (!hasIntersected) return;
 
     adjuntos.forEach(async (adjunto) => {
-      const key = `${adjunto.bucket}/${adjunto.filename}`;
+      const filename = adjunto.filename || adjunto.archivo;
+      const bucket = adjunto.bucket || 'whatsapp-media';
+      
+      if (!filename) return; // Skip si no hay filename
+      
+      const key = `${bucket}/${filename}`;
       
       // Si ya está cargado o cargando, no hacer nada
       if (loadedUrls[key] || loadingStates[key]) return;
@@ -265,11 +283,16 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
   return (
     <div ref={elementRef} className="space-y-2 mt-2">
       {adjuntos.map((adjunto, index) => {
-        const key = `${adjunto.bucket}/${adjunto.filename}`;
+        const filename = adjunto.filename || adjunto.archivo;
+        const bucket = adjunto.bucket || 'whatsapp-media';
+        
+        if (!filename) return null; // Skip adjuntos sin filename
+        
+        const key = `${bucket}/${filename}`;
         const url = loadedUrls[key];
         const loading = loadingStates[key];
         const error = errors[key];
-        const fileType = getFileType(adjunto.tipo, adjunto.filename);
+        const fileType = getFileType(adjunto.tipo || '', filename);
 
         return (
           <div key={index} className={`rounded-lg overflow-hidden ${
@@ -289,7 +312,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                 {getFileIcon(adjunto.tipo)}
                 <div className="flex-1">
                   <p className="text-sm font-medium">Error al cargar archivo</p>
-                  <p className="text-xs opacity-75">{adjunto.filename}</p>
+                  <p className="text-xs opacity-75">{filename}</p>
                 </div>
               </div>
             )}
@@ -336,7 +359,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                 <div className="flex items-center space-x-2 mb-2">
                   <Music className="w-4 h-4 text-blue-500" />
                   <span className="text-xs text-slate-600 dark:text-gray-300">
-                    {adjunto.filename}
+                    {filename}
                   </span>
                 </div>
                 <audio 
@@ -384,10 +407,10 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                 {getFileIcon(adjunto.tipo)}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                    {adjunto.filename}
+                    {filename}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-gray-400">
-                    {adjunto.tipo} • {new Date(adjunto.timestamp).toLocaleDateString()}
+                    {adjunto.tipo || 'Documento'} {adjunto.timestamp ? `• ${new Date(adjunto.timestamp).toLocaleDateString()}` : ''}
                   </p>
                 </div>
                 <Download className="w-4 h-4 text-slate-400 flex-shrink-0" />
