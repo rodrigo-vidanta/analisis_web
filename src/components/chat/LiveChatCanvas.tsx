@@ -2680,8 +2680,7 @@ const LiveChatCanvas: React.FC = () => {
           // Este callback ya maneja el envío en el modal
           console.log('Imagen enviada:', imageData);
         }}
-        conversationPhone={selectedConversation?.customer_phone}
-        conversationUchatId={selectedConversation?.id_uchat}
+        selectedConversation={selectedConversation}
       />
     </div>
   );

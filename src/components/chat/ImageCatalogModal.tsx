@@ -24,8 +24,7 @@ interface ImageCatalogModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSendImage: (imageData: SendImageData) => void;
-  conversationPhone?: string;
-  conversationUchatId?: string;
+  selectedConversation: any; // La conversación completa con prospecto_id
 }
 
 interface SendImageData {
@@ -42,8 +41,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   isOpen,
   onClose,
   onSendImage,
-  conversationPhone,
-  conversationUchatId
+  selectedConversation
 }) => {
   const [images, setImages] = useState<ContentItem[]>([]);
   const [filteredImages, setFilteredImages] = useState<ContentItem[]>([]);
@@ -60,8 +58,14 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [recentImages, setRecentImages] = useState<ContentItem[]>([]);
+  
+  // Datos del prospecto (obtenidos de la BD)
+  const [prospectoData, setProspectoData] = useState<{
+    whatsapp: string;
+    id_uchat: string;
+  } | null>(null);
 
-  // Cargar cache local
+  // Cargar cache local y datos del prospecto
   useEffect(() => {
     if (isOpen) {
       const cached = localStorage.getItem(CACHE_KEY);
@@ -73,8 +77,45 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         }
       }
       loadImages();
+      loadProspectoData();
     }
-  }, [isOpen]);
+  }, [isOpen, selectedConversation]);
+
+  // Cargar datos del prospecto desde la BD
+  const loadProspectoData = async () => {
+    if (!selectedConversation?.prospecto_id) {
+      console.error('❌ No hay prospecto_id en la conversación:', selectedConversation);
+      return;
+    }
+
+    try {
+      console.log('🔍 Buscando datos del prospecto:', selectedConversation.prospecto_id);
+      
+      const { data, error } = await analysisSupabase
+        .from('prospectos')
+        .select('whatsapp, id_uchat')
+        .eq('id', selectedConversation.prospecto_id)
+        .single();
+
+      if (error) {
+        console.error('❌ Error al obtener datos del prospecto:', error);
+        return;
+      }
+
+      if (!data) {
+        console.error('❌ No se encontró el prospecto');
+        return;
+      }
+
+      console.log('✅ Datos del prospecto obtenidos:', data);
+      setProspectoData({
+        whatsapp: data.whatsapp,
+        id_uchat: data.id_uchat
+      });
+    } catch (error) {
+      console.error('❌ Error loading prospecto data:', error);
+    }
+  };
 
   // Cargar imágenes de la BD
   const loadImages = async () => {
@@ -186,21 +227,26 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
   // Enviar imagen
   const handleSendImage = async () => {
-    if (!sendModalImage || !conversationPhone || !conversationUchatId) {
+    if (!sendModalImage) {
+      console.error('❌ No hay imagen seleccionada');
+      return;
+    }
+
+    if (!prospectoData?.whatsapp || !prospectoData?.id_uchat) {
       console.error('❌ Faltan datos para enviar:', {
         sendModalImage: !!sendModalImage,
-        conversationPhone,
-        conversationUchatId
+        prospectoData,
+        selectedConversation
       });
-      alert('Error: No se puede enviar la imagen. Falta información de la conversación.');
+      alert('Error: No se puede enviar la imagen. Falta información del prospecto (whatsapp o id_uchat).');
       return;
     }
 
     setSending(true);
     try {
       const payload = [{
-        whatsapp: conversationPhone,
-        uchat_id: conversationUchatId,
+        whatsapp: prospectoData.whatsapp,
+        uchat_id: prospectoData.id_uchat,
         imagenes: [{
           archivo: sendModalImage.nombre_archivo,
           destino: sendModalImage.destinos?.[0] || '',
