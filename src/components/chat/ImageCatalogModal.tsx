@@ -378,7 +378,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   return (
     <>
       {/* Modal Principal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -660,7 +660,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ item, getImageUrl, onClose 
 
   return (
     <div 
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
@@ -728,7 +728,7 @@ const SendModal: React.FC<SendModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div 
