@@ -378,38 +378,38 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   return (
     <>
       {/* Modal Principal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-500 rounded-lg">
-                  <ImageIcon className="w-6 h-6 text-white" />
+          <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2 md:space-x-3">
+                <div className="p-1.5 md:p-2 bg-blue-500 rounded-lg">
+                  <ImageIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h2 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
                   Catálogo de Imágenes
                 </h2>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-1.5 md:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                <X className="w-5 h-5 md:w-6 md:h-6 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
 
             {/* Búsqueda y Filtros */}
-            <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
               {/* Búsqueda */}
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar por nombre, destino, resort..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 md:pl-10 pr-4 py-1.5 md:py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
@@ -417,7 +417,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
               <select
                 value={selectedDestino}
                 onChange={(e) => setSelectedDestino(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="px-3 md:px-4 py-1.5 md:py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">Todos los destinos</option>
                 {destinosUnicos.map(destino => (
@@ -429,7 +429,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
               <select
                 value={selectedResort}
                 onChange={(e) => setSelectedResort(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="px-3 md:px-4 py-1.5 md:py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">Todos los resorts</option>
                 {resortsUnicos.map(resort => (
@@ -440,17 +440,17 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
           </div>
 
           {/* Grid de Imágenes */}
-          <div className="flex-1 overflow-y-auto p-6" style={{ maxHeight: 'calc(90vh - 200px)' }}>
+          <div className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6">
             {/* Recientes */}
             {recentImages.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center space-x-2">
+              <div className="mb-4 md:mb-6">
+                <h3 className="text-xs md:text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 md:mb-3 flex items-center space-x-2">
                   <span>Usadas Recientemente</span>
                   <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-xs">
                     {recentImages.length}
                   </span>
                 </h3>
-                <div className="grid grid-cols-5 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
                   {recentImages.map(item => (
                     <ImageCard
                       key={`recent-${item.id}`}
@@ -478,7 +478,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-5 gap-3 mb-6">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3 mb-4">
                   {currentImages.map(item => (
                     <ImageCard
                       key={item.id}
@@ -492,21 +492,21 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
                 {/* Controles de Paginación */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-center space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-center space-x-2 md:space-x-4 pt-3 md:pt-4 border-t border-gray-200 dark:border-gray-700">
                     <button
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
-                      className="p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 md:p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      <ChevronLeft className="w-5 h-5" />
+                      <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 md:space-x-2">
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`w-8 h-8 rounded-lg font-medium transition-colors ${
+                          className={`w-7 h-7 md:w-8 md:h-8 rounded-lg text-xs md:text-sm font-medium transition-colors ${
                             currentPage === page
                               ? 'bg-blue-500 text-white'
                               : 'bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
@@ -520,12 +520,12 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
-                      className="p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 md:p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
 
-                    <span className="text-sm text-gray-600 dark:text-gray-400 ml-4">
+                    <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400 ml-2 md:ml-4">
                       {startIndex + 1}-{Math.min(endIndex, filteredImages.length)} de {filteredImages.length}
                     </span>
                   </div>
