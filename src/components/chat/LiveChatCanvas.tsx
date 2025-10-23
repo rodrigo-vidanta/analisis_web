@@ -370,6 +370,43 @@ const LiveChatCanvas: React.FC = () => {
           });
         }
       )
+      // ========================================
+      // 🔔 SUSCRIPCIÓN 2: Cambios en tabla PROSPECTOS
+      // ========================================
+      // Detectar cuando se actualiza el nombre o nombre_whatsapp
+      // para refrescar la lista de conversaciones y mostrar el nombre actualizado
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'prospectos',
+          filter: undefined // Escuchar TODOS los updates
+        },
+        (payload) => {
+          const updatedProspecto = payload.new as any;
+          const prospectoId = updatedProspecto.id;
+          
+          // Actualizar la conversación correspondiente si está en la lista
+          setConversations(prev => {
+            return prev.map(conv => {
+              if (conv.prospecto_id === prospectoId) {
+                // ✅ PRIORIDAD: nombre > nombre_whatsapp > whatsapp
+                const newName = updatedProspecto.nombre?.trim() || 
+                                updatedProspecto.nombre_whatsapp?.trim() || 
+                                updatedProspecto.whatsapp;
+                
+                return {
+                  ...conv,
+                  customer_name: newName,
+                  nombre_contacto: newName
+                };
+              }
+              return conv;
+            });
+          });
+        }
+      )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
         } else if (status === 'CHANNEL_ERROR') {
@@ -377,44 +414,6 @@ const LiveChatCanvas: React.FC = () => {
         } else if (status === 'CLOSED') {
         }
       });
-
-    // ========================================
-    // 🔔 SUSCRIPCIÓN 2: Cambios en tabla PROSPECTOS
-    // ========================================
-    // Detectar cuando se actualiza el nombre o nombre_whatsapp
-    // para refrescar la lista de conversaciones y mostrar el nombre actualizado
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'prospectos',
-        filter: undefined // Escuchar TODOS los updates
-      },
-      (payload) => {
-        const updatedProspecto = payload.new as any;
-        const prospectoId = updatedProspecto.id;
-        
-        // Actualizar la conversación correspondiente si está en la lista
-        setConversations(prev => {
-          return prev.map(conv => {
-            if (conv.prospecto_id === prospectoId) {
-              // ✅ PRIORIDAD: nombre > nombre_whatsapp > whatsapp
-              const newName = updatedProspecto.nombre?.trim() || 
-                              updatedProspecto.nombre_whatsapp?.trim() || 
-                              updatedProspecto.whatsapp;
-              
-              return {
-                ...conv,
-                customer_name: newName,
-                nombre_contacto: newName
-              };
-            }
-            return conv;
-          });
-        });
-      }
-    );
 
     setRealtimeChannel(newChannel);
   };
