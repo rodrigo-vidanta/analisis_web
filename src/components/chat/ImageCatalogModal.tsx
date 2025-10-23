@@ -260,7 +260,8 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-token': '2025_livechat_auth'
+          'Accept': 'application/json',
+          'livechat_auth': '2025_livechat_auth'
         },
         body: JSON.stringify(payload)
       });
