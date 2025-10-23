@@ -203,8 +203,8 @@ const LiveChatCanvas: React.FC = () => {
     const initializeChat = async () => {
       // Inicialización silenciosa
       await loadConversations();
-      loadMetrics();
-      setupRealtimeSubscription();
+    loadMetrics();
+    setupRealtimeSubscription();
     };
     
     initializeChat();
@@ -1170,11 +1170,6 @@ const LiveChatCanvas: React.FC = () => {
         .select('*')
         .eq('prospecto_id', queryId) // CORREGIDO: Usar prospecto_id
         .order('fecha_hora', { ascending: true });
-
-        count: conversationMessages?.length,
-        error: messagesError,
-        queryId
-      });
 
       let adaptedMessages: Message[] = [];
       if (conversationMessages) {
@@ -2211,10 +2206,6 @@ const LiveChatCanvas: React.FC = () => {
                   : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
               }`}
               onClick={() => {
-                  id: conversation.id,
-                  prospecto_id: conversation.prospecto_id,
-                  nombre_contacto: conversation.nombre_contacto
-                });
                 setSelectedConversation(conversation);
               }}
             >
