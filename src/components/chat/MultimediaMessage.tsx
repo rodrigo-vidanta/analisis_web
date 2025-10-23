@@ -39,7 +39,13 @@ export const needsBubble = (adjuntos: Adjunto[]): boolean => {
 
 // Helper para obtener tipo sin instanciar el componente
 const getFileTypeFromAdjunto = (adjunto: Adjunto): 'image' | 'audio' | 'video' | 'sticker' | 'document' => {
-  const tipoLower = adjunto.tipo.toLowerCase();
+  // Validar que existan los campos básicos
+  if (!adjunto || !adjunto.filename) {
+    console.warn('⚠️ Adjunto inválido:', adjunto);
+    return 'document';
+  }
+
+  const tipoLower = (adjunto.tipo || '').toLowerCase();
   const filenameLower = adjunto.filename.toLowerCase();
   
   // Stickers de WhatsApp
@@ -140,7 +146,13 @@ const getFileIcon = (tipo: string) => {
 };
 
 const getFileType = (tipo: string, filename: string): 'image' | 'audio' | 'video' | 'sticker' | 'document' => {
-  const tipoLower = tipo.toLowerCase();
+  // Validar campos
+  if (!filename) {
+    console.warn('⚠️ Filename es undefined');
+    return 'document';
+  }
+
+  const tipoLower = (tipo || '').toLowerCase();
   const filenameLower = filename.toLowerCase();
   
   // Stickers de WhatsApp (suelen tener extensiones específicas o nombres cortos sin extensión)
