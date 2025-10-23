@@ -25,6 +25,7 @@ interface ImageCatalogModalProps {
   onClose: () => void;
   onSendImage: (imageData: SendImageData) => void;
   selectedConversation: any; // La conversación completa con prospecto_id
+  onImageSent?: (imageUrl: string, caption: string) => void; // Callback para UI optimista
 }
 
 interface SendImageData {
@@ -41,7 +42,8 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   isOpen,
   onClose,
   onSendImage,
-  selectedConversation
+  selectedConversation,
+  onImageSent
 }) => {
   const [images, setImages] = useState<ContentItem[]>([]);
   const [filteredImages, setFilteredImages] = useState<ContentItem[]>([]);
@@ -244,9 +246,18 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
     setSending(true);
     try {
+      // Generar URL de la imagen para preview optimista
+      const imageUrl = await getImageUrl(sendModalImage);
+      
+      // Notificar al padre para UI optimista
+      if (onImageSent) {
+        onImageSent(imageUrl, caption);
+      }
+
       const payload = [{
         whatsapp: prospectoData.whatsapp,
         uchat_id: prospectoData.id_uchat,
+        caption: caption || undefined, // Agregar caption si existe
         imagenes: [{
           archivo: sendModalImage.nombre_archivo,
           destino: sendModalImage.destinos?.[0] || '',
@@ -257,7 +268,6 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       console.log('📤 Enviando imagen:', payload);
 
       // Usar Supabase Edge Function como proxy para evitar CORS
-      // Railway webhook no tiene CORS configurado correctamente para send-img
       const proxyUrl = 'https://zbylezfyagwrxoecioup.supabase.co/functions/v1/send-img-proxy';
       
       const response = await fetch(proxyUrl, {
@@ -280,12 +290,14 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       const result = await response.json();
       console.log('✅ Imagen enviada correctamente:', result);
 
-      // Cerrar modales
-      setSendModalImage(null);
-      setCaption('');
-      onClose();
+      // Animación de éxito (check)
+      // Cerrar modales después de breve pausa
+      setTimeout(() => {
+        setSendModalImage(null);
+        setCaption('');
+        onClose();
+      }, 300);
       
-      alert('✅ Imagen enviada correctamente');
     } catch (error) {
       console.error('❌ Error sending image:', error);
       alert(`Error al enviar la imagen: ${error instanceof Error ? error.message : 'Error desconocido'}`);

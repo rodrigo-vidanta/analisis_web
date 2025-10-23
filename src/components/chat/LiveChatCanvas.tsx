@@ -2681,6 +2681,40 @@ const LiveChatCanvas: React.FC = () => {
           console.log('Imagen enviada:', imageData);
         }}
         selectedConversation={selectedConversation}
+        onImageSent={(imageUrl, caption) => {
+          // UI optimista: Mostrar imagen inmediatamente como "enviando"
+          if (!selectedConversation) return;
+          
+          const tempId = `temp_${Date.now()}`;
+          const conversationId = selectedConversation.id;
+
+          const optimisticMessage: Message = {
+            id: tempId,
+            message_id: tempId,
+            conversation_id: conversationId,
+            sender_type: 'agent',
+            sender_name: 'Agente',
+            content: caption || '',
+            is_read: true,
+            created_at: new Date().toISOString(),
+          };
+
+          // Agregar adjunto como estructura temporal
+          (optimisticMessage as any).adjuntos = [{
+            archivo: imageUrl,
+            tipo: 'Imagen',
+            filename: imageUrl.split('/').pop(),
+            bucket: 'temp'
+          }];
+
+          // Añadir mensaje optimista a la UI
+          setMessagesByConversation(prev => ({
+            ...prev,
+            [conversationId]: [...(prev[conversationId] || []), optimisticMessage],
+          }));
+
+          scrollToBottom('smooth');
+        }}
       />
     </div>
   );
