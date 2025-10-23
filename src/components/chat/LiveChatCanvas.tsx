@@ -2493,14 +2493,6 @@ const LiveChatCanvas: React.FC = () => {
                       <div className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
                         <div className={`max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
                           
-                          {/* Nombre del remitente */}
-                          <div className={`text-xs text-slate-500 dark:text-gray-400 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
-                          {isCustomer 
-                            ? (selectedConversation?.customer_name || selectedConversation?.nombre_contacto || 'Cliente')
-                            : (message.sender_name || (isBot ? 'AI' : 'Vendedor'))
-                          }
-                          </div>
-
                           {(() => {
                             // Parsear adjuntos si existen
                             const adjuntos = (message as any).adjuntos 
