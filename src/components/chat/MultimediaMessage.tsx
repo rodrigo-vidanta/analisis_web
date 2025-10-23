@@ -213,6 +213,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
   const [loadedUrls, setLoadedUrls] = useState<Record<string, string>>({});
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number; orientation: 'landscape' | 'portrait' | 'square' }>>({});
   const elementRef = useRef<HTMLDivElement>(null);
   const [hasIntersected, setHasIntersected] = useState(false);
 
@@ -267,6 +268,12 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
         const url = await generateMediaUrl(adjunto);
         setLoadedUrls(prev => ({ ...prev, [key]: url }));
         setErrors(prev => ({ ...prev, [key]: '' }));
+        
+        // Detectar dimensiones para imágenes
+        const fileType = getFileType(adjunto.tipo || '', filename);
+        if (fileType === 'image' || fileType === 'sticker') {
+          detectImageDimensions(url, key);
+        }
       } catch (error) {
         setErrors(prev => ({ 
           ...prev, 
@@ -277,6 +284,66 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
       }
     });
   }, [hasIntersected, adjuntos]);
+
+  // Detectar dimensiones y orientación de imagen
+  const detectImageDimensions = (url: string, key: string) => {
+    const img = new Image();
+    img.onload = () => {
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      const ratio = width / height;
+      
+      let orientation: 'landscape' | 'portrait' | 'square';
+      if (ratio > 1.1) {
+        orientation = 'landscape';
+      } else if (ratio < 0.9) {
+        orientation = 'portrait';
+      } else {
+        orientation = 'square';
+      }
+      
+      setImageDimensions(prev => ({
+        ...prev,
+        [key]: { width, height, orientation }
+      }));
+    };
+    img.src = url;
+  };
+
+  // Obtener clases CSS según orientación y tipo de imagen
+  const getImageClasses = (key: string, fileType: string): string => {
+    const dimensions = imageDimensions[key];
+    
+    if (!dimensions) {
+      // Dimensiones por defecto mientras se carga
+      return 'w-full max-w-sm h-auto';
+    }
+
+    const { orientation, width, height } = dimensions;
+    
+    // Stickers: siempre pequeños y compactos
+    if (fileType === 'sticker') {
+      return 'w-32 h-32 object-contain';
+    }
+
+    // Imágenes según orientación
+    switch (orientation) {
+      case 'landscape':
+        // Horizontal: ancho completo pero limitado
+        return 'w-full max-w-md h-auto object-cover';
+      
+      case 'portrait':
+        // Vertical: altura limitada para no ocupar mucho espacio
+        return 'w-auto max-w-xs max-h-96 object-cover';
+      
+      case 'square':
+        // Cuadrada: tamaño mediano balanceado
+        return 'w-full max-w-sm h-auto object-cover';
+      
+      default:
+        return 'w-full max-w-sm h-auto object-cover';
+    }
+  };
 
   if (!adjuntos || adjuntos.length === 0) return null;
 
@@ -323,7 +390,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                 <img 
                   src={url} 
                   alt="Sticker" 
-                  className="w-32 h-32 object-contain cursor-pointer hover:scale-105 transition-transform"
+                  className={`${getImageClasses(key, 'sticker')} cursor-pointer hover:scale-105 transition-transform rounded-lg`}
                   onClick={() => window.open(url, '_blank')}
                   loading="lazy"
                   style={{ imageRendering: 'auto' }}
@@ -337,7 +404,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                 <img 
                   src={url} 
                   alt={adjunto.descripcion || 'Imagen'} 
-                  className="w-full max-w-sm h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                  className={`${getImageClasses(key, 'image')} rounded-lg cursor-pointer hover:opacity-90 transition-opacity`}
                   onClick={() => window.open(url, '_blank')}
                   loading="lazy"
                 />
