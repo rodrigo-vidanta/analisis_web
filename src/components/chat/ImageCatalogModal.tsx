@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Send, Eye, Image as ImageIcon, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { ParaphraseModal } from './ParaphraseModal';
 
 interface ContentItem {
   id: string;
@@ -57,6 +58,11 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   const [sending, setSending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const imagesPerPage = 8;
+  
+  // Estados para parafraseo
+  const [showParaphraseModal, setShowParaphraseModal] = useState(false);
+  const [textToParaphrase, setTextToParaphrase] = useState('');
+  const [imageToSendAfterParaphrase, setImageToSendAfterParaphrase] = useState<ContentItem | null>(null);
   
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [recentImages, setRecentImages] = useState<ContentItem[]>([]);
@@ -241,7 +247,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
     setCaption('');
   };
 
-  // Enviar imagen
+  // Enviar imagen (interceptar para parafraseo si hay caption)
   const handleSendImage = async () => {
     if (!sendModalImage) {
       console.error('❌ No hay imagen seleccionada');
@@ -258,24 +264,43 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       return;
     }
 
+    // Si hay caption, mostrar modal de parafraseo
+    if (caption.trim()) {
+      setTextToParaphrase(caption);
+      setImageToSendAfterParaphrase(sendModalImage);
+      setShowParaphraseModal(true);
+      return;
+    }
+
+    // Si no hay caption, enviar directamente
+    await sendImageWithCaption(sendModalImage, '');
+  };
+
+  // Función real para enviar la imagen (después del parafraseo)
+  const sendImageWithCaption = async (imageItem: ContentItem, finalCaption: string) => {
+    if (!prospectoData?.whatsapp || !prospectoData?.id_uchat) {
+      console.error('❌ Faltan datos para enviar');
+      return;
+    }
+
     setSending(true);
     try {
       // Generar URL de la imagen para preview optimista
-      const imageUrl = await getImageUrl(sendModalImage);
+      const imageUrl = await getImageUrl(imageItem);
       
       // Notificar al padre para UI optimista
       if (onImageSent) {
-        onImageSent(imageUrl, caption);
+        onImageSent(imageUrl, finalCaption);
       }
 
       const payload = [{
         whatsapp: prospectoData.whatsapp,
         uchat_id: prospectoData.id_uchat,
-        caption: caption || undefined, // Agregar caption si existe
+        caption: finalCaption || undefined, // Agregar caption si existe
         imagenes: [{
-          archivo: sendModalImage.nombre_archivo,
-          destino: sendModalImage.destinos?.[0] || '',
-          resort: sendModalImage.resorts?.[0] || ''
+          archivo: imageItem.nombre_archivo,
+          destino: imageItem.destinos?.[0] || '',
+          resort: imageItem.resorts?.[0] || ''
         }]
       }];
 
@@ -508,6 +533,23 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
           sending={sending}
         />
       )}
+
+      {/* Modal de Parafraseo para Caption */}
+      <ParaphraseModalWrapper
+        isOpen={showParaphraseModal}
+        originalText={textToParaphrase}
+        onSelect={(paraphrasedText) => {
+          setShowParaphraseModal(false);
+          if (imageToSendAfterParaphrase) {
+            sendImageWithCaption(imageToSendAfterParaphrase, paraphrasedText);
+            setSendModalImage(null);
+            setCaption('');
+          }
+        }}
+        onCancel={() => {
+          setShowParaphraseModal(false);
+        }}
+      />
     </>
   );
 };
@@ -770,5 +812,16 @@ const SendModal: React.FC<SendModalProps> = ({
       </div>
     </div>
   );
+};
+
+// Modal de Parafraseo integrado
+const ParaphraseModalWrapper: React.FC<{
+  isOpen: boolean;
+  originalText: string;
+  onSelect: (text: string) => void;
+  onCancel: () => void;
+}> = (props) => {
+  if (!props.isOpen) return null;
+  return <ParaphraseModal {...props} />;
 };
 

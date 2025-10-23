@@ -122,7 +122,7 @@ Debes responder ÚNICAMENTE con un JSON válido en este formato exacto:
         },
         body: JSON.stringify({
           model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 1024,
+          max_tokens: 200, // Reducido a 200 para respuestas más rápidas
           system: SYSTEM_PROMPT,
           messages: [
             {
