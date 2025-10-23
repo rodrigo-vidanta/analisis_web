@@ -25,9 +25,9 @@ interface ParaphraseModalProps {
   onCancel: () => void;
 }
 
-// Configuración Anthropic (usar variable de entorno en producción)
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || '';
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+// Configuración Anthropic (usar Edge Function proxy para evitar CORS)
+const ANTHROPIC_PROXY_URL = 'https://zbylezfyagwrxoecioup.supabase.co/functions/v1/anthropic-proxy';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMzYyNzEsImV4cCI6MjA3NDkxMjI3MX0.W6Vt5h4r7vNSP_YQtd_fbTWuK7ERrcttwhcpe5Q7KoM';
 
 export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
   isOpen,
@@ -113,12 +113,12 @@ Debes responder ÚNICAMENTE con un JSON válido en este formato exacto:
     setOption2('');
 
     try {
-      const response = await fetch(ANTHROPIC_API_URL, {
+      // Usar Edge Function proxy para evitar CORS
+      const response = await fetch(ANTHROPIC_PROXY_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           model: 'claude-3-5-sonnet-20241022',
