@@ -186,7 +186,15 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
   // Enviar imagen
   const handleSendImage = async () => {
-    if (!sendModalImage || !conversationPhone || !conversationUchatId) return;
+    if (!sendModalImage || !conversationPhone || !conversationUchatId) {
+      console.error('❌ Faltan datos para enviar:', {
+        sendModalImage: !!sendModalImage,
+        conversationPhone,
+        conversationUchatId
+      });
+      alert('Error: No se puede enviar la imagen. Falta información de la conversación.');
+      return;
+    }
 
     setSending(true);
     try {
@@ -196,10 +204,11 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         imagenes: [{
           archivo: sendModalImage.nombre_archivo,
           destino: sendModalImage.destinos?.[0] || '',
-          resort: sendModalImage.resorts?.[0] || '',
-          ...(caption && { caption })
+          resort: sendModalImage.resorts?.[0] || ''
         }]
       }];
+
+      console.log('📤 Enviando imagen:', payload);
 
       const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/send-img', {
         method: 'POST',
@@ -210,15 +219,26 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         body: JSON.stringify(payload)
       });
 
-      if (!response.ok) throw new Error('Error sending image');
+      console.log('📥 Respuesta del servidor:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error del servidor:', errorText);
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Imagen enviada correctamente:', result);
 
       // Cerrar modales
       setSendModalImage(null);
       setCaption('');
       onClose();
+      
+      alert('✅ Imagen enviada correctamente');
     } catch (error) {
-      console.error('Error sending image:', error);
-      alert('Error al enviar la imagen. Por favor intenta de nuevo.');
+      console.error('❌ Error sending image:', error);
+      alert(`Error al enviar la imagen: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setSending(false);
     }
@@ -553,9 +573,14 @@ const SendModal: React.FC<SendModalProps> = ({
   sending
 }) => {
   const [url, setUrl] = useState<string>('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getImageUrl(item).then(setUrl);
+    setLoading(true);
+    getImageUrl(item).then(newUrl => {
+      setUrl(newUrl);
+      setLoading(false);
+    });
   }, [item]);
 
   return (
@@ -584,11 +609,21 @@ const SendModal: React.FC<SendModalProps> = ({
         <div className="p-6 space-y-4">
           {/* Preview Imagen */}
           <div className="relative aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-            <img
-              src={url}
-              alt={item.nombre}
-              className="w-full h-full object-contain"
-            />
+            {loading ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : url ? (
+              <img
+                src={url}
+                alt={item.nombre}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                <p>Error al cargar la imagen</p>
+              </div>
+            )}
           </div>
 
           {/* Info */}
