@@ -1,5 +1,51 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.9.0 (Octubre 23, 2025) - Live Chat: Catálogo de Imágenes + Multimedia
+
+### 🚀 RELEASE MAJOR - Funcionalidades Multimedia Completas
+
+#### 🖼️ Catálogo de Imágenes Integrado
+- **Modal interactivo**: Catálogo completo de destinos, resorts y atracciones
+- **Búsqueda inteligente**: Filtrado por keyword, destino y resort
+- **Paginación**: 8 imágenes por página, navegación fluida
+- **Cache local**: Últimas 8 imágenes usadas en localStorage
+- **Preview + Caption**: Vista previa y texto opcional
+- **Envío WhatsApp**: Integración directa con webhook Railway
+
+#### 📸 Soporte Multimedia Profesional
+- **Lazy loading**: Intersection Observer para carga eficiente
+- **5 tipos**: Imágenes, audios, videos, stickers, documentos
+- **Cache URLs**: URLs firmadas válidas 25 minutos
+- **Detección automática**: Stickers WhatsApp (.webp, .gif)
+- **UX WhatsApp nativa**: Globos condicionales según tipo
+- **Validación robusta**: Sin crashes con datos undefined
+
+#### 🎨 UX Mejorada Estilo WhatsApp
+- **Sin etiquetas texto**: Removidas labels "Prospecto", "AI", "Vendedor"
+- **Avatares círculo**: Solo iniciales para identificar remitente
+- **Renderizado nativo**: Multimedia como WhatsApp real
+- **Optimización red**: Carga bajo demanda
+
+#### 🔧 Fixes Técnicos Importantes
+- **TypeError multimedia**: Validación campos undefined
+- **Query prospecto**: Auto-fetch whatsapp + id_uchat
+- **Compatibilidad**: Webhook vs DB structures
+- **CORS preparado**: Edge Function proxy lista para deploy
+
+#### 📝 Nuevos Componentes
+- `ImageCatalogModal.tsx` ⭐ 742 líneas
+- `MultimediaMessage.tsx` ⭐ 433 líneas
+- `send-img-proxy/` ⭐ Edge Function
+
+#### 🎯 Métricas del Release
+- **Archivos nuevos**: 3
+- **Archivos modificados**: 4
+- **Líneas agregadas**: ~1,200
+- **Commits**: 12
+- **Tiempo desarrollo**: 1 sesión
+
+---
+
 ## Versión 5.8.0 (Octubre 23, 2025) - Live Chat Profesional
 
 ### 🚀 RELEASE MAJOR - Live Chat Completamente Estable

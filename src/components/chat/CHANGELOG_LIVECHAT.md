@@ -17,6 +17,86 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.4.0** - 23 Octubre 2025
+**Estado:** ✅ Producción
+
+#### **🖼️ Nueva Funcionalidad: Catálogo de Imágenes**
+- **Modal de selección de imágenes**
+  - **Funcionalidad:** Catálogo completo de imágenes de destinos, resorts y atracciones
+  - **Búsqueda:** Filtrado por palabra clave, destino y resort
+  - **Paginación:** 8 imágenes por página para mejor rendimiento
+  - **Cache local:** Últimas 8 imágenes usadas guardadas en localStorage
+  - **Preview:** Vista previa de imagen antes de enviar
+  - **Caption:** Opción de agregar texto descriptivo a la imagen
+  - **Lazy loading:** URLs firmadas generadas bajo demanda
+  - **Archivo:** `ImageCatalogModal.tsx`
+
+- **Integración con tabla content_management**
+  - **Base de datos:** `pqnc_ia.content_management`
+  - **Campos:** nombre_archivo, destinos[], resorts[], bucket
+  - **URL signing:** API Railway para generar URLs firmadas (30 min)
+  - **Fallback:** Bucket por defecto `whatsapp-media`
+
+- **Envío de imágenes a WhatsApp**
+  - **Endpoint:** `https://primary-dev-d75a.up.railway.app/webhook/send-img`
+  - **Header:** `livechat_auth: 2025_livechat_auth`
+  - **Payload:** `[{ whatsapp, uchat_id, imagenes: [{archivo, destino, resort}] }]`
+  - **Validación:** Verifica whatsapp e id_uchat desde tabla prospectos
+  - **Nota CORS:** En desarrollo puede presentar problemas, funciona en producción
+
+#### **📸 Soporte Multimedia Completo**
+- **Visualización de adjuntos**
+  - **Tipos soportados:** Imágenes, audios, videos, stickers, documentos
+  - **Lazy loading:** Carga solo cuando el mensaje es visible (Intersection Observer)
+  - **Cache de URLs:** 25 minutos de validez antes de regenerar
+  - **Componente:** `MultimediaMessage.tsx`
+
+- **Detección inteligente de tipos**
+  - **Stickers WhatsApp:** Detecta `.webp`, `.gif`, nombres sin extensión
+  - **Compatibilidad:** Soporta campo `filename` y `archivo` (webhook vs DB)
+  - **Validación defensiva:** Maneja campos undefined sin crashear
+  - **Fallbacks:** Valores por defecto para bucket y tipo
+
+- **UX estilo WhatsApp**
+  - **Sin globo:** Stickers y audios se muestran directamente
+  - **Con globo:** Imágenes, videos, documentos (pueden tener texto)
+  - **Sin etiquetas:** Removidas las etiquetas "Prospecto", "AI", "Vendedor"
+  - **Avatares:** Solo iniciales en círculo para identificar remitente
+
+#### **🔧 Correcciones Técnicas**
+- **Fix: TypeError en MultimediaMessage**
+  - **Problema:** Crash al hacer `.toLowerCase()` en campos undefined
+  - **Causa:** Adjuntos con estructura diferente (webhook vs DB)
+  - **Solución:** Validación preventiva en todas las funciones
+  - **Funciones corregidas:** `getFileType`, `getFileTypeFromAdjunto`, `getFileIcon`
+
+- **Fix: Obtención de datos del prospecto**
+  - **Problema:** conversationPhone e id_uchat no disponibles
+  - **Solución:** Query automático a tabla prospectos usando prospecto_id
+  - **Query:** `SELECT whatsapp, id_uchat FROM prospectos WHERE id = prospecto_id`
+  - **Estado:** `prospectoData` cargado al abrir modal
+
+- **Fix: CORS en envío de imágenes**
+  - **Problema:** Error CORS al enviar desde localhost
+  - **Intento 1:** Cambiar header a `livechat_auth` (mismo que send-message)
+  - **Intento 2:** Crear Edge Function proxy en Supabase
+  - **Estado:** Pendiente prueba en producción (AWS)
+  - **Nota:** Edge Function disponible en `supabase/functions/send-img-proxy/`
+
+#### **📝 Archivos Modificados/Creados**
+- `src/components/chat/ImageCatalogModal.tsx` ⭐ NUEVO
+- `src/components/chat/MultimediaMessage.tsx` ⭐ NUEVO
+- `src/components/chat/LiveChatCanvas.tsx` (integración modal y multimedia)
+- `supabase/functions/send-img-proxy/index.ts` ⭐ NUEVO (proxy CORS)
+- `supabase/functions/send-img-proxy/deno.json` ⭐ NUEVO
+
+#### **🎯 Pendientes**
+- [ ] Probar envío de imágenes desde AWS (verificar si CORS funciona)
+- [ ] Desplegar Edge Function si es necesario: `supabase functions deploy send-img-proxy`
+- [ ] Considerar agregar Caption en el webhook de Railway
+
+---
+
 ### **v5.3.3** - 23 Octubre 2025
 **Estado:** ✅ Producción
 
@@ -195,5 +275,5 @@ Cada entrada del changelog debe incluir:
 ---
 
 **Última actualización:** 23 Octubre 2025
-**Versión actual:** v5.3.3
+**Versión actual:** v5.4.0
 **Estado:** ✅ Producción estable

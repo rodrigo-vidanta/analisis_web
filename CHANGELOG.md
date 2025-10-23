@@ -1,5 +1,45 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.9.0 - Live Chat: Catálogo de Imágenes + Multimedia (Octubre 23, 2025)
+
+### 💬 **LIVE CHAT - NUEVAS FUNCIONALIDADES MAYORES**
+
+#### 🖼️ **Catálogo de Imágenes Integrado**
+- **Modal interactivo**: Catálogo completo de imágenes de destinos, resorts y atracciones
+- **Búsqueda avanzada**: Filtrado por palabra clave, destino y resort
+- **Paginación optimizada**: 8 imágenes por página para mejor rendimiento
+- **Cache inteligente**: Últimas 8 imágenes usadas guardadas localmente
+- **Preview profesional**: Vista previa antes de enviar
+- **Caption opcional**: Agregar texto descriptivo a imágenes
+- **Envío directo**: Integración con webhook Railway para WhatsApp
+
+#### 📸 **Soporte Multimedia Completo**
+- **Tipos soportados**: Imágenes, audios, videos, stickers, documentos
+- **Lazy loading**: Carga multimedia solo cuando es visible (Intersection Observer)
+- **Cache de URLs**: URLs firmadas válidas por 25 minutos
+- **Detección inteligente**: Reconoce stickers WhatsApp (.webp, .gif, sin extensión)
+- **UX WhatsApp**: Stickers y audios sin globo, imágenes/videos/docs con globo
+- **Validación robusta**: Maneja campos undefined sin crashear
+
+#### 🎨 **Mejoras de UX**
+- **Sin etiquetas**: Removidas etiquetas "Prospecto", "AI", "Vendedor"
+- **Avatares limpios**: Solo iniciales en círculo para identificar remitente
+- **Visualización nativa**: Multimedia se muestra como en WhatsApp real
+- **Rendimiento**: Carga bajo demanda evita saturar la red
+
+#### 🔧 **Correcciones Técnicas**
+- **Fix TypeError**: Validación defensiva en todas las funciones multimedia
+- **Fix CORS**: Preparado Edge Function proxy (pendiente deploy)
+- **Fix Query prospecto**: Obtiene whatsapp e id_uchat automáticamente
+- **Compatibilidad**: Soporta estructura webhook vs estructura DB
+
+#### 📝 **Archivos Nuevos**
+- `src/components/chat/ImageCatalogModal.tsx` ⭐
+- `src/components/chat/MultimediaMessage.tsx` ⭐
+- `supabase/functions/send-img-proxy/` ⭐ (Edge Function CORS)
+
+---
+
 ## 🚀 Versión 5.8.0 - Live Chat Profesional (Octubre 23, 2025)
 
 ### 💬 **LIVE CHAT - MEJORAS CRÍTICAS**
