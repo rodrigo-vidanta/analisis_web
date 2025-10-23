@@ -4,7 +4,7 @@
 // 📋 Verificación: Revisar CHANGELOG antes de modificar
 
 import { useState, useEffect } from 'react';
-import { X, Search, Send, Eye, Image as ImageIcon, Filter } from 'lucide-react';
+import { X, Search, Send, Eye, Image as ImageIcon, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 
 interface ContentItem {
@@ -55,6 +55,8 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   const [sendModalImage, setSendModalImage] = useState<ContentItem | null>(null);
   const [caption, setCaption] = useState('');
   const [sending, setSending] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const imagesPerPage = 8;
   
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [recentImages, setRecentImages] = useState<ContentItem[]>([]);
@@ -159,7 +161,14 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
     }
 
     setFilteredImages(filtered);
+    setCurrentPage(1); // Reset a primera página cuando cambian los filtros
   }, [searchTerm, selectedDestino, selectedResort, images]);
+
+  // Calcular imágenes de la página actual
+  const totalPages = Math.ceil(filteredImages.length / imagesPerPage);
+  const startIndex = (currentPage - 1) * imagesPerPage;
+  const endIndex = startIndex + imagesPerPage;
+  const currentImages = filteredImages.slice(startIndex, endIndex);
 
   // Guardar en cache local
   const addToRecentImages = (item: ContentItem) => {
@@ -286,7 +295,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
           </div>
 
           {/* Grid de Imágenes */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6" style={{ maxHeight: 'calc(90vh - 200px)' }}>
             {/* Recientes */}
             {recentImages.length > 0 && (
               <div className="mb-8">
@@ -323,17 +332,60 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
                 <p className="text-sm">Intenta con otros filtros</p>
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-4">
-                {filteredImages.map(item => (
-                  <ImageCard
-                    key={item.id}
-                    item={item}
-                    getImageUrl={getImageUrl}
-                    onPreview={() => setPreviewImage(item)}
-                    onSend={() => handleOpenSendModal(item)}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  {currentImages.map(item => (
+                    <ImageCard
+                      key={item.id}
+                      item={item}
+                      getImageUrl={getImageUrl}
+                      onPreview={() => setPreviewImage(item)}
+                      onSend={() => handleOpenSendModal(item)}
+                    />
+                  ))}
+                </div>
+
+                {/* Controles de Paginación */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+
+                    <div className="flex items-center space-x-2">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-lg font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+
+                    <span className="text-sm text-gray-600 dark:text-gray-400 ml-4">
+                      {startIndex + 1}-{Math.min(endIndex, filteredImages.length)} de {filteredImages.length}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
