@@ -257,14 +257,14 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       console.log('📤 Enviando imagen:', payload);
 
       // Usar Supabase Edge Function como proxy para evitar CORS
+      // Railway webhook no tiene CORS configurado correctamente para send-img
       const proxyUrl = 'https://zbylezfyagwrxoecioup.supabase.co/functions/v1/send-img-proxy';
       
       const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMzYyNzEsImV4cCI6MjA3NDkxMjI3MX0.W6Vt5h4r7vNSP_YQtd_fbTWuK7ERrcttwhcpe5Q7KoM'
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMzYyNzEsImV4cCI6MjA3NDkxMjI3MX0.W6Vt5h4r7vNSP_YQtd_fbTWuK7ERrcttwhcpe5Q7KoM'
         },
         body: JSON.stringify(payload)
       });
