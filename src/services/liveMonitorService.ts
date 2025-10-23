@@ -1,3 +1,20 @@
+/**
+ * ============================================
+ * SERVICIO PRINCIPAL - MÓDULO LIVE MONITOR
+ * ============================================
+ *
+ * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
+ *
+ * 1. Para cualquier duda consultar el archivo README: src/components/analysis/README_LIVEMONITOR.md
+ *    para información técnica completa del módulo y sus funciones
+ *
+ * 2. Cualquier cambio realizado en este archivo se debe documentar en el archivo README:
+ *    src/components/analysis/README_LIVEMONITOR.md
+ *
+ * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/analysis/CHANGELOG_LIVEMONITOR.md
+ *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ */
+
 // ============================================
 // SERVICIO PARA LIVE MONITOR
 // Gestión de prospectos, agentes y transferencias
@@ -150,12 +167,118 @@ class LiveMonitorService {
   // ============================================
   
   /**
+   * Auto-corregir llamadas que aparecen como activas pero nunca se contestaron
+   */
+  async autoFixFailedCalls(): Promise<number> {
+    try {
+      // Auto-corrección silenciosa
+      const { data: calls, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select('call_id, call_status, duracion_segundos, audio_ruta_bucket, fecha_llamada, datos_llamada')
+        .eq('call_status', 'activa')
+        .order('fecha_llamada', { ascending: false });
+
+      if (error || !calls) {
+        console.warn('⚠️ No se pudieron obtener llamadas para auto-corrección:', error);
+        return 0;
+      }
+
+      const now = new Date();
+      const failedCalls = [];
+
+      for (const call of calls) {
+        const callDate = new Date(call.fecha_llamada);
+        const minutesAgo = Math.floor((now.getTime() - callDate.getTime()) / (1000 * 60));
+        
+        let shouldMarkAsFailed = false;
+        let reason = '';
+
+        // Criterio 1: Verificar razón de finalización en VAPI
+        try {
+          const datosLlamada = typeof call.datos_llamada === 'string' 
+            ? JSON.parse(call.datos_llamada) 
+            : call.datos_llamada;
+          
+          if (datosLlamada?.razon_finalizacion) {
+            const razon = datosLlamada.razon_finalizacion;
+            if (razon === 'customer-did-not-answer' || 
+                razon === 'customer-ended-call' ||
+                razon === 'no-answer' ||
+                razon.includes('not-answer')) {
+              shouldMarkAsFailed = true;
+              reason = `VAPI: ${razon}`;
+            }
+          }
+        } catch (e) {
+          // Ignorar errores de parsing
+        }
+
+        // Criterio 2: Duración cero + sin audio
+        if (!shouldMarkAsFailed && 
+            (call.duracion_segundos === 0 || call.duracion_segundos === null) && 
+            !call.audio_ruta_bucket) {
+          shouldMarkAsFailed = true;
+          reason = 'Sin duración ni audio';
+        }
+
+        // Criterio 3: Llamadas muy antiguas (más de 2 horas)
+        if (!shouldMarkAsFailed && minutesAgo > 120) {
+          shouldMarkAsFailed = true;
+          reason = `Muy antigua (${minutesAgo} min)`;
+        }
+
+        // Criterio 4: Duración muy corta + tiempo considerable
+        if (!shouldMarkAsFailed && 
+            call.duracion_segundos > 0 && 
+            call.duracion_segundos < 30 && 
+            minutesAgo > 30) {
+          shouldMarkAsFailed = true;
+          reason = `Duración corta (${call.duracion_segundos}s, ${minutesAgo} min)`;
+        }
+
+        if (shouldMarkAsFailed) {
+          failedCalls.push({ call_id: call.call_id, reason });
+        }
+      }
+
+      // Actualizar llamadas identificadas como fallidas
+      let correctedCount = 0;
+      for (const failedCall of failedCalls) {
+        try {
+          const { error: updateError } = await analysisSupabase
+            .from('llamadas_ventas')
+            .update({
+              call_status: 'perdida',
+              monitor_url: null,
+              control_url: null
+            })
+            .eq('call_id', failedCall.call_id);
+
+          if (!updateError) {
+            correctedCount++;
+          }
+
+          // Pausa breve para no sobrecargar
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (e) {
+          console.warn(`⚠️ Error procesando ${failedCall.call_id.slice(-8)}:`, e);
+        }
+      }
+
+      return correctedCount;
+    } catch (error) {
+      console.error('💥 Error en auto-corrección de llamadas fallidas:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Obtener llamadas recientes (activas + finalizadas) desde llamadas_ventas con datos del prospecto
    */
   async getActiveCalls(): Promise<LiveCallData[]> {
     try {
-      console.log('🔍 [DEBUG] Iniciando getActiveCalls...');
-      console.log('🔍 [DEBUG] URL Supabase:', 'https://glsmifhkoaifvaegsozd.supabase.co');
+      // Auto-corregir llamadas problemáticas antes de obtener los datos
+      await this.autoFixFailedCalls();
       
       // Selección COMPLETA incluyendo TODOS los campos dinámicos de VAPI
       let { data, error } = await analysisSupabase
@@ -192,8 +315,6 @@ class LiveMonitorService {
         .order('fecha_llamada', { ascending: false })
         .limit(50);
 
-      console.log('🔍 [DEBUG] Respuesta inicial:', { data, error, count: data?.length || 0 });
-
       // Fallback ultraseguro si fallara por cualquier metadata
       if (error) {
         console.warn('⚠️ Reintentando getActiveCalls con selección ultra mínima por error:', error);
@@ -204,7 +325,6 @@ class LiveMonitorService {
           .limit(50);
         data = fallback.data || [];
         error = fallback.error || null;
-        console.log('🔍 [DEBUG] Respuesta fallback:', { data, error, count: data?.length || 0 });
         if (fallback.error) {
           console.error('❌ Error también en fallback getActiveCalls:', fallback.error);
           return [];
@@ -212,13 +332,6 @@ class LiveMonitorService {
       }
 
       if (!data || data.length === 0) {
-        console.log('🔍 [DEBUG] No hay datos en llamadas_ventas');
-        console.log('🔍 [DEBUG] Esto puede ser porque:');
-        console.log('  1. La tabla está vacía (sin llamadas registradas)');
-        console.log('  2. RLS bloquea el acceso (necesita ser desactivado)');
-        console.log('  3. El usuario anon no tiene permisos de lectura');
-        console.log('🔍 [DEBUG] Para solucionarlo, ejecuta en el SQL Editor de Supabase:');
-        console.log('  ALTER TABLE public.llamadas_ventas DISABLE ROW LEVEL SECURITY;');
         return [];
       }
 
@@ -317,34 +430,6 @@ class LiveMonitorService {
           conversacion_completa: call.conversacion_completa
         };
       });
-
-      // Log solo resumen, no detalle por llamada
-      console.log(`✅ Llamadas cargadas: ${combinedData.length}`);
-      
-      // Debug: Log de primeras 3 llamadas para verificar datos
-      if (combinedData.length > 0) {
-        console.log('🔍 [DEBUG] Primeras 3 llamadas cargadas:');
-        combinedData.slice(0, 3).forEach(call => {
-          console.log(`🔍 [DEBUG RAW] Datos crudos para ${call.call_id.slice(-8)}:`, {
-            datos_proceso_type: typeof call.datos_proceso,
-            datos_proceso_raw: call.datos_proceso,
-            composicion_familiar_numero: call.composicion_familiar_numero
-          });
-          
-          let datosProc = {};
-          try {
-            datosProc = typeof call.datos_proceso === 'string' 
-              ? JSON.parse(call.datos_proceso || '{}') 
-              : call.datos_proceso || {};
-          } catch (e) {
-            console.error(`❌ Error parsing datos_proceso para ${call.call_id.slice(-8)}:`, e);
-          }
-          
-          console.log(`  - ${call.call_id.slice(-8)}: ${call.call_status}, checkpoint: ${call.checkpoint_venta_actual}, prospecto: ${call.nombre_completo}`);
-          console.log(`    └─ Personas: composicion=${call.composicion_familiar_numero}, tamano_grupo=${call.tamano_grupo}, datos_proceso=${datosProc.numero_personas}`);
-          console.log(`    └─ Actividades: preferencia_vacaciones=${call.preferencia_vacaciones}, datos_proceso=${datosProc.tipo_actividades}`);
-        });
-      }
       
       return combinedData;
     } catch (error) {

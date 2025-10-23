@@ -1,6 +1,23 @@
+/**
+ * ============================================
+ * COMPONENTE PRINCIPAL DE ANÁLISIS IA - MÓDULO ANÁLISIS IA
+ * ============================================
+ *
+ * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
+ *
+ * 1. Para cualquier duda consultar el archivo README: src/components/analysis/README_ANALISIS_IA.md
+ *    para información técnica completa del módulo y sus funciones
+ *
+ * 2. Cualquier cambio realizado en este archivo se debe documentar en el archivo README:
+ *    src/components/analysis/README_ANALISIS_IA.md
+ *
+ * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/analysis/CHANGELOG_ANALISIS_IA.md
+ *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Search, Filter, Calendar, BarChart3, TrendingUp, 
+import {
+  Search, Filter, Calendar, BarChart3, TrendingUp,
   Phone, User, Clock, Star, MessageSquare, Volume2,
   X, ChevronRight, Play, Pause, Download, Eye,
   CheckCircle, AlertTriangle, FileText, Activity, DollarSign

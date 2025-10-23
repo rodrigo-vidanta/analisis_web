@@ -261,20 +261,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Verificar acceso a Live Monitor
   const canAccessLiveMonitor = (): boolean => {
-    console.log('🚀 EJECUTANDO canAccessLiveMonitor()...');
-    
     if (!authState.user) {
-      console.log('❌ No hay usuario autenticado');
       return false;
     }
-    
-    console.log('🔍 Verificando acceso Live Monitor para:', {
-      email: authState.user.email,
-      role: authState.user.role_name,
-      first_name: authState.user.first_name,
-      last_name: authState.user.last_name,
-      evaluatorPermissions: evaluatorPermissions
-    });
     
     // Admins siempre tienen acceso
     if (authState.user.role_name === 'admin') return true;

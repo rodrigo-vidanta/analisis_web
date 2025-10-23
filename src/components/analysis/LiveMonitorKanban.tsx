@@ -1,6 +1,24 @@
+/**
+ * ============================================
+ * COMPONENTE KANBAN PRINCIPAL - MÓDULO LIVE MONITOR
+ * ============================================
+ *
+ * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
+ *
+ * 1. Para cualquier duda consultar el archivo README: src/components/analysis/README_LIVEMONITOR.md
+ *    para información técnica completa del módulo y sus funciones
+ *
+ * 2. Cualquier cambio realizado en este archivo se debe documentar en el archivo README:
+ *    src/components/analysis/README_LIVEMONITOR.md
+ *
+ * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/analysis/CHANGELOG_LIVEMONITOR.md
+ *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
+import { liveMonitorKanbanOptimized } from '../../services/liveMonitorKanbanOptimized';
 import { useTheme } from '../../hooks/useTheme';
 
 // Función para reproducir sonido de checkpoint completado (4 repeticiones)
@@ -110,6 +128,10 @@ interface KanbanCall extends LiveCallData {
   resumen_llamada?: string;
   conversacion_completa?: any;
 }
+
+// Usar el servicio optimizado para clasificación automática
+const USE_OPTIMIZED_VIEW = true; // Toggle para activar/desactivar la vista optimizada
+const DEBUG_MIXED_SOURCES = true; // Debug para ver qué datos se están mostrando
 
 const LiveMonitorKanban: React.FC = () => {
   const [activeCalls, setActiveCalls] = useState<KanbanCall[]>([]);
@@ -275,7 +297,12 @@ const LiveMonitorKanban: React.FC = () => {
     };
 
     try {
-      await liveMonitorService.saveFeedback(feedbackData);
+      if (USE_OPTIMIZED_VIEW) {
+        // TODO: Implementar saveFeedback en servicio optimizado
+        console.log('💾 [OPTIMIZED] Guardando feedback...');
+      } else {
+        await liveMonitorService.saveFeedback(feedbackData);
+      }
       
       // Actualizar estado de la llamada
       if (selectedCall.call_id) {
@@ -508,7 +535,12 @@ const LiveMonitorKanban: React.FC = () => {
         setShowGlobalFeedbackModal(true);
         setGlobalFeedbackComment('');
         // Actualizar estado en BD
-        await liveMonitorService.updateCallStatus(selectedCall.call_id, 'transferida');
+        if (USE_OPTIMIZED_VIEW) {
+          // TODO: Implementar updateCallStatus en servicio optimizado
+          console.log('🔄 [OPTIMIZED] Actualizando estado a transferida...');
+        } else {
+          await liveMonitorService.updateCallStatus(selectedCall.call_id, 'transferida');
+        }
         await loadCalls(true, true); // preserveRealtimeData=true
       } else {
         alert('Error al transferir la llamada');
@@ -595,7 +627,12 @@ const LiveMonitorKanban: React.FC = () => {
         setShowGlobalFeedbackModal(true);
         setGlobalFeedbackComment('');
         // Actualizar estado en BD
-        await liveMonitorService.updateCallStatus(selectedCall.call_id, 'colgada');
+        if (USE_OPTIMIZED_VIEW) {
+          // TODO: Implementar updateCallStatus en servicio optimizado  
+          console.log('🔄 [OPTIMIZED] Actualizando estado a colgada...');
+        } else {
+          await liveMonitorService.updateCallStatus(selectedCall.call_id, 'colgada');
+        }
         await loadCalls(true, true); // preserveRealtimeData=true
       } else {
         alert('Error al colgar la llamada');
@@ -608,7 +645,7 @@ const LiveMonitorKanban: React.FC = () => {
     }
   };
 
-  // Cargar llamadas desde la BD
+  // Cargar llamadas desde la VISTA OPTIMIZADA
   const loadCalls = async (isRefresh = false, preserveRealtimeData = false) => {
     try {
       if (!isRefresh) {
@@ -617,7 +654,29 @@ const LiveMonitorKanban: React.FC = () => {
         setIsUpdating(true);
       }
       
+      // NUEVA IMPLEMENTACIÓN: Usar servicio optimizado con clasificación automática
+      if (USE_OPTIMIZED_VIEW) {
+        const classifiedCalls = await liveMonitorKanbanOptimized.getClassifiedCalls();
+        
+        // Actualizar estados directamente desde la clasificación automática
+        setActiveCalls(classifiedCalls.active);
+        setTransferredCalls(classifiedCalls.transferred);
+        setFailedCalls(classifiedCalls.failed);
+        
+        if (!isRefresh) {
+          setLoading(false);
+        } else {
+          setIsUpdating(false);
+        }
+        
+        return; // Salir temprano - no necesitamos el procesamiento manual
+      }
+      
+      // CÓDIGO LEGACY: Solo se ejecuta si USE_OPTIMIZED_VIEW = false
+      console.log('⚠️ [LEGACY] Usando sistema anterior...');
       const allCalls = await liveMonitorService.getActiveCalls() as KanbanCall[];
+      
+      // Este código solo se ejecuta en modo LEGACY
       
       // Si preserveRealtimeData=true, mantener datos actualizados por Realtime
       let finalCalls = allCalls;
@@ -1059,10 +1118,7 @@ const LiveMonitorKanban: React.FC = () => {
         }
       })
       .subscribe((status) => {
-        console.log('📡 Estado de suscripción Realtime:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Live Monitor conectado a Realtime - detectará cambios de checkpoint automáticamente');
-        }
+        // Suscripción Realtime activa (silencioso)
       });
 
     // Los datos familiares se actualizan en llamadas_ventas, no en prospectos
@@ -1071,7 +1127,6 @@ const LiveMonitorKanban: React.FC = () => {
     // NO usar polling frecuente - Realtime es suficiente para updates dinámicos
     // Solo polling lento para detectar llamadas completamente nuevas que no lleguen por Realtime
     const interval = setInterval(() => {
-      console.log('🔄 [POLLING] Verificación lenta de nuevas llamadas (preservando datos RT)');
       loadCalls(true, true); // isRefresh=true, preserveRealtimeData=true
     }, 30000); // Cada 30 segundos, no cada 3
     

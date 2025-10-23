@@ -1,5 +1,42 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.8.0 - Live Chat Profesional (Octubre 23, 2025)
+
+### 💬 **LIVE CHAT - MEJORAS CRÍTICAS**
+
+#### ⏰ **Restricción de Ventana de 24 Horas (WhatsApp Business API)**
+- **Validación automática**: Verifica tiempo transcurrido desde último mensaje del usuario
+- **Bloqueo inteligente**: Impide envío de mensajes fuera de ventana de 24h
+- **UI profesional**: Banner informativo explicando políticas de WhatsApp Business API
+- **Reactivación automática**: Se reactiva cuando el usuario envía un nuevo mensaje
+- **Cumplimiento**: Alineado con políticas oficiales de WhatsApp Business API
+
+#### 🐛 **Fix: Race Condition en Realtime**
+- **Problema**: Suscripción Realtime se configuraba ANTES de cargar conversaciones
+- **Solución**: Carga secuencial garantizada (conversaciones → Realtime)
+- **Resultado**: Actualización automática y confiable de lista de conversaciones
+- **Impacto**: Mensajes entrantes ahora SÍ actualizan la UI en tiempo real
+
+#### 🐛 **Fix: Contador de Mensajes No Leídos Persistente**
+- **Problema**: RLS bloqueaba UPDATE de columna `leido` con `anon` key
+- **Solución**: Función RPC `mark_messages_as_read` con `SECURITY DEFINER`
+- **Bypass controlado**: Solo marca mensajes del rol 'Prospecto'
+- **Resultado**: Contador se resetea correctamente y persiste entre recargas
+
+#### 🧹 **Limpieza Masiva de Logs**
+- **Problema**: Consola saturada con más de 100 mensajes por operación
+- **Solución**: Eliminación sistemática de todos `console.log` y `console.warn`
+- **Retenidos**: Solo `console.error` para errores críticos
+- **Impacto**: Consola limpia, mejor rendimiento, debugging más fácil
+
+#### 📝 **Documentación Actualizada**
+- **CHANGELOG detallado**: v5.3.1, v5.3.2, v5.3.3 en módulo Live Chat
+- **Guías SQL**: Scripts para RPC `mark_messages_as_read` y `get_conversations_ordered`
+- **Instrucciones paso a paso**: Habilitación de Realtime para `mensajes_whatsapp`
+- **Golden Rules**: Comentarios estandarizados en archivos core
+
+---
+
 ## 🚀 Versión 5.7.0 - Live Monitor Reactivo + Análisis IA Mejorado (Octubre 2025)
 
 ### 🎯 **LIVE MONITOR COMPLETAMENTE REACTIVO**

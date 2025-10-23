@@ -1,7 +1,24 @@
+/**
+ * ============================================
+ * CONSOLA UNIFICADA AWS - MÓDULO AWS MANAGER
+ * ============================================
+ *
+ * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
+ *
+ * 1. Para cualquier duda consultar el archivo README: src/components/aws/README_AWS_MANAGER.md
+ *    para información técnica completa del módulo y sus funciones
+ *
+ * 2. Cualquier cambio realizado en este archivo se debe documentar en el archivo README:
+ *    src/components/aws/README_AWS_MANAGER.md
+ *
+ * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/aws/CHANGELOG_AWS_MANAGER.md
+ *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ */
+
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   X, Settings, Code, FileText, Terminal, Activity,
-  Server, Database, Globe, Shield, Network, 
+  Server, Database, Globe, Shield, Network,
   CheckCircle, AlertTriangle, Clock, Play, Square,
   RotateCcw, Eye, Send, Copy, Download
 } from 'lucide-react';

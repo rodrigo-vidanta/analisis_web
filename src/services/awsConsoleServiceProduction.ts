@@ -1,3 +1,20 @@
+/**
+ * ============================================
+ * SERVICIO DE PRODUCCIÓN AWS CONSOLE - MÓDULO AWS MANAGER
+ * ============================================
+ *
+ * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
+ *
+ * 1. Para cualquier duda consultar el archivo README: src/components/aws/README_AWS_MANAGER.md
+ *    para información técnica completa del módulo y sus funciones
+ *
+ * 2. Cualquier cambio realizado en este archivo se debe documentar en el archivo README:
+ *    src/components/aws/README_AWS_MANAGER.md
+ *
+ * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/aws/CHANGELOG_AWS_MANAGER.md
+ *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ */
+
 // AWS Console Service - Production Version
 // Uses mock data when credentials are not available
 

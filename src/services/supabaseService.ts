@@ -1,5 +1,22 @@
 import { supabaseMain as supabase, supabaseMainAdmin as supabaseAdmin, type AgentTemplate, type AgentCategory, type SystemPrompt, type ToolCatalog } from '../config/supabase';
 
+/**
+ * ============================================
+ * SERVICIO PRINCIPAL DE AGENTES - MÓDULO PQNC HUMANS
+ * ============================================
+ *
+ * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
+ *
+ * 1. Para cualquier duda consultar el archivo README: src/components/admin/README_PQNC_HUMANS.md
+ *    para información técnica completa del módulo y sus funciones
+ *
+ * 2. Cualquier cambio realizado en este archivo se debe documentar en el archivo README:
+ *    src/components/admin/README_PQNC_HUMANS.md
+ *
+ * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/admin/CHANGELOG_PQNC_HUMANS.md
+ *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ */
+
 // ===============================
 // CATEGORÍAS DE AGENTES
 // ===============================

@@ -1,5 +1,51 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.8.0 (Octubre 23, 2025) - Live Chat Profesional
+
+### 🚀 RELEASE MAJOR - Live Chat Completamente Estable
+
+#### 💬 Live Chat - Mejoras Críticas Implementadas
+- **Restricción ventana 24h**: WhatsApp Business API compliance
+- **Fix Race Condition**: Real-time ahora funciona confiablemente
+- **Fix Contador No Leídos**: RLS bypass con RPC `SECURITY DEFINER`
+- **Limpieza logs**: Consola limpia, solo errores críticos
+
+#### ⏰ **Restricción de Ventana de 24 Horas (WhatsApp Business API)**
+- **Validación automática**: Verifica tiempo desde último mensaje del usuario
+- **Bloqueo inteligente**: Impide envío fuera de ventana de 24h
+- **UI profesional**: Banner informativo con políticas de WhatsApp
+- **Reactivación automática**: Cuando usuario envía nuevo mensaje
+- **Funciones**: `isWithin24HourWindow()`, `getHoursSinceLastUserMessage()`
+
+#### 🐛 **Fix: Race Condition en Realtime**
+- **Problema**: Suscripción configurada ANTES de cargar conversaciones
+- **Solución**: `async/await` en `useEffect` para carga secuencial
+- **Orden correcto**: `loadConversations()` → `setupRealtimeSubscription()`
+- **Resultado**: Mensajes entrantes SÍ actualizan UI automáticamente
+
+#### 🐛 **Fix: Contador de Mensajes No Leídos Persistente**
+- **Problema**: RLS bloqueaba `UPDATE` con `anon` key del frontend
+- **Diagnóstico**: `service_role` funcionaba, `anon` retornaba 0 filas
+- **Solución**: RPC `mark_messages_as_read()` con `SECURITY DEFINER`
+- **Scope limitado**: Solo marca rol 'Prospecto', validación UUID
+- **Script SQL**: `scripts/sql/create_mark_messages_read_rpc.sql`
+
+#### 🧹 **Limpieza Masiva de Logs**
+- **Eliminados**: 100+ `console.log()` y `console.warn()`
+- **Retenidos**: Solo `console.error()` para errores críticos
+- **Método**: `sed -i '' '/console\.log(/d'` automatizado
+- **Resultado**: Consola limpia, mejor rendimiento
+- **Debugging**: Más fácil identificar errores reales
+
+#### 📝 **Documentación Actualizada**
+- **CHANGELOG módulo**: v5.3.1, v5.3.2, v5.3.3 documentados
+- **Scripts SQL**: RPC functions y fixes documentados
+- **Guías paso a paso**: Instrucciones para Supabase SQL Editor
+- **Golden Rules**: Comentarios estandarizados en archivos core
+- **Versión actual**: Live Chat v5.3.3, Plataforma v5.8.0
+
+---
+
 ## Versión 5.7.0 (Octubre 2025) - Live Monitor Reactivo + Análisis IA Mejorado
 
 ### 🎯 RELEASE MAJOR - Sistema Completamente Reactivo

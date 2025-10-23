@@ -1,5 +1,22 @@
+/**
+ * ============================================
+ * DIAGRAMA INTERACTIVO DE ARQUITECTURA - MÓDULO AWS MANAGER
+ * ============================================
+ *
+ * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
+ *
+ * 1. Para cualquier duda consultar el archivo README: src/components/aws/README_AWS_MANAGER.md
+ *    para información técnica completa del módulo y sus funciones
+ *
+ * 2. Cualquier cambio realizado en este archivo se debe documentar en el archivo README:
+ *    src/components/aws/README_AWS_MANAGER.md
+ *
+ * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/aws/CHANGELOG_AWS_MANAGER.md
+ *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ */
+
 import React, { useState, useCallback, useEffect } from 'react';
-import ReactFlow, { 
+import ReactFlow, {
   addEdge,
   Controls,
   Background,
@@ -15,7 +32,7 @@ import ReactFlow, {
 import type { Node, Edge, Connection } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Save, Plus, RotateCcw, Trash } from 'lucide-react';
-import { 
+import {
   AWSIcon,
   DatabaseIcon,
   RedisIcon,

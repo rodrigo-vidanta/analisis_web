@@ -1,0 +1,283 @@
+/**
+ * ============================================
+ * SERVICIO KANBAN OPTIMIZADO - MÓDULO LIVE MONITOR
+ * ============================================
+ *
+ * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
+ *
+ * 1. Para cualquier duda consultar el archivo README: src/components/analysis/README_LIVEMONITOR.md
+ *    para información técnica completa del módulo y sus funciones
+ *
+ * 2. Cualquier cambio realizado en este archivo se debe documentar en el archivo README:
+ *    src/components/analysis/README_LIVEMONITOR.md
+ *
+ * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/analysis/CHANGELOG_LIVEMONITOR.md
+ *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ */
+
+// ============================================
+// SERVICIO OPTIMIZADO PARA LIVE MONITOR KANBAN
+// Adapta la vista optimizada al formato esperado por el componente
+// ============================================
+
+import { liveMonitorOptimizedService, type LiveMonitorViewData } from './liveMonitorOptimizedService';
+import { analysisSupabase } from '../config/analysisSupabase';
+import type { LiveCallData } from './liveMonitorService';
+
+// Interfaz para compatibilidad con el componente existente
+interface KanbanCallOptimized extends LiveCallData {
+  checkpoint_venta_actual?: string;
+  composicion_familiar_numero?: number;
+  destino_preferido?: string;
+  preferencia_vacaciones?: string[];
+  numero_noches?: number;
+  mes_preferencia?: string;
+  edad?: number;
+  propuesta_economica_ofrecida?: number;
+  habitacion_ofertada?: string;
+  resort_ofertado?: string;
+  principales_objeciones?: string;
+  resumen_llamada?: string;
+  conversacion_completa?: any;
+  
+  // Campos adicionales de la vista optimizada
+  call_status_bd?: string;
+  razon_finalizacion?: string;
+  minutos_transcurridos?: number;
+}
+
+class LiveMonitorKanbanOptimizedService {
+  
+  /**
+   * Convierte datos de la vista optimizada al formato esperado por el componente
+   */
+  private mapOptimizedToKanban(optimizedCall: LiveMonitorViewData): KanbanCallOptimized {
+    return {
+      // IDs principales
+      call_id: optimizedCall.call_id,
+      prospecto_id: optimizedCall.prospecto_id,
+      
+      // Estados (usar el inteligente como principal)
+      call_status: optimizedCall.call_status_inteligente, // ¡Auto-clasificado!
+      call_status_bd: optimizedCall.call_status_bd, // Estado original para referencia
+      
+      // Datos de la llamada
+      fecha_llamada: optimizedCall.fecha_llamada,
+      duracion_segundos: optimizedCall.duracion_segundos,
+      nivel_interes: optimizedCall.nivel_interes,
+      datos_llamada: optimizedCall.datos_llamada,
+      datos_proceso: optimizedCall.datos_proceso,
+      audio_ruta_bucket: optimizedCall.audio_ruta_bucket,
+      
+      // URLs de control
+      monitor_url: optimizedCall.monitor_url,
+      control_url: optimizedCall.control_url,
+      call_sid: optimizedCall.call_sid,
+      provider: optimizedCall.provider,
+      account_sid: optimizedCall.account_sid,
+      
+      // Datos del prospecto (ya incluidos en la vista)
+      nombre_completo: optimizedCall.nombre_completo,
+      nombre_whatsapp: optimizedCall.nombre_whatsapp,
+      whatsapp: optimizedCall.whatsapp,
+      telefono_principal: optimizedCall.telefono_principal,
+      email: optimizedCall.email,
+      ciudad_residencia: optimizedCall.ciudad_residencia,
+      estado_civil: optimizedCall.estado_civil,
+      edad: optimizedCall.edad,
+      etapa: optimizedCall.etapa_prospecto,
+      observaciones: optimizedCall.observaciones,
+      
+      // Composición y preferencias (ya unificadas)
+      tamano_grupo: optimizedCall.composicion_familiar_numero,
+      destino_preferencia: optimizedCall.destino_preferencia,
+      viaja_con: optimizedCall.viaja_con,
+      cantidad_menores: optimizedCall.cantidad_menores,
+      
+      // Campos VAPI dinámicos
+      checkpoint_venta_actual: optimizedCall.checkpoint_venta_actual,
+      composicion_familiar_numero: optimizedCall.composicion_familiar_numero,
+      destino_preferido: optimizedCall.destino_preferencia?.[0], // Primer elemento del array
+      preferencia_vacaciones: optimizedCall.preferencia_vacaciones,
+      numero_noches: optimizedCall.numero_noches,
+      mes_preferencia: optimizedCall.mes_preferencia,
+      propuesta_economica_ofrecida: optimizedCall.propuesta_economica_ofrecida,
+      habitacion_ofertada: optimizedCall.habitacion_ofertada,
+      resort_ofertado: optimizedCall.resort_ofertado,
+      principales_objeciones: optimizedCall.principales_objeciones,
+      resumen_llamada: optimizedCall.resumen_llamada,
+      conversacion_completa: optimizedCall.conversacion_completa,
+      
+      // Feedback
+      tiene_feedback: optimizedCall.tiene_feedback,
+      feedback_resultado: optimizedCall.feedback_resultado,
+      feedback_comentarios: optimizedCall.feedback_comentarios,
+      feedback_user_email: optimizedCall.feedback_user_email,
+      feedback_fecha: optimizedCall.feedback_fecha,
+      
+      // Timestamps
+      updated_at: optimizedCall.prospecto_updated_at,
+      
+      // Campos adicionales de la vista optimizada
+      minutos_transcurridos: optimizedCall.minutos_transcurridos,
+      razon_finalizacion: optimizedCall.razon_finalizacion,
+      
+      // Campos de compatibilidad
+      temperatura_prospecto: undefined,
+      es_venta_exitosa: optimizedCall.es_venta_exitosa,
+      precio_ofertado: optimizedCall.precio_ofertado,
+      tipo_llamada: undefined,
+      oferta_presentada: undefined,
+      requiere_seguimiento: undefined,
+      costo_total: optimizedCall.costo_total,
+      probabilidad_cierre: optimizedCall.probabilidad_cierre
+    };
+  }
+  
+  /**
+   * Obtener llamadas clasificadas automáticamente por la vista optimizada
+   */
+  async getClassifiedCalls() {
+    try {
+      // Cargando desde vista optimizada (silencioso)
+      
+      const optimizedCalls = await liveMonitorOptimizedService.getOptimizedCalls();
+      const allCalls = optimizedCalls.map(call => this.mapOptimizedToKanban(call));
+      
+      // Llamadas cargadas desde vista
+      
+      // Log de estadísticas de auto-clasificación (silencioso)
+      const reclasificadas = optimizedCalls.filter(c => c.call_status_bd !== c.call_status_inteligente);
+      
+      // Clasificar llamadas usando la auto-clasificación de la vista (¡Sin lógica manual!)
+      const active: KanbanCallOptimized[] = [];
+      const transferred: KanbanCallOptimized[] = [];
+      const finished: KanbanCallOptimized[] = []; // Finalizadas exitosas
+      const failed: KanbanCallOptimized[] = [];
+      
+      allCalls.forEach(call => {
+        // 🚀 [OPTIMIZED] CLASIFICACIÓN SIMPLIFICADA - La vista ya hizo el trabajo pesado
+        
+        switch (call.call_status) {
+          case 'activa':
+            active.push(call);
+            // Llamada realmente activa (silencioso)
+            break;
+            
+          case 'transferida':
+            transferred.push(call);
+            break;
+            
+          case 'finalizada':
+            finished.push(call);
+            break;
+            
+          case 'perdida':
+            failed.push(call);
+            break;
+            
+          // Mapear estados legacy al nuevo sistema
+          case 'colgada':
+          case 'exitosa':
+            finished.push(call);
+            break;
+            
+          default:
+            // Estado desconocido (silencioso)
+            finished.push(call);
+        }
+      });
+      
+      // Clasificación completada (silencioso)
+      
+      return {
+        active,
+        transferred: transferred.concat(finished), // Combinar transferidas + finalizadas para compatibilidad
+        finished: [], // Vacío - se usa transferred
+        failed,
+        all: allCalls,
+        stats: {
+          total: allCalls.length,
+          reclasificadas: reclasificadas.length
+        }
+      };
+      
+    } catch (error) {
+      console.error('💥 Error en getClassifiedCalls optimizado:', error);
+      return {
+        active: [],
+        transferred: [],
+        finished: [],
+        failed: [],
+        all: [],
+        stats: { total: 0, reclasificadas: 0 }
+      };
+    }
+  }
+  
+  /**
+   * Configurar suscripción realtime optimizada
+   */
+  async subscribeToChanges(onCallsUpdate: (calls: any) => void) {
+    try {
+      // Configurando suscripción Realtime (silencioso)
+      
+      // Suscribirse a cambios en la tabla base (que activará los triggers)
+      const channel = analysisSupabase
+        .channel('kanban_optimized_realtime')
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'llamadas_ventas' 
+          },
+          async (payload) => {
+            // Cambio detectado en llamadas_ventas (silencioso)
+            
+            // Recargar datos clasificados desde la vista optimizada
+            const classifiedCalls = await this.getClassifiedCalls();
+            onCallsUpdate(classifiedCalls);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'prospectos' 
+          },
+          async (payload) => {
+            // Cambio detectado en prospectos (silencioso)
+            
+            // Solo recargar si es un prospecto que tiene llamadas activas
+            const classifiedCalls = await this.getClassifiedCalls();
+            onCallsUpdate(classifiedCalls);
+          }
+        )
+        .subscribe((status) => {
+          // Suscripción activa (silencioso)
+        });
+      
+      return channel;
+    } catch (error) {
+      console.error('💥 Error configurando suscripción Kanban optimizada:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Obtener estadísticas rápidas
+   */
+  async getQuickStats() {
+    const stats = await liveMonitorOptimizedService.getQuickStats();
+    return {
+      ...stats,
+      source: 'vista_optimizada'
+    };
+  }
+}
+
+// Exportar instancia singleton
+export const liveMonitorKanbanOptimized = new LiveMonitorKanbanOptimizedService();
+export default liveMonitorKanbanOptimized;
