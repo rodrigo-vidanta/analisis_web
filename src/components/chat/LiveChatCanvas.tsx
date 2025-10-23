@@ -35,6 +35,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { uchatService } from '../../services/uchatService';
 import { MultimediaMessage, needsBubble } from './MultimediaMessage';
 import { ImageCatalogModal } from './ImageCatalogModal';
+import { ParaphraseModal } from './ParaphraseModal';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -115,6 +116,10 @@ const LiveChatCanvas: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [sendingToConversation, setSendingToConversation] = useState<string | null>(null);
   const [showImageCatalog, setShowImageCatalog] = useState(false);
+  
+  // Estado para modal de parafraseo con IA
+  const [showParaphraseModal, setShowParaphraseModal] = useState(false);
+  const [textToParaphrase, setTextToParaphrase] = useState('');
 
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -1878,11 +1883,20 @@ const LiveChatCanvas: React.FC = () => {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
-      setSending(true);
+    // Abrir modal de parafraseo con IA
+    setTextToParaphrase(newMessage);
+    setShowParaphraseModal(true);
+  };
+
+  // Función real para enviar el mensaje (después del parafraseo)
+  const sendMessageWithText = async (messageText: string) => {
+    if (!messageText.trim() || !selectedConversation) return;
+
+    setSending(true);
 
     const tempId = `temp_${Date.now()}`;
     const conversationId = selectedConversation.id;
-    const messageContent = newMessage; // Guardar el contenido antes de limpiarlo
+    const messageContent = messageText;
     const uchatId = selectedConversation.metadata?.id_uchat;
 
     // Validar que tenemos el uchat_id necesario
@@ -1896,10 +1910,10 @@ const LiveChatCanvas: React.FC = () => {
       id: tempId,
       message_id: tempId,
       conversation_id: conversationId,
-        sender_type: 'agent',
+      sender_type: 'agent',
       sender_name: 'Agente',
       content: messageContent,
-        is_read: true,
+      is_read: true,
       created_at: new Date().toISOString(),
     };
 
@@ -1909,12 +1923,12 @@ const LiveChatCanvas: React.FC = () => {
       [conversationId]: [...(prev[conversationId] || []), optimisticMessage],
     }));
 
-      setNewMessage('');
+    setNewMessage('');
     scrollToBottom('smooth');
 
     try {
       // 2. PRIMERO: Pausar el bot (siempre se ejecuta)
-          await pauseBot(uchatId, 15);
+      await pauseBot(uchatId, 15);
       
       // 3. SEGUNDO: Enviar mensaje al webhook de UChat
       // n8n lo procesará y lo guardará en la base de datos
@@ -2732,6 +2746,19 @@ const LiveChatCanvas: React.FC = () => {
               console.error('❌ Error en refresh silencioso después de enviar imagen:', error);
             }
           }, 16000); // 16 segundos
+        }}
+      />
+
+      {/* Modal de Parafraseo con IA */}
+      <ParaphraseModal
+        isOpen={showParaphraseModal}
+        originalText={textToParaphrase}
+        onSelect={(paraphrasedText) => {
+          setShowParaphraseModal(false);
+          sendMessageWithText(paraphrasedText);
+        }}
+        onCancel={() => {
+          setShowParaphraseModal(false);
         }}
       />
     </div>
