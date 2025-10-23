@@ -32,7 +32,7 @@ import {
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { uchatService } from '../../services/uchatService';
-import { MultimediaMessage } from './MultimediaMessage';
+import { MultimediaMessage, needsBubble } from './MultimediaMessage';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -2493,10 +2493,30 @@ const LiveChatCanvas: React.FC = () => {
                       <div className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
                         <div className={`max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
                           
+                          {/* Nombre del remitente */}
                           <div className={`text-xs text-slate-500 dark:text-gray-400 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
-                          {message.sender_name || (isCustomer ? 'Prospecto' : isBot ? 'AI' : 'Vendedor')}
+                          {isCustomer 
+                            ? (selectedConversation?.customer_name || selectedConversation?.nombre_contacto || 'Cliente')
+                            : (message.sender_name || (isBot ? 'AI' : 'Vendedor'))
+                          }
                           </div>
 
+                          {(() => {
+                            // Parsear adjuntos si existen
+                            const adjuntos = (message as any).adjuntos 
+                              ? JSON.parse(
+                                  typeof (message as any).adjuntos === 'string' 
+                                    ? (message as any).adjuntos 
+                                    : JSON.stringify((message as any).adjuntos)
+                                )
+                              : null;
+
+                            // Determinar si necesita globo (false para stickers y audios)
+                            const shouldHaveBubble = !adjuntos || needsBubble(adjuntos) || message.content;
+
+                            if (shouldHaveBubble) {
+                              // CON GLOBO: Texto, imágenes, videos, documentos
+                              return (
                           <div className={`relative px-4 py-3 rounded-2xl shadow-sm ${
                             isCustomer 
                               ? 'bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-slate-900 dark:text-white' 
@@ -2512,28 +2532,44 @@ const LiveChatCanvas: React.FC = () => {
                               </div>
                             )}
 
-                            {/* Multimedia (adjuntos) con lazy loading */}
-                            {(message as any).adjuntos && (message as any).adjuntos.length > 0 && (
-                              <MultimediaMessage 
-                                adjuntos={JSON.parse(
-                                  typeof (message as any).adjuntos === 'string' 
-                                    ? (message as any).adjuntos 
-                                    : JSON.stringify((message as any).adjuntos)
-                                )}
-                              />
-                            )}
-                            
-                            <div className="text-right text-xs opacity-75 mt-1 flex items-center justify-end space-x-2">
-                              {message.id.startsWith('temp_') && (
-                                <span className="italic">
-                                  {message.sender_name === 'Error' ? 'Error al enviar' : 'Enviando...'}
-                                </span>
-                              )}
-                              <span>
-                                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                                  {/* Multimedia con globo */}
+                                  {adjuntos && adjuntos.length > 0 && (
+                                    <MultimediaMessage 
+                                      adjuntos={adjuntos}
+                                      hasTextContent={!!message.content}
+                                    />
+                                  )}
+                                  
+                                  <div className="text-right text-xs opacity-75 mt-1 flex items-center justify-end space-x-2">
+                                    {message.id.startsWith('temp_') && (
+                                      <span className="italic">
+                                        {message.sender_name === 'Error' ? 'Error al enviar' : 'Enviando...'}
+                                      </span>
+                                    )}
+                                    <span>
+                                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
                             </div>
                           </div>
+                              );
+                            } else {
+                              // SIN GLOBO: Stickers y audios solamente (estilo WhatsApp)
+                              return (
+                                <div className="flex flex-col">
+                                  {adjuntos && adjuntos.length > 0 && (
+                                    <MultimediaMessage 
+                                      adjuntos={adjuntos}
+                                      hasTextContent={false}
+                                    />
+                                  )}
+                                  {/* Timestamp pequeño debajo */}
+                                  <div className={`text-xs text-slate-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </div>
+                              );
+                            }
+                          })()}
                         </div>
 
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${

@@ -17,7 +17,49 @@ interface Adjunto {
 interface MultimediaMessageProps {
   adjuntos: Adjunto[];
   isVisible?: boolean;
+  hasTextContent?: boolean; // Si el mensaje tiene texto adicional
 }
+
+// Helper: determinar si un tipo de archivo necesita globo de conversación
+export const needsBubble = (adjuntos: Adjunto[]): boolean => {
+  if (!adjuntos || adjuntos.length === 0) return true;
+  
+  // Solo el primer adjunto determina si necesita globo
+  const firstAdjunto = adjuntos[0];
+  const fileType = getFileTypeFromAdjunto(firstAdjunto);
+  
+  // Stickers y audios NO necesitan globo (estilo WhatsApp)
+  if (fileType === 'sticker' || fileType === 'audio') {
+    return false;
+  }
+  
+  // Imágenes, videos, documentos SÍ necesitan globo (pueden tener texto)
+  return true;
+};
+
+// Helper para obtener tipo sin instanciar el componente
+const getFileTypeFromAdjunto = (adjunto: Adjunto): 'image' | 'audio' | 'video' | 'sticker' | 'document' => {
+  const tipoLower = adjunto.tipo.toLowerCase();
+  const filenameLower = adjunto.filename.toLowerCase();
+  
+  // Stickers de WhatsApp
+  if (tipoLower.includes('sticker')) return 'sticker';
+  if (!filenameLower.match(/\.(jpg|jpeg|png|webp|gif|bmp|svg|mp3|mp4|pdf|doc|docx|zip|rar)$/i) && 
+      filenameLower.match(/\.-[a-z0-9]{4}$/i)) return 'sticker';
+  if (filenameLower.match(/\.(webp|gif)$/i)) return 'sticker';
+  
+  // Audio
+  if (tipoLower.includes('audio') || tipoLower.includes('music') || filenameLower.match(/\.(mp3|ogg|wav|m4a|aac)$/i)) {
+    return 'audio';
+  }
+  
+  // Resto (imágenes, videos, documentos)
+  if (filenameLower.match(/\.(jpg|jpeg|png|bmp|svg)$/i)) return 'image';
+  if (tipoLower.includes('imagen') || tipoLower.includes('image')) return 'image';
+  if (tipoLower.includes('video') || filenameLower.match(/\.(mp4|webm|mov|avi|mkv)$/i)) return 'video';
+  
+  return 'document';
+};
 
 interface MultimediaCache {
   url: string;
