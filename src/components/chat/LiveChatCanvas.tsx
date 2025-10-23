@@ -32,6 +32,7 @@ import {
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { uchatService } from '../../services/uchatService';
+import { MultimediaMessage } from './MultimediaMessage';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -1182,7 +1183,8 @@ const LiveChatCanvas: React.FC = () => {
           content: msg.mensaje,
           is_read: msg.leido ?? true,
           created_at: msg.fecha_hora,
-        }));
+          adjuntos: msg.adjuntos, // ✅ Incluir adjuntos multimedia
+        } as any));
       } else {
       }
 
@@ -2509,6 +2511,18 @@ const LiveChatCanvas: React.FC = () => {
                                 {message.content.replace(/\\n/g, '\n')}
                               </div>
                             )}
+
+                            {/* Multimedia (adjuntos) con lazy loading */}
+                            {(message as any).adjuntos && (message as any).adjuntos.length > 0 && (
+                              <MultimediaMessage 
+                                adjuntos={JSON.parse(
+                                  typeof (message as any).adjuntos === 'string' 
+                                    ? (message as any).adjuntos 
+                                    : JSON.stringify((message as any).adjuntos)
+                                )}
+                              />
+                            )}
+                            
                             <div className="text-right text-xs opacity-75 mt-1 flex items-center justify-end space-x-2">
                               {message.id.startsWith('temp_') && (
                                 <span className="italic">
