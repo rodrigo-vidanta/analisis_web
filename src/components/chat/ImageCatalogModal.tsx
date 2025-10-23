@@ -220,6 +220,20 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
     localStorage.setItem(CACHE_KEY, JSON.stringify(updated));
   };
 
+  // Validar y limpiar caption (máx 80 chars, solo alfanuméricos)
+  const handleCaptionChange = (value: string) => {
+    // Remover saltos de línea y caracteres especiales
+    let cleaned = value.replace(/[\n\r]/g, ' '); // Reemplazar saltos por espacios
+    cleaned = cleaned.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s.,!?¿¡]/g, ''); // Solo alfanuméricos y puntuación básica
+    
+    // Limitar a 80 caracteres
+    if (cleaned.length > 80) {
+      cleaned = cleaned.substring(0, 80);
+    }
+    
+    setCaption(cleaned);
+  };
+
   // Abrir modal de envío
   const handleOpenSendModal = (item: ContentItem) => {
     addToRecentImages(item);
@@ -488,7 +502,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
           item={sendModalImage}
           getImageUrl={getImageUrl}
           caption={caption}
-          onCaptionChange={setCaption}
+          onCaptionChange={handleCaptionChange}
           onSend={handleSendImage}
           onClose={() => setSendModalImage(null)}
           sending={sending}
@@ -710,15 +724,19 @@ const SendModal: React.FC<SendModalProps> = ({
           {/* Caption */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Mensaje (opcional)
+              Mensaje (opcional) - {caption.length}/80 caracteres
             </label>
-            <textarea
+            <input
+              type="text"
               value={caption}
               onChange={(e) => onCaptionChange(e.target.value)}
               placeholder="Agrega un mensaje a la imagen..."
-              rows={3}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              maxLength={80}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Solo letras, números y puntuación básica (.,!?¿¡)
+            </p>
           </div>
         </div>
 
