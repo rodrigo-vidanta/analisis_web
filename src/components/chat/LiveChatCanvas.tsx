@@ -27,12 +27,14 @@ import {
   X,
   Calendar,
   ChevronRight,
-  GripVertical
+  GripVertical,
+  Paperclip
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { uchatService } from '../../services/uchatService';
 import { MultimediaMessage, needsBubble } from './MultimediaMessage';
+import { ImageCatalogModal } from './ImageCatalogModal';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -59,6 +61,7 @@ interface Conversation {
   nombre_contacto?: string;
   customer_name?: string;
   customer_phone?: string;
+  id_uchat?: string; // ✅ ID de UChat para enviar imágenes
   status?: string;
   estado?: string;
   mensajes_no_leidos?: number;
@@ -111,6 +114,7 @@ const LiveChatCanvas: React.FC = () => {
   const [prospectNameById, setProspectNameById] = useState<{ [id: string]: string }>({});
   const [sending, setSending] = useState(false);
   const [sendingToConversation, setSendingToConversation] = useState<string | null>(null);
+  const [showImageCatalog, setShowImageCatalog] = useState(false);
 
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -2617,7 +2621,17 @@ const LiveChatCanvas: React.FC = () => {
               </div>
             ) : (
               // VENTANA ACTIVA - Mostrar input normal
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              {/* Botón Adjuntar */}
+              <button
+                onClick={() => setShowImageCatalog(true)}
+                className="p-3 text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                title="Adjuntar imagen"
+                style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+
               <div className="flex-1 relative">
                 <textarea
                   value={newMessage}
@@ -2657,6 +2671,18 @@ const LiveChatCanvas: React.FC = () => {
           </div>
         </div>
       )}
+      
+      {/* Modal de Catálogo de Imágenes */}
+      <ImageCatalogModal
+        isOpen={showImageCatalog}
+        onClose={() => setShowImageCatalog(false)}
+        onSendImage={async (imageData) => {
+          // Este callback ya maneja el envío en el modal
+          console.log('Imagen enviada:', imageData);
+        }}
+        conversationPhone={selectedConversation?.customer_phone}
+        conversationUchatId={selectedConversation?.id_uchat}
+      />
     </div>
   );
 };
