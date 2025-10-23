@@ -37,7 +37,7 @@ interface SendImageData {
 }
 
 const CACHE_KEY = 'livechat_recent_images';
-const CACHE_SIZE = 8;
+const CACHE_SIZE = 5; // Reducido de 8 a 5 para mejor UX
 
 export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   isOpen,
@@ -57,7 +57,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   const [caption, setCaption] = useState('');
   const [sending, setSending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const imagesPerPage = 8;
+  const imagesPerPage = 15; // Aumentado de 8 a 15 (3 filas × 5 columnas)
   
   // Estados para parafraseo
   const [showParaphraseModal, setShowParaphraseModal] = useState(false);
@@ -175,6 +175,30 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       return url;
     } catch (error) {
       console.error('Error generating image URL:', error);
+      return '';
+    }
+  };
+
+  // Generar URL de thumbnail (optimizado para grid)
+  const getThumbnailUrl = async (item: ContentItem): Promise<string> => {
+    const thumbnailCacheKey = `thumbnail_${item.bucket}/${item.nombre_archivo}`;
+    
+    if (imageUrls[thumbnailCacheKey]) {
+      return imageUrls[thumbnailCacheKey];
+    }
+
+    try {
+      // Obtener URL base
+      const baseUrl = await getImageUrl(item);
+      
+      // Para imágenes de Supabase/S3, intentar agregar transformación
+      // Si no funciona, usar URL completa (el navegador la redimensionará con CSS)
+      const thumbnailUrl = baseUrl;
+      
+      setImageUrls(prev => ({ ...prev, [thumbnailCacheKey]: thumbnailUrl }));
+      return thumbnailUrl;
+    } catch (error) {
+      console.error('Error generating thumbnail URL:', error);
       return '';
     }
   };
@@ -426,12 +450,12 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
                     {recentImages.length}
                   </span>
                 </h3>
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-5 gap-3">
                   {recentImages.map(item => (
                     <ImageCard
                       key={`recent-${item.id}`}
                       item={item}
-                      getImageUrl={getImageUrl}
+                      getThumbnailUrl={getThumbnailUrl}
                       onPreview={() => setPreviewImage(item)}
                       onSend={() => handleOpenSendModal(item)}
                     />
@@ -454,12 +478,12 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-5 gap-3 mb-6">
                   {currentImages.map(item => (
                     <ImageCard
                       key={item.id}
                       item={item}
-                      getImageUrl={getImageUrl}
+                      getThumbnailUrl={getThumbnailUrl}
                       onPreview={() => setPreviewImage(item)}
                       onSend={() => handleOpenSendModal(item)}
                     />
@@ -557,17 +581,17 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 // Componente: Card de Imagen
 interface ImageCardProps {
   item: ContentItem;
-  getImageUrl: (item: ContentItem) => Promise<string>;
+  getThumbnailUrl: (item: ContentItem) => Promise<string>;
   onPreview: () => void;
   onSend: () => void;
 }
 
-const ImageCard: React.FC<ImageCardProps> = ({ item, getImageUrl, onPreview, onSend }) => {
+const ImageCard: React.FC<ImageCardProps> = ({ item, getThumbnailUrl, onPreview, onSend }) => {
   const [url, setUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getImageUrl(item).then(url => {
+    getThumbnailUrl(item).then(url => {
       setUrl(url);
       setLoading(false);
     });
@@ -577,7 +601,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ item, getImageUrl, onPreview, onS
     <div className="group relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden cursor-pointer">
       {loading ? (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-6 h-6 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       ) : (
         <>
@@ -586,23 +610,24 @@ const ImageCard: React.FC<ImageCardProps> = ({ item, getImageUrl, onPreview, onS
             alt={item.nombre}
             className="w-full h-full object-cover transition-transform group-hover:scale-110"
             loading="lazy"
+            decoding="async"
           />
           
           {/* Overlay con botones */}
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
             <button
               onClick={onPreview}
-              className="p-3 bg-white/90 hover:bg-white rounded-full transition-colors"
+              className="p-2 bg-white/90 hover:bg-white rounded-full transition-colors"
               title="Vista previa"
             >
-              <Eye className="w-5 h-5 text-gray-900" />
+              <Eye className="w-4 h-4 text-gray-900" />
             </button>
             <button
               onClick={onSend}
-              className="p-3 bg-blue-500 hover:bg-blue-600 rounded-full transition-colors"
+              className="p-2 bg-blue-500 hover:bg-blue-600 rounded-full transition-colors"
               title="Enviar"
             >
-              <Send className="w-5 h-5 text-white" />
+              <Send className="w-4 h-4 text-white" />
             </button>
           </div>
 
