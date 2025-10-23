@@ -2714,6 +2714,24 @@ const LiveChatCanvas: React.FC = () => {
           }));
 
           scrollToBottom('smooth');
+
+          // 🔄 REFRESH SILENCIOSO después de 16 segundos
+          // (promedio de ejecución n8n = 15s + 1s buffer)
+          setTimeout(async () => {
+            try {
+              // Solo refrescar si seguimos en la misma conversación
+              if (selectedConversation?.id === conversationId) {
+                
+                // Recargar mensajes desde la base de datos
+                await loadMessagesAndBlocks(conversationId, selectedConversation.prospecto_id);
+                
+                // Scroll suave al final para mostrar la imagen real
+                setTimeout(() => scrollToBottom('smooth'), 300);
+              }
+            } catch (error) {
+              console.error('❌ Error en refresh silencioso después de enviar imagen:', error);
+            }
+          }, 16000); // 16 segundos
         }}
       />
     </div>
