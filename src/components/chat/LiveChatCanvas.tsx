@@ -36,6 +36,7 @@ import { uchatService } from '../../services/uchatService';
 import { MultimediaMessage, needsBubble } from './MultimediaMessage';
 import { ImageCatalogModal } from './ImageCatalogModal';
 import { ParaphraseModal } from './ParaphraseModal';
+import { ProspectDetailSidebar } from './ProspectDetailSidebar';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -116,6 +117,7 @@ const LiveChatCanvas: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [sendingToConversation, setSendingToConversation] = useState<string | null>(null);
   const [showImageCatalog, setShowImageCatalog] = useState(false);
+  const [showProspectSidebar, setShowProspectSidebar] = useState(false);
   
   // Estado para modal de parafraseo con IA
   const [showParaphraseModal, setShowParaphraseModal] = useState(false);
@@ -2415,7 +2417,11 @@ const LiveChatCanvas: React.FC = () => {
             }}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
+              <div 
+                className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg p-2 -m-2 transition-colors"
+                onClick={() => setShowProspectSidebar(true)}
+                title="Click para ver detalles del prospecto"
+              >
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm">
                   <span className="text-sm font-semibold text-white">
                     {selectedConversation.customer_name?.charAt(0).toUpperCase()}
@@ -2798,6 +2804,15 @@ const LiveChatCanvas: React.FC = () => {
           setShowParaphraseModal(false);
         }}
       />
+
+      {/* Sidebar de Detalles del Prospecto */}
+      {selectedConversation && (
+        <ProspectDetailSidebar
+          isOpen={showProspectSidebar}
+          onClose={() => setShowProspectSidebar(false)}
+          prospectoId={selectedConversation.prospecto_id}
+        />
+      )}
     </div>
   );
 };
