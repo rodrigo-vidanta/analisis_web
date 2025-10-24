@@ -28,13 +28,18 @@ import {
 import { analysisSupabase } from '../../config/analysisSupabase';
 
 interface CallHistory {
-  id: string;
+  call_id: string;
   fecha_llamada: string;
   duracion_segundos: number;
-  estado_llamada: string;
-  razon_finalizacion: string;
-  summary?: string;
-  datos_llamada?: any;
+  es_venta_exitosa: boolean;
+  call_status: string;
+  tipo_llamada: string;
+  nivel_interes: string;
+  probabilidad_cierre: number;
+  precio_ofertado: string;
+  costo_total: string;
+  tiene_feedback: boolean;
+  feedback_resultado: string;
 }
 
 interface ProspectData {
@@ -110,8 +115,21 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
     setLoadingCalls(true);
     try {
       const { data, error } = await analysisSupabase
-        .from('llamadas')
-        .select('*')
+        .from('llamadas_ventas')
+        .select(`
+          call_id,
+          fecha_llamada,
+          duracion_segundos,
+          es_venta_exitosa,
+          call_status,
+          tipo_llamada,
+          nivel_interes,
+          probabilidad_cierre,
+          precio_ofertado,
+          costo_total,
+          tiene_feedback,
+          feedback_resultado
+        `)
         .eq('prospecto_id', prospectoId)
         .order('fecha_llamada', { ascending: false })
         .limit(10);
@@ -165,8 +183,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   };
 
   const getCallStatusIcon = (status: string) => {
-    const statusLower = status.toLowerCase();
-    if (statusLower.includes('completada') || statusLower.includes('completed')) {
+    const statusLower = status?.toLowerCase() || '';
+    if (statusLower.includes('completada') || statusLower.includes('completed') || statusLower.includes('finalizada')) {
       return <CheckCircle className="w-4 h-4 text-green-500" />;
     } else if (statusLower.includes('fallida') || statusLower.includes('failed') || statusLower.includes('no contest')) {
       return <XCircle className="w-4 h-4 text-red-500" />;
@@ -177,8 +195,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   };
 
   const getCallStatusColor = (status: string): string => {
-    const statusLower = status.toLowerCase();
-    if (statusLower.includes('completada') || statusLower.includes('completed')) {
+    const statusLower = status?.toLowerCase() || '';
+    if (statusLower.includes('completada') || statusLower.includes('completed') || statusLower.includes('finalizada')) {
       return 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300';
     } else if (statusLower.includes('fallida') || statusLower.includes('failed')) {
       return 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300';
@@ -198,7 +216,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10002]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
           />
 
           {/* Sidebar */}
@@ -207,7 +225,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full w-[500px] bg-white dark:bg-gray-900 shadow-2xl z-[10003] flex flex-col"
+            className="fixed right-0 top-0 h-full w-[500px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col"
           >
             {/* Header */}
             <motion.div 
@@ -487,7 +505,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                 >
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <PhoneCall size={18} />
-                    Historial de Llamadas
+                    Historial de Llamadas ({callHistory.length})
                   </h3>
                   {loadingCalls ? (
                     <div className="text-center py-4">
@@ -496,16 +514,16 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                     </div>
                   ) : callHistory.length > 0 ? (
                     <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {callHistory.map((call, index) => (
+                      {callHistory.map((call) => (
                         <div 
-                          key={call.id}
+                          key={call.call_id}
                           className="bg-white dark:bg-gray-700 rounded-lg p-3 space-y-2 border border-gray-200 dark:border-gray-600"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              {getCallStatusIcon(call.estado_llamada)}
-                              <span className={`text-xs font-medium px-2 py-1 rounded ${getCallStatusColor(call.estado_llamada)}`}>
-                                {call.estado_llamada}
+                              {getCallStatusIcon(call.call_status)}
+                              <span className={`text-xs font-medium px-2 py-1 rounded ${getCallStatusColor(call.call_status)}`}>
+                                {call.call_status}
                               </span>
                             </div>
                             <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
@@ -525,17 +543,31 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                             })}
                           </div>
 
-                          {call.razon_finalizacion && (
-                            <div className="text-xs text-gray-700 dark:text-gray-300">
-                              <span className="font-medium">Razón: </span>
-                              {call.razon_finalizacion}
-                            </div>
-                          )}
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            {call.nivel_interes && (
+                              <div>
+                                <span className="text-gray-500 dark:text-gray-400">Interés: </span>
+                                <span className="font-medium text-gray-900 dark:text-white">{call.nivel_interes}</span>
+                              </div>
+                            )}
+                            {call.precio_ofertado && call.precio_ofertado !== '$0' && (
+                              <div>
+                                <span className="text-gray-500 dark:text-gray-400">Precio: </span>
+                                <span className="font-medium text-gray-900 dark:text-white">{call.precio_ofertado}</span>
+                              </div>
+                            )}
+                            {call.feedback_resultado && (
+                              <div className="col-span-3">
+                                <span className="text-gray-500 dark:text-gray-400">Resultado: </span>
+                                <span className="font-medium text-gray-900 dark:text-white">{call.feedback_resultado}</span>
+                              </div>
+                            )}
+                          </div>
 
-                          {call.summary && (
-                            <div className="text-xs text-gray-700 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                              <span className="font-medium">Resumen: </span>
-                              {call.summary}
+                          {call.es_venta_exitosa && (
+                            <div className="flex items-center gap-1 text-xs bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                              <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                              <span className="text-green-700 dark:text-green-300 font-medium">Venta Exitosa</span>
                             </div>
                           )}
                         </div>
