@@ -5,8 +5,8 @@
 **Módulo:** Sistema de monitoreo en tiempo real de llamadas de ventas
 **Propósito:** Visualización y gestión de llamadas activas con clasificación automática inteligente
 **Base de datos:** `glsmifhkoaifvaegsozd.supabase.co` (Base Natalia - Análisis IA)
-**Versión:** 5.2.0 (Octubre 2025)
-**Estado:** ✅ Producción con vista optimizada
+**Versión:** 5.3.0 (Octubre 2025)
+**Estado:** ✅ Producción con vista optimizada y DataGrid
 
 ---
 
@@ -188,15 +188,19 @@ numero_noches, mes_preferencia, edad, etapa, id_uchat, nombre_whatsapp
 ## 🎨 COMPONENTES FRONTEND
 
 ### **LiveMonitorKanban** (`src/components/analysis/LiveMonitorKanban.tsx`)
-**Componente principal Kanban** - 2,774 líneas
+**Componente principal Kanban** - 2,978 líneas
 
 **Características:**
-- **Vista Kanban** con columnas por estado
+- **Selector de Vista:** Toggle entre vista Kanban y DataGrid con persistencia en localStorage
+- **Vista Kanban** con columnas por estado (5 checkpoints)
+- **Vista DataGrid** con dos grids (Etapa 5 y Etapas 1-4)
+- **Tab "Finalizadas":** Nueva pestaña para llamadas completadas
 - **Clasificación automática** con toggle optimizado/legacy
 - **Audio profesional** con Tone.js integrado
 - **Controles VAPI** para llamadas activas
 - **Transferencia agentes** con modal dedicado
 - **Retroalimentación** con sistema de comentarios
+- **Modal de Finalización** con 3 opciones (Perdida/Finalizada/Marcar más tarde)
 
 **Estados internos:**
 ```typescript
@@ -206,6 +210,49 @@ interface KanbanCall extends LiveCallData {
   destino_preferencia?: string;
   // ... múltiples campos adicionales
 }
+```
+
+**Modos de Vista:**
+- **Kanban:** Vista tradicional con columnas por checkpoint
+- **DataGrid:** Vista de tabla con dos grids (Etapa 5 y Etapas 1-4)
+
+### **LiveMonitorDataGrid** (`src/components/analysis/LiveMonitorDataGrid.tsx`)
+**Componente de tabla reutilizable** - 243 líneas (NUEVO en v5.3.0)
+
+**Características:**
+- **Tabla responsive** con diseño profesional
+- **Hover en avatar:** Muestra icono de check para finalización rápida
+- **Click en fila:** Abre modal de detalle de llamada
+- **Badges visuales:** Estado, interés, checkpoint con colores
+- **Iconos informativos:** Lucide React para mejor UX
+- **Sorting:** Ordenamiento por múltiples columnas
+
+**Columnas:**
+| Columna | Descripción | Ancho |
+|---------|-------------|-------|
+| Cliente | Avatar + nombre + ciudad | 250px |
+| Teléfono | Número WhatsApp | 150px |
+| Checkpoint | Badge con color por etapa | 200px |
+| Duración | Formato MM:SS | 100px |
+| Estado | Badge activa/transferida/perdida | 120px |
+| Interés | Badge alto/medio/bajo | 120px |
+| Acción | Botón de finalización | 80px |
+
+### **FinalizationModal** (`src/components/analysis/FinalizationModal.tsx`)
+**Modal de finalización de llamadas** - 148 líneas (NUEVO en v5.3.0)
+
+**Características:**
+- **3 opciones circulares:**
+  - 🔴 **Perdida:** Marca como no exitosa
+  - ✅ **Finalizada:** Marca como exitosa
+  - ⏰ **Marcar más tarde:** Cierra sin cambios
+- **Actualización automática** de base de datos
+- **Movimiento automático** a tab "Finalizadas"
+- **UI moderna** con animaciones y hover effects
+
+**Estados de Finalización:**
+```typescript
+type FinalizationType = 'perdida' | 'finalizada' | 'mas-tarde';
 ```
 
 ### **LiveMonitor** (`src/components/analysis/LiveMonitor.tsx`)
@@ -469,10 +516,14 @@ VITE_DEBUG_MIXED_SOURCES=true
 
 ---
 
-## 📋 ESTADO ACTUAL (v5.2.0)
+## 📋 ESTADO ACTUAL (v5.3.0)
 
 ### ✅ **Funcionalidades Operativas**
 - Vista Kanban completamente funcional con clasificación automática
+- Vista DataGrid dual con grids por checkpoint (Etapa 5 y Etapas 1-4)
+- Selector de vista con persistencia en localStorage
+- Tab "Llamadas Finalizadas" para gestión completa del ciclo de vida
+- Modal de finalización con 3 opciones (Perdida/Finalizada/Marcar más tarde)
 - Sincronización en tiempo real con VAPI y base de datos
 - Procesamiento de audio profesional con Tone.js
 - Sistema de transferencia y retroalimentación completo
@@ -483,11 +534,13 @@ VITE_DEBUG_MIXED_SOURCES=true
 - **Clasificación automática** requiere ajuste fino según casos específicos
 - **Vistas materializadas** necesitan mantenimiento ocasional
 
-### 🔄 **Mejoras Implementadas**
-- **Vista optimizada** reduce consultas en 50%
-- **Clasificación automática** elimina lógica compleja del frontend
-- **Realtime mejorado** con triggers personalizados
-- **Audio profesional** integrado completamente
+### 🔄 **Mejoras Implementadas (v5.3.0)**
+- **Selector de vista** Kanban/DataGrid con persistencia
+- **DataGrid responsive** con diseño profesional
+- **Hover interactivo** en avatares para finalización rápida
+- **Modal de 3 opciones** para finalización de llamadas
+- **Tab dedicado** para llamadas finalizadas
+- **Badges visuales** para mejor UX
 
 ---
 
@@ -498,6 +551,8 @@ VITE_DEBUG_MIXED_SOURCES=true
 - **src/services/liveMonitorOptimizedService.ts** - Servicio optimizado
 - **src/services/liveMonitorKanbanOptimized.ts** - Adaptador Kanban
 - **src/components/analysis/LiveMonitorKanban.tsx** - Componente principal
+- **src/components/analysis/LiveMonitorDataGrid.tsx** - Componente DataGrid (NUEVO v5.3.0)
+- **src/components/analysis/FinalizationModal.tsx** - Modal de finalización (NUEVO v5.3.0)
 - **src/components/analysis/LiveMonitor.tsx** - Componente legacy
 - **src/components/linear/LinearLiveMonitor.tsx** - Versión Linear
 - **scripts/livemonitor-utils/** - Scripts de utilidad y diagnóstico
@@ -505,7 +560,7 @@ VITE_DEBUG_MIXED_SOURCES=true
 
 ---
 
-**Total líneas código analizado:** ~8,500 líneas
-**Archivos principales:** 9 archivos core + 3 servicios + esquema BD completo
+**Total líneas código analizado:** ~9,200 líneas
+**Archivos principales:** 11 archivos core + 3 servicios + esquema BD completo
 **Integraciones:** 4 sistemas externos + 3 internos
 **Complejidad:** Muy Alta (tiempo real + IA + audio + múltiples protocolos)

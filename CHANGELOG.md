@@ -1,5 +1,96 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.11.0 - Live Monitor: Vista DataGrid + Gestión de Finalizaciones (Octubre 24, 2025)
+
+### 📊 **LIVE MONITOR - NUEVA VISTA DATAGRID CON SELECTOR**
+
+#### 🎨 **Selector de Vista Kanban/DataGrid**
+- **Toggle interactivo**: Selector de vista entre Kanban y DataGrid con persistencia en localStorage
+- **Iconos profesionales**: SVG de alta calidad para cada modo de vista
+- **Persistencia automática**: La preferencia se guarda en `localStorage` con key `liveMonitor-viewMode`
+- **Restauración inteligente**: Al recargar la página se restaura la última vista seleccionada
+
+#### 📋 **Vista DataGrid Dual**
+- **Grid Superior**: Llamadas en Etapa 5 (Presentación e Oportunidad)
+  - Filtrado automático por `checkpoint #5`
+  - Título: "🎯 Presentación e Oportunidad (Etapa 5)"
+- **Grid Inferior**: Llamadas en Etapas 1-4
+  - Ordenadas de mayor a menor checkpoint (4 → 3 → 2 → 1)
+  - Título: "📋 Llamadas en Proceso (Etapas 1-4)"
+- **Diseño responsive**: Optimizado para diferentes tamaños de pantalla
+- **7 columnas informativas**: Cliente, Teléfono, Checkpoint, Duración, Estado, Interés, Acción
+
+#### 🏁 **Nueva Pestaña "Llamadas Finalizadas"**
+- **Tab dedicado**: Quinta pestaña en la barra de navegación
+- **Vista unificada**: DataGrid para llamadas completadas (finalizadas o perdidas)
+- **Contador en tiempo real**: Badge con número de llamadas finalizadas
+- **Filtrado automático**: Solo muestra llamadas con estado `finalizada` o `perdida`
+
+#### ✅ **Modal de Finalización de Llamadas**
+- **Hover interactivo**: Avatar del prospecto cambia a icono de check al pasar el mouse
+- **3 opciones circulares con colores:**
+  - 🔴 **Perdida (Rojo)**: Marca la llamada como no exitosa
+  - ✅ **Finalizada (Verde)**: Marca la llamada como exitosa
+  - ⏰ **Marcar más tarde (Azul)**: Cierra el modal sin realizar cambios
+- **Actualización automática de BD**: Campos `call_status`, `feedback_resultado`, `tiene_feedback`, `ended_at`
+- **Movimiento automático**: Las llamadas finalizadas se mueven al tab "Finalizadas"
+- **UI moderna**: Diseño con animaciones suaves y efectos hover
+
+#### 📊 **Características del Componente DataGrid**
+- **Avatar interactivo**: Hover muestra icono de check para finalización rápida
+- **Click en fila**: Abre el mismo modal de detalle que la vista Kanban
+- **Badges visuales con colores**:
+  - Checkpoint: Azul (1), Morado (2), Verde (3), Amarillo (4), Rojo (5)
+  - Estado: Verde (activa), Azul (transferida), Rojo (perdida)
+  - Interés: Verde (alto), Amarillo (medio), Rojo (bajo)
+- **Iconos informativos**: Teléfono, reloj, trending up para mejor UX
+- **Formato de duración**: MM:SS para fácil lectura
+
+#### 🔧 **Mejoras Técnicas**
+- **Nuevos componentes modulares**:
+  - `LiveMonitorDataGrid.tsx` (243 líneas) - Componente de tabla reutilizable
+  - `FinalizationModal.tsx` (148 líneas) - Modal de finalización con 3 opciones
+- **Funciones helper especializadas**:
+  - `getStage5Calls()`: Filtra llamadas de etapa 5
+  - `getStages1to4Calls()`: Filtra y ordena llamadas de etapas 1-4
+  - `handleCallFinalization()`: Gestiona la finalización con actualización de BD
+  - `openFinalizationModal()`: Abre el modal con la llamada seleccionada
+- **Tipado completo con TypeScript**: Interfaces bien definidas
+- **Integración con Lucide React**: Iconos modernos y ligeros
+
+#### 🗄️ **Actualizaciones de Base de Datos**
+- **Campos utilizados para finalización**:
+  - `call_status`: 'finalizada' | 'perdida' | 'activa' | ...
+  - `feedback_resultado`: Tipo de finalización seleccionado
+  - `feedback_comentarios`: Comentarios automáticos según el tipo
+  - `tiene_feedback`: Boolean que indica si se procesó el feedback
+  - `ended_at`: Timestamp de finalización de la llamada
+
+#### 💾 **Gestión de Estado y Persistencia**
+- **Estados nuevos agregados**:
+  - `viewMode`: 'kanban' | 'datagrid'
+  - `showFinalizationModal`: boolean
+  - `callToFinalize`: KanbanCall | null
+  - `finalizationLoading`: boolean
+  - `finishedCalls`: KanbanCall[]
+- **Persistencia con localStorage**: Preferencia de vista se guarda automáticamente
+- **Sincronización inteligente**: Recarga de llamadas después de finalizar
+
+#### 📝 **Archivos Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` (+180 líneas)
+- `src/components/analysis/LiveMonitorDataGrid.tsx` (nuevo, 243 líneas)
+- `src/components/analysis/FinalizationModal.tsx` (nuevo, 148 líneas)
+- `src/components/analysis/CHANGELOG_LIVEMONITOR.md` (actualizado a v5.3.0)
+- `src/components/analysis/README_LIVEMONITOR.md` (actualizado a v5.3.0)
+- `LIVE_MONITOR_V5.3.0_SUMMARY.md` (documentación completa de implementación)
+
+#### 🔗 **Documentación Técnica**
+- Ver detalles completos en: `src/components/analysis/README_LIVEMONITOR.md`
+- Ver historial de cambios en: `src/components/analysis/CHANGELOG_LIVEMONITOR.md`
+- Ver resumen de implementación en: `LIVE_MONITOR_V5.3.0_SUMMARY.md`
+
+---
+
 ## 🚀 Versión 5.10.0 - Live Chat: Cache Persistente de Imágenes (Octubre 24, 2025)
 
 ### 💬 **LIVE CHAT - OPTIMIZACIÓN DE RENDIMIENTO**

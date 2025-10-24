@@ -20,6 +20,8 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { liveMonitorKanbanOptimized } from '../../services/liveMonitorKanbanOptimized';
 import { useTheme } from '../../hooks/useTheme';
+import { LiveMonitorDataGrid } from './LiveMonitorDataGrid';
+import { FinalizationModal } from './FinalizationModal';
 
 // Función para reproducir sonido de checkpoint completado (4 repeticiones)
 const playCheckpointCompleteSound = () => {
@@ -134,10 +136,21 @@ const USE_OPTIMIZED_VIEW = true; // Toggle para activar/desactivar la vista opti
 const DEBUG_MIXED_SOURCES = true; // Debug para ver qué datos se están mostrando
 
 const LiveMonitorKanban: React.FC = () => {
+  // Estado para el tipo de vista (Kanban o DataGrid)
+  const [viewMode, setViewMode] = useState<'kanban' | 'datagrid'>(() => {
+    const saved = localStorage.getItem('liveMonitor-viewMode');
+    return (saved as 'kanban' | 'datagrid') || 'kanban';
+  });
+
+  // Guardar preferencia de vista en localStorage
+  useEffect(() => {
+    localStorage.setItem('liveMonitor-viewMode', viewMode);
+  }, [viewMode]);
+
   const [activeCalls, setActiveCalls] = useState<KanbanCall[]>([]);
   const [transferredCalls, setTransferredCalls] = useState<KanbanCall[]>([]);  // Renombrado de finishedCalls
   const [failedCalls, setFailedCalls] = useState<KanbanCall[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'active' | 'transferred' | 'failed' | 'all'>('active');  // Renombrado finished -> transferred
+  const [selectedTab, setSelectedTab] = useState<'active' | 'transferred' | 'failed' | 'all' | 'finished'>('active');  // Agregado finished tab
   const [allCalls, setAllCalls] = useState<KanbanCall[]>([]);
   const [selectedCall, setSelectedCall] = useState<KanbanCall | null>(null);
   const [viewedCalls, setViewedCalls] = useState<Set<string>>(new Set()); // Track de llamadas vistas en modal
@@ -264,6 +277,12 @@ const LiveMonitorKanban: React.FC = () => {
   const [customTransferText, setCustomTransferText] = useState('');
   const [useCustomText, setUseCustomText] = useState(false);
   
+  // Estados para modal de finalización de llamadas
+  const [showFinalizationModal, setShowFinalizationModal] = useState(false);
+  const [callToFinalize, setCallToFinalize] = useState<KanbanCall | null>(null);
+  const [finalizationLoading, setFinalizationLoading] = useState(false);
+  const [finishedCalls, setFinishedCalls] = useState<KanbanCall[]>([]);
+  
   // Estado para mostrar indicador de actualización
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
   const [hasRecentChanges, setHasRecentChanges] = useState(false);
@@ -330,6 +349,63 @@ const LiveMonitorKanban: React.FC = () => {
     setGlobalFeedbackType(resultado);
     setShowGlobalFeedbackModal(true);
     setGlobalFeedbackComment('');
+  };
+
+  // Función para manejar finalización de llamadas desde DataGrid
+  const handleCallFinalization = async (type: 'perdida' | 'finalizada' | 'mas-tarde') => {
+    if (!callToFinalize) return;
+
+    setFinalizationLoading(true);
+
+    try {
+      if (type === 'mas-tarde') {
+        // Solo cerrar el modal, no hacer cambios
+        setShowFinalizationModal(false);
+        setCallToFinalize(null);
+        return;
+      }
+
+      // Actualizar el estado de la llamada en la base de datos
+      const statusToUpdate = type === 'finalizada' ? 'finalizada' : 'perdida';
+      
+      await analysisSupabase
+        .from('llamadas_ventas')
+        .update({ 
+          call_status: statusToUpdate,
+          feedback_resultado: type,
+          feedback_comentarios: type === 'finalizada' ? 'Llamada finalizada exitosamente' : 'Llamada marcada como perdida',
+          tiene_feedback: true,
+          ended_at: new Date().toISOString()
+        })
+        .eq('call_id', callToFinalize.call_id);
+
+      // Mover la llamada a la lista de finalizadas
+      setFinishedCalls(prev => [...prev, callToFinalize]);
+      
+      // Removerla de las listas activas
+      setActiveCalls(prev => prev.filter(c => c.id !== callToFinalize.id));
+      setTransferredCalls(prev => prev.filter(c => c.id !== callToFinalize.id));
+      setFailedCalls(prev => prev.filter(c => c.id !== callToFinalize.id));
+
+      // Cerrar el modal
+      setShowFinalizationModal(false);
+      setCallToFinalize(null);
+
+      // Recargar las llamadas para mantener sincronización
+      await loadCalls(true, true);
+      
+    } catch (error) {
+      console.error('Error finalizando llamada:', error);
+      alert('Error al finalizar la llamada. Intenta nuevamente.');
+    } finally {
+      setFinalizationLoading(false);
+    }
+  };
+
+  // Función para abrir el modal de finalización
+  const openFinalizationModal = (call: KanbanCall) => {
+    setCallToFinalize(call);
+    setShowFinalizationModal(true);
   };
 
   // Mensajes predefinidos para transferencia
@@ -646,6 +722,32 @@ const LiveMonitorKanban: React.FC = () => {
   };
 
   // Cargar llamadas desde la VISTA OPTIMIZADA
+  // Funciones helper para separar llamadas por checkpoint (para DataGrid)
+  const getStage5Calls = (calls: KanbanCall[]): KanbanCall[] => {
+    return calls.filter(call => 
+      call.checkpoint_venta_actual?.toLowerCase().includes('checkpoint #5')
+    );
+  };
+
+  const getStages1to4Calls = (calls: KanbanCall[]): KanbanCall[] => {
+    const calls1to4 = calls.filter(call => {
+      const checkpoint = call.checkpoint_venta_actual?.toLowerCase() || '';
+      return checkpoint.includes('checkpoint #1') ||
+             checkpoint.includes('checkpoint #2') ||
+             checkpoint.includes('checkpoint #3') ||
+             checkpoint.includes('checkpoint #4');
+    });
+
+    // Ordenar de mayor a menor checkpoint (4, 3, 2, 1)
+    return calls1to4.sort((a, b) => {
+      const getCheckpointNum = (call: KanbanCall) => {
+        const match = call.checkpoint_venta_actual?.match(/checkpoint #(\d+)/i);
+        return match ? parseInt(match[1]) : 0;
+      };
+      return getCheckpointNum(b) - getCheckpointNum(a);
+    });
+  };
+
   const loadCalls = async (isRefresh = false, preserveRealtimeData = false) => {
     try {
       if (!isRefresh) {
@@ -1689,9 +1791,46 @@ const LiveMonitorKanban: React.FC = () => {
           </button>
         </div>
 
+        {/* Selector de Vista: Kanban vs DataGrid */}
+        <div className="mb-4 flex items-center justify-end gap-2">
+          <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Vista:</span>
+          <div className="inline-flex rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-1">
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                viewMode === 'kanban'
+                  ? 'bg-blue-500 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                </svg>
+                Kanban
+              </div>
+            </button>
+            <button
+              onClick={() => setViewMode('datagrid')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                viewMode === 'datagrid'
+                  ? 'bg-blue-500 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                DataGrid
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* Tabs */}
         <div className="corp-card corp-glow overflow-hidden">
-          <div className="grid grid-cols-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="grid grid-cols-5 border-b border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setSelectedTab('active')}
               className={`px-6 py-4 text-sm font-medium transition-colors ${
@@ -1767,11 +1906,30 @@ const LiveMonitorKanban: React.FC = () => {
                 </span>
               </div>
             </button>
+
+            <button
+              onClick={() => setSelectedTab('finished')}
+              className={`px-6 py-4 text-sm font-medium transition-colors ${
+                selectedTab === 'finished'
+                  ? 'bg-gray-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400 border-b-2 border-gray-500'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Finalizadas</span>
+                <span className="bg-gray-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {finishedCalls.length}
+                </span>
+              </div>
+            </button>
           </div>
 
           {/* Contenido de tabs */}
           <div className="p-6">
-            {selectedTab === 'active' && (
+            {selectedTab === 'active' && viewMode === 'kanban' && (
               <div className="rounded-lg overflow-hidden" style={{ minHeight: 'calc(100vh - 280px)' }}>
                 {/* Headers de columnas */}
                 <div className="grid grid-cols-5 gap-0">
@@ -1828,6 +1986,27 @@ const LiveMonitorKanban: React.FC = () => {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Vista DataGrid para Llamadas Activas */}
+            {selectedTab === 'active' && viewMode === 'datagrid' && (
+              <div className="space-y-6">
+                {/* DataGrid Superior: Etapa 5 (Presentación e Oportunidad) */}
+                <LiveMonitorDataGrid
+                  calls={getStage5Calls(activeCalls)}
+                  title="🎯 Presentación e Oportunidad (Etapa 5)"
+                  onCallClick={(call) => setSelectedCall(call)}
+                  onFinalize={openFinalizationModal}
+                />
+
+                {/* DataGrid Inferior: Etapas 1-4 */}
+                <LiveMonitorDataGrid
+                  calls={getStages1to4Calls(activeCalls)}
+                  title="📋 Llamadas en Proceso (Etapas 1-4)"
+                  onCallClick={(call) => setSelectedCall(call)}
+                  onFinalize={openFinalizationModal}
+                />
               </div>
             )}
 
@@ -2714,6 +2893,18 @@ const LiveMonitorKanban: React.FC = () => {
           </div>
         )}
 
+        {/* Tab Finalizadas */}
+        {selectedTab === 'finished' && (
+          <div className="overflow-x-auto">
+            <LiveMonitorDataGrid
+              calls={finishedCalls}
+              title="🏁 Llamadas Finalizadas"
+              onCallClick={(call) => setSelectedCall(call)}
+              onFinalize={openFinalizationModal}
+            />
+          </div>
+        )}
+
         {/* Modal de Feedback Global */}
         {showGlobalFeedbackModal && (
           <div className="fixed inset-0 bg-black bg-opacity-75 z-[80] flex items-center justify-center p-4">
@@ -2767,6 +2958,18 @@ const LiveMonitorKanban: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Modal de Finalización */}
+        <FinalizationModal
+          isOpen={showFinalizationModal}
+          onClose={() => {
+            setShowFinalizationModal(false);
+            setCallToFinalize(null);
+          }}
+          onFinalize={handleCallFinalization}
+          loading={finalizationLoading}
+          callName={callToFinalize?.nombre_completo || callToFinalize?.nombre_whatsapp || 'sin nombre'}
+        />
       </div>
     </div>
   );
