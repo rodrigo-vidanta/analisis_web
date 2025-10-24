@@ -116,7 +116,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
 
   const loadCallHistory = async () => {
     setLoadingCalls(true);
-    console.log('🔍 DEBUG: Cargando historial de llamadas para prospecto_id:', prospectoId);
+    console.log('🔍 DEBUG: Cargando historial de llamadas para prospectoId:', prospectoId);
     try {
       const { data, error } = await analysisSupabase
         .from('llamadas_ventas')
@@ -134,9 +134,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
           tiene_feedback,
           feedback_resultado
         `)
-        .eq('prospecto_id', prospectoId)
-        .order('fecha_llamada', { ascending: false })
-        .limit(10);
+        .eq('prospecto', prospectoId) // ✅ CORRECTO: La columna se llama 'prospecto', NO 'prospecto_id'
+        .order('fecha_llamada', { ascending: false });
 
       if (error) {
         console.error('❌ Error cargando historial de llamadas:', error);
