@@ -74,11 +74,64 @@ const getFileTypeFromAdjunto = (adjunto: Adjunto): 'image' | 'audio' | 'video' |
 
 interface MultimediaCache {
   url: string;
-  expiresAt: number;
+  timestamp: number;
 }
 
-// Cache global de URLs (con expiración de 25 minutos para regenerar antes de los 30)
-const urlCache = new Map<string, MultimediaCache>();
+// Cache global con localStorage persistente
+const getFromCache = (key: string): string | null => {
+  // 1️⃣ Revisar localStorage primero
+  const cachedData = localStorage.getItem(`media_${key}`);
+  if (cachedData) {
+    try {
+      const parsed: MultimediaCache = JSON.parse(cachedData);
+      const now = Date.now();
+      // Cache válido por 25 minutos
+      if (parsed.url && parsed.timestamp && (now - parsed.timestamp) < 25 * 60 * 1000) {
+        return parsed.url;
+      } else {
+        // Cache expirado
+        localStorage.removeItem(`media_${key}`);
+      }
+    } catch (e) {
+      localStorage.removeItem(`media_${key}`);
+    }
+  }
+  return null;
+};
+
+const saveToCache = (key: string, url: string): void => {
+  try {
+    localStorage.setItem(`media_${key}`, JSON.stringify({
+      url,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    // Si localStorage está lleno, limpiar entradas antiguas
+    console.warn('localStorage full, cleaning old entries');
+    cleanOldCacheEntries();
+  }
+};
+
+const cleanOldCacheEntries = (): void => {
+  const now = Date.now();
+  const keysToRemove: string[] = [];
+  
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('media_')) {
+      try {
+        const data = JSON.parse(localStorage.getItem(key) || '{}');
+        if (!data.timestamp || (now - data.timestamp) > 25 * 60 * 1000) {
+          keysToRemove.push(key);
+        }
+      } catch (e) {
+        keysToRemove.push(key);
+      }
+    }
+  }
+  
+  keysToRemove.forEach(key => localStorage.removeItem(key));
+};
 
 const generateMediaUrl = async (adjunto: Adjunto): Promise<string> => {
   const filename = adjunto.filename || adjunto.archivo;
@@ -90,13 +143,13 @@ const generateMediaUrl = async (adjunto: Adjunto): Promise<string> => {
   
   const cacheKey = `${bucket}/${filename}`;
   
-  // Verificar cache
-  const cached = urlCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.url;
+  // 1️⃣ Verificar cache persistente
+  const cachedUrl = getFromCache(cacheKey);
+  if (cachedUrl) {
+    return cachedUrl;
   }
 
-  // Generar nueva URL
+  // 2️⃣ Generar nueva URL desde API
   try {
     const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
       method: 'POST',
@@ -123,11 +176,8 @@ const generateMediaUrl = async (adjunto: Adjunto): Promise<string> => {
       throw new Error('No se recibió URL en la respuesta');
     }
 
-    // Guardar en cache (25 minutos = 1500000 ms)
-    urlCache.set(cacheKey, {
-      url,
-      expiresAt: Date.now() + (25 * 60 * 1000)
-    });
+    // 3️⃣ Guardar en cache persistente
+    saveToCache(cacheKey, url);
 
     return url;
   } catch (error) {
@@ -393,6 +443,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                   className={`${getImageClasses(key, 'sticker')} cursor-pointer hover:scale-105 transition-transform rounded-lg`}
                   onClick={() => window.open(url, '_blank')}
                   loading="lazy"
+                  decoding="async"
                   style={{ imageRendering: 'auto' }}
                 />
               </div>
@@ -407,6 +458,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                   className={`${getImageClasses(key, 'image')} rounded-lg cursor-pointer hover:opacity-90 transition-opacity`}
                   onClick={() => window.open(url, '_blank')}
                   loading="lazy"
+                  decoding="async"
                 />
                 <a
                   href={url}

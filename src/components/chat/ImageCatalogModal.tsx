@@ -146,14 +146,35 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
     }
   };
 
-  // Generar URL de imagen
+  // Generar URL de imagen con cache persistente
   const getImageUrl = async (item: ContentItem): Promise<string> => {
-    const cacheKey = `${item.bucket}/${item.nombre_archivo}`;
+    const cacheKey = `img_${item.bucket}/${item.nombre_archivo}`;
     
+    // 1️⃣ Revisar memoria (más rápido)
     if (imageUrls[cacheKey]) {
       return imageUrls[cacheKey];
     }
 
+    // 2️⃣ Revisar localStorage (persistente)
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        const now = Date.now();
+        // Cache válido por 25 minutos (5min antes de expirar)
+        if (parsed.url && parsed.timestamp && (now - parsed.timestamp) < 25 * 60 * 1000) {
+          setImageUrls(prev => ({ ...prev, [cacheKey]: parsed.url }));
+          return parsed.url;
+        } else {
+          // Cache expirado, eliminar
+          localStorage.removeItem(cacheKey);
+        }
+      } catch (e) {
+        localStorage.removeItem(cacheKey);
+      }
+    }
+
+    // 3️⃣ Generar nueva URL desde API
     try {
       const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
         method: 'POST',
@@ -171,7 +192,13 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       const data = await response.json();
       const url = data[0]?.url || data.url;
       
+      // Guardar en memoria + localStorage
       setImageUrls(prev => ({ ...prev, [cacheKey]: url }));
+      localStorage.setItem(cacheKey, JSON.stringify({
+        url,
+        timestamp: Date.now()
+      }));
+      
       return url;
     } catch (error) {
       console.error('Error generating image URL:', error);
@@ -179,23 +206,59 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
     }
   };
 
-  // Generar URL de thumbnail (optimizado para grid)
+  // Generar URL de thumbnail (optimizado para grid) con cache persistente
   const getThumbnailUrl = async (item: ContentItem): Promise<string> => {
-    const thumbnailCacheKey = `thumbnail_${item.bucket}/${item.nombre_archivo}`;
+    const thumbnailCacheKey = `thumb_${item.bucket}/${item.nombre_archivo}`;
     
+    // 1️⃣ Revisar memoria
     if (imageUrls[thumbnailCacheKey]) {
       return imageUrls[thumbnailCacheKey];
     }
 
+    // 2️⃣ Revisar localStorage
+    const cachedData = localStorage.getItem(thumbnailCacheKey);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        const now = Date.now();
+        if (parsed.url && parsed.timestamp && (now - parsed.timestamp) < 25 * 60 * 1000) {
+          setImageUrls(prev => ({ ...prev, [thumbnailCacheKey]: parsed.url }));
+          return parsed.url;
+        } else {
+          localStorage.removeItem(thumbnailCacheKey);
+        }
+      } catch (e) {
+        localStorage.removeItem(thumbnailCacheKey);
+      }
+    }
+
     try {
-      // Obtener URL base
+      // 3️⃣ Generar URL base (reutiliza cache de getImageUrl)
       const baseUrl = await getImageUrl(item);
       
-      // Para imágenes de Supabase/S3, intentar agregar transformación
-      // Si no funciona, usar URL completa (el navegador la redimensionará con CSS)
-      const thumbnailUrl = baseUrl;
+      // Para thumbnails, usar URL con parámetros de transformación si es posible
+      // Cloudflare Images, Imgix, o servicios similares soportan parámetros de query
+      let thumbnailUrl = baseUrl;
       
+      // Si es una URL de Supabase Storage, intentar agregar transformación
+      if (baseUrl.includes('supabase.co/storage')) {
+        // Supabase soporta transformaciones de imagen
+        thumbnailUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}width=300&quality=80`;
+      }
+      // Si es Cloudflare R2 con transformaciones
+      else if (baseUrl.includes('cloudflare')) {
+        thumbnailUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}width=300&quality=80`;
+      }
+      // Para otros servicios, el navegador redimensionará con CSS
+      // pero marcamos la imagen como decoding="async" para mejor rendimiento
+      
+      // Guardar en memoria + localStorage
       setImageUrls(prev => ({ ...prev, [thumbnailCacheKey]: thumbnailUrl }));
+      localStorage.setItem(thumbnailCacheKey, JSON.stringify({
+        url: thumbnailUrl,
+        timestamp: Date.now()
+      }));
+      
       return thumbnailUrl;
     } catch (error) {
       console.error('Error generating thumbnail URL:', error);
