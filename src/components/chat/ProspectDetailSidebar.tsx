@@ -26,6 +26,7 @@ import {
   PhoneMissed
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { CallDetailModal } from './CallDetailModal';
 
 interface CallHistory {
   call_id: string;
@@ -88,6 +89,10 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   const [callHistory, setCallHistory] = useState<CallHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingCalls, setLoadingCalls] = useState(true);
+  
+  // Estados para el modal de detalle de llamada
+  const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && prospectoId) {
@@ -151,6 +156,11 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
     } finally {
       setLoadingCalls(false);
     }
+  };
+
+  const handleOpenCallDetail = (callId: string) => {
+    setSelectedCallId(callId);
+    setCallDetailModalOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -527,7 +537,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                       {callHistory.map((call) => (
                         <div 
                           key={call.call_id}
-                          className="bg-white dark:bg-gray-700 rounded-lg p-3 space-y-2 border border-gray-200 dark:border-gray-600"
+                          onClick={() => handleOpenCallDetail(call.call_id)}
+                          className="bg-white dark:bg-gray-700 rounded-lg p-3 space-y-2 border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -631,6 +642,16 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
           </motion.div>
         </>
       )}
+
+      {/* Modal de Detalle de Llamada */}
+      <CallDetailModal
+        callId={selectedCallId}
+        isOpen={callDetailModalOpen}
+        onClose={() => {
+          setCallDetailModalOpen(false);
+          setSelectedCallId(null);
+        }}
+      />
     </AnimatePresence>
   );
 };
