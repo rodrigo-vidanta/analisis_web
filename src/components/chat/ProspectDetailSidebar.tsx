@@ -81,6 +81,9 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   onClose,
   prospectoId
 }) => {
+  console.log('🎯 ProspectDetailSidebar - prospectoId recibido:', prospectoId);
+  console.log('🎯 ProspectDetailSidebar - isOpen:', isOpen);
+  
   const [prospecto, setProspecto] = useState<ProspectData | null>(null);
   const [callHistory, setCallHistory] = useState<CallHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +116,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
 
   const loadCallHistory = async () => {
     setLoadingCalls(true);
+    console.log('🔍 DEBUG: Cargando historial de llamadas para prospecto_id:', prospectoId);
     try {
       const { data, error } = await analysisSupabase
         .from('llamadas_ventas')
@@ -134,7 +138,14 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         .order('fecha_llamada', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error cargando historial de llamadas:', error);
+        throw error;
+      }
+      
+      console.log('✅ Llamadas cargadas:', data?.length || 0, 'llamadas encontradas');
+      console.log('📊 Data de llamadas:', data);
+      
       setCallHistory(data || []);
     } catch (error) {
       console.error('Error cargando historial de llamadas:', error);

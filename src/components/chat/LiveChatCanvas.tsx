@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Search, 
   Phone,
@@ -380,8 +381,8 @@ const LiveChatCanvas: React.FC = () => {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
-          schema: 'public',
+        event: 'UPDATE',
+        schema: 'public',
           table: 'prospectos',
           filter: undefined // Escuchar TODOS los updates
         },
@@ -390,7 +391,7 @@ const LiveChatCanvas: React.FC = () => {
           const prospectoId = updatedProspecto.id;
           
           // Actualizar la conversación correspondiente si está en la lista
-          setConversations(prev => {
+        setConversations(prev => {
             return prev.map(conv => {
               if (conv.prospecto_id === prospectoId) {
                 // ✅ PRIORIDAD: nombre > nombre_whatsapp > whatsapp
@@ -398,14 +399,14 @@ const LiveChatCanvas: React.FC = () => {
                                 updatedProspecto.nombre_whatsapp?.trim() || 
                                 updatedProspecto.whatsapp;
                 
-                return {
-                  ...conv,
+              return {
+                ...conv,
                   customer_name: newName,
                   nombre_contacto: newName
-                };
-              }
-              return conv;
-            });
+              };
+            }
+            return conv;
+          });
           });
         }
       )
@@ -1936,7 +1937,7 @@ const LiveChatCanvas: React.FC = () => {
     const tempId = `temp_${Date.now()}`;
     const conversationId = selectedConversation.id;
     const messageContent = messageText;
-    const uchatId = selectedConversation.metadata?.id_uchat;
+      const uchatId = selectedConversation.metadata?.id_uchat;
 
     // Validar que tenemos el uchat_id necesario
     if (!uchatId) {
@@ -2805,13 +2806,14 @@ const LiveChatCanvas: React.FC = () => {
         }}
       />
 
-      {/* Sidebar de Detalles del Prospecto */}
-      {selectedConversation && (
+      {/* Sidebar de Detalles del Prospecto - Renderizado con Portal */}
+      {selectedConversation && createPortal(
         <ProspectDetailSidebar
           isOpen={showProspectSidebar}
           onClose={() => setShowProspectSidebar(false)}
           prospectoId={selectedConversation.prospecto_id}
-        />
+        />,
+        document.body
       )}
     </div>
   );
