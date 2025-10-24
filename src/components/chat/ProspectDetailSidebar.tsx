@@ -18,9 +18,24 @@ import {
   FileText,
   Heart,
   Users,
-  MessageSquare
+  MessageSquare,
+  PhoneCall,
+  Clock,
+  CheckCircle,
+  XCircle,
+  PhoneMissed
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
+
+interface CallHistory {
+  id: string;
+  fecha_llamada: string;
+  duracion_segundos: number;
+  estado_llamada: string;
+  razon_finalizacion: string;
+  summary?: string;
+  datos_llamada?: any;
+}
 
 interface ProspectData {
   id: string;
@@ -62,11 +77,14 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   prospectoId
 }) => {
   const [prospecto, setProspecto] = useState<ProspectData | null>(null);
+  const [callHistory, setCallHistory] = useState<CallHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingCalls, setLoadingCalls] = useState(true);
 
   useEffect(() => {
     if (isOpen && prospectoId) {
       loadProspectData();
+      loadCallHistory();
     }
   }, [isOpen, prospectoId]);
 
@@ -85,6 +103,25 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
       console.error('Error cargando datos del prospecto:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCallHistory = async () => {
+    setLoadingCalls(true);
+    try {
+      const { data, error } = await analysisSupabase
+        .from('llamadas')
+        .select('*')
+        .eq('prospecto_id', prospectoId)
+        .order('fecha_llamada', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setCallHistory(data || []);
+    } catch (error) {
+      console.error('Error cargando historial de llamadas:', error);
+    } finally {
+      setLoadingCalls(false);
     }
   };
 
@@ -121,6 +158,36 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
     });
   };
 
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getCallStatusIcon = (status: string) => {
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('completada') || statusLower.includes('completed')) {
+      return <CheckCircle className="w-4 h-4 text-green-500" />;
+    } else if (statusLower.includes('fallida') || statusLower.includes('failed') || statusLower.includes('no contest')) {
+      return <XCircle className="w-4 h-4 text-red-500" />;
+    } else if (statusLower.includes('perdida') || statusLower.includes('missed')) {
+      return <PhoneMissed className="w-4 h-4 text-orange-500" />;
+    }
+    return <Phone className="w-4 h-4 text-gray-500" />;
+  };
+
+  const getCallStatusColor = (status: string): string => {
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('completada') || statusLower.includes('completed')) {
+      return 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300';
+    } else if (statusLower.includes('fallida') || statusLower.includes('failed')) {
+      return 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300';
+    } else if (statusLower.includes('perdida') || statusLower.includes('missed')) {
+      return 'bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300';
+    }
+    return 'bg-gray-100 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300';
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -131,7 +198,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10002]"
           />
 
           {/* Sidebar */}
@@ -140,7 +207,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full w-[500px] bg-white dark:bg-gray-900 shadow-2xl z-[101] flex flex-col"
+            className="fixed right-0 top-0 h-full w-[500px] bg-white dark:bg-gray-900 shadow-2xl z-[10003] flex flex-col"
           >
             {/* Header */}
             <motion.div 
@@ -410,6 +477,79 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                     </p>
                   </motion.div>
                 )}
+
+                {/* Historial de Llamadas */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: 0.55, ease: "easeOut" }}
+                  className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
+                >
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <PhoneCall size={18} />
+                    Historial de Llamadas
+                  </h3>
+                  {loadingCalls ? (
+                    <div className="text-center py-4">
+                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">Cargando llamadas...</p>
+                    </div>
+                  ) : callHistory.length > 0 ? (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {callHistory.map((call, index) => (
+                        <div 
+                          key={call.id}
+                          className="bg-white dark:bg-gray-700 rounded-lg p-3 space-y-2 border border-gray-200 dark:border-gray-600"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {getCallStatusIcon(call.estado_llamada)}
+                              <span className={`text-xs font-medium px-2 py-1 rounded ${getCallStatusColor(call.estado_llamada)}`}>
+                                {call.estado_llamada}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatDuration(call.duracion_segundos)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            <Calendar className="w-3 h-3 inline mr-1" />
+                            {new Date(call.fecha_llamada).toLocaleDateString('es-MX', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+
+                          {call.razon_finalizacion && (
+                            <div className="text-xs text-gray-700 dark:text-gray-300">
+                              <span className="font-medium">Razón: </span>
+                              {call.razon_finalizacion}
+                            </div>
+                          )}
+
+                          {call.summary && (
+                            <div className="text-xs text-gray-700 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                              <span className="font-medium">Resumen: </span>
+                              {call.summary}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <PhoneMissed className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        No hay llamadas registradas
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
 
                 {/* Timeline */}
                 <motion.div 
