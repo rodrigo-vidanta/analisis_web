@@ -1,5 +1,74 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.12.0 - Supabase AWS: Diagnóstico y Solución ALB Target Groups (Noviembre 3, 2025)
+
+### 🔧 **INFRAESTRUCTURA SUPABASE AWS - SOLUCIÓN DEFINITIVA**
+
+#### 🎯 **Diagnóstico Completo de Servicios Supabase**
+- **Análisis exhaustivo**: Identificación de problemas de conectividad entre servicios ECS
+- **Servicios auditados**: PostgREST, Kong, pg-meta, Studio
+- **Patrones de falla identificados**: IPs dinámicas, fallbacks hardcodeados, proyecto "default"
+- **Documentación completa**: `DIAGNOSTICO_SUPABASE_AWS.md` con análisis detallado
+
+#### 🌐 **Solución ALB con Target Groups Implementada**
+- **Target Group creado**: `supabase-pgmeta-targets` para servicio pg-meta
+  - Puerto: 8080
+  - Protocolo: HTTP
+  - Health check: `/`
+  - Tipo: IP (para Fargate)
+- **Regla ALB agregada**: `/pgmeta/*` -> pg-meta Target Group
+  - Prioridad: 12
+  - ALB: `supabase-studio-alb-1499081913.us-west-2.elb.amazonaws.com`
+  - Path: `/pgmeta/*`
+- **Auto-registro**: Nuevas tareas de pg-meta se registran automáticamente
+- **Deregistro automático**: Tareas terminadas se eliminan del Target Group
+
+#### ✅ **Problema de IPs Dinámicas Resuelto**
+- **Problema identificado**: pg-meta cambiaba de IP en cada reinicio de tarea ECS
+- **Solución implementada**: Studio usa DNS del ALB en lugar de IPs directas
+- **Task Definition Studio TD:8**: Configurado con `STUDIO_PG_META_URL` usando DNS del ALB
+- **Beneficio**: DNS siempre resuelve, independiente de cambios de IP de tareas
+- **Resultado**: Eliminado ciclo de deployments manuales por cambios de IP
+
+#### 🔒 **Seguridad y Configuración**
+- **Security Group actualizado**: Puerto 8080 agregado a `sg-0e42c24bb441f3a65`
+- **Health checks automáticos**: ALB verifica salud de pg-meta automáticamente
+- **VPC configurada**: `vpc-05eb3d8651aff5257` con subnets correctas
+- **Cluster ECS**: `supabase-production` con servicios funcionando
+
+#### 📊 **Configuración Actual de Infraestructura**
+- **ALB**: `supabase-studio-alb-1499081913.us-west-2.elb.amazonaws.com`
+- **Target Groups**:
+  - `supabase-studio-targets` (puerto 3000)
+  - `supabase-postgrest-targets` (puerto 3000)
+  - `supabase-kong-targets` (puerto 8000)
+  - `supabase-pgmeta-targets` (puerto 8080) ✅ NUEVO
+- **Reglas ALB**:
+  - Prioridad 1: `/api/*` -> studio
+  - Prioridad 2: `/rest/*` -> postgrest
+  - Prioridad 12: `/pgmeta/*` -> pg-meta ✅ NUEVO
+
+#### 🎯 **Beneficios de la Solución**
+1. ✅ **IPs estáticas**: ALB DNS siempre funciona, independiente de IPs de tareas
+2. ✅ **Auto-registro**: Nuevas tareas de pg-meta se registran automáticamente en Target Group
+3. ✅ **Health checks**: ALB verifica salud de pg-meta automáticamente
+4. ✅ **No más deployments manuales**: Por cambios de IP (problema eliminado)
+5. ✅ **Mayor estabilidad**: Servicios no dependen de IPs hardcodeadas
+
+#### 📝 **Archivos de Documentación**
+- `DIAGNOSTICO_SUPABASE_AWS.md` - Análisis completo y solución implementada
+- `ESTADO_MCP_ACTUAL.md` - Estado actual de configuración MCP
+- `MCP_SUPAVIDANTA_CONFIG.md` - Configuración MCP SupaVidanta
+- `MCP_SUPAVIDANTA_SOLUCION_FINAL.md` - Solución final MCP
+
+#### 🔧 **Mejoras Técnicas**
+- **Configuración pg-meta**: Cambio de variables individuales a `PG_META_DB_URI` (connection string completa)
+- **Studio TD:8**: Actualizado con DNS del ALB para pg-meta
+- **Análisis de patrones**: Identificación de ciclo de reinicios por deployments manuales
+- **Documentación técnica**: Análisis real del problema raíz vs conclusiones erróneas previas
+
+---
+
 ## 🚀 Versión 5.11.0 - Live Monitor: Vista DataGrid + Gestión de Finalizaciones (Octubre 24, 2025)
 
 ### 📊 **LIVE MONITOR - NUEVA VISTA DATAGRID CON SELECTOR**

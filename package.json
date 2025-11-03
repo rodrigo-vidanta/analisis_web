@@ -1,7 +1,7 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "5.11.0",
+  "version": "5.12.0",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",
@@ -28,8 +28,10 @@
     "@aws-sdk/client-route-53": "^3.901.0",
     "@aws-sdk/client-s3": "^3.901.0",
     "@aws-sdk/credential-providers": "^3.901.0",
+    "@modelcontextprotocol/sdk": "^1.20.2",
     "@monaco-editor/react": "^4.7.0",
     "@reactflow/node-resizer": "^2.2.14",
+    "@supabase/mcp-utils": "^0.2.3",
     "@supabase/supabase-js": "^2.76.1",
     "@twilio/voice-sdk": "^2.15.0",
     "@vapi-ai/web": "^2.3.10",

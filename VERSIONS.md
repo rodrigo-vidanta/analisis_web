@@ -1,5 +1,35 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.12.0 (Noviembre 3, 2025) - Supabase AWS: Diagnóstico y Solución ALB Target Groups
+
+### 🚀 RELEASE MINOR - Infraestructura Supabase AWS Estabilizada
+
+#### 🔧 Diagnóstico Completo y Solución Definitiva
+- **Análisis exhaustivo**: Identificación de problemas de conectividad entre servicios ECS
+- **Solución ALB**: Target Group `supabase-pgmeta-targets` para servicio pg-meta
+- **Regla ALB**: `/pgmeta/*` -> pg-meta Target Group (Prioridad 12)
+- **Auto-registro**: Nuevas tareas se registran automáticamente en Target Group
+- **DNS estático**: Studio usa DNS del ALB en lugar de IPs directas (elimina problema de IPs dinámicas)
+
+#### ✅ Problema Resuelto: IPs Dinámicas
+- **Problema**: pg-meta cambiaba de IP en cada reinicio de tarea ECS
+- **Solución**: Studio TD:8 configurado con `STUDIO_PG_META_URL` usando DNS del ALB
+- **Resultado**: Eliminado ciclo de deployments manuales por cambios de IP
+- **Beneficio**: DNS siempre resuelve, independiente de cambios de IP de tareas
+
+#### 📊 Configuración de Infraestructura
+- **ALB**: `supabase-studio-alb-1499081913.us-west-2.elb.amazonaws.com`
+- **Target Groups**: 4 grupos configurados (studio, postgrest, kong, pg-meta)
+- **Security Group**: Puerto 8080 agregado para pg-meta
+- **Health checks**: ALB verifica salud de pg-meta automáticamente
+
+#### 📝 Documentación Técnica
+- `DIAGNOSTICO_SUPABASE_AWS.md` - Análisis completo y solución implementada
+- Análisis de patrones de falla identificados
+- Historial de Task Definitions y configuración actual
+
+---
+
 ## Versión 5.11.0 (Octubre 24, 2025) - Live Monitor: Vista DataGrid + Gestión de Finalizaciones
 
 ### 🚀 RELEASE MAJOR - Vista DataGrid con Selector y Modal de Finalización

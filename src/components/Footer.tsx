@@ -3,7 +3,7 @@ import CatChaseEasterEgg from './CatChaseEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión actual
-  const version = 'v5.11.0 - Live Monitor: Vista DataGrid + Gestión de Finalizaciones';
+  const version = 'v5.12.0 - Supabase AWS: Diagnóstico y Solución ALB Target Groups';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);
