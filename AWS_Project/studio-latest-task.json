@@ -1,0 +1,62 @@
+{
+  "family": "supabase-studio-latest",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/supabase-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::307621978585:role/supabase-task-role",
+  "containerDefinitions": [
+    {
+      "name": "studio-latest",
+      "image": "supabase/studio:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SUPABASE_URL",
+          "value": "https://d2bxqn3xh4v4kj.cloudfront.net"
+        },
+        {
+          "name": "SUPABASE_ANON_KEY",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0"
+        },
+        {
+          "name": "SUPABASE_SERVICE_KEY",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+        },
+        {
+          "name": "NEXT_PUBLIC_SUPABASE_URL",
+          "value": "https://d2bxqn3xh4v4kj.cloudfront.net"
+        },
+        {
+          "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/supabase-studio-latest",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "studio"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:3000/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 120
+      }
+    }
+  ]
+}

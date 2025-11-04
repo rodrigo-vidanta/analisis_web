@@ -1,0 +1,25 @@
+{
+  "family": "test-aurora-connection",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/supabase-task-execution-role",
+  "containerDefinitions": [
+    {
+      "name": "psql-test",
+      "image": "postgres:15-alpine",
+      "command": ["sh", "-c", "PGPASSWORD='SuperBase123!' psql -h supabase-aurora-instance.c9memqg6633m.us-west-2.rds.amazonaws.com -U supabase -d supabase -c 'SELECT version();' && sleep 10"],
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/test-aurora-connection",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,676 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Supabase deployment in existing VPC for N8N integration'
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-05eb3d8651aff5257
+    Description: Existing VPC ID where N8N is deployed
+  
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: "subnet-08cd621531e2cf558,subnet-0dbc023b0c2cf85b2"
+    Description: Public subnet IDs for load balancer
+  
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: "subnet-0a6923caf8d8074b1,subnet-0253cc70d618537c4"
+    Description: Private subnet IDs for ECS services
+  
+  DatabaseSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: "subnet-05caa36c0d56f6e13,subnet-0a8537f7b2e058dd9"
+    Description: Database subnet IDs for Aurora
+  
+  SupabaseVersion:
+    Type: String
+    Default: "latest"
+    Description: Supabase version to deploy
+  
+  TaskSize:
+    Type: String
+    Default: "medium"
+    AllowedValues: [micro, small, medium, large, xlarge, 2xlarge, 4xlarge]
+    Description: Fargate task size for Supabase services
+  
+  DatabaseInstanceClass:
+    Type: String
+    Default: "db.serverless"
+    Description: Aurora Serverless instance class
+
+Mappings:
+  TaskSizeMap:
+    micro:
+      cpu: 256
+      memory: 512
+    small:
+      cpu: 512
+      memory: 1024
+    medium:
+      cpu: 1024
+      memory: 2048
+    large:
+      cpu: 2048
+      memory: 4096
+    xlarge:
+      cpu: 4096
+      memory: 8192
+    2xlarge:
+      cpu: 8192
+      memory: 16384
+    4xlarge:
+      cpu: 16384
+      memory: 32768
+
+Resources:
+  # Security Groups
+  SupabaseALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: supabase-alb-sg
+      GroupDescription: Security group for Supabase Application Load Balancer
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 10.0.0.0/16
+          Description: Supabase Studio access from VPC
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: supabase-alb-sg
+        - Key: Project
+          Value: supabase-deployment
+
+  SupabaseServicesSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: supabase-services-sg
+      GroupDescription: Security group for Supabase ECS services
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref SupabaseALBSecurityGroup
+          Description: API Gateway from ALB
+        - IpProtocol: tcp
+          FromPort: 9999
+          ToPort: 9999
+          SourceSecurityGroupId: !Ref SupabaseALBSecurityGroup
+          Description: Auth service from ALB
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          SourceSecurityGroupId: !Ref SupabaseALBSecurityGroup
+          Description: Storage service from ALB
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref SupabaseALBSecurityGroup
+          Description: PostgREST from ALB
+        - IpProtocol: tcp
+          FromPort: 4000
+          ToPort: 4000
+          SourceSecurityGroupId: !Ref SupabaseALBSecurityGroup
+          Description: Realtime service from ALB
+        # Allow communication from N8N
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 10.0.0.0/16
+          Description: API access from N8N and other VPC services
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: supabase-services-sg
+        - Key: Project
+          Value: supabase-deployment
+
+  SupabaseDatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: supabase-db-sg
+      GroupDescription: Security group for Supabase Aurora PostgreSQL
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref SupabaseServicesSecurityGroup
+          Description: PostgreSQL access from Supabase services
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.0.0/16
+          Description: PostgreSQL access from VPC (for maintenance)
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: supabase-db-sg
+        - Key: Project
+          Value: supabase-deployment
+
+  # Database Subnet Group
+  SupabaseDatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: supabase-db-subnet-group
+      DBSubnetGroupDescription: Subnet group for Supabase Aurora cluster
+      SubnetIds: !Ref DatabaseSubnetIds
+      Tags:
+        - Key: Name
+          Value: supabase-db-subnet-group
+        - Key: Project
+          Value: supabase-deployment
+
+  # Secrets Manager for Database Credentials
+  SupabaseDatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: supabase-database-credentials
+      Description: Credentials for Supabase PostgreSQL database
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "supabase"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: Name
+          Value: supabase-database-credentials
+        - Key: Project
+          Value: supabase-deployment
+
+  # Aurora Serverless v2 Cluster
+  SupabaseDatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DBClusterIdentifier: supabase-aurora-cluster
+      Engine: aurora-postgresql
+      EngineVersion: '15.13'
+      EngineMode: provisioned
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: 0.5
+        MaxCapacity: 16
+      MasterUsername: supabase
+      ManageMasterUserPassword: true
+      MasterUserSecret:
+        SecretArn: !Ref SupabaseDatabaseSecret
+      DatabaseName: supabase
+      VpcSecurityGroupIds:
+        - !Ref SupabaseDatabaseSecurityGroup
+      DBSubnetGroupName: !Ref SupabaseDatabaseSubnetGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: "03:00-04:00"
+      PreferredMaintenanceWindow: "sun:04:00-sun:05:00"
+      DeletionProtection: true
+      StorageEncrypted: true
+      Tags:
+        - Key: Name
+          Value: supabase-aurora-cluster
+        - Key: Project
+          Value: supabase-deployment
+
+  SupabaseDatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: supabase-aurora-instance
+      DBClusterIdentifier: !Ref SupabaseDatabaseCluster
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: supabase-aurora-instance
+        - Key: Project
+          Value: supabase-deployment
+
+  # ECS Cluster
+  SupabaseECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: supabase-cluster
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Name
+          Value: supabase-cluster
+        - Key: Project
+          Value: supabase-deployment
+
+  # Application Load Balancer
+  SupabaseApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: supabase-alb
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref SupabaseALBSecurityGroup
+      Subnets: !Ref PublicSubnetIds
+      Tags:
+        - Key: Name
+          Value: supabase-alb
+        - Key: Project
+          Value: supabase-deployment
+
+  # Target Groups
+  SupabaseAPITargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: supabase-api-tg
+      Port: 3000
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Tags:
+        - Key: Name
+          Value: supabase-api-tg
+        - Key: Project
+          Value: supabase-deployment
+
+  SupabaseAuthTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: supabase-auth-tg
+      Port: 9999
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Tags:
+        - Key: Name
+          Value: supabase-auth-tg
+        - Key: Project
+          Value: supabase-deployment
+
+  SupabaseStorageTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: supabase-storage-tg
+      Port: 5000
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckPath: /status
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Tags:
+        - Key: Name
+          Value: supabase-storage-tg
+        - Key: Project
+          Value: supabase-deployment
+
+  # ALB Listener
+  SupabaseALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref SupabaseAPITargetGroup
+      LoadBalancerArn: !Ref SupabaseApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # ALB Listener Rules
+  SupabaseAuthListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref SupabaseAuthTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - '/auth/*'
+      ListenerArn: !Ref SupabaseALBListener
+      Priority: 100
+
+  SupabaseStorageListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref SupabaseStorageTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - '/storage/*'
+      ListenerArn: !Ref SupabaseALBListener
+      Priority: 200
+
+  # IAM Roles
+  SupabaseTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: supabase-task-execution-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: SupabaseSecretsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref SupabaseDatabaseSecret
+
+  SupabaseTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: supabase-task-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SupabaseS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${SupabaseStorageBucket}/*"
+                  - !Sub "arn:aws:s3:::${SupabaseStorageBucket}"
+
+  # S3 Bucket for Storage
+  SupabaseStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "supabase-storage-${AWS::AccountId}-${AWS::Region}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Name
+          Value: supabase-storage-bucket
+        - Key: Project
+          Value: supabase-deployment
+
+  # CloudWatch Log Groups
+  SupabaseAPILogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/supabase-api
+      RetentionInDays: 7
+
+  SupabaseAuthLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/supabase-auth
+      RetentionInDays: 7
+
+  SupabaseStorageLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/supabase-storage
+      RetentionInDays: 7
+
+  # ECS Task Definitions
+  SupabaseAPITaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: supabase-api
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !FindInMap [TaskSizeMap, !Ref TaskSize, cpu]
+      Memory: !FindInMap [TaskSizeMap, !Ref TaskSize, memory]
+      ExecutionRoleArn: !GetAtt SupabaseTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt SupabaseTaskRole.Arn
+      ContainerDefinitions:
+        - Name: kong
+          Image: kong:2.8-alpine
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8000
+              Protocol: tcp
+            - ContainerPort: 8443
+              Protocol: tcp
+          Environment:
+            - Name: KONG_DATABASE
+              Value: "off"
+            - Name: KONG_DECLARATIVE_CONFIG
+              Value: "/var/lib/kong/kong.yml"
+            - Name: KONG_DNS_ORDER
+              Value: "LAST,A,CNAME"
+            - Name: KONG_PLUGINS
+              Value: "request-transformer,cors,key-auth,acl,basic-auth"
+            - Name: KONG_NGINX_PROXY_PROXY_BUFFER_SIZE
+              Value: "160k"
+            - Name: KONG_NGINX_PROXY_PROXY_BUFFERS
+              Value: "64 160k"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref SupabaseAPILogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: kong
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - "kong health"
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+
+  SupabaseAuthTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: supabase-auth
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !FindInMap [TaskSizeMap, !Ref TaskSize, cpu]
+      Memory: !FindInMap [TaskSizeMap, !Ref TaskSize, memory]
+      ExecutionRoleArn: !GetAtt SupabaseTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt SupabaseTaskRole.Arn
+      ContainerDefinitions:
+        - Name: auth
+          Image: supabase/gotrue:v2.132.3
+          Essential: true
+          PortMappings:
+            - ContainerPort: 9999
+              Protocol: tcp
+          Environment:
+            - Name: GOTRUE_API_HOST
+              Value: "0.0.0.0"
+            - Name: GOTRUE_API_PORT
+              Value: "9999"
+            - Name: API_EXTERNAL_URL
+              Value: !Sub "http://${SupabaseApplicationLoadBalancer.DNSName}"
+            - Name: GOTRUE_DB_DRIVER
+              Value: "postgres"
+            - Name: GOTRUE_SITE_URL
+              Value: !Sub "http://${SupabaseApplicationLoadBalancer.DNSName}"
+            - Name: GOTRUE_URI_ALLOW_LIST
+              Value: "*"
+            - Name: GOTRUE_DISABLE_SIGNUP
+              Value: "false"
+            - Name: GOTRUE_JWT_ADMIN_ROLES
+              Value: "service_role"
+            - Name: GOTRUE_JWT_AUD
+              Value: "authenticated"
+            - Name: GOTRUE_JWT_DEFAULT_GROUP_NAME
+              Value: "authenticated"
+            - Name: GOTRUE_JWT_EXP
+              Value: "3600"
+            - Name: GOTRUE_JWT_SECRET
+              Value: "your-super-secret-jwt-token-with-at-least-32-characters-long"
+            - Name: GOTRUE_EXTERNAL_EMAIL_ENABLED
+              Value: "true"
+            - Name: GOTRUE_MAILER_AUTOCONFIRM
+              Value: "false"
+            - Name: GOTRUE_SMTP_ADMIN_EMAIL
+              Value: "admin@example.com"
+            - Name: GOTRUE_SMTP_HOST
+              Value: "supabase-inbucket"
+            - Name: GOTRUE_SMTP_PORT
+              Value: "2500"
+            - Name: GOTRUE_SMTP_USER
+              Value: "fake_mail_user"
+            - Name: GOTRUE_SMTP_PASS
+              Value: "fake_mail_password"
+            - Name: GOTRUE_SMTP_SENDER_NAME
+              Value: "fake_mail_user"
+            - Name: GOTRUE_MAILER_URLPATHS_INVITE
+              Value: "/auth/v1/verify"
+            - Name: GOTRUE_MAILER_URLPATHS_CONFIRMATION
+              Value: "/auth/v1/verify"
+            - Name: GOTRUE_MAILER_URLPATHS_RECOVERY
+              Value: "/auth/v1/verify"
+            - Name: GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE
+              Value: "/auth/v1/verify"
+          Secrets:
+            - Name: GOTRUE_DB_DATABASE_URL
+              ValueFrom: !Sub "${SupabaseDatabaseSecret}:engine::"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref SupabaseAuthLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: auth
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - "wget --no-verbose --tries=1 --spider http://localhost:9999/health || exit 1"
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+
+  # ECS Services
+  SupabaseAPIService:
+    Type: AWS::ECS::Service
+    DependsOn: SupabaseALBListener
+    Properties:
+      ServiceName: supabase-api
+      Cluster: !Ref SupabaseECSCluster
+      TaskDefinition: !Ref SupabaseAPITaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref SupabaseServicesSecurityGroup
+          Subnets: !Ref PrivateSubnetIds
+          AssignPublicIp: DISABLED
+      LoadBalancers:
+        - ContainerName: kong
+          ContainerPort: 8000
+          TargetGroupArn: !Ref SupabaseAPITargetGroup
+      HealthCheckGracePeriodSeconds: 300
+      Tags:
+        - Key: Name
+          Value: supabase-api-service
+        - Key: Project
+          Value: supabase-deployment
+
+  SupabaseAuthService:
+    Type: AWS::ECS::Service
+    DependsOn: SupabaseALBListener
+    Properties:
+      ServiceName: supabase-auth
+      Cluster: !Ref SupabaseECSCluster
+      TaskDefinition: !Ref SupabaseAuthTaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref SupabaseServicesSecurityGroup
+          Subnets: !Ref PrivateSubnetIds
+          AssignPublicIp: DISABLED
+      LoadBalancers:
+        - ContainerName: auth
+          ContainerPort: 9999
+          TargetGroupArn: !Ref SupabaseAuthTargetGroup
+      HealthCheckGracePeriodSeconds: 300
+      Tags:
+        - Key: Name
+          Value: supabase-auth-service
+        - Key: Project
+          Value: supabase-deployment
+
+Outputs:
+  SupabaseAPIEndpoint:
+    Description: Supabase API endpoint URL
+    Value: !Sub "http://${SupabaseApplicationLoadBalancer.DNSName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-api-endpoint"
+
+  SupabaseDatabaseEndpoint:
+    Description: Supabase database endpoint
+    Value: !GetAtt SupabaseDatabaseCluster.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-db-endpoint"
+
+  SupabaseStorageBucket:
+    Description: Supabase storage S3 bucket name
+    Value: !Ref SupabaseStorageBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-storage-bucket"
+
+  SupabaseClusterName:
+    Description: ECS cluster name for Supabase
+    Value: !Ref SupabaseECSCluster
+    Export:
+      Name: !Sub "${AWS::StackName}-cluster-name"

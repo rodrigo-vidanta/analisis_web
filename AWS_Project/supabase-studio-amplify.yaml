@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Supabase Studio deployment on AWS Amplify Hosting'
+
+Parameters:
+  SupabaseAPIEndpoint:
+    Type: String
+    Description: Supabase API endpoint URL from main stack
+  
+  StudioPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Password for Supabase Studio access
+    Default: "ChangeMe123!"
+  
+  StudioUsername:
+    Type: String
+    Default: "admin"
+    Description: Username for Supabase Studio access
+
+Resources:
+  # S3 Bucket for Amplify source code
+  AmplifySourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "supabase-studio-source-${AWS::AccountId}-${AWS::Region}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: supabase-studio-source
+        - Key: Project
+          Value: supabase-studio
+
+  # IAM Role for Amplify
+  AmplifyServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: supabase-studio-amplify-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: amplify.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess-Amplify
+      Tags:
+        - Key: Name
+          Value: supabase-studio-amplify-role
+        - Key: Project
+          Value: supabase-studio
+
+  # Amplify App
+  SupabaseStudioApp:
+    Type: AWS::Amplify::App
+    Properties:
+      Name: supabase-studio
+      Description: Self-hosted Supabase Studio
+      Repository: https://github.com/supabase/supabase
+      IAMServiceRole: !GetAtt AmplifyServiceRole.Arn
+      Platform: WEB
+      BuildSpec: |
+        version: 1
+        applications:
+          - appRoot: studio
+            frontend:
+              phases:
+                preBuild:
+                  commands:
+                    - cd studio
+                    - npm ci
+                build:
+                  commands:
+                    - npm run build
+              artifacts:
+                baseDirectory: studio/dist
+                files:
+                  - '**/*'
+              cache:
+                paths:
+                  - studio/node_modules/**/*
+      EnvironmentVariables:
+        - Name: SUPABASE_URL
+          Value: !Ref SupabaseAPIEndpoint
+        - Name: SUPABASE_REST_URL
+          Value: !Sub "${SupabaseAPIEndpoint}/rest/v1/"
+        - Name: SUPABASE_ANON_KEY
+          Value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0"
+        - Name: SUPABASE_SERVICE_KEY
+          Value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+        - Name: STUDIO_PG_META_URL
+          Value: !Sub "${SupabaseAPIEndpoint}/pg"
+        - Name: NEXT_PUBLIC_ENABLE_LOGS
+          Value: "true"
+      Tags:
+        - Key: Name
+          Value: supabase-studio
+        - Key: Project
+          Value: supabase-studio
+
+  # Amplify Branch
+  SupabaseStudioBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt SupabaseStudioApp.AppId
+      BranchName: master
+      EnableAutoBuild: true
+      EnablePerformanceMode: false
+      EnablePullRequestPreview: false
+      EnvironmentVariables:
+        - Name: AMPLIFY_DIFF_DEPLOY
+          Value: "false"
+        - Name: AMPLIFY_MONOREPO_APP_ROOT
+          Value: studio
+      Framework: React
+      Stage: PRODUCTION
+      Tags:
+        - Key: Name
+          Value: supabase-studio-master
+        - Key: Project
+          Value: supabase-studio
+
+  # Basic Auth for Studio (Security)
+  SupabaseStudioDomain:
+    Type: AWS::Amplify::Domain
+    Properties:
+      AppId: !GetAtt SupabaseStudioApp.AppId
+      DomainName: !Sub "studio-${AWS::AccountId}.${AWS::Region}.amplifyapp.com"
+      SubDomainSettings:
+        - Prefix: ""
+          BranchName: !GetAtt SupabaseStudioBranch.BranchName
+
+Outputs:
+  StudioURL:
+    Description: Supabase Studio URL
+    Value: !Sub "https://${SupabaseStudioBranch.BranchName}.${SupabaseStudioApp.DefaultDomain}"
+    Export:
+      Name: !Sub "${AWS::StackName}-studio-url"
+  
+  StudioAppId:
+    Description: Amplify App ID for Supabase Studio
+    Value: !GetAtt SupabaseStudioApp.AppId
+    Export:
+      Name: !Sub "${AWS::StackName}-app-id"
+
+  StudioCredentials:
+    Description: Studio access credentials
+    Value: !Sub "Username: ${StudioUsername} | Password: ${StudioPassword}"

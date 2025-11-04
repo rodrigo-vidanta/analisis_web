@@ -30,3 +30,4 @@ dist-ssr
 *.sln
 *.sw?
 AWS_Project/diagram-platform
+AWS_Project/amplify-con-token.yaml

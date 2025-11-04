@@ -1,0 +1,40 @@
+=== SUPABASE COMPLETO DESPLEGADO ===
+Fecha: Wed Oct 29 12:42:10 CST 2025
+
+🌐 URL HTTPS: https://d2bxqn3xh4v4kj.cloudfront.net
+🔗 URL HTTP: http://supabase-alb-1210454801.us-west-2.elb.amazonaws.com
+
+=== ENDPOINTS SUPABASE ===
+🔹 REST API: https://d2bxqn3xh4v4kj.cloudfront.net/rest/v1/
+🔹 Auth API: https://d2bxqn3xh4v4kj.cloudfront.net/auth/v1/
+🔹 Health: https://d2bxqn3xh4v4kj.cloudfront.net/auth/v1/health
+
+=== CREDENCIALES ===
+🔑 Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0
+🔐 Service Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+=== BASE DE DATOS ===
+🗄️  Host: supabase-aurora-cluster.cluster-c9memqg6633m.us-west-2.rds.amazonaws.com
+🗄️  Database: supabase
+🗄️  User: supabase
+🗄️  Port: 5432
+
+=== SERVICIOS DESPLEGADOS ===
+✅ Kong API Gateway (Puerto 8000)
+✅ PostgREST API (Puerto 3000)
+✅ GoTrue Auth (Puerto 9999)
+✅ Aurora PostgreSQL
+✅ CloudFront SSL
+
+=== CONFIGURACIÓN PARA APLICACIONES ===
+const supabaseUrl = 'https://d2bxqn3xh4v4kj.cloudfront.net'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0'
+
+=== COMANDOS ÚTILES ===
+# Ver servicios:
+aws ecs describe-services --cluster supabase-cluster --services supabase-api supabase-postgrest supabase-gotrue --region us-west-2
+
+# Ver logs:
+aws logs tail /ecs/supabase-kong --region us-west-2 --follow
+aws logs tail /ecs/supabase-postgrest --region us-west-2 --follow
+aws logs tail /ecs/supabase-gotrue --region us-west-2 --follow

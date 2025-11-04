@@ -1,5 +1,47 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.13.0 (Diciembre 2025) - Live Chat: Mejoras en Columna de Conversaciones Realtime
+
+### 🚀 RELEASE MINOR - Actualización Realtime de Conversaciones
+
+#### 🔄 Columna de Conversaciones Mejorada
+- **Actualización automática en tiempo real**
+  - Lista de conversaciones se actualiza automáticamente con cada mensaje nuevo
+  - Conversación más reciente siempre se mueve a la parte superior
+  - Contador de mensajes no leídos se actualiza correctamente
+  - Nueva conversación detectada automáticamente y agregada a la lista
+
+- **Suscripción realtime mejorada**
+  - Detección de nuevas conversaciones cuando llega primer mensaje
+  - Actualización de nombres cuando se modifica un prospecto
+  - Reconexión automática con manejo mejorado de errores
+
+#### 🎯 Priorización Inteligente de Nombres
+- **Función helper TypeScript**: `src/utils/conversationNameHelper.ts`
+  - Prioridad 1: `nombre_completo` (nombre registrado en prospecto)
+  - Prioridad 2: `nombre_whatsapp` validado (si cumple criterios)
+  - Prioridad 3: Teléfono formateado a 10 dígitos
+  
+- **Validación de nombres de WhatsApp**
+  - Mínimo 2 caracteres válidos (letras, números, espacios, acentos)
+  - Máximo 5 emojis
+  - No más emojis que caracteres válidos
+  
+- **RPC actualizada**: `get_conversations_ordered()`
+  - Función SQL helper `is_valid_whatsapp_name()` para validación
+  - Priorización mejorada en base de datos
+  - Formateo de teléfonos a 10 dígitos
+
+#### 📝 Archivos Modificados
+- `src/components/chat/LiveChatCanvas.tsx` - Mejoras en suscripciones realtime
+- `src/utils/conversationNameHelper.ts` (NUEVO) - Helper para priorización de nombres
+- `scripts/sql/update_get_conversations_ordered_nombre_priority_v2.sql` (NUEVO) - SQL actualizado
+
+#### 📋 Documentación
+- Ver `src/components/chat/CHANGELOG_LIVECHAT.md` para detalles técnicos completos
+
+---
+
 ## Versión 5.12.0 (Noviembre 3, 2025) - Supabase AWS: Diagnóstico y Solución ALB Target Groups
 
 ### 🚀 RELEASE MINOR - Infraestructura Supabase AWS Estabilizada

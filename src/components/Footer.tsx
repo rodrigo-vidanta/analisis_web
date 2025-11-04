@@ -3,7 +3,7 @@ import CatChaseEasterEgg from './CatChaseEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión actual
-  const version = 'v5.12.0 - Supabase AWS: Diagnóstico y Solución ALB Target Groups';
+  const version = 'v5.13.0 - Live Chat: Mejoras en Columna de Conversaciones Realtime';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);

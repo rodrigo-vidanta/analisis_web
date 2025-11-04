@@ -1,0 +1,40 @@
+=== SUPABASE OFICIAL COMPLETO DESPLEGADO ===
+Fecha: Wed Oct 29 14:39:36 CST 2025
+
+🎨 SUPABASE STUDIO OFICIAL:
+URL: http://44.250.172.90:3000
+
+=== SERVICIOS OFICIALES DESPLEGADOS ===
+✅ PostgREST (API REST)
+✅ pg_meta (Database metadata)
+✅ Kong (API Gateway)
+✅ Studio (Interfaz oficial)
+
+=== IMÁGENES OFICIALES ===
+Studio: supabase/studio:2025.10.27-sha-85b84e0
+PostgREST: postgrest/postgrest:v12.0.2
+Meta: supabase/postgres-meta:v0.68.0
+Kong: kong:2.8.1-alpine
+
+=== BASE DE DATOS ===
+Host: supabase-aurora-cluster.cluster-c9memqg6633m.us-west-2.rds.amazonaws.com
+Port: 5432
+Database: supabase
+User: supabase
+Password: SuperBase123!
+
+=== ACCESO AL STUDIO OFICIAL ===
+URL: http://44.250.172.90:3000
+
+Esto es el Supabase Studio OFICIAL del repositorio oficial.
+Exactamente la misma interfaz que usas en supabase.com.
+
+=== COMANDOS ÚTILES ===
+# Ver servicios:
+aws ecs describe-services --cluster supabase-cluster --services studio-complete-official --region us-west-2
+
+# Ver logs:
+aws logs tail /ecs/studio-complete-official --region us-west-2 --follow
+
+# Obtener IP actual:
+aws ecs list-tasks --cluster supabase-cluster --service-name studio-complete-official --region us-west-2

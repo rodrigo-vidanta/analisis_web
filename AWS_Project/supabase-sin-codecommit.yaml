@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Supabase oficial sin CodeCommit - Solo Amplify con GitHub'
+
+Parameters:
+  Email:
+    Type: String
+    Default: admin@supabase.aws
+    Description: Email para notificaciones
+
+Resources:
+  # Aplicación Amplify conectada directamente a GitHub
+  SupabaseStudioApp:
+    Type: AWS::Amplify::App
+    Properties:
+      Name: SupabaseStudio
+      Description: Supabase Studio oficial
+      Repository: https://github.com/supabase/supabase
+      Platform: WEB_COMPUTE
+      BuildSpec: |
+        version: 1
+        applications:
+          - appRoot: apps/studio
+            frontend:
+              phases:
+                preBuild:
+                  commands:
+                    - cd apps/studio
+                    - npm ci
+                build:
+                  commands:
+                    - npm run build
+              artifacts:
+                baseDirectory: apps/studio/.next
+                files:
+                  - '**/*'
+              cache:
+                paths:
+                  - apps/studio/node_modules/**/*
+      EnvironmentVariables:
+        - Name: NEXT_PUBLIC_SUPABASE_URL
+          Value: https://d2bxqn3xh4v4kj.cloudfront.net
+        - Name: NEXT_PUBLIC_SUPABASE_ANON_KEY
+          Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0
+        - Name: SUPABASE_SERVICE_KEY
+          Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+        - Name: POSTGRES_PASSWORD
+          Value: SuperBase123!
+        - Name: STUDIO_PG_META_URL
+          Value: https://d2bxqn3xh4v4kj.cloudfront.net/pg
+        - Name: SUPABASE_URL
+          Value: https://d2bxqn3xh4v4kj.cloudfront.net
+        - Name: SUPABASE_PUBLIC_URL
+          Value: https://d2bxqn3xh4v4kj.cloudfront.net
+
+  # Branch de producción
+  SupabaseStudioBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt SupabaseStudioApp.AppId
+      BranchName: master
+      EnableAutoBuild: true
+      Framework: Next.js - SSR
+      Stage: PRODUCTION
+
+Outputs:
+  StudioUrl:
+    Description: URL de Supabase Studio oficial
+    Value: !Sub "https://master.${SupabaseStudioApp.DefaultDomain}"
+  
+  AppId:
+    Description: Amplify App ID
+    Value: !GetAtt SupabaseStudioApp.AppId

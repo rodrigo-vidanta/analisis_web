@@ -17,8 +17,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { pqncSupabase as supabase } from '../../config/pqncSupabase';
+import { supabaseSystemUI, supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
 import { useAuth } from '../../contexts/AuthContext';
 import AvatarUpload from './AvatarUpload';
+import ParaphraseLogService from '../../services/paraphraseLogService';
+import { ShieldAlert, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface User {
   id: string;
@@ -38,6 +41,9 @@ interface User {
   last_login?: string;
   created_at: string;
   avatar_url?: string;
+  is_blocked?: boolean; // Estado de bloqueo por moderación
+  warning_count?: number; // Número de warnings
+  system_ui_user_id?: string; // ID del usuario en System_UI (para desbloquear cuando los IDs no coinciden)
 }
 
 interface Role {
@@ -74,6 +80,7 @@ const UserManagement: React.FC = () => {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
 
@@ -129,7 +136,101 @@ const UserManagement: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+      
+      // Cargar estado de bloqueo para todos los usuarios
+      const userIds = (data || []).map(u => u.id);
+      
+      if (userIds.length > 0) {
+        try {
+          // Obtener contadores por ID primero
+          let warningCounters = await ParaphraseLogService.getMultipleUserWarningCounters(userIds);
+          
+          // Mapa para guardar la relación entre email y user_id de System_UI (necesario para desbloquear)
+          const emailToSystemUserIdMap: Record<string, string> = {};
+          
+          // Buscar warnings por email para TODOS los usuarios (no solo los que no tienen contador)
+          // Esto es necesario porque los IDs pueden no coincidir entre PQNC_AI y System_UI
+          const emailToUserMap: Record<string, User> = {};
+          (data || []).forEach(user => {
+            if (user.email) {
+              emailToUserMap[user.email] = user;
+            }
+          });
+          
+          const emails = Object.keys(emailToUserMap);
+          
+          if (emails.length > 0) {
+            // Buscar warnings por email en System_UI (usar admin para bypass de RLS)
+            const { data: warningsByEmail, error: emailError } = await supabaseSystemUIAdmin
+              .from('content_moderation_warnings')
+              .select('user_id, user_email')
+              .in('user_email', emails);
+            
+            if (!emailError && warningsByEmail && warningsByEmail.length > 0) {
+              // Agrupar warnings por email y obtener el user_id más común
+              const emailToSystemUserId: Record<string, string> = {};
+              warningsByEmail.forEach(w => {
+                if (w.user_email && w.user_id) {
+                  // Usar el último user_id encontrado (más reciente)
+                  emailToSystemUserId[w.user_email] = w.user_id;
+                  emailToSystemUserIdMap[w.user_email] = w.user_id;
+                }
+              });
+              
+              // Buscar contadores usando los user_id de System_UI
+              const systemUserIds = Object.values(emailToSystemUserId);
+              if (systemUserIds.length > 0) {
+                const { data: countersBySystemId, error: countersError } = await supabaseSystemUIAdmin
+                  .from('user_warning_counters')
+                  .select('*')
+                  .in('user_id', systemUserIds);
+                
+                if (!countersError && countersBySystemId && countersBySystemId.length > 0) {
+                  // Mapear contadores de System_UI a IDs de PQNC_AI usando el email
+                  countersBySystemId.forEach(counter => {
+                    // Encontrar el email que corresponde a este user_id de System_UI
+                    const email = Object.entries(emailToSystemUserId).find(([_, sysId]) => sysId === counter.user_id)?.[0];
+                    if (email && emailToUserMap[email]) {
+                      const pqncUser = emailToUserMap[email];
+                      // Mapear el contador al ID de PQNC_AI (sobrescribir si ya existe)
+                      warningCounters[pqncUser.id] = {
+                        total_warnings: counter.total_warnings,
+                        warnings_last_30_days: counter.warnings_last_30_days,
+                        warnings_last_7_days: counter.warnings_last_7_days,
+                        last_warning_at: counter.last_warning_at,
+                        is_blocked: counter.is_blocked
+                      };
+                    }
+                  });
+                }
+              }
+            }
+          }
+          
+          // Combinar datos de usuarios con estado de bloqueo y agregar el user_id de System_UI para desbloquear
+          const usersWithBlockStatus = (data || []).map(user => {
+            const systemUserId = user.email ? emailToSystemUserIdMap[user.email] : undefined;
+            const counter = warningCounters[user.id];
+            const isBlocked = counter?.is_blocked || false;
+            const warningCount = counter?.total_warnings || 0;
+            
+            return {
+              ...user,
+              is_blocked: isBlocked,
+              warning_count: warningCount,
+              system_ui_user_id: systemUserId // Guardar el user_id de System_UI para poder desbloquear
+            };
+          });
+          
+          setUsers(usersWithBlockStatus);
+        } catch (warningError) {
+          console.error('❌ Error cargando warnings:', warningError);
+          // Si falla, usar usuarios sin estado de bloqueo
+          setUsers(data || []);
+        }
+      } else {
+        setUsers(data || []);
+      }
     } catch (err) {
       console.error('Error loading users:', err);
       setError('Error al cargar usuarios');
@@ -302,6 +403,36 @@ const UserManagement: React.FC = () => {
       setError('Error al actualizar usuario');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUnblockUser = async (user: User) => {
+    if (!isAdmin) {
+      setError('Solo los administradores pueden desbloquear usuarios');
+      return;
+    }
+
+    try {
+      setUnblockingUserId(user.id);
+      
+      // Si el usuario tiene un system_ui_user_id, usarlo; si no, usar el ID de PQNC_AI
+      const userIdToReset = user.system_ui_user_id || user.id;
+      
+      const success = await ParaphraseLogService.resetUserWarnings(userIdToReset);
+      
+      if (success) {
+        setError(null);
+        // Pequeña animación de éxito antes de recargar
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await loadUsers(); // Recargar usuarios para actualizar estado
+      } else {
+        setError('Error al desbloquear usuario');
+      }
+    } catch (err) {
+      console.error('Error desbloqueando usuario:', err);
+      setError('Error al desbloquear usuario');
+    } finally {
+      setUnblockingUserId(null);
     }
   };
 
@@ -627,6 +758,9 @@ const UserManagement: React.FC = () => {
                   Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Moderación
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Último acceso
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -637,7 +771,7 @@ const UserManagement: React.FC = () => {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center">
+                  <td colSpan={7} className="px-6 py-4 text-center">
                     <div className="flex justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                     </div>
@@ -645,7 +779,7 @@ const UserManagement: React.FC = () => {
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                     No hay usuarios registrados
                   </td>
                 </tr>
@@ -701,6 +835,40 @@ const UserManagement: React.FC = () => {
                       }`}>
                         {user.is_active ? 'Activo' : 'Inactivo'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {user.is_blocked ? (
+                        <button
+                          onClick={() => isAdmin && handleUnblockUser(user)}
+                          disabled={!isAdmin || unblockingUserId === user.id}
+                          className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full transition-all duration-200 ${
+                            unblockingUserId === user.id
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 cursor-wait'
+                              : isAdmin
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800 cursor-pointer active:scale-95'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 cursor-not-allowed'
+                          }`}
+                          title={isAdmin ? 'Haz clic para desbloquear' : 'Solo administradores pueden desbloquear'}
+                        >
+                          {unblockingUserId === user.id ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              Desbloqueando...
+                            </>
+                          ) : (
+                            <>
+                              <ShieldAlert className="w-3 h-3 mr-1" />
+                              Bloqueado ({user.warning_count})
+                            </>
+                          )}
+                        </button>
+                      ) : user.warning_count > 0 ? (
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                          {user.warning_count} warnings
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {user.last_login 

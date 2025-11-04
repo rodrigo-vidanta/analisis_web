@@ -1,0 +1,49 @@
+{
+  "family": "postgres-railway-simple",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/supabase-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::307621978585:role/supabase-task-role",
+  "containerDefinitions": [
+    {
+      "name": "postgres-railway",
+      "image": "ghcr.io/6ixfalls/supabase-postgres:15.8.1.085",
+      "portMappings": [
+        {
+          "containerPort": 5432,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "POSTGRES_DB",
+          "value": "supabase"
+        },
+        {
+          "name": "POSTGRES_USER",
+          "value": "supabase"
+        },
+        {
+          "name": "POSTGRES_PASSWORD",
+          "value": "SuperBase123!"
+        },
+        {
+          "name": "POSTGRES_PORT",
+          "value": "5432"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/postgres-railway-simple",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}

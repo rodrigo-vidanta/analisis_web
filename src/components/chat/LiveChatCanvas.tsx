@@ -38,6 +38,12 @@ import { MultimediaMessage, needsBubble } from './MultimediaMessage';
 import { ImageCatalogModal } from './ImageCatalogModal';
 import { ParaphraseModal } from './ParaphraseModal';
 import { ProspectDetailSidebar } from './ProspectDetailSidebar';
+import ModerationService from '../../services/moderationService';
+import ParaphraseLogService from '../../services/paraphraseLogService';
+import { useAuth } from '../../contexts/AuthContext';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { useState as useReactState } from 'react';
+import { getDisplayName } from '../../utils/conversationNameHelper';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -105,6 +111,7 @@ interface ConversationBlock {
 // ============================================
 
 const LiveChatCanvas: React.FC = () => {
+  const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const selectedConversationRef = useRef<string | null>(null);
@@ -123,6 +130,10 @@ const LiveChatCanvas: React.FC = () => {
   // Estado para modal de parafraseo con IA
   const [showParaphraseModal, setShowParaphraseModal] = useState(false);
   const [textToParaphrase, setTextToParaphrase] = useState('');
+  
+  // Estado para bloqueo de moderación
+  const [isUserBlocked, setIsUserBlocked] = useState(false);
+  const [warningStats, setWarningStats] = useState<any>(null);
 
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -341,7 +352,10 @@ const LiveChatCanvas: React.FC = () => {
             const conversationIndex = prev.findIndex(c => c.id === targetProspectoId);
             
             if (conversationIndex === -1) {
-              console.error('❌ Conversación NO ENCONTRADA en la lista!');
+              // ✅ Si la conversación no está en la lista, es una nueva conversación
+              // Recargar la lista completa para incluirla
+              logDev('📨 [REALTIME] Conversación nueva detectada, recargando lista...');
+              loadConversations();
               return prev;
             }
 
@@ -352,7 +366,8 @@ const LiveChatCanvas: React.FC = () => {
             const updatedConv: Conversation = { 
               ...currentConv, 
               last_message_at: newMessage.created_at, 
-              ultimo_mensaje_preview: newMessage.content,
+              updated_at: newMessage.created_at, // ✅ Actualizar también updated_at para ordenamiento
+              ultimo_mensaje_preview: newMessage.content?.substring(0, 100) || '',
               message_count: (currentConv.message_count || 0) + 1,
               // ✅ OPTIMIZACIÓN: Si es la conversación activa, NO incrementar el contador
               unread_count: (!isActiveConversation && !isFromAgent)
@@ -364,10 +379,11 @@ const LiveChatCanvas: React.FC = () => {
             };
             
             
-            // Mover la conversación al principio de la lista
+            // ✅ Mover la conversación al principio de la lista (siempre la más reciente arriba)
             const conversationsWithoutUpdated = prev.filter(c => c.id !== targetProspectoId);
             const reorderedList = [updatedConv, ...conversationsWithoutUpdated];
             
+            logDev('✅ [REALTIME] Conversación actualizada y movida a posición 1');
             
             return reorderedList;
           });
@@ -394,10 +410,12 @@ const LiveChatCanvas: React.FC = () => {
         setConversations(prev => {
             return prev.map(conv => {
               if (conv.prospecto_id === prospectoId) {
-                // ✅ PRIORIDAD: nombre > nombre_whatsapp > whatsapp
-                const newName = updatedProspecto.nombre?.trim() || 
-                                updatedProspecto.nombre_whatsapp?.trim() || 
-                                updatedProspecto.whatsapp;
+                // ✅ Usar función helper para determinar nombre según priorización
+                const newName = getDisplayName({
+                  nombre_completo: updatedProspecto.nombre_completo,
+                  nombre_whatsapp: updatedProspecto.nombre_whatsapp,
+                  whatsapp: updatedProspecto.whatsapp
+                });
                 
               return {
                 ...conv,
@@ -410,11 +428,21 @@ const LiveChatCanvas: React.FC = () => {
           });
         }
       )
+      // ========================================
+      // 🔔 SUSCRIPCIÓN 3: Nuevas conversaciones (INSERT en mensajes_whatsapp para prospectos nuevos)
+      // ========================================
+      // Cuando llega un mensaje para un prospecto que no está en la lista,
+      // ya se maneja en la suscripción 1 recargando la lista completa
+      // Esto asegura que las conversaciones nuevas aparezcan inmediatamente
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
+          logDev('✅ [REALTIME V3] Suscripción activa: mensajes y prospectos');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ [REALTIME V3] Error en el canal:', err);
+          scheduleReconnect('channel_error');
         } else if (status === 'CLOSED') {
+          logDev('⚠️ [REALTIME V3] Canal cerrado, reintentando...');
+          scheduleReconnect('channel_closed');
         }
       });
 
@@ -1920,8 +1948,59 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
+  // Verificar bloqueo del usuario al cargar (usa contador optimizado)
+  useEffect(() => {
+    const checkUserBlocked = async () => {
+      if (!user?.id) {
+        setIsUserBlocked(false);
+        return;
+      }
+
+      try {
+        const counter = await ParaphraseLogService.getUserWarningCounter(user.id);
+        const blocked = counter?.is_blocked || false;
+        setIsUserBlocked(blocked);
+        
+        if (blocked && counter) {
+          setWarningStats({
+            total_warnings: counter.total_warnings,
+            warnings_last_30_days: counter.warnings_last_30_days,
+            warnings_last_7_days: counter.warnings_last_7_days,
+            last_warning_at: counter.last_warning_at,
+            is_blocked: counter.is_blocked
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error verificando bloqueo:', error);
+        // En caso de error, permitir el envío (fail-open)
+      }
+    };
+
+    checkUserBlocked();
+  }, [user?.id]);
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
+
+    // Verificar si el usuario está bloqueado (usa contador optimizado)
+    if (user?.id) {
+      const blocked = await ParaphraseLogService.isUserBlocked(user.id);
+      if (blocked) {
+        setIsUserBlocked(true);
+        const counter = await ParaphraseLogService.getUserWarningCounter(user.id);
+        if (counter) {
+          setWarningStats({
+            total_warnings: counter.total_warnings,
+            warnings_last_30_days: counter.warnings_last_30_days,
+            warnings_last_7_days: counter.warnings_last_7_days,
+            last_warning_at: counter.last_warning_at,
+            is_blocked: counter.is_blocked
+          });
+        }
+        // Mostrar alerta (no abrir modal de parafraseo)
+        return;
+      }
+    }
 
     // Abrir modal de parafraseo con IA
     setTextToParaphrase(newMessage);
@@ -2677,6 +2756,21 @@ const LiveChatCanvas: React.FC = () => {
                   </div>
                 </div>
               </div>
+            ) : isUserBlocked ? (
+              // USUARIO BLOQUEADO - Mostrar alerta de moderación
+              <div className="flex items-center justify-center h-full bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 rounded-xl border-2 border-red-500 dark:border-red-600 px-4 animate-pulse">
+                <div className="flex items-center space-x-3 text-red-900 dark:text-red-100">
+                  <ShieldAlert className="w-6 h-6 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      ⚠️ Envío bloqueado
+                    </p>
+                    <p className="text-xs opacity-80 mt-0.5">
+                      3+ warnings de moderación alcanzados. Contacta a un administrador.
+                    </p>
+                  </div>
+                </div>
+              </div>
             ) : (
               // VENTANA ACTIVA - Mostrar input normal
             <div className="flex items-center space-x-2">
@@ -2704,7 +2798,7 @@ const LiveChatCanvas: React.FC = () => {
 
               <button
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sending}
+                disabled={!newMessage.trim() || sending || isUserBlocked}
                 className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
                 style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >

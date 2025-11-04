@@ -17,6 +17,58 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.13.0** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🔄 Mejoras en Columna de Conversaciones - Actualización Realtime**
+- **Actualización automática con cada mensaje nuevo**
+  - La lista de conversaciones se actualiza en tiempo real cuando llega un mensaje nuevo
+  - La conversación con el mensaje más reciente se mueve automáticamente a la parte superior
+  - Contador de mensajes no leídos se actualiza correctamente en tiempo real
+  - Si la conversación activa recibe un mensaje, el contador no se incrementa (ya está vista)
+
+- **Suscripción realtime mejorada**
+  - Detección de nuevas conversaciones: cuando llega un mensaje para un prospecto que no está en la lista, se recarga automáticamente
+  - Actualización de nombres: cuando se actualiza un prospecto, el nombre se actualiza en la lista usando la función helper
+  - Reconexión automática: mejor manejo de errores y cierres de canal con reintentos
+
+- **Priorización inteligente de nombres**
+  - **Función helper creada**: `src/utils/conversationNameHelper.ts`
+  - **Prioridad 1**: `nombre_completo` (nombre registrado en prospecto)
+  - **Prioridad 2**: `nombre_whatsapp` (si cumple criterios: tiene al menos 2 caracteres válidos, no más de 5 emojis, no más emojis que caracteres válidos)
+  - **Prioridad 3**: Número de teléfono formateado a 10 dígitos
+  - Validación de nombres de WhatsApp: función `isValidWhatsAppName()` que verifica caracteres válidos y cantidad de emojis
+  - Formateo de teléfonos: función `formatPhoneTo10Digits()` que extrae los últimos 10 dígitos numéricos
+
+- **RPC actualizada**: `get_conversations_ordered()`
+  - Función SQL helper `is_valid_whatsapp_name()` para validar nombres de WhatsApp
+  - Priorización mejorada en SQL: `nombre_completo` > `nombre_whatsapp` válido > teléfono 10 dígitos
+  - Formateo de teléfonos a 10 dígitos en la consulta SQL
+
+#### **📝 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx`
+  - Importación y uso de `getDisplayName()` helper
+  - Mejora en actualización de conversaciones cuando llega mensaje nuevo
+  - Mejora en actualización de nombres cuando se actualiza un prospecto
+  - Mejor manejo de nuevas conversaciones (recarga automática)
+  - Logs mejorados para debugging de realtime
+  
+- `src/utils/conversationNameHelper.ts` (NUEVO)
+  - Función `isValidWhatsAppName()`: valida nombres de WhatsApp según criterios
+  - Función `formatPhoneTo10Digits()`: formatea teléfonos a 10 dígitos
+  - Función `getDisplayName()`: determina nombre a mostrar según priorización
+
+- `scripts/sql/update_get_conversations_ordered_nombre_priority_v2.sql` (NUEVO)
+  - Función SQL `is_valid_whatsapp_name()` para validación en base de datos
+  - Actualización de `get_conversations_ordered()` con priorización mejorada
+  - Formateo de teléfonos a 10 dígitos en SQL
+
+#### **🔗 Referencias**
+- Ver documentación técnica: `src/components/chat/README.md`
+- Ver SQL de actualización: `scripts/sql/update_get_conversations_ordered_nombre_priority_v2.sql`
+
+---
+
 ### **v5.10.0** - 24 Octubre 2025
 **Estado:** ✅ Producción
 

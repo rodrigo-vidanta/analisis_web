@@ -1,0 +1,58 @@
+{
+  "family": "supabase-postgrest-official",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/supabase-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::307621978585:role/supabase-task-role",
+  "containerDefinitions": [
+    {
+      "name": "postgrest-official",
+      "image": "postgrest/postgrest:v12.0.2",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "PGRST_JWT_SECRET",
+          "value": "your-super-secret-jwt-token-with-at-least-32-characters-long"
+        },
+        {
+          "name": "PGRST_DB_SCHEMAS",
+          "value": "public,storage,graphql_public"
+        },
+        {
+          "name": "PGRST_DB_URI",
+          "value": "postgresql://supabase:d5-Zm>zWS*OyGVqsbHPt[zul9V$g@supabase-aurora-cluster.cluster-c9memqg6633m.us-west-2.rds.amazonaws.com:5432/supabase"
+        },
+        {
+          "name": "PGRST_DB_ANON_ROLE",
+          "value": "anon"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/postgrest-official",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "postgrest"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -s http://localhost:3000 || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+=== PGADMIN DESPLEGADO (INTERFAZ REAL) ===
+Fecha: Wed Oct 29 14:03:07 CST 2025
+
+🌐 URL pgAdmin: https://d2bxqn3xh4v4kj.cloudfront.net
+
+=== CREDENCIALES PGADMIN ===
+📧 Email: admin@supabase.local
+🔐 Password: SuperBase123!
+
+=== CONEXIÓN A SUPABASE ===
+Una vez dentro de pgAdmin:
+1. Click en "Add New Server"
+2. Name: Supabase AWS
+3. Host: supabase-aurora-cluster.cluster-c9memqg6633m.us-west-2.rds.amazonaws.com
+4. Port: 5432
+5. Database: supabase
+6. Username: supabase
+7. Password: SuperBase123!
+
+=== CARACTERÍSTICAS ===
+✅ Interfaz web oficial de PostgreSQL
+✅ Editor SQL completo
+✅ Navegador de tablas visual
+✅ Gestión de usuarios y permisos
+✅ Monitoreo de consultas
+✅ Backup y restore
+✅ Totalmente funcional
+
+=== NOTA ===
+pgAdmin es la interfaz estándar para PostgreSQL.
+Es mucho más potente que Supabase Studio para gestión de BD.

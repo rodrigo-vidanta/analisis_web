@@ -1,0 +1,86 @@
+{
+  "family": "supabase-studio-official-exact",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/supabase-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::307621978585:role/supabase-task-role",
+  "containerDefinitions": [
+    {
+      "name": "supabase-studio-exact",
+      "image": "supabase/studio:2025.10.27-sha-85b84e0",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "HOSTNAME",
+          "value": "::"
+        },
+        {
+          "name": "STUDIO_PG_META_URL",
+          "value": "http://localhost:8080"
+        },
+        {
+          "name": "POSTGRES_PASSWORD",
+          "value": "SuperBase123!"
+        },
+        {
+          "name": "DEFAULT_ORGANIZATION_NAME",
+          "value": "Default Organization"
+        },
+        {
+          "name": "DEFAULT_PROJECT_NAME",
+          "value": "Default Project"
+        },
+        {
+          "name": "SUPABASE_URL",
+          "value": "https://d2bxqn3xh4v4kj.cloudfront.net"
+        },
+        {
+          "name": "SUPABASE_PUBLIC_URL",
+          "value": "https://d2bxqn3xh4v4kj.cloudfront.net"
+        },
+        {
+          "name": "SUPABASE_ANON_KEY",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0"
+        },
+        {
+          "name": "SUPABASE_SERVICE_KEY",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+        },
+        {
+          "name": "AUTH_JWT_SECRET",
+          "value": "your-super-secret-jwt-token-with-at-least-32-characters-long"
+        },
+        {
+          "name": "NEXT_PUBLIC_ENABLE_LOGS",
+          "value": "true"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/supabase-studio-official-exact",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "studio"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:3000/api/platform/profile').then((r) => {if (r.status !== 200) throw new Error(r.status)})\" || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 180
+      }
+    }
+  ]
+}

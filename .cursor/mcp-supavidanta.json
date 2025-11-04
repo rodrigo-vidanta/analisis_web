@@ -1,0 +1,126 @@
+{
+  "name": "SupaVidanta",
+  "description": "MCP para acceso a las bases de datos de Supabase del proyecto Vidanta AI",
+  "version": "1.0.0",
+  "server": {
+    "command": "npx",
+    "args": [
+      "supabase-mcp"
+    ],
+    "env": {
+      "SUPABASE_URL": "https://hmmfuhqgvsehkizlfzga.supabase.co",
+      "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUxMzU4NywiZXhwIjoyMDYxMDg5NTg3fQ.mTnTOpkXi19xu1l-cZKx_f5RbqSg6zzH8mGdBOY3MZg",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1MTM1ODcsImV4cCI6MjA2MTA4OTU4N30.vhmMcmE9l_VJCPI0S_72XCgQycM2LemTG0OgyLsoqk4"
+    }
+  },
+  "capabilities": {
+    "query_table": {
+      "description": "Consulta tablas de Supabase con filtros opcionales",
+      "parameters": {
+        "table": {
+          "type": "string",
+          "required": true,
+          "description": "Nombre de la tabla"
+        },
+        "select": {
+          "type": "string",
+          "default": "*",
+          "description": "Columnas a seleccionar"
+        },
+        "filter": {
+          "type": "object",
+          "description": "Filtros a aplicar"
+        },
+        "limit": {
+          "type": "number",
+          "default": 50,
+          "description": "Límite de registros"
+        }
+      }
+    },
+    "execute_rpc": {
+      "description": "Ejecuta funciones RPC de Supabase",
+      "parameters": {
+        "function_name": {
+          "type": "string",
+          "required": true,
+          "description": "Nombre de la función RPC"
+        },
+        "params": {
+          "type": "object",
+          "description": "Parámetros de la función"
+        }
+      }
+    },
+    "execute_sql": {
+      "description": "Ejecuta SQL arbitrario en Supabase",
+      "parameters": {
+        "sql": {
+          "type": "string",
+          "required": true,
+          "description": "Sentencia SQL a ejecutar"
+        },
+        "description": {
+          "type": "string",
+          "description": "Descripción de lo que hace el SQL"
+        }
+      }
+    },
+    "get_agent_full": {
+      "description": "Obtiene un agente completo con todos sus roles y herramientas",
+      "parameters": {
+        "agent_id": {
+          "type": "string",
+          "required": true,
+          "description": "UUID del agente"
+        }
+      }
+    }
+  },
+  "database_schema": {
+    "tables": {
+      "auth_users": {
+        "description": "Usuarios del sistema con autenticación",
+        "columns": ["id", "email", "full_name", "role_id", "is_active", "organization"]
+      },
+      "auth_roles": {
+        "description": "Roles de usuario del sistema",
+        "columns": ["id", "name", "display_name", "description", "is_active"]
+      },
+      "auth_permissions": {
+        "description": "Permisos del sistema",
+        "columns": ["id", "permission_name", "module", "sub_module", "description"]
+      },
+      "calls": {
+        "description": "Llamadas y análisis PQNC",
+        "columns": ["id", "call_id", "customer_name", "agent_name", "call_type", "duration", "transcript", "summary"]
+      },
+      "system_config": {
+        "description": "Configuración del sistema",
+        "columns": ["id", "config_key", "config_value", "description", "updated_by_user"]
+      },
+      "user_avatars": {
+        "description": "Avatares de usuarios",
+        "columns": ["id", "user_id", "avatar_url", "filename", "file_size"]
+      }
+    },
+    "functions": {
+      "authenticate_user": {
+        "description": "Autentica un usuario con email y password",
+        "parameters": ["email", "password"]
+      },
+      "create_user_with_role": {
+        "description": "Crea un usuario con rol específico",
+        "parameters": ["email", "password", "name", "role"]
+      },
+      "get_user_permissions": {
+        "description": "Obtiene permisos de un usuario",
+        "parameters": ["user_id"]
+      },
+      "update_system_config": {
+        "description": "Actualiza configuración del sistema",
+        "parameters": ["key", "value", "user_id"]
+      }
+    }
+  }
+}

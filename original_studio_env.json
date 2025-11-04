@@ -1,0 +1,18 @@
+[
+    {
+        "name": "STUDIO_PG_META_URL",
+        "value": "http://internal-pgmeta-internal-alb-174149902.us-west-2.elb.amazonaws.com:8080"
+    },
+    {
+        "name": "POSTGRES_PASSWORD",
+        "value": "SuperBase123!"
+    },
+    {
+        "name": "DATABASE_URL",
+        "value": "postgresql://supabase:SuperBase123!@supabase-aurora-cluster.cluster-c9memqg6633m.us-west-2.rds.amazonaws.com:5432/supabase"
+    },
+    {
+        "name": "HOSTNAME",
+        "value": "::"
+    }
+]

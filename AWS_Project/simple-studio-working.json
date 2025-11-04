@@ -1,0 +1,45 @@
+{
+  "family": "simple-studio-working",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/supabase-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::307621978585:role/supabase-task-role",
+  "containerDefinitions": [
+    {
+      "name": "simple-studio",
+      "image": "nginx:alpine",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "command": [
+        "/bin/sh",
+        "-c",
+        "apk add --no-cache curl && echo 'server { listen 80; location / { proxy_pass http://18.236.181.180:3000; proxy_set_header Host \\$host; proxy_set_header X-Real-IP \\$remote_addr; } }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/simple-studio-working",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "studio"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      }
+    }
+  ]
+}

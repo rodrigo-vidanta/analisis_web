@@ -1,0 +1,16 @@
+=== SUPABASE STUDIO DESPLEGADO ===
+Fecha: Wed Oct 29 13:22:21 CST 2025
+
+🌐 URL Principal: https://d2bxqn3xh4v4kj.cloudfront.net
+🎨 Supabase Studio: https://d2bxqn3xh4v4kj.cloudfront.net/studio
+
+=== ACCESO A STUDIO ===
+1. Ve a: https://d2bxqn3xh4v4kj.cloudfront.net/studio
+2. Usa las credenciales de la base de datos para conectar
+3. Host: supabase-aurora-cluster.cluster-c9memqg6633m.us-west-2.rds.amazonaws.com
+4. User: supabase
+5. Password: SuperBase123!
+
+=== NOTA ===
+Studio puede tardar 5-10 minutos en estar completamente listo.
+Si no carga inmediatamente, espera unos minutos.

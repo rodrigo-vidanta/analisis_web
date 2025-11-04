@@ -1,0 +1,41 @@
+{
+  "family": "studio-direct-ip",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/supabase-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::307621978585:role/supabase-task-role",
+  "containerDefinitions": [
+    {
+      "name": "studio-with-fixed-dns",
+      "image": "supabase/studio:latest",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "STUDIO_PG_META_URL",
+          "value": "http://10.0.101.17:8080"
+        },
+        {
+          "name": "POSTGRES_PASSWORD",
+          "value": "VidantaSupabase2024!"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/studio-direct-ip",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}

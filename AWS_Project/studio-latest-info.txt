@@ -1,0 +1,34 @@
+=== SUPABASE STUDIO OFICIAL LATEST ===
+Fecha: Wed Oct 29 14:47:59 CST 2025
+
+🎨 URL Studio Oficial: http://18.236.181.180:3000
+
+=== IMAGEN OFICIAL ===
+Docker: supabase/studio:latest
+Estado: PENDING
+Tarea: arn:aws:ecs:us-west-2:307621978585:task/supabase-cluster/453f7466fc1e4637b830b73276b81e0b
+
+=== CONFIGURACIÓN ===
+URL: https://d2bxqn3xh4v4kj.cloudfront.net
+Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0
+Service Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+=== BASE DE DATOS ===
+Host: supabase-aurora-cluster.cluster-c9memqg6633m.us-west-2.rds.amazonaws.com
+Port: 5432
+Database: supabase
+User: supabase
+Password: SuperBase123!
+
+=== ACCESO ===
+URL: http://18.236.181.180:3000
+Estado: PENDING
+
+=== COMANDOS MONITOREO ===
+# Ver logs en tiempo real:
+aws logs tail /ecs/studio-latest-working --region us-west-2 --follow
+
+# Ver estado de tarea:
+aws ecs describe-tasks --cluster supabase-cluster --tasks arn:aws:ecs:us-west-2:307621978585:task/supabase-cluster/453f7466fc1e4637b830b73276b81e0b --region us-west-2
+
+¡Este es el Studio oficial de Supabase!

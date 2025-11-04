@@ -1,0 +1,25 @@
+{
+  "family": "test-alb",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::307621978585:role/supabase-task-execution-role",
+  "containerDefinitions": [
+    {
+      "name": "curl-test-alb",
+      "image": "curlimages/curl:latest",
+      "command": ["curl", "-v", "http://internal-pgmeta-internal-alb-174149902.us-west-2.elb.amazonaws.com:8080/", "--max-time", "15"],
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/test-alb",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}

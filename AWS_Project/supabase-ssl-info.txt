@@ -1,0 +1,27 @@
+=== SUPABASE CON SSL CONFIGURADO ===
+Fecha: Wed Oct 29 12:11:57 CST 2025
+
+🌐 URL HTTPS: https://d2bxqn3xh4v4kj.cloudfront.net
+🔗 URL HTTP Original: http://supabase-alb-1210454801.us-west-2.elb.amazonaws.com
+📡 CloudFront Distribution ID: E2O0E82C64Y0YI
+
+=== CONFIGURACIÓN PARA APLICACIONES ===
+Supabase URL: https://d2bxqn3xh4v4kj.cloudfront.net
+Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0
+Service Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+=== ENDPOINTS ===
+- REST API: https://d2bxqn3xh4v4kj.cloudfront.net/rest/v1/
+- Auth: https://d2bxqn3xh4v4kj.cloudfront.net/auth/v1/
+- Storage: https://d2bxqn3xh4v4kj.cloudfront.net/storage/v1/
+
+=== NOTA IMPORTANTE ===
+CloudFront puede tardar 5-15 minutos en desplegarse completamente.
+Mientras tanto, puedes usar la URL HTTP para pruebas internas.
+
+=== COMANDOS ÚTILES ===
+# Ver estado de distribución:
+aws cloudfront get-distribution --id E2O0E82C64Y0YI --region us-east-1 --query 'Distribution.Status' --output text
+
+# Invalidar cache (si haces cambios):
+aws cloudfront create-invalidation --distribution-id E2O0E82C64Y0YI --paths "/*" --region us-east-1

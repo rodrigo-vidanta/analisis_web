@@ -1,0 +1,53 @@
+=== SUPABASE OFICIAL MARKETPLACE DESPLEGADO ===
+Fecha: Wed Oct 29 16:23:48 CST 2025
+
+🎨 SUPABASE STUDIO OFICIAL:
+URL: http://34.215.190.78:8000
+
+=== CREDENCIALES ===
+👤 Usuario: admin
+🔐 Contraseña: SuperBase123!
+
+=== INSTANCIA EC2 ===
+IP: i-040eeef665b019b53
+Tipo: t3.large
+VPC: vpc-05eb3d8651aff5257 (misma que N8N)
+
+=== CARACTERÍSTICAS OFICIALES ===
+✅ Supabase Studio oficial completo
+✅ Todos los servicios oficiales (Kong, PostgREST, GoTrue, etc.)
+✅ Configuración oficial del repositorio
+✅ Docker Compose oficial
+✅ Conectado a tu base de datos Aurora
+✅ Misma VPC que N8N
+
+=== BASE DE DATOS AURORA ===
+Host: supabase-aurora-cluster.cluster-c9memqg6633m.us-west-2.rds.amazonaws.com
+Port: 5432
+Database: supabase
+User: supabase
+Password: SuperBase123!
+
+=== API KEYS ===
+Anon: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJeHxjNa-NEHVqH3K3ta6lVJpE0-0ZAi0
+Service: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+=== ACCESO ===
+1. Ve a: http://34.215.190.78:8000
+2. Login: admin / SuperBase123!
+3. ¡Usa Studio oficial como en supabase.com!
+
+=== COMANDOS ÚTILES ===
+# Conectar por SSH:
+ssh ec2-user@i-040eeef665b019b53
+
+# Ver logs de Docker:
+ssh ec2-user@i-040eeef665b019b53 "cd supabase/docker && docker-compose logs -f studio"
+
+# Reiniciar servicios:
+ssh ec2-user@i-040eeef665b019b53 "cd supabase/docker && docker-compose restart"
+
+=== NOTA ===
+Este es el Supabase oficial completo funcionando en EC2.
+Studio puede tardar 5-10 minutos en estar completamente listo.
+¡Exactamente la misma interfaz que conoces!

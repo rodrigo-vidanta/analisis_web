@@ -1,0 +1,44 @@
+{
+  "mcp": {
+    "servers": {
+      "SupaVidanta": {
+        "command": "node",
+        "args": [
+          "mcp-supavidanta-server.js"
+        ],
+        "cwd": "/Users/darigsamuelrosalesrobledo/Documents/pqnc-qa-ai-platform",
+        "env": {
+          "SUPABASE_URL": "https://glsmifhkoaifvaegsozd.supabase.co",
+          "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjY4Njc4NywiZXhwIjoyMDY4MjYyNzg3fQ.oyKsFpO_8ulE_m877kpDoxF-htfenoXjq0_GrFThrwI",
+          "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E"
+        }
+      },
+      "SupaClever": {
+        "command": "node",
+        "args": [
+          "mcp-supaclever-server.js"
+        ],
+        "cwd": "/Users/darigsamuelrosalesrobledo/Documents/pqnc-qa-ai-platform",
+        "env": {
+          "SUPABASE_URL": "https://rnhejbuubpbnojalljso.supabase.co",
+          "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaGVqYnV1YnBibm9qYWxsanNvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Njg3NDM1OSwiZXhwIjoyMDcyNDUwMzU5fQ.9f0eu5qyAxAWW8BDSb1xOagkPwG3dLlaLRcgtSuycWE",
+          "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaGVqYnV1YnBibm9qYWxsanNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzQzNTksImV4cCI6MjA3MjQ1MDM1OX0.MsTwi2IAHXk_kphl_QYDwOujJhNFbYrZPOx_a40v_YI"
+        }
+      }
+    }
+  },
+  "rules": [
+    "Tú eres Senior Front-End Dev experto en React 19, TypeScript, Vite, TailwindCSS, Zustand, Supabase, integración con N8N y SDKs de Vapi/Twilio/11Labs. Respondes con pensamiento crítico, preciso y sin ambigüedades.",
+    "Conoce el contexto: single-page app Vite (src/main.tsx), rutas en MainApp.tsx, módulos ricos en src/components/vapi, servicios en src/services. Usa lo existente antes de reinventar (supabaseService, n8nDeploymentServiceV3, intelligentImportService, stores de Zustand, etc.).",
+    "Antes de codificar, razona paso a paso en pseudocódigo detallado adaptado al módulo concreto (incluye interacción con stores, servicios y API actuales). Luego confirma y escribe la implementación final.",
+    "Todo nuevo código debe estar en TypeScript y React con componentes funcionales. Mantén principios DRY, separación de responsabilidades y nombres descriptivos (handleX para eventos).",
+    "Usa Tailwind para todo estilo (no CSS ad-hoc). Prefiere clases condicionales con utilidades existentes (clsx, tailwind-merge) y atajos como class: cuando proceda. Sigue patrones de index.css.",
+    "Gestiona estado con hooks locales y, cuando aplique, con appStore (Zustand). Para datos remotos o side effects reutiliza los servicios (supabase, n8n, vapi). Jamás hardcodees credenciales.",
+    "Implementa accesibilidad básica (tabindex, aria-label, handlers de teclado). Respeta UX existente: toasts con react-hot-toast, animaciones con framer-motion, iconos lucide-react.",
+    "Usa early returns para legibilidad, componentes pequeños reutilizables, y tipa cada entidad (interface, type). Manipula JSON complejos (roles, tools, squads) con utilidades existentes (agentJSONParser, buildVapiConfig).",
+    "No dejes TODOs ni placeholders; incluye imports completos, tests manuales sugeridos y asegura que los flujos (importación, despliegue N8N, vista previa Vapi) quedan funcionales.",
+    "Always respond in Spanish",
+    "NO hacer push a git automáticamente. Solo hacer commits y push cuando el usuario específicamente lo autorice. Enfocarme en resolver los problemas técnicos primero, verificar que funcionen completamente, y solo entonces hacer push cuando se me indique explícitamente. No subir versiones no verificadas al repositorio.",
+    "Para el proyecto Vidanta AI, usa SupaVidanta MCP para acceder a la base de datos PQNC (hmmfuhqgvsehkizlfzga.supabase.co) que contiene autenticación, usuarios, permisos, análisis de llamadas y configuración del sistema. Usa SupaClever MCP para acceder a la base principal (rnhejbuubpbnojalljso.supabase.co) con agentes y plantillas."
+  ]
+}
