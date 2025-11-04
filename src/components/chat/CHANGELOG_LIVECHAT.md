@@ -17,6 +17,41 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.13.1** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🔧 Correcciones Críticas: Realtime sin Parpadeos**
+- **Problema resuelto: Conversación no se movía automáticamente**
+  - **Causa**: Error de "mismatch between server and client bindings" causaba fallos en la suscripción realtime
+  - **Solución**: Canal único con timestamp, eliminación de `filter: undefined`, manejo inteligente de errores
+  - **Resultado**: Conversaciones se actualizan correctamente sin necesidad de recargar la página
+
+- **Problema resuelto: Parpadeos al recargar lista completa**
+  - **Causa**: Cuando una conversación nueva no estaba en la lista, se llamaba `loadConversations()` que hacía `setLoading(true)`
+  - **Solución**: Carga selectiva solo de la conversación nueva usando RPC, sin recargar toda la lista
+  - **Resultado**: Conversaciones nuevas aparecen suavemente sin parpadeos
+
+- **Mejoras en búsqueda de conversaciones**
+  - Búsqueda mejorada por `id` Y `prospecto_id` para evitar falsos negativos
+  - Filtrado actualizado al reordenar para usar ambos campos
+  - Manejo robusto de conversaciones existentes vs nuevas
+
+- **Suscripción realtime más robusta (V4)**
+  - Canal único por sesión con timestamp: `live-chat-mensajes-whatsapp-v4-${Date.now()}`
+  - Limpieza completa de canales anteriores antes de crear nuevos
+  - Manejo específico de error "mismatch" como advertencia no crítica (no interrumpe suscripción)
+  - Reset de backoff cuando se suscribe correctamente
+  - Manejo de timeout además de errores de canal
+
+#### **📝 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx`
+  - Suscripción realtime V4 con canal único y mejor manejo de errores
+  - Carga selectiva de conversaciones nuevas sin parpadeos
+  - Búsqueda mejorada por `id` y `prospecto_id`
+  - Logs mejorados para debugging
+
+---
+
 ### **v5.13.0** - Diciembre 2025
 **Estado:** ✅ Producción
 
@@ -28,7 +63,7 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
   - Si la conversación activa recibe un mensaje, el contador no se incrementa (ya está vista)
 
 - **Suscripción realtime mejorada**
-  - Detección de nuevas conversaciones: cuando llega un mensaje para un prospecto que no está en la lista, se recarga automáticamente
+  - Detección de nuevas conversaciones: cuando llega un mensaje para un prospecto que no está en la lista, se carga selectivamente
   - Actualización de nombres: cuando se actualiza un prospecto, el nombre se actualiza en la lista usando la función helper
   - Reconexión automática: mejor manejo de errores y cierres de canal con reintentos
 

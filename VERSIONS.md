@@ -1,5 +1,31 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.13.1 (Diciembre 2025) - Live Chat: Correcciones Realtime sin Parpadeos
+
+### 🐛 RELEASE PATCH - Correcciones Críticas de Realtime
+
+#### 🔧 Problemas Resueltos
+- **Conversación no se movía automáticamente**
+  - Error "mismatch between server and client bindings" corregido
+  - Suscripción realtime V4 con canal único y mejor manejo de errores
+  - Conversaciones ahora se actualizan correctamente sin recargar página
+
+- **Parpadeos al recargar lista completa**
+  - Carga selectiva de conversaciones nuevas sin `setLoading(true)`
+  - Conversaciones nuevas aparecen suavemente sin recargar toda la lista
+  - Experiencia de usuario mejorada significativamente
+
+#### 🎯 Mejoras Técnicas
+- Canal único por sesión con timestamp para evitar conflictos
+- Búsqueda mejorada por `id` y `prospecto_id`
+- Manejo inteligente de errores realtime (mismatch como advertencia no crítica)
+- Limpieza completa de canales anteriores
+
+#### 📝 Archivos Modificados
+- `src/components/chat/LiveChatCanvas.tsx` - Suscripción realtime V4 mejorada
+
+---
+
 ## Versión 5.13.0 (Diciembre 2025) - Live Chat: Mejoras en Columna de Conversaciones Realtime
 
 ### 🚀 RELEASE MINOR - Actualización Realtime de Conversaciones

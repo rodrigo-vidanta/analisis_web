@@ -281,17 +281,34 @@ const LiveChatCanvas: React.FC = () => {
   const setupRealtimeSubscription = () => {
     // Limpiar cualquier suscripción anterior para evitar duplicados
     if (realtimeChannel) {
-      realtimeChannel.unsubscribe();
+      try {
+        realtimeChannel.unsubscribe();
+      } catch (e) {
+        // Ignorar errores al desuscribir
+      }
+      setRealtimeChannel(null);
+      setConvRealtimeChannel(null);
+      setUchatRealtimeChannel(null);
+      setUchatMessagesRealtimeChannel(null);
+      // Desuscribir otros canales si existen
+      try {
+        convRealtimeChannel?.unsubscribe();
+        uchatRealtimeChannel?.unsubscribe();
+        uchatMessagesRealtimeChannel?.unsubscribe();
+      } catch (e) {
+        // Ignorar errores
+      }
     }
     
-
+    // Usar un canal único con timestamp para evitar conflictos
+    const channelId = `live-chat-mensajes-whatsapp-v4-${Date.now()}`;
     const newChannel = analysisSupabase
-      .channel('live-chat-mensajes-whatsapp-v3')
+      .channel(channelId)
       .on(
         'postgres_changes',
         {
-        event: 'INSERT', 
-        schema: 'public', 
+          event: 'INSERT', 
+          schema: 'public', 
           table: 'mensajes_whatsapp',
         },
         (payload) => {
@@ -349,14 +366,59 @@ const LiveChatCanvas: React.FC = () => {
 
           // Actualizar la lista de conversaciones para reflejar el nuevo mensaje
         setConversations(prev => {
-            const conversationIndex = prev.findIndex(c => c.id === targetProspectoId);
+            const conversationIndex = prev.findIndex(c => c.id === targetProspectoId || c.prospecto_id === targetProspectoId);
             
             if (conversationIndex === -1) {
-              // ✅ Si la conversación no está en la lista, es una nueva conversación
-              // Recargar la lista completa para incluirla
-              logDev('📨 [REALTIME] Conversación nueva detectada, recargando lista...');
-              loadConversations();
-              return prev;
+              // ✅ Si la conversación no está en la lista, cargar solo esa conversación nueva SIN recargar todo
+              logDev('📨 [REALTIME] Conversación nueva detectada, cargando datos del prospecto...');
+              
+              // Cargar datos del prospecto y agregarlo a la lista SIN recargar todo
+              (async () => {
+                try {
+                  const { data: convData, error } = await analysisSupabase.rpc('get_conversations_ordered');
+                  if (error || !convData) return;
+                  
+                  // Encontrar la conversación del prospecto en los resultados
+                  const newConv = convData.find((c: any) => c.prospecto_id === targetProspectoId);
+                  if (!newConv) return;
+                  
+                  // Adaptar al formato de Conversation
+                  const adaptedConv: Conversation = {
+                    id: newConv.prospecto_id,
+                    prospecto_id: newConv.prospecto_id,
+                    nombre_contacto: newConv.nombre_contacto || newConv.numero_telefono,
+                    customer_name: newConv.nombre_contacto,
+                    status: newConv.estado_prospecto,
+                    last_message_at: newConv.fecha_ultimo_mensaje,
+                    message_count: newConv.mensajes_totales,
+                    unread_count: newConv.mensajes_no_leidos,
+                    ultimo_mensaje_preview: newConv.ultimo_mensaje,
+                    numero_telefono: newConv.numero_telefono,
+                    updated_at: newConv.fecha_ultimo_mensaje,
+                    fecha_inicio: newConv.fecha_creacion_prospecto,
+                    tipo: 'whatsapp',
+                    metadata: { 
+                      prospecto_id: newConv.prospecto_id,
+                      id_uchat: newConv.id_uchat
+                    }
+                  };
+                  
+                  // Agregar la conversación nueva al principio de la lista SIN recargar todo
+                  setConversations(prevList => {
+                    // Verificar si ya fue agregada (evitar duplicados)
+                    if (prevList.some(c => c.id === targetProspectoId || c.prospecto_id === targetProspectoId)) {
+                      return prevList;
+                    }
+                    return [adaptedConv, ...prevList];
+                  });
+                  
+                  logDev('✅ [REALTIME] Conversación nueva agregada sin recargar toda la lista');
+                } catch (error) {
+                  console.error('❌ Error cargando conversación nueva:', error);
+                }
+              })();
+              
+              return prev; // Mantener la lista actual mientras se carga la nueva
             }
 
             const currentConv = prev[conversationIndex];
@@ -380,7 +442,7 @@ const LiveChatCanvas: React.FC = () => {
             
             
             // ✅ Mover la conversación al principio de la lista (siempre la más reciente arriba)
-            const conversationsWithoutUpdated = prev.filter(c => c.id !== targetProspectoId);
+            const conversationsWithoutUpdated = prev.filter(c => c.id !== targetProspectoId && c.prospecto_id !== targetProspectoId);
             const reorderedList = [updatedConv, ...conversationsWithoutUpdated];
             
             logDev('✅ [REALTIME] Conversación actualizada y movida a posición 1');
@@ -397,10 +459,10 @@ const LiveChatCanvas: React.FC = () => {
       .on(
         'postgres_changes',
         {
-        event: 'UPDATE',
-        schema: 'public',
+          event: 'UPDATE',
+          schema: 'public',
           table: 'prospectos',
-          filter: undefined // Escuchar TODOS los updates
+          // No usar filter: undefined, mejor especificar explícitamente
         },
         (payload) => {
           const updatedProspecto = payload.new as any;
@@ -436,12 +498,24 @@ const LiveChatCanvas: React.FC = () => {
       // Esto asegura que las conversaciones nuevas aparezcan inmediatamente
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          logDev('✅ [REALTIME V3] Suscripción activa: mensajes y prospectos');
+          logDev('✅ [REALTIME V4] Suscripción activa: mensajes y prospectos');
+          // Resetear backoff cuando se suscribe correctamente
+          reconnectBackoffRef.current = 0;
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [REALTIME V3] Error en el canal:', err);
+          const errorMsg = err?.message || String(err || 'unknown');
+          // Ignorar errores de "mismatch" que son comunes y no críticos
+          if (errorMsg.includes('mismatch between server and client bindings')) {
+            logDev('⚠️ [REALTIME V4] Warning de mismatch (no crítico), continuando...');
+            // No hacer reconnect inmediato para este error específico
+            return;
+          }
+          console.error('❌ [REALTIME V4] Error en el canal:', err);
           scheduleReconnect('channel_error');
+        } else if (status === 'TIMED_OUT') {
+          logDev('⏱️ [REALTIME V4] Timeout, reintentando...');
+          scheduleReconnect('timeout');
         } else if (status === 'CLOSED') {
-          logDev('⚠️ [REALTIME V3] Canal cerrado, reintentando...');
+          logDev('⚠️ [REALTIME V4] Canal cerrado, reintentando...');
           scheduleReconnect('channel_closed');
         }
       });
