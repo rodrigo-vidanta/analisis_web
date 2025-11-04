@@ -1,5 +1,37 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.14.0 (Diciembre 2025) - Prospectos: Vista Kanban Rediseñada
+
+### 🚀 RELEASE MINOR - Vista Kanban Completa
+
+#### 🎨 Visualización Kanban Rediseñada
+- **Vista Kanban independiente** con columnas completamente independientes
+- **4 etapas organizadas**: Validando membresia → En seguimiento → Interesado → Atendió llamada
+- **Columnas independientes**: Cada columna tiene su propio ancho fijo y no afecta a las demás
+- **Sistema de colapso horizontal**: Columnas colapsadas a 80px con texto rotado 90° centrado
+- **Contador de prospectos**: Visible en posición normal arriba cuando está colapsada
+- **Layout flexible**: Distribución equitativa del espacio entre columnas expandidas
+
+#### 🔧 Funcionalidades Implementadas
+- **Preferencias de usuario**: Vista tipo Kanban o DataGrid almacenada en localStorage
+- **Columnas colapsables**: Cada columna puede colapsarse independientemente sin afectar otras
+- **Cards de prospectos**: Muestra nombre, teléfono, ciudad, destino de preferencia, score y última actividad
+- **Ordenamiento automático**: Prospectos ordenados por fecha de último mensaje
+- **Scroll independiente**: Cada columna tiene su propio scroll vertical
+
+#### 📊 Estructura Técnica
+- **Columnas independientes**: Flexbox horizontal con anchos calculados dinámicamente
+- **Sin grid compartido**: Eliminado el problema de headers que afectan a otras columnas
+- **Animaciones suaves**: Transiciones CSS sin Framer Motion problemático
+- **Mapeo de etapas**: Sistema robusto que mapea etapas de BD a checkpoints visuales
+
+#### 📝 Archivos Modificados
+- `src/components/prospectos/ProspectosKanban.tsx` - Reestructuración completa
+- `src/components/prospectos/ProspectosManager.tsx` - Integración de vista Kanban
+- `src/services/prospectsViewPreferencesService.ts` - Servicio para preferencias
+
+---
+
 ## Versión 5.13.2 (Diciembre 2025) - Live Chat: Corrección de Métricas en Header
 
 ### 🐛 RELEASE PATCH - Corrección de Métricas

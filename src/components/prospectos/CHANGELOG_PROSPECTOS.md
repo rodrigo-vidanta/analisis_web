@@ -17,6 +17,43 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.14.0** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🎨 Vista Kanban Completa Rediseñada**
+- **Vista Kanban independiente** con columnas completamente independientes
+- **4 etapas organizadas**: Validando membresia → En seguimiento → Interesado → Atendió llamada
+- **Columnas independientes**: Cada columna tiene su propio ancho fijo y no afecta a las demás
+- **Sistema de colapso horizontal**: Columnas colapsadas a 80px con texto rotado 90° centrado
+- **Contador de prospectos**: Visible en posición normal arriba cuando está colapsada
+- **Layout flexible**: Distribución equitativa del espacio entre columnas expandidas
+
+#### **🔧 Funcionalidades del Kanban**
+- **Preferencias de usuario**: Vista tipo Kanban o DataGrid almacenada en localStorage
+- **Columnas colapsables**: Cada columna puede colapsarse independientemente
+- **Cards de prospectos**: Muestra nombre, teléfono, ciudad, destino de preferencia, score y última actividad
+- **Ordenamiento automático**: Prospectos ordenados por fecha de último mensaje
+- **Scroll independiente**: Cada columna tiene su propio scroll vertical
+
+#### **📊 Estructura Técnica**
+- **Columnas independientes**: Flexbox horizontal con anchos calculados dinámicamente
+- **Sin grid compartido**: Eliminado el problema de headers que afectan a otras columnas
+- **Animaciones suaves**: Transiciones CSS sin Framer Motion problemático
+- **Mapeo de etapas**: Sistema robusto que mapea etapas de BD a checkpoints visuales
+
+#### **🎯 Mejoras de UX**
+- **Visualización clara**: Colores distintivos por etapa (azul, amarillo, verde, morado)
+- **Interacción intuitiva**: Click en header para colapsar/expandir columna
+- **Estado persistente**: Preferencias de columnas colapsadas guardadas en localStorage
+- **Responsive**: Adaptable a diferentes tamaños de pantalla
+
+#### **📝 Archivos Modificados**
+- `src/components/prospectos/ProspectosKanban.tsx` - Reestructuración completa con columnas independientes
+- `src/components/prospectos/ProspectosManager.tsx` - Integración de vista Kanban con toggle
+- `src/services/prospectsViewPreferencesService.ts` - Servicio para preferencias de usuario
+
+---
+
 ### **v5.7.0** - Octubre 2025
 **Estado:** ✅ Producción
 

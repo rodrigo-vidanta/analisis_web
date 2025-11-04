@@ -1,5 +1,34 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 5.14.0 - Prospectos: Vista Kanban Rediseñada (Diciembre 2025)
+
+### 🎨 **MÓDULO PROSPECTOS - VISTA KANBAN COMPLETA**
+
+#### 🎯 **Vista Kanban Rediseñada**
+- **Columnas independientes**: Estructura completamente reestructurada con flexbox horizontal
+- **4 etapas organizadas**: Validando membresia → En seguimiento → Interesado → Atendió llamada
+- **Sistema de colapso horizontal**: Columnas colapsadas a 80px con texto rotado 90° centrado
+- **Layout flexible**: Distribución equitativa del espacio sin afectar otras columnas
+- **Preferencias de usuario**: Vista tipo Kanban o DataGrid persistida en localStorage
+
+#### 🔧 **Funcionalidades Implementadas**
+- **Cards de prospectos**: Muestra información completa (nombre, teléfono, ciudad, destino, score, última actividad)
+- **Ordenamiento automático**: Prospectos ordenados por fecha de último mensaje
+- **Scroll independiente**: Cada columna tiene su propio scroll vertical
+- **Estado persistente**: Columnas colapsadas guardadas en localStorage
+
+#### 📊 **Mejoras Técnicas**
+- **Eliminado grid compartido**: Columnas completamente independientes sin afectación cruzada
+- **Anchos dinámicos**: Calculados automáticamente basados en columnas expandidas/colapsadas
+- **Sin animaciones problemáticas**: Transiciones CSS puras sin Framer Motion
+
+#### 📝 **Archivos Modificados**
+- `src/components/prospectos/ProspectosKanban.tsx` - Reestructuración completa
+- `src/components/prospectos/ProspectosManager.tsx` - Integración de vista Kanban
+- `src/services/prospectsViewPreferencesService.ts` - Servicio para preferencias
+
+---
+
 ## 🚀 Versión 5.12.0 - Supabase AWS: Diagnóstico y Solución ALB Target Groups (Noviembre 3, 2025)
 
 ### 🔧 **INFRAESTRUCTURA SUPABASE AWS - SOLUCIÓN DEFINITIVA**

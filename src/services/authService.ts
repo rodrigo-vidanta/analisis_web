@@ -235,6 +235,10 @@ class AuthService {
         // Live Monitor para admin, evaluator y developer
         return ['admin', 'evaluator', 'developer'].includes(this.currentUser.role_name);
       
+      case 'prospectos':
+        // Prospectos disponible para todos los usuarios autenticados (igual que Live Chat)
+        return true;
+      
       case 'admin':
         // Solo Admin puede acceder a administración (NO developer)
         return this.currentUser.role_name === 'admin';

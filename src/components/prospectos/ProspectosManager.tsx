@@ -20,12 +20,17 @@ import {
   Search, Filter, SortAsc, SortDesc, X, User, Phone, Mail,
   Calendar, MapPin, Building, DollarSign, Clock, Tag,
   ChevronRight, Eye, Edit, Star, TrendingUp, Activity,
-  FileText, MessageSquare, CheckCircle, AlertTriangle, Network
+  FileText, MessageSquare, CheckCircle, AlertTriangle, Network,
+  LayoutGrid, Table2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import Chart from 'chart.js/auto';
+import { useAuth } from '../../contexts/AuthContext';
+import { prospectsViewPreferencesService } from '../../services/prospectsViewPreferencesService';
+import type { ViewType } from '../../services/prospectsViewPreferencesService';
+import ProspectosKanban from './ProspectosKanban';
 
 interface Prospecto {
   id: string;
@@ -1046,6 +1051,7 @@ interface ProspectosManagerProps {
 }
 
 const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveChat, onNavigateToNatalia }) => {
+  const { user } = useAuth();
   const [prospectos, setProspectos] = useState<Prospecto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProspecto, setSelectedProspecto] = useState<Prospecto | null>(null);
@@ -1054,6 +1060,10 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   // Estados para el modal de detalle de llamada
   const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
+  
+  // Estado para vista (Kanban/Datagrid)
+  const [viewType, setViewType] = useState<ViewType>('datagrid');
+  const [collapsedColumns, setCollapsedColumns] = useState<string[]>([]);
   
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -1067,6 +1077,13 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     field: 'created_at',
     direction: 'desc'
   });
+
+  // Cargar preferencias de vista al inicio
+  useEffect(() => {
+    const preferences = prospectsViewPreferencesService.getUserPreferences(user?.id || null);
+    setViewType(preferences.viewType);
+    setCollapsedColumns(preferences.collapsedColumns || []);
+  }, [user?.id]);
 
   // Cargar prospectos
   useEffect(() => {
@@ -1167,6 +1184,18 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     setCallDetailModalOpen(true);
   };
 
+  // Manejar cambio de vista
+  const handleViewTypeChange = (newViewType: ViewType) => {
+    setViewType(newViewType);
+    prospectsViewPreferencesService.updateViewType(user?.id || null, newViewType);
+  };
+
+  // Manejar colapso de columnas en Kanban
+  const handleToggleColumnCollapse = (columnId: string) => {
+    const newCollapsed = prospectsViewPreferencesService.toggleColumnCollapse(user?.id || null, columnId);
+    setCollapsedColumns(newCollapsed);
+  };
+
   const getUniqueValues = (field: keyof Prospecto) => {
     return [...new Set(prospectos.map(p => p[field]).filter(Boolean))];
   };
@@ -1219,6 +1248,34 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           <p className="text-gray-600 dark:text-gray-400">
             {filteredAndSortedProspectos.length} de {prospectos.length} prospectos
           </p>
+        </div>
+        
+        {/* Toggle de Vista */}
+        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-1">
+          <button
+            onClick={() => handleViewTypeChange('datagrid')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 ${
+              viewType === 'datagrid'
+                ? 'bg-blue-500 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+            title="Vista de tabla"
+          >
+            <Table2 size={18} />
+            <span className="text-sm font-medium">Tabla</span>
+          </button>
+          <button
+            onClick={() => handleViewTypeChange('kanban')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 ${
+              viewType === 'kanban'
+                ? 'bg-blue-500 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+            title="Vista Kanban"
+          >
+            <LayoutGrid size={18} />
+            <span className="text-sm font-medium">Kanban</span>
+          </button>
         </div>
       </motion.div>
 
@@ -1284,122 +1341,142 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         </div>
       </motion.div>
 
-      {/* Data Grid */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
-              <tr>
-                {[
-                  { key: 'nombre_completo', label: 'Nombre', sortable: true },
-                  { key: 'whatsapp', label: 'WhatsApp', sortable: true },
-                  { key: 'email', label: 'Email', sortable: true },
-                  { key: 'telefono_principal', label: 'Teléfono', sortable: false },
-                  { key: 'etapa', label: 'Etapa', sortable: true },
-                  { key: 'score', label: 'Score', sortable: true },
-                  { key: 'campana_origen', label: 'Campaña', sortable: true },
-                  { key: 'created_at', label: 'Creado', sortable: true },
-                  { key: 'actions', label: '', sortable: false }
-                ].map(column => (
-                  <th 
-                    key={column.key}
-                    className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
-                      column.sortable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' : ''
-                    }`}
-                    onClick={column.sortable ? () => handleSort(column.key as keyof Prospecto) : undefined}
-                  >
-                    <div className="flex items-center gap-2">
-                      {column.label}
-                      {column.sortable && sort.field === column.key && (
-                        sort.direction === 'asc' ? 
-                        <SortAsc size={14} className="text-blue-600 dark:text-blue-400" /> : 
-                        <SortDesc size={14} className="text-blue-600 dark:text-blue-400" />
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              <AnimatePresence>
-                {filteredAndSortedProspectos.map((prospecto, index) => (
-                  <motion.tr
-                    key={prospecto.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.01, ease: "easeOut" }}
-                    onClick={() => handleProspectoClick(prospecto)}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full">
-                          <User size={16} className="text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            {prospecto.ciudad_residencia}
-                          </div>
-                        </div>
+      {/* Vista según preferencia */}
+      {viewType === 'kanban' ? (
+        /* Vista Kanban */
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6"
+        >
+          <ProspectosKanban
+            prospectos={filteredAndSortedProspectos}
+            onProspectoClick={handleProspectoClick}
+            collapsedColumns={collapsedColumns}
+            onToggleColumnCollapse={handleToggleColumnCollapse}
+            getStatusColor={getStatusColor}
+            getScoreColor={getScoreColor}
+          />
+        </motion.div>
+      ) : (
+        /* Data Grid */
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+        >
+          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                  {[
+                    { key: 'nombre_completo', label: 'Nombre', sortable: true, responsive: false },
+                    { key: 'whatsapp', label: 'WhatsApp', sortable: true, responsive: false },
+                    { key: 'email', label: 'Email', sortable: true, responsive: false },
+                    { key: 'telefono_principal', label: 'Teléfono', sortable: false, responsive: 'lg' },
+                    { key: 'etapa', label: 'Etapa', sortable: true, responsive: false },
+                    { key: 'score', label: 'Score', sortable: true, responsive: false },
+                    { key: 'campana_origen', label: 'Campaña', sortable: true, responsive: false },
+                    { key: 'created_at', label: 'Creado', sortable: true, responsive: 'md' },
+                    { key: 'actions', label: '', sortable: false, responsive: false }
+                  ].map(column => (
+                    <th 
+                      key={column.key}
+                      className={`px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
+                        column.sortable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' : ''
+                      } ${column.responsive === 'lg' ? 'hidden lg:table-cell' : column.responsive === 'md' ? 'hidden md:table-cell' : ''}`}
+                      onClick={column.sortable ? () => handleSort(column.key as keyof Prospecto) : undefined}
+                    >
+                      <div className="flex items-center gap-2">
+                        {column.label}
+                        {column.sortable && sort.field === column.key && (
+                          sort.direction === 'asc' ? 
+                          <SortAsc size={14} className="text-blue-600 dark:text-blue-400" /> : 
+                          <SortDesc size={14} className="text-blue-600 dark:text-blue-400" />
+                        )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">
-                      {prospecto.whatsapp}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 font-mono">
-                      {prospecto.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 font-mono">
-                      {prospecto.telefono_principal}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
-                        {prospecto.etapa}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getScoreColor(prospecto.score || '')}`}>
-                        {prospecto.score}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {prospecto.campana_origen}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <ChevronRight size={16} className="text-gray-400" />
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </div>
-        
-        {filteredAndSortedProspectos.length === 0 && !loading && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
-          >
-            <User size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">
-              No se encontraron prospectos con los filtros aplicados
-            </p>
-          </motion.div>
-        )}
-      </motion.div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <AnimatePresence>
+                  {filteredAndSortedProspectos.map((prospecto, index) => (
+                    <motion.tr
+                      key={prospecto.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.01, ease: "easeOut" }}
+                      onClick={() => handleProspectoClick(prospecto)}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full">
+                            <User size={16} className="text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                              {prospecto.ciudad_residencia}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">
+                        <div className="min-w-[120px]">{prospecto.whatsapp || '-'}</div>
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                        <div className="max-w-[200px] truncate">{prospecto.email || '-'}</div>
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 font-mono hidden lg:table-cell">
+                        {prospecto.telefono_principal || '-'}
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
+                          {prospecto.etapa}
+                        </span>
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getScoreColor(prospecto.score || '')}`}>
+                          {prospecto.score}
+                        </span>
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                        <div className="max-w-[150px] truncate">{prospecto.campana_origen || '-'}</div>
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                        {prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' }) : 'N/A'}
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right">
+                        <ChevronRight size={16} className="text-gray-400" />
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredAndSortedProspectos.length === 0 && !loading && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12"
+            >
+              <User size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">
+                No se encontraron prospectos con los filtros aplicados
+              </p>
+            </motion.div>
+          )}
+        </motion.div>
+      )}
 
       {/* Sidebar */}
       <ProspectoSidebar

@@ -194,7 +194,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('live-chat')
     }] : []),
 
-    // 6. AI Models (SEXTO)
+    // 6. Prospectos (SEXTO)
+    ...(canAccessModule('prospectos') ? [{
+      icon: (
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      label: 'Prospectos',
+      active: appMode === 'prospectos',
+      onClick: () => setAppMode('prospectos')
+    }] : []),
+
+    // 7. AI Models (SÉPTIMO)
     ...((user?.role_name === 'admin' || user?.role_name === 'productor' || user?.role_name === 'developer') ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,18 +254,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     label: 'AWS Manager',
     active: appMode === 'aws-manager',
     onClick: () => setAppMode('aws-manager')
-  } : null;
-
-  // Prospectos - Para Admin y Developer
-  const prospectosItem: MenuItemProps | null = canAccessModule('prospectos') ? {
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-    label: 'Prospectos',
-    active: appMode === 'prospectos',
-    onClick: () => setAppMode('prospectos')
   } : null;
 
   // Admin al final
@@ -335,13 +335,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         {awsItem && (
           <div className="p-4 border-t border-slate-200 dark:border-slate-700">
             <MenuItem {...awsItem} isCollapsed={isCollapsed} />
-          </div>
-        )}
-
-        {/* Prospectos - Para Admin y Developer */}
-        {prospectosItem && (
-          <div className="p-4">
-            <MenuItem {...prospectosItem} isCollapsed={isCollapsed} />
           </div>
         )}
 

@@ -3,7 +3,7 @@ import CatChaseEasterEgg from './CatChaseEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión actual
-  const version = 'v5.13.2 - Live Chat: Corrección de Métricas en Header';
+  const version = 'v5.14.0 - Prospectos: Vista Kanban Rediseñada';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);
