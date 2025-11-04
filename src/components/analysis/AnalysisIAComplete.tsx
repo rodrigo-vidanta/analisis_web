@@ -15,12 +15,13 @@
  *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search, Filter, Calendar, BarChart3, TrendingUp,
   Phone, User, Clock, Star, MessageSquare, Volume2,
   X, ChevronRight, Play, Pause, Download, Eye,
-  CheckCircle, AlertTriangle, FileText, Activity, DollarSign
+  CheckCircle, AlertTriangle, FileText, Activity, DollarSign,
+  Square
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { analysisSupabase } from '../../config/analysisSupabase';
@@ -547,6 +548,34 @@ const AnalysisIAComplete: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   
+  // Estados para reproductor de audio
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Función helper para detener audio (memoizada para evitar recreaciones)
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    setPlayingAudioId(null);
+  }, []);
+  
+  // Limpiar audio cuando el componente se desmonte
+  useEffect(() => {
+    return () => {
+      stopAudio();
+    };
+  }, []);
+  
+  // Detener audio cuando se abre la vista detallada
+  useEffect(() => {
+    if (showDetailedView) {
+      stopAudio();
+    }
+  }, [showDetailedView, stopAudio]);
+  
   // Métricas globales (estilo PQNC)
   const [globalMetrics, setGlobalMetrics] = useState({
     totalCalls: 0,
@@ -578,9 +607,42 @@ const AnalysisIAComplete: React.FC = () => {
     // Auto-sync como PQNC
     if (autoSyncEnabled) {
       const interval = setInterval(loadCalls, syncInterval * 1000);
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        // Detener audio al desmontar componente (cambio de módulo)
+        stopAudio();
+      };
     }
+    
+    // Cleanup: detener audio al desmontar componente
+    return () => {
+      stopAudio();
+    };
   }, [autoSyncEnabled, syncInterval]);
+  
+  // Detener audio cuando se detecta navegación a otro módulo
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Detener audio si la página pierde visibilidad (usuario cambió de pestaña o módulo)
+      if (document.hidden) {
+        stopAudio();
+      }
+    };
+    
+    const handleBeforeUnload = () => {
+      // Detener audio antes de cerrar/navegar
+      stopAudio();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      stopAudio();
+    };
+  }, [stopAudio]);
 
   // Aplicar filtros cuando cambien
   useEffect(() => {
@@ -895,6 +957,8 @@ const AnalysisIAComplete: React.FC = () => {
   };
 
   const openDetailedView = async (call: AnalysisRecord) => {
+    // Detener audio si está reproduciendo
+    stopAudio();
     // Adaptar datos para que sean compatibles con DetailedCallView
     const adaptedCall = {
       ...call,
@@ -1519,12 +1583,6 @@ const AnalysisIAComplete: React.FC = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Nivel Interés
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Precio Ofertado
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Audio
-                      </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1670,43 +1728,82 @@ const AnalysisIAComplete: React.FC = () => {
                             {call.nivel_interes_detectado || call.nivel_interes || 'N/A'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
-                          {call.precio_ofertado ? 
-                            `$${parseFloat(call.precio_ofertado).toLocaleString()}` : 
-                            'No ofertado'
-                          }
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {call.audio_ruta_bucket ? (
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Botón de play/stop para audio si existe */}
+                            {call.audio_ruta_bucket && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const isCurrentlyPlaying = playingAudioId === call.analysis_id;
+                                  
+                                  if (isCurrentlyPlaying) {
+                                    // Detener reproducción actual
+                                    if (audioRef.current) {
+                                      audioRef.current.pause();
+                                      audioRef.current.currentTime = 0;
+                                      audioRef.current = null;
+                                    }
+                                    setPlayingAudioId(null);
+                                  } else {
+                                    // Detener cualquier audio anterior
+                                    if (audioRef.current && playingAudioId) {
+                                      audioRef.current.pause();
+                                      audioRef.current.currentTime = 0;
+                                      audioRef.current = null;
+                                    }
+                                    
+                                    // Iniciar nuevo audio
+                                    const audio = new Audio(call.audio_ruta_bucket);
+                                    audioRef.current = audio;
+                                    setPlayingAudioId(call.analysis_id);
+                                    
+                                    // Limpiar cuando termine
+                                    audio.addEventListener('ended', () => {
+                                      setPlayingAudioId(null);
+                                      audioRef.current = null;
+                                    });
+                                    
+                                    audio.addEventListener('error', () => {
+                                      console.error('Error al reproducir audio');
+                                      setPlayingAudioId(null);
+                                      audioRef.current = null;
+                                    });
+                                    
+                                    // Reproducir
+                                    audio.play().catch(err => {
+                                      console.error('Error al reproducir audio:', err);
+                                      setPlayingAudioId(null);
+                                      audioRef.current = null;
+                                    });
+                                  }
+                                }}
+                                className={`p-2 rounded-lg transition-colors ${
+                                  playingAudioId === call.analysis_id
+                                    ? 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
+                                    : 'text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30'
+                                }`}
+                                title={playingAudioId === call.analysis_id ? 'Detener audio' : 'Reproducir audio'}
+                              >
+                                {playingAudioId === call.analysis_id ? (
+                                  <Square className="w-4 h-4" fill="currentColor" />
+                                ) : (
+                                  <Play className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                            {/* Botón de lupa para ver detalles */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(call.audio_ruta_bucket, '_blank');
+                                openDetailedView(call);
                               }}
-                              className="inline-flex items-center px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                              className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                              title="Ver detalles"
                             >
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M18 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Audio
+                              <Search className="w-4 h-4" />
                             </button>
-                          ) : (
-                            <span className="text-slate-400 text-xs">Sin audio</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDetailedView(call);
-                            }}
-                            className="inline-flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
-                          >
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            Ver Detalles
-                          </button>
+                          </div>
                         </td>
                       </motion.tr>
                       );

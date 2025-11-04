@@ -1,5 +1,22 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.13.2 (Diciembre 2025) - Live Chat: Corrección de Métricas en Header
+
+### 🐛 RELEASE PATCH - Corrección de Métricas
+
+#### 🔧 Problema Resuelto
+- **Métricas incorrectas en header del Live Chat**
+  - Métricas mostraban datos incorrectos (ej: "18 Total" cuando había 11 conversaciones)
+  - `loadMetrics()` consultaba tablas incorrectas (`uchat_conversations`)
+  - Métricas ahora usan `get_conversations_ordered()` RPC y `conversaciones_whatsapp`
+  - Cálculo correcto de conversaciones activas/transferidas/finalizadas por `estado`
+  - Agrupación por `prospecto_id` para evitar duplicados
+
+#### 📝 Archivos Modificados
+- `src/components/chat/LiveChatCanvas.tsx` - Función `loadMetrics()` corregida
+
+---
+
 ## Versión 5.13.1 (Diciembre 2025) - Live Chat: Correcciones Realtime sin Parpadeos
 
 ### 🐛 RELEASE PATCH - Correcciones Críticas de Realtime

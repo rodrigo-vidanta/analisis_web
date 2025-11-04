@@ -17,6 +17,23 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.13.2** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🔧 Corrección de Métricas en Header**
+- **Problema resuelto: Métricas incorrectas en header del Live Chat**
+  - **Causa**: `loadMetrics()` estaba consultando tablas incorrectas (`uchat_conversations`) en lugar de las tablas reales de la base de datos
+  - **Solución**: Actualizado para usar `get_conversations_ordered()` RPC y `conversaciones_whatsapp` para obtener métricas precisas
+  - **Resultado**: Métricas del header ahora muestran correctamente:
+    - Total de conversaciones (prospectos únicos con mensajes)
+    - Conversaciones activas/transferidas/finalizadas basadas en `estado` de `conversaciones_whatsapp`
+    - Agrupación correcta por `prospecto_id` para evitar duplicados
+    - Mensajes no leídos desde `mensajes_no_leidos` del RPC
+  - **Archivos modificados**:
+    - `src/components/chat/LiveChatCanvas.tsx` - Función `loadMetrics()` corregida
+
+---
+
 ### **v5.13.1** - Diciembre 2025
 **Estado:** ✅ Producción
 

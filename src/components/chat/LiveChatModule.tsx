@@ -19,6 +19,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageCircle, Settings, Users, BarChart3 } from 'lucide-react';
 import LiveChatCanvas from './LiveChatCanvas';
 import AgentAssignmentModal from './AgentAssignmentModal';
+import LiveChatAnalytics from './LiveChatAnalytics';
 import { uchatService, type UChatConversation } from '../../services/uchatService';
 
 interface LiveChatModuleProps {
@@ -132,41 +133,9 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
       
       case 'analytics':
         return (
-          <div className="p-6 bg-slate-25 dark:bg-gray-900">
-            <div className="max-w-6xl">
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Analíticas</h2>
-                <p className="text-sm text-slate-600 dark:text-gray-400">Métricas y estadísticas del sistema de chat</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="text-2xl font-semibold text-slate-900 dark:text-white">{metrics.totalConversations}</div>
-                  <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">Total Conversaciones</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
-                  <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">Activas</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="text-2xl font-semibold text-blue-600 dark:text-blue-400">{metrics.transferredConversations}</div>
-                  <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">Transferidas</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="text-2xl font-semibold text-slate-600 dark:text-gray-300">{metrics.handoffRate.toFixed(0)}%</div>
-                  <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">Tasa Handoff</div>
-                </div>
-              </div>
-              
-              <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-6">
-                <h3 className="text-sm font-medium text-slate-900 dark:text-white mb-4">Próximamente</h3>
-                <div className="space-y-3 text-sm text-slate-600 dark:text-gray-400">
-                  <div>• Gráficos de tendencias de conversaciones</div>
-                  <div>• Métricas de tiempo de respuesta</div>
-                  <div>• Análisis de satisfacción del cliente</div>
-                  <div>• Reportes de rendimiento por agente</div>
-                </div>
-              </div>
+          <div className="p-6 bg-slate-50 dark:bg-gray-900 min-h-screen">
+            <div className="max-w-7xl mx-auto">
+              <LiveChatAnalytics />
             </div>
           </div>
         );

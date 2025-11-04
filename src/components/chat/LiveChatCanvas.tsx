@@ -197,17 +197,18 @@ const LiveChatCanvas: React.FC = () => {
     return messagesByConversation[selectedConversation.id] || [];
   }, [selectedConversation, messagesByConversation]);
 
-  // Total no leídos (suma local + servidor)
+  // Total no leídos - calcular desde mensajes_whatsapp reales
   const totalUnread = useMemo(() => {
-    const localSum = Object.values(unreadCounts).reduce((a, b) => a + Number(b || 0), 0);
-    const serverSum = conversations.reduce((acc, c) => acc + Number(c.unread_count ?? c.mensajes_no_leidos ?? 0), 0);
-    // Evitar doble conteo si ambos tienen valores; priorizar máximo por conversación
-    const perConvMax = conversations.reduce((acc, c) => {
-      const localVal = Number(unreadCounts[c.id] || 0);
-      const serverVal = Number(c.unread_count ?? c.mensajes_no_leidos ?? 0);
-      return acc + Math.max(localVal, serverVal);
+    // Si tenemos conversaciones con mensajes_no_leidos, usar esos
+    const serverSum = conversations.reduce((acc, c) => {
+      // Las conversaciones de get_conversations_ordered tienen mensajes_no_leidos
+      return acc + Number(c.mensajes_no_leidos ?? c.unread_count ?? 0);
     }, 0);
-    return perConvMax || serverSum || localSum;
+    
+    // Si no hay datos del servidor, usar contadores locales
+    const localSum = Object.values(unreadCounts).reduce((a, b) => a + Number(b || 0), 0);
+    
+    return serverSum > 0 ? serverSum : localSum;
   }, [unreadCounts, conversations]);
 
   // ============================================
@@ -1291,22 +1292,65 @@ const LiveChatCanvas: React.FC = () => {
 
   const loadMetrics = async () => {
     try {
-      const { data: conversations } = await supabaseSystemUI
-        .from('uchat_conversations')
-        .select('*');
+      // Usar la misma fuente que loadConversations: get_conversations_ordered()
+      // Esto agrupa por prospecto_id y da el número real de conversaciones (prospectos únicos)
+      const { data: conversationsData, error } = await analysisSupabase
+        .rpc('get_conversations_ordered');
 
-      const totalConversations = conversations?.length || 0;
-      const activeConversations = conversations?.filter(c => c.status === 'active').length || 0;
-      const transferredConversations = conversations?.filter(c => c.status === 'transferred').length || 0;
-      const closedConversations = conversations?.filter(c => c.status === 'closed').length || 0;
+      if (error) {
+        console.error('Error cargando métricas:', error);
+        return;
+      }
 
-      setMetrics({
-        totalConversations,
-        activeConversations,
-        transferredConversations,
-        closedConversations,
-        handoffRate: totalConversations > 0 ? (transferredConversations / totalConversations) * 100 : 0
-      });
+      // Contar conversaciones (prospectos únicos con mensajes)
+      const totalConversations = conversationsData?.length || 0;
+      
+      // Para estado activo/transferida/finalizada, necesitamos consultar conversaciones_whatsapp
+      // pero agrupando por prospecto_id para evitar duplicados
+      const prospectoIds = conversationsData?.map((c: any) => c.prospecto_id) || [];
+      
+      if (prospectoIds.length > 0) {
+        const { data: conversationBlocks } = await analysisSupabase
+          .from('conversaciones_whatsapp')
+          .select('prospecto_id, estado, fecha_inicio')
+          .in('prospecto_id', prospectoIds)
+          .order('fecha_inicio', { ascending: false });
+        
+        // Agrupar por prospecto_id y obtener el estado del bloque más reciente
+        const prospectoStatusMap = new Map<string, string>();
+        conversationBlocks?.forEach((block: any) => {
+          const existing = prospectoStatusMap.get(block.prospecto_id);
+          if (!existing) {
+            // Si no existe, usar este bloque (más reciente por orden)
+            prospectoStatusMap.set(block.prospecto_id, block.estado);
+          }
+        });
+        
+        const statusCounts = Array.from(prospectoStatusMap.values()).reduce((acc, estado) => {
+          acc[estado] = (acc[estado] || 0) + 1;
+          return acc;
+        }, {} as { [key: string]: number });
+        
+        const activeConversations = statusCounts['activa'] || 0;
+        const transferredConversations = statusCounts['transferida'] || 0;
+        const closedConversations = statusCounts['finalizada'] || 0;
+
+        setMetrics({
+          totalConversations,
+          activeConversations,
+          transferredConversations,
+          closedConversations,
+          handoffRate: totalConversations > 0 ? (transferredConversations / totalConversations) * 100 : 0
+        });
+      } else {
+        setMetrics({
+          totalConversations: 0,
+          activeConversations: 0,
+          transferredConversations: 0,
+          closedConversations: 0,
+          handoffRate: 0
+        });
+      }
     } catch (error) {
       console.error('Error cargando métricas:', error);
     }
@@ -2183,22 +2227,58 @@ const LiveChatCanvas: React.FC = () => {
   }, []);
 
   const scrollToDateInMessages = (targetDate: string) => {
-    
-    if (!messagesScrollRef.current) return;
+    if (!messagesScrollRef.current || !selectedConversation) return;
 
-    // Buscar el primer mensaje de esa fecha
-    const targetElement = messagesScrollRef.current.querySelector(`[data-date="${targetDate}"]`);
+    // targetDate viene en formato ISO (YYYY-MM-DD) desde conversationBlocks
+    const targetDateISO = targetDate;
+    const messages = combinedMessages || [];
     
-    if (targetElement) {
-      targetElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start',
-        inline: 'nearest'
-      });
-    } else {
-      // Fallback: buscar por contenido de fecha
-      const allDateHeaders = messagesScrollRef.current.querySelectorAll('[data-date]');
+    // Encontrar el primer mensaje que pertenece a esa fecha
+    const targetMessage = messages.find(message => {
+      const messageDate = new Date(message.created_at).toISOString().split('T')[0];
+      return messageDate === targetDateISO;
+    });
+
+    if (!targetMessage) {
+      console.warn('No se encontró mensaje para la fecha:', targetDateISO);
+      return;
     }
+
+    // Esperar un momento para que el DOM se actualice si es necesario
+    setTimeout(() => {
+      if (!messagesScrollRef.current) return;
+      
+      // Buscar el elemento del mensaje usando data-message-id
+      const targetElement = messagesScrollRef.current.querySelector(`[data-message-id="${targetMessage.id}"]`);
+
+      if (targetElement) {
+        // Con column-reverse, scrollIntoView funciona pero necesitamos ajustar
+        // Usar scrollIntoView con block: 'start' para posicionar el mensaje arriba
+        targetElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+        
+        // Agregar un highlight temporal para indicar que se hizo scroll
+        targetElement.classList.add('highlight-scroll');
+        setTimeout(() => {
+          targetElement?.classList.remove('highlight-scroll');
+        }, 2000);
+      } else {
+        // Fallback: buscar el header de fecha y hacer scroll
+        const formattedTargetDate = formatDate(targetMessage.created_at);
+        const dateHeader = messagesScrollRef.current.querySelector(`[data-date="${formattedTargetDate}"]`);
+        
+        if (dateHeader) {
+          dateHeader.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+      }
+    }, 100);
   };
 
   const formatTime = (dateString: string) => {
@@ -2674,6 +2754,19 @@ const LiveChatCanvas: React.FC = () => {
             }}
             onScroll={handleMessagesScroll}
           >
+            <style>{`
+              .highlight-scroll {
+                animation: highlightPulse 2s ease-in-out;
+                background-color: rgba(59, 130, 246, 0.1) !important;
+                border-radius: 0.5rem;
+                transition: background-color 0.3s ease;
+              }
+              @keyframes highlightPulse {
+                0% { background-color: rgba(59, 130, 246, 0.3); }
+                50% { background-color: rgba(59, 130, 246, 0.2); }
+                100% { background-color: rgba(59, 130, 246, 0.05); }
+              }
+            `}</style>
             {combinedMessages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-slate-500 dark:text-gray-400">
                 <div className="text-center">
@@ -2693,7 +2786,7 @@ const LiveChatCanvas: React.FC = () => {
                     formatDate(message.created_at) !== formatDate(combinedMessages[index - 1]?.created_at);
 
                   return (
-                    <div key={message.id}>
+                    <div key={message.id} data-message-id={message.id}>
                       {showDate && (
                         <div 
                           className="flex justify-center my-6"
