@@ -37,7 +37,7 @@ const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 py-4">
+    <footer className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 py-4">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-center">
           <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">

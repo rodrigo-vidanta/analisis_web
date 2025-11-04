@@ -96,13 +96,13 @@ export const useTheme = () => {
       button: isLinear ? 'linear-button' : 'btn-modern',
       buttonPrimary: isLinear ? 'linear-button linear-button-primary' : 'btn-modern bg-blue-500 hover:bg-blue-600 text-white',
       
-      // Sidebar
-      sidebar: isLinear ? 'linear-sidebar' : 'bg-white dark:bg-slate-800',
+      // Sidebar - Ajustado para modo claro menos brillante
+      sidebar: isLinear ? 'linear-sidebar' : 'bg-slate-50 dark:bg-slate-800',
       
-      // Backgrounds
+      // Backgrounds - Ajustado para modo claro menos brillante (WCAG compliant)
       background: isLinear 
-        ? 'bg-slate-50 dark:bg-slate-900' 
-        : 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800',
+        ? 'bg-slate-100 dark:bg-slate-900' 
+        : 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800',
       
       // Text colors
       textPrimary: isLinear 

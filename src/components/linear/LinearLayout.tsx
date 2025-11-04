@@ -19,11 +19,11 @@ const LinearLayout: React.FC<LinearLayoutProps> = ({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-900 transition-colors duration-300">
       <div className="flex h-screen">
         
         {/* Sidebar */}
-        <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200/50 dark:border-gray-700/50`}>
+        <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 bg-slate-50 dark:bg-gray-800 border-r border-gray-200/50 dark:border-gray-700/50`}>
           <LinearSidebar 
             isCollapsed={sidebarCollapsed}
             onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -42,7 +42,7 @@ const LinearLayout: React.FC<LinearLayoutProps> = ({
           />
 
           {/* Content */}
-          <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
+          <main className="flex-1 overflow-auto bg-slate-100 dark:bg-gray-900">
             <div className="h-full">
               {children}
             </div>

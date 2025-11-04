@@ -35,7 +35,7 @@ const Header = ({
   // Renderizar header simplificado para layout con sidebar
   if (simplified) {
     return (
-      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/20 dark:border-slate-700/20 sticky top-0 z-40">
+      <header className="bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/20 dark:border-slate-700/20 sticky top-0 z-40">
         <div className="px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             
@@ -195,7 +195,7 @@ const Header = ({
 
   // Header original para retrocompatibilidad
   return (
-    <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 sticky top-0 z-50">
+    <header className="bg-slate-50/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 sticky top-0 z-50">
       {/* Gradiente superior sutil */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
       
