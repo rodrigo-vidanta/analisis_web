@@ -59,6 +59,23 @@ const logErrThrottled = (key: string, ...args: any[]) => {
   }
 };
 
+// Utilidad para debounce simple (sin dependencias externas)
+const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: number | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+    }
+    timeout = window.setTimeout(() => {
+      func(...args);
+      timeout = null;
+    }, wait);
+  };
+};
+
 // ============================================
 // INTERFACES
 // ============================================
@@ -183,6 +200,12 @@ const LiveChatCanvas: React.FC = () => {
   const userScrolledAwayRef = useRef<boolean>(false);
   const reorderTimerRef = useRef<number | null>(null);
   const loadRequestIdRef = useRef<number>(0);
+  
+  // Ref para evitar llamadas simultáneas a markConversationAsRead
+  const markingAsReadRef = useRef<Set<string>>(new Set());
+  
+  // Ref para debounce timer de scroll
+  const scrollDebounceTimerRef = useRef<number | null>(null);
 
   const [metrics, setMetrics] = useState({
     totalConversations: 0,
@@ -251,6 +274,11 @@ const LiveChatCanvas: React.FC = () => {
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
+      }
+      // ✅ OPTIMIZACIÓN: Limpiar timer de debounce de scroll
+      if (scrollDebounceTimerRef.current !== null) {
+        clearTimeout(scrollDebounceTimerRef.current);
+        scrollDebounceTimerRef.current = null;
       }
     };
   }, []); // ✅ Solo ejecutar una vez al montar
@@ -756,6 +784,12 @@ const LiveChatCanvas: React.FC = () => {
   const markConversationAsRead = async (prospectoId: string) => {
     if (!prospectoId) return;
     
+    // ✅ OPTIMIZACIÓN: Evitar llamadas simultáneas para la misma conversación
+    if (markingAsReadRef.current.has(prospectoId)) {
+      return; // Ya hay una llamada en progreso para esta conversación
+    }
+    
+    markingAsReadRef.current.add(prospectoId);
     
     try {
       // Usar RPC para bypass RLS y marcar mensajes como leídos
@@ -808,6 +842,9 @@ const LiveChatCanvas: React.FC = () => {
       
     } catch (error) {
       console.error('❌ [MARK READ] Error:', error);
+    } finally {
+      // ✅ LIMPIAR: Remover el flag de procesamiento
+      markingAsReadRef.current.delete(prospectoId);
     }
   };
 
@@ -2214,16 +2251,28 @@ const LiveChatCanvas: React.FC = () => {
   };
 
   // Marcar cuando el usuario se desplaza manualmente para no forzar auto-scroll
+  // ✅ OPTIMIZACIÓN: Debounce agregado para evitar llamadas excesivas durante scroll
   const handleMessagesScroll = useCallback(() => {
     const el = messagesScrollRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     userScrolledAwayRef.current = distanceFromBottom > 120; // umbral 120px
-    // Si el usuario está cerca del fondo y hay conversación activa, marcar leído
-    if (!userScrolledAwayRef.current && selectedConversationRef.current) {
-      markConversationAsRead(selectedConversationRef.current);
-      markMessagesAsRead(selectedConversationRef.current);
+    
+    // ✅ OPTIMIZACIÓN: Limpiar timer anterior si existe
+    if (scrollDebounceTimerRef.current !== null) {
+      clearTimeout(scrollDebounceTimerRef.current);
     }
+    
+    // ✅ OPTIMIZACIÓN: Debounce de 400ms para agrupar eventos de scroll
+    scrollDebounceTimerRef.current = window.setTimeout(() => {
+      // Si el usuario está cerca del fondo y hay conversación activa, marcar leído
+      if (!userScrolledAwayRef.current && selectedConversationRef.current) {
+        // ✅ OPTIMIZACIÓN: Eliminada llamada redundante a markMessagesAsRead
+        // markConversationAsRead ya actualiza todos los mensajes localmente
+        markConversationAsRead(selectedConversationRef.current);
+      }
+      scrollDebounceTimerRef.current = null;
+    }, 400);
   }, []);
 
   const scrollToDateInMessages = (targetDate: string) => {

@@ -17,6 +17,32 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.15.0** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **⚡ Optimizaciones Críticas de Rendimiento**
+- **Problema resuelto: Colapso con 30+ mensajes simultáneos**
+  - **Síntoma**: El módulo colapsaba al recibir más de 30 mensajes simultáneos
+  - **Causas identificadas**:
+    - Llamadas excesivas a `markMessagesAsRead` sin throttling
+    - Múltiples queries simultáneas a tablas incorrectas
+    - Falta de protección contra llamadas duplicadas
+    - Eventos de scroll sin debouncing
+  - **Soluciones implementadas**:
+    1. **Eliminación de llamada redundante**: Eliminada llamada a `markMessagesAsRead` desde `handleMessagesScroll` que intentaba actualizar tabla incorrecta
+    2. **Debouncing en scroll handler**: Debounce de 400ms para agrupar eventos de scroll y reducir llamadas a BD
+    3. **Protección contra llamadas simultáneas**: Flag `markingAsReadRef` (Set) para evitar múltiples llamadas simultáneas a `markConversationAsRead`
+    4. **Cleanup mejorado**: Limpieza de timer de debounce en cleanup de useEffect
+  - **Impacto esperado**:
+    - Reducción de queries fallidas: ~50% menos intentos a tablas incorrectas
+    - Menos llamadas simultáneas: Protección contra llamadas duplicadas
+    - Mejor rendimiento durante scroll: Debounce reduce llamadas durante scroll continuo
+    - Mejor manejo de picos: Cuando llegan 30+ mensajes, solo se procesa una marcación por conversación
+  - **Archivos modificados**:
+    - `src/components/chat/LiveChatCanvas.tsx` - Optimizaciones de rendimiento aplicadas
+
+---
+
 ### **v5.13.2** - Diciembre 2025
 **Estado:** ✅ Producción
 

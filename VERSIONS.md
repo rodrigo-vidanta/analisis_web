@@ -1,5 +1,49 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión 5.15.0 (Diciembre 2025) - Live Chat: Optimizaciones de Rendimiento
+
+### 🐛 RELEASE PATCH - Optimizaciones Críticas de Rendimiento
+
+#### ⚡ Problema Resuelto
+- **Colapso con mensajes simultáneos**: El módulo colapsaba al recibir más de 30 mensajes simultáneos
+- **Causas identificadas**:
+  - Llamadas excesivas a `markMessagesAsRead` sin throttling
+  - Múltiples queries simultáneas a tablas incorrectas
+  - Falta de protección contra llamadas duplicadas
+  - Eventos de scroll sin debouncing
+
+#### ✅ Optimizaciones Implementadas
+
+##### 1. Eliminación de Llamada Redundante
+- Eliminada llamada a `markMessagesAsRead` desde `handleMessagesScroll`
+- Razón: Intentaba actualizar tabla incorrecta (`uchat_messages` vs `mensajes_whatsapp`)
+- Beneficio: Elimina queries fallidas y reduce carga en BD
+
+##### 2. Debouncing en Scroll Handler
+- Debounce de 400ms en `handleMessagesScroll`
+- Agrupa eventos de scroll para evitar llamadas excesivas
+- Beneficio: Reduce llamadas a BD durante scroll continuo sin afectar UX
+
+##### 3. Protección contra Llamadas Simultáneas
+- Flag `markingAsReadRef` (Set) para tracking de conversaciones en proceso
+- Evita múltiples llamadas simultáneas a `markConversationAsRead` para la misma conversación
+- Beneficio: Previene race conditions y queries duplicadas
+
+##### 4. Cleanup Mejorado
+- Limpieza de timer de debounce en cleanup de useEffect
+- Previene memory leaks
+
+#### 📊 Impacto Esperado
+- Reducción de queries fallidas: ~50% menos intentos a tablas incorrectas
+- Menos llamadas simultáneas: Protección contra llamadas duplicadas
+- Mejor rendimiento durante scroll: Debounce reduce llamadas durante scroll continuo
+- Mejor manejo de picos: Cuando llegan 30+ mensajes, solo se procesa una marcación por conversación
+
+#### 📝 Archivos Modificados
+- `src/components/chat/LiveChatCanvas.tsx` - Optimizaciones de rendimiento aplicadas
+
+---
+
 ## Versión 5.14.0 (Diciembre 2025) - Prospectos: Vista Kanban Rediseñada
 
 ### 🚀 RELEASE MINOR - Vista Kanban Completa
