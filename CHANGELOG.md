@@ -1,5 +1,57 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🚀 Versión 6.0.0 - Release Mayor: Live Chat Mejorado y Diseño Unificado (Enero 2025)
+
+### 🎯 **RELEASE MAYOR - Mejoras Significativas en UX y Funcionalidad**
+
+#### 💬 **MÓDULO LIVE CHAT - Funcionalidad de Llamada Manual**
+
+##### ✨ **Nueva Funcionalidad: Iniciar Llamada desde Live Chat**
+- **Botón de llamada**: Agregado botón de llamada al lado del botón de adjuntar
+- **Modal elegante**: Modal con diseño minimalista y animaciones usando framer-motion
+- **Contexto opcional**: Campo de texto libre (máximo 300 caracteres) para enviar contexto adicional al agente de IA
+- **Integración con webhook**: Envío automático a `https://primary-dev-d75a.up.railway.app/webhook/trigger-manual`
+- **Pausa automática**: El bot se pausa automáticamente por 15 minutos al iniciar la llamada
+- **Animaciones**: Botón con animación de pulso durante el proceso de llamada
+- **Cierre automático**: El modal se cierra automáticamente después de 5 segundos mostrando confirmación visual
+- **Datos completos**: Envío de todos los datos útiles de la conversación en cache (uchat_id, prospecto_id, customer_name, customer_phone, metadata, etc.)
+
+##### 🔧 **Mejoras en Sistema de Pausa del Bot**
+- **Consistencia de uchatId**: Unificación de la lógica para obtener `uchatId` en todos los componentes
+- **Contador visible**: El contador de bot pausado ahora se muestra correctamente cuando se pausa desde el modal de llamada
+- **Sincronización**: Estado de pausa sincronizado entre diferentes métodos de pausado
+
+#### 🎨 **DISEÑO Y ANIMACIONES**
+
+##### ✨ **Modal de Llamada con Nuevo Diseño**
+- **Header con gradiente**: Diseño elegante con gradiente sutil y animaciones de entrada
+- **Sección de contexto**: Barra de color con gradiente azul-púrpura para "Enviarle contexto al agente de IA"
+- **Campo de texto estilizado**: Textarea con límite de caracteres, contador visual y estados de advertencia
+- **Botón grande animado**: Botón de llamada con gradiente verde, animación de pulso y sombra dinámica
+- **Estados visuales**: Indicadores claros durante el proceso (cargando, éxito, error)
+- **Dark mode**: Soporte completo para modo oscuro
+
+#### 📊 **MEJORAS TÉCNICAS**
+
+##### 🔄 **Parafraseo con N8N**
+- **Migración a N8N**: Sistema de parafraseo migrado de Anthropic proxy a webhook N8N
+- **Contexto específico**: Soporte para diferentes contextos (`input_livechat`, `input_send_image_livechat`, `transfer_request_message`)
+- **Timeout y fallback**: Implementado timeout de 5 segundos con fallback al texto original si el webhook no responde
+- **Validación mejorada**: Respuesta esperada con `option1`, `option2` y `guardrail` desde N8N
+
+##### 🐛 **Correcciones en Live Monitor**
+- **Control URL preservado**: Corrección para preservar `control_url` en actualizaciones de realtime
+- **Fallback a BD**: Si `control_url` no está disponible, se obtiene automáticamente de la base de datos
+- **Transferencia mejorada**: Mejor manejo de errores y logging detallado para transferencias de llamadas
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Funcionalidad de llamada manual y mejoras en pausa del bot
+- `src/components/chat/ParaphraseModal.tsx` - Migración a N8N webhook
+- `src/components/analysis/LiveMonitorKanban.tsx` - Correcciones en transferencia y preservación de control_url
+- `src/components/chat/ImageCatalogModal.tsx` - Integración con nuevo sistema de parafraseo
+
+---
+
 ## 🚀 Versión 5.15.0 - Live Chat: Optimizaciones de Rendimiento (Diciembre 2025)
 
 ### ⚡ **MÓDULO LIVE CHAT - OPTIMIZACIONES CRÍTICAS**
