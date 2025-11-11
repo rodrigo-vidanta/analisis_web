@@ -177,8 +177,6 @@ class FeedbackService {
    */
   async getFeedback(callId: string): Promise<FeedbackData | null> {
     try {
-      console.log('🔍 Obteniendo retroalimentación para llamada:', callId);
-      
       // Consulta con joins ahora que las foreign keys existen
       const { data, error } = await pqncSupabaseAdmin
         .from('call_feedback')
@@ -223,11 +221,8 @@ class FeedbackService {
       
       // Si no hay retroalimentación, retornar null
       if (!data) {
-        console.log('📭 No hay retroalimentación para esta llamada');
         return null;
       }
-      
-      console.log('✅ Retroalimentación obtenida:', data);
       
       // Transformar respuesta a formato esperado con datos reales de usuarios
       const feedbackData: FeedbackData = {
@@ -341,7 +336,6 @@ class FeedbackService {
       
       // OPTIMIZACIÓN: Limitar a 50 IDs para evitar URLs muy largas
       if (callIds.length > 50) {
-        console.log(`⚡ [FEEDBACK] Limitando a 50 IDs para evitar URLs largas (era ${callIds.length})`);
         callIds = callIds.slice(0, 50);
       }
       

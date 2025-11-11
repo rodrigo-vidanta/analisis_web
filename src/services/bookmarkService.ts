@@ -232,7 +232,6 @@ class BookmarkService {
       
       // OPTIMIZACIÓN: Limitar callIds para evitar URLs muy largas
       if (callIds && callIds.length > 50) {
-        console.log(`⚡ [BOOKMARKS] Limitando a 50 IDs para evitar URLs largas (era ${callIds.length})`);
         callIds = callIds.slice(0, 50);
       }
       

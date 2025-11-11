@@ -21,6 +21,10 @@
 // ============================================
 
 import { analysisSupabase } from '../config/analysisSupabase';
+import { automationService } from './automationService';
+import { permissionsService } from './permissionsService';
+import { coordinacionService } from './coordinacionService';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // Tipos para llamadas de ventas (tabla principal)
 export interface SalesCall {
@@ -85,6 +89,14 @@ export interface LiveCallData {
   viaja_con?: string;
   cantidad_menores?: number;
   updated_at: string;
+  
+  // Campos de asignación (coordinación y ejecutivo)
+  coordinacion_id?: string;
+  coordinacion_codigo?: string;
+  coordinacion_nombre?: string;
+  ejecutivo_id?: string;
+  ejecutivo_nombre?: string;
+  ejecutivo_email?: string;
   
   // Campos adicionales para el modal
   estado_civil?: string;
@@ -274,14 +286,15 @@ class LiveMonitorService {
 
   /**
    * Obtener llamadas recientes (activas + finalizadas) desde llamadas_ventas con datos del prospecto
+   * @param userId - ID del usuario para aplicar filtros de permisos (opcional)
    */
-  async getActiveCalls(): Promise<LiveCallData[]> {
+  async getActiveCalls(userId?: string): Promise<LiveCallData[]> {
     try {
       // Auto-corregir llamadas problemáticas antes de obtener los datos
       await this.autoFixFailedCalls();
       
-      // Selección COMPLETA incluyendo TODOS los campos dinámicos de VAPI
-      let { data, error } = await analysisSupabase
+      // Construir query base
+      let query = analysisSupabase
         .from('llamadas_ventas')
         .select(`
           call_id,
@@ -310,17 +323,49 @@ class LiveMonitorService {
           habitacion_ofertada,
           resort_ofertado,
           principales_objeciones,
-          resumen_llamada
-        `)
+          resumen_llamada,
+          coordinacion_id
+        `);
+
+      // Aplicar filtros de permisos si hay userId
+      if (userId) {
+        const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
+        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+
+        if (ejecutivoFilter) {
+          // Ejecutivo: filtrar por ejecutivo_id del prospecto (necesita JOIN)
+          // Por ahora, filtramos después de obtener los datos
+        } else if (coordinacionFilter) {
+          // Coordinador: filtrar por coordinacion_id directamente en llamadas_ventas
+          query = query.eq('coordinacion_id', coordinacionFilter);
+        }
+        // Admin: sin filtros
+      }
+
+      // Ejecutar query con orden y límite
+      let { data, error } = await query
         .order('fecha_llamada', { ascending: false })
         .limit(50);
 
       // Fallback ultraseguro si fallara por cualquier metadata
       if (error) {
         console.warn('⚠️ Reintentando getActiveCalls con selección ultra mínima por error:', error);
-        const fallback = await analysisSupabase
+        let fallbackQuery = analysisSupabase
           .from('llamadas_ventas')
-          .select(`call_id, call_status, fecha_llamada, prospecto`)
+          .select(`call_id, call_status, fecha_llamada, prospecto, coordinacion_id`);
+
+        // Aplicar filtros de permisos también en fallback
+        if (userId) {
+          const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
+          const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+
+          if (coordinacionFilter) {
+            fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionFilter);
+          }
+          // Ejecutivo se filtra después con prospectos
+        }
+
+        const fallback = await fallbackQuery
           .order('fecha_llamada', { ascending: false })
           .limit(50);
         data = fallback.data || [];
@@ -342,10 +387,27 @@ class LiveMonitorService {
 
       let prospectosData: any[] = [];
       if (prospectIds.length > 0) {
-        const { data: pData, error: prospectError } = await analysisSupabase
+        let prospectQuery = analysisSupabase
           .from('prospectos')
           .select('*')
           .in('id', prospectIds as string[]);
+
+        // Aplicar filtros de permisos si hay userId
+        if (userId) {
+          const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
+          const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+
+          if (ejecutivoFilter) {
+            // Ejecutivo: solo sus prospectos asignados
+            prospectQuery = prospectQuery.eq('ejecutivo_id', ejecutivoFilter);
+          } else if (coordinacionFilter) {
+            // Coordinador: todos los prospectos de su coordinación
+            prospectQuery = prospectQuery.eq('coordinacion_id', coordinacionFilter);
+          }
+          // Admin: sin filtros
+        }
+
+        const { data: pData, error: prospectError } = await prospectQuery;
 
         if (prospectError) {
           console.warn('⚠️ Continuando sin datos de prospectos por error:', prospectError);
@@ -357,8 +419,23 @@ class LiveMonitorService {
       }
 
       // Combinar datos de llamadas con datos de prospectos
-      const combinedData: LiveCallData[] = data.map(call => {
-        const prospecto = prospectosData?.find(p => p.id === call.prospecto);
+      // Filtrar solo las llamadas de prospectos que el usuario puede ver
+      const combinedData: LiveCallData[] = data
+        .filter(call => {
+          // Si hay userId, verificar que el prospecto esté en los datos filtrados
+          if (userId) {
+            // Si hay prospectos filtrados, solo incluir llamadas de esos prospectos
+            if (prospectosData.length > 0) {
+              return prospectosData.some(p => p.id === call.prospecto);
+            }
+            // Si no hay prospectos filtrados (ej: ejecutivo sin asignaciones), no mostrar llamadas
+            return false;
+          }
+          // Si no hay userId, incluir todas (admin o sin autenticación)
+          return true;
+        })
+        .map(call => {
+          const prospecto = prospectosData?.find(p => p.id === call.prospecto);
         
         return {
           // Datos de la llamada
@@ -393,6 +470,10 @@ class LiveMonitorService {
           viaja_con: prospecto?.viaja_con,
           cantidad_menores: prospecto?.cantidad_menores,
           updated_at: prospecto?.updated_at || call.fecha_llamada,
+          
+          // Campos de asignación (desde prospecto)
+          coordinacion_id: prospecto?.coordinacion_id,
+          ejecutivo_id: prospecto?.ejecutivo_id,
           
           // Campos adicionales del prospecto
           estado_civil: prospecto?.estado_civil,
@@ -431,7 +512,39 @@ class LiveMonitorService {
         };
       });
       
-      return combinedData;
+      // Enriquecer con nombres de coordinación y ejecutivo
+      const enrichedData = await Promise.all(
+        combinedData.map(async (call) => {
+          let coordinacionInfo = null;
+          let ejecutivoInfo = null;
+          
+          if (call.coordinacion_id) {
+            try {
+              coordinacionInfo = await coordinacionService.getCoordinacionById(call.coordinacion_id);
+            } catch (error) {
+              console.warn('Error obteniendo coordinación:', error);
+            }
+          }
+          
+          if (call.ejecutivo_id) {
+            try {
+              ejecutivoInfo = await coordinacionService.getEjecutivoById(call.ejecutivo_id);
+            } catch (error) {
+              console.warn('Error obteniendo ejecutivo:', error);
+            }
+          }
+          
+          return {
+            ...call,
+            coordinacion_codigo: coordinacionInfo?.codigo,
+            coordinacion_nombre: coordinacionInfo?.nombre,
+            ejecutivo_nombre: ejecutivoInfo?.full_name,
+            ejecutivo_email: ejecutivoInfo?.email,
+          };
+        })
+      );
+      
+      return enrichedData;
     } catch (error) {
       console.error('💥 Error en getActiveCalls:', error);
       return [];
@@ -818,6 +931,12 @@ class LiveMonitorService {
         }
 
         console.log(`✅ Registro de llamada creado: ${callData.call_id}`);
+        
+        // Procesar asignación automática para nueva llamada
+        if (callData.prospect_id && callData.call_id) {
+          await automationService.processNewCall(callData.call_id, callData.prospect_id);
+        }
+        
         return true;
       }
     } catch (error) {

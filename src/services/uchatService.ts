@@ -16,6 +16,7 @@
  */
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { permissionsService } from './permissionsService';
 
 // ============================================
 // INTERFACES Y TIPOS
@@ -234,6 +235,7 @@ class UChatService {
     assigned_agent_id?: string;
     bot_id?: string;
     limit?: number;
+    userId?: string; // ID del usuario para aplicar filtros de permisos
   }): Promise<UChatConversation[]> {
     let query = supabaseSystemUI
       .from('uchat_conversations')
@@ -247,6 +249,21 @@ class UChatService {
     }
     if (filters?.bot_id) {
       query = query.eq('bot_id', filters.bot_id);
+    }
+
+    // Aplicar filtros de permisos si hay userId
+    if (filters?.userId) {
+      const coordinacionFilter = await permissionsService.getCoordinacionFilter(filters.userId);
+      const ejecutivoFilter = await permissionsService.getEjecutivoFilter(filters.userId);
+
+      if (ejecutivoFilter) {
+        // Ejecutivo: solo sus conversaciones asignadas
+        query = query.eq('ejecutivo_id', ejecutivoFilter);
+      } else if (coordinacionFilter) {
+        // Coordinador: todas las conversaciones de su coordinación
+        query = query.eq('coordinacion_id', coordinacionFilter);
+      }
+      // Admin: sin filtros
     }
 
     query = query

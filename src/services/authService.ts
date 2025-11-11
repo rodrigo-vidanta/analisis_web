@@ -19,7 +19,7 @@
 // SERVICIO DE AUTENTICACIÓN
 // ============================================
 
-import { pqncSupabase as supabase } from '../config/pqncSupabase';
+import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
 
 // Tipos de datos para autenticación
 export interface User {
@@ -106,8 +106,6 @@ class AuthService {
   // Autenticar usuario con email y contraseña
   async login(credentials: LoginCredentials): Promise<AuthState> {
     try {
-      console.log('🔄 [AUTH SERVICE] Iniciando autenticación para:', credentials.email);
-      
       // Verificar credenciales usando función SQL personalizada
       const { data: authResult, error: authError } = await supabase
         .rpc('authenticate_user', {
@@ -115,29 +113,16 @@ class AuthService {
           user_password: credentials.password
         });
 
-      console.log('📊 [AUTH SERVICE] Resultado RPC authenticate_user:', {
-        hasData: !!authResult,
-        dataLength: authResult?.length || 0,
-        hasError: !!authError,
-        error: authError?.message
-      });
-
       if (authError) {
-        console.error('❌ [AUTH SERVICE] Error en RPC:', authError);
         throw new Error(authError?.message || 'Error de autenticación');
       }
 
       if (!authResult || authResult.length === 0) {
-        console.warn('⚠️ [AUTH SERVICE] No se obtuvieron resultados de autenticación');
         throw new Error('Credenciales inválidas');
       }
 
       // La función retorna un array, tomar el primer resultado
       const authData = authResult[0];
-      console.log('✅ [AUTH SERVICE] Datos de autenticación obtenidos:', {
-        user_id: authData.user_id?.slice(-8),
-        is_valid: authData.is_valid
-      });
       
       if (!authData.is_valid || !authData.user_id) {
         throw new Error('Credenciales inválidas');
@@ -232,16 +217,16 @@ class AuthService {
         return true;
       
       case 'live-monitor':
-        // Live Monitor para admin, evaluator y developer
-        return ['admin', 'evaluator', 'developer'].includes(this.currentUser.role_name);
+        // Live Monitor para admin, evaluator, developer, coordinador y ejecutivo
+        return ['admin', 'evaluator', 'developer', 'coordinador', 'ejecutivo'].includes(this.currentUser.role_name);
       
       case 'prospectos':
         // Prospectos disponible para todos los usuarios autenticados (igual que Live Chat)
         return true;
       
       case 'admin':
-        // Solo Admin puede acceder a administración (NO developer)
-        return this.currentUser.role_name === 'admin';
+        // Admin y Coordinadores pueden acceder a administración
+        return this.currentUser.role_name === 'admin' || this.currentUser.role_name === 'coordinador';
       
       default:
         // Para módulos nuevos (como AWS), permitir a admin y developer
@@ -397,9 +382,11 @@ class AuthService {
     this.currentUser = userData as User;
 
     // Cargar permisos del usuario
+    // Nota: En System_UI, auth_user_permissions tiene permission_name, module, sub_module
+    // La descripción se puede obtener después si es necesario
     const { data: permissionsData, error: permissionsError } = await supabase
       .from('auth_user_permissions')
-      .select('permission_name, module, sub_module, permission_description')
+      .select('permission_name, module, sub_module')
       .eq('user_id', sessionData.user_id);
 
     if (permissionsError) {
@@ -410,7 +397,7 @@ class AuthService {
         permission_name: p.permission_name,
         module: p.module,
         sub_module: p.sub_module,
-        description: p.permission_description
+        description: '' // Se puede cargar después si es necesario
       }));
     }
   }

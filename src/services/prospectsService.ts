@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { permissionsService } from './permissionsService';
+import { automationService } from './automationService';
 
 // Configuración para la base de datos de análisis (donde están los prospectos)
 const ANALYSIS_SUPABASE_URL = 'https://glsmifhkoaifvaegsozd.supabase.co';
@@ -48,6 +50,9 @@ export interface Prospect {
   destino_preferencia?: string[];
   created_at: string;
   updated_at: string;
+  id_dynamics?: string; // ID de CRM
+  coordinacion_id?: string; // ID de coordinación asignada
+  ejecutivo_id?: string; // ID de ejecutivo asignado
   
   // Campos adicionales para Live Monitor (si existen)
   status_transferencia?: string;
@@ -85,8 +90,10 @@ class ProspectsService {
   /**
    * Busca un prospecto por número de teléfono
    * Intenta diferentes formatos de número para maximizar las coincidencias
+   * @param phone - Número de teléfono a buscar
+   * @param userId - ID del usuario para aplicar filtros de permisos (opcional)
    */
-  async findProspectByPhone(phone: string): Promise<ProspectSearchResult> {
+  async findProspectByPhone(phone: string, userId?: string): Promise<ProspectSearchResult> {
     if (!phone || phone.trim() === '') {
       return {
         prospect: null,
@@ -104,8 +111,15 @@ class ProspectsService {
       
       // Buscar con cada variación
       for (const variation of phoneVariations) {
-        const result = await this.searchProspectByPhoneVariation(variation);
+        const result = await this.searchProspectByPhoneVariation(variation, userId);
         if (result.found && result.prospect) {
+          // Verificar permisos si hay userId
+          if (userId && result.prospect) {
+            const canAccess = await permissionsService.canUserAccessProspect(userId, result.prospect.id);
+            if (!canAccess.canAccess) {
+              continue; // Saltar este resultado si no tiene acceso
+            }
+          }
           return {
             ...result,
             searchTerm: phone,
@@ -115,8 +129,19 @@ class ProspectsService {
       }
 
       // Si no se encuentra con variaciones exactas, buscar parcialmente
-      const partialResult = await this.searchProspectPartially(cleanPhone);
+      const partialResult = await this.searchProspectPartially(cleanPhone, userId);
       if (partialResult.found && partialResult.prospect) {
+        // Verificar permisos si hay userId
+        if (userId && partialResult.prospect) {
+          const canAccess = await permissionsService.canUserAccessProspect(userId, partialResult.prospect.id);
+          if (!canAccess.canAccess) {
+            return {
+              prospect: null,
+              found: false,
+              searchTerm: phone
+            };
+          }
+        }
         return {
           ...partialResult,
           searchTerm: phone,
@@ -142,8 +167,10 @@ class ProspectsService {
 
   /**
    * Busca prospecto con una variación específica del número
+   * @param phone - Número de teléfono
+   * @param userId - ID del usuario para aplicar filtros (opcional)
    */
-  private async searchProspectByPhoneVariation(phone: string): Promise<ProspectSearchResult> {
+  private async searchProspectByPhoneVariation(phone: string, userId?: string): Promise<ProspectSearchResult> {
     try {
       const { data, error } = await analysisSupabase
         .from('prospectos')
@@ -170,17 +197,33 @@ class ProspectsService {
 
   /**
    * Búsqueda parcial usando LIKE para números similares
+   * @param phone - Número de teléfono
+   * @param userId - ID del usuario para aplicar filtros (opcional)
    */
-  private async searchProspectPartially(phone: string): Promise<ProspectSearchResult> {
+  private async searchProspectPartially(phone: string, userId?: string): Promise<ProspectSearchResult> {
     try {
       // Buscar números que contengan los últimos 8 dígitos
       const lastDigits = phone.slice(-8);
       
-      const { data, error } = await analysisSupabase
+      let query = analysisSupabase
         .from('prospectos')
         .select('*')
         .like('whatsapp', `%${lastDigits}`)
         .limit(5);
+
+      // Aplicar filtros de permisos si hay userId
+      if (userId) {
+        const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
+        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+
+        if (ejecutivoFilter) {
+          query = query.eq('ejecutivo_id', ejecutivoFilter);
+        } else if (coordinacionFilter) {
+          query = query.eq('coordinacion_id', coordinacionFilter);
+        }
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error en búsqueda parcial:', error);
@@ -256,8 +299,10 @@ class ProspectsService {
 
   /**
    * Obtiene un prospecto por ID
+   * @param id - ID del prospecto
+   * @param userId - ID del usuario para verificar permisos (opcional)
    */
-  async getProspectById(id: string): Promise<Prospect | null> {
+  async getProspectById(id: string, userId?: string): Promise<Prospect | null> {
     try {
       const { data, error } = await analysisSupabase
         .from('prospectos')
@@ -268,6 +313,14 @@ class ProspectsService {
       if (error && error.code !== 'PGRST116') {
         console.error('Error obteniendo prospecto:', error);
         return null;
+      }
+
+      // Verificar permisos si hay userId
+      if (userId && data) {
+        const canAccess = await permissionsService.canUserAccessProspect(userId, id);
+        if (!canAccess.canAccess) {
+          return null; // Usuario no tiene acceso a este prospecto
+        }
       }
 
       return data;
@@ -282,6 +335,10 @@ class ProspectsService {
    */
   async updateProspect(id: string, updates: Partial<Prospect>): Promise<Prospect | null> {
     try {
+      // Verificar si se está actualizando id_dynamics
+      const idDynamicsValue = (updates as any).id_dynamics;
+      const hasIdDynamics = idDynamicsValue !== undefined;
+      
       const { data, error } = await analysisSupabase
         .from('prospectos')
         .update({
@@ -297,6 +354,11 @@ class ProspectsService {
         return null;
       }
 
+      // Si se actualizó id_dynamics y ahora tiene valor, procesar asignación automática
+      if (hasIdDynamics && idDynamicsValue && data) {
+        await automationService.processProspectWithCRM(id, idDynamicsValue);
+      }
+
       return data;
     } catch (error) {
       console.error('Error actualizando prospecto:', error);
@@ -306,6 +368,8 @@ class ProspectsService {
 
   /**
    * Busca prospectos por múltiples criterios
+   * @param criteria - Criterios de búsqueda
+   * @param userId - ID del usuario para aplicar filtros de permisos (opcional)
    */
   async searchProspects(criteria: {
     name?: string;
@@ -314,7 +378,7 @@ class ProspectsService {
     etapa?: string;
     ciudad?: string;
     limit?: number;
-  }): Promise<Prospect[]> {
+  }, userId?: string): Promise<Prospect[]> {
     try {
       let query = analysisSupabase
         .from('prospectos')
@@ -339,6 +403,21 @@ class ProspectsService {
 
       if (criteria.ciudad) {
         query = query.ilike('ciudad_residencia', `%${criteria.ciudad}%`);
+      }
+
+      // Aplicar filtros de permisos si hay userId
+      if (userId) {
+        const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
+        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+
+        if (ejecutivoFilter) {
+          // Ejecutivo: solo sus prospectos asignados
+          query = query.eq('ejecutivo_id', ejecutivoFilter);
+        } else if (coordinacionFilter) {
+          // Coordinador: todos los prospectos de su coordinación
+          query = query.eq('coordinacion_id', coordinacionFilter);
+        }
+        // Admin: sin filtros
       }
 
       query = query

@@ -115,16 +115,30 @@ class AgentStudioService {
   
   async getTemplates(userId?: string): Promise<AgentTemplate[]> {
     try {
-      // Primero verificar si las tablas existen
+      // Verificar cache para evitar peticiones innecesarias
+      const cacheKey = 'agent_templates_exists';
+      const cached = sessionStorage.getItem(cacheKey);
+      
+      if (cached === 'false') {
+        // Ya sabemos que la tabla no existe, retornar mock directamente
+        return this.getMockTemplates();
+      }
+      
+      // Primero verificar si las tablas existen usando maybeSingle para evitar 404 en consola
       const { error: tableError } = await supabase
         .from('agent_templates')
         .select('id')
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       if (tableError) {
-        console.warn('Tablas de Agent Studio no existen aún. Retornando datos de ejemplo.');
+        // Tabla no existe o error - cachear resultado y retornar datos mock
+        sessionStorage.setItem(cacheKey, 'false');
         return this.getMockTemplates();
       }
+      
+      // Tabla existe - cachear resultado positivo
+      sessionStorage.setItem(cacheKey, 'true');
 
       let query = supabase
         .from('agent_templates')
@@ -150,8 +164,15 @@ class AgentStudioService {
         ...template,
         tools: template.tools?.map((t: any) => t.tools) || []
       })) || [];
-    } catch (error) {
-      console.error('Error fetching templates:', error);
+    } catch (error: any) {
+      // Si es un error 404 (tabla no existe), retornar mock sin log
+      if (error?.code === 'PGRST116' || error?.status === 404) {
+        return this.getMockTemplates();
+      }
+      // Solo loggear errores críticos
+      if (error?.code !== 'PGRST116') {
+        console.error('Error fetching templates:', error);
+      }
       return this.getMockTemplates();
     }
   }
@@ -617,16 +638,30 @@ class AgentStudioService {
 
   async getTools(userId?: string): Promise<Tool[]> {
     try {
-      // Verificar si las tablas existen
+      // Verificar cache para evitar peticiones innecesarias
+      const cacheKey = 'tools_exists';
+      const cached = sessionStorage.getItem(cacheKey);
+      
+      if (cached === 'false') {
+        // Ya sabemos que la tabla no existe, retornar mock directamente
+        return this.getMockTools();
+      }
+      
+      // Verificar si las tablas existen usando maybeSingle para evitar 404 en consola
       const { error: tableError } = await supabase
         .from('tools')
         .select('id')
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       if (tableError) {
-        console.warn('Tabla tools no existe aún. Retornando datos de ejemplo.');
+        // Tabla no existe o error - cachear resultado y retornar datos mock
+        sessionStorage.setItem(cacheKey, 'false');
         return this.getMockTools();
       }
+      
+      // Tabla existe - cachear resultado positivo
+      sessionStorage.setItem(cacheKey, 'true');
 
       let query = supabase
         .from('tools')
@@ -641,8 +676,15 @@ class AgentStudioService {
       if (error) throw error;
 
       return data || [];
-    } catch (error) {
-      console.error('Error fetching tools:', error);
+    } catch (error: any) {
+      // Si es un error 404 (tabla no existe), retornar mock sin log
+      if (error?.code === 'PGRST116' || error?.status === 404) {
+        return this.getMockTools();
+      }
+      // Solo loggear errores críticos
+      if (error?.code !== 'PGRST116') {
+        console.error('Error fetching tools:', error);
+      }
       return this.getMockTools();
     }
   }
@@ -856,14 +898,12 @@ class AgentStudioService {
     totalTools: number;
   }> {
     try {
-      // Verificar si las tablas existen
-      const { error: tableError } = await supabase
-        .from('agent_templates')
-        .select('id')
-        .limit(1);
-
-      if (tableError) {
-        console.warn('Tablas no existen aún. Retornando estadísticas mock.');
+      // Verificar cache para evitar peticiones innecesarias
+      const cacheKey = 'agent_templates_exists';
+      const cached = sessionStorage.getItem(cacheKey);
+      
+      if (cached === 'false') {
+        // Ya sabemos que la tabla no existe, retornar estadísticas mock directamente
         const mockTemplates = this.getMockTemplates();
         const mockTools = this.getMockTools();
         
@@ -879,6 +919,35 @@ class AgentStudioService {
           totalTools: mockTools.length
         };
       }
+      
+      // Verificar si las tablas existen usando maybeSingle para evitar 404 en consola
+      const { error: tableError } = await supabase
+        .from('agent_templates')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+      if (tableError) {
+        // Tabla no existe o error - cachear resultado y retornar estadísticas mock
+        sessionStorage.setItem(cacheKey, 'false');
+        const mockTemplates = this.getMockTemplates();
+        const mockTools = this.getMockTools();
+        
+        const totalUsage = mockTemplates.reduce((sum, t) => sum + t.usage_count, 0);
+        const averageSuccess = mockTemplates.reduce((sum, t) => sum + t.success_rate, 0) / mockTemplates.length;
+        const categories = new Set(mockTemplates.map(t => t.category));
+
+        return {
+          totalTemplates: mockTemplates.length,
+          totalUsage,
+          averageSuccess: Math.round(averageSuccess * 100) / 100,
+          totalCategories: categories.size,
+          totalTools: mockTools.length
+        };
+      }
+      
+      // Tabla existe - cachear resultado positivo
+      sessionStorage.setItem(cacheKey, 'true');
 
       const [templatesResult, toolsResult] = await Promise.all([
         supabase
@@ -1072,16 +1141,21 @@ class AgentStudioService {
       const { error: tableError } = await supabase
         .from('agent_templates')
         .select('id')
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       if (tableError) {
-        console.warn('Tablas no existen aún. Incremento simulado.');
+        // Tabla no existe o error - incremento simulado sin mostrar warning
         return;
       }
 
       await supabase.rpc('increment_template_usage', { template_id: templateId });
-    } catch (error) {
-      console.error('Error incrementing usage:', error);
+    } catch (error: any) {
+      // Error silencioso - el incremento es opcional
+      // Solo loggear si no es un error de tabla no existente
+      if (error?.code !== 'PGRST116' && error?.status !== 404) {
+        console.error('Error incrementing usage:', error);
+      }
     }
   }
 
