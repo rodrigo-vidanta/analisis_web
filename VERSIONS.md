@@ -1,5 +1,29 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión Beta 1.0.0-N6.0.0 (Enero 2025) - Easter Egg Snake Game
+
+### 🎮 RELEASE BETA - Easter Egg Interactivo
+
+#### Nuevas Funcionalidades
+- **Juego Snake clásico**: Easter egg completo con juego Snake interactivo
+- **Sistema de velocidad progresiva**: Velocidad aumenta cada 10 puntos
+- **Crecimiento dinámico**: Añade bloques adicionales en bloques de 10 puntos
+- **Inicio controlado**: El juego espera a que se presione una tecla de dirección
+- **Longitud persistente**: La serpiente mantiene su longitud entre partidas
+
+#### Mejoras
+- **Accesibilidad**: Mejoras en campos de formulario de Live Chat
+- **Diseño**: Icono de serpiente con animación heartbeat en footer
+- **Validaciones**: Sistema robusto para asegurar que comida y serpiente siempre estén dentro del grid
+
+#### Archivos Principales
+- `src/components/SnakeEasterEgg.tsx` (nuevo)
+- `src/components/Footer.tsx`
+- `src/components/chat/LiveChatCanvas.tsx`
+- `package.json`
+
+---
+
 ## Versión 5.15.0 (Diciembre 2025) - Live Chat: Optimizaciones de Rendimiento
 
 ### 🐛 RELEASE PATCH - Optimizaciones Críticas de Rendimiento

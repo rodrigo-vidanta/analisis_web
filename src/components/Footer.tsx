@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import CatChaseEasterEgg from './CatChaseEasterEgg';
+import SnakeEasterEgg from './SnakeEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión actual
-  const version = 'v6.0.0 - Release Mayor: Live Chat Mejorado y Diseño Unificado';
+  const version = 'Beta 1.0.0-N6.0.0';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   
-  // Manejar clics en el gato
-  const handleCatClick = (e: React.MouseEvent) => {
+  // Manejar clics en la serpiente
+  const handleSnakeClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -85,20 +85,28 @@ const Footer: React.FC = () => {
             {/* Separador */}
             <span className="text-slate-300 dark:text-slate-600">•</span>
             
-            {/* Versión Nightly con gato negro clickeable */}
+            {/* Versión Beta con serpiente clickeable */}
             <div className="flex items-center gap-2">
-              {/* Icono de gato - Easter Egg secreto */}
+              {/* Icono de serpiente - Easter Egg secreto */}
               <div
-                onClick={handleCatClick}
+                onClick={handleSnakeClick}
                 className="w-4 h-4 text-slate-700 dark:text-slate-300 cursor-default select-none"
+                style={{ animation: 'heartbeat 1.5s ease-in-out infinite' }}
               >
-                <svg className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12c0-1.5.5-3 2-4 1.5-1 3.5-1 5 0s3.5 1 5 0c1.5 1 2 2.5 2 4v3c0 2-1 3-3 3H9c-2 0-3-1-3-3v-3z"/>
-                  <circle cx="9" cy="10" r="1"/>
-                  <circle cx="15" cy="10" r="1"/>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 13v1"/>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 4l1 2"/>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 4l-1 2"/>
+                <style>{`
+                  @keyframes heartbeat {
+                    0%, 100% { transform: scale(1); }
+                    50% { transform: scale(1.1); }
+                  }
+                `}</style>
+                <svg className="w-full h-full" fill="currentColor" viewBox="0 0 24 24">
+                  {/* Serpiente ondulada */}
+                  <path d="M4 12c0 0 2-2 4-2s4 2 4 2 2-2 4-2 4 2 4 2 2-2 4-2 4 2 4 2v2c0 0-2 2-4 2s-4-2-4-2-2 2-4 2-4-2-4-2-2 2-4 2-4-2-4-2v-2z"/>
+                  {/* Cabeza */}
+                  <circle cx="20" cy="12" r="2" fill="currentColor"/>
+                  {/* Ojos */}
+                  <circle cx="19" cy="11" r="0.5" fill="white"/>
+                  <circle cx="21" cy="11" r="0.5" fill="white"/>
                 </svg>
               </div>
               
@@ -112,7 +120,7 @@ const Footer: React.FC = () => {
       </div>
       
       {/* Easter Egg Component */}
-      <CatChaseEasterEgg 
+      <SnakeEasterEgg 
         isVisible={showEasterEgg}
         onClose={handleCloseEasterEgg}
       />

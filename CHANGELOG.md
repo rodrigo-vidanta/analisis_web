@@ -1,5 +1,42 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎮 Versión Beta 1.0.0-N6.0.0 - Easter Egg Snake Game y Mejoras de Accesibilidad (Enero 2025)
+
+### 🎯 **RELEASE BETA - Easter Egg Interactivo y Optimizaciones**
+
+#### 🐍 **NUEVO EASTER EGG: Juego Snake Clásico**
+- **Juego Snake completo**: Implementado juego Snake clásico como easter egg
+- **Activación**: 6 clics en el icono de serpiente en el footer
+- **Controles**: Flechas o WASD para mover, Espacio para disparar (no aplica en Snake)
+- **Características del juego**:
+  - Grid de 30x30 celdas (área de juego ampliada)
+  - Velocidad progresiva: aumenta cada 10 puntos
+  - Crecimiento adicional: añade 1 bloque extra por cada bola cuando el score está en bloques de 10
+  - Inicio controlado: el juego no comienza hasta presionar una tecla de dirección
+  - Longitud persistente: la serpiente mantiene su longitud entre partidas
+  - Game over al sobrepasar límites del grid
+- **Diseño minimalista**: Fondo blur oscuro sin distracciones
+- **Validaciones robustas**: La comida siempre aparece dentro del grid
+
+#### 🎨 **Cambios en Footer y Versión**
+- **Icono actualizado**: Cambiado de gato a serpiente vectorizada con animación heartbeat
+- **Versión actualizada**: Cambiado de "v6.0.0 - Release Mayor..." a "Beta 1.0.0-N6.0.0"
+- **Animación sutil**: Icono de serpiente con animación heartbeat (scale 1.0 → 1.1)
+
+#### ♿ **Mejoras de Accesibilidad en Live Chat**
+- **Campos de formulario mejorados**: Agregados `id`, `name` y `autocomplete` attributes
+- **Labels asociados**: Labels con `sr-only` para lectores de pantalla
+- **Tipo de campo**: Campo de búsqueda cambiado a `type="search"` (semántico)
+- **Mejora en UX**: Mejor integración con herramientas de accesibilidad
+
+#### 📝 **Archivos Modificados**
+- `src/components/SnakeEasterEgg.tsx` - Nuevo componente con juego Snake completo
+- `src/components/Footer.tsx` - Icono de serpiente y versión actualizada
+- `src/components/chat/LiveChatCanvas.tsx` - Mejoras de accesibilidad en campos de formulario
+- `package.json` - Versión actualizada a 1.0.0-beta.6.0.0
+
+---
+
 ## 🚀 Versión 6.0.0 - Release Mayor: Live Chat Mejorado y Diseño Unificado (Enero 2025)
 
 ### 🎯 **RELEASE MAYOR - Mejoras Significativas en UX y Funcionalidad**
