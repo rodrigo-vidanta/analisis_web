@@ -16,12 +16,19 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, User, Phone, MapPin, Calendar, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Activity, AlertTriangle, Wand2 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { liveMonitorKanbanOptimized } from '../../services/liveMonitorKanbanOptimized';
 import { useTheme } from '../../hooks/useTheme';
 import { LiveMonitorDataGrid } from './LiveMonitorDataGrid';
 import { FinalizationModal } from './FinalizationModal';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { ParaphraseModal } from '../chat/ParaphraseModal';
+import { AssignmentBadge } from './AssignmentBadge';
+import { useAuth } from '../../contexts/AuthContext';
+import { ProspectAvatar } from './ProspectAvatar';
 
 // Función para reproducir sonido de checkpoint completado (4 repeticiones)
 const playCheckpointCompleteSound = () => {
@@ -70,7 +77,6 @@ const playCheckpointCompleteSound = () => {
     }
     
   } catch (error) {
-    console.warn('No se pudo reproducir el sonido de checkpoint:', error);
   }
 };
 
@@ -135,7 +141,416 @@ interface KanbanCall extends LiveCallData {
 const USE_OPTIMIZED_VIEW = true; // Toggle para activar/desactivar la vista optimizada
 const DEBUG_MIXED_SOURCES = true; // Debug para ver qué datos se están mostrando
 
+// Sidebar del Prospecto - VERSIÓN COMPLETA como en AnalysisIAComplete
+interface ProspectoSidebarProps {
+  prospecto: any;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, onClose }) => {
+  const [hasActiveChat, setHasActiveChat] = useState(false);
+  const [llamadas, setLlamadas] = useState<any[]>([]);
+
+  // Verificar si hay conversación activa y cargar llamadas
+  useEffect(() => {
+    if (prospecto?.id) {
+      checkActiveChat(prospecto.id);
+      loadLlamadasProspecto(prospecto.id);
+    }
+  }, [prospecto]);
+
+  const loadLlamadasProspecto = async (prospectoId: string) => {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select(`
+          call_id,
+          fecha_llamada,
+          duracion_segundos,
+          es_venta_exitosa,
+          call_status,
+          tipo_llamada,
+          nivel_interes,
+          probabilidad_cierre,
+          precio_ofertado,
+          costo_total,
+          tiene_feedback,
+          feedback_resultado
+        `)
+        .eq('prospecto', prospectoId)
+        .order('fecha_llamada', { ascending: false });
+
+      if (error) {
+        return;
+      }
+
+      setLlamadas(data || []);
+    } catch (error) {
+    }
+  };
+
+  const checkActiveChat = async (prospectoId: string) => {
+    try {
+      const { data: dataByProspectId, error: errorProspectId } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('id, metadata')
+        .eq('status', 'active');
+      
+      let hasActiveByProspectId = false;
+      if (dataByProspectId && !errorProspectId) {
+        hasActiveByProspectId = dataByProspectId.some(conv => 
+          conv.metadata?.prospect_id === prospectoId
+        );
+      }
+      
+      let hasActiveByPhone = false;
+      if (prospecto?.whatsapp && !hasActiveByProspectId) {
+        const { data: dataByPhone, error: errorPhone } = await supabaseSystemUI
+          .from('uchat_conversations')
+          .select('id')
+          .eq('customer_phone', prospecto.whatsapp)
+          .eq('status', 'active')
+          .limit(1);
+        
+        hasActiveByPhone = dataByPhone && dataByPhone.length > 0;
+      }
+      
+      setHasActiveChat(hasActiveByProspectId || hasActiveByPhone);
+    } catch (error) {
+      setHasActiveChat(false);
+    }
+  };
+
+  if (!prospecto) return null;
+
+  const getStatusColor = (etapa: string) => {
+    switch (etapa?.toLowerCase()) {
+      case 'nuevo': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'contactado': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+      case 'calificado': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'propuesta': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
+      case 'transferido': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
+      case 'finalizado': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'perdido': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    }
+  };
+
+  const getScoreColor = (score: string) => {
+    switch (score) {
+      case 'Q Elite': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'Q Premium': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'Q Reto': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-[100]"
+            onClick={onClose}
+          />
+          
+          <motion.div 
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-slate-900 shadow-2xl z-[100] overflow-hidden"
+          >
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+                <div className="flex items-center gap-4">
+                  <ProspectAvatar
+                    nombreCompleto={prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                    nombreWhatsapp={prospecto.nombre_whatsapp}
+                    size="lg"
+                  />
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {prospecto.ciudad_residencia} • {prospecto.interes_principal}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      if (hasActiveChat) {
+                        window.dispatchEvent(new CustomEvent('navigate-to-livechat', { detail: prospecto.id }));
+                      }
+                    }}
+                    disabled={!hasActiveChat}
+                    className={`p-2 rounded-full transition-colors shadow-lg ${
+                      hasActiveChat 
+                        ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer' 
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    }`}
+                    title={hasActiveChat ? "Ir a conversación activa" : "No hay conversación activa"}
+                  >
+                    <MessageSquare size={20} />
+                  </button>
+                  <button 
+                    onClick={onClose}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  >
+                    <X size={24} className="text-gray-400" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Estado y Score */}
+                <div className="flex items-center gap-4">
+                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(prospecto.etapa || '')}`}>
+                    {prospecto.etapa || 'Sin etapa'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Star className={getScoreColor(prospecto.score || '')} size={16} />
+                    <span className={`text-sm font-medium ${getScoreColor(prospecto.score || '').replace('bg-', 'text-').replace('-100', '-600').replace('-900/20', '-400')}`}>
+                      {prospecto.score || 'Sin score'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Información Personal y Contacto */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <User size={18} />
+                    Información Personal y Contacto
+                  </h3>
+                  
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Email</label>
+                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.email || 'No disponible'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">WhatsApp</label>
+                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.whatsapp || 'No disponible'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
+                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.telefono_principal || 'No disponible'}</div>
+                    </div>
+                    
+                    {prospecto.edad && (
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Edad</label>
+                        <div className="text-gray-900 dark:text-white">{prospecto.edad} años</div>
+                      </div>
+                    )}
+                    {prospecto.estado_civil && (
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Estado Civil</label>
+                        <div className="text-gray-900 dark:text-white">{prospecto.estado_civil}</div>
+                      </div>
+                    )}
+                    {prospecto.ciudad_residencia && (
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ciudad</label>
+                        <div className="text-gray-900 dark:text-white">{prospecto.ciudad_residencia}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Información Comercial */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <DollarSign size={18} />
+                    Información Comercial
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Score</label>
+                      <div className={`inline-block px-2 py-1 rounded text-sm font-medium ${getScoreColor(prospecto.score || '')}`}>
+                        {prospecto.score || 'Sin score'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ingresos</label>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {prospecto.ingresos || 'No definido'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Interés Principal</label>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {prospecto.interes_principal || 'No definido'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Asesor Asignado</label>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {prospecto.asesor_asignado || 'No asignado'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información de Viaje (si aplica) */}
+                {(prospecto.destino_preferencia || prospecto.tamano_grupo || prospecto.cantidad_menores || prospecto.viaja_con) && (
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Activity size={18} />
+                      Información de Viaje
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {prospecto.destino_preferencia && (
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Destinos Preferencia</label>
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {Array.isArray(prospecto.destino_preferencia) ? 
+                              prospecto.destino_preferencia.join(', ') : 
+                              prospecto.destino_preferencia}
+                          </div>
+                        </div>
+                      )}
+                      {prospecto.tamano_grupo && (
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Tamaño Grupo</label>
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {prospecto.tamano_grupo} personas
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timeline */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Clock size={18} />
+                    Timeline
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">Creado</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString() : 'No disponible'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">Última Actualización</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {prospecto.updated_at ? new Date(prospecto.updated_at).toLocaleDateString() : 'No disponible'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Observaciones */}
+                {prospecto.observaciones && (
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <FileText size={18} />
+                      Observaciones
+                    </h3>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                      {prospecto.observaciones}
+                    </p>
+                  </div>
+                )}
+
+                {/* Historial de Llamadas */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Phone size={18} />
+                    Historial de Llamadas ({llamadas.length})
+                  </h3>
+                  
+                  {llamadas.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-600">
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Fecha</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Duración</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Estado</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Interés</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Precio</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Resultado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {llamadas.map((llamada, index) => (
+                            <tr
+                              key={llamada.call_id}
+                              className="border-b border-gray-100 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                            >
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {new Date(llamada.fecha_llamada).toLocaleDateString('es-MX')}
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {Math.floor(llamada.duracion_segundos / 60)}:{(llamada.duracion_segundos % 60).toString().padStart(2, '0')}
+                              </td>
+                              <td className="py-2 px-2">
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  llamada.call_status === 'finalizada' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                  llamada.call_status === 'activa' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
+                                  'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                                }`}>
+                                  {llamada.call_status}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {llamada.nivel_interes}
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                ${parseFloat(llamada.precio_ofertado || '0').toLocaleString()}
+                              </td>
+                              <td className="py-2 px-2">
+                                <div className="flex items-center gap-1">
+                                  {llamada.es_venta_exitosa ? (
+                                    <CheckCircle size={12} className="text-green-600 dark:text-green-400" />
+                                  ) : (
+                                    <AlertTriangle size={12} className="text-orange-600 dark:text-orange-400" />
+                                  )}
+                                  <span className="text-gray-900 dark:text-white">
+                                    {llamada.es_venta_exitosa ? 'Exitosa' : 'Seguimiento'}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                      No hay llamadas registradas para este prospecto
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
 const LiveMonitorKanban: React.FC = () => {
+  const { user } = useAuth();
+  
   // Estado para el tipo de vista (Kanban o DataGrid)
   const [viewMode, setViewMode] = useState<'kanban' | 'datagrid'>(() => {
     const saved = localStorage.getItem('liveMonitor-viewMode');
@@ -276,6 +691,9 @@ const LiveMonitorKanban: React.FC = () => {
   // Estados para texto personalizado de transferencia
   const [customTransferText, setCustomTransferText] = useState('');
   const [useCustomText, setUseCustomText] = useState(false);
+  const [selectedPresetReason, setSelectedPresetReason] = useState<string>('');
+  const [customTransferMessage, setCustomTransferMessage] = useState('');
+  const [showParaphraseModal, setShowParaphraseModal] = useState(false);
   
   // Estados para modal de finalización de llamadas
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
@@ -302,7 +720,6 @@ const LiveMonitorKanban: React.FC = () => {
     }
 
     if (!selectedCall) {
-      console.error('❌ No hay llamada seleccionada');
       return;
     }
 
@@ -318,7 +735,6 @@ const LiveMonitorKanban: React.FC = () => {
     try {
       if (USE_OPTIMIZED_VIEW) {
         // TODO: Implementar saveFeedback en servicio optimizado
-        console.log('💾 [OPTIMIZED] Guardando feedback...');
       } else {
         await liveMonitorService.saveFeedback(feedbackData);
       }
@@ -340,7 +756,6 @@ const LiveMonitorKanban: React.FC = () => {
       setSelectedCall(null);
       
     } catch (error) {
-      console.error('Error guardando feedback:', error);
       alert('Error al guardar el feedback. Intenta nuevamente.');
     }
   };
@@ -395,7 +810,6 @@ const LiveMonitorKanban: React.FC = () => {
       await loadCalls(true, true);
       
     } catch (error) {
-      console.error('Error finalizando llamada:', error);
       alert('Error al finalizar la llamada. Intenta nuevamente.');
     } finally {
       setFinalizationLoading(false);
@@ -408,14 +822,32 @@ const LiveMonitorKanban: React.FC = () => {
     setShowFinalizationModal(true);
   };
 
-  // Mensajes predefinidos para transferencia
+  // Mensajes predefinidos para transferencia - Conceptos resumidos y textos completos
   const transferReasons = [
-    "Mi supervisor puede ofrecerle un mejor precio exclusivo que tengo autorización limitada",
-    "Mi supervisor maneja casos especiales como el suyo y quiere atenderle personalmente", 
-    "Tengo un supervisor especializado en su destino que puede darle beneficios adicionales",
-    "Mi supervisor tiene disponibilidad muy limitada solo para hoy y quiere hablar con usted",
-    "Como mostró tanto interés, mi supervisor quiere ofrecerle algo especial que yo no puedo autorizar",
-    "Mi supervisor estaba escuchando la llamada y quiere darle un beneficio exclusivo inmediatamente"
+    {
+      short: 'Mejor precio exclusivo',
+      full: 'Mi supervisor puede ofrecerle un mejor precio exclusivo que tengo autorización limitada'
+    },
+    {
+      short: 'Caso especial',
+      full: 'Mi supervisor maneja casos especiales como el suyo y quiere atenderle personalmente'
+    },
+    {
+      short: 'Beneficios adicionales',
+      full: 'Tengo un supervisor especializado en su destino que puede darle beneficios adicionales'
+    },
+    {
+      short: 'Disponibilidad limitada',
+      full: 'Mi supervisor tiene disponibilidad muy limitada solo para hoy y quiere hablar con usted'
+    },
+    {
+      short: 'Oferta especial',
+      full: 'Como mostró tanto interés, mi supervisor quiere ofrecerle algo especial que yo no puedo autorizar'
+    },
+    {
+      short: 'Beneficio exclusivo',
+      full: 'Mi supervisor estaba escuchando la llamada y quiere darle un beneficio exclusivo inmediatamente'
+    }
   ];
 
   // Función para sanitizar texto personalizado para API VAPI
@@ -467,7 +899,6 @@ const LiveMonitorKanban: React.FC = () => {
       
       return messages;
     } catch (error) {
-      console.error('Error parseando conversación:', error);
       return [];
     }
   };
@@ -504,9 +935,9 @@ const LiveMonitorKanban: React.FC = () => {
     const displayValue = formatter ? formatter(value) : value;
     
     return (
-      <div className="flex justify-between">
-        <span className="text-slate-500 dark:text-slate-400">{label}:</span>
-        <span className="font-medium text-slate-900 dark:text-white text-right">
+      <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}:</span>
+        <span className="text-xs font-medium text-gray-900 dark:text-white text-right">
           {displayValue}
         </span>
       </div>
@@ -540,18 +971,44 @@ const LiveMonitorKanban: React.FC = () => {
           contextData = { ...contextData, datos_proceso: datosProc };
         }
       } catch (e) {
-        console.log('No se pudo extraer contexto adicional');
+        // No se pudo extraer contexto adicional
       }
 
-      // Usar texto personalizado si está habilitado y tiene contenido
-      const finalMessage = useCustomText && customTransferText.trim() 
-        ? sanitizeTransferText(customTransferText)
-        : reason;
+      // Usar el texto proporcionado directamente (ya viene validado si es personalizado)
+      const finalMessage = reason;
+
+      // Verificar que control_url esté disponible, si no, intentar obtenerlo de la BD
+      let controlUrl = selectedCall.control_url;
+      
+      if (!controlUrl) {
+        try {
+          const { data: callData, error } = await analysisSupabase
+            .from('llamadas_ventas')
+            .select('control_url')
+            .eq('call_id', selectedCall.call_id)
+            .single();
+          
+          if (error || !callData?.control_url) {
+            alert('Error: No se encontró la URL de control de la llamada. La llamada puede haber finalizado.');
+            setTransferLoading(false);
+            return;
+          }
+          
+          controlUrl = callData.control_url;
+          
+          // Actualizar selectedCall con el control_url obtenido
+          setSelectedCall(prev => prev ? { ...prev, control_url: controlUrl } : null);
+        } catch (err) {
+          alert('Error: No se pudo obtener la URL de control de la llamada. La llamada puede haber finalizado.');
+          setTransferLoading(false);
+          return;
+        }
+      }
 
       const transferData = {
         action: "transfer",
         call_id: selectedCall.call_id,
-        control_url: selectedCall.control_url,
+        control_url: controlUrl,
         message: finalMessage,
         destination: {
           number: "+523222264000",
@@ -596,6 +1053,7 @@ const LiveMonitorKanban: React.FC = () => {
         }
       };
 
+
       const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/tools', {
         method: 'POST',
         headers: {
@@ -605,25 +1063,46 @@ const LiveMonitorKanban: React.FC = () => {
       });
 
       if (response.ok) {
-        setShowTransferModal(false);
-        // Abrir modal de feedback para transferencia
-        setGlobalFeedbackType('transferida' as any);
-        setShowGlobalFeedbackModal(true);
-        setGlobalFeedbackComment('');
-        // Actualizar estado en BD
-        if (USE_OPTIMIZED_VIEW) {
-          // TODO: Implementar updateCallStatus en servicio optimizado
-          console.log('🔄 [OPTIMIZED] Actualizando estado a transferida...');
+        // Intentar leer la respuesta como JSON, si falla leer como texto
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            await response.json();
+          } catch (e) {
+            // Error parseando JSON
+          }
         } else {
-          await liveMonitorService.updateCallStatus(selectedCall.call_id, 'transferida');
+          await response.text();
+        }
+        
+        setShowTransferModal(false);
+        // Reset estados después de transferir exitosamente
+        setSelectedPresetReason('');
+        setCustomTransferMessage('');
+        setCustomTransferText('');
+        setTransferReason('');
+        setUseCustomText(false);
+        
+        // Actualizar estado en BD (sin abrir modal de feedback)
+        if (!USE_OPTIMIZED_VIEW) {
+          try {
+            await liveMonitorService.updateCallStatus(selectedCall.call_id, 'transferida');
+          } catch (updateError) {
+            // No bloquear el flujo si falla la actualización del estado
+          }
         }
         await loadCalls(true, true); // preserveRealtimeData=true
       } else {
-        alert('Error al transferir la llamada');
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch (e) {
+          errorText = `Error ${response.status}: ${response.statusText}`;
+        }
+        alert(`Error al transferir la llamada: ${response.status} - ${errorText.substring(0, 100)}`);
       }
-    } catch (error) {
-      console.error('Error en transferencia:', error);
-      alert('Error al transferir la llamada');
+      } catch (error) {
+        alert(`Error al transferir la llamada: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setTransferLoading(false);
     }
@@ -656,7 +1135,7 @@ const LiveMonitorKanban: React.FC = () => {
           contextData = { ...contextData, datos_proceso: datosProc };
         }
       } catch (e) {
-        console.log('No se pudo extraer contexto adicional');
+        // No se pudo extraer contexto adicional
       }
 
       const hangupData = {
@@ -705,7 +1184,6 @@ const LiveMonitorKanban: React.FC = () => {
         // Actualizar estado en BD
         if (USE_OPTIMIZED_VIEW) {
           // TODO: Implementar updateCallStatus en servicio optimizado  
-          console.log('🔄 [OPTIMIZED] Actualizando estado a colgada...');
         } else {
           await liveMonitorService.updateCallStatus(selectedCall.call_id, 'colgada');
         }
@@ -714,7 +1192,6 @@ const LiveMonitorKanban: React.FC = () => {
         alert('Error al colgar la llamada');
       }
     } catch (error) {
-      console.error('Error al colgar:', error);
       alert('Error al colgar la llamada');
     } finally {
       setHangupLoading(false);
@@ -775,16 +1252,13 @@ const LiveMonitorKanban: React.FC = () => {
       }
       
       // CÓDIGO LEGACY: Solo se ejecuta si USE_OPTIMIZED_VIEW = false
-      console.log('⚠️ [LEGACY] Usando sistema anterior...');
-      const allCalls = await liveMonitorService.getActiveCalls() as KanbanCall[];
+      const allCalls = await liveMonitorService.getActiveCalls(user?.id) as KanbanCall[];
       
       // Este código solo se ejecuta en modo LEGACY
       
       // Si preserveRealtimeData=true, mantener datos actualizados por Realtime
       let finalCalls = allCalls;
       if (preserveRealtimeData) {
-        console.log('🔒 [PRESERVE] Manteniendo datos de Realtime, solo agregando llamadas nuevas');
-        
         // Crear mapa de llamadas existentes con datos de Realtime
         const existingCallsMap = new Map<string, KanbanCall>();
         [...activeCalls, ...transferredCalls, ...failedCalls].forEach(call => {
@@ -810,10 +1284,6 @@ const LiveMonitorKanban: React.FC = () => {
         });
       }
       
-      // Log minimal para refreshes
-      if (!isRefresh) {
-        console.log(`🔍 [LIVE MONITOR] Carga inicial: ${allCalls.length} llamadas`);
-      }
       
       // Clasificar llamadas por estado con nueva lógica
       const active: KanbanCall[] = [];
@@ -824,16 +1294,6 @@ const LiveMonitorKanban: React.FC = () => {
         const hasFeedback = call.tiene_feedback === true;
         const wasViewed = viewedCalls.has(call.call_id);
         
-        // Debug: Log de llamadas sospechosas
-        if (!isRefresh && call.call_status === 'activa') {
-          try {
-            const razon = call.datos_llamada?.razon_finalizacion || 
-                         (typeof call.datos_llamada === 'string' ? JSON.parse(call.datos_llamada)?.razon_finalizacion : null);
-            if (razon) {
-              console.log(`🔍 [DEBUG] Llamada ${call.call_id.slice(-8)} status='activa' pero razon='${razon}' - debería estar finalizada`);
-            }
-          } catch (e) {}
-        }
         
         // NUEVA LÓGICA DE CLASIFICACIÓN BASADA EN DATOS REALES:
         
@@ -861,20 +1321,14 @@ const LiveMonitorKanban: React.FC = () => {
         
         // 1.5. LLAMADAS QUE PARECEN ACTIVAS PERO YA FINALIZARON (DETECCIÓN AUTOMÁTICA)
         else if (call.call_status === 'activa' && (hasEndReason || hasDuration)) {
-          console.log(`🚨 [AUTO-DETECT] Llamada ${call.call_id.slice(-8)} parece activa pero ya finalizó - reclasificando`);
-          
           // Clasificar según razón de finalización
           if (razonFinalizacion === 'assistant-forwarded-call') {
-            console.log(`📋 [AUTO-DETECT] → Moviendo a TRANSFERIDAS (${razonFinalizacion})`);
             transferred.push(call);
           } else if (razonFinalizacion === 'customer-ended-call') {
-            console.log(`❌ [AUTO-DETECT] → Moviendo a FALLIDAS (${razonFinalizacion})`);
             failed.push(call);
           } else if (hasDuration) {
-            console.log(`⏱️ [AUTO-DETECT] → Moviendo a FALLIDAS (tiene duración: ${call.duracion_segundos}s)`);
             failed.push(call);
           } else {
-            console.log(`❓ [AUTO-DETECT] → Moviendo a FALLIDAS (estado desconocido)`);
             failed.push(call);
           }
         }
@@ -989,7 +1443,6 @@ const LiveMonitorKanban: React.FC = () => {
         
         // Log de cambios si los hay
         if (hasChanges && changes.length > 0) {
-          console.log('🔄 Cambios detectados:', changes);
           setLastUpdateTime(new Date());
           setHasRecentChanges(true);
           // Reset indicador después de 2 segundos
@@ -1036,27 +1489,9 @@ const LiveMonitorKanban: React.FC = () => {
       
       setAllCalls(completedCalls);
       
-      // Log resumen solo en carga inicial
-      if (!isRefresh) {
-        console.log('📊 [LIVE MONITOR] Clasificación:', {
-        activas: active.length,
-        transferidas: transferred.length,
-        fallidas: failed.length,
-        historial: completedCalls.length
-      });
-        
-        // Log detallado de estados para debugging
-        const statusCount = allCalls.reduce((acc, call) => {
-          acc[call.call_status || 'null'] = (acc[call.call_status || 'null'] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        
-        console.log('📊 [DEBUG] Estados reales en BD:', statusCount);
-        console.log('📊 [DEBUG] Llamadas vistas en modal:', viewedCalls.size);
-      }
       
     } catch (error) {
-      console.error('Error cargando llamadas:', error);
+      // Error cargando llamadas
     } finally {
       if (!isRefresh) {
         setLoading(false);
@@ -1070,7 +1505,7 @@ const LiveMonitorKanban: React.FC = () => {
     const loadInitialData = async () => {
       try {
         const [callsData, agentsData] = await Promise.all([
-          liveMonitorService.getActiveCalls(),
+          liveMonitorService.getActiveCalls(user?.id),
           liveMonitorService.getActiveAgents()
         ]);
         
@@ -1081,7 +1516,6 @@ const LiveMonitorKanban: React.FC = () => {
         
         await loadCalls();
       } catch (error) {
-        console.error('Error cargando datos iniciales:', error);
         setLoading(false);
       }
     };
@@ -1096,11 +1530,10 @@ const LiveMonitorKanban: React.FC = () => {
         schema: 'public',
         table: 'llamadas_ventas'
       }, async (payload) => {
-        console.log('📨 Nueva llamada insertada:', payload.new?.call_id);
         try {
           await loadCalls(true, true); // preserveRealtimeData=true para no sobrescribir
         } catch (e) {
-          console.error('Error refreshing calls on realtime (INSERT):', e);
+          // Error refreshing calls on realtime
         }
       })
       // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
@@ -1115,23 +1548,16 @@ const LiveMonitorKanban: React.FC = () => {
         if (rec && oldRec) {
           // Log específico para cambios de checkpoint
           if (rec.checkpoint_venta_actual !== oldRec.checkpoint_venta_actual) {
-            console.log(`🔄 Checkpoint actualizado: ${rec.call_id?.slice(-8)} ${oldRec.checkpoint_venta_actual} → ${rec.checkpoint_venta_actual}`);
-            
             // Sonido cuando llega al último checkpoint
             if (rec.checkpoint_venta_actual === 'checkpoint #5') {
-              console.log('🔔 Llamada llegó al último checkpoint, reproduciendo sonido...');
               playCheckpointCompleteSound();
             }
           }
           
           // Log para cambios de call_status
           if (rec.call_status !== oldRec.call_status) {
-            console.log(`📞 Estado actualizado: ${rec.call_id?.slice(-8)} ${oldRec.call_status} → ${rec.call_status}`);
-            
             // RECLASIFICACIÓN AUTOMÁTICA cuando llamada cambia de activa → finalizada
             if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
-              console.log(`🎯 [AUTO-CLASSIFY] Llamada ${rec.call_id?.slice(-8)} finalizó - reclasificando automáticamente`);
-              
               // Extraer razon_finalizacion para clasificar correctamente
               let razonFinalizacion = null;
               try {
@@ -1140,14 +1566,11 @@ const LiveMonitorKanban: React.FC = () => {
                   : rec.datos_llamada;
                 razonFinalizacion = datosLlamada?.razon_finalizacion;
               } catch (e) {
-                console.warn('Error parsing datos_llamada para razon_finalizacion');
+                // Error parsing datos_llamada
               }
-              
-              console.log(`🔍 [AUTO-CLASSIFY] Razón de finalización: ${razonFinalizacion}`);
               
               // Forzar reclasificación inmediata después de actualizar datos locales
               setTimeout(() => {
-                console.log(`🔄 [AUTO-CLASSIFY] Ejecutando reclasificación automática para ${rec.call_id?.slice(-8)}`);
                 loadCalls(true, true); // preserveRealtimeData=true
               }, 500);
             }
@@ -1157,14 +1580,11 @@ const LiveMonitorKanban: React.FC = () => {
           const updateCallData = (calls: KanbanCall[]) => {
             return calls.map(call => {
               if (call.call_id === rec.call_id) {
-                console.log(`📊 [REALTIME] Actualizando llamada ${rec.call_id?.slice(-8)} - checkpoint: ${rec.checkpoint_venta_actual}`);
-                
                 // Parsear datos_proceso para obtener datos familiares actualizados
                 let datosProcesoActualizados = rec.datos_proceso;
                 if (typeof rec.datos_proceso === 'string') {
                   try {
                     datosProcesoActualizados = JSON.parse(rec.datos_proceso);
-                    console.log(`📊 [REALTIME] datos_proceso parseado:`, datosProcesoActualizados);
                   } catch (e) {
                     datosProcesoActualizados = call.datos_proceso;
                   }
@@ -1187,13 +1607,6 @@ const LiveMonitorKanban: React.FC = () => {
                   datos_llamada: datosLlamadaActualizados
                 };
                 
-                console.log(`📊 [REALTIME] Llamada actualizada con datos:`, {
-                  checkpoint: updatedCall.checkpoint_venta_actual,
-                  numero_personas: datosProcesoActualizados?.numero_personas,
-                  tipo_actividades: datosProcesoActualizados?.tipo_actividades,
-                  composicion_familiar_numero: updatedCall.composicion_familiar_numero
-                });
-                
                 return updatedCall;
               }
               return call;
@@ -1207,15 +1620,12 @@ const LiveMonitorKanban: React.FC = () => {
         
         // NO hacer loadCalls para evitar sobrescribir datos actualizados con datos viejos del prospecto
         // La actualización local ya maneja todos los cambios necesarios
-        console.log(`✅ [REALTIME] Datos actualizados localmente para ${rec.call_id?.slice(-8)} - NO sobrescribiendo con prospecto`);
-        
         // Solo hacer loadCalls si hay cambios de estado que requieren reclasificación
         if (rec && oldRec && rec.call_status !== oldRec.call_status) {
-          console.log(`🔄 [REALTIME] Reclasificando por cambio de estado: ${oldRec.call_status} → ${rec.call_status}`);
           try {
             await loadCalls(true, true); // preserveRealtimeData=true
           } catch (e) {
-            console.error('Error refreshing calls on realtime (UPDATE):', e);
+            // Error refreshing calls on realtime
           }
         }
       })
@@ -1239,13 +1649,55 @@ const LiveMonitorKanban: React.FC = () => {
   }, []);
 
   // Manejar apertura del modal de detalle
+  // Estados para el sidebar del prospecto
+  const [showProspectoSidebar, setShowProspectoSidebar] = useState(false);
+  const [selectedProspecto, setSelectedProspecto] = useState<any>(null);
+
+  // Función para abrir el sidebar del prospecto
+  const handleProspectoClick = async (call: KanbanCall) => {
+    // Intentar obtener el prospecto_id desde diferentes campos
+    let prospectoId = null;
+    
+    // Si call tiene un campo prospecto_id directo
+    if ((call as any).prospecto_id) {
+      prospectoId = (call as any).prospecto_id;
+    }
+    // Si call tiene un campo prospecto (string UUID)
+    else if ((call as any).prospecto) {
+      prospectoId = (call as any).prospecto;
+    }
+    // Si call tiene un campo id
+    else if ((call as any).id) {
+      prospectoId = (call as any).id;
+    }
+    
+    if (!prospectoId) {
+      return;
+    }
+    
+    try {
+      const { data, error } = await analysisSupabase
+        .from('prospectos')
+        .select('*')
+        .eq('id', prospectoId)
+        .single();
+
+      if (error) {
+        return;
+      }
+
+      setSelectedProspecto(data);
+      setShowProspectoSidebar(true);
+    } catch (error) {
+    }
+  };
+
   const handleCallSelect = (call: KanbanCall) => {
     setSelectedCall(call);
     
     // Marcar llamada como vista para la lógica de transferencia
     setViewedCalls(prev => new Set(prev).add(call.call_id));
     
-    console.log(`👁️ Modal abierto para llamada: ${call.call_id.slice(-8)} (checkpoint: ${call.checkpoint_venta_actual}, status: ${call.call_status})`);
   };
 
   // Manejar cierre del modal de detalle
@@ -1254,12 +1706,8 @@ const LiveMonitorKanban: React.FC = () => {
     setSelectedCall(null);
     
     if (currentCall) {
-      console.log(`🚪 Modal cerrado para llamada: ${currentCall.call_id.slice(-8)}`);
-      
       // LÓGICA ESPECÍFICA: Si está en checkpoint #5, mover automáticamente a "Transferidas"
       if (currentCall.checkpoint_venta_actual === 'checkpoint #5') {
-        console.log('🎯 [CHECKPOINT #5] Llamada en Presentación de Oportunidad - moviendo automáticamente a Transferidas');
-        
         // Marcar como vista para que se mueva a transferidas
         setViewedCalls(prev => new Set([...prev, currentCall.call_id]));
         
@@ -1278,8 +1726,6 @@ const LiveMonitorKanban: React.FC = () => {
             .single();
           
           if (data) {
-            console.log(`📊 Estado actual en BD: ${data.call_status}, checkpoint: ${data.checkpoint_venta_actual}`);
-            
             // Si la llamada cambió de estado, reclasificar
             const razonFinalizacion = data.datos_llamada?.razon_finalizacion;
             
@@ -1289,12 +1735,10 @@ const LiveMonitorKanban: React.FC = () => {
               razonFinalizacion === 'customer-ended-call' ||
               razonFinalizacion === 'assistant-ended-call'
             ) {
-              console.log('🔄 Reclasificando llamada después de verificar BD...');
               setTimeout(() => loadCalls(true, true), 100); // preserveRealtimeData=true
             }
           }
         } catch (error) {
-          console.warn('Error verificando estado de llamada:', error);
           // Fallback: reclasificar de todos modos
           setTimeout(() => loadCalls(true, true), 100); // preserveRealtimeData=true
         }
@@ -1335,7 +1779,6 @@ const LiveMonitorKanban: React.FC = () => {
         const newCheckpoint = rec.checkpoint_venta_actual;
         
         if (oldCheckpoint !== newCheckpoint && newCheckpoint === 'checkpoint #5') {
-          console.log('🔔 Llamada llegó al último checkpoint, reproduciendo sonido...');
           playCheckpointCompleteSound();
         }
         
@@ -1346,8 +1789,6 @@ const LiveMonitorKanban: React.FC = () => {
         // Actualizar el selectedCall con los nuevos datos (incluyendo resumen y datos_proceso)
         setSelectedCall(prev => {
           if (prev && prev.call_id === rec.call_id) {
-            console.log(`📊 Actualizando datos completos de llamada seleccionada: ${rec.call_id?.slice(-8)}`);
-            
             // Parsear datos_proceso si es string
             let datosProcesoActualizados = rec.datos_proceso;
             if (typeof rec.datos_proceso === 'string') {
@@ -1371,6 +1812,13 @@ const LiveMonitorKanban: React.FC = () => {
             return { 
               ...prev, 
               ...rec,
+              // Preservar campos críticos que pueden no venir en el payload de realtime
+              control_url: rec.control_url || prev.control_url,
+              monitor_url: rec.monitor_url || prev.monitor_url,
+              transport_url: rec.transport_url || prev.transport_url,
+              call_sid: rec.call_sid || prev.call_sid,
+              provider: rec.provider || prev.provider,
+              account_sid: rec.account_sid || prev.account_sid,
               datos_proceso: datosProcesoActualizados,
               datos_llamada: datosLlamadaActualizados
             };
@@ -1391,7 +1839,6 @@ const LiveMonitorKanban: React.FC = () => {
   // Efecto para reclasificar cuando cambie el conjunto de llamadas vistas
   useEffect(() => {
     if (viewedCalls.size > 0) {
-      console.log(`👁️ Llamadas vistas: ${viewedCalls.size}, reclasificando...`);
       setTimeout(() => loadCalls(true, true), 500); // preserveRealtimeData=true
     }
   }, [viewedCalls.size]);
@@ -1479,9 +1926,11 @@ const LiveMonitorKanban: React.FC = () => {
       >
         {/* Cliente - Compacto */}
         <div className="flex items-center space-x-2 mb-2">
-          <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-            {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-          </div>
+          <ProspectAvatar
+            nombreCompleto={call.nombre_completo}
+            nombreWhatsapp={call.nombre_whatsapp}
+            size="sm"
+          />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
               {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
@@ -1491,6 +1940,13 @@ const LiveMonitorKanban: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* Información de Asignación */}
+        {(call.coordinacion_codigo || call.ejecutivo_nombre) && (
+          <div className="mb-2">
+            <AssignmentBadge call={call} variant="compact" />
+          </div>
+        )}
 
           {/* Información clave */}
         <div className="space-y-1">
@@ -1521,7 +1977,6 @@ const LiveMonitorKanban: React.FC = () => {
               if (datosProc?.numero_personas) {
                 numeroPersonas = datosProc.numero_personas;
                 esActualizado = true;
-                console.log(`👨‍👩‍👧‍👦 [DEBUG] Usando datos_proceso.numero_personas: ${numeroPersonas} para llamada ${call.call_id.slice(-8)}`);
               }
             } catch (e) {
               // Ignorar errores de parsing
@@ -1530,13 +1985,11 @@ const LiveMonitorKanban: React.FC = () => {
             // 2. SEGUNDA PRIORIDAD: composicion_familiar_numero (campo de llamada)
             if (!numeroPersonas && call.composicion_familiar_numero) {
               numeroPersonas = call.composicion_familiar_numero;
-              console.log(`👨‍👩‍👧‍👦 [DEBUG] Usando composicion_familiar_numero: ${numeroPersonas} para llamada ${call.call_id.slice(-8)}`);
             }
             
             // 3. ÚLTIMA PRIORIDAD: tamano_grupo (campo del prospecto - puede estar desactualizado)
             if (!numeroPersonas && call.tamano_grupo) {
               numeroPersonas = call.tamano_grupo;
-              console.log(`👨‍👩‍👧‍👦 [DEBUG] Fallback a tamano_grupo: ${numeroPersonas} para llamada ${call.call_id.slice(-8)} (PUEDE ESTAR DESACTUALIZADO)`);
             }
             
             return numeroPersonas ? (
@@ -2077,9 +2530,11 @@ const LiveMonitorKanban: React.FC = () => {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                        {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-                      </div>
+                            <ProspectAvatar
+                              nombreCompleto={call.nombre_completo}
+                              nombreWhatsapp={call.nombre_whatsapp}
+                              size="md"
+                            />
                             <div className="ml-3">
                               <div className="text-sm font-medium text-slate-900 dark:text-white">
                           {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
@@ -2213,9 +2668,11 @@ const LiveMonitorKanban: React.FC = () => {
                   >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                      <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-700 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                        {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-                      </div>
+                      <ProspectAvatar
+                        nombreCompleto={call.nombre_completo}
+                        nombreWhatsapp={call.nombre_whatsapp}
+                        size="md"
+                      />
                             <div className="ml-3">
                               <div className="text-sm font-medium text-slate-900 dark:text-white">
                           {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
@@ -2334,9 +2791,11 @@ const LiveMonitorKanban: React.FC = () => {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                              {(call.nombre_completo || call.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-                            </div>
+                            <ProspectAvatar
+                              nombreCompleto={call.nombre_completo}
+                              nombreWhatsapp={call.nombre_whatsapp}
+                              size="md"
+                            />
                             <div className="ml-3">
                               <div className="text-sm font-medium text-slate-900 dark:text-white">
                                 {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
@@ -2403,495 +2862,743 @@ const LiveMonitorKanban: React.FC = () => {
         </div>
 
         {/* Modal de detalles completo */}
-        {selectedCall && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-               onClick={(e) => e.target === e.currentTarget && handleModalClose()}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-              {/* Header */}
-              <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
-                      selectedCall.call_status === 'activa' 
-                        ? 'bg-gradient-to-br from-green-500 to-blue-600' 
-                        : selectedCall.duracion_segundos === 0
-                        ? 'bg-gradient-to-br from-red-500 to-red-700'
-                        : 'bg-gradient-to-br from-gray-400 to-gray-600'
-                    }`}>
-                      {(selectedCall.nombre_completo || selectedCall.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
+        <AnimatePresence>
+          {selectedCall && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+              onClick={(e) => e.target === e.currentTarget && handleModalClose()}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] max-h-[92vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
+              >
+                {/* Header */}
+                <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4 flex-1 min-w-0">
+                      <motion.button
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                        onClick={() => handleProspectoClick(selectedCall)}
+                        className={`relative w-16 h-16 rounded-2xl bg-gradient-to-br ${
+                          selectedCall.call_status === 'activa' 
+                            ? 'from-green-500 via-blue-500 to-purple-500' 
+                            : selectedCall.duracion_segundos === 0
+                            ? 'from-red-500 via-red-600 to-red-700'
+                            : 'from-gray-400 via-gray-500 to-gray-600'
+                        } p-0.5 shadow-lg flex-shrink-0 group cursor-pointer`}
+                        title="Ver información del prospecto"
+                      >
+                        <div className="w-full h-full rounded-2xl bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                          <ProspectAvatar
+                            nombreCompleto={selectedCall.nombre_completo}
+                            nombreWhatsapp={selectedCall.nombre_whatsapp}
+                            size="xl"
+                            className="w-full h-full rounded-2xl"
+                          />
+                        </div>
+                        {/* Lupa con animación heartbeat */}
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                          className="absolute -bottom-1 -right-1 p-1 bg-white dark:bg-gray-900 rounded-full shadow-lg border-2 border-blue-500"
+                        >
+                          <Eye size={12} className="text-blue-600 dark:text-blue-400" />
+                        </motion.div>
+                      </motion.button>
+                      <div className="flex-1 min-w-0">
+                        <motion.button
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.15 }}
+                          onClick={() => handleProspectoClick(selectedCall)}
+                          className="text-2xl font-bold text-gray-900 dark:text-white mb-1 truncate text-left hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                        >
+                          {selectedCall.nombre_completo || selectedCall.nombre_whatsapp || 'Sin nombre'}
+                        </motion.button>
+                        <motion.p
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className={`text-sm font-medium ${
+                            selectedCall.call_status === 'activa' ? 'text-green-600 dark:text-green-400' : 
+                            selectedCall.duracion_segundos === 0 ? 'text-red-600 dark:text-red-400' : 
+                            'text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          {selectedCall.call_status === 'activa' ? 'Llamada Activa' : 
+                           selectedCall.duracion_segundos === 0 ? 'Llamada Fallida' : 'Llamada Finalizada'}
+                        </motion.p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                        {selectedCall.nombre_completo || selectedCall.nombre_whatsapp || 'Sin nombre'}
-                      </h3>
-                      <p className={`text-sm font-medium ${
-                        selectedCall.call_status === 'activa' ? 'text-green-600 dark:text-green-400' : 
-                        selectedCall.duracion_segundos === 0 ? 'text-red-600 dark:text-red-400' : 
-                        'text-gray-600 dark:text-gray-400'
-                      }`}>
-                        {selectedCall.call_status === 'activa' ? 'Llamada Activa' : 
-                         selectedCall.duracion_segundos === 0 ? 'Llamada Fallida' : 'Llamada Finalizada'}
-                      </p>
-                    </div>
+                    <motion.button
+                      initial={{ opacity: 0, rotate: -90 }}
+                      animate={{ opacity: 1, rotate: 0 }}
+                      transition={{ delay: 0.25 }}
+                      whileHover={{ scale: 1.1, rotate: 90 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={handleModalClose}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
+                    >
+                      <X className="w-5 h-5" />
+                    </motion.button>
                   </div>
-                  <button
-                    onClick={handleModalClose}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
                 </div>
-              </div>
 
-              {/* Contenido del modal */}
-              <div className="p-4">
-                {/* Resumen de la llamada - Al top */}
-                {(() => {
-                  let resumen = selectedCall.resumen_llamada;
-                  
-                  // PRIORIZAR datos_llamada.resumen (tiempo real) sobre resumen_llamada
-                  if (selectedCall.datos_llamada) {
-                    try {
-                      const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
-                        ? JSON.parse(selectedCall.datos_llamada) 
-                        : selectedCall.datos_llamada;
-                      
-                      if (datosLlamada.resumen) {
-                        resumen = datosLlamada.resumen;
-                      }
-                    } catch (e) {
-                      console.log('Error parseando datos_llamada para resumen');
-                    }
-                  }
-                  
-                  // Si no hay resumen en datos_llamada, usar resumen_llamada
-                  if (!resumen && selectedCall.resumen_llamada) {
-                    resumen = selectedCall.resumen_llamada;
-                  }
-                  
-                  // Si aún no hay resumen para llamadas activas, mostrar mensaje dinámico
-                  if (!resumen && selectedCall.call_status === 'activa') {
-                    resumen = 'Llamada en progreso - el resumen se actualiza conforme avanza la conversación';
-                  }
-                  
-                  // Si no hay resumen para llamadas finalizadas, mostrar estado
-                  if (!resumen) {
-                    resumen = `Llamada ${selectedCall.call_status} - sin resumen disponible`;
-                  }
-                  
-                  return resumen ? (
-                    <div className="mb-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center justify-between">
-                        <div className="flex items-center">
-                          <svg className="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          Resumen de la Llamada
-                        </div>
-                        {selectedCall.call_status === 'activa' && (
-                          <div className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
-                            Tiempo real
-                          </div>
-                        )}
-                      </h4>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
-                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                          {resumen}
-                        </p>
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-                
-                {/* Grid de información: Personal, Viaje, Detalles */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                  
-                  {/* Información Personal Completa */}
-                  <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                      <svg className="w-3 h-3 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      Información Personal
-                    </h4>
-                    <div className="space-y-1 text-xs">
-                      {renderField('Nombre Completo', selectedCall.nombre_completo)}
-                      {renderField('WhatsApp', selectedCall.nombre_whatsapp)}
-                      {renderField('Teléfono', selectedCall.whatsapp)}
-                      {renderField('Email', selectedCall.email)}
-                      {renderField('Ciudad', selectedCall.ciudad_residencia)}
-                      {renderField('Estado Civil', selectedCall.estado_civil)}
-                      {renderField('Edad', selectedCall.edad)}
-                      {renderField('Etapa', selectedCall.etapa)}
-                    </div>
-                  </div>
-
-                  {/* Información de Viaje */}
-                  <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                      <svg className="w-3 h-3 mr-1 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Información de Viaje
-                    </h4>
-                    <div className="space-y-1 text-xs">
-                      {renderField('Checkpoint', selectedCall.checkpoint_venta_actual, (val) => val || 'checkpoint #1')}
-                      {renderField('Grupo', 
-                        (() => {
-                          // Priorizar datos_proceso.numero_personas (tiempo real) sobre campos estáticos
-                          try {
-                            const datosProc = typeof selectedCall.datos_proceso === 'string' 
-                              ? JSON.parse(selectedCall.datos_proceso) 
-                              : selectedCall.datos_proceso;
-                            return datosProc?.numero_personas || selectedCall.composicion_familiar_numero || selectedCall.tamano_grupo;
-                          } catch (e) {
-                            return selectedCall.composicion_familiar_numero || selectedCall.tamano_grupo;
-                          }
-                        })(), 
-                        (val) => `${val}p`
-                      )}
-                      {renderField('Actividades Preferidas', 
-                        (() => {
-                          try {
-                            const datosProc = typeof selectedCall.datos_proceso === 'string' 
-                              ? JSON.parse(selectedCall.datos_proceso) 
-                              : selectedCall.datos_proceso;
-                            return datosProc?.tipo_actividades;
-                          } catch (e) {
-                            return null;
-                          }
-                        })()
-                      )}
-                      {renderField('Viaja con', selectedCall.viaja_con)}
-                      {renderField('Destino', selectedCall.destino_preferido?.replace('_', ' ') || selectedCall.destino_preferencia?.join(', '))}
-                      {renderField('Menores', selectedCall.cantidad_menores)}
-                      {renderField('Noches', selectedCall.numero_noches)}
-                      {renderField('Mes Preferencia', selectedCall.mes_preferencia)}
-                      {renderField('Interés Principal', selectedCall.interes_principal)}
-                      {renderField('Campaña', selectedCall.campana_origen)}
-                    </div>
-                  </div>
-
-                  {/* Información de Llamada */}
-                  <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                      <svg className="w-3 h-3 mr-1 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                      Detalles de Llamada
-                    </h4>
-                    <div className="space-y-1 text-xs">
-                      {renderField('Duración', selectedCall.duracion_segundos, (val) => val ? `${Math.floor(val / 60)}:${(val % 60).toString().padStart(2, '0')}` : 'En curso')}
-                      {renderField('Nivel Interés', selectedCall.nivel_interes, (val) => val || 'En evaluación')}
-                      {renderField('Resort', selectedCall.resort_ofertado)}
-                      {renderField('Habitación', selectedCall.habitacion_ofertada)}
-                      {renderField('Tipo Llamada', selectedCall.tipo_llamada)}
-                      {renderField('Oferta Presentada', selectedCall.oferta_presentada, (val) => val ? 'Sí' : 'No')}
-                      {renderField('Costo Total', selectedCall.costo_total, (val) => `$${val}`)}
-                      {renderField('Objeciones', selectedCall.principales_objeciones, (val) => val || 'Sin objeciones')}
-                    </div>
-
-                    {/* Grabación para llamadas finalizadas */}
-                    {selectedCall.call_status !== 'activa' && selectedCall.audio_ruta_bucket && (
-                      <div className="mt-4">
-                        <h5 className="text-xs font-semibold text-slate-900 dark:text-white mb-2">Grabación:</h5>
-                        <audio 
-                          controls 
-                          controlsList="nodownload noremoteplayback"
-                          className="w-full"
-                          preload="metadata"
-                        >
-                          <source src={selectedCall.audio_ruta_bucket} type="audio/wav" />
-                          Tu navegador no soporta audio HTML5.
-                        </audio>
-                      </div>
-                    )}
-
-                    {/* Controles para llamadas activas */}
-                    {selectedCall.call_status === 'activa' && (
-                      <div className="mt-4 space-y-2">
-                        <h5 className="text-xs font-semibold text-slate-900 dark:text-white">Controles de Llamada:</h5>
-                        
-                        {/* Escuchar llamada */}
-                        <button
-                          disabled
-                          className="w-full bg-gray-400 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center opacity-50"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728" />
-                          </svg>
-                          Escuchar Llamada (En desarrollo)
-                        </button>
-
-                        {/* Transferir llamada */}
-                        <button
-                          onClick={() => setShowTransferModal(true)}
-                          disabled={transferLoading}
-                          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                          </svg>
-                          {transferLoading ? 'Transfiriendo...' : 'Solicitar Transferencia'}
-                        </button>
-
-                        {/* Colgar llamada */}
-                        <button
-                          onClick={handleHangupCall}
-                          disabled={hangupLoading}
-                          className="w-full bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2v12a4 4 0 01-4 4H6a4 4 0 01-4-4V6a4 4 0 014-4h4m8 0V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0h2m-2 0v2m-2-2v2" />
-                          </svg>
-                          {hangupLoading ? 'Colgando...' : 'Colgar Llamada'}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Botones de feedback - Solo si no tiene feedback completo */}
-                    {!selectedCall.tiene_feedback && (
-                      <div className="mt-4">
-                        <h5 className="text-xs font-semibold text-slate-900 dark:text-white mb-2">Resultado:</h5>
-                        <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => handleFeedbackRequest('contestada')}
-                          className="corp-button-primary bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
-                        >
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Contestada
-                          </button>
-                        <button
-                          onClick={() => handleFeedbackRequest('perdida')}
-                          className="corp-button-primary bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center"
-                        >
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            Perdida
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                {/* Contenido del modal */}
+                <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                  {/* Resumen de la llamada - Al top */}
+                  {(() => {
+                    let resumen = selectedCall.resumen_llamada;
                     
-                    {/* Mostrar feedback existente si ya lo tiene */}
-                    {selectedCall.tiene_feedback && (
-                      <div className="mt-4 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                        <h5 className="text-xs font-semibold text-green-800 dark:text-green-200 mb-2 flex items-center">
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Feedback Completado:
-                        </h5>
-                        <div className="space-y-1 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-green-700 dark:text-green-300">Resultado:</span>
-                            <span className="font-medium text-green-800 dark:text-green-200">
-                              {selectedCall.feedback_resultado}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-green-700 dark:text-green-300">Usuario:</span>
-                            <span className="font-medium text-green-800 dark:text-green-200">
-                              {selectedCall.feedback_user_email}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-green-700 dark:text-green-300">Fecha:</span>
-                            <span className="font-medium text-green-800 dark:text-green-200">
-                              {selectedCall.feedback_fecha ? new Date(selectedCall.feedback_fecha).toLocaleString() : 'N/A'}
-                            </span>
-                          </div>
-                          {selectedCall.feedback_comentarios && (
-                            <div className="mt-2">
-                              <span className="text-green-700 dark:text-green-300">Comentarios:</span>
-                              <p className="text-green-800 dark:text-green-200 mt-1 p-2 bg-green-100 dark:bg-green-900/30 rounded text-xs">
-                                {selectedCall.feedback_comentarios}
-                              </p>
+                    // PRIORIZAR datos_llamada.resumen (tiempo real) sobre resumen_llamada
+                    if (selectedCall.datos_llamada) {
+                      try {
+                        const datosLlamada = typeof selectedCall.datos_llamada === 'string' 
+                          ? JSON.parse(selectedCall.datos_llamada) 
+                          : selectedCall.datos_llamada;
+                        
+                        if (datosLlamada.resumen) {
+                          resumen = datosLlamada.resumen;
+                        }
+                      } catch (e) {
+                        // Error parseando datos_llamada para resumen
+                      }
+                    }
+                    
+                    // Si no hay resumen en datos_llamada, usar resumen_llamada
+                    if (!resumen && selectedCall.resumen_llamada) {
+                      resumen = selectedCall.resumen_llamada;
+                    }
+                    
+                    // Si aún no hay resumen para llamadas activas, mostrar mensaje dinámico
+                    if (!resumen && selectedCall.call_status === 'activa') {
+                      resumen = 'Llamada en progreso - el resumen se actualiza conforme avanza la conversación';
+                    }
+                    
+                    // Si no hay resumen para llamadas finalizadas, mostrar estado
+                    if (!resumen) {
+                      resumen = `Llamada ${selectedCall.call_status} - sin resumen disponible`;
+                    }
+                    
+                    return resumen ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="mb-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-center space-x-2 mb-4">
+                          <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                            <FileText className="w-4 h-4 mr-2 text-emerald-500" />
+                            Resumen de la Llamada
+                          </h4>
+                          {selectedCall.call_status === 'activa' && (
+                            <div className="flex items-center text-xs text-emerald-600 dark:text-emerald-400 ml-auto">
+                              <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
+                              Tiempo real
                             </div>
                           )}
                         </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                
-                {/* Conversación en Tiempo Real - Solo para llamadas activas */}
-                {selectedCall.call_status === 'activa' && (
-                      <div className="mt-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center justify-between">
-                          <div className="flex items-center">
-                        <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                        Conversación en Tiempo Real
-                          </div>
-                      <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-1 animate-pulse"></div>
-                        En vivo
-                            </div>
-                        </h4>
-                    
-                    <div ref={conversationScrollRef} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 max-h-80 overflow-y-auto"
-                         onScroll={(e) => {
-                           const el = e.currentTarget as HTMLDivElement;
-                           const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-                           userScrolledAwayInModalRef.current = distanceFromBottom > 120;
-                         }}>
-                      <div className="p-3 space-y-3">
-                        {currentConversation.length > 0 ? (
-                          currentConversation.map((msg, index) => (
-                            <div 
-                              key={`${msg.timestamp}-${index}`} 
-                              className={`flex ${msg.speaker === 'agente' ? 'justify-start' : 'justify-end'} transition-all duration-300 ease-in-out`}
-                              style={{
-                                animation: `fadeInUp 0.3s ease-out ${index * 0.1}s both`
-                              }}
-                            >
-                              <div className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg transition-all duration-200 ${
-                                msg.speaker === 'agente' 
-                                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-900/40' 
-                                  : 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-900/40'
-                              }`}>
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <span className="text-xs font-medium opacity-75">
-                                    {msg.speaker === 'agente' ? '🤖 Agente IA' : '👤 Cliente'}
-                                  </span>
-                                  <span className="text-xs opacity-60">
-                                    {msg.timestamp}
-                                  </span>
-                                </div>
-                                <p className="text-sm leading-relaxed">
-                                  {msg.message}
+                        <div className="bg-white dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                            {resumen}
                           </p>
                         </div>
-                      </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-8">
-                            <div className="flex items-center justify-center space-x-2 text-slate-500 dark:text-slate-400">
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-                </div>
-                            <p className="text-sm mt-2">
-                              Esperando conversación...
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal de Transferencia */}
-        {showTransferModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-[90] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                  Solicitar Transferencia
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                  Selecciona el motivo de la transferencia o escribe un mensaje personalizado:
-                </p>
+                      </motion.div>
+                    ) : null;
+                  })()}
                 
-                {/* Opción de texto personalizado */}
-                <div className="mb-4">
-                  <label className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="checkbox"
-                      checked={useCustomText}
-                      onChange={(e) => setUseCustomText(e.target.checked)}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Usar mensaje personalizado
-                    </span>
-                  </label>
+                  {/* Grid de información: Personal, Viaje, Detalles */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    
+                    {/* Información Personal Completa */}
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.15 }}
+                      className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                    >
+                      <div className="flex items-center space-x-2 mb-4">
+                        <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                          <User className="w-4 h-4 mr-2 text-blue-500" />
+                          Información Personal
+                        </h4>
+                      </div>
+                      <div className="space-y-2 text-xs">
+                        {renderField('Nombre Completo', selectedCall.nombre_completo)}
+                        {renderField('WhatsApp', selectedCall.nombre_whatsapp)}
+                        {renderField('Teléfono', selectedCall.whatsapp)}
+                        {renderField('Email', selectedCall.email)}
+                        {renderField('Ciudad', selectedCall.ciudad_residencia)}
+                        {renderField('Estado Civil', selectedCall.estado_civil)}
+                        {renderField('Edad', selectedCall.edad)}
+                        {renderField('Etapa', selectedCall.etapa)}
+                      </div>
+                    </motion.div>
+
+                    {/* Información de Viaje */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                    >
+                      <div className="flex items-center space-x-2 mb-4">
+                        <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                          <Globe className="w-4 h-4 mr-2 text-purple-500" />
+                          Información de Viaje
+                        </h4>
+                      </div>
+                      <div className="space-y-2 text-xs">
+                        {renderField('Checkpoint', selectedCall.checkpoint_venta_actual, (val) => val || 'checkpoint #1')}
+                        {renderField('Grupo', 
+                          (() => {
+                            // Priorizar datos_proceso.numero_personas (tiempo real) sobre campos estáticos
+                            try {
+                              const datosProc = typeof selectedCall.datos_proceso === 'string' 
+                                ? JSON.parse(selectedCall.datos_proceso) 
+                                : selectedCall.datos_proceso;
+                              return datosProc?.numero_personas || selectedCall.composicion_familiar_numero || selectedCall.tamano_grupo;
+                            } catch (e) {
+                              return selectedCall.composicion_familiar_numero || selectedCall.tamano_grupo;
+                            }
+                          })(), 
+                          (val) => `${val}p`
+                        )}
+                        {renderField('Actividades Preferidas', 
+                          (() => {
+                            try {
+                              const datosProc = typeof selectedCall.datos_proceso === 'string' 
+                                ? JSON.parse(selectedCall.datos_proceso) 
+                                : selectedCall.datos_proceso;
+                              return datosProc?.tipo_actividades;
+                            } catch (e) {
+                              return null;
+                            }
+                          })()
+                        )}
+                        {renderField('Viaja con', selectedCall.viaja_con)}
+                        {renderField('Destino', selectedCall.destino_preferido?.replace('_', ' ') || selectedCall.destino_preferencia?.join(', '))}
+                        {renderField('Menores', selectedCall.cantidad_menores)}
+                        {renderField('Noches', selectedCall.numero_noches)}
+                        {renderField('Mes Preferencia', selectedCall.mes_preferencia)}
+                        {renderField('Interés Principal', selectedCall.interes_principal)}
+                        {renderField('Campaña', selectedCall.campana_origen)}
+                      </div>
+                    </motion.div>
+
+                    {/* Información de Asignación */}
+                    {(selectedCall.coordinacion_codigo || selectedCall.ejecutivo_nombre) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.22 }}
+                        className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-center space-x-2 mb-4">
+                          <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                            <Users className="w-4 h-4 mr-2 text-purple-500" />
+                            Asignación
+                          </h4>
+                        </div>
+                        <AssignmentBadge call={selectedCall} variant="inline" />
+                      </motion.div>
+                    )}
+
+                    {/* Información de Llamada */}
+                    <motion.div
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.25 }}
+                      className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                    >
+                      <div className="flex items-center space-x-2 mb-4">
+                        <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                          <Phone className="w-4 h-4 mr-2 text-emerald-500" />
+                          Detalles de Llamada
+                        </h4>
+                      </div>
+                      <div className="space-y-2 text-xs">
+                        {renderField('Duración', selectedCall.duracion_segundos, (val) => val ? `${Math.floor(val / 60)}:${(val % 60).toString().padStart(2, '0')}` : 'En curso')}
+                        {renderField('Nivel Interés', selectedCall.nivel_interes, (val) => val || 'En evaluación')}
+                        {renderField('Resort', selectedCall.resort_ofertado)}
+                        {renderField('Habitación', selectedCall.habitacion_ofertada)}
+                        {renderField('Tipo Llamada', selectedCall.tipo_llamada)}
+                        {renderField('Oferta Presentada', selectedCall.oferta_presentada, (val) => val ? 'Sí' : 'No')}
+                        {renderField('Costo Total', selectedCall.costo_total, (val) => `$${val}`)}
+                        {renderField('Objeciones', selectedCall.principales_objeciones, (val) => val || 'Sin objeciones')}
+                      </div>
+
+                      {/* Grabación para llamadas finalizadas */}
+                      {selectedCall.call_status !== 'activa' && selectedCall.audio_ruta_bucket && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                          className="mt-6"
+                        >
+                          <div className="flex items-center space-x-2 mb-3">
+                            <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                            <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                              <Volume2 className="w-4 h-4 mr-2 text-blue-500" />
+                              Grabación
+                            </h5>
+                          </div>
+                          <audio 
+                            controls 
+                            controlsList="nodownload noremoteplayback"
+                            className="w-full rounded-xl"
+                            preload="metadata"
+                          >
+                            <source src={selectedCall.audio_ruta_bucket} type="audio/wav" />
+                            Tu navegador no soporta audio HTML5.
+                          </audio>
+                        </motion.div>
+                      )}
+
+                      {/* Controles para llamadas activas */}
+                      {selectedCall.call_status === 'activa' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                          className="mt-6 space-y-3"
+                        >
+                          <div className="flex items-center space-x-2 mb-3">
+                            <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                            <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                              <PhoneCall className="w-4 h-4 mr-2 text-blue-500" />
+                              Controles de Llamada
+                            </h5>
+                          </div>
+                          
+                          {/* Escuchar llamada */}
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            disabled
+                            className="w-full bg-gray-400 text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center opacity-50 cursor-not-allowed"
+                          >
+                            <Volume2 className="w-4 h-4 mr-2" />
+                            Escuchar Llamada (En desarrollo)
+                          </motion.button>
+
+                          {/* Transferir llamada */}
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setShowTransferModal(true)}
+                            disabled={transferLoading}
+                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center shadow-lg shadow-blue-500/25 transition-all duration-200"
+                          >
+                            <ArrowRightLeft className="w-4 h-4 mr-2" />
+                            {transferLoading ? 'Transfiriendo...' : 'Solicitar Transferencia'}
+                          </motion.button>
+
+                        </motion.div>
+                      )}
+                      
+                      {/* Mostrar feedback existente si ya lo tiene */}
+                      {selectedCall.tiene_feedback && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.35 }}
+                          className="mt-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-800"
+                        >
+                          <div className="flex items-center space-x-2 mb-3">
+                            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <h5 className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">
+                              Feedback Completado
+                            </h5>
+                          </div>
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between py-1 border-b border-emerald-200 dark:border-emerald-800">
+                              <span className="text-emerald-700 dark:text-emerald-300">Resultado:</span>
+                              <span className="font-medium text-emerald-800 dark:text-emerald-200">
+                                {selectedCall.feedback_resultado}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-emerald-200 dark:border-emerald-800">
+                              <span className="text-emerald-700 dark:text-emerald-300">Usuario:</span>
+                              <span className="font-medium text-emerald-800 dark:text-emerald-200">
+                                {selectedCall.feedback_user_email}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span className="text-emerald-700 dark:text-emerald-300">Fecha:</span>
+                              <span className="font-medium text-emerald-800 dark:text-emerald-200">
+                                {selectedCall.feedback_fecha ? new Date(selectedCall.feedback_fecha).toLocaleString() : 'N/A'}
+                              </span>
+                            </div>
+                            {selectedCall.feedback_comentarios && (
+                              <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800">
+                                <span className="text-emerald-700 dark:text-emerald-300 block mb-2">Comentarios:</span>
+                                <p className="text-emerald-800 dark:text-emerald-200 p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl text-xs leading-relaxed">
+                                  {selectedCall.feedback_comentarios}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  </div>
+
                   
-                  {useCustomText && (
-                    <div className="mt-2">
-                      <textarea
-                        value={customTransferText}
-                        onChange={(e) => setCustomTransferText(e.target.value)}
-                        placeholder="Escribe tu mensaje personalizado para la transferencia (solo letras y espacios)..."
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                        rows={3}
-                        maxLength={200}
-                      />
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Solo se permiten letras y espacios. Máximo 200 caracteres.
-                      </p>
-                    </div>
+                  {/* Conversación en Tiempo Real - Solo para llamadas activas */}
+                  {selectedCall.call_status === 'activa' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="mt-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                    >
+                      <div className="flex items-center space-x-2 mb-4">
+                        <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                          <MessageSquare className="w-4 h-4 mr-2 text-blue-500" />
+                          Conversación en Tiempo Real
+                        </h4>
+                        <div className="flex items-center text-xs text-blue-600 dark:text-blue-400 ml-auto">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-1 animate-pulse"></div>
+                          En vivo
+                        </div>
+                      </div>
+                      
+                      <div ref={conversationScrollRef} className="bg-white dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
+                           onScroll={(e) => {
+                             const el = e.currentTarget as HTMLDivElement;
+                             const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                             userScrolledAwayInModalRef.current = distanceFromBottom > 120;
+                           }}>
+                        <div className="p-4 space-y-3">
+                          {currentConversation.length > 0 ? (
+                            currentConversation.map((msg, index) => (
+                              <motion.div
+                                key={`${msg.timestamp}-${index}`}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                className={`flex ${msg.speaker === 'agente' ? 'justify-start' : 'justify-end'}`}
+                              >
+                                <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-xl transition-all duration-200 ${
+                                  msg.speaker === 'agente' 
+                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-900/40' 
+                                    : 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-900/40'
+                                }`}>
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <span className="text-xs font-medium opacity-75">
+                                      {msg.speaker === 'agente' ? '🤖 Agente IA' : '👤 Cliente'}
+                                    </span>
+                                    <span className="text-xs opacity-60">
+                                      {msg.timestamp}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm leading-relaxed">
+                                    {msg.message}
+                                  </p>
+                                </div>
+                              </motion.div>
+                            ))
+                          ) : (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="text-center py-8"
+                            >
+                              <div className="flex items-center justify-center space-x-2 text-gray-500 dark:text-gray-400 mb-3">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                              </div>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Esperando conversación...
+                              </p>
+                            </motion.div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
                   )}
                 </div>
-                
-                {/* Opciones predefinidas - Solo mostrar si no se usa texto personalizado */}
-                {!useCustomText && (
-                <div className="space-y-2 mb-6">
-                  {transferReasons.map((reason, index) => (
-                    <button
-                      key={index}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal de Transferencia */}
+        <AnimatePresence>
+          {showTransferModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[90]"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowTransferModal(false);
+                  // Reset estados al cerrar desde backdrop
+                  setSelectedPresetReason('');
+                  setCustomTransferMessage('');
+                  setCustomTransferText('');
+                  setTransferReason('');
+                  setUseCustomText(false);
+                }
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100 dark:border-gray-800"
+              >
+                {/* Header */}
+                <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <motion.h3
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-2xl font-bold text-gray-900 dark:text-white mb-1 flex items-center"
+                      >
+                        <ArrowRightLeft className="w-6 h-6 mr-2 text-blue-500" />
+                        Solicitar Transferencia
+                      </motion.h3>
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.15 }}
+                        className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                      >
+                        Selecciona o escribe una razón para la transferencia
+                      </motion.p>
+                    </div>
+                    <motion.button
+                      initial={{ opacity: 0, rotate: -90 }}
+                      animate={{ opacity: 1, rotate: 0 }}
+                      transition={{ delay: 0.2 }}
                       onClick={() => {
-                        setTransferReason(reason);
-                        handleTransferCall(reason);
+                        setShowTransferModal(false);
+                        // Reset estados al cerrar
+                        setSelectedPresetReason('');
+                        setCustomTransferMessage('');
+                        setCustomTransferText('');
+                        setTransferReason('');
+                        setUseCustomText(false);
                       }}
-                      disabled={transferLoading}
-                      className="w-full text-left p-3 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg text-xs text-slate-900 dark:text-white transition-colors disabled:opacity-50"
+                      className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group flex-shrink-0"
+                      title="Cerrar"
                     >
-                      <span className="font-medium text-blue-600 dark:text-blue-400">Opción {index + 1}:</span>
-                      <br />
-                      {reason}
-                    </button>
-                  ))}
-                </div>
-                )}
-                
-                {/* Botón para enviar texto personalizado */}
-                {useCustomText && (
-                  <div className="mb-6">
-                    <button
-                      onClick={() => handleTransferCall(customTransferText)}
-                      disabled={transferLoading || !customTransferText.trim()}
-                      className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                      </svg>
-                      {transferLoading ? 'Transfiriendo...' : 'Enviar Transferencia Personalizada'}
-                    </button>
+                      <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                    </motion.button>
                   </div>
-                )}
-                
-                <div className="flex space-x-3">
-                  <button
+                </div>
+
+                {/* Content */}
+                <div className="px-8 py-6 overflow-y-auto max-h-[60vh] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                  {/* Razones Predefinidas */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="mb-6"
+                  >
+                    <div className="flex items-center space-x-2 mb-4">
+                      <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Razones Rápidas
+                      </h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {transferReasons.map((reason, index) => (
+                        <motion.button
+                          key={reason.short}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.25 + index * 0.05 }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            setSelectedPresetReason(reason.short);
+                            setCustomTransferMessage('');
+                            setCustomTransferText('');
+                            setTransferReason('');
+                            setUseCustomText(false);
+                          }}
+                          className={`px-5 py-4 text-sm font-medium rounded-xl transition-all duration-200 text-left ${
+                            selectedPresetReason === reason.short
+                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/25 border-2 border-blue-500'
+                              : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 text-gray-700 dark:text-gray-300 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold">{reason.short}</span>
+                            {selectedPresetReason === reason.short && (
+                              <CheckCircle className="w-5 h-5" />
+                            )}
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  {/* Mensaje Personalizado */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="border-t border-gray-200 dark:border-gray-700 pt-6"
+                  >
+                    <div className="flex items-center space-x-2 mb-4">
+                      <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                        <Wand2 className="w-4 h-4 mr-2 text-purple-500" />
+                        Mensaje Personalizado
+                      </h4>
+                    </div>
+                    
+                    {!customTransferMessage ? (
+                      <div className="space-y-3">
+                        <textarea
+                          value={customTransferText}
+                          onChange={(e) => {
+                            setCustomTransferText(e.target.value);
+                            setSelectedPresetReason('');
+                            setUseCustomText(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                          rows={3}
+                          placeholder="Escribe tu mensaje personalizado aquí..."
+                        />
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.6 }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            if (!customTransferText.trim()) {
+                              alert('Por favor, escribe un mensaje antes de validar');
+                              return;
+                            }
+                            setShowParaphraseModal(true);
+                            setSelectedPresetReason('');
+                            setUseCustomText(false);
+                          }}
+                          disabled={!customTransferText.trim()}
+                          className="w-full px-5 py-3 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-purple-500/25 flex items-center justify-center"
+                        >
+                          <Wand2 className="w-4 h-4 mr-2" />
+                          Validar con IA
+                        </motion.button>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          El mensaje será validado por IA con guardrail y contador de warnings antes de poder enviarse
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="px-5 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl border-2 border-purple-500 shadow-lg shadow-purple-500/25">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                              <span className="font-semibold">Mensaje validado y listo</span>
+                            </div>
+                          </div>
+                          <p className="text-sm mt-2 opacity-90">{customTransferMessage}</p>
+                        </div>
+                        <motion.button
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            setCustomTransferMessage('');
+                            setCustomTransferText('');
+                          }}
+                          className="w-full px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                        >
+                          Cambiar mensaje
+                        </motion.button>
+                      </div>
+                    )}
+                  </motion.div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.25 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       setShowTransferModal(false);
-                      setUseCustomText(false);
+                      // Reset estados al cancelar
+                      setSelectedPresetReason('');
+                      setCustomTransferMessage('');
                       setCustomTransferText('');
                       setTransferReason('');
+                      setUseCustomText(false);
                     }}
-                    disabled={transferLoading}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm"
+                    className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
                   >
                     Cancelar
-                  </button>
+                  </motion.button>
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      let finalReason = '';
+                      if (selectedPresetReason) {
+                        const preset = transferReasons.find(r => r.short === selectedPresetReason);
+                        finalReason = preset ? preset.full : selectedPresetReason;
+                      } else if (customTransferMessage) {
+                        finalReason = customTransferMessage;
+                      }
+                      
+                      if (!finalReason || !finalReason.trim()) {
+                        alert('Por favor, selecciona una razón o escribe un mensaje personalizado');
+                        return;
+                      }
+                      
+                      handleTransferCall(finalReason);
+                    }}
+                    disabled={transferLoading || (!selectedPresetReason && !customTransferMessage)}
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    {transferLoading ? 'Transfiriendo...' : 'Transferir'}
+                  </motion.button>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Tab Finalizadas */}
         {selectedTab === 'finished' && (
@@ -2906,58 +3613,134 @@ const LiveMonitorKanban: React.FC = () => {
         )}
 
         {/* Modal de Feedback Global */}
-        {showGlobalFeedbackModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-[80] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                  Feedback Obligatorio - {
-                    globalFeedbackType === 'contestada' ? 'Llamada Contestada' :
-                    globalFeedbackType === 'perdida' ? 'Llamada Perdida' :
-                    globalFeedbackType === 'transferida' ? 'Llamada Transferida' :
-                    globalFeedbackType === 'colgada' ? 'Llamada Finalizada' : 'Feedback'
-                  }
-                </h3>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Comentarios sobre la llamada: *
-                  </label>
-                  <textarea
-                    value={globalFeedbackComment}
-                    onChange={(e) => setGlobalFeedbackComment(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    rows={4}
-                    placeholder={
-                      globalFeedbackType === 'transferida' ? 'Explica por qué se transfirió la llamada, contexto del prospecto, motivo específico...' :
-                      globalFeedbackType === 'colgada' ? 'Explica por qué se finalizó la llamada, resultado obtenido, observaciones...' :
-                      'Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes...'
-                    }
-                    autoFocus
-                  />
+        <AnimatePresence>
+          {showGlobalFeedbackModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[80]"
+              onClick={(e) => e.target === e.currentTarget && setShowGlobalFeedbackModal(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100 dark:border-gray-800"
+              >
+                {/* Header */}
+                <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <motion.h3
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-2xl font-bold text-gray-900 dark:text-white mb-1 flex items-center"
+                      >
+                        {globalFeedbackType === 'contestada' && <CheckCircle className="w-6 h-6 mr-2 text-emerald-500" />}
+                        {globalFeedbackType === 'perdida' && <XCircle className="w-6 h-6 mr-2 text-red-500" />}
+                        {globalFeedbackType === 'transferida' && <ArrowRightLeft className="w-6 h-6 mr-2 text-blue-500" />}
+                        {globalFeedbackType === 'colgada' && <RotateCcw className="w-6 h-6 mr-2 text-orange-500" />}
+                        Feedback Obligatorio
+                      </motion.h3>
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15 }}
+                        className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                      >
+                        {
+                          globalFeedbackType === 'contestada' ? 'Llamada Contestada' :
+                          globalFeedbackType === 'perdida' ? 'Llamada Perdida' :
+                          globalFeedbackType === 'transferida' ? 'Llamada Transferida' :
+                          globalFeedbackType === 'colgada' ? 'Llamada Finalizada' : 'Feedback'
+                        }
+                      </motion.p>
+                    </div>
+                    <motion.button
+                      initial={{ opacity: 0, rotate: -90 }}
+                      animate={{ opacity: 1, rotate: 0 }}
+                      transition={{ delay: 0.2 }}
+                      whileHover={{ scale: 1.1, rotate: 90 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        setShowGlobalFeedbackModal(false);
+                        setGlobalFeedbackType(null);
+                        setGlobalFeedbackComment('');
+                      }}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <X className="w-5 h-5" />
+                    </motion.button>
+                  </div>
                 </div>
-                <div className="flex space-x-3">
-                  <button
+
+                {/* Content */}
+                <div className="px-8 py-6">
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="mb-6"
+                  >
+                    <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                      <FileText className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <span>Comentarios sobre la llamada: *</span>
+                    </label>
+                    <textarea
+                      value={globalFeedbackComment}
+                      onChange={(e) => setGlobalFeedbackComment(e.target.value)}
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                      rows={4}
+                      placeholder={
+                        globalFeedbackType === 'transferida' ? 'Explica por qué se transfirió la llamada, contexto del prospecto, motivo específico...' :
+                        globalFeedbackType === 'colgada' ? 'Explica por qué se finalizó la llamada, resultado obtenido, observaciones...' :
+                        'Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes...'
+                      }
+                      autoFocus
+                    />
+                  </motion.div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.25 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       setShowGlobalFeedbackModal(false);
                       setGlobalFeedbackType(null);
                       setGlobalFeedbackComment('');
                     }}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+                    className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
                   >
                     Cancelar
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={executeGlobalFeedback}
                     disabled={!globalFeedbackComment.trim()}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg"
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center"
                   >
+                    <Send className="w-4 h-4 mr-2" />
                     Guardar Feedback
-                  </button>
+                  </motion.button>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Modal de Finalización */}
         <FinalizationModal
@@ -2969,6 +3752,30 @@ const LiveMonitorKanban: React.FC = () => {
           onFinalize={handleCallFinalization}
           loading={finalizationLoading}
           callName={callToFinalize?.nombre_completo || callToFinalize?.nombre_whatsapp || 'sin nombre'}
+        />
+
+        {/* Sidebar del Prospecto */}
+        <ProspectoSidebar
+          prospecto={selectedProspecto}
+          isOpen={showProspectoSidebar}
+          onClose={() => setShowProspectoSidebar(false)}
+        />
+
+        {/* Modal de Parafraseo para Mensaje Personalizado */}
+        <ParaphraseModal
+          isOpen={showParaphraseModal}
+          originalText={customTransferText || ''}
+          context="transfer_request_message"
+          onSelect={(paraphrasedText) => {
+            // Solo guardar el mensaje si pasó la validación de IA
+            setCustomTransferMessage(paraphrasedText);
+            setShowParaphraseModal(false);
+            setCustomTransferText(paraphrasedText);
+          }}
+          onCancel={() => {
+            setShowParaphraseModal(false);
+            // No limpiar customTransferText para que el usuario pueda intentar de nuevo
+          }}
         />
       </div>
     </div>

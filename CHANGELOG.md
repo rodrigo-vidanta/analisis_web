@@ -1,5 +1,35 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔒 Versión Beta 1.0.0-N7.0.0 - Seguridad: Eliminación de Logs de Debug (Enero 2025)
+
+### 🛡️ **RELEASE BETA - Mejoras de Seguridad y Rendimiento**
+
+#### 🔐 **Eliminación de Logs de Debug en Live Monitor**
+- **Problema resuelto**: Eliminados todos los logs de debug que generaban información sensible en consola
+- **Archivos afectados**:
+  - `src/components/analysis/LiveMonitorKanban.tsx` - Eliminados ~75 logs de debug
+  - `src/components/analysis/LiveMonitor.tsx` - Eliminados ~177 logs de debug
+- **Logs eliminados**:
+  - Logs de procesamiento de audio en tiempo real
+  - Logs de configuración de Tone.js
+  - Logs de WebSocket y conexiones
+  - Logs de estadísticas de audio
+  - Logs de diagnósticos automáticos
+  - Logs de feedback y transferencias
+  - Logs de cambios de checkpoint y estado de llamadas
+  - Logs de composición familiar y datos de prospectos
+- **Beneficios**:
+  - ✅ Reducción de exposición de información sensible
+  - ✅ Mejora en rendimiento (menos escrituras a consola)
+  - ✅ Consola más limpia para debugging real
+  - ✅ Cumplimiento con mejores prácticas de seguridad
+
+#### 📝 **Archivos Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Eliminación completa de logs de debug
+- `src/components/analysis/LiveMonitor.tsx` - Eliminación completa de logs de debug
+
+---
+
 ## 🎮 Versión Beta 1.0.0-N6.0.0 - Easter Egg Snake Game y Mejoras de Accesibilidad (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Easter Egg Interactivo y Optimizaciones**

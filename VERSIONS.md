@@ -1,5 +1,21 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión Beta 1.0.0-N7.0.0 (Enero 2025) - Seguridad: Eliminación de Logs de Debug
+
+### 🔒 RELEASE BETA - Mejoras de Seguridad
+
+#### Seguridad y Rendimiento
+- **Eliminación de logs de debug**: Removidos todos los logs de debug del módulo Live Monitor
+- **Reducción de exposición**: Eliminada información sensible que se mostraba en consola
+- **Mejora de rendimiento**: Reducción de escrituras innecesarias a consola
+- **Consola limpia**: Solo se mantienen errores críticos sin información sensible
+
+#### Archivos Principales
+- `src/components/analysis/LiveMonitorKanban.tsx`
+- `src/components/analysis/LiveMonitor.tsx`
+
+---
+
 ## Versión Beta 1.0.0-N6.0.0 (Enero 2025) - Easter Egg Snake Game
 
 ### 🎮 RELEASE BETA - Easter Egg Interactivo

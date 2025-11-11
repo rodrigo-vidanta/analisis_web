@@ -16,9 +16,17 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, User, Phone, MapPin, Calendar, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, Eye, Star, DollarSign, Activity, AlertTriangle, Wand2 } from 'lucide-react';
 import { liveMonitorService, type Prospect, type Agent, type FeedbackData, type LiveCallData } from '../../services/liveMonitorService';
 import { Device } from '@twilio/voice-sdk';
 import * as Tone from 'tone';
+import { analysisSupabase } from '../../config/analysisSupabase';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { ParaphraseModal } from '../chat/ParaphraseModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { AssignmentBadge } from './AssignmentBadge';
+import { ProspectAvatar } from './ProspectAvatar';
 
 // Extender interfaz Prospect para incluir campos de llamada
 interface ExtendedProspect extends Prospect {
@@ -267,22 +275,18 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
       const eqParam = key.split('.')[1];
       if (toneEffectsChain.eq3[eqParam]) {
         toneEffectsChain.eq3[eqParam].value = value;
-        console.log(`🎵 [TONE.JS APLICADO] EQ ${eqParam}: ${value}dB`);
       }
     } else if (key.startsWith('toneCompressor.') && toneEffectsChain) {
       const compParam = key.split('.')[1];
       if (toneEffectsChain.compressor[compParam]) {
         toneEffectsChain.compressor[compParam].value = value;
-        console.log(`📈 [TONE.JS APLICADO] Compressor ${compParam}: ${value}`);
       }
     } else if (key.startsWith('toneFilters.') && toneEffectsChain) {
       const filterParam = key.split('.')[1];
       if (filterParam === 'highpass' && toneEffectsChain.highpass) {
         toneEffectsChain.highpass.frequency.value = value;
-        console.log(`🔊 [TONE.JS APLICADO] High-pass: ${value}Hz`);
       } else if (filterParam === 'lowpass' && toneEffectsChain.lowpass) {
         toneEffectsChain.lowpass.frequency.value = value;
-        console.log(`🔉 [TONE.JS APLICADO] Low-pass: ${value}Hz`);
       }
     }
     
@@ -290,33 +294,6 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
     setLastChanged(key);
     setChangeCount(prev => prev + 1);
     
-    // LOGS DETALLADOS EN TIEMPO REAL
-    const channelInfo = key.includes('left') ? '🤖 IA (L)' : key.includes('right') ? '👤 Cliente (R)' : '🔧 Global';
-    const paramName = key.replace('left', '').replace('right', '').replace(/([A-Z])/g, ' $1').toLowerCase();
-    
-    console.log(`🔧 [TIEMPO REAL] ${channelInfo} → ${paramName}: ${typeof value === 'number' ? value.toFixed(3) : value}`);
-    
-    // LOG DETALLADO DEL IMPACTO
-    if (key.includes('Volume')) {
-      console.log(`📊 Impacto: ${channelInfo} ahora ${value > 1 ? 'amplificado' : 'reducido'} ${(value * 100).toFixed(1)}%`);
-    } else if (key.includes('SampleRate')) {
-      console.log(`📡 Impacto: ${channelInfo} calidad ${value >= 22050 ? 'ALTA' : value >= 16000 ? 'MEDIA' : 'BÁSICA'} (${value}Hz)`);
-    } else if (key.includes('ChannelMode')) {
-      console.log(`🎧 Impacto: ${channelInfo} modo ${value.toUpperCase()} activado`);
-    } else if (key.includes('Compression')) {
-      console.log(`📈 Impacto: ${channelInfo} compresión ${value > 1 ? 'ALTA' : value < 0.8 ? 'BAJA' : 'NORMAL'}`);
-    } else if (key.includes('DynamicRange')) {
-      console.log(`🎚️ Impacto: ${channelInfo} rango dinámico ${value > 1.2 ? 'AMPLIO' : value < 0.8 ? 'ESTRECHO' : 'NORMAL'}`);
-    } else if (key.includes('NoiseGate') || key.includes('Gate')) {
-      console.log(`🔇 Impacto: ${channelInfo} filtro ruido ${value > 0.01 ? 'AGRESIVO' : value > 0.005 ? 'MEDIO' : 'SUAVE'}`);
-    } else if (key === 'bufferSize') {
-      console.log(`⏱️ Impacto: Latencia ${value <= 2 ? 'MUY BAJA' : value <= 4 ? 'BAJA' : value <= 6 ? 'MEDIA' : 'ALTA'} (${value}s)`);
-    } else if (key === 'latencyMode') {
-      console.log(`⚡ Impacto: Modo ${value.toUpperCase()} - ${value === 'ultra-low' ? 'Mínima latencia, posibles cortes' : value === 'low' ? 'Balance óptimo' : value === 'normal' ? 'Estable, más latencia' : 'Máxima calidad'}`);
-    }
-    
-    // RESUMEN DE CONFIGURACIÓN ACTUAL
-    console.log(`📋 [RESUMEN] IA: ${(newSettings.leftVolume || 0.9).toFixed(2)}x | Cliente: ${(newSettings.rightVolume || 2.2).toFixed(2)}x | Buffer: ${newSettings.bufferSize || 4}s`);
   };
 
   const resetToDefaults = () => {
@@ -382,7 +359,6 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
         balance: 0.1
       }
     });
-    console.log('🔄 [CONFIGURACIÓN] Reseteo a MÁXIMA CALIDAD aplicado');
   };
 
   const exportSettings = () => {
@@ -850,7 +826,6 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                           handleChange('bufferSize', 8);
                           handleChange('bufferChunks', 150);
                           handleChange('latencyMode', 'high-quality');
-                          console.log('🎛️ [PRESET] MÁXIMA CALIDAD activado');
                         }}
                         className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-xs"
                       >
@@ -863,7 +838,6 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                           handleChange('bufferSize', 4);
                           handleChange('bufferChunks', 60);
                           handleChange('latencyMode', 'normal');
-                          console.log('⚖️ [PRESET] BALANCE activado');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs"
                       >
@@ -876,7 +850,6 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                           handleChange('bufferSize', 2);
                           handleChange('bufferChunks', 20);
                           handleChange('latencyMode', 'ultra-low');
-                          console.log('⚡ [PRESET] BAJA LATENCIA activado');
                         }}
                         className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs"
                       >
@@ -892,7 +865,6 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                           handleChange('globalSampleRate', 16000);
                           handleChange('rightVolume', 5.0);
                           handleChange('masterVolume', 1.8);
-                          console.log('💎 [PRESET] VAPI OPTIMIZADO activado');
                         }}
                         className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-xs"
                       >
@@ -1006,8 +978,6 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
           </button>
           <button
             onClick={() => {
-              console.log('🎯 Configuración actual:', audioSettings);
-              console.log('📊 Aplicando cambios en tiempo real...');
             }}
             className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors"
           >
@@ -1032,6 +1002,413 @@ interface ProspectDetailModalProps {
   onAudioConnectionChange: (connected: boolean) => void; // Callback para notificar conexión
 }
 
+// Sidebar del Prospecto - VERSIÓN COMPLETA como en AnalysisIAComplete
+interface ProspectoSidebarProps {
+  prospecto: any;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, onClose }) => {
+  const [hasActiveChat, setHasActiveChat] = useState(false);
+  const [llamadas, setLlamadas] = useState<any[]>([]);
+
+  // Verificar si hay conversación activa y cargar llamadas
+  useEffect(() => {
+    if (prospecto?.id) {
+      checkActiveChat(prospecto.id);
+      loadLlamadasProspecto(prospecto.id);
+    }
+  }, [prospecto]);
+
+  const loadLlamadasProspecto = async (prospectoId: string) => {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select(`
+          call_id,
+          fecha_llamada,
+          duracion_segundos,
+          es_venta_exitosa,
+          call_status,
+          tipo_llamada,
+          nivel_interes,
+          probabilidad_cierre,
+          precio_ofertado,
+          costo_total,
+          tiene_feedback,
+          feedback_resultado
+        `)
+        .eq('prospecto', prospectoId)
+        .order('fecha_llamada', { ascending: false });
+
+      if (error) {
+        return;
+      }
+
+      setLlamadas(data || []);
+    } catch (error) {
+    }
+  };
+
+  const checkActiveChat = async (prospectoId: string) => {
+    try {
+      const { data: dataByProspectId, error: errorProspectId } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('id, metadata')
+        .eq('status', 'active');
+      
+      let hasActiveByProspectId = false;
+      if (dataByProspectId && !errorProspectId) {
+        hasActiveByProspectId = dataByProspectId.some(conv => 
+          conv.metadata?.prospect_id === prospectoId
+        );
+      }
+      
+      let hasActiveByPhone = false;
+      if (prospecto?.whatsapp && !hasActiveByProspectId) {
+        const { data: dataByPhone, error: errorPhone } = await supabaseSystemUI
+          .from('uchat_conversations')
+          .select('id')
+          .eq('customer_phone', prospecto.whatsapp)
+          .eq('status', 'active')
+          .limit(1);
+        
+        hasActiveByPhone = dataByPhone && dataByPhone.length > 0;
+      }
+      
+      setHasActiveChat(hasActiveByProspectId || hasActiveByPhone);
+    } catch (error) {
+      setHasActiveChat(false);
+    }
+  };
+
+  if (!prospecto) return null;
+
+  const getStatusColor = (etapa: string) => {
+    switch (etapa?.toLowerCase()) {
+      case 'nuevo': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'contactado': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+      case 'calificado': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'propuesta': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
+      case 'transferido': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
+      case 'finalizado': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'perdido': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    }
+  };
+
+  const getScoreColor = (score: string) => {
+    switch (score) {
+      case 'Q Elite': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'Q Premium': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'Q Reto': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-[100]"
+            onClick={onClose}
+          />
+          
+          <motion.div 
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-slate-900 shadow-2xl z-[100] overflow-hidden"
+          >
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+                <div className="flex items-center gap-4">
+                  <ProspectAvatar
+                    nombreCompleto={prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                    nombreWhatsapp={prospecto.nombre_whatsapp}
+                    size="lg"
+                  />
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {prospecto.ciudad_residencia} • {prospecto.interes_principal}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      if (hasActiveChat) {
+                        window.dispatchEvent(new CustomEvent('navigate-to-livechat', { detail: prospecto.id }));
+                      }
+                    }}
+                    disabled={!hasActiveChat}
+                    className={`p-2 rounded-full transition-colors shadow-lg ${
+                      hasActiveChat 
+                        ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer' 
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    }`}
+                    title={hasActiveChat ? "Ir a conversación activa" : "No hay conversación activa"}
+                  >
+                    <MessageSquare size={20} />
+                  </button>
+                  <button 
+                    onClick={onClose}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  >
+                    <X size={24} className="text-gray-400" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Estado y Score */}
+                <div className="flex items-center gap-4">
+                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(prospecto.etapa || '')}`}>
+                    {prospecto.etapa || 'Sin etapa'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Star className={getScoreColor(prospecto.score || '')} size={16} />
+                    <span className={`text-sm font-medium ${getScoreColor(prospecto.score || '').replace('bg-', 'text-').replace('-100', '-600').replace('-900/20', '-400')}`}>
+                      {prospecto.score || 'Sin score'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Información Personal y Contacto */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <User size={18} />
+                    Información Personal y Contacto
+                  </h3>
+                  
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Email</label>
+                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.email || 'No disponible'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">WhatsApp</label>
+                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.whatsapp || 'No disponible'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
+                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.telefono_principal || 'No disponible'}</div>
+                    </div>
+                    
+                    {prospecto.edad && (
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Edad</label>
+                        <div className="text-gray-900 dark:text-white">{prospecto.edad} años</div>
+                      </div>
+                    )}
+                    {prospecto.estado_civil && (
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Estado Civil</label>
+                        <div className="text-gray-900 dark:text-white">{prospecto.estado_civil}</div>
+                      </div>
+                    )}
+                    {prospecto.ciudad_residencia && (
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ciudad</label>
+                        <div className="text-gray-900 dark:text-white">{prospecto.ciudad_residencia}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Información Comercial */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <DollarSign size={18} />
+                    Información Comercial
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Score</label>
+                      <div className={`inline-block px-2 py-1 rounded text-sm font-medium ${getScoreColor(prospecto.score || '')}`}>
+                        {prospecto.score || 'Sin score'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ingresos</label>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {prospecto.ingresos || 'No definido'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Interés Principal</label>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {prospecto.interes_principal || 'No definido'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Asesor Asignado</label>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {prospecto.asesor_asignado || 'No asignado'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información de Viaje (si aplica) */}
+                {(prospecto.destino_preferencia || prospecto.tamano_grupo || prospecto.cantidad_menores || prospecto.viaja_con) && (
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Activity size={18} />
+                      Información de Viaje
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {prospecto.destino_preferencia && (
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Destinos Preferencia</label>
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {Array.isArray(prospecto.destino_preferencia) ? 
+                              prospecto.destino_preferencia.join(', ') : 
+                              prospecto.destino_preferencia}
+                          </div>
+                        </div>
+                      )}
+                      {prospecto.tamano_grupo && (
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Tamaño Grupo</label>
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {prospecto.tamano_grupo} personas
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timeline */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Clock size={18} />
+                    Timeline
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">Creado</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString() : 'No disponible'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">Última Actualización</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {prospecto.updated_at ? new Date(prospecto.updated_at).toLocaleDateString() : 'No disponible'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Observaciones */}
+                {prospecto.observaciones && (
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <FileText size={18} />
+                      Observaciones
+                    </h3>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                      {prospecto.observaciones}
+                    </p>
+                  </div>
+                )}
+
+                {/* Historial de Llamadas */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Phone size={18} />
+                    Historial de Llamadas ({llamadas.length})
+                  </h3>
+                  
+                  {llamadas.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-600">
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Fecha</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Duración</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Estado</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Interés</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Precio</th>
+                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Resultado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {llamadas.map((llamada, index) => (
+                            <tr
+                              key={llamada.call_id}
+                              className="border-b border-gray-100 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                            >
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {new Date(llamada.fecha_llamada).toLocaleDateString('es-MX')}
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {Math.floor(llamada.duracion_segundos / 60)}:{(llamada.duracion_segundos % 60).toString().padStart(2, '0')}
+                              </td>
+                              <td className="py-2 px-2">
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  llamada.call_status === 'finalizada' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                  llamada.call_status === 'activa' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
+                                  'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                                }`}>
+                                  {llamada.call_status}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                {llamada.nivel_interes}
+                              </td>
+                              <td className="py-2 px-2 text-gray-900 dark:text-white">
+                                ${parseFloat(llamada.precio_ofertado || '0').toLocaleString()}
+                              </td>
+                              <td className="py-2 px-2">
+                                <div className="flex items-center gap-1">
+                                  {llamada.es_venta_exitosa ? (
+                                    <CheckCircle size={12} className="text-green-600 dark:text-green-400" />
+                                  ) : (
+                                    <AlertTriangle size={12} className="text-orange-600 dark:text-orange-400" />
+                                  )}
+                                  <span className="text-gray-900 dark:text-white">
+                                    {llamada.es_venta_exitosa ? 'Exitosa' : 'Seguimiento'}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                      No hay llamadas registradas para este prospecto
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
 // Componente para llamadas finalizadas
 const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({ 
   prospect, 
@@ -1044,10 +1421,50 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'contestada' | 'perdida' | null>(null);
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [showProspectoSidebar, setShowProspectoSidebar] = useState(false);
+  const [selectedProspecto, setSelectedProspecto] = useState<any>(null);
+
+  // Función para abrir el sidebar del prospecto
+  const handleProspectoClick = async () => {
+    // Intentar obtener el prospecto_id desde diferentes campos
+    let prospectoId = null;
+    
+    // Si prospect tiene un campo prospecto_id directo
+    if ((prospect as any).prospecto_id) {
+      prospectoId = (prospect as any).prospecto_id;
+    }
+    // Si prospect tiene un campo prospecto (string UUID)
+    else if ((prospect as any).prospecto) {
+      prospectoId = (prospect as any).prospecto;
+    }
+    // Si prospect tiene un campo id
+    else if ((prospect as any).id) {
+      prospectoId = (prospect as any).id;
+    }
+    
+    if (!prospectoId) {
+      return;
+    }
+    
+    try {
+      const { data, error } = await analysisSupabase
+        .from('prospectos')
+        .select('*')
+        .eq('id', prospectoId)
+        .single();
+
+      if (error) {
+        return;
+      }
+
+      setSelectedProspecto(data);
+      setShowProspectoSidebar(true);
+    } catch (error) {
+    }
+  };
 
   // Abrir modal de feedback
   const handleFeedbackRequest = (tipo: 'contestada' | 'perdida') => {
-    console.log('🔍 [FINISHED CALL] Abriendo modal de feedback:', tipo);
     setFeedbackType(tipo);
     setShowFeedbackModal(true);
     setFeedbackComment(''); // Reset comentario
@@ -1055,7 +1472,6 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
 
   // Ejecutar feedback con comentario obligatorio
   const executeFeedback = async () => {
-    console.log('🔍 [FINISHED CALL] Ejecutando feedback:', { feedbackType, comentario: feedbackComment });
     
     if (!feedbackType || !feedbackComment.trim()) {
       alert('Por favor, proporciona un comentario sobre la llamada');
@@ -1063,11 +1479,9 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
     }
 
     try {
-      console.log('🔍 [FINISHED CALL] Llamando onFeedback con:', feedbackType, feedbackComment);
       // Pasar solo el tipo a la función de feedback
       await onFeedback(feedbackType);
       
-      console.log('✅ [FINISHED CALL] Feedback guardado exitosamente');
       
       // Cerrar modal y limpiar estado
       setShowFeedbackModal(false);
@@ -1077,213 +1491,396 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
       // Cerrar modal principal
       onClose();
     } catch (error) {
-      console.error('Error guardando feedback:', error);
       alert('Error al guardar el feedback. Intenta nuevamente.');
     }
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 10 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] h-full max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden"
+        >
         {/* Header */}
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center text-white font-bold">
-                {(prospect.nombre_completo || prospect.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  {prospect.nombre_completo || prospect.nombre_whatsapp || 'Sin nombre'}
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-4 flex-1 min-w-0">
+                <motion.button
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                  onClick={handleProspectoClick}
+                  className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-0.5 shadow-lg flex-shrink-0 group cursor-pointer"
+                  title="Ver información del prospecto"
+                >
+                  <div className="w-full h-full rounded-2xl bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                    <ProspectAvatar
+                      nombreCompleto={prospect.nombre_completo}
+                      nombreWhatsapp={prospect.nombre_whatsapp}
+                      size="xl"
+                      className="w-full h-full rounded-2xl"
+                    />
+                  </div>
+                  {/* Lupa con animación heartbeat */}
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                    className="absolute -bottom-1 -right-1 p-1 bg-white dark:bg-gray-900 rounded-full shadow-lg border-2 border-blue-500"
+                  >
+                    <Eye size={12} className="text-blue-600 dark:text-blue-400" />
+                  </motion.div>
+                </motion.button>
+                <div className="flex-1 min-w-0">
+                  <motion.button
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    onClick={handleProspectoClick}
+                    className="text-2xl font-bold text-gray-900 dark:text-white mb-1 text-left hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                  >
+                    {prospect.nombre_completo || prospect.nombre_whatsapp || 'Sin nombre'}
+                  </motion.button>
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                  >
                   Llamada Finalizada • {callStatus.duration || 'N/A'}
-                </p>
+                  </motion.p>
               </div>
             </div>
-            <button
+              <motion.button
+                initial={{ opacity: 0, rotate: -90 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                transition={{ delay: 0.25 }}
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+                className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group flex-shrink-0"
+                title="Cerrar"
+              >
+                <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+              </motion.button>
           </div>
         </div>
 
-        {/* Content - Layout Compacto */}
-        <div className="p-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Content */}
+          <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Columna 1: Información Personal */}
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                <svg className="w-3 h-3 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                    <User className="w-4 h-4 mr-2 text-blue-500" />
                 Información Personal
               </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Nombre:</span>
-                  <span className="font-medium text-slate-900 dark:text-white text-right">
+                </div>
+                <div className="space-y-3">
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Nombre:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white text-right">
                     {prospect.nombre_completo || prospect.nombre_whatsapp || 'N/A'}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Teléfono:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{prospect.whatsapp}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Email:</span>
-                  <span className="font-medium text-slate-900 dark:text-white text-right">
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                      <Phone className="w-3 h-3 mr-1" />
+                      Teléfono:
+                    </span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{prospect.whatsapp}</span>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.25 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Email:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white text-right">
                     {prospect.email || 'N/A'}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Ciudad:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      Ciudad:
+                    </span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.ciudad_residencia || 'N/A'}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Estado Civil:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.35 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Estado Civil:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.estado_civil || 'N/A'}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Edad:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{prospect.edad || 'N/A'}</span>
-                </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="flex justify-between items-center py-2"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      Edad:
+                    </span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{prospect.edad || 'N/A'}</span>
+                  </motion.div>
               </div>
 
               {/* Información de Viaje */}
-              <h4 className="text-xs font-semibold text-slate-900 dark:text-white mt-4 mb-2 flex items-center">
-                <svg className="w-3 h-3 mr-1 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                    <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                      <Globe className="w-3 h-3 mr-2 text-emerald-500" />
                 Información de Viaje
               </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Grupo:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">
+                  </div>
+                  <div className="space-y-3">
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.45 }}
+                      className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                        <Users className="w-3 h-3 mr-1" />
+                        Grupo:
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.tamano_grupo ? `${prospect.tamano_grupo}p` : 'N/A'}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Viaja con:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Viaja con:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.viaja_con || 'N/A'}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Destino:</span>
-                  <span className="font-medium text-slate-900 dark:text-white text-right">
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.55 }}
+                      className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Destino:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white text-right">
                     {prospect.destino_preferencia?.join(', ') || 'N/A'}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Menores:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.6 }}
+                      className="flex justify-between items-center py-2"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Menores:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.cantidad_menores !== null ? prospect.cantidad_menores : 'N/A'}
                   </span>
+                    </motion.div>
                 </div>
               </div>
-            </div>
+              </motion.div>
 
             {/* Columna 2: Detalles de Llamada */}
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                <svg className="w-3 h-3 mr-1 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                    <Phone className="w-4 h-4 mr-2 text-purple-500" />
                 Detalles de Llamada
               </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Duración:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{callStatus.duration || 'N/A'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Interés:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{prospect.nivel_interes || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Probabilidad:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{prospect.probabilidad_cierre || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Costo:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">${prospect.costo_total || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Tipo:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{prospect.tipo_llamada || 'N/A'}</span>
-                </div>
+                <div className="space-y-3">
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.25 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Duración:
+                    </span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{callStatus.duration || 'N/A'}</span>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Interés:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{prospect.nivel_interes || 'N/A'}</span>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.35 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Probabilidad:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{prospect.probabilidad_cierre || 'N/A'}</span>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Costo:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">${prospect.costo_total || 'N/A'}</span>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="flex justify-between items-center py-2"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Tipo:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{prospect.tipo_llamada || 'N/A'}</span>
+                  </motion.div>
               </div>
 
               {/* Resultado de Venta */}
-              <h4 className="text-xs font-semibold text-slate-900 dark:text-white mt-4 mb-2 flex items-center">
-                <svg className="w-3 h-3 mr-1 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                    <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                      <CheckCircle className="w-3 h-3 mr-2 text-emerald-500" />
                 Resultado
               </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 dark:text-slate-400">Estado:</span>
-                  <span className="font-medium text-slate-900 dark:text-white flex items-center">
+                  </div>
+                  <div className="space-y-3">
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Estado:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
                     {prospect.es_venta_exitosa ? (
                       <>
-                        <svg className="w-3 h-3 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Exitosa
+                            <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+                            <span className="text-green-600 dark:text-green-400">Exitosa</span>
                       </>
                     ) : (
                       <>
-                        <svg className="w-3 h-3 mr-1 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        No Cerrada
+                            <XCircle className="w-4 h-4 mr-1 text-red-500" />
+                            <span className="text-red-600 dark:text-red-400">No Cerrada</span>
                       </>
                     )}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Precio:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">${prospect.precio_ofertado || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Oferta:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.55 }}
+                      className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Precio:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">${prospect.precio_ofertado || 'N/A'}</span>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.6 }}
+                      className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Oferta:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.oferta_presentada ? 'Sí' : 'No'}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Seguimiento:</span>
-                  <span className="font-medium text-slate-900 dark:text-white">
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.65 }}
+                      className="flex justify-between items-center py-2"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Seguimiento:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.requiere_seguimiento ? 'Sí' : 'No'}
                   </span>
+                    </motion.div>
                 </div>
               </div>
-            </div>
+              </motion.div>
 
             {/* Columna 3: Grabación */}
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                <svg className="w-3 h-3 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728" />
-                </svg>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                    <Volume2 className="w-4 h-4 mr-2 text-blue-500" />
                 Grabación
               </h4>
+                </div>
               {prospect.audio_ruta_bucket ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.35 }}
+                    className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
+                  >
                 <audio 
                   controls 
                   controlsList="nodownload noremoteplayback"
@@ -1293,48 +1890,73 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
                   <source src={prospect.audio_ruta_bucket} type="audio/wav" />
                   Tu navegador no soporta audio HTML5.
                 </audio>
-              ) : (
-                <div className="text-center py-4">
-                  <svg className="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-                  </svg>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Sin grabación disponible</p>
-                </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.35 }}
+                    className="text-center py-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
+                  >
+                    <XCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Sin grabación disponible</p>
+                  </motion.div>
               )}
 
               {/* Información adicional compacta */}
-              <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Etapa:</span>
-                    <span className="font-medium text-slate-900 dark:text-white">{prospect.etapa}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Campaña:</span>
-                    <span className="font-medium text-slate-900 dark:text-white">
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="space-y-3">
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Etapa:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{prospect.etapa}</span>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.45 }}
+                      className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Campaña:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
                       {prospect.campana_origen || 'N/A'}
                     </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Interés:</span>
-                    <span className="font-medium text-slate-900 dark:text-white">
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="flex justify-between items-center py-2"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Interés:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
                       {prospect.interes_principal || 'N/A'}
                     </span>
+                    </motion.div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </motion.div>
 
           </div>
 
           {/* Resumen de la Llamada - Ancho Completo */}
-          <div className="mt-4 bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
-              <svg className="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="mt-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+            >
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                  <FileText className="w-4 h-4 mr-2 text-emerald-500" />
               Resumen de la Llamada
             </h4>
+              </div>
             {(() => {
               let resumen = 'Resumen no disponible';
               try {
@@ -1349,142 +1971,189 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
               }
               
               return (
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.45 }}
+                    className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
+                  >
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                     {resumen}
                   </p>
-                </div>
+                  </motion.div>
               );
             })()}
-          </div>
+            </motion.div>
         </div>
 
         {/* Footer con Botones de Feedback */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-between items-center">
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="text-sm text-gray-600 dark:text-gray-400"
+            >
               Selecciona el resultado:
-            </p>
+            </motion.p>
             <div className="flex space-x-3">
-              <button
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.55 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => {
-                  console.log('🔍 [BUTTON CLICK] Botón Contestada presionado - Llamando función global');
                   onFeedback('contestada');
                 }}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center"
+                className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center shadow-lg shadow-green-500/25"
               >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckCircle className="w-4 h-4 mr-2" />
                 Contestada
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => {
-                  console.log('🔍 [BUTTON CLICK] Botón Perdida presionado - Llamando función global');
                   onFeedback('perdida');
                 }}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center"
+                className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 rounded-xl hover:from-red-700 hover:to-pink-700 transition-all duration-200 flex items-center shadow-lg shadow-red-500/25"
               >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <XCircle className="w-4 h-4 mr-2" />
                 Perdida
-              </button>
-            </div>
+              </motion.button>
           </div>
         </div>
 
-        {/* Modal de Feedback Obligatorio */}
-        {showFeedbackModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-[70] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                  Feedback Obligatorio - {feedbackType === 'contestada' ? 'Llamada Contestada' : 'Llamada Perdida'}
-                </h3>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Comentarios sobre la llamada: *
-                  </label>
-                  <textarea
-                    value={feedbackComment}
-                    onChange={(e) => setFeedbackComment(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
-                    rows={4}
-                    placeholder="Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes..."
-                    required
-                  />
-                </div>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowFeedbackModal(false);
-                      setFeedbackType(null);
-                      setFeedbackComment('');
-                    }}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={executeFeedback}
-                    disabled={!feedbackComment.trim()}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg"
-                  >
-                    Guardar Feedback
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </motion.div>
+      </motion.div>
 
         {/* Modal de Feedback Obligatorio */}
+      <AnimatePresence>
         {showFeedbackModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-[70] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                  Feedback Obligatorio - {feedbackType === 'contestada' ? 'Llamada Contestada' : 'Llamada Perdida'}
-                </h3>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Comentarios sobre la llamada: *
-                  </label>
-                  <textarea
-                    value={feedbackComment}
-                    onChange={(e) => setFeedbackComment(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
-                    rows={4}
-                    placeholder="Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes..."
-                    required
-                  />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md z-[70] flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && (setShowFeedbackModal(false), setFeedbackType(null), setFeedbackComment(''))}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100 dark:border-gray-800"
+            >
+              {/* Header */}
+              <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <motion.h3
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-2xl font-bold text-gray-900 dark:text-white mb-1"
+                    >
+                      Feedback Obligatorio
+                    </motion.h3>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                    >
+                      {feedbackType === 'contestada' ? 'Llamada Contestada' : 'Llamada Perdida'}
+                    </motion.p>
                 </div>
-                <div className="flex space-x-3">
-                  <button
+                  <motion.button
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    transition={{ delay: 0.2 }}
                     onClick={() => {
                       setShowFeedbackModal(false);
                       setFeedbackType(null);
                       setFeedbackComment('');
                     }}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group flex-shrink-0"
+                    title="Cerrar"
                   >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={executeFeedback}
-                    disabled={!feedbackComment.trim()}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg"
-                  >
-                    Guardar Feedback
-                  </button>
+                    <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                  </motion.button>
                 </div>
               </div>
-            </div>
-          </div>
+
+              {/* Content */}
+              <div className="px-8 py-6">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mb-4"
+                >
+                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    <FileText className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <span>Comentarios sobre la llamada: *</span>
+                  </label>
+                  <textarea
+                    value={feedbackComment}
+                    onChange={(e) => setFeedbackComment(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                    rows={4}
+                    placeholder="Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes..."
+                    required
+                  />
+                </motion.div>
+                </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.25 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setShowFeedbackModal(false);
+                      setFeedbackType(null);
+                      setFeedbackComment('');
+                    }}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                  >
+                    Cancelar
+                </motion.button>
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                    onClick={executeFeedback}
+                    disabled={!feedbackComment.trim()}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center"
+                  >
+                  <Send className="w-4 h-4 mr-2" />
+                    Guardar Feedback
+                </motion.button>
+                </div>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
-    </div>
+      </AnimatePresence>
+      
+      {/* Sidebar del Prospecto */}
+      <ProspectoSidebar
+        prospecto={selectedProspecto}
+        isOpen={showProspectoSidebar}
+        onClose={() => setShowProspectoSidebar(false)}
+      />
+    </AnimatePresence>
   );
 };
 
@@ -1528,20 +2197,84 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferReason, setTransferReason] = useState('');
   const [audioWebSocket, setAudioWebSocket] = useState<WebSocket | null>(null);
-  const [selectedPresetReason, setSelectedPresetReason] = useState('');
+  const [selectedPresetReason, setSelectedPresetReason] = useState<string>('');
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'contestada' | 'perdida' | null>(null);
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [showProspectoSidebar, setShowProspectoSidebar] = useState(false);
+  const [selectedProspecto, setSelectedProspecto] = useState<any>(null);
+  const [showParaphraseModal, setShowParaphraseModal] = useState(false);
+  const [customTransferMessage, setCustomTransferMessage] = useState('');
 
-  // Razones predefinidas para transferencia
+  // Función para abrir el sidebar del prospecto
+  const handleProspectoClick = async () => {
+    // Intentar obtener el prospecto_id desde diferentes campos
+    let prospectoId = null;
+    
+    // Si prospect tiene un campo prospecto_id directo
+    if ((prospect as any).prospecto_id) {
+      prospectoId = (prospect as any).prospecto_id;
+    }
+    // Si prospect tiene un campo prospecto (string UUID)
+    else if ((prospect as any).prospecto) {
+      prospectoId = (prospect as any).prospecto;
+    }
+    // Si prospect tiene un campo id
+    else if ((prospect as any).id) {
+      prospectoId = (prospect as any).id;
+    }
+    
+    if (!prospectoId) {
+      return;
+    }
+    
+    try {
+      const { data, error } = await analysisSupabase
+        .from('prospectos')
+        .select('*')
+        .eq('id', prospectoId)
+        .single();
+
+      if (error) {
+        return;
+      }
+
+      setSelectedProspecto(data);
+      setShowProspectoSidebar(true);
+    } catch (error) {
+    }
+  };
+
+  // Razones predefinidas para transferencia - Conceptos resumidos y textos completos
   const presetReasons = [
-    'Dile que tu supervisor puede ofrecerle un mejor precio exclusivo',
-    'Comenta que tu supervisor estaba atento a la llamada y quiere darle un beneficio adicional',
-    'Explícale que tu supervisor maneja casos especiales como el suyo',
-    'Menciona que tu supervisor tiene autorización para ofertas personalizadas',
-    'Dile que tu supervisor puede resolver cualquier duda específica que tenga',
-    'Comenta que tu supervisor quiere atenderle personalmente por ser un cliente especial',
-    'Explica que tu supervisor tiene disponibilidad limitada solo para hoy'
+    {
+      short: 'Mejor precio exclusivo',
+      full: 'Dile que tu supervisor puede ofrecerle un mejor precio exclusivo'
+    },
+    {
+      short: 'Beneficio adicional',
+      full: 'Comenta que tu supervisor estaba atento a la llamada y quiere darle un beneficio adicional'
+    },
+    {
+      short: 'Caso especial',
+      full: 'Explícale que tu supervisor maneja casos especiales como el suyo'
+    },
+    {
+      short: 'Ofertas personalizadas',
+      full: 'Menciona que tu supervisor tiene autorización para ofertas personalizadas'
+    },
+    {
+      short: 'Resolver dudas específicas',
+      full: 'Dile que tu supervisor puede resolver cualquier duda específica que tenga'
+    },
+    {
+      short: 'Atención personalizada',
+      full: 'Comenta que tu supervisor quiere atenderle personalmente por ser un cliente especial'
+    },
+    {
+      short: 'Disponibilidad limitada',
+      full: 'Explica que tu supervisor tiene disponibilidad limitada solo para hoy'
+    }
   ];
 
   // Monitor de audio real usando WebSocket de VAPI
@@ -1599,14 +2332,12 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   // Actualizar configuración cuando cambie audioSettings
   React.useEffect(() => {
     setCurrentAudioConfig(audioSettings);
-    console.log('🔄 [CONFIG ACTUALIZADA] Nueva configuración aplicada:', audioSettings);
   }, [audioSettings]);
   
   // Inicializar cadena de efectos Tone.js
   const initializeToneJS = async () => {
     try {
       await Tone.start();
-      console.log('🎵 [TONE.JS] Contexto de audio iniciado');
       
       // Crear cadena de efectos profesional con configuración optimizada para calidad
       const eq3 = new Tone.EQ3({
@@ -1623,8 +2354,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         knee: audioSettings.toneCompressor?.knee || 35             // Transición suave
       });
       
-      console.log('🎛️ [TONE.JS] EQ configurado: Low=-6dB, Mid=+8dB, High=+3dB');
-      console.log('📈 [TONE.JS] Compressor configurado: -28dB threshold, 6:1 ratio');
       
       const highpass = new Tone.Filter({
         frequency: toneSettings.filters.highpass,
@@ -1651,7 +2380,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       // Conectar cadena: EQ → Compressor → Limiter → Speakers (SIMPLIFICADO)
       eq3.connect(compressor).connect(limiter).toDestination();
       
-      console.log('🔗 [TONE.JS] Cadena conectada: EQ3 → Compressor → Limiter → Speakers');
       
       const effectsChain = {
         eq3,
@@ -1663,16 +2391,13 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         limiter,
         // Conectar en cadena
         connect: () => {
-          console.log('🔗 [TONE.JS] Cadena ya conectada');
         }
       };
       
       setToneEffectsChain(effectsChain);
-      console.log('🎛️ [TONE.JS] Cadena de efectos creada:', Object.keys(effectsChain));
       
       return effectsChain;
     } catch (error) {
-      console.error('❌ [TONE.JS] Error inicializando:', error);
       return null;
     }
   };
@@ -1685,7 +2410,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   const processToneJSAudio = async (audioData: ArrayBuffer) => {
     try {
       if (!toneEffectsChain) {
-        console.log('🎵 [TONE.JS] Inicializando cadena de efectos...');
         const chain = await initializeToneJS();
         if (!chain) return;
         chain.connect();
@@ -1697,7 +2421,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       
       // Detectar si es mono o estéreo según VAPI
       const isVAPIstereo = samples % 2 === 0 && samples > 320;
-      console.log(`🎵 [TONE.JS] Procesando ${samples} samples - ${isVAPIstereo ? 'ESTÉREO detectado' : 'MONO (VAPI estándar)'}`);
       
       if (isVAPIstereo) {
         // PROCESAMIENTO ESTÉREO (cuando VAPI envía 2 canales)
@@ -1728,17 +2451,12 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       source.connect(toneEffectsChain.eq3);
       source.start();
       
-      console.log('🎵 [TONE.JS] Audio enviado a cadena EQ3 → Compressor → Limiter → Speakers');
       
       // Log de procesamiento Tone.js
       if (Math.random() < 0.01) {
-        console.log(`🎛️ [TONE.JS] EQ: L=${toneSettings.eq.low}dB M=${toneSettings.eq.mid}dB H=${toneSettings.eq.high}dB`);
-        console.log(`📈 [TONE.JS] Compressor: ${toneSettings.compressor.threshold}dB ratio=${toneSettings.compressor.ratio}`);
-        console.log(`🎚️ [TONE.JS] Volúmenes: IA=${toneSettings.channels.leftVolume} Cliente=${toneSettings.channels.rightVolume}`);
       }
       
     } catch (error) {
-      console.error('❌ [TONE.JS] Error procesando audio:', error);
     }
   };
 
@@ -1750,7 +2468,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   // Función simplificada para conectar con Twilio Voice SDK
   const connectToTwilioCall = async () => {
     try {
-      console.log('🔄 Conectando a audio Twilio nativo...');
       
       // Obtener call_sid de la llamada activa
       const callSid = 'call_sid' in prospect ? prospect.call_sid : null;
@@ -1760,17 +2477,13 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         return;
       }
       
-      console.log('📞 Call SID encontrado:', callSid);
       
       // Por ahora mostrar que está conectado (implementación completa requiere TwiML App)
       setIsConnectedToTwilio(true);
       setIsListening(true);
       
-      console.log('✅ Simulando conexión a Twilio (implementar con TwiML App)');
-      console.log('🎧 Audio nativo Twilio - calidad garantizada');
       
     } catch (error) {
-      console.error('❌ Error conectando a Twilio:', error);
       alert('Error conectando a Twilio. Verifica configuración.');
     }
   };
@@ -1782,7 +2495,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
     setIsConnectedToTwilio(false);
     setIsListening(false);
     setTwilioCall(null);
-    console.log('📞 Desconectado de Twilio');
   };
   
   // Debugging inteligente con estadísticas
@@ -1800,7 +2512,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       
       if (debugMode) {
         const avgChunkSize = newStats.bytes / newStats.chunks;
-        console.log(`📊 Audio Stats - Chunks: ${newStats.chunks}, Avg: ${avgChunkSize.toFixed(0)} bytes, Last: ${newStats.lastChunkSize} bytes`);
       }
     }
   };
@@ -1812,19 +2523,7 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
     
     // Análisis automático cada 100 chunks
     if (debugCounterRef.current % 100 === 0 && debugMode) {
-      console.log(`🔍 DIAGNÓSTICO AUTOMÁTICO:`);
-      console.log(`  Formato actual: ${format.name}`);
-      console.log(`  Samples por chunk: ${samples}`);
-      console.log(`  Bytes por chunk: ${audioData.byteLength}`);
-      console.log(`  Encoding: ${format.encoding}`);
-      console.log('  Transport: Listen Only');
-      
-      // Sugerencias basadas en patrones
-      if (samples < 100) {
-        console.log(`  💡 Chunks muy pequeños - prueba μ-law 8kHz`);
-      } else if (samples > 2000) {
-        console.log(`  💡 Chunks muy grandes - prueba PCM 44kHz`);
-      }
+      // Diagnóstico automático (silencioso)
     }
   };
   
@@ -1897,11 +2596,8 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       workletNode.connect(ctx.destination);
       
       audioWorkletNodeRef.current = workletNode;
-      console.log('✅ AudioWorklet inicializado para streaming profesional');
       return workletNode;
     } catch (error) {
-      console.error('❌ Error inicializando AudioWorklet:', error);
-      console.log('⚠️ Fallback a Web Audio API tradicional');
       return null;
     }
   };
@@ -1940,15 +2636,12 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
     const format = getCurrentFormat();
     nextPlayTimeRef.current = ctx.currentTime;
 
-    console.log('🎵 Iniciando reproducción de calidad premium');
-    console.log(`📊 Cache inicial: ${audioQueueRef.current.length} chunks (~${Math.round(audioQueueRef.current.length * 0.03)}s)`);
 
     // Función para procesar lotes grandes de audio
     const playLargeBatch = () => {
       if (audioQueueRef.current.length === 0) {
         isPlayingRef.current = false;
         setIsAudioPlaying(false);
-        console.log('🔚 Reproducción terminada - cache vacío');
         return;
       }
 
@@ -2018,11 +2711,9 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         setTimeout(playLargeBatch, Math.max(nextBatchDelay, 500));
         
         if (debugMode) {
-          console.log(`🎵 Lote reproducido: ${batchSize} chunks, ${audioBuffer.duration.toFixed(2)}s`);
         }
         
       } catch (error) {
-        console.error('❌ Error procesando lote masivo:', error);
         setTimeout(playLargeBatch, 200);
       }
     };
@@ -2035,8 +2726,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
   const processSimpleAudio = async (audioData: ArrayBuffer) => {
     try {
       // Usar configuración técnica actualizada en tiempo real
-      console.log('🔍 [DEBUG] audioSettings recibido:', audioSettings);
-      console.log('🔍 [DEBUG] currentAudioConfig:', currentAudioConfig);
       const currentSettings = currentAudioConfig && Object.keys(currentAudioConfig).length > 0 ? currentAudioConfig : {
         leftVolume: 0.9,
         leftSampleRate: 16000,
@@ -2058,7 +2747,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         processingMode: 'realtime'
       };
       
-      console.log('🎯 [USANDO CONFIG] Vol IA:', currentSettings.leftVolume, 'Vol Cliente:', currentSettings.rightVolume);
       
       // GRABACIÓN: Guardar audio crudo para análisis
       if (isRecording) {
@@ -2097,7 +2785,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       
       // Log ocasional para debug
       if (Math.random() < 0.01) {
-        console.log(`🎵 Audio: ${samples} samples, ${isStereoProbable ? 'ESTÉREO' : 'MONO'} detectado`);
       }
       
       if (isStereoProbable && samples > 1) {
@@ -2163,7 +2850,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       
     } catch (error) {
       if (debugMode) {
-        console.error('❌ Error procesamiento simple:', error);
       }
     }
   };
@@ -2180,9 +2866,7 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
           setupMicrophoneStreaming(stream);
         }
         
-        console.log('🎤 Micrófono activado');
       } catch (error) {
-        console.error('❌ Error accediendo al micrófono:', error);
         alert('No se pudo acceder al micrófono. Verifica los permisos del navegador.');
       }
     } else {
@@ -2198,7 +2882,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       }
       
       setMicEnabled(false);
-      console.log('🎤 Micrófono desactivado');
     }
   };
   
@@ -2238,7 +2921,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
     processor.connect(audioContext.destination);
     micProcessorRef.current = processor;
     
-    console.log('🎤 Streaming de micrófono configurado');
   };
 
   // Reproducción con buffer de 4 segundos
@@ -2246,7 +2928,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
     if (isPlayingRef.current) return;
     
     isPlayingRef.current = true;
-    console.log('🎵 Iniciando reproducción con buffer de 4 segundos');
     
     const ctx = initializeAudioContext();
     if (!ctx) return;
@@ -2258,7 +2939,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
     const playNextChunk = (settings: any) => {
       if (audioBufferRef.current.length === 0) {
         isPlayingRef.current = false;
-        console.log('🔄 Buffer vacío - esperando más audio...');
         return;
       }
       
@@ -2306,10 +2986,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
           const leftVol = leftChannel.reduce((sum, val) => sum + Math.abs(val), 0) / samplesPerChannel;
           const rightVol = rightChannel.reduce((sum, val) => sum + Math.abs(val), 0) / samplesPerChannel;
           
-          console.log(`🎛️ [AUDIO PROCESADO] IA(L): ${(leftVol*100).toFixed(1)}% | Cliente(R): ${(rightVol*100).toFixed(1)}%`);
-          console.log(`🔧 [CONFIG ACTIVA] Vol IA: ${(currentSettings.leftVolume || 0.9).toFixed(2)}x | Vol Cliente: ${(currentSettings.rightVolume || 2.2).toFixed(2)}x`);
-          console.log(`📡 [SAMPLE RATE] IA: ${currentSettings.leftSampleRate || 16000}Hz | Cliente: ${currentSettings.rightSampleRate || 16000}Hz`);
-          console.log(`🎧 [MODO] IA: ${currentSettings.leftChannelMode || 'stereo'} | Cliente: ${currentSettings.rightChannelMode || 'stereo'}`);
         }
         
         const source = ctx.createBufferSource();
@@ -2322,14 +2998,11 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         setTimeout(() => playNextChunk(settings), Math.max(duration - 10, 20));
         
       } catch (error) {
-        console.error('❌ Error reproduciendo chunk:', error);
         setTimeout(() => playNextChunk(settings), 50);
       }
     };
     
     // Iniciar reproducción con configuración técnica actualizada en tiempo real
-    console.log('🔍 [DEBUG BUFFER] audioSettings recibido:', audioSettings);
-    console.log('🔍 [DEBUG BUFFER] currentAudioConfig:', currentAudioConfig);
     const currentSettings = currentAudioConfig && Object.keys(currentAudioConfig).length > 0 ? currentAudioConfig : {
       leftVolume: 0.9,
       leftSampleRate: 16000,
@@ -2351,14 +3024,12 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         processingMode: 'realtime'
     };
     
-    console.log('🎯 [USANDO CONFIG BUFFER] Vol IA:', currentSettings.leftVolume, 'Vol Cliente:', currentSettings.rightVolume);
     playNextChunk(currentSettings);
   };
 
   // Conectar usando Twilio Streams - Audio directo en navegador
   const connectToLiveCall = async () => {
     try {
-      console.log('🔄 Conectando con Twilio Streams...');
       
       const callSid = 'call_sid' in prospect ? prospect.call_sid : null;
       
@@ -2366,7 +3037,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         throw new Error('No se encontró call_sid');
       }
       
-      console.log('📞 Call SID:', callSid);
       
       // PROBAR ENDPOINT TRANSPORT EN LUGAR DE LISTEN
       const monitorUrl = 'monitor_url' in prospect ? prospect.monitor_url : null;
@@ -2376,17 +3046,11 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
       }
       
       // Usar /listen PERO con configuración optimizada
-      console.log('🔄 Conectando a /listen con configuración optimizada');
-      console.log('📡 Listen URL:', monitorUrl);
-      console.log('💡 Transport no funciona porque "Call Already Active"');
       
       // Conectar a WebSocket de listen (única opción para llamadas activas)
       const ws = new WebSocket(monitorUrl);
       
       ws.onopen = () => {
-        console.log('✅ WebSocket Listen conectado con config optimizada');
-        console.log('🎧 11labs: speed=1.0, stability=0.75, speakerBoost=false');
-        console.log('🎵 Esperando audio optimizado...');
         
         setAudioWebSocket(ws);
         setIsListening(true);
@@ -2399,15 +3063,11 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
           // Mensajes de control del servidor
           try {
             const message = JSON.parse(event.data);
-            console.log('📨 Mensaje del servidor transport:', message);
             
             if (message.type === 'connected') {
-              console.log('✅ Transport inicializado correctamente');
             } else if (message.type === 'error') {
-              console.error('❌ Error del servidor transport:', message);
             }
           } catch (error) {
-            console.log('📝 Mensaje transport (texto):', event.data);
           }
         } else if (event.data instanceof Blob) {
           try {
@@ -2424,29 +3084,21 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
             
             // Iniciar reproducción cuando tengamos buffer suficiente
             if (!isPlayingRef.current && audioBufferRef.current.length >= (audioSettings.bufferChunks || 40)) {
-              console.log(`🎵 Iniciando reproducción con buffer suficiente (${audioBufferRef.current.length} chunks)`);
-              console.log(`🔧 [APLICANDO CONFIG] Buffer: ${audioSettings.bufferSize || 4}s | Chunks: ${audioSettings.bufferChunks || 40} | Latencia: ${audioSettings.latencyMode || 'low'}`);
               startBufferedPlayback();
             }
             
           } catch (error) {
-            console.error('❌ Error procesando audio:', error);
           }
         } else if (event.data instanceof ArrayBuffer) {
           // Audio directo como ArrayBuffer
-          console.log('🎵 Audio ArrayBuffer recibido del transport');
           // Procesar igual que Blob
         }
       };
       
       ws.onerror = (error) => {
-        console.error('❌ Error WebSocket transport:', error);
       };
       
       ws.onclose = (event) => {
-        console.log('🔌 WebSocket cerrado');
-        console.log('📊 Código de cierre:', event.code);
-        console.log('📝 Razón:', event.reason);
         
         // NOTIFICAR AL COMPONENTE PRINCIPAL QUE EL AUDIO SE DESCONECTÓ
         onAudioConnectionChange(false);
@@ -2458,7 +3110,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
             setAudioContext(null);
           }
         } catch (error) {
-          console.error('❌ Error cerrando contexto de audio:', error);
         }
         
         // Limpiar buffer
@@ -2469,7 +3120,6 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
         setIsListening(false);
         setIsListening(false);
         
-        console.log('🧹 Buffer limpiado');
       };
       
       alert(`✅ AUDIO OPTIMIZADO ACTIVADO!
@@ -2482,7 +3132,6 @@ Usando /listen con configuración 11labs optimizada:
 Debería sonar MUCHO mejor ahora.`);
       
     } catch (error) {
-      console.error('❌ Error con Twilio Streams:', error);
       alert(`Error: ${error.message}`);
     }
   };
@@ -2492,12 +3141,10 @@ Debería sonar MUCHO mejor ahora.`);
     recordedChunksRef.current = [];
     setIsRecording(true);
     setRecordingStats({ chunks: 0, totalBytes: 0 });
-    console.log('🔴 Iniciando grabación de audio crudo...');
   };
 
   const stopRecording = () => {
     setIsRecording(false);
-    console.log(`🛑 Grabación detenida: ${recordedChunksRef.current.length} chunks`);
   };
 
   const downloadRecordedAudio = () => {
@@ -2535,10 +3182,8 @@ Debería sonar MUCHO mejor ahora.`);
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      console.log(`📥 Audio descargado: ${format.name}, ${recordedChunksRef.current.length} chunks`);
       
     } catch (error) {
-      console.error('❌ Error descargando audio:', error);
     }
   };
 
@@ -2611,17 +3256,10 @@ Debería sonar MUCHO mejor ahora.`);
         // Usar solo Listen por ahora - simplificado
         wsType = 'Listen Only (Simplificado)';
         
-        console.log('🎧 Conectando WebSocket:', wsType);
-        console.log('📡 URL:', wsUrl);
-        console.log('📞 Call ID:', callId);
-        console.log('🔍 Status de llamada:', 'call_status' in prospect ? prospect.call_status : 'desconocido');
         
         const ws = new WebSocket(wsUrl);
         
         ws.onopen = () => {
-          console.log(`✅ WebSocket conectado - ${wsType}`);
-          console.log('🎧 Modo: Listen Only, PCM 16kHz simplificado');
-          console.log('🎤 Micrófono: OFF por defecto');
           setIsListening(true);
           setAudioWebSocket(ws);
         };
@@ -2629,50 +3267,34 @@ Debería sonar MUCHO mejor ahora.`);
         ws.onmessage = async (event) => {
           if (event.data instanceof ArrayBuffer) {
             // Audio PCM crudo como ArrayBuffer
-            console.log(`🎵 Audio ArrayBuffer recibido: ${event.data.byteLength} bytes`);
             if (isUsingToneJS) {
-              console.log('🎵 [TONE.JS] Recibiendo audio ArrayBuffer para procesamiento');
               await processToneJSAudio(event.data);
             } else {
               await processSimpleAudio(event.data);
             }
           } else if (event.data instanceof Blob) {
             // VAPI envía Blobs con PCM crudo - convertir y reproducir directamente
-            console.log(`🎵 Audio Blob recibido: ${event.data.size} bytes`);
             try {
               const arrayBuffer = await event.data.arrayBuffer();
               if (isUsingToneJS) {
-                console.log('🎵 [TONE.JS] Recibiendo audio Blob para procesamiento');
                 await processToneJSAudio(arrayBuffer);
               } else {
                 await processSimpleAudio(arrayBuffer);
               }
             } catch (error) {
-              console.error('❌ Error procesando Blob:', error);
             }
           } else {
             // Mensajes de control JSON - solo mostrar ocasionalmente
             if (debugMode) {
               try {
                 const message = JSON.parse(event.data);
-                console.log('📝 Mensaje control VAPI:', message);
               } catch {
-                console.log('📝 Mensaje texto:', event.data);
               }
             }
           }
         };
         
         ws.onerror = (error) => {
-          console.error('❌ Error WebSocket:', error);
-          console.error('🔍 Diagnóstico:');
-          console.error('  - URL:', monitorUrl);
-          console.error('  - Call ID:', callId);
-          console.error('  - Posibles causas:');
-          console.error('    1. La llamada ya terminó');
-          console.error('    2. URL expirada o inválida');
-          console.error('    3. Servidor VAPI no disponible');
-          console.error('    4. Falta autenticación');
           
           setIsListening(false);
           setAudioWebSocket(null);
@@ -2682,9 +3304,6 @@ Debería sonar MUCHO mejor ahora.`);
         };
         
         ws.onclose = (event) => {
-          console.log('🔌 WebSocket de audio desconectado');
-          console.log('📊 Código de cierre:', event.code);
-          console.log('📝 Razón:', event.reason);
           setIsListening(false);
           setAudioWebSocket(null);
           // NOTIFICAR AL COMPONENTE PRINCIPAL QUE EL AUDIO SE DESCONECTÓ
@@ -2697,22 +3316,18 @@ Debería sonar MUCHO mejor ahora.`);
               setAudioContext(null);
             }
           } catch (error) {
-            console.error('❌ Error cerrando contexto de audio:', error);
           }
           
           // Si se cerró con error, mostrar información
           if (event.code !== 1000) {
-            console.warn('⚠️ WebSocket cerrado con error:', event.code, event.reason);
           }
         };
       } else {
         // Si no hay monitor_url en el objeto, obtenerla del servicio
-        console.log('🔍 Obteniendo monitor_url de la base de datos para:', callId);
         
         try {
           const ws = await liveMonitorService.createAudioWebSocket(callId, (audioData) => {
             const audioBuffer = new Uint8Array(audioData);
-            console.log('🎵 Audio recibido:', audioBuffer.length, 'bytes');
             // TODO: Procesar o reproducir el audio aquí
           });
           
@@ -2723,14 +3338,12 @@ Debería sonar MUCHO mejor ahora.`);
             alert('No se pudo conectar al audio. Verifica que la llamada tenga monitor_url configurado.');
           }
         } catch (error) {
-          console.error('❌ Error creando WebSocket:', error);
           alert('Error conectando al audio de la llamada.');
         }
       }
     } else {
       // Detener conexión WebSocket y limpiar buffer
       if (audioWebSocket) {
-        console.log('🛑 Cerrando WebSocket de audio');
         audioWebSocket.close();
         setAudioWebSocket(null);
       }
@@ -2745,7 +3358,6 @@ Debería sonar MUCHO mejor ahora.`);
       setIsBuffering(false);
       setAudioBufferSize(0);
       
-      console.log('🧹 Audio limpiado - sistema simplificado');
     }
   };
 
@@ -2760,17 +3372,14 @@ Debería sonar MUCHO mejor ahora.`);
       // Determinar call_id - si es LiveCallData usar call_id, si es Prospect usar id
       const callId = 'call_id' in prospect ? prospect.call_id : prospect.id;
       
-      console.log('🔚 Terminando llamada real para call_id:', callId);
       
       // Usar la nueva función para terminar llamada real con VAPI
       const success = await liveMonitorService.endCall(callId);
       
       setTimeout(() => {
         if (success) {
-          console.log('✅ Llamada terminada exitosamente');
         onFeedback('colgada');
         } else {
-          console.error('❌ Error terminando llamada');
           alert('Error al terminar la llamada. Revisa la consola para más detalles.');
         }
         setHangupStep(0);
@@ -2785,7 +3394,6 @@ Debería sonar MUCHO mejor ahora.`);
 
   // Abrir modal de feedback
   const handleFeedbackRequest = (tipo: 'contestada' | 'perdida') => {
-    console.log('🔍 Abriendo modal de feedback:', tipo);
     setFeedbackType(tipo);
     setShowFeedbackModal(true);
     setFeedbackComment(''); // Reset comentario
@@ -2810,20 +3418,37 @@ Debería sonar MUCHO mejor ahora.`);
       // Cerrar modal principal
       onClose();
     } catch (error) {
-      console.error('Error guardando feedback:', error);
       alert('Error al guardar el feedback. Intenta nuevamente.');
     }
   };
 
   // Ejecutar transferencia con razón específica usando APIs reales
-  const executeTransfer = async () => {
+  const executeTransfer = async (reasonText?: string) => {
     setTransferLoading(true);
     setShowTransferModal(false);
     
-    const finalReason = selectedPresetReason || transferReason;
+    // Usar el texto proporcionado, o buscar el texto completo de la razón seleccionada, o usar el mensaje personalizado
+    let finalReason = reasonText;
+    
+    if (!finalReason) {
+      if (selectedPresetReason) {
+        // Buscar el texto completo de la razón seleccionada
+        const preset = presetReasons.find(r => r.short === selectedPresetReason);
+        finalReason = preset ? preset.full : selectedPresetReason;
+      } else if (customTransferMessage) {
+        finalReason = customTransferMessage;
+      } else {
+        finalReason = transferReason;
+      }
+    }
+    
+    if (!finalReason || !finalReason.trim()) {
+      setTransferLoading(false);
+      alert('Por favor, selecciona una razón o escribe un mensaje personalizado');
+      return;
+    }
     
     if (!nextAgent?.agent_email) {
-      console.error('❌ No hay agente asignado');
       setTransferLoading(false);
       return;
     }
@@ -2832,7 +3457,6 @@ Debería sonar MUCHO mejor ahora.`);
     const callId = 'call_id' in prospect ? prospect.call_id : prospect.id;
     const prospectId = 'prospecto_id' in prospect ? prospect.prospecto_id : prospect.id;
 
-    console.log('🔄 Iniciando transferencia real para call_id:', callId);
 
     // Usar la nueva función de transferencia real con VAPI
     const success = await liveMonitorService.transferCall(
@@ -2843,7 +3467,6 @@ Debería sonar MUCHO mejor ahora.`);
     );
 
     if (success) {
-      console.log('✅ Transferencia exitosa');
       
       // Marcar como transferido en la BD (método legacy para prospectos)
       if (prospectId !== callId) {
@@ -2860,357 +3483,837 @@ Debería sonar MUCHO mejor ahora.`);
       // Reset form
       setTransferReason('');
       setSelectedPresetReason('');
+      setCustomTransferMessage('');
       }, 1000);
     } else {
-      console.error('❌ Error en transferencia');
       setTransferLoading(false);
       alert('Error al transferir la llamada. Revisa la consola para más detalles.');
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-         onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 10 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] h-full max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden"
+        >
         {/* Header */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                {(prospect.nombre_completo || prospect.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  {prospect.nombre_completo || prospect.nombre_whatsapp || 'Sin nombre'}
-                </h3>
-                <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+          <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-4 flex-1 min-w-0">
+                <motion.button
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                  onClick={handleProspectoClick}
+                  className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 p-0.5 shadow-lg flex-shrink-0 group cursor-pointer"
+                  title="Ver información del prospecto"
+                >
+                  <div className="w-full h-full rounded-2xl bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                    <ProspectAvatar
+                      nombreCompleto={prospect.nombre_completo}
+                      nombreWhatsapp={prospect.nombre_whatsapp}
+                      size="xl"
+                      className="w-full h-full rounded-2xl"
+                    />
+                  </div>
+                  {/* Lupa con animación heartbeat */}
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                    className="absolute -bottom-1 -right-1 p-1 bg-white dark:bg-gray-900 rounded-full shadow-lg border-2 border-emerald-500"
+                  >
+                    <Eye size={12} className="text-emerald-600 dark:text-emerald-400" />
+                  </motion.div>
+                </motion.button>
+                <div className="flex-1 min-w-0">
+                  <motion.button
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    onClick={handleProspectoClick}
+                    className="text-2xl font-bold text-gray-900 dark:text-white mb-1 text-left hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                  >
+                    {prospect.nombre_completo || prospect.nombre_whatsapp || 'Sin nombre'}
+                  </motion.button>
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="text-sm text-green-600 dark:text-green-400 font-medium leading-relaxed flex items-center"
+                  >
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
                   Llamada Activa • {progressPercentage}% Progreso
-                </p>
+                  </motion.p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+              <motion.button
+                initial={{ opacity: 0, rotate: -90 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                transition={{ delay: 0.25 }}
+                onClick={onClose}
+                className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group flex-shrink-0"
+                title="Cerrar"
+              >
+                <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+              </motion.button>
           </div>
           
           {/* Barra de Progreso */}
-          <div className="mt-3">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mt-4"
+            >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-slate-900 dark:text-white">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {prospect.etapa} • {progressPercentage}%
               </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                 {liveMonitorService.getTimeElapsed(prospect.updated_at)}
               </span>
             </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-3">
-              <div 
-                className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} transition-all duration-1000 rounded-full relative overflow-hidden`}
-                style={{width: `${progressPercentage}%`}}
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progressPercentage}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className={`h-full bg-gradient-to-r ${getTemperatureColor(liveMonitorService.inferTemperature(prospect))} rounded-full relative overflow-hidden`}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                </motion.div>
                 </div>
-              </div>
-          </div>
+            </motion.div>
         </div>
         
         {/* Contenido Principal */}
-        <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Columna Izquierda: Información del Prospecto */}
-          <div className="space-y-3">
+              <div className="space-y-6">
                 {/* Información Personal */}
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                  className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                      <User className="w-4 h-4 mr-2 text-blue-500" />
                 Información Personal
                   </h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Nombre:</span>
-                  <p className="font-medium text-slate-900 dark:text-white">{prospect.nombre_completo || prospect.nombre_whatsapp || 'N/A'}</p>
                     </div>
-                    <div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Teléfono:</span>
-                      <p className="font-medium text-slate-900 dark:text-white">{prospect.whatsapp}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Nombre:</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.nombre_completo || prospect.nombre_whatsapp || 'N/A'}</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.45 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                        <Phone className="w-3 h-3 mr-1" />
+                        Teléfono:
+                      </span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.whatsapp}</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Email:</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.email || 'N/A'}</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.55 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                        <MapPin className="w-3 h-3 mr-1" />
+                        Ciudad:
+                      </span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.ciudad_residencia || 'N/A'}</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.6 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Estado Civil:</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.estado_civil || 'N/A'}</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.65 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        Edad:
+                      </span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.edad || 'N/A'}</p>
+                    </motion.div>
                     </div>
-                    <div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Email:</span>
-                  <p className="font-medium text-slate-900 dark:text-white">{prospect.email || 'N/A'}</p>
+                </motion.div>
+
+                {/* Información de Asignación */}
+                {(prospect.coordinacion_codigo || prospect.ejecutivo_nombre) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 }}
+                    className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center space-x-2 mb-4">
+                      <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                        <Users className="w-4 h-4 mr-2 text-purple-500" />
+                        Asignación
+                      </h4>
                     </div>
-                    <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Ciudad:</span>
-                  <p className="font-medium text-slate-900 dark:text-white">{prospect.ciudad_residencia || 'N/A'}</p>
-                    </div>
-                    <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Estado Civil:</span>
-                  <p className="font-medium text-slate-900 dark:text-white">{prospect.estado_civil || 'N/A'}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Edad:</span>
-                  <p className="font-medium text-slate-900 dark:text-white">{prospect.edad || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
+                    <AssignmentBadge call={prospect} variant="inline" />
+                  </motion.div>
+                )}
 
                 {/* Discovery de Viaje */}
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                      <Globe className="w-4 h-4 mr-2 text-emerald-500" />
                 Discovery de Viaje
                   </h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Grupo:</span>
-                      <p className="font-medium text-slate-900 dark:text-white">
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.45 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center">
+                        <Users className="w-3 h-3 mr-1" />
+                        Grupo:
+                      </span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.tamano_grupo ? `${prospect.tamano_grupo} personas` : 'N/A'}
                       </p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Viaja con:</span>
-                  <p className="font-medium text-slate-900 dark:text-white">{prospect.viaja_con || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Destino:</span>
-                      <p className="font-medium text-slate-900 dark:text-white">
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Viaja con:</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.viaja_con || 'N/A'}</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.55 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Destino:</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.destino_preferencia?.join(', ') || 'N/A'}
                       </p>
-                    </div>
-                    <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Menores:</span>
-                      <p className="font-medium text-slate-900 dark:text-white">
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.6 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Menores:</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {prospect.cantidad_menores !== null ? prospect.cantidad_menores : 'N/A'}
                       </p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.65 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Interés:</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.interes_principal || 'N/A'}</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.7 }}
+                      className="space-y-1"
+                    >
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Campaña:</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.campana_origen || 'N/A'}</p>
+                    </motion.div>
                     </div>
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Interés:</span>
-                  <p className="font-medium text-slate-900 dark:text-white">{prospect.interes_principal || 'N/A'}</p>
-                  </div>
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Campaña:</span>
-                  <p className="font-medium text-slate-900 dark:text-white">{prospect.campana_origen || 'N/A'}</p>
-                </div>
-              </div>
-                  </div>
+                </motion.div>
             </div>
 
-          {/* Columna Derecha: Audio y Controles */}
-          <div className="space-y-3">
-            {/* Control de Audio en Tiempo Real */}
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728" />
-                    </svg>
-                Audio en Tiempo Real
-              </h4>
-              
-              {!isListening ? (
-                <button
-                  onClick={async () => {
-                    setIsListening(true);
-                    try {
-                      const callId = prospect.call_id;
-                      if (callId) {
-                        const ws = await liveMonitorService.createAudioWebSocket(callId, (audioData) => {
-                          // Procesar audio en tiempo real
-                          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-                          audioContext.decodeAudioData(audioData.slice(0)).then(buffer => {
-                            const source = audioContext.createBufferSource();
-                            source.buffer = buffer;
-                            source.connect(audioContext.destination);
-                            source.start();
-                          }).catch(() => {});
-                        });
-                        setAudioWebSocket(ws);
-                      }
-                    } catch (error) {
-                      console.error('Error iniciando audio:', error);
-                      setIsListening(false);
-                    }
-                  }}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center justify-center"
+              {/* Columna Derecha: Audio y Controles */}
+              <div className="space-y-6">
+                {/* Control de Audio en Tiempo Real */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.45 }}
+                  className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072" />
-                  </svg>
-                  Escuchar Llamada
-                </button>
-              ) : (
-                <div className="text-center">
-                  <div className="flex justify-center mb-2">
-                    <div className="w-6 h-6 bg-green-500 rounded-full animate-pulse flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072" />
-                          </svg>
-                        </div>
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                      <Volume2 className="w-4 h-4 mr-2 text-blue-500" />
+                      Audio en Tiempo Real
+                    </h4>
+                  </div>
+                  
+                  {!isListening ? (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.5 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={toggleAudioMonitor}
+                      className="w-full px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center justify-center shadow-lg shadow-green-500/25"
+                    >
+                      <Volume2 className="w-4 h-4 mr-2" />
+                      Escuchar Llamada
+                    </motion.button>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                      className="text-center"
+                    >
+                      <div className="flex justify-center mb-3">
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ repeat: Infinity, duration: 2 }}
+                          className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg"
+                        >
+                          <Volume2 className="w-4 h-4 text-white" />
+                        </motion.div>
                       </div>
-                  <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-2">
-                    Escuchando en tiempo real
-                  </p>
-                  <button
-                    onClick={() => {
-                      setIsListening(false);
-                      if (audioWebSocket) {
-                        audioWebSocket.close();
-                        setAudioWebSocket(null);
-                      }
-                    }}
-                    className="w-full bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium"
-                  >
-                    Dejar de Escuchar
-                  </button>
-                </div>
-              )}
-              </div>
+                      <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-3">
+                        Escuchando en tiempo real
+                      </p>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={toggleAudioMonitor}
+                        className="w-full px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 rounded-xl hover:from-red-700 hover:to-pink-700 transition-all duration-200 shadow-lg shadow-red-500/25"
+                      >
+                        Dejar de Escuchar
+                      </motion.button>
+                    </motion.div>
+                  )}
+                </motion.div>
 
-            {/* Controles de Llamada */}
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Controles</h4>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setShowTransferModal(true)}
-                  disabled={transferLoading}
-                  className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-3 py-1.5 rounded-lg text-xs font-medium"
+                {/* Controles de Llamada */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
                 >
-                  {transferLoading ? 'Transfiriendo...' : 'Transferir a Agente'}
-                </button>
-
-                <button
-                  onClick={() => setHangupStep(hangupStep === 0 ? 1 : hangupStep === 1 ? 2 : 0)}
-                  className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium ${
-                    hangupStep === 0 ? 'bg-orange-500 hover:bg-orange-600 text-white' :
-                    hangupStep === 1 ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' :
-                    'bg-red-700 text-white'
-                  }`}
-                >
-                  {hangupStep === 0 ? 'Colgar Llamada' : 
-                   hangupStep === 1 ? 'Confirmar Colgar' : 'Colgando...'}
-                </button>
-              </div>
-            </div>
-
-            {/* Feedback */}
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Resultado</h4>
-              <div className="grid grid-cols-2 gap-2">
-                    <button
-                  onClick={() => {
-                    console.log('🔍 [ACTIVE CALL BUTTON] Botón Contestada presionado - Llamando función global');
-                    onFeedback('contestada');
-                  }}
-                  className="bg-green-500 hover:bg-green-600 text-white px-2 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center"
-                >
-                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                  Contestada
-                    </button>
-                    <button
-                  onClick={() => {
-                    console.log('🔍 [ACTIVE CALL BUTTON] Botón Perdida presionado - Llamando función global');
-                    onFeedback('perdida');
-                  }}
-                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center"
-                >
-                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                  Perdida
-                    </button>
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                      <PhoneCall className="w-4 h-4 mr-2 text-purple-500" />
+                      Controles
+                    </h4>
                   </div>
-                </div>
+                  <div className="space-y-3">
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.55 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setShowTransferModal(true)}
+                      disabled={transferLoading}
+                      className="w-full px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center shadow-lg shadow-blue-500/25"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      {transferLoading ? 'Transfiriendo...' : 'Transferir a Agente'}
+                    </motion.button>
+
+                  </div>
+                </motion.div>
               </div>
             </div>
 
-        {/* Resumen de la Llamada - Ancho Completo */}
-        <div className="px-4 pb-4">
-          <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center justify-between">
-              <div className="flex items-center">
-                <svg className="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Resumen de la Llamada
-          </div>
-              <div className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
-                Actualización en tiempo real
-        </div>
-            </h4>
-            {(() => {
-              let resumen = 'Resumen no disponible';
-              try {
-                if (prospect.datos_llamada) {
-                  const datosLlamada = typeof prospect.datos_llamada === 'string' 
-                    ? JSON.parse(prospect.datos_llamada) 
-                    : prospect.datos_llamada;
-                  resumen = datosLlamada.resumen || 'Resumen aún no generado por el LLM';
+            {/* Resumen de la Llamada - Ancho Completo */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="mt-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                    <FileText className="w-4 h-4 mr-2 text-emerald-500" />
+                    Resumen de la Llamada
+                  </h4>
+                </div>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.65 }}
+                  className="flex items-center text-xs text-emerald-600 dark:text-emerald-400"
+                >
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
+                  Actualización en tiempo real
+                </motion.div>
+              </div>
+              {(() => {
+                let resumen = 'Resumen no disponible';
+                try {
+                  if (prospect.datos_llamada) {
+                    const datosLlamada = typeof prospect.datos_llamada === 'string' 
+                      ? JSON.parse(prospect.datos_llamada) 
+                      : prospect.datos_llamada;
+                    resumen = datosLlamada.resumen || 'Resumen aún no generado por el LLM';
+                  }
+                } catch (e) {
+                  resumen = 'Error al cargar resumen';
                 }
-              } catch (e) {
-                resumen = 'Error al cargar resumen';
+                
+                return (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.7 }}
+                    className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
+                  >
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                      {resumen}
+                    </p>
+                  </motion.div>
+                );
+              })()}
+            </motion.div>
+          </div>
+
+        </motion.div>
+      </motion.div>
+      
+      {/* Modal de Transferencia */}
+      <AnimatePresence>
+        {showTransferModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md z-[60] flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowTransferModal(false);
+                // Reset estados al cerrar desde backdrop
+                setSelectedPresetReason('');
+                setCustomTransferMessage('');
+                setTransferReason('');
               }
-              
-              return (
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {resumen}
-              </p>
-            </div>
-              );
-            })()}
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100 dark:border-gray-800"
+            >
+              {/* Header */}
+              <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <motion.h3
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-2xl font-bold text-gray-900 dark:text-white mb-1"
+                    >
+                      Transferir Llamada
+                    </motion.h3>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                    >
+                      Selecciona o escribe una razón para la transferencia
+                    </motion.p>
+                  </div>
+                  <motion.button
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    transition={{ delay: 0.2 }}
+                    onClick={() => {
+                      setShowTransferModal(false);
+                      // Reset estados al cerrar
+                      setSelectedPresetReason('');
+                      setCustomTransferMessage('');
+                      setTransferReason('');
+                    }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group flex-shrink-0"
+                    title="Cerrar"
+                  >
+                    <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                  </motion.button>
                 </div>
               </div>
 
-        {/* Modal de Transferencia */}
-        {showTransferModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-[60] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                  Transferir Llamada
-                </h3>
-                <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Razón de transferencia:
-                </label>
-                <textarea
-                  value={transferReason}
-                    onChange={(e) => setTransferReason(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
-                  rows={3}
-                    placeholder="Explica el motivo de la transferencia..."
-                />
-                </div>
-                <div className="flex space-x-3">
-                <button
-                    onClick={() => setShowTransferModal(false)}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+              {/* Content */}
+              <div className="px-8 py-6 overflow-y-auto max-h-[60vh] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                {/* Razones Predefinidas */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mb-6"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Razones Rápidas
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {presetReasons.map((reason, index) => (
+                      <motion.button
+                        key={reason.short}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.25 + index * 0.05 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setSelectedPresetReason(reason.short);
+                          setCustomTransferMessage('');
+                          setTransferReason('');
+                        }}
+                        className={`px-5 py-4 text-sm font-medium rounded-xl transition-all duration-200 text-left ${
+                          selectedPresetReason === reason.short
+                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/25 border-2 border-blue-500'
+                            : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 text-gray-700 dark:text-gray-300 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">{reason.short}</span>
+                          {selectedPresetReason === reason.short && (
+                            <CheckCircle className="w-5 h-5" />
+                          )}
+                        </div>
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Mensaje Personalizado */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="border-t border-gray-200 dark:border-gray-700 pt-6"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                      <Wand2 className="w-4 h-4 mr-2 text-purple-500" />
+                      Mensaje Personalizado
+                    </h4>
+                  </div>
+                  
+                  {!customTransferMessage ? (
+                    <div className="space-y-3">
+                      <textarea
+                        value={transferReason}
+                        onChange={(e) => {
+                          setTransferReason(e.target.value);
+                          setSelectedPresetReason('');
+                        }}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                        rows={3}
+                        placeholder="Escribe tu mensaje personalizado aquí..."
+                      />
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.6 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          if (!transferReason.trim()) {
+                            alert('Por favor, escribe un mensaje antes de validar');
+                            return;
+                          }
+                          setShowParaphraseModal(true);
+                          setSelectedPresetReason('');
+                        }}
+                        disabled={!transferReason.trim()}
+                        className="w-full px-5 py-3 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-purple-500/25 flex items-center justify-center"
+                      >
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        Validar con IA
+                      </motion.button>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        El mensaje será validado por IA con guardrail y contador de warnings antes de poder enviarse
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="px-5 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl border-2 border-purple-500 shadow-lg shadow-purple-500/25">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                            <span className="font-semibold">Mensaje validado y listo</span>
+                          </div>
+                        </div>
+                        <p className="text-sm mt-2 opacity-90">{customTransferMessage}</p>
+                      </div>
+                      <motion.button
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setCustomTransferMessage('');
+                          setTransferReason('');
+                        }}
+                        className="w-full px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                      >
+                        Cambiar mensaje
+                      </motion.button>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.25 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setShowTransferModal(false);
+                    // Reset estados al cancelar
+                    setSelectedPresetReason('');
+                    setCustomTransferMessage('');
+                    setTransferReason('');
+                  }}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
                 >
                   Cancelar
-                </button>
-                <button
-                  onClick={executeTransfer}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+                </motion.button>
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => executeTransfer()}
+                  disabled={transferLoading || (!selectedPresetReason && !customTransferMessage)}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center"
                 >
-                    Transferir
-                </button>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  {transferLoading ? 'Transfiriendo...' : 'Transferir'}
+                </motion.button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
-    </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Modal de Feedback */}
+      <AnimatePresence>
+        {showFeedbackModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md z-[70] flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && (setShowFeedbackModal(false), setFeedbackType(null), setFeedbackComment(''))}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100 dark:border-gray-800"
+            >
+              {/* Header */}
+              <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <motion.h3
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-2xl font-bold text-gray-900 dark:text-white mb-1"
+                    >
+                      Feedback Obligatorio
+                    </motion.h3>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                    >
+                      {feedbackType === 'contestada' ? 'Llamada Contestada' : 'Llamada Perdida'}
+                    </motion.p>
+                  </div>
+                  <motion.button
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    transition={{ delay: 0.2 }}
+                    onClick={() => {
+                      setShowFeedbackModal(false);
+                      setFeedbackType(null);
+                      setFeedbackComment('');
+                    }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group flex-shrink-0"
+                    title="Cerrar"
+                  >
+                    <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="px-8 py-6">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mb-4"
+                >
+                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    <FileText className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <span>Comentarios sobre la llamada: *</span>
+                  </label>
+                  <textarea
+                    value={feedbackComment}
+                    onChange={(e) => setFeedbackComment(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                    rows={4}
+                    placeholder="Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes..."
+                    required
+                  />
+                </motion.div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.25 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setShowFeedbackModal(false);
+                    setFeedbackType(null);
+                    setFeedbackComment('');
+                  }}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                >
+                  Cancelar
+                </motion.button>
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={executeFeedback}
+                  disabled={!feedbackComment.trim()}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Guardar Feedback
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Sidebar del Prospecto */}
+      <ProspectoSidebar
+        prospecto={selectedProspecto}
+        isOpen={showProspectoSidebar}
+        onClose={() => setShowProspectoSidebar(false)}
+      />
+
+      {/* Modal de Parafraseo para Mensaje Personalizado */}
+      <ParaphraseModal
+        isOpen={showParaphraseModal}
+        originalText={transferReason || ''}
+        onSelect={(paraphrasedText) => {
+          // Solo guardar el mensaje si pasó la validación de IA
+          setCustomTransferMessage(paraphrasedText);
+          setShowParaphraseModal(false);
+          setTransferReason(paraphrasedText);
+        }}
+        onCancel={() => {
+          setShowParaphraseModal(false);
+          // No limpiar transferReason para que el usuario pueda intentar de nuevo
+        }}
+      />
+    </AnimatePresence>
   );
 };
 
 const LiveMonitor: React.FC = () => {
+  const { user } = useAuth();
   const [prospects, setProspects] = useState<LiveCallData[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedProspect, setSelectedProspect] = useState<LiveCallData | null>(null);
@@ -3312,7 +4415,7 @@ const LiveMonitor: React.FC = () => {
     const loadData = async () => {
       try {
         const [prospectsData, agentsData] = await Promise.all([
-          liveMonitorService.getActiveCalls(),
+          liveMonitorService.getActiveCalls(user?.id), // Pasar userId para filtros de permisos
           liveMonitorService.getActiveAgents()
         ]);
         setProspects(prospectsData);
@@ -3322,14 +4425,15 @@ const LiveMonitor: React.FC = () => {
           setNextAgent(agentsData[0]);
         }
       } catch (error) {
-        console.error('Error cargando datos:', error);
       }
     };
 
-    loadData();
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (user?.id) {
+      loadData();
+      const interval = setInterval(loadData, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [user?.id]);
 
   // Funciones auxiliares
   const getCheckpointIcon = (checkpoint: string) => {
@@ -3394,7 +4498,6 @@ const LiveMonitor: React.FC = () => {
 
   // Función global para abrir modal de feedback
   const handleFeedbackRequest = (resultado: 'contestada' | 'perdida') => {
-    console.log('🔍 [GLOBAL] Abriendo modal de feedback:', resultado);
     setGlobalFeedbackType(resultado);
     setShowGlobalFeedbackModal(true);
     setGlobalFeedbackComment('');
@@ -3402,7 +4505,6 @@ const LiveMonitor: React.FC = () => {
 
   // Función para ejecutar feedback con comentario
   const executeGlobalFeedback = async () => {
-    console.log('🔍 [GLOBAL] Ejecutando feedback:', { tipo: globalFeedbackType, comentario: globalFeedbackComment });
     
     if (!globalFeedbackType || !globalFeedbackComment.trim()) {
       alert('Por favor, proporciona un comentario sobre la llamada');
@@ -3410,7 +4512,6 @@ const LiveMonitor: React.FC = () => {
     }
 
     if (!selectedProspect) {
-      console.error('❌ No hay prospecto seleccionado');
       return;
     }
 
@@ -3424,27 +4525,21 @@ const LiveMonitor: React.FC = () => {
     };
 
     try {
-      console.log('🔍 [GLOBAL] Guardando feedback:', feedbackData);
       await liveMonitorService.saveFeedback(feedbackData);
       
-      console.log('✅ [GLOBAL] Feedback guardado exitosamente');
       
       // IMPORTANTE: Marcar la llamada como finalizada en la tabla llamadas_ventas
       if (selectedProspect.call_id) {
         const statusToUpdate = globalFeedbackType === 'contestada' ? 'exitosa' : 'perdida';
-        console.log('🔍 [GLOBAL] Marcando llamada como:', statusToUpdate, selectedProspect.call_id);
         await liveMonitorService.updateCallStatus(selectedProspect.call_id, statusToUpdate);
-        console.log('✅ [GLOBAL] Llamada marcada como:', statusToUpdate);
       }
       
       // Esperar un momento para que se propaguen los cambios en BD
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Actualizar la lista
-      console.log('🔍 [GLOBAL] Actualizando lista de llamadas...');
-      const updatedProspects = await liveMonitorService.getActiveCalls();
+      const updatedProspects = await liveMonitorService.getActiveCalls(user?.id);
       setProspects(updatedProspects);
-      console.log('✅ [GLOBAL] Lista actualizada, nuevas llamadas:', updatedProspects.length);
       
       // Cerrar modales y limpiar estado
       setShowGlobalFeedbackModal(false);
@@ -3460,7 +4555,6 @@ const LiveMonitor: React.FC = () => {
         setNextAgent(agents[nextIndex]);
       }
     } catch (error) {
-      console.error('Error guardando feedback:', error);
       alert('Error al guardar el feedback. Intenta nuevamente.');
     }
   };
@@ -3487,7 +4581,7 @@ const LiveMonitor: React.FC = () => {
       await liveMonitorService.saveFeedback(feedbackData);
       
       // Actualizar la lista
-      const updatedProspects = await liveMonitorService.getActiveCalls();
+      const updatedProspects = await liveMonitorService.getActiveCalls(user?.id);
       setProspects(updatedProspects);
       
       // Cerrar modal
@@ -3501,7 +4595,6 @@ const LiveMonitor: React.FC = () => {
         setNextAgent(agents[nextIndex]);
       }
     } catch (error) {
-      console.error('Error guardando feedback:', error);
     }
   };
 
@@ -3584,7 +4677,6 @@ const LiveMonitor: React.FC = () => {
                           const callStatus = getCallStatus(prospect);
                           if (callStatus.isFailed) {
                             // Llamadas fallidas van directamente a feedback "perdida"
-                            console.log('🔍 [FAILED CALL] Llamada fallida detectada, abriendo feedback directo');
                             setSelectedProspect(prospect);
                             handleFeedbackRequest('perdida');
                           } else {
@@ -3596,15 +4688,11 @@ const LiveMonitor: React.FC = () => {
                         {/* Cliente */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                              callStatus.isActive 
-                                ? 'bg-gradient-to-br from-blue-500 to-purple-600' 
-                                : callStatus.isFailed
-                                ? 'bg-gradient-to-br from-red-500 to-red-700'
-                                : 'bg-gradient-to-br from-gray-400 to-gray-600'
-                            }`}>
-                              {(prospect.nombre_completo || prospect.nombre_whatsapp || 'U').charAt(0).toUpperCase()}
-                            </div>
+                            <ProspectAvatar
+                              nombreCompleto={prospect.nombre_completo}
+                              nombreWhatsapp={prospect.nombre_whatsapp}
+                              size="md"
+                            />
                             <div className="ml-3">
                               <div className="text-sm font-medium text-slate-900 dark:text-white">
                                 {prospect.nombre_completo || prospect.nombre_whatsapp || 'Sin nombre'}
