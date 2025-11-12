@@ -1,5 +1,28 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión Beta 1.0.0-N8.0.0 (Enero 2025) - Seguridad: Corrección de Filtros de Permisos por Coordinación
+
+### 🔐 RELEASE BETA - Corrección Crítica de Seguridad
+
+#### Seguridad y Permisos
+- **Corrección de filtros de permisos**: Coordinadores ahora solo ven prospectos asignados a sus coordinaciones
+- **Soporte múltiples coordinaciones**: Coordinadores con múltiples coordinaciones pueden ver prospectos de todas sus coordinaciones
+- **Exclusión de prospectos sin coordinación**: Prospectos sin coordinación asignada no son visibles para coordinadores
+- **Consistencia en módulos**: Filtros aplicados en Prospectos, Live Chat y Live Monitor
+
+#### Nuevas Funcionalidades
+- **Método getCoordinacionesFilter()**: Nuevo método en permissionsService para obtener todas las coordinaciones de un coordinador
+- **Filtrado optimizado**: Filtros obtenidos una sola vez antes de enriquecer datos
+- **Soporte ejecutivos**: Ejecutivos solo ven prospectos asignados a su perfil
+
+#### Archivos Principales
+- `src/services/permissionsService.ts` - Nuevo método getCoordinacionesFilter()
+- `src/components/prospectos/ProspectosManager.tsx` - Filtrado corregido
+- `src/components/chat/LiveChatCanvas.tsx` - Filtrado corregido
+- `src/services/liveMonitorService.ts` - Filtrado corregido
+
+---
+
 ## Versión Beta 1.0.0-N7.0.0 (Enero 2025) - Seguridad: Eliminación de Logs de Debug
 
 ### 🔒 RELEASE BETA - Mejoras de Seguridad

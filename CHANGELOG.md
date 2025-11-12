@@ -1,5 +1,57 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔐 Versión Beta 1.0.0-N8.0.0 - Seguridad: Corrección de Filtros de Permisos por Coordinación (Enero 2025)
+
+### 🛡️ **RELEASE BETA - Corrección Crítica de Seguridad y Permisos**
+
+#### 🔒 **Corrección de Filtros de Permisos para Coordinadores**
+- **Problema resuelto**: Coordinadores podían ver prospectos sin coordinación asignada y prospectos de coordinaciones no asignadas
+- **Causa identificada**: El método `getCoordinacionFilter()` solo retornaba una coordinación, pero los coordinadores pueden tener múltiples coordinaciones asignadas
+- **Solución implementada**:
+  - Nuevo método `getCoordinacionesFilter()` que obtiene todas las coordinaciones de un coordinador desde la tabla `coordinador_coordinaciones`
+  - Filtrado por múltiples coordinaciones usando `.in('coordinacion_id', coordinaciones)`
+  - Exclusión explícita de prospectos sin coordinación asignada: `.not('coordinacion_id', 'is', null)`
+
+#### 📍 **Módulos Corregidos**
+
+##### 1. **ProspectosManager** (`src/components/prospectos/ProspectosManager.tsx`)
+- Actualizado para usar `getCoordinacionesFilter()` en lugar de `getCoordinacionFilter()`
+- Filtrado por múltiples coordinaciones con exclusión de prospectos sin coordinación
+- Los coordinadores ahora solo ven prospectos asignados a sus coordinaciones
+
+##### 2. **LiveChatCanvas** (`src/components/chat/LiveChatCanvas.tsx`)
+- Filtrado aplicado tanto a conversaciones de uchat como de WhatsApp
+- Optimización: filtros obtenidos una sola vez antes de enriquecer conversaciones
+- Exclusión de prospectos sin coordinación asignada en ambos tipos de conversaciones
+
+##### 3. **LiveMonitor** (`src/services/liveMonitorService.ts`)
+- Actualizado método `getActiveCalls()` para usar `getCoordinacionesFilter()`
+- Filtrado aplicado tanto en la query principal como en el fallback
+- Filtrado también aplicado en la consulta de prospectos relacionados
+- Los coordinadores ahora solo ven llamadas de prospectos asignados a sus coordinaciones
+
+##### 4. **PermissionsService** (`src/services/permissionsService.ts`)
+- Nuevo método `getCoordinacionesFilter()` que:
+  - Para coordinadores: obtiene todas las coordinaciones desde `coordinador_coordinaciones`
+  - Para ejecutivos: retorna array con su única coordinación
+  - Para admins: retorna `null` (sin filtros)
+- Método `getCoordinacionFilter()` marcado como `@deprecated` pero mantenido para compatibilidad
+
+#### ✅ **Beneficios de Seguridad**
+- ✅ Coordinadores solo ven prospectos asignados a sus coordinaciones
+- ✅ Prospectos sin coordinación asignada no son visibles para coordinadores
+- ✅ Ejecutivos solo ven prospectos asignados a su perfil
+- ✅ Soporte completo para coordinadores con múltiples coordinaciones
+- ✅ Consistencia en todos los módulos (Prospectos, Live Chat, Live Monitor)
+
+#### 📝 **Archivos Modificados**
+- `src/services/permissionsService.ts` - Nuevo método `getCoordinacionesFilter()`
+- `src/components/prospectos/ProspectosManager.tsx` - Filtrado corregido
+- `src/components/chat/LiveChatCanvas.tsx` - Filtrado corregido para uchat y WhatsApp
+- `src/services/liveMonitorService.ts` - Filtrado corregido en `getActiveCalls()`
+
+---
+
 ## 🔒 Versión Beta 1.0.0-N7.0.0 - Seguridad: Eliminación de Logs de Debug (Enero 2025)
 
 ### 🛡️ **RELEASE BETA - Mejoras de Seguridad y Rendimiento**
