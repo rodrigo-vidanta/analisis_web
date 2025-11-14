@@ -1,5 +1,45 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 👥 Versión Beta 1.0.0-beta.8.1.0 - Gestión de Ejecutivos: Filtrado por Coordinaciones y Mejoras de UI (Enero 2025)
+
+### 🎯 **RELEASE BETA - Mejoras en Gestión de Ejecutivos para Coordinadores**
+
+#### 🔍 **Filtrado de Ejecutivos por Coordinaciones**
+- **Problema resuelto**: Los coordinadores veían todos los ejecutivos del sistema en lugar de solo los asignados a sus coordinaciones
+- **Causa identificada**: El método `loadEjecutivos()` usaba `getAllEjecutivos()` sin filtrar por coordinaciones del coordinador
+- **Solución implementada**:
+  - Nuevo estado `coordinacionesIds` para almacenar todas las coordinaciones del coordinador
+  - Carga paralela de ejecutivos y coordinadores de todas las coordinaciones asignadas
+  - Filtrado explícito para mostrar solo usuarios asignados a las coordinaciones del coordinador
+  - Eliminación de duplicados al combinar ejecutivos y coordinadores
+
+#### 🎨 **Mejoras de Interfaz de Usuario**
+- **Eliminación de etiquetas duplicadas**: Removida la etiqueta "Mi Coordinación" junto al nombre del ejecutivo
+- **Información de coordinación**: La información de coordinación se mantiene solo en la sección inferior con ícono de edificio
+- **Interfaz más limpia**: Reducción de elementos visuales redundantes en las tarjetas de ejecutivos
+
+#### 📍 **Módulo Corregido**
+
+##### **EjecutivosManager** (`src/components/admin/EjecutivosManager.tsx`)
+- Actualizado `checkPermissions()` para usar `getCoordinacionesFilter()` y guardar todas las coordinaciones
+- Modificado `loadEjecutivos()` para:
+  - Obtener ejecutivos de todas las coordinaciones usando `getEjecutivosByCoordinacion()`
+  - Obtener coordinadores de todas las coordinaciones usando `getCoordinadoresByCoordinacion()`
+  - Combinar y filtrar resultados para mostrar solo usuarios de las coordinaciones del coordinador
+- Actualizado `isAssignedToMyCoordinacion` para verificar múltiples coordinaciones usando `coordinacionesIds.includes()`
+- Eliminadas etiquetas duplicadas de coordinación en la UI
+
+#### ✅ **Beneficios**
+- ✅ Coordinadores solo ven ejecutivos y coordinadores asignados a sus coordinaciones
+- ✅ Soporte completo para coordinadores con múltiples coordinaciones
+- ✅ Interfaz más limpia sin información duplicada
+- ✅ Mejor rendimiento con carga paralela de datos
+
+#### 📝 **Archivos Modificados**
+- `src/components/admin/EjecutivosManager.tsx` - Filtrado por coordinaciones y limpieza de UI
+
+---
+
 ## 🔐 Versión Beta 1.0.0-N8.0.0 - Seguridad: Corrección de Filtros de Permisos por Coordinación (Enero 2025)
 
 ### 🛡️ **RELEASE BETA - Corrección Crítica de Seguridad y Permisos**

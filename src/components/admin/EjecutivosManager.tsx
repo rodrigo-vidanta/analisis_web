@@ -30,6 +30,7 @@ const EjecutivosManager: React.FC = () => {
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [selectedEjecutivo, setSelectedEjecutivo] = useState<Ejecutivo | null>(null);
   const [coordinacionId, setCoordinacionId] = useState<string | null>(null);
+  const [coordinacionesIds, setCoordinacionesIds] = useState<string[]>([]); // Todas las coordinaciones del coordinador
   const [isCoordinador, setIsCoordinador] = useState(false);
 
   // Estados del formulario
@@ -47,10 +48,10 @@ const EjecutivosManager: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    if (isCoordinador && coordinacionId) {
+    if (isCoordinador && coordinacionesIds.length > 0) {
       loadEjecutivos();
     }
-  }, [isCoordinador, coordinacionId]);
+  }, [isCoordinador, coordinacionesIds]);
 
   const checkPermissions = async () => {
     if (!user?.id) return;
@@ -60,11 +61,17 @@ const EjecutivosManager: React.FC = () => {
       setIsCoordinador(isCoord);
 
       if (isCoord) {
-        const permissions = await permissionsService.getUserPermissions(user.id);
-        if (permissions?.coordinacion_id) {
-          setCoordinacionId(permissions.coordinacion_id);
+        // Para coordinadores, obtener todas sus coordinaciones desde la tabla intermedia
+        const coordinaciones = await permissionsService.getCoordinacionesFilter(user.id);
+        
+        if (coordinaciones && coordinaciones.length > 0) {
+          // Guardar todas las coordinaciones
+          setCoordinacionesIds(coordinaciones);
+          // Usar la primera coordinación como coordinacionId principal
+          setCoordinacionId(coordinaciones[0]);
+          console.log('✅ Coordinador con coordinaciones:', coordinaciones);
         } else {
-          console.warn('⚠️ Coordinador sin coordinacion_id asignada');
+          console.warn('⚠️ Coordinador sin coordinaciones asignadas');
           toast.error('No se pudo identificar tu coordinación. Contacta al administrador.');
         }
       }
@@ -75,12 +82,47 @@ const EjecutivosManager: React.FC = () => {
   };
 
   const loadEjecutivos = async () => {
-    if (!coordinacionId) return;
+    if (!coordinacionesIds || coordinacionesIds.length === 0) return;
 
     try {
       setLoading(true);
-      const data = await coordinacionService.getEjecutivosByCoordinacion(coordinacionId);
-      setEjecutivos(data);
+      
+      // Obtener ejecutivos de todas las coordinaciones del coordinador
+      const ejecutivosPromises = coordinacionesIds.map(coordinacionId => 
+        coordinacionService.getEjecutivosByCoordinacion(coordinacionId)
+      );
+      
+      // Obtener coordinadores de todas las coordinaciones del coordinador
+      const coordinadoresPromises = coordinacionesIds.map(coordinacionId => 
+        coordinacionService.getCoordinadoresByCoordinacion(coordinacionId)
+      );
+      
+      // Ejecutar todas las consultas en paralelo
+      const [ejecutivosArrays, coordinadoresArrays] = await Promise.all([
+        Promise.all(ejecutivosPromises),
+        Promise.all(coordinadoresPromises)
+      ]);
+      
+      // Combinar todos los ejecutivos y coordinadores
+      const allEjecutivos = ejecutivosArrays.flat();
+      const allCoordinadores = coordinadoresArrays.flat().map(coord => ({
+        ...coord,
+        is_coordinator: true
+      }));
+      
+      // Combinar y eliminar duplicados por ID
+      const combined = [...allEjecutivos, ...allCoordinadores];
+      const uniqueEjecutivos = combined.filter((ejecutivo, index, self) =>
+        index === self.findIndex(e => e.id === ejecutivo.id)
+      );
+      
+      // Filtrar solo los que pertenecen a las coordinaciones del coordinador
+      const filteredEjecutivos = uniqueEjecutivos.filter(ejecutivo => 
+        ejecutivo.coordinacion_id && coordinacionesIds.includes(ejecutivo.coordinacion_id)
+      );
+      
+      setEjecutivos(filteredEjecutivos);
+      console.log('✅ Ejecutivos cargados para coordinaciones:', coordinacionesIds, 'Total:', filteredEjecutivos.length);
     } catch (error) {
       console.error('Error cargando ejecutivos:', error);
       toast.error('Error al cargar ejecutivos');
@@ -154,6 +196,31 @@ const EjecutivosManager: React.FC = () => {
     } catch (error: any) {
       console.error('Error cambiando estado:', error);
       toast.error(error.message || 'Error al cambiar estado');
+    }
+  };
+
+  const handleToggleCoordinacion = async (ejecutivo: Ejecutivo) => {
+    if (!coordinacionId || !user?.id) return;
+
+    try {
+      const isCurrentlyAssigned = ejecutivo.coordinacion_id === coordinacionId;
+      const newCoordinacionId = isCurrentlyAssigned ? null : coordinacionId;
+
+      await coordinacionService.assignEjecutivoToCoordinacion(
+        ejecutivo.id,
+        newCoordinacionId,
+        user.id
+      );
+
+      toast.success(
+        isCurrentlyAssigned
+          ? 'Ejecutivo liberado de la coordinación'
+          : 'Ejecutivo asignado a la coordinación'
+      );
+      loadEjecutivos();
+    } catch (error: any) {
+      console.error('Error cambiando coordinación:', error);
+      toast.error(error.message || 'Error al cambiar coordinación');
     }
   };
 
@@ -231,68 +298,113 @@ const EjecutivosManager: React.FC = () => {
 
       {/* Lista de Ejecutivos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {ejecutivos.map((ejecutivo) => (
-          <motion.div
-            key={ejecutivo.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border border-gray-200 dark:border-gray-700"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 dark:text-white">{ejecutivo.full_name}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
-                  <Mail className="w-4 h-4" />
-                  {ejecutivo.email}
-                </p>
-                {ejecutivo.phone && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
-                    <Phone className="w-4 h-4" />
-                    {ejecutivo.phone}
-                  </p>
-                )}
-              </div>
-              <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                ejecutivo.is_active
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-              }`}>
-                {ejecutivo.is_active ? 'Activo' : 'Inactivo'}
-              </div>
-            </div>
+        {ejecutivos.map((ejecutivo) => {
+          const isAssignedToMyCoordinacion = ejecutivo.coordinacion_id && coordinacionesIds.includes(ejecutivo.coordinacion_id);
+          const hasNoCoordinacion = !ejecutivo.coordinacion_id;
 
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => openEditModal(ejecutivo)}
-                className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center gap-1"
-              >
-                <Edit className="w-4 h-4" />
-                Editar
-              </button>
-              <button
-                onClick={() => openStatsModal(ejecutivo)}
-                className="flex-1 px-3 py-2 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center justify-center gap-1"
-              >
-                <BarChart3 className="w-4 h-4" />
-                Estadísticas
-              </button>
-              <button
-                onClick={() => handleToggleActive(ejecutivo)}
-                className={`px-3 py-2 text-sm rounded-lg flex items-center justify-center ${
+          return (
+            <motion.div
+              key={ejecutivo.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-2 ${
+                isAssignedToMyCoordinacion
+                  ? 'border-blue-300 dark:border-blue-700 bg-blue-50/30 dark:bg-blue-900/10'
+                  : hasNoCoordinacion
+                  ? 'border-gray-200 dark:border-gray-700'
+                  : 'border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-900/10'
+              }`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{ejecutivo.full_name}</h3>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
+                    <Mail className="w-4 h-4" />
+                    {ejecutivo.email}
+                  </p>
+                  {ejecutivo.phone && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
+                      <Phone className="w-4 h-4" />
+                      {ejecutivo.phone}
+                    </p>
+                  )}
+                  {ejecutivo.coordinacion_nombre && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 mt-1">
+                      <Building2 className="w-3 h-3" />
+                      {ejecutivo.coordinacion_nombre}
+                    </p>
+                  )}
+                </div>
+                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                   ejecutivo.is_active
-                    ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800'
-                    : 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800'
-                }`}
-              >
-                {ejecutivo.is_active ? (
-                  <UserX className="w-4 h-4" />
-                ) : (
-                  <UserCheck className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-          </motion.div>
-        ))}
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                }`}>
+                  {ejecutivo.is_active ? 'Activo' : 'Inactivo'}
+                </div>
+              </div>
+
+              {/* Toggle para unir/liberar de coordinación */}
+              <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {isAssignedToMyCoordinacion ? 'En mi coordinación' : hasNoCoordinacion ? 'Sin coordinación' : 'En otra coordinación'}
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={isAssignedToMyCoordinacion}
+                      onChange={() => handleToggleCoordinacion(ejecutivo)}
+                      className="sr-only"
+                    />
+                    <div className={`w-11 h-6 rounded-full transition-colors ${
+                      isAssignedToMyCoordinacion
+                        ? 'bg-blue-600'
+                        : 'bg-gray-300 dark:bg-gray-600'
+                    }`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                        isAssignedToMyCoordinacion ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => openEditModal(ejecutivo)}
+                  className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center gap-1"
+                >
+                  <Edit className="w-4 h-4" />
+                  Editar
+                </button>
+                <button
+                  onClick={() => openStatsModal(ejecutivo)}
+                  className="flex-1 px-3 py-2 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center justify-center gap-1"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Estadísticas
+                </button>
+                <button
+                  onClick={() => handleToggleActive(ejecutivo)}
+                  className={`px-3 py-2 text-sm rounded-lg flex items-center justify-center ${
+                    ejecutivo.is_active
+                      ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800'
+                      : 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800'
+                  }`}
+                >
+                  {ejecutivo.is_active ? (
+                    <UserX className="w-4 h-4" />
+                  ) : (
+                    <UserCheck className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
 
       {ejecutivos.length === 0 && (
