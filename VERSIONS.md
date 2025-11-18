@@ -1,5 +1,25 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión Beta 1.0.0-beta.8.2.0 (Enero 2025) - Log Monitor: Proxy Edge Function y Manejo de Duplicados
+
+### 🔧 RELEASE BETA - Sistema de Análisis de IA para Logs
+
+#### Infraestructura
+- **Edge Function desplegada**: `error-analisis-proxy` en proyecto Log Monitor (dffuwdzybhypxfzrmdcz)
+- **Variables de entorno**: Configuración segura de tokens y URLs del webhook
+- **Validación de payload**: Verificación de campos requeridos antes de procesar
+
+#### Correcciones
+- **Error 409 resuelto**: Manejo correcto de análisis duplicados
+- **Reutilización inteligente**: Reutilización de análisis existentes según su estado
+- **Recuperación automática**: Manejo de errores de duplicado con recuperación
+
+#### Archivos Principales
+- `src/services/logMonitorService.ts` - Manejo de duplicados mejorado
+- `supabase/functions/error-analisis-proxy/index.ts` - Función Edge Function
+
+---
+
 ## Versión Beta 1.0.0-N8.0.0 (Enero 2025) - Seguridad: Corrección de Filtros de Permisos por Coordinación
 
 ### 🔐 RELEASE BETA - Corrección Crítica de Seguridad

@@ -1,5 +1,52 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión Beta 1.0.0-beta.8.2.0 - Log Monitor: Proxy Edge Function y Manejo de Duplicados (Enero 2025)
+
+### 🎯 **RELEASE BETA - Sistema de Análisis de IA para Logs de Errores**
+
+#### 🚀 **Edge Function Proxy para Análisis de IA**
+- **Función desplegada**: `error-analisis-proxy` en proyecto Log Monitor (dffuwdzybhypxfzrmdcz)
+- **Solución CORS**: Proxy Edge Function evita problemas de CORS al comunicarse con webhook de Railway
+- **Configuración segura**: Variables de entorno configuradas (`ERROR_ANALISIS_WEBHOOK_TOKEN`, `ERROR_ANALISIS_WEBHOOK_URL`)
+- **Validación de payload**: Validación de campos requeridos antes de enviar al webhook
+- **Manejo de errores**: Manejo de errores con mensajes claros
+
+#### 🐛 **Corrección de Duplicados en Análisis de IA**
+- **Problema resuelto**: Error 409 (Conflict) al solicitar análisis de IA para logs que ya tenían análisis
+- **Causa identificada**: El código intentaba crear un nuevo registro sin verificar si ya existía uno
+- **Solución implementada**:
+  - Verificación previa de análisis existente antes de crear uno nuevo
+  - Reutilización de análisis completados existentes
+  - Manejo de registros pendientes o fallidos para reintentar
+  - Manejo explícito del error 23505 (duplicate key) con recuperación automática
+
+#### 📍 **Módulos Corregidos**
+
+##### **logMonitorService.ts** (`src/services/logMonitorService.ts`)
+- Actualizado `requestAIAnalysis()` para verificar análisis existentes
+- Implementado manejo de duplicados con recuperación automática
+- Reutilización inteligente de registros existentes según su estado
+- URL del proxy actualizada al proyecto correcto (dffuwdzybhypxfzrmdcz)
+
+##### **error-analisis-proxy** (`supabase/functions/error-analisis-proxy/index.ts`)
+- Función Edge desplegada en proyecto Log Monitor
+- Validación de variables de entorno antes de procesar
+- Validación de payload con campos requeridos
+- Manejo de errores mejorado con mensajes descriptivos
+
+#### ✅ **Beneficios**
+- ✅ Sin errores 409 al solicitar análisis múltiples veces
+- ✅ Reutilización eficiente de análisis existentes
+- ✅ Comunicación segura con webhook sin problemas de CORS
+- ✅ Configuración centralizada en variables de entorno
+
+#### 📝 **Archivos Modificados**
+- `src/services/logMonitorService.ts` - Manejo de duplicados y URL del proxy corregida
+- `supabase/functions/error-analisis-proxy/index.ts` - Función Edge Function desplegada
+- `package.json` - Versión actualizada a 1.0.0-beta.8.2.0
+
+---
+
 ## 👥 Versión Beta 1.0.0-beta.8.1.0 - Gestión de Ejecutivos: Filtrado por Coordinaciones y Mejoras de UI (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras en Gestión de Ejecutivos para Coordinadores**
