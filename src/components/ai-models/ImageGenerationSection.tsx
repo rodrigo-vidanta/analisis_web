@@ -1,66 +1,133 @@
 import React, { useState } from 'react';
-import { useTheme } from '../../hooks/useTheme';
+import { motion } from 'framer-motion';
+import { Wand2, Search, Sparkles, Image as ImageIcon, Zap, History, Lightbulb } from 'lucide-react';
 
 const ImageGenerationSection: React.FC = () => {
-  const { isLinearTheme } = useTheme();
   const [prompt, setPrompt] = useState('');
-
-  const cardClass = isLinearTheme 
-    ? 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'
-    : 'corp-card corp-glow';
 
   return (
     <div className="space-y-6">
-      <div className="text-center py-12">
-        <svg className="w-16 h-16 text-green-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-        </svg>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+      {/* Header Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="text-center py-8"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.15, type: "spring", stiffness: 200 }}
+          className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/25"
+        >
+          <Wand2 className="w-8 h-8 text-white" />
+        </motion.div>
+        <motion.h3
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-2xl font-bold text-gray-900 dark:text-white mb-2"
+        >
           Generación de Imágenes con IA
-        </h3>
-        <p className="text-slate-600 dark:text-slate-400 mb-4">
+        </motion.h3>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.25 }}
+          className="text-sm text-gray-600 dark:text-gray-400 mb-6"
+        >
           Creación inteligente con Nano Banana y referencias del repositorio
-        </p>
+        </motion.p>
         
-        <div className={cardClass + ' p-6 max-w-2xl mx-auto'}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Prompt inteligente:
+        {/* Form Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-6 max-w-2xl mx-auto"
+        >
+          <div className="space-y-6">
+            {/* Section Bar */}
+            <div className="flex items-center space-x-2 mb-4">
+              <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                Prompt Inteligente
+              </h4>
+            </div>
+
+            {/* Textarea */}
+            <div className="group">
+              <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                <Sparkles className="w-4 h-4 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
+                <span>Describe la imagen que deseas generar</span>
               </label>
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Ej: quiero una imagen de samuel en el mayan palace, tomándose una bebida de naranja"
-                className="w-full h-24 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 resize-none"
+                className="w-full h-32 px-4 py-3 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 resize-none"
                 maxLength={500}
               />
+              <div className="flex justify-end mt-1">
+                <span className={`text-xs font-medium ${prompt.length > 450 ? 'text-orange-500' : prompt.length > 400 ? 'text-yellow-500' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {prompt.length}/500
+                </span>
+              </div>
             </div>
 
-            <button
+            {/* Generate Button */}
+            <motion.button
+              whileHover={{ scale: prompt.trim() ? 1.02 : 1 }}
+              whileTap={{ scale: prompt.trim() ? 0.98 : 1 }}
               disabled={!prompt.trim()}
-              className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-6 py-3 rounded-lg font-medium flex items-center justify-center space-x-2 transition-colors"
+              className={`w-full py-3 px-6 text-sm font-semibold text-white rounded-xl disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3 ${
+                prompt.trim()
+                  ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-600 hover:via-teal-600 hover:to-emerald-700 shadow-lg shadow-emerald-500/30'
+                  : 'bg-gray-300 dark:bg-gray-700 opacity-50'
+              }`}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <Search className="w-5 h-5" />
               <span>Buscar Referencias y Generar</span>
-            </button>
+            </motion.button>
             
-            <div className="text-sm text-slate-500 dark:text-slate-400 space-y-2">
-              <p><strong>Funcionalidades preparadas:</strong></p>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Generación inteligente con búsqueda automática</li>
-                <li>Integración con Nano Banana</li>
-                <li>Uso de referencias del repositorio</li>
-                <li>Control total de parámetros</li>
-                <li>Historial visual de generaciones</li>
-                <li>Sugerencias rápidas predefinidas</li>
-              </ul>
-            </div>
+            {/* Features List */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="pt-4 border-t border-gray-100 dark:border-gray-800"
+            >
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-1 h-4 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Funcionalidades Preparadas
+                </h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  { icon: Zap, text: 'Generación inteligente con búsqueda automática' },
+                  { icon: ImageIcon, text: 'Integración con Nano Banana' },
+                  { icon: Search, text: 'Uso de referencias del repositorio' },
+                  { icon: Sparkles, text: 'Control total de parámetros' },
+                  { icon: History, text: 'Historial visual de generaciones' },
+                  { icon: Lightbulb, text: 'Sugerencias rápidas predefinidas' }
+                ].map((feature, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.45 + index * 0.05 }}
+                    className="flex items-start space-x-2 text-sm text-gray-600 dark:text-gray-400"
+                  >
+                    <feature.icon className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <span>{feature.text}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 };

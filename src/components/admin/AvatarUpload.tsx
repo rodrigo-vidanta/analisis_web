@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { pqncSupabase as supabase } from '../../config/pqncSupabase';
+import { supabaseSystemUI as supabase } from '../../config/supabaseSystemUI';
 import { userProfileEvents } from '../../utils/userProfileEvents';
 
 interface AvatarUploadProps {

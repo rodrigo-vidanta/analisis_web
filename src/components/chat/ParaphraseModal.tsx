@@ -23,22 +23,28 @@ import ParaphraseLogService from '../../services/paraphraseLogService';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 
+type ParaphraseContext = 'input_livechat' | 'input_send_image_livechat' | 'transfer_request_message';
+
 interface ParaphraseModalProps {
   isOpen: boolean;
   originalText: string;
   onSelect: (text: string) => void;
   onCancel: () => void;
+  context?: ParaphraseContext; // Contexto de uso del parafraseador
 }
 
-// Configuración Anthropic (usar Edge Function proxy para evitar CORS)
-const ANTHROPIC_PROXY_URL = 'https://zbylezfyagwrxoecioup.supabase.co/functions/v1/anthropic-proxy';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMzYyNzEsImV4cCI6MjA3NDkxMjI3MX0.W6Vt5h4r7vNSP_YQtd_fbTWuK7ERrcttwhcpe5Q7KoM';
+// Configuración del webhook de N8N
+const N8N_WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/mensaje-agente';
+
+// Timeout para el webhook (5 segundos)
+const WEBHOOK_TIMEOUT = 5000;
 
 export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
   isOpen,
   originalText,
   onSelect,
-  onCancel
+  onCancel,
+  context = 'input_livechat' // Por defecto para compatibilidad
 }) => {
   const { user } = useAuth();
   const [option1, setOption1] = useState<string>('');
@@ -47,83 +53,6 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
   const [error, setError] = useState<string>('');
   const [moderationFlag, setModerationFlag] = useState<{ reason: string; category: string; warningId?: string } | null>(null);
 
-  // Prompt del sistema basado en la personalidad del agente
-  const SYSTEM_PROMPT = `Eres un asistente experto en comunicación profesional para un agente de ventas de viajes y resorts de lujo con capacidades de moderación de contenido.
-
-**MODERACIÓN DE CONTENIDO (PRIORITARIO):**
-ANTES de generar paráfrasis, DEBES evaluar si el mensaje contiene contenido inapropiado. Si detectas alguno de estos criterios, devuelve SOLO el JSON de moderación:
-
-Criterios de contenido inapropiado:
-- Lenguaje vulgar, obsceno, ofensivo o grosero
-- Amenazas, acoso o intimidación
-- Discriminación (raza, género, religión, orientación sexual, etc.)
-- Contenido ilegal (actividades criminales, drogas, etc.)
-- Información personal sensible (datos financieros, médicos, etc.)
-- Spam o contenido fraudulento
-- Contenido sexual explícito o inapropiado
-
-Si el mensaje contiene contenido inapropiado, responde ÚNICAMENTE con:
-{
-  "MODERATION_FLAG": true,
-  "reason": "Razón específica de la moderación",
-  "category": "vulgaridad|amenazas|discriminacion|ilegal|spam|sexual|otro"
-}
-
-Si el mensaje es apropiado, continúa con el proceso normal de paráfrasis.
-
-**PERSONALIDAD DEL AGENTE:**
-- Cordial, profesional y directo
-- Lenguaje natural y conversacional (como persona real)
-- Respetuoso y cálido, sin sonar robótico
-- Experto en hospitalidad y turismo de lujo
-- Enfocado en despertar interés y descubrir necesidades
-
-**TU TAREA:**
-Recibirás un mensaje escrito por un vendedor humano y deberás generar DOS versiones mejoradas:
-
-**OPCIÓN 1 - Corrección Simple:**
-- Corregir ortografía y gramática
-- Mantener el tono y personalidad del agente
-- NO alargar el texto ni agregar contenido nuevo
-- Mantener el mensaje conciso y directo
-- Conservar emojis existentes (si los hay)
-
-**OPCIÓN 2 - Versión Elaborada:**
-- Corregir ortografía y gramática
-- Hacer el mensaje ligeramente más profesional y elaborado
-- Agregar 1-2 emojis relevantes si mejora la comunicación
-- Mantener la calidez y cercanía
-- Máximo 20% más largo que el original
-
-**FORMATO DE RESPUESTA (CRÍTICO):**
-Si el mensaje es APROPIADO, responde con:
-{
-  "option1": "texto corregido simple",
-  "option2": "texto elaborado con emojis"
-}
-
-Si el mensaje es INAPROPIADO, responde con:
-{
-  "MODERATION_FLAG": true,
-  "reason": "Descripción específica del problema",
-  "category": "vulgaridad|amenazas|discriminacion|ilegal|spam|sexual|otro"
-}
-
-DEBES responder ÚNICAMENTE con un JSON válido, SIN texto adicional, SIN explicaciones, SIN markdown.
-
-IMPORTANTE: 
-- NO uses code blocks de markdown (no uses bloques de código con triple comillas invertidas)
-- NO agregues explicaciones antes o después del JSON
-- NO uses comillas simples, solo dobles
-- El JSON debe ser válido y parseable directamente
-
-**RESTRICCIONES:**
-- NO uses más de 2 emojis en la opción 2
-- NO cambies el significado del mensaje original
-- NO agregues información que no esté en el mensaje original
-- Mantén el tono profesional pero cercano
-- Si el mensaje original es una pregunta, mantén la pregunta
-- Si el mensaje original es una afirmación, mantén la afirmación`;
 
   useEffect(() => {
     if (isOpen && originalText) {
@@ -211,26 +140,29 @@ IMPORTANTE:
     setOption2('');
 
     try {
-      // Usar Edge Function proxy para evitar CORS
-      const response = await fetch(ANTHROPIC_PROXY_URL, {
+      // Crear un AbortController para timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT);
+
+      console.log('📤 [PARAPHRASE] Enviando al webhook N8N:', {
+        context,
+        textLength: originalText.length
+      });
+
+      // Llamar al webhook de N8N
+      const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'claude-3-haiku-20240307', // Modelo más económico y rápido que funciona con esta API key
-          max_tokens: 500, // Aumentado para manejar mensajes más largos y respuestas JSON completas
-          // Nota: system se envía como parte del mensaje si el modelo no lo soporta directamente
-          system: SYSTEM_PROMPT,
-          messages: [
-            {
-              role: 'user',
-              content: `Mensaje a mejorar: "${originalText}"`
-            }
-          ]
-        })
+          text: originalText,
+          context: context // input_livechat, input_send_image_livechat, transfer_request_message
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         let errorData;
@@ -241,135 +173,26 @@ IMPORTANTE:
           throw new Error(`Error ${response.status}: ${errorText || 'Error desconocido'}`);
         }
         
-        console.error('❌ Error del servidor:', errorData);
-        
-        // Detectar si es problema de tokens/créditos
-        const isTokenIssue = errorData.isTokenIssue || 
-                           response.status === 401 || 
-                           response.status === 402 ||
-                           errorData.error?.toLowerCase().includes('insufficient') ||
-                           errorData.error?.toLowerCase().includes('credit') ||
-                           errorData.error?.toLowerCase().includes('billing');
-        
-        if (isTokenIssue) {
-          throw new Error(`CREDITS_ERROR: ${errorData.error || 'Créditos o tokens insuficientes en Anthropic. Verifica tu cuenta en console.anthropic.com'}`);
-        }
-        
+        console.error('❌ Error del webhook N8N:', errorData);
         throw new Error(errorData.error || errorData.message || `Error al generar paráfrasis: ${response.status}`);
       }
 
       const data = await response.json();
       
-      // Validar estructura de respuesta
-      if (!data.content || !Array.isArray(data.content) || data.content.length === 0) {
-        console.error('❌ Respuesta inválida de Anthropic:', data);
-        throw new Error('Respuesta del servidor en formato inválido');
-      }
+      console.log('📥 [PARAPHRASE] Respuesta del webhook N8N:', {
+        hasOption1: !!data.option1,
+        hasOption2: !!data.option2,
+        hasGuardrail: !!data.guardrail
+      });
 
-      const content = data.content[0].text;
-      // Log solo en desarrollo si es necesario
-      if (import.meta.env.DEV) {
-        console.log('📥 Respuesta del LLM (primeros 500 chars):', content.substring(0, 500));
-      }
-
-      // Función helper para extraer y limpiar JSON
-      const extractAndParseJSON = (text: string): { option1?: string; option2?: string; MODERATION_FLAG?: boolean | string; reason?: string; category?: string } | null => {
-        try {
-          // Intentar parsear directamente si el texto es JSON válido
-          const directParse = JSON.parse(text.trim());
-          // Si tiene MODERATION_FLAG, retornarlo directamente
-          if (directParse.MODERATION_FLAG === true || directParse.MODERATION_FLAG === 'true') {
-            return directParse;
-          }
-          // Si tiene opciones, retornarlo
-          if (directParse.option1 && directParse.option2) {
-            return directParse;
-          }
-        } catch {
-          // No es JSON directo, intentar extraer
-        }
-
-        // Buscar JSON entre llaves (no greedy para evitar capturar demasiado)
-        const jsonMatch = text.match(/\{[\s\S]*?\}/);
-        if (!jsonMatch) {
-          // Intentar encontrar JSON multilínea
-          const multilineMatch = text.match(/\{[\s\S]*?\n[\s\S]*?\}/);
-          if (multilineMatch) {
-            try {
-              const cleaned = multilineMatch[0]
-                .replace(/```json\s*/g, '')
-                .replace(/```\s*/g, '')
-                .trim();
-              return JSON.parse(cleaned);
-            } catch {
-              // Continuar con otros métodos
-            }
-          }
-          return null;
-        }
-
-        // Limpiar el JSON extraído
-        let jsonStr = jsonMatch[0]
-          // Remover markdown code blocks si existen
-          .replace(/```json\s*/g, '')
-          .replace(/```\s*/g, '')
-          // Remover caracteres de control problemáticos
-          .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-          // Normalizar comillas si están mal escapadas
-          .replace(/''/g, "'")
-          .trim();
-
-        // Intentar parsear
-        try {
-          const parsed = JSON.parse(jsonStr);
-          // Priorizar MODERATION_FLAG si existe
-          if (parsed.MODERATION_FLAG === true || parsed.MODERATION_FLAG === 'true') {
-            return parsed;
-          }
-          // Si tiene opciones, retornarlo
-          if (parsed.option1 && parsed.option2) {
-            return parsed;
-          }
-        } catch (parseError) {
-          console.warn('⚠️ Error parseando JSON extraído, intentando limpiar más...', parseError);
-          
-          // Intentar corregir comillas simples por dobles
-          try {
-            jsonStr = jsonStr.replace(/'/g, '"');
-            const parsed = JSON.parse(jsonStr);
-            // Priorizar MODERATION_FLAG si existe
-            if (parsed.MODERATION_FLAG === true || parsed.MODERATION_FLAG === 'true') {
-              return parsed;
-            }
-            // Si tiene opciones, retornarlo
-            if (parsed.option1 && parsed.option2) {
-              return parsed;
-            }
-          } catch {
-            // Continuar con fallback
-          }
-        }
-
-        return null;
-      };
-
-      // Intentar extraer y parsear JSON
-      const parsed = extractAndParseJSON(content);
-      
-      if (!parsed) {
-        console.error('❌ No se pudo extraer JSON válido de la respuesta:', content);
-        throw new Error('El LLM no devolvió un JSON válido. Intenta con un mensaje más corto o reformula.');
-      }
-
-      // ⚠️ DETECCIÓN DE MODERACIÓN - PRIORITARIO
-      if (parsed.MODERATION_FLAG === true || parsed.MODERATION_FLAG === 'true') {
-        // Log solo en desarrollo
+      // ⚠️ DETECCIÓN DE GUARDRAIL - PRIORITARIO
+      if (data.guardrail === true || data.guardrail === 'true') {
         if (import.meta.env.DEV) {
-          console.warn('🛡️ Contenido inapropiado detectado:', parsed);
+          console.warn('🛡️ Guardrail activado:', data);
         }
         
-        const warningReason = parsed.reason || 'Contenido inapropiado detectado';
-        const warningCategory = (parsed.category || 'otro') as ModerationWarning['warning_category'];
+        const warningReason = data.reason || 'Contenido inapropiado detectado';
+        const warningCategory = (data.category || 'otro') as ModerationWarning['warning_category'];
         
         // Registrar warning en la base de datos (solo si hay usuario logueado)
         let warningId: string | null = null;
@@ -381,15 +204,12 @@ IMPORTANTE:
             warningReason,
             warningCategory,
             undefined, // output_selected (se llenará si el usuario selecciona una opción)
-            undefined, // conversation_id (se puede pasar como prop si es necesario)
-            undefined  // prospect_id (se puede pasar como prop si es necesario)
+            undefined, // conversation_id
+            undefined  // prospect_id
           );
           
-          if (warningId) {
-            // Log solo en desarrollo
-            if (import.meta.env.DEV) {
-              console.log('✅ Warning registrado en BD:', warningId);
-            }
+          if (warningId && import.meta.env.DEV) {
+            console.log('✅ Warning registrado en BD:', warningId);
           }
         }
         
@@ -401,7 +221,7 @@ IMPORTANTE:
         setOption1('');
         setOption2('');
         
-        // Registrar log con warning (sin opciones generadas)
+        // Registrar log con warning
         const processingTime = Date.now() - startTime;
         if (user?.id) {
           await ParaphraseLogService.registerLog(
@@ -424,18 +244,13 @@ IMPORTANTE:
       }
 
       // Validar que tenga las opciones esperadas
-      if (!parsed.option1 || !parsed.option2) {
-        // Si tiene MODERATION_FLAG pero no está en true, podría ser falso positivo
-        if (parsed.MODERATION_FLAG === false || parsed.MODERATION_FLAG === 'false') {
-          // Intentar continuar con paráfrasis normal
-        } else {
-          throw new Error('Formato de respuesta inválido: faltan opciones o flag de moderación');
-        }
+      if (!data.option1 || !data.option2) {
+        throw new Error('Formato de respuesta inválido: faltan opciones o flag de guardrail');
       }
 
       // Sanitizar y validar las opciones
-      const option1 = (parsed.option1 || '').trim() || originalText;
-      const option2 = (parsed.option2 || '').trim() || originalText;
+      const option1 = (data.option1 || '').trim() || originalText;
+      const option2 = (data.option2 || '').trim() || originalText;
 
       if (!option1 || !option2) {
         throw new Error('Las opciones generadas están vacías');
@@ -466,10 +281,21 @@ IMPORTANTE:
 
     } catch (err) {
       console.error('❌ Error generando paráfrasis:', err);
-      setError(err instanceof Error ? err.message : 'Error desconocido');
-      // Fallback: usar texto original
-      setOption1(originalText);
-      setOption2(originalText);
+      
+      // Si es timeout o error de red, usar texto original como fallback
+      if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('fetch'))) {
+        console.warn('⚠️ [PARAPHRASE] Webhook no respondió, usando texto original como fallback');
+        setError('El servicio de parafraseo no está disponible. Usando texto original.');
+        // Fallback: usar texto original en ambas opciones
+        setOption1(originalText);
+        setOption2(originalText);
+        setModerationFlag(null);
+      } else {
+        setError(err instanceof Error ? err.message : 'Error desconocido');
+        // Fallback: usar texto original
+        setOption1(originalText);
+        setOption2(originalText);
+      }
     } finally {
       setLoading(false);
     }
@@ -712,7 +538,7 @@ IMPORTANTE:
         {/* Footer */}
         <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700">
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            Powered by Claude 3 Haiku • Anthropic AI
+            Powered by N8N Workflow • {context === 'input_livechat' ? 'Live Chat' : context === 'input_send_image_livechat' ? 'Envío de Imagen' : 'Solicitud de Transferencia'}
           </div>
           <button
             onClick={onCancel}

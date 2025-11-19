@@ -18,14 +18,10 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
   // Efecto de fadeout al final - VELOCIDAD EQUILIBRADA Y FLUIDA
   useEffect(() => {
     if (isVisible && type === 'login') {
-      console.log('🚀 TÚNEL - Iniciando animación de anillos fluida y rápida');
-      
       // VELOCIDAD EQUILIBRADA: suave y fluida
       const fadeoutTimer = setTimeout(() => {
-        console.log('🚀 TÚNEL - Iniciando fadeout suave');
         setShowFadeout(true);
         setTimeout(() => {
-          console.log('🚀 TÚNEL - Fadeout completado, finalizando animación');
           onComplete();
         }, 200); // Tiempo para suavidad
       }, 1300); // Tiempo ajustado para la nueva duración más suave (1.1s + 0.2s overlap)
@@ -34,9 +30,7 @@ const LightSpeedTunnel: React.FC<LightSpeedTunnelProps> = ({
         clearTimeout(fadeoutTimer);
       };
     } else if (isVisible && type === 'logout') {
-      console.log('🚀 TÚNEL - Iniciando timer para logout');
       const timer = setTimeout(() => {
-        console.log('🚀 TÚNEL - Completando logout');
         onComplete();
       }, 1000); // Equilibrado
       return () => clearTimeout(timer);

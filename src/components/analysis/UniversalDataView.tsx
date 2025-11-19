@@ -405,12 +405,12 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
       
       {/* Secciones colapsables */}
       <div className="space-y-3">
-        {sections.map((section) => {
+        {sections.map((section, sectionIndex) => {
           const isExpanded = expandedSections.has(section.key);
           const hasData = hasValue(section.data);
           
           return (
-            <div key={section.key} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div key={section.key || `section-${sectionIndex}`} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
               
               {/* Header de sección */}
               <button

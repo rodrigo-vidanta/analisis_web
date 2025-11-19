@@ -930,63 +930,123 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
       )}
 
       {/* Modal de Detalle */}
-      {showDetailModal && selectedRecord && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowDetailModal(false);
-              if (detailChart) {
-                detailChart.destroy();
-                setDetailChart(null);
+      <AnimatePresence>
+        {showDetailModal && selectedRecord && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowDetailModal(false);
+                if (detailChart) {
+                  detailChart.destroy();
+                  setDetailChart(null);
+                }
               }
-            }
-          }}
-        >
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-            
-            {/* Header del Modal */}
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Detalle del Análisis</h2>
-              <button 
-                onClick={() => {
-                  setShowDetailModal(false);
-                  if (detailChart) {
-                    detailChart.destroy();
-                    setDetailChart(null);
-                  }
-                }}
-                className="text-white hover:text-slate-200 transition duration-200"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            {/* Contenido del Modal */}
-            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
-              {/* Información General */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-                  <p className="text-sm text-purple-600 dark:text-purple-400 font-medium mb-1">Call ID</p>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 font-mono">{selectedRecord.call_id}</p>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">Fecha</p>
-                  <p className="text-slate-700 dark:text-slate-300">{new Date(selectedRecord.created_at).toLocaleString('es-MX')}</p>
-                </div>
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                  <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-1">Resultado</p>
-                  <p className="text-slate-700 dark:text-slate-300 text-sm">{selectedRecord.resultado_llamada || 'Sin resultado'}</p>
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden"
+            >
+              {/* Header */}
+              <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <motion.h2
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-2xl font-bold text-gray-900 dark:text-white mb-1 flex items-center"
+                    >
+                      <BarChart3 className="w-6 h-6 mr-3 text-emerald-500" />
+                      Detalle del Análisis
+                    </motion.h2>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                    >
+                      Análisis completo de la llamada
+                    </motion.p>
+                  </div>
+                  <motion.button
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    transition={{ delay: 0.2 }}
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      if (detailChart) {
+                        detailChart.destroy();
+                        setDetailChart(null);
+                      }
+                    }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group ml-4 flex-shrink-0"
+                  >
+                    <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                  </motion.button>
                 </div>
               </div>
+              
+              {/* Contenido del Modal */}
+              <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent px-8 py-6">
+              {/* Información General */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.15 }}
+                  className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-5 border border-purple-200 dark:border-purple-800"
+                >
+                  <p className="text-xs font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-2">Call ID</p>
+                  <p className="text-sm text-gray-900 dark:text-white font-mono font-semibold">{selectedRecord.call_id}</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800"
+                >
+                  <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">Fecha</p>
+                  <p className="text-sm text-gray-900 dark:text-white font-semibold">{new Date(selectedRecord.created_at).toLocaleString('es-MX')}</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.25 }}
+                  className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-5 border border-emerald-200 dark:border-emerald-800"
+                >
+                  <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">Resultado</p>
+                  <p className="text-sm text-gray-900 dark:text-white font-semibold">{selectedRecord.resultado_llamada || 'Sin resultado'}</p>
+                </motion.div>
+              </motion.div>
 
               {/* Métricas Principales */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 {/* Score General */}
-                <div className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl p-6 text-center">
-                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Score General</h4>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 text-center shadow-sm"
+                >
+                  <div className="flex items-center justify-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Score General</h4>
+                  </div>
                   <div className="relative w-32 h-32 mx-auto">
                     <svg className="transform -rotate-90 w-32 h-32">
                       <circle cx="64" cy="64" r="50" stroke="#e5e7eb" strokeWidth="12" fill="none" className="dark:stroke-gray-600"></circle>
@@ -1010,115 +1070,166 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                   </div>
                   <p className={`mt-4 text-sm font-medium ${getCategoryClass(selectedRecord.categoria_desempeno)}`}>
                     {selectedRecord.categoria_desempeno ? selectedRecord.categoria_desempeno.replace('_', ' ') : 'Sin categoría'}
-                  </p>
-                </div>
+                    </p>
+                </motion.div>
 
                 {/* Checkpoint */}
-                <div className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl p-6 text-center">
-                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Checkpoint Alcanzado</h4>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 text-center shadow-sm"
+                >
+                  <div className="flex items-center justify-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Checkpoint Alcanzado</h4>
+                  </div>
                   <div className="text-5xl font-bold text-purple-600 dark:text-purple-400 mb-4">
                     {selectedRecord.checkpoint_alcanzado || '0'}
                   </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-3">
-                    <div 
-                      className="bg-purple-600 dark:bg-purple-400 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${(selectedRecord.checkpoint_alcanzado || 0) * 10}%` }}
-                    />
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">de 10 checkpoints</p>
-                </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                      <div 
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 h-3 rounded-full transition-all duration-500" 
+                        style={{ width: `${(selectedRecord.checkpoint_alcanzado || 0) * 10}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 uppercase tracking-wider">de 10 checkpoints</p>
+                </motion.div>
 
                 {/* Nivel de Interés */}
-                <div className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl p-6 text-center">
-                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Nivel de Interés</h4>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 text-center shadow-sm"
+                >
+                  <div className="flex items-center justify-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Nivel de Interés</h4>
+                  </div>
                   <div className={`text-3xl font-bold mb-4 ${getInterestClass(selectedRecord.nivel_interes_detectado)}`}>
                     {selectedRecord.nivel_interes_detectado ? selectedRecord.nivel_interes_detectado.replace('_', ' ') : 'No detectado'}
                   </div>
                   <div className="flex justify-center space-x-2">
-                    <div className={`w-20 h-3 rounded-full ${
-                      selectedRecord.nivel_interes_detectado === 'BAJO' ? 'bg-red-500' : 'bg-slate-300 dark:bg-slate-600'
+                    <div className={`w-20 h-3 rounded-full transition-all duration-300 ${
+                      selectedRecord.nivel_interes_detectado === 'BAJO' ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-gray-300 dark:bg-gray-600'
                     }`} />
-                    <div className={`w-20 h-3 rounded-full ${
-                      selectedRecord.nivel_interes_detectado === 'MEDIO' ? 'bg-yellow-500' : 'bg-slate-300 dark:bg-slate-600'
+                    <div className={`w-20 h-3 rounded-full transition-all duration-300 ${
+                      selectedRecord.nivel_interes_detectado === 'MEDIO' ? 'bg-yellow-500 shadow-lg shadow-yellow-500/50' : 'bg-gray-300 dark:bg-gray-600'
                     }`} />
-                    <div className={`w-20 h-3 rounded-full ${
-                      selectedRecord.nivel_interes_detectado === 'ALTO' || selectedRecord.nivel_interes_detectado === 'MUY_ALTO' ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'
+                    <div className={`w-20 h-3 rounded-full transition-all duration-300 ${
+                      selectedRecord.nivel_interes_detectado === 'ALTO' || selectedRecord.nivel_interes_detectado === 'MUY_ALTO' ? 'bg-emerald-500 shadow-lg shadow-emerald-500/50' : 'bg-gray-300 dark:bg-gray-600'
                     }`} />
                   </div>
-                </div>
+                </motion.div>
               </div>
 
               {/* Feedback */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 {/* Puntos Positivos */}
-                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6">
-                  <h4 className="text-xl font-semibold text-green-800 dark:text-green-300 mb-4">
-                    <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                    </svg>
-                    Puntos Positivos ({selectedRecord.total_puntos_positivos || 0})
-                  </h4>
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.45 }}
+                  className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-2xl p-6 border border-emerald-200 dark:border-emerald-800"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider flex items-center">
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Puntos Positivos ({selectedRecord.total_puntos_positivos || 0})
+                    </h4>
+                  </div>
                   <div className="space-y-3">
                     {selectedRecord.feedback_positivo?.map((feedback, index) => (
-                      <div key={index} className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 flex items-start space-x-3">
-                        <svg className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="text-slate-700 dark:text-slate-300 text-sm">{feedback}</span>
-                      </div>
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + index * 0.05 }}
+                        className="bg-white/80 dark:bg-gray-800/80 rounded-xl p-4 flex items-start space-x-3 border border-emerald-200/50 dark:border-emerald-800/50"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700 dark:text-gray-300 text-sm">{feedback}</span>
+                      </motion.div>
                     )) || (
-                      <div className="text-slate-500 dark:text-slate-400 text-sm italic">
+                      <div className="text-gray-500 dark:text-gray-400 text-sm italic py-4">
                         No se registraron puntos positivos
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Áreas de Mejora */}
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-6">
-                  <h4 className="text-xl font-semibold text-orange-800 dark:text-orange-300 mb-4">
-                    <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    Áreas de Mejora ({selectedRecord.total_areas_mejora || 0})
-                  </h4>
+                <motion.div
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.45 }}
+                  className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-2xl p-6 border border-orange-200 dark:border-orange-800"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-orange-500 to-red-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-300 uppercase tracking-wider flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Áreas de Mejora ({selectedRecord.total_areas_mejora || 0})
+                    </h4>
+                  </div>
                   <div className="space-y-3">
                     {selectedRecord.feedback_constructivo?.map((area, index) => (
-                      <div key={index} className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3">
-                        <h5 className="font-semibold text-slate-700 dark:text-slate-300 mb-1 text-sm">Problema {index + 1}:</h5>
-                        <p className="text-slate-600 dark:text-slate-400 text-sm mb-2">{area.problema}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-500">
-                          <strong>Ubicación:</strong> {area.ubicacion}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-                          <strong>Solución:</strong> {area.solucion_tecnica}
-                        </p>
-                      </div>
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + index * 0.05 }}
+                        className="bg-white/80 dark:bg-gray-800/80 rounded-xl p-4 border border-orange-200/50 dark:border-orange-800/50"
+                      >
+                        <h5 className="font-semibold text-gray-700 dark:text-gray-300 mb-2 text-sm">Problema {index + 1}:</h5>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{area.problema}</p>
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            <strong className="text-gray-700 dark:text-gray-300">Ubicación:</strong> {area.ubicacion}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            <strong className="text-gray-700 dark:text-gray-300">Solución:</strong> {area.solucion_tecnica}
+                          </p>
+                        </div>
+                      </motion.div>
                     )) || (
-                      <div className="text-slate-500 dark:text-slate-400 text-sm italic">
+                      <div className="text-gray-500 dark:text-gray-400 text-sm italic py-4">
                         No se registraron áreas de mejora
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               </div>
 
               {/* Gráfico Radar con Metodología Inteligente */}
               {selectedRecord.calificaciones && Object.keys(selectedRecord.calificaciones).length > 0 && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                  <h4 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-6 text-center">
-                    <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    Análisis Visual Inteligente
-                  </h4>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-center justify-center space-x-2 mb-6">
+                    <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                      <TrendingUp className="w-4 h-4 mr-2 text-blue-500" />
+                      Análisis Visual Inteligente
+                    </h4>
+                  </div>
                   
                   {/* Indicador de Ajuste Inteligente */}
                   {(selectedRecord.nivel_interes_detectado === 'alto' || selectedRecord.nivel_interes_detectado === 'muy_alto') && 
                    (selectedRecord.resultado_llamada?.toLowerCase().includes('transferencia') || 
                     selectedRecord.resultado_llamada?.toLowerCase().includes('derivado') ||
                     selectedRecord.resultado_llamada?.toLowerCase().includes('supervisor')) && (
-                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg p-4 mb-6">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.55 }}
+                      className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-700 rounded-xl p-5 mb-6"
+                    >
                       <div className="flex items-center">
                         <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1132,7 +1243,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                         Los puntajes han sido ajustados según la filosofía de Natalia: <em>detectar temperatura y transferir en el momento óptimo</em>.
                         Discovery incompleto + Alta intención = Estrategia exitosa.
                       </p>
-                    </div>
+                    </motion.div>
                   )}
                   
                   <div className="flex justify-center">
@@ -1147,30 +1258,31 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                   </div>
                   
                   <div className="mt-6 space-y-2">
-                    <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-                      Gráfico de radar con <strong>ponderación inteligente</strong> (escala 0-10)
+                    <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+                      Gráfico de radar con <strong className="text-gray-700 dark:text-gray-300">ponderación inteligente</strong> (escala 0-10)
                     </p>
-                    <div className="flex flex-wrap justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                       <span className="flex items-center">
-                        <div className="w-3 h-3 bg-emerald-500 rounded-full mr-1"></div>
+                        <div className="w-3 h-3 bg-emerald-500 rounded-full mr-2"></div>
                         Transferencia estratégica bonificada
                       </span>
                       <span className="flex items-center">
-                        <div className="w-3 h-3 bg-amber-500 rounded-full mr-1"></div>
+                        <div className="w-3 h-3 bg-amber-500 rounded-full mr-2"></div>
                         Discovery contextual evaluado
                       </span>
                       <span className="flex items-center">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-1"></div>
+                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
                         Detección de urgencia premiada
                       </span>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               )}
-            </div>
-          </div>
-        </div>
-              )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
           </>
         )}
       </div>

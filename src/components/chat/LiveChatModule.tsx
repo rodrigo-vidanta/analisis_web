@@ -21,12 +21,14 @@ import LiveChatCanvas from './LiveChatCanvas';
 import AgentAssignmentModal from './AgentAssignmentModal';
 import LiveChatAnalytics from './LiveChatAnalytics';
 import { uchatService, type UChatConversation } from '../../services/uchatService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface LiveChatModuleProps {
   className?: string;
 }
 
 const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
+  const { user } = useAuth();
   const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'analytics'>('dashboard');
   const [selectedConversation, setSelectedConversation] = useState<UChatConversation | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -38,6 +40,9 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
     closedConversations: 0,
     handoffRate: 0
   });
+  
+  // Determinar si el usuario puede ver configuración (solo admin)
+  const canViewSettings = user?.role_name === 'admin';
 
   useEffect(() => {
     loadMetrics();
@@ -179,16 +184,18 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
               >
                 Analíticas
               </button>
-              <button
-                onClick={() => setActiveView('settings')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeView === 'settings'
-                    ? 'bg-slate-100 dark:bg-gray-700 text-slate-900 dark:text-white'
-                    : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                Configuración
-              </button>
+              {canViewSettings && (
+                <button
+                  onClick={() => setActiveView('settings')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    activeView === 'settings'
+                      ? 'bg-slate-100 dark:bg-gray-700 text-slate-900 dark:text-white'
+                      : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Configuración
+                </button>
+              )}
             </nav>
           </div>
         </div>

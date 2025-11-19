@@ -1,5 +1,61 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión B2.0.0-N6.0.0 - Log Monitor: Mejoras de UI y Seguimiento de Usuarios (Enero 2025)
+
+### 🎯 **RELEASE BETA - Mejoras en Dashboard de Logs**
+
+#### 🎨 **Mejoras de Interfaz de Usuario**
+- **Columna de Actividad**: Nueva columna en datagrid con indicadores visuales para logs con anotaciones y análisis de IA
+- **Columna de Fecha**: Restaurada columna de fecha ordenable en el datagrid
+- **Indicadores visuales**: Iconos pequeños (mensaje azul para anotaciones, bombilla morada para análisis IA) con tooltips informativos
+- **Optimización de espacio**: Layout mejorado con columnas más eficientes
+
+#### 👥 **Seguimiento de Usuarios en Actividades**
+- **Información de usuarios**: Carga y visualización de nombres completos y emails en lugar de IDs
+- **Cache de usuarios**: Sistema de cache para evitar consultas redundantes a System UI
+- **Anotaciones mejoradas**: Muestra nombre completo o email del usuario que creó cada anotación
+- **Análisis de IA**: Muestra quién solicitó cada análisis de IA
+- **Tab "Mis Actividades"**: Nueva pestaña para visualizar logs donde el usuario ha comentado o solicitado análisis
+- **Filtros de actividad**: Filtros para ver solo comentarios, solo análisis, o ambos
+
+#### 🐛 **Correcciones**
+- **Error 409 al guardar análisis**: Corregido manejo de análisis duplicados, ahora actualiza en lugar de insertar
+- **Análisis mostrándose en todos los logs**: Corregido bug donde el mismo análisis aparecía en múltiples logs
+- **Filtrado en "Mis Actividades"**: Corregido para mostrar solo logs donde el usuario realmente ha intervenido
+- **Carga de nombres de usuario**: Implementada función `getUserInfo()` para obtener información desde System UI
+
+#### 📍 **Módulos Modificados**
+
+##### **LogDashboard.tsx** (`src/components/admin/LogDashboard.tsx`)
+- Nueva columna "Actividad" con indicadores visuales
+- Columna "Fecha" restaurada y ordenable
+- Tab "Mis Actividades" con filtros de actividad
+- Cache de información de usuarios (`userInfoCache`)
+- Limpieza de datos al cambiar de log o cerrar modal
+- Mejoras en visualización de anotaciones y análisis
+
+##### **logMonitorService.ts** (`src/services/logMonitorService.ts`)
+- Nueva función `getUserInfo()` para obtener información de usuarios desde System UI
+- Métodos `getLogsWithUserAnnotations()` y `getLogsWithUserAIAnalysis()` mejorados
+- Corrección en `saveAIAnalysis()` para actualizar en lugar de insertar cuando existe
+- Inclusión de `ui_error_log_annotations` en consultas para indicadores
+- Campos `has_annotations` y `has_ai_analysis` agregados a logs procesados
+
+#### ✅ **Beneficios**
+- ✅ Visualización clara de qué logs tienen actividad del usuario
+- ✅ Información de usuarios legible (nombres en lugar de IDs)
+- ✅ Mejor organización con tab dedicada para actividades del usuario
+- ✅ Sin errores al guardar análisis duplicados
+- ✅ Indicadores visuales intuitivos para actividad en logs
+
+#### 📝 **Archivos Modificados**
+- `src/components/admin/LogDashboard.tsx` - Mejoras de UI y seguimiento de usuarios
+- `src/services/logMonitorService.ts` - Función getUserInfo y correcciones
+- `src/components/Footer.tsx` - Versión actualizada a B2.0.0-N6.0.0
+- `package.json` - Versión actualizada a B2.0.0-N6.0.0
+
+---
+
 ## 🔧 Versión Beta 1.0.0-beta.8.2.0 - Log Monitor: Proxy Edge Function y Manejo de Duplicados (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Sistema de Análisis de IA para Logs de Errores**

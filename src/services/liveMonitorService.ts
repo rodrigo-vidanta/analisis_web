@@ -284,14 +284,23 @@ class LiveMonitorService {
     }
   }
 
+  // Cache para auto-corrección (evitar ejecutar en cada carga)
+  private lastAutoFixTime: number = 0;
+  private readonly AUTO_FIX_INTERVAL = 60000; // 1 minuto
+
   /**
    * Obtener llamadas recientes (activas + finalizadas) desde llamadas_ventas con datos del prospecto
    * @param userId - ID del usuario para aplicar filtros de permisos (opcional)
    */
   async getActiveCalls(userId?: string): Promise<LiveCallData[]> {
     try {
-      // Auto-corregir llamadas problemáticas antes de obtener los datos
-      await this.autoFixFailedCalls();
+      // Auto-corregir llamadas problemáticas solo si ha pasado suficiente tiempo
+      const now = Date.now();
+      if (now - this.lastAutoFixTime > this.AUTO_FIX_INTERVAL) {
+        // Ejecutar en background sin bloquear la carga
+        this.autoFixFailedCalls().catch(() => {});
+        this.lastAutoFixTime = now;
+      }
       
       // Construir query base
       let query = analysisSupabase
@@ -327,17 +336,22 @@ class LiveMonitorService {
           coordinacion_id
         `);
 
+      // Cachear filtros de permisos para evitar múltiples llamadas
+      let coordinacionesFilter: string[] | null = null;
+      let ejecutivoFilter: string | null = null;
+      
       // Aplicar filtros de permisos si hay userId
       if (userId) {
-        const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
-        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+        coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+        ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
 
         if (ejecutivoFilter) {
           // Ejecutivo: filtrar por ejecutivo_id del prospecto (necesita JOIN)
           // Por ahora, filtramos después de obtener los datos
-        } else if (coordinacionFilter) {
-          // Coordinador: filtrar por coordinacion_id directamente en llamadas_ventas
-          query = query.eq('coordinacion_id', coordinacionFilter);
+        } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+          // Coordinador: filtrar por coordinacion_id directamente en llamadas_ventas (múltiples coordinaciones)
+          // Excluir llamadas sin coordinación asignada
+          query = query.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
         }
         // Admin: sin filtros
       }
@@ -354,15 +368,9 @@ class LiveMonitorService {
           .from('llamadas_ventas')
           .select(`call_id, call_status, fecha_llamada, prospecto, coordinacion_id`);
 
-        // Aplicar filtros de permisos también en fallback
-        if (userId) {
-          const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
-          const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
-
-          if (coordinacionFilter) {
-            fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionFilter);
-          }
-          // Ejecutivo se filtra después con prospectos
+        // Aplicar filtros de permisos también en fallback (usar cache)
+        if (userId && coordinacionesFilter && coordinacionesFilter.length > 0) {
+          fallbackQuery = fallbackQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
         }
 
         const fallback = await fallbackQuery
@@ -387,22 +395,22 @@ class LiveMonitorService {
 
       let prospectosData: any[] = [];
       if (prospectIds.length > 0) {
+        // Optimizar: seleccionar solo campos necesarios en lugar de '*'
+        // Nota: temperatura_prospecto no existe en la tabla, se elimina de la consulta
         let prospectQuery = analysisSupabase
           .from('prospectos')
-          .select('*')
+          .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa, observaciones, tamano_grupo, destino_preferencia, ciudad_residencia, email, edad, viaja_con, cantidad_menores, updated_at, estado_civil, interes_principal, campana_origen, coordinacion_id, ejecutivo_id')
           .in('id', prospectIds as string[]);
 
-        // Aplicar filtros de permisos si hay userId
+        // Aplicar filtros de permisos usando cache
         if (userId) {
-          const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
-          const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
-
           if (ejecutivoFilter) {
             // Ejecutivo: solo sus prospectos asignados
             prospectQuery = prospectQuery.eq('ejecutivo_id', ejecutivoFilter);
-          } else if (coordinacionFilter) {
-            // Coordinador: todos los prospectos de su coordinación
-            prospectQuery = prospectQuery.eq('coordinacion_id', coordinacionFilter);
+          } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+            // Coordinador: todos los prospectos de sus coordinaciones (múltiples)
+            // Excluir prospectos sin coordinación asignada
+            prospectQuery = prospectQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
           }
           // Admin: sin filtros
         }
@@ -512,37 +520,38 @@ class LiveMonitorService {
         };
       });
       
-      // Enriquecer con nombres de coordinación y ejecutivo
-      const enrichedData = await Promise.all(
-        combinedData.map(async (call) => {
-          let coordinacionInfo = null;
-          let ejecutivoInfo = null;
-          
-          if (call.coordinacion_id) {
-            try {
-              coordinacionInfo = await coordinacionService.getCoordinacionById(call.coordinacion_id);
-            } catch (error) {
-              console.warn('Error obteniendo coordinación:', error);
-            }
-          }
-          
-          if (call.ejecutivo_id) {
-            try {
-              ejecutivoInfo = await coordinacionService.getEjecutivoById(call.ejecutivo_id);
-            } catch (error) {
-              console.warn('Error obteniendo ejecutivo:', error);
-            }
-          }
-          
-          return {
-            ...call,
-            coordinacion_codigo: coordinacionInfo?.codigo,
-            coordinacion_nombre: coordinacionInfo?.nombre,
-            ejecutivo_nombre: ejecutivoInfo?.full_name,
-            ejecutivo_email: ejecutivoInfo?.email,
-          };
-        })
-      );
+      // OPTIMIZACIÓN: Enriquecer con nombres usando batch queries
+      const coordinacionIds = new Set<string>();
+      const ejecutivoIds = new Set<string>();
+      
+      combinedData.forEach(call => {
+        if (call.coordinacion_id) coordinacionIds.add(call.coordinacion_id);
+        if (call.ejecutivo_id) ejecutivoIds.add(call.ejecutivo_id);
+      });
+      
+      // Obtener todas las coordinaciones y ejecutivos en batch
+      const [coordinacionesMap, ejecutivosMap] = await Promise.all([
+        coordinacionIds.size > 0 
+          ? coordinacionService.getCoordinacionesByIds(Array.from(coordinacionIds))
+          : Promise.resolve(new Map()),
+        ejecutivoIds.size > 0
+          ? coordinacionService.getEjecutivosByIds(Array.from(ejecutivoIds))
+          : Promise.resolve(new Map())
+      ]);
+      
+      // Enriquecer datos usando los maps (O(1) lookup)
+      const enrichedData = combinedData.map((call) => {
+        const coordinacionInfo = call.coordinacion_id ? coordinacionesMap.get(call.coordinacion_id) : null;
+        const ejecutivoInfo = call.ejecutivo_id ? ejecutivosMap.get(call.ejecutivo_id) : null;
+        
+        return {
+          ...call,
+          coordinacion_codigo: coordinacionInfo?.codigo,
+          coordinacion_nombre: coordinacionInfo?.nombre,
+          ejecutivo_nombre: ejecutivoInfo?.full_name,
+          ejecutivo_email: ejecutivoInfo?.email,
+        };
+      });
       
       return enrichedData;
     } catch (error) {

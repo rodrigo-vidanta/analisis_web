@@ -45,3 +45,12 @@ echo ""
 echo "Verificar cloud-init:"
 echo "  sudo tail -100 /var/log/cloud-init-output.log"
 
+
+
+
+
+
+
+
+
+

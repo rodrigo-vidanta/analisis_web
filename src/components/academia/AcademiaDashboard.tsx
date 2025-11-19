@@ -312,8 +312,6 @@ const AcademiaDashboard: React.FC = () => {
     </div>
   );
 
-  // Debug del estado actual
-  console.log('🔍 Estado actual Dashboard:', { currentView, selectedLevelId, user: user?.email });
 
   // Renderizado condicional
   if (currentView === 'level' && selectedLevelId) {

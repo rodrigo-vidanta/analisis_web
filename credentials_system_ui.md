@@ -32,3 +32,39 @@ Control de versiones de prompts en workflows n8n con:
 - Control de cambios
 - Métricas de rendimiento (éxito vs fallo)
 - Calificación automática de modificaciones
+
+---
+
+# Log Monitor Database Credentials
+
+## Supabase Database
+- **URL**: postgresql://postgres:tM8KO9@i&yG#%!Lg@db.dffuwdzybhypxfzrmdcz.supabase.co:5432/postgres
+- **Project**: dffuwdzybhypxfzrmdcz
+- **API Key**: system_ui
+- **Secret**: sb_secret_LGrLFU7rvlTpXoIoD0AcWA_ULdhgqlF
+- **Publishable Key**: sb_publishable_54tYDJIqPcKMt26kjS2ylA_tIBeTyG9
+
+## Supabase Keys
+- **Anon Public**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZnV3ZHp5Ymh5cHhmenJtZGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4NTgxNTksImV4cCI6MjA3NTQzNDE1OX0.dduh8ZV_vxWcC3u63DGjPG0U5DDjBpZTs3yjT3clkRc
+- **Service Role**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZnV3ZHp5Ymh5cHhmenJtZGN6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTg1ODE1OSwiZXhwIjoyMDc1NDM0MTU5fQ.GplT_sFvgkLjNDNg50MaXVI759u8LAMeS9SbJ6pf2yc
+
+## Propósito
+Base de datos dedicada para el sistema de monitoreo de logs de errores:
+- Almacenamiento centralizado de logs de errores del sistema
+- Dashboard de visualización y gestión de logs
+- Sistema de anotaciones y etiquetas
+- Análisis de IA a demanda usando Claude (Anthropic)
+- Estado de lectura y priorización de logs
+- Estadísticas y métricas en tiempo real
+
+## Tablas Principales
+- `error_log`: Logs de errores del sistema
+- `ui_error_log_status`: Estado de lectura y prioridad
+- `ui_error_log_annotations`: Anotaciones y observaciones
+- `ui_error_log_tags`: Etiquetas personalizadas
+- `ui_error_log_ai_analysis`: Análisis de IA generados
+
+## Configuración en Código
+- **Archivo**: `src/config/supabaseLogMonitor.ts`
+- **Servicio**: `src/services/logMonitorService.ts`
+- **Componente Dashboard**: `src/components/admin/LogDashboard.tsx`

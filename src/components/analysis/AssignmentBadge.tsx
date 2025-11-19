@@ -26,7 +26,10 @@ export const AssignmentBadge: React.FC<AssignmentBadgeProps> = ({
   const isEjecutivo = user?.role_name === 'ejecutivo';
 
   // Determinar qué mostrar según el rol
-  const showCoordinacion = isAdmin || isEjecutivo;
+  // Administrador: ve ambas (coordinación y ejecutivo)
+  // Coordinador: ve solo ejecutivo
+  // Ejecutivo: no ve etiquetas (mantiene vista actual)
+  const showCoordinacion = isAdmin;
   const showEjecutivo = isAdmin || isCoordinador;
 
   // Si no hay información de asignación, no mostrar nada
@@ -51,15 +54,23 @@ export const AssignmentBadge: React.FC<AssignmentBadgeProps> = ({
   }
 
   if (variant === 'compact') {
+    // Si no hay nada que mostrar según el rol, retornar null
+    const hasCoordinacion = showCoordinacion && call.coordinacion_codigo;
+    const hasEjecutivo = showEjecutivo && call.ejecutivo_nombre;
+    
+    if (!hasCoordinacion && !hasEjecutivo) {
+      return null;
+    }
+    
     return (
       <div className={`flex items-center gap-1 flex-wrap text-xs ${className}`}>
-        {showCoordinacion && call.coordinacion_codigo && (
+        {hasCoordinacion && (
           <div className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${getCoordinacionColor(call.coordinacion_codigo).bg} ${getCoordinacionColor(call.coordinacion_codigo).text}`}>
             <Users className="w-3 h-3 mr-1" />
             {call.coordinacion_codigo}
           </div>
         )}
-        {showEjecutivo && call.ejecutivo_nombre && (
+        {hasEjecutivo && (
           <div className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
             <User className="w-3 h-3 mr-1" />
             {call.ejecutivo_nombre.split(' ')[0]}

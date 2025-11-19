@@ -16,13 +16,16 @@
  */
 
 import React, { useState } from 'react';
-import { Check, Phone, Clock, TrendingUp, AlertCircle } from 'lucide-react';
+import { Check, Phone, Clock, TrendingUp, AlertCircle, MapPin, Users, Calendar, Heart } from 'lucide-react';
 import type { LiveCallData } from '../../services/liveMonitorService';
+import { AssignmentBadge } from './AssignmentBadge';
+import { ProspectAvatar } from './ProspectAvatar';
 
 interface KanbanCall extends LiveCallData {
   checkpoint_venta_actual?: string;
   composicion_familiar_numero?: number;
   destino_preferido?: string;
+  destino_preferencia?: string | string[];
   preferencia_vacaciones?: string[];
   numero_noches?: number;
   mes_preferencia?: string;
@@ -33,6 +36,8 @@ interface KanbanCall extends LiveCallData {
   principales_objeciones?: string;
   resumen_llamada?: string;
   conversacion_completa?: any;
+  datos_proceso?: any;
+  tamano_grupo?: number;
 }
 
 interface DataGridProps {
@@ -127,11 +132,8 @@ export const LiveMonitorDataGrid: React.FC<DataGridProps> = ({ calls, title, onC
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-slate-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/3">
                 Cliente
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Teléfono
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Checkpoint
@@ -153,7 +155,7 @@ export const LiveMonitorDataGrid: React.FC<DataGridProps> = ({ calls, title, onC
           <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
             {calls.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                   <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No hay llamadas en esta sección</p>
                 </td>
@@ -165,11 +167,11 @@ export const LiveMonitorDataGrid: React.FC<DataGridProps> = ({ calls, title, onC
                   className="hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
                   onClick={() => onCallClick(call)}
                 >
-                  {/* Cliente con Avatar */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
+                  {/* Cliente con Avatar e Información Dinámica */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-start gap-3">
                       <div
-                        className="relative w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-semibold text-sm transition-all"
+                        className="relative transition-all flex-shrink-0"
                         onMouseEnter={() => setHoveredCallId(call.id)}
                         onMouseLeave={() => setHoveredCallId(null)}
                         onClick={(e) => {
@@ -178,36 +180,92 @@ export const LiveMonitorDataGrid: React.FC<DataGridProps> = ({ calls, title, onC
                         }}
                       >
                         {hoveredCallId === call.id ? (
-                          <Check className="w-6 h-6" />
+                          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white">
+                            <Check className="w-6 h-6" />
+                          </div>
                         ) : (
-                          <span>
-                            {(call.nombre_completo || call.nombre_whatsapp || 'N/A')
-                              .split(' ')
-                              .map(n => n[0])
-                              .join('')
-                              .substring(0, 2)
-                              .toUpperCase()}
-                          </span>
+                          <ProspectAvatar
+                            nombreCompleto={call.nombre_completo}
+                            nombreWhatsapp={call.nombre_whatsapp}
+                            size="md"
+                          />
                         )}
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        {/* Nombre */}
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
                           {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
                         </span>
-                        {call.ciudad && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {call.ciudad}
-                          </span>
+                        
+                        {/* Teléfono */}
+                        {call.whatsapp && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 mb-1">
+                            <Phone className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{call.whatsapp}</span>
+                          </div>
                         )}
+                        
+                        {/* Destino */}
+                        {(call.destino_preferido || call.destino_preferencia) && (
+                          <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 mb-1">
+                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate font-medium">
+                              {call.destino_preferido?.replace(/_/g, ' ') || 
+                               (Array.isArray(call.destino_preferencia) ? call.destino_preferencia.join(', ') : call.destino_preferencia)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Información de Asignación */}
+                        {(call.coordinacion_codigo || call.ejecutivo_nombre) && (
+                          <div className="mt-1 mb-1">
+                            <AssignmentBadge call={call} variant="compact" />
+                          </div>
+                        )}
+                        
+                        {/* Información adicional en línea */}
+                        <div className="flex items-center gap-3 flex-wrap mt-1">
+                          {/* Grupo familiar */}
+                          {(() => {
+                            let numeroPersonas = null;
+                            try {
+                              const datosProc = typeof call.datos_proceso === 'string' 
+                                ? JSON.parse(call.datos_proceso) 
+                                : call.datos_proceso;
+                              numeroPersonas = datosProc?.numero_personas || call.composicion_familiar_numero || call.tamano_grupo;
+                            } catch (e) {
+                              numeroPersonas = call.composicion_familiar_numero || call.tamano_grupo;
+                            }
+                            
+                            return numeroPersonas ? (
+                              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                <Users className="w-3 h-3" />
+                                <span className="font-semibold">{numeroPersonas}p</span>
+                              </div>
+                            ) : null;
+                          })()}
+                          
+                          {/* Mes preferencia */}
+                          {call.mes_preferencia && (
+                            <div className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400">
+                              <Calendar className="w-3 h-3" />
+                              <span className="font-medium">Mes {call.mes_preferencia}</span>
+                            </div>
+                          )}
+                          
+                          {/* Preferencia de vacaciones */}
+                          {call.preferencia_vacaciones && call.preferencia_vacaciones.length > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
+                              <Heart className="w-3 h-3" />
+                              <span className="truncate font-medium max-w-[100px]">
+                                {Array.isArray(call.preferencia_vacaciones) 
+                                  ? call.preferencia_vacaciones.join(', ') 
+                                  : call.preferencia_vacaciones}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-
-                  {/* Teléfono */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      {call.whatsapp || 'N/A'}
                     </div>
                   </td>
 

@@ -12,6 +12,7 @@ import {
   User, Phone, MessageSquare, MapPin
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { AssignmentBadge } from '../analysis/AssignmentBadge';
 
 interface Prospecto {
   id: string;
@@ -31,11 +32,18 @@ interface Prospecto {
   created_at?: string;
   updated_at?: string;
   fecha_ultimo_mensaje?: string;
+  coordinacion_id?: string;
+  ejecutivo_id?: string;
+  coordinacion_codigo?: string;
+  coordinacion_nombre?: string;
+  ejecutivo_nombre?: string;
+  ejecutivo_email?: string;
 }
 
 interface ProspectosKanbanProps {
   prospectos: Prospecto[];
   onProspectoClick: (prospecto: Prospecto) => void;
+  onProspectoContextMenu?: (e: React.MouseEvent, prospecto: Prospecto) => void;
   collapsedColumns?: string[];
   onToggleColumnCollapse: (columnId: string) => void;
   getStatusColor: (etapa: string) => string;
@@ -97,6 +105,7 @@ const getCheckpointForEtapa = (etapa?: string): CheckpointKey => {
 const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   prospectos,
   onProspectoClick,
+  onProspectoContextMenu,
   collapsedColumns = [],
   onToggleColumnCollapse,
   getScoreColor
@@ -214,6 +223,12 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     return (
       <div
         onClick={() => onProspectoClick(prospecto)}
+        onContextMenu={(e) => {
+          if (onProspectoContextMenu) {
+            e.preventDefault();
+            onProspectoContextMenu(e, prospecto);
+          }
+        }}
         className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 mb-2"
       >
         {/* Nombre */}
@@ -250,6 +265,21 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
             </div>
           )}
         </div>
+
+        {/* Información de asignación */}
+        {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+          <div className="mb-2">
+            <AssignmentBadge
+              call={{
+                coordinacion_codigo: prospecto.coordinacion_codigo,
+                coordinacion_nombre: prospecto.coordinacion_nombre,
+                ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                ejecutivo_email: prospecto.ejecutivo_email
+              } as any}
+              variant="compact"
+            />
+          </div>
+        )}
 
         {/* Score y última actividad */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/50">

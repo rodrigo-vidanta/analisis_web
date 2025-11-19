@@ -50,6 +50,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    strictPort: true, // Falla si el puerto está ocupado en lugar de usar otro
     allowedHosts: [
       'healthcheck.railway.app',
       '.railway.app',

@@ -40,6 +40,55 @@
   background-color: #64748b;
 }
 
+/* Scrollbar oculta pero funcional */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Scrollbar super fina y minimalista para Live Chat */
+.scrollbar-ultra-thin {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent; /* thumb color track color */
+}
+
+.scrollbar-ultra-thin::-webkit-scrollbar {
+  width: 3px; /* Super fina - solo 3px */
+  height: 3px;
+}
+
+.scrollbar-ultra-thin::-webkit-scrollbar-track {
+  background: transparent; /* Track completamente transparente */
+  border-radius: 3px;
+}
+
+.scrollbar-ultra-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3); /* Muy sutil en modo claro */
+  border-radius: 3px;
+  border: none;
+}
+
+.scrollbar-ultra-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.5); /* Ligeramente más visible al hover */
+}
+
+/* Dark mode para scrollbar ultra fina */
+.dark .scrollbar-ultra-thin {
+  scrollbar-color: rgba(71, 85, 105, 0.4) transparent; /* thumb color track color */
+}
+
+.dark .scrollbar-ultra-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.4); /* Muy sutil en modo oscuro */
+}
+
+.dark .scrollbar-ultra-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(71, 85, 105, 0.6); /* Ligeramente más visible al hover */
+}
+
 /* ============================================ */
 /* PALETA HOMOLOGADA PARA UI CORPORATIVA */
 /* ============================================ */

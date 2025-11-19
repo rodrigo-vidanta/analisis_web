@@ -108,3 +108,12 @@ echo ""
 echo "Información guardada en: /home/ubuntu/supabase-info.txt"
 echo "Para ver las keys: cat /home/ubuntu/supabase-info.txt"
 
+
+
+
+
+
+
+
+
+

@@ -5,7 +5,7 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authService, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
-import { pqncSupabase as supabase } from '../config/pqncSupabase';
+import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
 
 // Tipos para el contexto
 interface AuthContextType extends AuthState {
@@ -43,8 +43,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   });
   const [showLoginAnimation, setShowLoginAnimation] = useState(false);
 
-  console.log('🔄 AuthProvider inicializando...', { isLoading: authState.isLoading, isAuthenticated: authState.isAuthenticated });
-
   // Inicializar autenticación al cargar la aplicación
   useEffect(() => {
     initializeAuth();
@@ -70,36 +68,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función de login
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     try {
-      console.log('🚀 AUTH - Iniciando login con:', { email: credentials.email, hasPassword: !!credentials.password });
-      
       // Mostrar animación de login
       setShowLoginAnimation(true);
       
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
       
-      console.log('🔄 AUTH - Llamando authService.login...');
       const state = await authService.login(credentials);
-      
-      console.log('📊 AUTH - Resultado del login:', {
-        isAuthenticated: state.isAuthenticated,
-        hasUser: !!state.user,
-        userEmail: state.user?.email,
-        error: state.error
-      });
       
       setAuthState(state);
       
-      if (state.isAuthenticated) {
-        console.log('✅ AUTH - Login exitoso, usuario autenticado');
-      } else {
-        console.warn('❌ AUTH - Login falló:', state.error);
+      if (!state.isAuthenticated) {
         // Si falla el login, ocultar la animación
         setShowLoginAnimation(false);
       }
       
       return state.isAuthenticated;
     } catch (error) {
-      console.error('💥 AUTH - Error en login:', error);
+      console.error('Error en login:', error);
       setAuthState(prev => ({
         ...prev,
         isLoading: false,
@@ -138,7 +123,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Función para manejar el completado de la animación
   const handleLoginAnimationComplete = () => {
-    console.log('🚀 AUTH - Animación de login completada');
     setShowLoginAnimation(false);
   };
 
@@ -179,11 +163,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const loadEvaluatorPermissions = async () => {
       if (authState.user?.role_name === 'evaluator') {
         try {
-          console.log('🔍 Cargando permisos de evaluador desde BD...');
-          
           // TEMPORAL: Usar consulta directa hasta que RPC incluya live_monitor
-          console.log('🔍 Consultando permisos directamente desde BD...');
-          
           // Consultar permisos desde auth_user_permissions directamente
           const { data: userPermissions, error: permError } = await supabase
             .from('auth_user_permissions')
@@ -191,13 +171,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             .eq('user_id', authState.user.id);
 
           if (permError) {
-            console.error('❌ Error consultando permisos directos:', permError);
             // Fallback a localStorage
             const permissionsKey = `evaluator_permissions_${authState.user.email}`;
             const savedPermissions = localStorage.getItem(permissionsKey);
             if (savedPermissions) {
               const permData = JSON.parse(savedPermissions);
-              console.log('🔄 Usando fallback localStorage:', permData);
               setEvaluatorPermissions({
                 natalia: permData.natalia_access || false,
                 pqnc: permData.pqnc_access || false,
@@ -215,18 +193,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               p.permission_name === 'live_monitor.access'
             ) || false;
             
-            console.log('✅ Permisos cargados desde BD (consulta directa):', {
-              natalia: nataliaAccess,
-              pqnc: pqncAccess,
-              live_monitor: liveMonitorAccess,
-              raw_permissions: userPermissions
-            });
-            
-            console.log('🔍 DETALLE PERMISOS ENCONTRADOS:');
-            userPermissions?.forEach(p => {
-              console.log(`  - ${p.permission_name} | ${p.module} | ${p.sub_module || 'null'}`);
-            });
-            
             setEvaluatorPermissions({
               natalia: nataliaAccess,
               pqnc: pqncAccess,
@@ -239,7 +205,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               const savedPermissions = localStorage.getItem(permissionsKey);
               if (savedPermissions) {
                 const permData = JSON.parse(savedPermissions);
-                console.log('🔄 Combinando con localStorage:', permData);
                 setEvaluatorPermissions(prev => ({
                   natalia: prev?.natalia || permData.natalia_access || false,
                   pqnc: prev?.pqnc || permData.pqnc_access || false,
@@ -249,7 +214,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           }
         } catch (e) {
-          console.error('❌ Error general cargando permisos:', e);
+          // Error silencioso - los permisos se manejan con fallback
         }
       }
     };
@@ -274,16 +239,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Vendedores tienen acceso a Live Monitor
     if (authState.user.role_name === 'vendedor') return true;
     
+    // Coordinadores tienen acceso a Live Monitor (ven todas las llamadas de su coordinación)
+    if (authState.user.role_name === 'coordinador') return true;
+    
+    // Ejecutivos tienen acceso a Live Monitor (solo ven llamadas de sus prospectos asignados)
+    if (authState.user.role_name === 'ejecutivo') return true;
+    
     // Evaluators: usar permisos cargados desde BD
     if (authState.user.role_name === 'evaluator') {
-      console.log('👤 Usuario es EVALUATOR, verificando permisos...');
-      
       if (evaluatorPermissions) {
-        console.log('✅ Usando permisos cargados desde BD:', evaluatorPermissions);
-        console.log('🎯 RESULTADO Live Monitor:', evaluatorPermissions.live_monitor);
         return evaluatorPermissions.live_monitor;
       } else {
-        console.log('⏳ Permisos de evaluator aún cargando desde BD...');
         // Fallback temporal a localStorage mientras cargan los permisos
         const permissionsKey = `evaluator_permissions_${authState.user.email}`;
         const savedPermissions = localStorage.getItem(permissionsKey);
@@ -302,7 +268,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     
     // Otros roles no tienen acceso por defecto
-    console.log('❌ Usuario sin acceso a Live Monitor:', authState.user.role_name);
     return false;
   };
 

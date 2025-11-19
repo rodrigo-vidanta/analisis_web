@@ -15,7 +15,8 @@
  *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, startTransition } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 // import Chart from 'chart.js/auto';
 import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
@@ -28,6 +29,8 @@ import FeedbackTooltip from './FeedbackTooltip';
 import { bookmarkService, type BookmarkColor, type BookmarkData } from '../../services/bookmarkService';
 import BookmarkSelector from './BookmarkSelector';
 import BookmarkFilter from './BookmarkFilter';
+// Iconos
+import { X, FileText } from 'lucide-react';
 
 // Interfaces para los datos de PQNC
 interface CallRecord {
@@ -162,26 +165,21 @@ const PQNCDashboard: React.FC = () => {
   // TEMPORAL: Consultar tipos de call_result únicos
   const queryUniqueCallResults = async () => {
     try {
-      console.log('🔍 Consultando tipos únicos de call_result...');
       const { data, error } = await pqncSupabaseAdmin
         .from('calls')
         .select('call_result')
         .not('call_result', 'is', null);
       
       if (error) {
-        console.error('❌ Error consultando call_result:', error);
+        console.error('Error consultando call_result:', error);
         return;
       }
       
+      // Solo para uso interno, sin logs
       const uniqueResults = [...new Set(data.map(item => item.call_result))].sort();
-      console.log('📊 TIPOS ÚNICOS DE CALL_RESULT ENCONTRADOS:');
-      uniqueResults.forEach((result, index) => {
-        console.log(`${index + 1}. "${result}"`);
-      });
-      console.log(`\n📈 Total de tipos diferentes: ${uniqueResults.length}`);
       
     } catch (err) {
-      console.error('❌ Error en consulta:', err);
+      console.error('Error en consulta:', err);
     }
   };
 
@@ -193,15 +191,11 @@ const PQNCDashboard: React.FC = () => {
     // Configurar sincronización automática
     if (autoSyncEnabled) {
       const intervalId = setInterval(() => {
-        console.log('🔄 Sincronización automática ejecutándose...');
         syncNewRecords();
       }, syncInterval * 1000);
       
-      console.log(`⏱️ Sincronización automática configurada cada ${syncInterval} segundos`);
-      
       return () => {
         clearInterval(intervalId);
-        // Sincronización automática detenida (silencioso)
       };
     }
   }, [autoSyncEnabled, syncInterval]);
@@ -223,10 +217,8 @@ const PQNCDashboard: React.FC = () => {
 
   // Las métricas globales son independientes de los datos filtrados
 
-  // Aplicar filtros
-  useEffect(() => {
-    applyFilters();
-  }, [calls, searchQuery, dateFrom, dateTo, agentFilter, qualityFilter, resultFilter, organizationFilter, callTypeFilter, directionFilter, customerQualityFilter, requiresFollowupFilter, durationRangeFilter, qualityScoreRangeFilter, hasAudioFilter, serviceOfferedFilter, bookmarkFilter, bookmarkMap, ponderacionConfig]);
+  // NOTA: Los filtros ahora se aplican automáticamente mediante useMemo (computedFilteredCalls)
+  // Este useEffect ya no es necesario, pero se mantiene comentado por compatibilidad
 
   // Ajustar itemsPerPage cuando cambie topRecords
   useEffect(() => {
@@ -247,8 +239,6 @@ const PQNCDashboard: React.FC = () => {
     let offset = 0;
 
     while (hasMore) {
-      console.log(`📦 Cargando lote ${Math.floor(offset / BATCH_SIZE) + 1} (registros ${offset + 1}-${offset + BATCH_SIZE})`);
-      
       const { data, error } = await baseQuery
         .range(offset, offset + BATCH_SIZE - 1);
 
@@ -258,7 +248,6 @@ const PQNCDashboard: React.FC = () => {
 
       if (data && data.length > 0) {
         allRecords = [...allRecords, ...data];
-        console.log(`📊 Registros acumulados: ${allRecords.length}`);
         
         // Si recibimos menos de BATCH_SIZE registros, hemos llegado al final
         hasMore = data.length === BATCH_SIZE;
@@ -272,14 +261,10 @@ const PQNCDashboard: React.FC = () => {
   };
 
   const loadCalls = async (forceReload = false) => {
-    console.log('🚀 INICIANDO loadCalls...');
     setLoading(true);
     setError(null);
 
     try {
-      
-      console.log(`🔍 Cargando llamadas - Top ${topRecords === 999999 ? 'TODOS' : topRecords}`);
-      
       // Construir la consulta base
       let countQuery = pqncSupabaseAdmin
         .from('calls')
@@ -306,15 +291,13 @@ const PQNCDashboard: React.FC = () => {
       // Sin filtros complejos - carga simple y directa
 
       // Obtener conteo con filtros aplicados
-      console.log('📊 Ejecutando consulta de conteo...');
       const { count, error: countError } = await countQuery;
 
       if (countError) {
-        console.error('❌ Error obteniendo conteo:', countError);
+        console.error('Error obteniendo conteo:', countError);
         throw countError;
       } else {
         setTotalRecords(count || 0);
-        console.log(`📊 Registros en rango: ${count || 0}`);
       }
 
       // Cargar según topRecords seleccionado
@@ -322,16 +305,13 @@ const PQNCDashboard: React.FC = () => {
       
       if (topRecords >= 3000) {
         // Para 3K, 5K y TODOS, usar paginación automática para superar límite de Supabase
-        console.log(`📊 Cargando ${topRecords === 999999 ? 'TODOS' : topRecords} registros con paginación automática`);
         const baseQuery = dataQuery.order('start_time', { ascending: false });
         const allData = await fetchAllRecords(baseQuery);
         
         // Si es un límite específico (3K o 5K), cortar al límite solicitado
         data = topRecords === 999999 ? allData : allData.slice(0, topRecords);
-        console.log(`🗃️ Total de registros cargados desde BD:`, data.length);
       } else {
         // Para 1K, usar consulta normal (más eficiente)
-        console.log(`📊 Cargando ${topRecords} registros`);
         const { data: limitedData, error: fetchError } = await dataQuery
           .order('start_time', { ascending: false })
           .limit(topRecords);
@@ -341,27 +321,21 @@ const PQNCDashboard: React.FC = () => {
         }
         
         data = limitedData || [];
-        console.log(`🗃️ Registros cargados desde BD:`, data.length);
       }
 
-      console.log('✅ Datos cargados, estableciendo estado...');
       setCalls(data || []);
       setLastSyncTime(new Date().toISOString());
       
-      console.log('🔄 Cargando servicios adicionales...');
       // OPTIMIZACIÓN: Cargar feedback y bookmarks solo para primeros 100 registros
       if (data && data.length > 0) {
         const firstBatch = data.slice(0, 100).map(call => call.id);
         loadFeedbacksForCalls(firstBatch);
         loadBookmarksForCalls(firstBatch);
       }
-      
-      console.log('🎉 LoadCalls completado exitosamente');
     } catch (err) {
-      console.error('❌ Error loading calls:', err);
+      console.error('Error loading calls:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
-      console.log('🏁 Finalizando loadCalls, setLoading(false)');
       setLoading(false);
     }
   };
@@ -383,7 +357,6 @@ const PQNCDashboard: React.FC = () => {
 
   // RETROALIMENTACIÓN: Callback para actualizar feedback cuando se guarda desde DetailedCallView
   const handleFeedbackChange = (callId: string, feedbackData: FeedbackData | null) => {
-    console.log('🔄 Actualizando feedback en dashboard para llamada:', callId);
     
     const newFeedbackMap = new Map(feedbackMap);
     if (feedbackData) {
@@ -437,16 +410,19 @@ const PQNCDashboard: React.FC = () => {
   };
 
   // SORTING: Función para manejar el ordenamiento de columnas
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      // Si es la misma columna, cambiar dirección
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Si es columna diferente, establecer nueva columna y dirección descendente por defecto
-      setSortField(field);
-      setSortDirection('desc');
-    }
-  };
+  const handleSort = useCallback((field: string) => {
+    // ✅ OPTIMIZACIÓN: Usar startTransition para actualizaciones no críticas
+    startTransition(() => {
+      if (sortField === field) {
+        // Si es la misma columna, cambiar dirección
+        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+        // Si es columna diferente, establecer nueva columna y dirección descendente por defecto
+        setSortField(field);
+        setSortDirection('desc');
+      }
+    });
+  }, [sortField, sortDirection]);
 
   // SORTING: Función para aplicar ordenamiento a las llamadas
   const applySorting = (callsToSort: CallRecord[]): CallRecord[] => {
@@ -548,12 +524,10 @@ const PQNCDashboard: React.FC = () => {
   // Función de sincronización inteligente que conserva el estado actual
   const syncNewRecords = async () => {
     if (!lastSyncTime) {
-      console.log('🔄 Primera sincronización, cargando todos los datos...');
       return loadCalls();
     }
 
     try {
-      console.log('🔄 Sincronización en segundo plano (conservando filtros y página)...');
       
       // Guardar estado actual antes de sincronizar (para conservar después)
       const savedCurrentPage = currentPage;
@@ -640,92 +614,84 @@ const PQNCDashboard: React.FC = () => {
     }
   };
 
-  // Función de búsqueda inteligente
-  const performIntelligentSearch = (query: string, callsToFilter: CallRecord[]) => {
+  // Función de búsqueda inteligente - optimizada con useCallback
+  const performIntelligentSearch = useCallback((query: string, callsToFilter: CallRecord[]) => {
     if (!query || query.trim().length < 2) return callsToFilter;
 
     const searchTerm = query.toLowerCase().trim();
-    let filtered = [...callsToFilter];
+    const allMatches = new Set<string>();
 
-    // 1. Búsqueda directa en campos principales
-    const directMatches = filtered.filter(call =>
-      call.id.toLowerCase().includes(searchTerm) ||
-      call.agent_name?.toLowerCase().includes(searchTerm) ||
-      call.customer_name?.toLowerCase().includes(searchTerm) ||
-      call.organization?.toLowerCase().includes(searchTerm) ||
-      call.call_type?.toLowerCase().includes(searchTerm) ||
-      call.call_result?.toLowerCase().includes(searchTerm) ||
-      call.customer_quality?.toLowerCase().includes(searchTerm)
-    );
+    // Optimización: una sola pasada en lugar de múltiples filtros
+    for (const call of callsToFilter) {
+      let matches = false;
 
-    // 2. Búsqueda en resumen de llamadas
-    const summaryMatches = filtered.filter(call =>
-      call.call_summary?.toLowerCase().includes(searchTerm)
-    );
+      // 1. Búsqueda directa en campos principales (más rápido)
+      if (
+        call.id.toLowerCase().includes(searchTerm) ||
+        call.agent_name?.toLowerCase().includes(searchTerm) ||
+        call.customer_name?.toLowerCase().includes(searchTerm) ||
+        call.organization?.toLowerCase().includes(searchTerm) ||
+        call.call_type?.toLowerCase().includes(searchTerm) ||
+        call.call_result?.toLowerCase().includes(searchTerm) ||
+        call.customer_quality?.toLowerCase().includes(searchTerm) ||
+        call.call_summary?.toLowerCase().includes(searchTerm)
+      ) {
+        matches = true;
+      }
 
-    // 3. Búsqueda por patrones de lenguaje natural
-    const naturalLanguageMatches = filtered.filter(call => {
-      // Detectar patrones comunes
-      if (searchTerm.includes('venta') || searchTerm.includes('exitosa') || searchTerm.includes('conversion')) {
-        const result = call.call_result?.toLowerCase().includes('venta') || 
-                      call.call_result?.toLowerCase().includes('exitosa');
-        if (result) {
-          console.log(`🔍 [BÚSQUEDA] Encontrada venta: ${call.id} - ${call.call_result}`);
+      // 2. Búsqueda por patrones de lenguaje natural (solo si no encontró match directo)
+      if (!matches) {
+        if (searchTerm.includes('venta') || searchTerm.includes('exitosa') || searchTerm.includes('conversion')) {
+          matches = call.call_result?.toLowerCase().includes('venta') || 
+                   call.call_result?.toLowerCase().includes('exitosa') || false;
+        } else if (searchTerm.includes('no interesado') || searchTerm.includes('rechazo')) {
+          matches = call.call_result?.toLowerCase().includes('no_interesado') ||
+                   call.call_result?.toLowerCase().includes('rechazo') || false;
+        } else if (searchTerm.includes('elite') || searchTerm.includes('premium') || searchTerm.includes('calidad alta')) {
+          matches = call.customer_quality === 'Q_ELITE' || call.customer_quality === 'Q_PREMIUM';
+        } else if (searchTerm.includes('problemas') || searchTerm.includes('reto') || searchTerm.includes('dificil')) {
+          matches = call.customer_quality === 'Q_RETO';
+        } else if (searchTerm.includes('larga') || searchTerm.includes('duracion')) {
+          const duration = parseFloat(call.duration) || 0;
+          matches = duration > 300;
+        } else if (searchTerm.includes('corta') || searchTerm.includes('rapida')) {
+          const duration = parseFloat(call.duration) || 0;
+          matches = duration < 120;
         }
-        return result;
       }
-      if (searchTerm.includes('no interesado') || searchTerm.includes('rechazo')) {
-        return call.call_result?.toLowerCase().includes('no_interesado') ||
-               call.call_result?.toLowerCase().includes('rechazo');
+
+      if (matches) {
+        allMatches.add(call.id);
       }
-      if (searchTerm.includes('elite') || searchTerm.includes('premium') || searchTerm.includes('calidad alta')) {
-        return call.customer_quality === 'Q_ELITE' || call.customer_quality === 'Q_PREMIUM';
-      }
-      if (searchTerm.includes('problemas') || searchTerm.includes('reto') || searchTerm.includes('dificil')) {
-        return call.customer_quality === 'Q_RETO';
-      }
-      if (searchTerm.includes('larga') || searchTerm.includes('duracion')) {
-        const duration = parseFloat(call.duration) || 0;
-        return duration > 300; // Más de 5 minutos
-      }
-      if (searchTerm.includes('corta') || searchTerm.includes('rapida')) {
-        const duration = parseFloat(call.duration) || 0;
-        return duration < 120; // Menos de 2 minutos
-      }
-      return false;
+    }
+
+    // Retornar solo los que coinciden
+    return callsToFilter.filter(call => allMatches.has(call.id));
+  }, []);
+
+  // Memoizar scores calculados para evitar recalcular en cada sort
+  const callScoresCache = useMemo(() => {
+    const cache = new Map<string, number>();
+    calls.forEach(call => {
+      cache.set(call.id, calcularQualityScorePonderado(call, ponderacionConfig));
     });
+    return cache;
+  }, [calls, ponderacionConfig]);
 
-    // 4. Combinar resultados únicos
-    const allMatches = new Set([
-      ...directMatches.map(call => call.id),
-      ...summaryMatches.map(call => call.id),
-      ...naturalLanguageMatches.map(call => call.id)
-    ]);
-
-    return filtered.filter(call => allMatches.has(call.id));
-  };
-
-  const applyFilters = () => {
+  // Función de filtrado optimizada con useMemo
+  const computedFilteredCalls = useMemo(() => {
     let filtered = [...calls];
-
-    console.log(`🔍 [FILTROS] Iniciando filtrado. Total registros: ${calls.length}`);
-    console.log(`🔍 [FILTROS] Filtros activos:`, {
-      searchQuery: !!searchQuery,
-      agentFilter: !!agentFilter,
-      qualityFilter: !!qualityFilter,
-      resultFilter: !!resultFilter,
-      organizationFilter: !!organizationFilter,
-      bookmarkFilter: !!bookmarkFilter
-    });
 
     // PRIMERO aplicar todos los filtros, LUEGO la búsqueda inteligente sobre el resultado
     
-    // Filtros de fecha opcionales
+    // Filtros de fecha opcionales - optimizado: crear Date objects una sola vez
     if (dateFrom) {
-      filtered = filtered.filter(call => new Date(call.start_time) >= new Date(dateFrom));
+      const dateFromObj = new Date(dateFrom);
+      filtered = filtered.filter(call => new Date(call.start_time) >= dateFromObj);
     }
     if (dateTo) {
-      filtered = filtered.filter(call => new Date(call.start_time) <= new Date(dateTo));
+      const dateToObj = new Date(dateTo);
+      filtered = filtered.filter(call => new Date(call.start_time) <= dateToObj);
     }
 
     // Filtros básicos
@@ -737,52 +703,40 @@ const PQNCDashboard: React.FC = () => {
       filtered = filtered.filter(call => call.quality_score >= min && call.quality_score <= max);
     }
     if (resultFilter) {
-      console.log(`🔍 [FILTRO] Aplicando filtro de resultado: "${resultFilter}"`);
-      const beforeCount = filtered.length;
-      
-      // Mejorar filtro para manejar variaciones
+      const filterValue = resultFilter.toLowerCase().trim();
       filtered = filtered.filter(call => {
         if (!call.call_result) return false;
-        
-        // Normalizar para comparación
         const callResult = call.call_result.toLowerCase().trim();
-        const filterValue = resultFilter.toLowerCase().trim();
-        
-        // Búsqueda exacta O parcial para flexibilidad
         return callResult === filterValue || callResult.includes(filterValue);
       });
-      
-      const afterCount = filtered.length;
-      console.log(`🔍 [FILTRO] Resultado: ${beforeCount} → ${afterCount} registros`);
-      
-      if (afterCount === 0 && beforeCount > 0) {
-        console.warn(`⚠️ [FILTRO] Filtro "${resultFilter}" no produjo resultados. Valores únicos en BD:`, 
-          [...new Set(calls.map(c => c.call_result).filter(Boolean))].slice(0, 10)
-        );
-      }
     }
     if (organizationFilter) {
       filtered = filtered.filter(call => call.organization && call.organization === organizationFilter);
     }
 
-    // BOOKMARKS: Filtro por color de marcador
+    // BOOKMARKS: Filtro por color de marcador - optimizado con Set
     if (bookmarkFilter && user) {
-      const bookmarkedCallIds = Array.from(bookmarkMap.entries())
-        .filter(([_, bookmark]) => bookmark.bookmark_color === bookmarkFilter)
-        .map(([callId, _]) => callId);
+      const bookmarkedCallIds = new Set(
+        Array.from(bookmarkMap.entries())
+          .filter(([_, bookmark]) => bookmark.bookmark_color === bookmarkFilter)
+          .map(([callId, _]) => callId)
+      );
       
-      filtered = filtered.filter(call => bookmarkedCallIds.includes(call.id));
+      filtered = filtered.filter(call => bookmarkedCallIds.has(call.id));
     }
 
-    // Filtros adicionales avanzados
+    // Filtros adicionales avanzados - optimizados con Set para búsqueda O(1)
     if (callTypeFilter.length > 0) {
-      filtered = filtered.filter(call => call.call_type && callTypeFilter.includes(call.call_type));
+      const callTypeSet = new Set(callTypeFilter);
+      filtered = filtered.filter(call => call.call_type && callTypeSet.has(call.call_type));
     }
     if (directionFilter.length > 0) {
-      filtered = filtered.filter(call => call.direction && directionFilter.includes(call.direction));
+      const directionSet = new Set(directionFilter);
+      filtered = filtered.filter(call => call.direction && directionSet.has(call.direction));
     }
     if (customerQualityFilter.length > 0) {
-      filtered = filtered.filter(call => call.customer_quality && customerQualityFilter.includes(call.customer_quality));
+      const qualitySet = new Set(customerQualityFilter);
+      filtered = filtered.filter(call => call.customer_quality && qualitySet.has(call.customer_quality));
     }
 
     // Nuevos filtros adicionales
@@ -797,9 +751,9 @@ const PQNCDashboard: React.FC = () => {
       filtered = filtered.filter(call => {
         const duration = parseFloat(call.duration) || 0;
         switch (durationRangeFilter) {
-          case 'short': return duration < 120; // Menos de 2 minutos
-          case 'medium': return duration >= 120 && duration <= 600; // 2-10 minutos
-          case 'long': return duration > 600; // Más de 10 minutos
+          case 'short': return duration < 120;
+          case 'medium': return duration >= 120 && duration <= 600;
+          case 'long': return duration > 600;
           default: return true;
         }
       });
@@ -820,9 +774,10 @@ const PQNCDashboard: React.FC = () => {
     }
 
     if (serviceOfferedFilter.length > 0) {
+      const serviceSet = new Set(serviceOfferedFilter);
       filtered = filtered.filter(call => {
         const services = call.service_offered?.services || [];
-        return serviceOfferedFilter.some(service => services.includes(service));
+        return services.some(service => serviceSet.has(service));
       });
     }
 
@@ -831,40 +786,47 @@ const PQNCDashboard: React.FC = () => {
       filtered = performIntelligentSearch(searchQuery, filtered);
     }
 
-    // NOTA: Se eliminaron los filtros automáticos de widgets para evitar restricciones ocultas
-    // Los widgets son solo para visualización, no deberían filtrar automáticamente los datos
-
-    // Ordenar por score ponderado descendente
-    
-    // Verificar si hay registros con scores inválidos
-    const invalidScores = filtered.filter(call => {
-      const score = calcularQualityScorePonderado(call, ponderacionConfig);
-      return isNaN(score) || score === undefined || score === null;
-    });
-    
-    if (invalidScores.length > 0) {
-      console.log('⚠️ Registros con scores inválidos:', invalidScores.length);
-    }
-    
+    // Ordenar por score ponderado descendente - usar cache de scores
     filtered.sort((a, b) => {
-      const scoreA = calcularQualityScorePonderado(a, ponderacionConfig);
-      const scoreB = calcularQualityScorePonderado(b, ponderacionConfig);
+      const scoreA = callScoresCache.get(a.id) ?? calcularQualityScorePonderado(a, ponderacionConfig);
+      const scoreB = callScoresCache.get(b.id) ?? calcularQualityScorePonderado(b, ponderacionConfig);
       return scoreB - scoreA;
     });
     
-    setFilteredCalls(filtered);
+    return filtered;
+  }, [
+    calls, 
+    searchQuery, 
+    dateFrom, 
+    dateTo, 
+    agentFilter, 
+    qualityFilter, 
+    resultFilter, 
+    organizationFilter, 
+    callTypeFilter, 
+    directionFilter, 
+    customerQualityFilter, 
+    requiresFollowupFilter, 
+    durationRangeFilter, 
+    qualityScoreRangeFilter, 
+    hasAudioFilter, 
+    serviceOfferedFilter, 
+    bookmarkFilter, 
+    bookmarkMap, 
+    user,
+    ponderacionConfig,
+    callScoresCache,
+    performIntelligentSearch
+  ]);
+
+  // Aplicar filtros y actualizar estado cuando cambien los resultados computados
+  useEffect(() => {
+    setFilteredCalls(computedFilteredCalls);
     setCurrentPage(1);
-    
-    console.log(`✅ [FILTROS] Filtrado completado: ${calls.length} → ${filtered.length} registros`);
-    
-    if (filtered.length === 0 && calls.length > 0) {
-      console.warn(`⚠️ [FILTROS] Sin resultados. Revisar filtros activos.`);
-    }
-  };
+  }, [computedFilteredCalls]);
 
   const loadTranscript = async (callId: string) => {
     try {
-      console.log('🔍 Cargando transcripción para call ID:', callId);
       
       const { data, error } = await pqncSupabaseAdmin
         .from('call_segments')
@@ -873,14 +835,13 @@ const PQNCDashboard: React.FC = () => {
         .order('segment_index', { ascending: true });
 
       if (error) {
-        console.error('❌ Error en consulta call_segments:', error);
+        console.error('Error en consulta call_segments:', error);
         throw error;
       }
       
-      console.log('📋 Segmentos encontrados:', data?.length || 0);
       setTranscript(data || []);
     } catch (err) {
-      console.error('❌ Error loading transcript:', err);
+      console.error('Error loading transcript:', err);
       setError('Error al cargar la transcripción');
     }
   };
@@ -893,8 +854,6 @@ const PQNCDashboard: React.FC = () => {
 
   const loadDetailedCallData = async (callId: string): Promise<CallRecord | null> => {
     try {
-      console.log('🔍 Cargando datos detallados para llamada:', callId);
-      
       const { data, error } = await pqncSupabaseAdmin
         .from('calls')
         .select(`
@@ -923,34 +882,30 @@ const PQNCDashboard: React.FC = () => {
         .single();
 
       if (error) {
-        console.warn('⚠️ Error cargando datos detallados, usando datos básicos:', error);
         return null;
       }
 
-      console.log('📊 Datos detallados cargados:', {
-        id: data.id,
-        agent_performance: !!data.agent_performance,
-        call_evaluation: !!data.call_evaluation,
-        compliance_data: !!data.compliance_data,
-        customer_data: !!data.customer_data
-      });
-
       return data;
     } catch (err) {
-      console.error('❌ Error cargando datos detallados:', err);
+      console.error('Error cargando datos detallados:', err);
       return null;
     }
   };
 
   const openDetailedView = async (call: CallRecord) => {
-    console.log('🔍 Abriendo vista detallada para llamada:', call.id, call.agent_name);
-    
-    // Cargar datos detallados o usar los básicos si falla
-    const detailedCall = await loadDetailedCallData(call.id) || call;
-    
-    setSelectedCallForDetail(detailedCall);
+    // ✅ OPTIMIZACIÓN: Abrir modal inmediatamente (feedback visual rápido)
+    setSelectedCallForDetail(call); // Usar datos básicos primero
     setShowDetailedView(true);
-    await loadTranscript(call.id);
+    
+    // ✅ OPTIMIZACIÓN: Cargar datos pesados de forma asíncrona (no bloquea click)
+    startTransition(async () => {
+      // Cargar datos detallados en background
+      const detailedCall = await loadDetailedCallData(call.id) || call;
+      setSelectedCallForDetail(detailedCall);
+      
+      // Cargar transcripción después (más pesado)
+      await loadTranscript(call.id);
+    });
   };
 
   const closeDetailedView = () => {
@@ -975,7 +930,6 @@ const PQNCDashboard: React.FC = () => {
   // Función optimizada para cargar métricas globales de TODA la BD (sin filtros)
   const loadGlobalMetrics = async () => {
     try {
-      console.log('📊 Cargando métricas globales de TODA la base de datos...');
       
       // 1. CONSULTA OPTIMIZADA: Solo contar registros totales
       const { count: totalCount, error: countError } = await pqncSupabaseAdmin
@@ -983,7 +937,7 @@ const PQNCDashboard: React.FC = () => {
         .select('*', { count: 'exact', head: true });
 
       if (countError) {
-        console.error('❌ Error obteniendo conteo total:', countError);
+        console.error('Error obteniendo conteo total:', countError);
         return;
       }
 
@@ -999,12 +953,10 @@ const PQNCDashboard: React.FC = () => {
         .not('duration', 'is', null);
 
       if (metricsError) {
-        console.error('❌ Error cargando métricas:', metricsError);
+        console.error('Error cargando métricas:', metricsError);
         return;
       }
 
-      console.log(`🔍 Total registros en BD: ${totalCount || 0}`);
-      console.log(`🔍 Registros con métricas: ${metricsData?.length || 0}`);
 
       if (!metricsData || metricsData.length === 0) {
         setGlobalMetrics({
@@ -1061,13 +1013,8 @@ const PQNCDashboard: React.FC = () => {
       };
 
       setGlobalMetrics(newMetrics);
-      console.log(`✅ Métricas globales cargadas:`);
-      console.log(`   📊 Total llamadas: ${newMetrics.totalCalls.toLocaleString()}`);
-      console.log(`   ⭐ Score ponderado: ${newMetrics.avgQualityPonderada.toFixed(1)}`);
-      console.log(`   ⏱️ Duración promedio: ${Math.floor(newMetrics.avgDuration / 60)}:${String(Math.floor(newMetrics.avgDuration % 60)).padStart(2, '0')}`);
-
     } catch (error) {
-      console.error('💥 Error en loadGlobalMetrics:', error);
+      console.error('Error en loadGlobalMetrics:', error);
     }
   };
 
@@ -1075,7 +1022,6 @@ const PQNCDashboard: React.FC = () => {
   const calculateGeneralMetrics = () => {
     // Si no hay métricas globales cargadas, usar datos locales como fallback
     if (globalMetrics.totalCalls === 0 && calls.length > 0) {
-      console.log('⚠️ Usando fallback local para métricas');
       const totalCalls = calls.length;
       
       // Cálculos simples con datos locales
@@ -1720,14 +1666,20 @@ const PQNCDashboard: React.FC = () => {
                   ))
                 ) : (
                   paginatedCalls.map((call) => {
-                  const scorePonderado = calcularQualityScorePonderado(call, ponderacionConfig);
+                  // ✅ OPTIMIZACIÓN: Memoizar cálculos pesados usando cache de scores
+                  const scorePonderado = callScoresCache.get(call.id) ?? calcularQualityScorePonderado(call, ponderacionConfig);
                   const probConversion = calcularProbabilidadConversion(call, ponderacionConfig);
                   
                   return (
                     <tr 
                       key={call.id} 
                       className="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors"
-                      onClick={() => openDetailedView(call)}
+                      onClick={() => {
+                        // ✅ OPTIMIZACIÓN: Diferir handler pesado
+                        startTransition(() => {
+                          openDetailedView(call);
+                        });
+                      }}
                     >
                       <td className="px-4 py-4 text-sm font-medium text-slate-900 dark:text-white truncate">
                         <div className="truncate" title={call.agent_name}>
@@ -2019,117 +1971,175 @@ const PQNCDashboard: React.FC = () => {
         </div>
 
       {/* Modal de Transcripción */}
-      {showTranscriptModal && selectedCall && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-slate-500 opacity-75"></div>
-            </div>
-
-            <div className="inline-block align-bottom bg-white dark:bg-slate-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full max-w-6xl">
-              <div className="bg-white dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-slate-900 dark:text-white">
-                    Transcripción de Llamada - {selectedCall.agent_name}
-                  </h3>
-                  <button
+      <AnimatePresence>
+        {showTranscriptModal && selectedCall && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+            onClick={() => setShowTranscriptModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden"
+            >
+              {/* Header */}
+              <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <motion.h2
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-2xl font-bold text-gray-900 dark:text-white mb-1 flex items-center"
+                    >
+                      <FileText className="w-6 h-6 mr-3 text-blue-500" />
+                      Transcripción de Llamada
+                    </motion.h2>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                    >
+                      Agente: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedCall.agent_name}</span>
+                    </motion.p>
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Cliente</span>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{selectedCall.customer_name}</p>
+                      </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.25 }}
+                      >
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Resultado</span>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{selectedCall.call_result}</p>
+                      </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 }}
+                      >
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Calidad</span>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{selectedCall.quality_score}</p>
+                      </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.35 }}
+                      >
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Duración</span>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{selectedCall.duration}</p>
+                      </motion.div>
+                    </div>
+                  </div>
+                  <motion.button
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    transition={{ delay: 0.4 }}
                     onClick={() => setShowTranscriptModal(false)}
-                    className="text-slate-400 hover:text-slate-500 dark:hover:text-slate-300"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group ml-4 flex-shrink-0"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium text-slate-600 dark:text-slate-400">Cliente:</span>
-                    <p className="text-slate-900 dark:text-white">{selectedCall.customer_name}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-slate-600 dark:text-slate-400">Resultado:</span>
-                    <p className="text-slate-900 dark:text-white">{selectedCall.call_result}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-slate-600 dark:text-slate-400">Calidad:</span>
-                    <p className="text-slate-900 dark:text-white">{selectedCall.quality_score}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-slate-600 dark:text-slate-400">Duración:</span>
-                    <p className="text-slate-900 dark:text-white">{selectedCall.duration}</p>
-                  </div>
+                    <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                  </motion.button>
                 </div>
               </div>
 
-              <div className="max-h-96 overflow-y-auto p-6 space-y-4">
+              {/* Contenido */}
+              <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent px-8 py-6 space-y-4">
                 {transcript.length > 0 ? (
                   transcript.map((segment, index) => (
-                    <div key={segment.id} className="border-l-4 border-blue-200 dark:border-blue-700 pl-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                    <motion.div
+                      key={segment.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 * index }}
+                      className="border-l-4 border-blue-500 dark:border-blue-600 pl-5 pr-4 py-3 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-900/10 dark:to-transparent rounded-r-xl hover:shadow-sm transition-shadow"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2 flex-wrap">
+                          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
                             Segmento {segment.segment_index}
                           </span>
                           {segment.etapa_script && (
-                            <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
-                              {segment.etapa_script}
+                            <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full capitalize">
+                              {segment.etapa_script.replace('_', ' ')}
                             </span>
                           )}
                           {segment.quality_score && (
-                            <span className={`text-xs font-medium px-2 py-1 rounded ${
-                              segment.quality_score >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                              segment.quality_score >= 80 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
                               segment.quality_score >= 60 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
                               'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                             }`}>
-                              {segment.quality_score}
+                              Q: {segment.quality_score}
                             </span>
                           )}
                         </div>
                       </div>
-                      <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
                         {segment.text}
                       </p>
                       {(segment.tecnicas_rapport || segment.tipos_discovery || segment.tipos_objeciones) && (
-                        <div className="mt-2 flex flex-wrap gap-1">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {segment.tecnicas_rapport?.map(tecnica => (
-                            <span key={tecnica} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded">
-                              🤝 {tecnica}
+                            <span key={tecnica} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-full font-medium">
+                              🤝 {tecnica.replace('_', ' ')}
                             </span>
                           ))}
                           {segment.tipos_discovery?.map(tipo => (
-                            <span key={tipo} className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded">
-                              🔍 {tipo}
+                            <span key={tipo} className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full font-medium">
+                              🔍 {tipo.replace('_', ' ')}
                             </span>
                           ))}
                           {segment.tipos_objeciones?.map(tipo => (
-                            <span key={tipo} className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded">
-                              ⚠️ {tipo}
+                            <span key={tipo} className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-3 py-1 rounded-full font-medium">
+                              ⚠️ {tipo.replace('_', ' ')}
                             </span>
                           ))}
                         </div>
                       )}
-                    </div>
+                    </motion.div>
                   ))
                 ) : (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-slate-500 dark:text-slate-400">Cargando transcripción...</p>
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center py-16"
+                  >
+                    <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+                    <p className="text-gray-500 dark:text-gray-400">Cargando transcripción...</p>
+                  </motion.div>
                 )}
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-700 px-6 py-3">
-                <button
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setShowTranscriptModal(false)}
-                  className="w-full px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg shadow-blue-500/25"
                 >
                   Cerrar
-                </button>
+                </motion.button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Vista Detallada */}
       {showDetailedView && selectedCallForDetail && (

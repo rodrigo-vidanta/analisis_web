@@ -1,5 +1,30 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.0.0-N6.0.0 (Enero 2025) - Log Monitor: Mejoras de UI y Seguimiento de Usuarios
+
+### 🔧 RELEASE BETA - Mejoras en Dashboard de Logs
+
+#### Interfaz de Usuario
+- **Columna de Actividad**: Indicadores visuales para logs con anotaciones y análisis de IA
+- **Columna de Fecha**: Restaurada y ordenable
+- **Indicadores visuales**: Iconos con tooltips informativos
+
+#### Seguimiento de Usuarios
+- **Información de usuarios**: Nombres completos y emails en lugar de IDs
+- **Tab "Mis Actividades"**: Nueva pestaña para actividades del usuario
+- **Cache de usuarios**: Sistema eficiente de cache
+
+#### Correcciones
+- **Error 409**: Corregido manejo de análisis duplicados
+- **Análisis en múltiples logs**: Bug corregido
+- **Filtrado de actividades**: Corregido para mostrar solo logs relevantes
+
+#### Archivos Principales
+- `src/components/admin/LogDashboard.tsx` - Mejoras de UI
+- `src/services/logMonitorService.ts` - Función getUserInfo y correcciones
+
+---
+
 ## Versión Beta 1.0.0-beta.8.2.0 (Enero 2025) - Log Monitor: Proxy Edge Function y Manejo de Duplicados
 
 ### 🔧 RELEASE BETA - Sistema de Análisis de IA para Logs

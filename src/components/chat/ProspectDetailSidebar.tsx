@@ -3,7 +3,7 @@
 // 📝 Cambios: Documentar en src/components/chat/CHANGELOG_LIVECHAT.md
 // 📋 Verificación: Revisar CHANGELOG antes de modificar
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -23,10 +23,13 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  PhoneMissed
+  PhoneMissed,
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { CallDetailModal } from './CallDetailModal';
+import { AssignmentBadge } from '../analysis/AssignmentBadge';
+import { coordinacionService } from '../../services/coordinacionService';
+import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 
 interface CallHistory {
   call_id: string;
@@ -42,6 +45,7 @@ interface CallHistory {
   tiene_feedback: boolean;
   feedback_resultado: string;
 }
+
 
 interface ProspectData {
   id: string;
@@ -69,6 +73,12 @@ interface ProspectData {
   observaciones?: string;
   created_at?: string;
   updated_at?: string;
+  coordinacion_id?: string;
+  ejecutivo_id?: string;
+  coordinacion_codigo?: string;
+  coordinacion_nombre?: string;
+  ejecutivo_nombre?: string;
+  ejecutivo_email?: string;
 }
 
 interface ProspectDetailSidebarProps {
@@ -109,7 +119,34 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         .single();
 
       if (error) throw error;
-      setProspecto(data);
+
+      // Enriquecer con datos de coordinación y ejecutivo
+      let coordinacionInfo = null;
+      let ejecutivoInfo = null;
+
+      if (data.coordinacion_id) {
+        try {
+          coordinacionInfo = await coordinacionService.getCoordinacionById(data.coordinacion_id);
+        } catch (error) {
+          console.warn('Error obteniendo coordinación:', error);
+        }
+      }
+
+      if (data.ejecutivo_id) {
+        try {
+          ejecutivoInfo = await coordinacionService.getEjecutivoById(data.ejecutivo_id);
+        } catch (error) {
+          console.warn('Error obteniendo ejecutivo:', error);
+        }
+      }
+
+      setProspecto({
+        ...data,
+        coordinacion_codigo: coordinacionInfo?.codigo,
+        coordinacion_nombre: coordinacionInfo?.nombre,
+        ejecutivo_nombre: ejecutivoInfo?.full_name,
+        ejecutivo_email: ejecutivoInfo?.email
+      });
     } catch (error) {
       console.error('Error cargando datos del prospecto:', error);
     } finally {
@@ -152,6 +189,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
       setLoadingCalls(false);
     }
   };
+
 
   const handleOpenCallDetail = (callId: string) => {
     setSelectedCallId(callId);
@@ -224,14 +262,20 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <motion.div
+          key="prospect-sidebar-wrapper"
+          initial={false}
+          animate={false}
+          exit={false}
+          className="fixed inset-0 z-40 pointer-events-none"
+        >
           {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
           />
 
           {/* Sidebar */}
@@ -240,7 +284,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full w-[500px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col"
+            className="fixed right-0 top-0 h-full w-[500px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col pointer-events-auto"
           >
             {/* Header */}
             <motion.div 
@@ -400,6 +444,30 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   </div>
                 </motion.div>
 
+                {/* Información de Asignación */}
+                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.35, ease: "easeOut" }}
+                    className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 space-y-3 border border-purple-200 dark:border-purple-800"
+                  >
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Users size={18} className="text-purple-600 dark:text-purple-400" />
+                      Asignación
+                    </h3>
+                    <AssignmentBadge
+                      call={{
+                        coordinacion_codigo: prospecto.coordinacion_codigo,
+                        coordinacion_nombre: prospecto.coordinacion_nombre,
+                        ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                        ejecutivo_email: prospecto.ejecutivo_email
+                      } as any}
+                      variant="inline"
+                    />
+                  </motion.div>
+                )}
+
                 {/* Información Comercial */}
                 <motion.div 
                   initial={{ opacity: 0 }}
@@ -511,11 +579,18 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   </motion.div>
                 )}
 
+                {/* Llamadas Programadas */}
+                <ScheduledCallsSection
+                  prospectoId={prospectoId}
+                  prospectoNombre={prospecto?.nombre || prospecto?.nombre_whatsapp}
+                  delay={0.55}
+                />
+
                 {/* Historial de Llamadas */}
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.55, ease: "easeOut" }}
+                  transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
                   className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
                 >
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -529,10 +604,10 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                     </div>
                   ) : callHistory.length > 0 ? (
                     <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {callHistory.map((call) => (
+                      {callHistory.map((call, index) => (
                         <div 
-                          key={call.call_id}
-                          onClick={() => handleOpenCallDetail(call.call_id)}
+                          key={call.call_id || `call-${index}-${call.fecha_llamada}`}
+                          onClick={() => call.call_id && handleOpenCallDetail(call.call_id)}
                           className="bg-white dark:bg-gray-700 rounded-lg p-3 space-y-2 border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all"
                         >
                           <div className="flex items-center justify-between">
@@ -603,7 +678,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
+                  transition={{ duration: 0.3, delay: 0.65, ease: "easeOut" }}
                   className="space-y-3"
                 >
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -635,7 +710,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
               </div>
             )}
           </motion.div>
-        </>
+        </motion.div>
       )}
 
       {/* Modal de Detalle de Llamada */}

@@ -299,13 +299,14 @@ class AssignmentService {
         .select('id')
         .eq('prospect_id', prospectId)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (existingAssignment) {
-        // Actualizar asignación existente
+        // Actualizar asignación existente (incluyendo coordinación si cambió)
         await supabaseSystemUIAdmin
           .from('prospect_assignments')
           .update({
+            coordinacion_id: coordinacionId, // Actualizar coordinación también
             ejecutivo_id: ejecutivoId,
             assigned_by: assignedBy,
             assignment_type: 'manual',
@@ -335,8 +336,11 @@ class AssignmentService {
         reason: reason || 'Asignación manual',
       });
 
-      // Sincronizar con base de análisis
-      await this.syncProspectoEjecutivo(prospectId, ejecutivoId);
+      // Sincronizar con base de análisis (tanto coordinación como ejecutivo)
+      await Promise.all([
+        this.syncProspectoCoordinacion(prospectId, coordinacionId),
+        this.syncProspectoEjecutivo(prospectId, ejecutivoId)
+      ]);
 
       return {
         success: true,
@@ -349,6 +353,164 @@ class AssignmentService {
       return {
         success: false,
         message: 'Error al asignar prospecto manualmente',
+        error: error instanceof Error ? error.message : 'Error desconocido',
+      };
+    }
+  }
+
+  /**
+   * Desasigna un ejecutivo de un prospecto (mantiene la coordinación)
+   */
+  async unassignEjecutivoFromProspect(
+    prospectId: string,
+    assignedBy: string,
+    reason?: string
+  ): Promise<AssignmentResult> {
+    try {
+      // OPTIMIZACIÓN: Consultas en paralelo
+      const [prospectoResult, assignmentResult] = await Promise.all([
+        // Consulta 1: Verificar en prospectos (fuente de verdad)
+        analysisSupabase
+          .from('prospectos')
+          .select('ejecutivo_id, coordinacion_id')
+          .eq('id', prospectId)
+          .single(),
+        // Consulta 2: Obtener asignación actual en prospect_assignments
+        supabaseSystemUIAdmin
+          .from('prospect_assignments')
+          .select('*')
+          .eq('prospect_id', prospectId)
+          .eq('is_active', true)
+          .maybeSingle()
+      ]);
+
+      const { data: prospecto, error: prospectoError } = prospectoResult;
+      const { data: assignment, error: assignmentError } = assignmentResult;
+
+      if (prospectoError) {
+        // Error silenciado para no exponer información sensible
+        return {
+          success: false,
+          message: 'No se pudo encontrar el prospecto',
+          error: prospectoError.message,
+        };
+      }
+
+      if (!prospecto?.ejecutivo_id) {
+        return {
+          success: false,
+          message: 'Este prospecto no tiene ejecutivo asignado',
+        };
+      }
+
+      const ejecutivoIdToUnassign = prospecto.ejecutivo_id;
+      const coordinacionId = prospecto.coordinacion_id;
+
+      // OPTIMIZACIÓN: Actualizar ambas tablas en paralelo
+      const now = new Date().toISOString();
+      
+      // Preparar actualizaciones
+      const updatePromises: Promise<any>[] = [];
+
+      // Actualizar prospect_assignments
+      if (assignment) {
+        // Actualizar asignación existente
+        updatePromises.push(
+          supabaseSystemUIAdmin
+            .from('prospect_assignments')
+            .update({
+              ejecutivo_id: null,
+              coordinacion_id: coordinacionId || assignment.coordinacion_id,
+              updated_at: now,
+            })
+            .eq('id', assignment.id)
+        );
+      } else {
+        // Buscar cualquier asignación (activa o inactiva) o crear nueva
+        const { data: anyAssignment } = await supabaseSystemUIAdmin
+          .from('prospect_assignments')
+          .select('id')
+          .eq('prospect_id', prospectId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (anyAssignment) {
+          updatePromises.push(
+            supabaseSystemUIAdmin
+              .from('prospect_assignments')
+              .update({
+                coordinacion_id: coordinacionId,
+                ejecutivo_id: null,
+                is_active: true,
+                updated_at: now,
+              })
+              .eq('id', anyAssignment.id)
+          );
+        } else {
+          updatePromises.push(
+            supabaseSystemUIAdmin
+              .from('prospect_assignments')
+              .insert({
+                prospect_id: prospectId,
+                coordinacion_id: coordinacionId,
+                ejecutivo_id: null,
+                is_active: true,
+                assigned_at: now,
+              })
+          );
+        }
+      }
+
+      // Actualizar prospectos
+      updatePromises.push(
+        analysisSupabase
+          .from('prospectos')
+          .update({
+            ejecutivo_id: null,
+            assignment_date: now,
+          })
+          .eq('id', prospectId)
+      );
+
+      // Ejecutar actualizaciones en paralelo
+      const results = await Promise.all(updatePromises);
+      
+      // Verificar errores
+      for (const result of results) {
+        if (result.error) {
+          throw result.error;
+        }
+      }
+
+      // OPTIMIZACIÓN: Registrar log de forma asíncrona (no bloquea la respuesta)
+      (async () => {
+        try {
+          await supabaseSystemUIAdmin
+            .from('assignment_logs')
+            .insert({
+              prospect_id: prospectId,
+              coordinacion_id: coordinacionId,
+              ejecutivo_id: ejecutivoIdToUnassign,
+              action: 'unassigned',
+              assigned_by: assignedBy,
+              reason: reason || 'Desasignación manual de ejecutivo',
+            });
+        } catch {
+          // Log no crítico, no afecta la respuesta
+        }
+      })();
+
+      return {
+        success: true,
+        coordinacion_id: coordinacionId,
+        message: 'Ejecutivo desasignado exitosamente',
+      };
+    } catch (error) {
+      // Error silenciado para no exponer información sensible
+      return {
+        success: false,
+        message: 'Error al desasignar ejecutivo',
         error: error instanceof Error ? error.message : 'Error desconocido',
       };
     }

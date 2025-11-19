@@ -148,7 +148,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
         .from('call_analysis_summary')
         .select('*')
         .eq('call_id', callId)
-        .single();
+        .maybeSingle();
 
       // Cargar datos complementarios de llamadas_ventas
       const { data: llamadaData, error: llamadaError } = await analysisSupabase
@@ -220,16 +220,22 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <motion.div
+          key="call-detail-wrapper"
+          initial={false}
+          animate={false}
+          exit={false}
+          className="fixed inset-0 z-[200] pointer-events-none"
+        >
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[200]"
+            className="fixed inset-0 bg-black bg-opacity-50 pointer-events-auto"
             onClick={onClose}
           />
           
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
@@ -425,7 +431,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
               </div>
             </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );

@@ -27,6 +27,7 @@ import { ParaphraseModal } from '../chat/ParaphraseModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { AssignmentBadge } from './AssignmentBadge';
 import { ProspectAvatar } from './ProspectAvatar';
+import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 
 // Extender interfaz Prospect para incluir campos de llamada
 interface ExtendedProspect extends Prospect {
@@ -1037,7 +1038,9 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
           precio_ofertado,
           costo_total,
           tiene_feedback,
-          feedback_resultado
+          feedback_resultado,
+          datos_llamada,
+          audio_ruta_bucket
         `)
         .eq('prospecto', prospectoId)
         .order('fecha_llamada', { ascending: false });
@@ -1046,7 +1049,45 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
         return;
       }
 
-      setLlamadas(data || []);
+      // Filtrar llamadas "activas" que en realidad ya finalizaron
+      const llamadasFiltradas = (data || []).map(llamada => {
+        // Extraer razon_finalizacion de datos_llamada (JSONB)
+        const razonFinalizacion = llamada.datos_llamada?.razon_finalizacion || 
+                                  (typeof llamada.datos_llamada === 'string' 
+                                    ? JSON.parse(llamada.datos_llamada)?.razon_finalizacion 
+                                    : null);
+        
+        // Calcular antigüedad de la llamada (en horas)
+        const fechaLlamada = llamada.fecha_llamada ? new Date(llamada.fecha_llamada) : null;
+        const horasTranscurridas = fechaLlamada 
+          ? (Date.now() - fechaLlamada.getTime()) / (1000 * 60 * 60)
+          : 0;
+        
+        // Si tiene call_status 'activa' pero tiene razon_finalizacion o duracion_segundos > 0, 
+        // entonces ya finalizó y debe mostrarse como 'finalizada'
+        if (llamada.call_status === 'activa' && (razonFinalizacion || (llamada.duracion_segundos && llamada.duracion_segundos > 0))) {
+          return {
+            ...llamada,
+            call_status: 'finalizada'
+          };
+        }
+        
+        // Si tiene call_status 'activa' pero es muy antigua (> 2 horas) y no tiene duración ni audio,
+        // entonces probablemente falló y debe mostrarse como 'perdida'
+        if (llamada.call_status === 'activa' && 
+            horasTranscurridas > 2 && 
+            (!llamada.duracion_segundos || llamada.duracion_segundos === 0) && 
+            !llamada.audio_ruta_bucket) {
+          return {
+            ...llamada,
+            call_status: 'perdida'
+          };
+        }
+        
+        return llamada;
+      });
+
+      setLlamadas(llamadasFiltradas);
     } catch (error) {
     }
   };
@@ -1328,6 +1369,15 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                       {prospecto.observaciones}
                     </p>
                   </div>
+                )}
+
+                {/* Llamadas Programadas */}
+                {prospecto?.id && (
+                  <ScheduledCallsSection
+                    prospectoId={prospecto.id}
+                    prospectoNombre={prospecto.nombre_completo || prospecto.nombre_whatsapp}
+                    delay={0.5}
+                  />
                 )}
 
                 {/* Historial de Llamadas */}

@@ -1,0 +1,684 @@
+---
+alwaysApply: true
+---
+---
+alwaysApply: true
+---
+# Guía de Diseño de Modales - Clever Ideas AI Platform
+
+## 📋 Índice
+1. [Filosofía de Diseño](#filosofía-de-diseño)
+2. [Estructura del Modal](#estructura-del-modal)
+3. [Elementos de Diseño](#elementos-de-diseño)
+4. [Animaciones](#animaciones)
+5. [Componentes Reutilizables](#componentes-reutilizables)
+6. [Patrones de Código](#patrones-de-código)
+7. [Checklist de Implementación](#checklist-de-implementación)
+
+---
+
+## 🎨 Filosofía de Diseño
+
+### Principios Fundamentales
+- **Minimalismo Elegante**: Diseño limpio sin saturación visual
+- **Jerarquía Clara**: Secciones bien definidas con barras de color
+- **Interactividad Suave**: Animaciones sutiles que mejoran la UX sin distraer
+- **Consistencia Visual**: Uso de gradientes, sombras y espaciado uniforme
+- **Accesibilidad**: Contraste adecuado, estados de focus claros, labels descriptivos
+
+### Paleta de Colores por Sección
+```typescript
+// Información Personal
+from-blue-500 to-purple-500
+
+// Roles y Permisos
+from-purple-500 to-pink-500
+
+// Información Profesional
+from-emerald-500 to-teal-500
+
+// Fuentes de Análisis
+from-blue-500 to-cyan-500
+```
+
+---
+
+## 🏗️ Estructura del Modal
+
+### 1. Backdrop (Fondo)
+```tsx
+<motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  exit={{ opacity: 0 }}
+  transition={{ duration: 0.2 }}
+  className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+  onClick={handleClose}
+>
+```
+
+**Características:**
+- Opacidad: `bg-black/50` (50% de negro)
+- Blur: `backdrop-blur-md` (efecto de desenfoque)
+- Padding: `p-4` (espaciado en móvil)
+- Z-index: `z-50` (por encima de otros elementos)
+
+### 2. Contenedor Principal
+```tsx
+<motion.div
+  initial={{ opacity: 0, scale: 0.96, y: 10 }}
+  animate={{ opacity: 1, scale: 1, y: 0 }}
+  exit={{ opacity: 0, scale: 0.96, y: 10 }}
+  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+  className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
+>
+```
+
+**Características:**
+- Border radius: `rounded-2xl` (esquinas muy redondeadas)
+- Sombra: `shadow-2xl` (sombra grande y suave)
+- Ancho máximo: `max-w-3xl` (ajustable según contenido)
+- Altura máxima: `max-h-[92vh]` (deja espacio para padding)
+- Layout: `flex flex-col` (columna para header, contenido, footer)
+
+### 3. Header con Avatar
+```tsx
+<div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+  {/* Avatar con borde degradado */}
+  <motion.div
+    initial={{ scale: 0 }}
+    animate={{ scale: 1 }}
+    transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+    className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-0.5 shadow-lg"
+  >
+    <div className="w-full h-full rounded-2xl bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+      {/* Contenido del avatar */}
+    </div>
+  </motion.div>
+  
+  {/* Indicador de estado */}
+  <motion.div
+    initial={{ scale: 0 }}
+    animate={{ scale: 1 }}
+    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+    className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-white dark:border-gray-900 ${
+      isActive ? 'bg-emerald-500' : 'bg-gray-400'
+    } shadow-lg`}
+  />
+</div>
+```
+
+**Características:**
+- Padding: `px-8 pt-8 pb-6` (espaciado generoso)
+- Gradiente sutil en el fondo del header
+- Avatar: 64x64px (`w-16 h-16`) con borde degradado
+- Indicador de estado: círculo pequeño con borde blanco
+
+### 4. Contenido con Scroll
+```tsx
+<div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+  <form className="space-y-6">
+    {/* Secciones */}
+  </form>
+</div>
+```
+
+**Características:**
+- Scroll personalizado: `scrollbar-thin` con colores suaves
+- Espaciado vertical: `space-y-6` entre secciones
+- Padding horizontal: `px-8` (consistente con header)
+
+### 5. Footer con Botones
+```tsx
+<div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+  {/* Botones */}
+</div>
+```
+
+**Características:**
+- Fondo semi-transparente: `bg-gray-50/50`
+- Espaciado entre botones: `space-x-3`
+- Alineación: `justify-end` (botones a la derecha)
+
+---
+
+## 🎭 Elementos de Diseño
+
+### Barras de Sección (Section Dividers)
+```tsx
+<div className="flex items-center space-x-2 mb-4">
+  <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+    Nombre de la Sección
+  </h4>
+</div>
+```
+
+**Características:**
+- Barra vertical: `w-1 h-5` con gradiente
+- Texto: Uppercase, tracking amplio, tamaño pequeño
+- Espaciado: `mb-4` antes del contenido
+
+### Labels con Iconos
+```tsx
+<label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+  <svg className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="..." />
+  </svg>
+  <span>Label del Campo</span>
+</label>
+```
+
+**Características:**
+- Icono: 16x16px (`w-4 h-4`)
+- Color por defecto: `text-gray-400`
+- Transición de color: `group-focus-within:text-blue-500`
+- Stroke width: `1.5` (más delgado que el estándar)
+
+### Inputs Estilizados
+```tsx
+<input
+  type="text"
+  className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+  placeholder="Placeholder text"
+/>
+```
+
+**Características:**
+- Padding: `px-4 py-2.5` (más vertical que horizontal)
+- Border radius: `rounded-xl` (esquinas redondeadas)
+- Focus ring: `focus:ring-2 focus:ring-blue-500/20` (ring suave con opacidad)
+- Hover: `hover:border-gray-300` (cambio sutil de borde)
+- Transición: `transition-all duration-200`
+
+### Selects Personalizados
+```tsx
+<select
+  className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,...')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
+>
+```
+
+**Características:**
+- `appearance-none`: Elimina el estilo nativo
+- Flecha personalizada: SVG inline como background
+- Posición: `bg-[right_1rem_center]` (1rem desde la derecha)
+
+### Toggle Switch Elegante
+```tsx
+<label className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer transition-all duration-200 group">
+  <div className="flex items-center space-x-3">
+    <div className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
+      isActive ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'
+    }`}>
+      <motion.div
+        animate={{ x: isActive ? 24 : 0 }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
+      />
+    </div>
+    <div>
+      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        Label del Toggle
+      </span>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Descripción contextual
+      </p>
+    </div>
+  </div>
+  <input type="checkbox" className="sr-only" />
+</label>
+```
+
+**Características:**
+- Tamaño: `w-12 h-6` (48x24px)
+- Animación: Spring physics con `stiffness: 500, damping: 30`
+- Círculo interno: `w-5 h-5` con sombra
+- Descripción: Texto pequeño debajo del label
+
+### Checkboxes Personalizados
+```tsx
+<label className="relative flex items-center p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 group">
+  <input type="checkbox" className="sr-only" />
+  <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
+    isChecked
+      ? 'bg-blue-500 border-blue-500'
+      : 'border-gray-300 dark:border-gray-600 group-hover:border-blue-400'
+  }`}>
+    {isChecked && (
+      <motion.svg
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        className="w-3 h-3 text-white"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+      </motion.svg>
+    )}
+  </div>
+  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+    Label del Checkbox
+  </span>
+</label>
+```
+
+**Características:**
+- Borde: `border-2` (más grueso)
+- Border radius: `rounded-lg` (esquinas moderadas)
+- Check animado: Escala de 0 a 1
+- Stroke width del check: `3` (más grueso)
+
+### Botones con Gradiente
+```tsx
+<motion.button
+  whileHover={{ scale: 1.02 }}
+  whileTap={{ scale: 0.98 }}
+  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25"
+>
+  Contenido del Botón
+</motion.button>
+```
+
+**Características:**
+- Gradiente: `from-blue-600 to-purple-600`
+- Hover: Gradiente más oscuro
+- Sombra: `shadow-lg shadow-blue-500/25` (sombra coloreada)
+- Animaciones: Scale en hover/tap
+
+---
+
+## ✨ Animaciones
+
+### 1. Entrada del Modal (Backdrop + Container)
+```tsx
+// Backdrop
+initial={{ opacity: 0 }}
+animate={{ opacity: 1 }}
+exit={{ opacity: 0 }}
+transition={{ duration: 0.2 }}
+
+// Container
+initial={{ opacity: 0, scale: 0.96, y: 10 }}
+animate={{ opacity: 1, scale: 1, y: 0 }}
+exit={{ opacity: 0, scale: 0.96, y: 10 }}
+transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+```
+
+**Efecto:** Fade in + scale up + slide up sutil
+
+### 2. Avatar con Spring Animation
+```tsx
+initial={{ scale: 0 }}
+animate={{ scale: 1 }}
+transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+```
+
+**Efecto:** Aparece con efecto de resorte
+
+### 3. Elementos Escalonados (Stagger)
+```tsx
+// Sección completa
+initial={{ opacity: 0, y: 10 }}
+animate={{ opacity: 1, y: 0 }}
+transition={{ delay: 0.1 }}
+
+// Elementos dentro de la sección
+initial={{ opacity: 0, x: -10 }}
+animate={{ opacity: 1, x: 0 }}
+transition={{ delay: 0.15 }}
+
+// Siguiente elemento
+transition={{ delay: 0.2 }}
+```
+
+**Efecto:** Los elementos aparecen uno tras otro con delays incrementales
+
+### 4. Expansión de Sección Condicional
+```tsx
+<motion.div
+  initial={{ opacity: 0, height: 0 }}
+  animate={{ opacity: 1, height: 'auto' }}
+  exit={{ opacity: 0, height: 0 }}
+  transition={{ duration: 0.3 }}
+  className="overflow-hidden"
+>
+```
+
+**Efecto:** Se expande suavemente cuando se muestra
+
+### 5. Toggle Switch con Spring
+```tsx
+<motion.div
+  animate={{ x: isActive ? 24 : 0 }}
+  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+/>
+```
+
+**Efecto:** Movimiento elástico y natural
+
+### 6. Botones Interactivos
+```tsx
+<motion.button
+  whileHover={{ scale: 1.02 }}
+  whileTap={{ scale: 0.98 }}
+>
+```
+
+**Efecto:** Crece ligeramente al hover, se comprime al click
+
+### 7. Checkbox Check Animado
+```tsx
+{isChecked && (
+  <motion.svg
+    initial={{ scale: 0 }}
+    animate={{ scale: 1 }}
+    className="w-3 h-3 text-white"
+  >
+    <path strokeWidth={3} d="M5 13l4 4L19 7" />
+  </motion.svg>
+)}
+```
+
+**Efecto:** El check aparece con escala
+
+---
+
+## 🧩 Componentes Reutilizables
+
+### Modal Wrapper Component
+```tsx
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  children: React.ReactNode;
+}
+
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, maxWidth = '3xl', children }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className={`bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-${maxWidth} max-h-[92vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800`}
+          >
+            {/* Header */}
+            <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h3>
+                  {subtitle && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+                  )}
+                </div>
+                <motion.button
+                  initial={{ opacity: 0, rotate: -90 }}
+                  animate={{ opacity: 1, rotate: 0 }}
+                  transition={{ delay: 0.25 }}
+                  onClick={onClose}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group"
+                >
+                  <svg className="w-5 h-5 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+              {children}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+```
+
+### Section Component
+```tsx
+interface SectionProps {
+  title: string;
+  gradient: 'blue-purple' | 'purple-pink' | 'emerald-teal' | 'blue-cyan';
+  delay?: number;
+  children: React.ReactNode;
+}
+
+const Section: React.FC<SectionProps> = ({ title, gradient, delay = 0, children }) => {
+  const gradients = {
+    'blue-purple': 'from-blue-500 to-purple-500',
+    'purple-pink': 'from-purple-500 to-pink-500',
+    'emerald-teal': 'from-emerald-500 to-teal-500',
+    'blue-cyan': 'from-blue-500 to-cyan-500',
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+      className="space-y-4"
+    >
+      <div className="flex items-center space-x-2 mb-4">
+        <div className={`w-1 h-5 bg-gradient-to-b ${gradients[gradient]} rounded-full`}></div>
+        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+          {title}
+        </h4>
+      </div>
+      {children}
+    </motion.div>
+  );
+};
+```
+
+### FormField Component
+```tsx
+interface FormFieldProps {
+  label: string;
+  icon?: React.ReactNode;
+  error?: string;
+  delay?: number;
+  children: React.ReactNode;
+}
+
+const FormField: React.FC<FormFieldProps> = ({ label, icon, error, delay = 0, children }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay }}
+      className="group"
+    >
+      <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+        {icon && (
+          <span className="text-gray-400 group-focus-within:text-blue-500 transition-colors">
+            {icon}
+          </span>
+        )}
+        <span>{label}</span>
+      </label>
+      {children}
+      {error && (
+        <p className="mt-1 text-xs text-red-500">{error}</p>
+      )}
+    </motion.div>
+  );
+};
+```
+
+---
+
+## 📝 Patrones de Código
+
+### Estructura Completa de un Modal
+```tsx
+import { motion, AnimatePresence } from 'framer-motion';
+
+const MyModal = () => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+          onClick={() => setIsOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
+          >
+            {/* Header */}
+            {/* Content */}
+            {/* Footer */}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+```
+
+### Timing de Animaciones (Delays)
+```typescript
+// Orden recomendado de delays:
+const delays = {
+  backdrop: 0,
+  container: 0,
+  avatar: 0.1,
+  title: 0.15,
+  subtitle: 0.2,
+  closeButton: 0.25,
+  section1: 0.1,
+  section1Field1: 0.15,
+  section1Field2: 0.2,
+  section2: 0.2,
+  section2Field1: 0.25,
+  section2Field2: 0.3,
+  toggle: 0.4,
+  footer: 0.45,
+};
+```
+
+---
+
+## ✅ Checklist de Implementación
+
+### Estructura Básica
+- [ ] Backdrop con `backdrop-blur-md` y `bg-black/50`
+- [ ] Contenedor con `rounded-2xl`, `shadow-2xl`, `max-h-[92vh]`
+- [ ] Header con gradiente sutil y padding `px-8 pt-8 pb-6`
+- [ ] Contenido con scroll personalizado `scrollbar-thin`
+- [ ] Footer con fondo semi-transparente
+
+### Animaciones
+- [ ] Backdrop fade in/out (0.2s)
+- [ ] Container scale + slide (0.25s, ease custom)
+- [ ] Elementos con delays escalonados
+- [ ] Secciones condicionales con height animation
+- [ ] Botones con hover/tap scale
+- [ ] Toggles con spring physics
+
+### Elementos de Diseño
+- [ ] Barras de sección con gradientes
+- [ ] Labels con iconos vectorizados (16x16px)
+- [ ] Inputs con `rounded-xl`, focus ring suave
+- [ ] Selects con flecha personalizada
+- [ ] Toggles con spring animation
+- [ ] Checkboxes personalizados con check animado
+- [ ] Botones con gradiente y sombra coloreada
+
+### Accesibilidad
+- [ ] Labels asociados a inputs
+- [ ] Estados de focus visibles
+- [ ] Contraste adecuado (WCAG AA)
+- [ ] Navegación por teclado funcional
+- [ ] Screen reader friendly
+
+### Dark Mode
+- [ ] Todos los colores tienen variante dark
+- [ ] Gradientes ajustados para dark mode
+- [ ] Bordes y fondos con variantes dark
+
+---
+
+## 🎯 Ejemplos de Uso
+
+### Modal Simple
+```tsx
+<Modal
+  isOpen={isOpen}
+  onClose={() => setIsOpen(false)}
+  title="Título del Modal"
+  subtitle="Subtítulo opcional"
+  maxWidth="2xl"
+>
+  <Section title="Información" gradient="blue-purple" delay={0.1}>
+    <FormField label="Campo 1" delay={0.15}>
+      <input type="text" className="..." />
+    </FormField>
+  </Section>
+</Modal>
+```
+
+### Modal con Toggle
+```tsx
+<Section title="Configuración" gradient="purple-pink" delay={0.2}>
+  <label className="flex items-center justify-between p-4 rounded-xl border-2...">
+    {/* Toggle switch */}
+  </label>
+</Section>
+```
+
+---
+
+## 📚 Referencias
+
+- **Framer Motion**: https://www.framer.com/motion/
+- **Tailwind CSS**: https://tailwindcss.com/
+- **Heroicons**: https://heroicons.com/
+- **Design Tokens**: Colores y espaciados definidos en `tailwind.config.js`
+
+---
+
+## 🔄 Versión
+
+**Versión:** 1.0.0  
+**Última actualización:** Enero 2025  
+**Basado en:** Modal de Edición de Usuario - UserManagement.tsx
+
+---
+
+## 📝 Notas Adicionales
+
+- Los delays de animación deben ser incrementales para crear un efecto de cascada
+- El uso de `group` y `group-focus-within` permite cambios de color en iconos al hacer focus
+- Los gradientes deben ser sutiles, nunca abrumadores
+- Las sombras deben tener opacidad baja para mantener el minimalismo
+- Siempre usar `AnimatePresence` para animaciones de entrada/salida
+

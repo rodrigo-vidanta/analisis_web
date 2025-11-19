@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { pqncSupabase as supabase } from '../config/pqncSupabase';
+import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AnalysisPermissions {

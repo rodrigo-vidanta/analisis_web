@@ -24,6 +24,7 @@ import {
   type ErrorSubtype,
   type EnvironmentType
 } from '../config/supabaseLogMonitor';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // URL del proxy Edge Function para análisis de IA (evita problemas de CORS)
 // Proyecto: Log Monitor (dffuwdzybhypxfzrmdcz)
@@ -96,7 +97,8 @@ class LogMonitorService {
             priority
           ),
           ui_error_log_tags (tag_name),
-          ui_error_log_ai_analysis (status)
+          ui_error_log_annotations (id),
+          ui_error_log_ai_analysis (id, status)
         `, { count: 'exact' });
 
       // Aplicar filtros
@@ -513,9 +515,10 @@ class LogMonitorService {
   async getAnnotations(logId: string): Promise<UIErrorLogAnnotation[]> {
     try {
       // Usar admin client para evitar problemas de RLS
+      // Incluir created_by en el select (ya debería estar incluido con *)
       const { data, error } = await supabaseLogMonitorAdmin
         .from('ui_error_log_annotations')
-        .select('*')
+        .select('id, error_log_id, annotation_text, created_by, created_at, updated_at')
         .eq('error_log_id', logId)
         .order('created_at', { ascending: false });
 
@@ -661,8 +664,17 @@ class LogMonitorService {
 
   /**
    * Solicitar análisis de IA para un log
+   * Retorna el análisis recibido del webhook SIN guardarlo en BD
+   * El frontend debe llamar a saveAIAnalysis() para guardarlo manualmente
+   * Crea un registro pendiente con requested_by para rastrear quién lo solicitó
    */
-  async requestAIAnalysis(request: AIAnalysisRequest): Promise<UIErrorLogAIAnalysis | null> {
+  async requestAIAnalysis(request: AIAnalysisRequest & { requested_by?: string }): Promise<{
+    analysis: {
+      analysis_text: string;
+      analysis_summary: string;
+      suggested_fix?: string | null;
+    };
+  } | null> {
     try {
       // Obtener el log completo
       const log = await this.getLogById(request.error_log_id);
@@ -676,93 +688,51 @@ class LogMonitorService {
         this.getAnnotations(request.error_log_id)
       ]);
 
-      // Verificar si ya existe un análisis para este error_log_id
-      const { data: existingAnalysis, error: checkError } = await supabaseLogMonitorAdmin
-        .from('ui_error_log_ai_analysis')
-        .select('*')
-        .eq('error_log_id', request.error_log_id)
-        .maybeSingle();
-
-      let analysisRecord: UIErrorLogAIAnalysis | null = null;
-
-      if (existingAnalysis) {
-        // Si ya existe un análisis completado, retornarlo
-        if (existingAnalysis.status === 'completed') {
-          console.log('Análisis ya existe y está completado, retornando análisis existente');
-          return existingAnalysis as UIErrorLogAIAnalysis;
-        }
-        
-        // Si está pendiente o fallido, usar el registro existente y actualizar su estado
-        analysisRecord = existingAnalysis as UIErrorLogAIAnalysis;
-        console.log('Análisis existente encontrado, reutilizando registro:', analysisRecord.id);
-        
-        // Actualizar a estado pendiente si estaba fallido
-        if (analysisRecord.status === 'failed') {
-          const { data: updated, error: updateError } = await supabaseLogMonitorAdmin
+      // Crear registro pendiente con requested_by si se proporciona
+      const analysisId = crypto.randomUUID();
+      if (request.requested_by) {
+        try {
+          // Verificar si ya existe un análisis para este error_log_id
+          const { data: existingAnalysis } = await supabaseLogMonitorAdmin
             .from('ui_error_log_ai_analysis')
-            .update({
-              status: 'pending',
-              error_message: null
-            })
-            .eq('id', analysisRecord.id)
-            .select()
-            .single();
-          
-          if (updateError) {
-            console.error('Error updating existing analysis:', updateError);
-            return null;
-          }
-          
-          analysisRecord = updated as UIErrorLogAIAnalysis;
-        }
-      } else {
-        // Crear nuevo registro de análisis pendiente
-        const { data: newRecord, error: insertError } = await supabaseLogMonitorAdmin
-          .from('ui_error_log_ai_analysis')
-          .insert({
-            error_log_id: request.error_log_id,
-            status: 'pending',
-            analysis_text: '',
-            analysis_summary: '',
-            confidence_score: 0,
-            tokens_used: 0,
-            model_used: 'webhook'
-          })
-          .select()
-          .single();
+            .select('*')
+            .eq('error_log_id', request.error_log_id)
+            .maybeSingle();
 
-        if (insertError) {
-          // Si el error es de duplicado, intentar obtener el registro existente
-          if (insertError.code === '23505') {
-            console.log('Registro duplicado detectado, obteniendo registro existente...');
-            const { data: duplicateRecord } = await supabaseLogMonitorAdmin
+          if (existingAnalysis) {
+            // Actualizar el registro existente
+            await supabaseLogMonitorAdmin
               .from('ui_error_log_ai_analysis')
-              .select('*')
-              .eq('error_log_id', request.error_log_id)
-              .single();
-            
-            if (duplicateRecord) {
-              analysisRecord = duplicateRecord as UIErrorLogAIAnalysis;
-              // Si está completado, retornarlo directamente
-              if (analysisRecord.status === 'completed') {
-                return analysisRecord;
-              }
-            } else {
-              console.error('Error creating analysis record:', insertError);
-              return null;
-            }
+              .update({
+                requested_by: request.requested_by,
+                status: 'pending',
+                created_at: new Date().toISOString()
+              })
+              .eq('id', existingAnalysis.id);
           } else {
-            console.error('Error creating analysis record:', insertError);
-            return null;
+            // Crear nuevo registro pendiente
+            await supabaseLogMonitorAdmin
+              .from('ui_error_log_ai_analysis')
+              .insert({
+                error_log_id: request.error_log_id,
+                requested_by: request.requested_by,
+                analysis_text: '',
+                analysis_summary: '',
+                status: 'pending',
+                confidence_score: 0,
+                tokens_used: 0,
+                model_used: 'webhook'
+              });
           }
-        } else {
-          analysisRecord = newRecord as UIErrorLogAIAnalysis;
+        } catch (error) {
+          console.warn('Error creando registro pendiente de análisis:', error);
+          // Continuar aunque falle, no es crítico
         }
       }
 
       // Preparar payload para el webhook
       const webhookPayload = {
-        analysis_id: analysisRecord.id,
+        analysis_id: analysisId,
         error_log: {
           id: log.id,
           tipo: log.tipo,
@@ -817,24 +787,68 @@ class LogMonitorService {
           throw new Error(webhookResponse.error?.message || 'Error en el análisis del webhook');
         }
 
-        // Extraer datos del análisis
-        const analysis = webhookResponse.analysis;
-        const metadata = webhookResponse.metadata || {};
+        // Retornar solo el análisis recibido (formato mínimo)
+        // El frontend decidirá si guardarlo o no
+        return {
+          analysis: {
+            analysis_text: webhookResponse.analysis?.analysis_text || '',
+            analysis_summary: webhookResponse.analysis?.analysis_summary || '',
+            suggested_fix: webhookResponse.analysis?.suggested_fix || null
+          }
+        };
+      } catch (apiError) {
+        throw apiError;
+      }
+    } catch (error) {
+      console.error('Error in requestAIAnalysis:', error);
+      return null;
+    }
+  }
 
-        // Actualizar registro con el análisis recibido
-        const { data: updatedAnalysis, error: updateError } = await supabaseLogMonitorAdmin
+  /**
+   * Guardar análisis de IA en la base de datos
+   * Se llama manualmente desde el frontend después de recibir el análisis del webhook
+   * @param userId - ID del usuario que guarda el análisis (opcional, se usa requested_by si existe)
+   */
+  async saveAIAnalysis(
+    errorLogId: string,
+    analysis: {
+      analysis_text: string;
+      analysis_summary: string;
+      suggested_fix?: string | null;
+    },
+    userId?: string
+  ): Promise<UIErrorLogAIAnalysis | null> {
+    try {
+      // Verificar si ya existe un análisis para este error_log_id
+      const { data: existingAnalysis } = await supabaseLogMonitorAdmin
+        .from('ui_error_log_ai_analysis')
+        .select('*')
+        .eq('error_log_id', errorLogId)
+        .maybeSingle();
+
+      if (existingAnalysis) {
+        // Si ya existe un análisis (completado o pendiente), actualizarlo
+        const updateData: any = {
+          analysis_text: analysis.analysis_text,
+          analysis_summary: analysis.analysis_summary,
+          suggested_fix: analysis.suggested_fix || null,
+          confidence_score: 50, // Valor por defecto
+          tokens_used: 0,
+          model_used: 'webhook',
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        };
+        
+        // Si no tiene requested_by y se proporciona userId, agregarlo
+        if (!existingAnalysis.requested_by && userId) {
+          updateData.requested_by = userId;
+        }
+        
+        const { data: updated, error: updateError } = await supabaseLogMonitorAdmin
           .from('ui_error_log_ai_analysis')
-          .update({
-            analysis_text: analysis.analysis_text || '',
-            analysis_summary: analysis.analysis_summary || '',
-            suggested_fix: analysis.suggested_fix || null,
-            confidence_score: analysis.confidence_score || 50,
-            tokens_used: metadata.tokens_used || 0,
-            model_used: metadata.model_used || 'webhook',
-            status: 'completed',
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', analysisRecord.id)
+          .update(updateData)
+          .eq('id', existingAnalysis.id)
           .select()
           .single();
 
@@ -843,21 +857,43 @@ class LogMonitorService {
           return null;
         }
 
-        return updatedAnalysis as UIErrorLogAIAnalysis;
-      } catch (apiError) {
-        // Marcar como fallido
-        await supabaseLogMonitorAdmin
+        return updated as UIErrorLogAIAnalysis;
+      } else {
+        // Crear nuevo registro
+        const insertData: any = {
+          error_log_id: errorLogId,
+          analysis_text: analysis.analysis_text,
+          analysis_summary: analysis.analysis_summary,
+          suggested_fix: analysis.suggested_fix || null,
+          confidence_score: 50, // Valor por defecto
+          tokens_used: 0,
+          model_used: 'webhook',
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        };
+        
+        // Si existe un registro pendiente con requested_by, usarlo
+        if (existingAnalysis?.requested_by) {
+          insertData.requested_by = existingAnalysis.requested_by;
+        } else if (userId) {
+          insertData.requested_by = userId;
+        }
+        
+        const { data: newRecord, error: insertError } = await supabaseLogMonitorAdmin
           .from('ui_error_log_ai_analysis')
-          .update({
-            status: 'failed',
-            error_message: apiError instanceof Error ? apiError.message : 'Error desconocido'
-          })
-          .eq('id', analysisRecord.id);
+          .insert(insertData)
+          .select()
+          .single();
 
-        throw apiError;
+        if (insertError) {
+          console.error('Error saving analysis:', insertError);
+          return null;
+        }
+
+        return newRecord as UIErrorLogAIAnalysis;
       }
     } catch (error) {
-      console.error('Error in requestAIAnalysis:', error);
+      console.error('Error in saveAIAnalysis:', error);
       return null;
     }
   }
@@ -869,9 +905,10 @@ class LogMonitorService {
     try {
       // Usar admin client para evitar problemas de RLS
       // Usar maybeSingle para evitar errores cuando no hay análisis
+      // Incluir requested_by en el select
       const { data, error } = await supabaseLogMonitorAdmin
         .from('ui_error_log_ai_analysis')
-        .select('*')
+        .select('*, requested_by')
         .eq('error_log_id', logId)
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
@@ -897,10 +934,10 @@ class LogMonitorService {
   /**
    * Obtener estadísticas de logs
    */
-  async getStats(): Promise<LogStats> {
+  async getStats(filters?: LogFilters): Promise<LogStats> {
     try {
       // Obtener todos los logs con estado UI (usar admin client para evitar problemas de RLS)
-      const { data: logs, error } = await supabaseLogMonitorAdmin
+      let query = supabaseLogMonitorAdmin
         .from('error_log')
         .select(`
           *,
@@ -910,6 +947,34 @@ class LogMonitorService {
             priority
           )
         `);
+
+      // Aplicar filtros de tiempo si están presentes
+      if (filters?.date_from) {
+        query = query.gte('timestamp', filters.date_from);
+      }
+
+      if (filters?.date_to) {
+        query = query.lte('timestamp', filters.date_to);
+      }
+
+      // Aplicar otros filtros básicos si están presentes
+      if (filters?.severity && filters.severity.length > 0) {
+        query = query.in('severidad', filters.severity);
+      }
+
+      if (filters?.tipo && filters.tipo.length > 0) {
+        query = query.in('tipo', filters.tipo);
+      }
+
+      if (filters?.subtipo && filters.subtipo.length > 0) {
+        query = query.in('subtipo', filters.subtipo);
+      }
+
+      if (filters?.ambiente && filters.ambiente.length > 0) {
+        query = query.in('ambiente', filters.ambiente);
+      }
+
+      const { data: logs, error } = await query;
 
       if (error) {
         console.error('Error fetching stats:', error);
@@ -958,8 +1023,15 @@ class LogMonitorService {
         recent_errors: 0
       };
 
-      const oneDayAgo = new Date();
-      oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+      // Calcular fecha de referencia para errores recientes
+      // Si hay filtro de tiempo, usar el rango del filtro, sino últimos 24 horas
+      let recentErrorsStartDate: Date;
+      if (filters?.date_from) {
+        recentErrorsStartDate = new Date(filters.date_from);
+      } else {
+        recentErrorsStartDate = new Date();
+        recentErrorsStartDate.setHours(recentErrorsStartDate.getHours() - 24);
+      }
 
       logsData.forEach(log => {
         // Severidad
@@ -983,9 +1055,9 @@ class LogMonitorService {
             (stats.by_priority[log.ui_priority as 'low' | 'medium' | 'high' | 'critical'] || 0) + 1;
         }
 
-        // Errores recientes
+        // Errores recientes (dentro del rango de tiempo seleccionado o últimos 24h)
         const logDate = new Date(log.timestamp);
-        if (logDate >= oneDayAgo) {
+        if (logDate >= recentErrorsStartDate) {
           stats.recent_errors++;
         }
       });
@@ -994,6 +1066,249 @@ class LogMonitorService {
     } catch (error) {
       console.error('Error in getStats:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Obtener información de usuario desde System UI
+   */
+  async getUserInfo(userId: string): Promise<{ full_name?: string; email?: string } | null> {
+    try {
+      const { data, error } = await supabaseSystemUI
+        .from('auth_user_profiles')
+        .select('full_name, email')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user info:', error);
+        return null;
+      }
+      
+      return data || null;
+    } catch (error) {
+      console.error('Error in getUserInfo:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Obtener logs donde el usuario ha comentado
+   */
+  async getLogsWithUserAnnotations(userId: string, filters?: LogFilters): Promise<{ data: ErrorLog[]; count: number }> {
+    try {
+      // Obtener IDs de logs donde el usuario ha comentado
+      const { data: annotationLogIds, error: annotationError } = await supabaseLogMonitorAdmin
+        .from('ui_error_log_annotations')
+        .select('error_log_id')
+        .eq('created_by', userId)
+        .order('created_at', { ascending: false });
+
+      if (annotationError) {
+        console.error('Error fetching annotation log IDs:', annotationError);
+        return { data: [], count: 0 };
+      }
+
+      const logIds = [...new Set((annotationLogIds || []).map(a => a.error_log_id))];
+      
+      if (logIds.length === 0) {
+        return { data: [], count: 0 };
+      }
+
+      // Obtener los logs directamente por IDs usando Supabase
+      const { data: logsData, error: logsError } = await supabaseLogMonitorAdmin
+        .from('error_log')
+        .select(`
+          *,
+          ui_error_log_status (
+            is_read,
+            read_at,
+            read_by,
+            is_archived,
+            archived_at,
+            priority
+          ),
+          ui_error_log_tags (tag_name),
+          ui_error_log_annotations (id),
+          ui_error_log_ai_analysis (id, status)
+        `)
+        .in('id', logIds)
+        .order('timestamp', { ascending: false });
+
+      if (logsError) {
+        console.error('Error fetching logs:', logsError);
+        return { data: [], count: 0 };
+      }
+
+      // Procesar logs similar a getLogs
+      const processedLogs = (logsData || []).map((log: any) => {
+        const uiStatus = Array.isArray(log.ui_error_log_status) 
+          ? log.ui_error_log_status[0] 
+          : log.ui_error_log_status;
+        
+        const tags = Array.isArray(log.ui_error_log_tags) 
+          ? log.ui_error_log_tags 
+          : [];
+        
+        const annotations = Array.isArray(log.ui_error_log_annotations)
+          ? log.ui_error_log_annotations
+          : [];
+        
+        const hasAnalysis = Array.isArray(log.ui_error_log_ai_analysis) 
+          ? log.ui_error_log_ai_analysis.some((a: any) => a.status === 'completed')
+          : false;
+        
+        const hasAnnotations = annotations.length > 0;
+
+        return {
+          ...log,
+          ui_is_read: uiStatus?.is_read || false,
+          ui_is_archived: uiStatus?.is_archived || false,
+          ui_priority: uiStatus?.priority || 'medium',
+          ui_tags: tags,
+          has_ai_analysis: hasAnalysis,
+          has_annotations: hasAnnotations
+        };
+      });
+
+      // Aplicar filtros adicionales si existen
+      let filteredLogs = processedLogs;
+      if (filters) {
+        if (filters.severity && filters.severity.length > 0) {
+          filteredLogs = filteredLogs.filter((log: any) => filters.severity!.includes(log.severidad));
+        }
+        if (filters.ambiente && filters.ambiente.length > 0) {
+          filteredLogs = filteredLogs.filter((log: any) => filters.ambiente!.includes(log.ambiente));
+        }
+        if (filters.search) {
+          const searchLower = filters.search.toLowerCase();
+          filteredLogs = filteredLogs.filter((log: any) => {
+            const mensajeStr = typeof log.mensaje === 'string' 
+              ? log.mensaje 
+              : JSON.stringify(log.mensaje);
+            return mensajeStr.toLowerCase().includes(searchLower) ||
+                   (log.descripcion && log.descripcion.toLowerCase().includes(searchLower));
+          });
+        }
+      }
+      
+      return {
+        data: filteredLogs as ErrorLog[],
+        count: filteredLogs.length
+      };
+    } catch (error) {
+      console.error('Error in getLogsWithUserAnnotations:', error);
+      return { data: [], count: 0 };
+    }
+  }
+
+  /**
+   * Obtener logs donde el usuario ha solicitado análisis de IA
+   */
+  async getLogsWithUserAIAnalysis(userId: string, filters?: LogFilters): Promise<{ data: ErrorLog[]; count: number }> {
+    try {
+      // Obtener IDs de logs donde el usuario ha solicitado análisis
+      const { data: analysisLogIds, error: analysisError } = await supabaseLogMonitorAdmin
+        .from('ui_error_log_ai_analysis')
+        .select('error_log_id')
+        .eq('requested_by', userId)
+        .order('created_at', { ascending: false });
+
+      if (analysisError) {
+        console.error('Error fetching analysis log IDs:', analysisError);
+        return { data: [], count: 0 };
+      }
+
+      const logIds = [...new Set((analysisLogIds || []).map(a => a.error_log_id))];
+      
+      if (logIds.length === 0) {
+        return { data: [], count: 0 };
+      }
+
+      // Obtener los logs directamente por IDs usando Supabase
+      const { data: logsData, error: logsError } = await supabaseLogMonitorAdmin
+        .from('error_log')
+        .select(`
+          *,
+          ui_error_log_status (
+            is_read,
+            read_at,
+            read_by,
+            is_archived,
+            archived_at,
+            priority
+          ),
+          ui_error_log_tags (tag_name),
+          ui_error_log_annotations (id),
+          ui_error_log_ai_analysis (id, status)
+        `)
+        .in('id', logIds)
+        .order('timestamp', { ascending: false });
+
+      if (logsError) {
+        console.error('Error fetching logs:', logsError);
+        return { data: [], count: 0 };
+      }
+
+      // Procesar logs similar a getLogs
+      const processedLogs = (logsData || []).map((log: any) => {
+        const uiStatus = Array.isArray(log.ui_error_log_status) 
+          ? log.ui_error_log_status[0] 
+          : log.ui_error_log_status;
+        
+        const tags = Array.isArray(log.ui_error_log_tags) 
+          ? log.ui_error_log_tags 
+          : [];
+        
+        const annotations = Array.isArray(log.ui_error_log_annotations)
+          ? log.ui_error_log_annotations
+          : [];
+        
+        const hasAnalysis = Array.isArray(log.ui_error_log_ai_analysis) 
+          ? log.ui_error_log_ai_analysis.some((a: any) => a.status === 'completed')
+          : false;
+        
+        const hasAnnotations = annotations.length > 0;
+
+        return {
+          ...log,
+          ui_is_read: uiStatus?.is_read || false,
+          ui_is_archived: uiStatus?.is_archived || false,
+          ui_priority: uiStatus?.priority || 'medium',
+          ui_tags: tags,
+          has_ai_analysis: hasAnalysis,
+          has_annotations: hasAnnotations
+        };
+      });
+
+      // Aplicar filtros adicionales si existen
+      let filteredLogs = processedLogs;
+      if (filters) {
+        if (filters.severity && filters.severity.length > 0) {
+          filteredLogs = filteredLogs.filter((log: any) => filters.severity!.includes(log.severidad));
+        }
+        if (filters.ambiente && filters.ambiente.length > 0) {
+          filteredLogs = filteredLogs.filter((log: any) => filters.ambiente!.includes(log.ambiente));
+        }
+        if (filters.search) {
+          const searchLower = filters.search.toLowerCase();
+          filteredLogs = filteredLogs.filter((log: any) => {
+            const mensajeStr = typeof log.mensaje === 'string' 
+              ? log.mensaje 
+              : JSON.stringify(log.mensaje);
+            return mensajeStr.toLowerCase().includes(searchLower) ||
+                   (log.descripcion && log.descripcion.toLowerCase().includes(searchLower));
+          });
+        }
+      }
+      
+      return {
+        data: filteredLogs as ErrorLog[],
+        count: filteredLogs.length
+      };
+    } catch (error) {
+      console.error('Error in getLogsWithUserAIAnalysis:', error);
+      return { data: [], count: 0 };
     }
   }
 

@@ -910,6 +910,6 @@ const ParaphraseModalWrapper: React.FC<{
   onCancel: () => void;
 }> = (props) => {
   if (!props.isOpen) return null;
-  return <ParaphraseModal {...props} />;
+  return <ParaphraseModal {...props} context="input_send_image_livechat" />;
 };
 

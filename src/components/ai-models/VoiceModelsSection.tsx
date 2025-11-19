@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../hooks/useTheme';
+import { Library, Volume2, Mic, FileText, Music, Sparkles, CheckCircle, XCircle, AlertCircle, Search, X } from 'lucide-react';
 import { elevenLabsService, type ElevenLabsVoice, type ElevenLabsModel, type AudioGeneration, type VoiceSettings } from '../../services/elevenLabsService';
 import { translationService } from '../../services/translationService';
 import { aiModelsDbService } from '../../services/aiModelsDbService';
@@ -135,22 +137,13 @@ const VoiceModelsSection: React.FC = () => {
   const reloadHistory = async () => {
     if (!user?.id) return;
     
-    console.log('🔄 Recargando historial completo...');
     const historyResult = await aiModelsDbService.getUserAudioHistory(user.id);
     
     if (historyResult.success && historyResult.data) {
-      console.log('📊 Historial recargado:', historyResult.data.length, 'registros');
       const ttsHistory = historyResult.data.filter((item: any) => item.generation_type === 'text_to_speech');
       const stsHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_speech');
       const sttHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_text');
       const effectsHistory = historyResult.data.filter((item: any) => item.generation_type === 'sound_effect');
-      
-      console.log('📊 Historiales filtrados después de recargar:', { 
-        ttsHistory: ttsHistory.length, 
-        stsHistory: stsHistory.length,
-        sttHistory: sttHistory.length,
-        effectsHistory: effectsHistory.length
-      });
       
       setTtsHistory(ttsHistory);
       setStsHistory(stsHistory);
@@ -230,10 +223,6 @@ const VoiceModelsSection: React.FC = () => {
     }
   }, []);
 
-  // Debug para velocidad
-  useEffect(() => {
-    console.log('🎛️ Velocidad actualizada:', voiceSpeed);
-  }, [voiceSpeed]);
 
   // Cache de preferencias del usuario
   const saveUserPreferences = () => {
@@ -274,11 +263,7 @@ const VoiceModelsSection: React.FC = () => {
     localStorage.setItem(`ai_models_preferences_${user.id}`, JSON.stringify(preferences));
     
     // Guardar en BD para persistencia entre dispositivos
-    aiModelsDbService.saveUserPreferences(user.id, preferences).then(result => {
-      if (result.success) {
-        console.log('💾 Preferencias guardadas en BD');
-      }
-    });
+    aiModelsDbService.saveUserPreferences(user.id, preferences);
   };
 
   const loadUserPreferences = async () => {
@@ -291,13 +276,11 @@ const VoiceModelsSection: React.FC = () => {
       
       if (localPrefs) {
         preferences = JSON.parse(localPrefs);
-        console.log('📱 Preferencias cargadas desde localStorage');
       } else {
         // Cargar desde BD si no hay localStorage
         const dbResult = await aiModelsDbService.getUserPreferences(user.id);
         if (dbResult.success && dbResult.data) {
           preferences = dbResult.data;
-          console.log('🗄️ Preferencias cargadas desde BD');
         }
       }
       
@@ -338,7 +321,6 @@ const VoiceModelsSection: React.FC = () => {
           }
         }
         
-        console.log('✅ Preferencias aplicadas:', preferences);
       }
     } catch (error) {
       console.error('❌ Error cargando preferencias:', error);
@@ -377,27 +359,16 @@ const VoiceModelsSection: React.FC = () => {
         }
 
         // Cargar historial desde la base de datos (incluyendo efectos)
-        console.log('📊 Resultado del historial:', historyResult);
-        if (historyResult.success && historyResult.data) {
-          console.log('📊 Datos del historial:', historyResult.data);
-          const ttsHistory = historyResult.data.filter((item: any) => item.generation_type === 'text_to_speech');
-          const stsHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_speech');
-          const sttHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_text');
-          const effectsHistory = historyResult.data.filter((item: any) => item.generation_type === 'sound_effect');
-          
-          console.log('📊 Historiales filtrados en carga inicial:', { 
-            ttsHistory: ttsHistory.length, 
-            stsHistory: stsHistory.length,
-            sttHistory: sttHistory.length,
-            effectsHistory: effectsHistory.length
-          });
+          if (historyResult.success && historyResult.data) {
+            const ttsHistory = historyResult.data.filter((item: any) => item.generation_type === 'text_to_speech');
+            const stsHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_speech');
+            const sttHistory = historyResult.data.filter((item: any) => item.generation_type === 'speech_to_text');
+            const effectsHistory = historyResult.data.filter((item: any) => item.generation_type === 'sound_effect');
           
           setTtsHistory(ttsHistory);
           setStsHistory(stsHistory);
           setSttHistory(sttHistory);
           setEffectsHistory(effectsHistory);
-        } else {
-          console.log('❌ No se pudo cargar historial:', historyResult.error);
         }
         
         // Cargar preferencias del usuario después de cargar voces
@@ -682,47 +653,32 @@ const VoiceModelsSection: React.FC = () => {
     { 
       id: 'library' as const, 
       label: 'Biblioteca de Voces', 
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      )
+      icon: Library,
+      gradient: 'from-indigo-500 to-indigo-600'
     },
     { 
       id: 'text-to-speech' as const, 
       label: 'Text to Speech', 
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728" />
-        </svg>
-      )
+      icon: Volume2,
+      gradient: 'from-purple-500 to-purple-600'
     },
     { 
       id: 'speech-to-speech' as const, 
       label: 'Speech to Speech', 
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-      )
+      icon: Mic,
+      gradient: 'from-blue-500 to-blue-600'
     },
     { 
       id: 'speech-to-text' as const, 
       label: 'Speech to Text', 
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-      )
+      icon: FileText,
+      gradient: 'from-emerald-500 to-emerald-600'
     },
     { 
       id: 'sound-effects' as const, 
       label: 'Efectos de Sonido', 
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-        </svg>
-      )
+      icon: Music,
+      gradient: 'from-amber-500 to-amber-600'
     }
   ];
 
@@ -731,30 +687,46 @@ const VoiceModelsSection: React.FC = () => {
     
     return (
       <div className="space-y-6">
+        {/* Section Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex items-center space-x-2 mb-4"
+        >
+          <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-full"></div>
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            Biblioteca de Voces
+          </h4>
+        </motion.div>
+
         {/* Búsqueda sofisticada */}
-        <div className="relative">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="relative group"
+        >
+          <Search className="absolute left-4 top-4 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
           <input
             type="text"
             placeholder="Buscar por nombre, estilo, idioma..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-12 pl-12 pr-4 bg-slate-50 dark:bg-slate-900/50 border-0 rounded-2xl focus:ring-2 focus:ring-purple-500/20 focus:bg-white dark:focus:bg-slate-800 transition-all duration-300 text-slate-900 dark:text-white placeholder-slate-400"
+            className="w-full h-12 pl-12 pr-12 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 placeholder-gray-400 dark:placeholder-gray-500"
           />
-          <svg className="absolute left-4 top-4 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
           
           {searchQuery && (
-            <button
+            <motion.button
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: 1, scale: 1 }}
               onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+              <XCircle className="w-4 h-4" />
+            </motion.button>
           )}
-        </div>
+        </motion.div>
 
         {/* Filtros sofisticados */}
         <div className="space-y-4">
@@ -773,17 +745,19 @@ const VoiceModelsSection: React.FC = () => {
                   const isActive = activeFilters.has(filterKey);
                   
                   return (
-                    <button
+                    <motion.button
                       key={value}
                       onClick={() => toggleFilter(type, value)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                         isActive
-                          ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-200'
+                          ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
                       }`}
                     >
                       {value}
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
@@ -791,12 +765,14 @@ const VoiceModelsSection: React.FC = () => {
           ))}
           
           {activeFilters.size > 0 && (
-            <button
+            <motion.button
               onClick={() => setActiveFilters(new Set())}
-              className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="text-sm font-medium bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent hover:from-purple-600 hover:to-pink-600 transition-all"
             >
               Limpiar filtros ({activeFilters.size})
-            </button>
+            </motion.button>
           )}
         </div>
 
@@ -1343,17 +1319,14 @@ const VoiceModelsSection: React.FC = () => {
                       // Guardar en base de datos (sin bloquear la UI)
                       aiModelsDbService.saveAudioGeneration(newGeneration).then(async dbResult => {
                         if (dbResult.success) {
-                          console.log('✅ STS guardado en BD:', dbResult.id);
-                          
                           // Esperar a que se suba al bucket y actualizar URL
                           try {
                             const uploadResult = await uploadPromise;
                             if (uploadResult.success && uploadResult.url && dbResult.id) {
                               await aiModelsDbService.updateAudioUrl(dbResult.id, uploadResult.url);
-                              console.log('✅ URL del bucket actualizada en BD');
                             }
                           } catch (error) {
-                            console.log('⚠️ Bucket upload falló, usando URL temporal');
+                            // Bucket upload falló, usando URL temporal
                           }
                           
                           // Recargar historial para mostrar el nuevo registro
@@ -1490,7 +1463,6 @@ const VoiceModelsSection: React.FC = () => {
                     onClick={() => {
                       const audioUrl = (item as any).audio_file_url || (item as any).audio_url;
                       if (audioUrl) {
-                        console.log('🎵 Reproduciendo STS:', audioUrl);
                         const audio = new Audio();
                         
                         // Configurar CORS y headers
@@ -1786,16 +1758,8 @@ const VoiceModelsSection: React.FC = () => {
                         value={voiceSpeed}
                         onChange={(e) => {
                           const newSpeed = parseFloat(e.target.value);
-                          console.log('🎛️ Evento onChange:', { 
-                            eventValue: e.target.value,
-                            parsedValue: newSpeed,
-                            currentState: voiceSpeed,
-                            willChange: newSpeed !== voiceSpeed
-                          });
-                          
                           setVoiceSpeed(newSpeed);
                           voiceSpeedRef.current = newSpeed;
-                          console.log('✅ Estado actualizado a:', newSpeed);
                         }}
                         className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                         style={{ 
@@ -2016,17 +1980,14 @@ const VoiceModelsSection: React.FC = () => {
                   // Guardar en base de datos y actualizar URL cuando el bucket esté listo
                   const savePromise = aiModelsDbService.saveAudioGeneration(newGeneration).then(async dbResult => {
                     if (dbResult.success) {
-                      console.log('✅ Audio guardado en BD:', dbResult.id);
-                      
                       // Esperar a que se suba al bucket y actualizar URL
                       try {
                         const uploadResult = await uploadPromise;
                         if (uploadResult.success && uploadResult.url && dbResult.id) {
                           await aiModelsDbService.updateAudioUrl(dbResult.id, uploadResult.url);
-                          console.log('✅ URL del bucket actualizada en BD');
                         }
                       } catch (error) {
-                        console.log('⚠️ Bucket upload falló, usando URL temporal');
+                        // Bucket upload falló, usando URL temporal
                       }
                       
                       // Recargar historial para mostrar el nuevo registro
@@ -2139,18 +2100,14 @@ const VoiceModelsSection: React.FC = () => {
                     onClick={() => {
                       const audioUrl = (item as any).audio_file_url || (item as any).audio_url;
                       if (audioUrl) {
-                        console.log('🎵 Intentando reproducir:', audioUrl);
                         const audio = new Audio();
                         
                         // Configurar CORS y headers
                         audio.crossOrigin = 'anonymous';
                         audio.preload = 'auto';
                         
-                        audio.onloadstart = () => console.log('🔄 Cargando audio...');
-                        audio.oncanplay = () => console.log('✅ Audio listo para reproducir');
                         audio.onerror = (e) => {
                           console.error('❌ Error reproduciendo audio:', e);
-                          console.log('🔄 Intentando con blob si está disponible...');
                           
                           // Fallback: usar blob si está disponible
                           if (item.audio_blob) {
@@ -2612,19 +2569,12 @@ const VoiceModelsSection: React.FC = () => {
               try {
                 let finalPrompt = effectPrompt;
                 if (autoTranslate) {
-                  console.log('🌐 Traduciendo efecto:', effectPrompt);
                   const translation = await translationService.translateForSoundEffects(effectPrompt);
-                  console.log('🌐 Resultado traducción:', translation);
                   
                   if (translation.success && translation.translatedText && translation.translatedText !== effectPrompt) {
                     finalPrompt = translation.translatedText;
-                    console.log('✅ Texto traducido:', finalPrompt);
-                  } else {
-                    console.log('⚠️ No se tradujo o ya estaba en inglés');
                   }
                 }
-
-                console.log('🎵 Generando efecto con prompt final:', finalPrompt);
                 const result = await elevenLabsService.generateSoundEffect(
                   finalPrompt,
                   effectDuration,
@@ -2680,17 +2630,14 @@ const VoiceModelsSection: React.FC = () => {
 
                   aiModelsDbService.saveAudioGeneration(effectForDb).then(async dbResult => {
                     if (dbResult.success) {
-                      console.log('✅ Efecto guardado en ai_audio_generations:', dbResult.id);
-                      
                       // Esperar a que se suba al bucket y actualizar URL
                       try {
                         const uploadResult = await uploadPromise;
                         if (uploadResult.success && uploadResult.url && dbResult.id) {
                           await aiModelsDbService.updateAudioUrl(dbResult.id, uploadResult.url);
-                          console.log('✅ URL del efecto actualizada en BD');
                         }
                       } catch (error) {
-                        console.log('⚠️ Bucket upload de efecto falló, usando URL temporal');
+                        // Bucket upload de efecto falló, usando URL temporal
                       }
                       
                       // Recargar historial para mostrar el nuevo registro
@@ -2782,25 +2729,17 @@ const VoiceModelsSection: React.FC = () => {
                   <button
                     onClick={() => {
                       const audioUrl = (effect as any).audio_file_url || effect.audio_url;
-                      console.log('🎵 Reproduciendo efecto:', { 
-                        audioUrl, 
-                        hasBlob: !!effect.audio_blob,
-                        effectId: effect.id,
-                        isProduction: window.location.hostname !== 'localhost'
-                      });
                       
                       // En producción, priorizar blob sobre URL del bucket
                       const isProduction = window.location.hostname !== 'localhost';
                       
                       if (isProduction && effect.audio_blob) {
-                        console.log('🏭 Producción: usando blob directamente');
                         const blobUrl = elevenLabsService.createAudioUrl(effect.audio_blob);
                         const audio = new Audio(blobUrl);
                         audio.play().catch(err => {
                           console.error('❌ Error reproduciendo blob en producción:', err);
                           // Fallback a URL del bucket
                           if (audioUrl) {
-                            console.log('🔄 Fallback a URL del bucket...');
                             const fallbackAudio = new Audio();
                             fallbackAudio.crossOrigin = 'anonymous';
                             fallbackAudio.src = audioUrl;
@@ -2817,14 +2756,11 @@ const VoiceModelsSection: React.FC = () => {
                         audio.crossOrigin = 'anonymous';
                         audio.preload = 'auto';
                         
-                        audio.onloadstart = () => console.log('🔄 Cargando efecto...');
-                        audio.oncanplay = () => console.log('✅ Efecto listo');
                         audio.onerror = (e) => {
                           console.error('❌ Error reproduciendo efecto desde URL:', e);
                           
                           // Fallback: usar blob si está disponible
                           if (effect.audio_blob) {
-                            console.log('🔄 Intentando fallback con blob...');
                             const blobUrl = elevenLabsService.createAudioUrl(effect.audio_blob);
                             const fallbackAudio = new Audio(blobUrl);
                             fallbackAudio.play().catch(err => console.error('❌ Fallback efecto falló:', err));
@@ -2896,64 +2832,130 @@ const VoiceModelsSection: React.FC = () => {
 
   if (!apiKeyValid && apiKeyValid !== null) {
     return (
-      <div className="text-center py-20">
-        <svg className="w-20 h-20 text-slate-300 dark:text-slate-600 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-        </svg>
-        <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-3">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+        className="text-center py-20"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+          className="w-20 h-20 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-orange-500/25"
+        >
+          <AlertCircle className="w-10 h-10 text-white" />
+        </motion.div>
+        <motion.h3
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-2xl font-bold text-gray-900 dark:text-white mb-3"
+        >
           API Key Requerida
-        </h3>
-        <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+        </motion.h3>
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto"
+        >
           Configura tu API key de ElevenLabs para acceder a todas las funcionalidades.
-        </p>
-      </div>
+        </motion.p>
+      </motion.div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* API Status minimalista */}
+      {/* API Status con animación */}
       {apiKeyValid && (
-        <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 rounded-2xl border border-green-200/50 dark:border-green-800/50">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm font-medium text-green-800 dark:text-green-200">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="flex items-center space-x-3 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800/50 shadow-sm"
+        >
+          <motion.div
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="w-2 h-2 bg-emerald-500 rounded-full"
+          />
+          <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
             ElevenLabs API
           </span>
-          <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
+          <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded-full font-medium">
             {userTokens ? (
               userTokens.limit === -1 
                 ? `Tokens: ${userTokens.used.toLocaleString()}/∞`
                 : `Tokens restantes: ${(userTokens.limit - userTokens.used).toLocaleString()}/${userTokens.limit.toLocaleString()}`
             ) : 'Cargando tokens...'}
           </span>
-        </div>
+        </motion.div>
       )}
 
-      {/* Sub-pestañas elegantes */}
-      <div className="flex space-x-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
-        {subTabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveSubTab(tab.id)}
-            className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-              activeSubTab === tab.id
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
+      {/* Sub-pestañas con animaciones */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-2 shadow-lg"
+      >
+        <div className="flex space-x-2">
+          {subTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
+            return (
+              <motion.button
+                key={tab.id}
+                onClick={() => setActiveSubTab(tab.id)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`relative flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
+                  isActive
+                    ? 'text-white shadow-lg'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-50 dark:bg-gray-800/50'
+                }`}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="activeSubTab"
+                    className={`absolute inset-0 bg-gradient-to-r ${tab.gradient} rounded-xl shadow-lg`}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
+                )}
+                <Icon className={`w-4 h-4 relative z-10 transition-colors ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
+                <span className={`relative z-10 font-semibold transition-colors ${isActive ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`}>{tab.label}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="activeSubTabIndicator"
+                    className={`absolute -bottom-[2px] left-0 right-0 h-0.5 bg-white dark:bg-gray-900 rounded-full`}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
+                )}
+              </motion.button>
+            );
+          })}
+        </div>
+      </motion.div>
 
-      {/* Contenido de las pestañas */}
+      {/* Contenido de las pestañas con transición animada */}
       <div className="min-h-96">
-        {activeSubTab === 'library' && renderLibraryTab()}
-        {activeSubTab === 'text-to-speech' && renderTTSTab()}
-        {activeSubTab === 'speech-to-speech' && renderSTSTab()}
-        {activeSubTab === 'speech-to-text' && renderSTTTab()}
-        {activeSubTab === 'sound-effects' && renderEffectsTab()}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeSubTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            {activeSubTab === 'library' && renderLibraryTab()}
+            {activeSubTab === 'text-to-speech' && renderTTSTab()}
+            {activeSubTab === 'speech-to-speech' && renderSTSTab()}
+            {activeSubTab === 'speech-to-text' && renderSTTTab()}
+            {activeSubTab === 'sound-effects' && renderEffectsTab()}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Estilos CSS personalizados */}

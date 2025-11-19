@@ -1,5 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUserProfile } from '../../hooks/useUserProfile';
+import { AssignmentBadge } from '../analysis/AssignmentBadge';
 
 interface LinearHeaderProps {
   darkMode: boolean;
@@ -15,6 +17,7 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
   onToggleSidebar
 }) => {
   const { user, logout } = useAuth();
+  const { profile } = useUserProfile();
 
   const getModuleTitle = () => {
     switch (currentMode) {
@@ -87,6 +90,17 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
                 {(user?.first_name || user?.email || 'U').charAt(0).toUpperCase()}
               </span>
             </div>
+            
+            {/* Mostrar coordinación para ejecutivos */}
+            {user?.role_name === 'ejecutivo' && profile?.coordinacion_codigo && (
+              <AssignmentBadge
+                call={{
+                  coordinacion_codigo: profile.coordinacion_codigo,
+                  coordinacion_nombre: profile.coordinacion_nombre
+                } as any}
+                variant="header"
+              />
+            )}
             
             {/* Logout button */}
             <button

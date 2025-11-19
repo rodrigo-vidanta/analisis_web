@@ -39,6 +39,7 @@
     "No dejes TODOs ni placeholders; incluye imports completos, tests manuales sugeridos y asegura que los flujos (importación, despliegue N8N, vista previa Vapi) quedan funcionales.",
     "Always respond in Spanish",
     "NO hacer push a git automáticamente. Solo hacer commits y push cuando el usuario específicamente lo autorice. Enfocarme en resolver los problemas técnicos primero, verificar que funcionen completamente, y solo entonces hacer push cuando se me indique explícitamente. No subir versiones no verificadas al repositorio.",
+    "BASE DE DATOS LOG MONITOR: Proyecto Supabase dedicado para monitoreo de logs de errores (dffuwdzybhypxfzrmdcz.supabase.co). Credenciales documentadas en credentials_system_ui.md y src/config/supabaseLogMonitor.ts. Todas las tablas UI llevan prefijo ui_. El dashboard de logs es la vista por defecto del módulo Log Server. Usa logMonitorService para operaciones y supabaseLogMonitorAdmin para escritura. Análisis IA usa Edge Function anthropic-proxy del proyecto System UI con modelo Claude 3.5 Sonnet.",
     "Para el proyecto Vidanta AI, usa SupaVidanta MCP para acceder a la base de datos PQNC (hmmfuhqgvsehkizlfzga.supabase.co) que contiene autenticación, usuarios, permisos, análisis de llamadas y configuración del sistema. Usa SupaClever MCP para acceder a la base principal (rnhejbuubpbnojalljso.supabase.co) con agentes y plantillas."
   ]
 }

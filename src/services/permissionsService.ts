@@ -11,7 +11,7 @@
  * 4. Cualquier cambio debe documentarse en docs/ROLES_PERMISOS_README.md
  */
 
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 
 // ============================================
 // INTERFACES Y TIPOS
@@ -137,6 +137,7 @@ class PermissionsService {
   /**
    * Obtiene el filtro de coordinación para un usuario
    * Retorna el coordinacion_id si es ejecutivo o coordinador
+   * @deprecated Usar getCoordinacionesFilter para coordinadores con múltiples coordinaciones
    */
   async getCoordinacionFilter(userId: string): Promise<string | null> {
     try {
@@ -150,6 +151,51 @@ class PermissionsService {
       return permissions.coordinacion_id || null;
     } catch (error) {
       console.error('Error obteniendo filtro de coordinación:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Obtiene todas las coordinaciones de un coordinador
+   * Retorna un array de coordinacion_id si es coordinador, null si es admin, o array con una coordinación si es ejecutivo
+   */
+  async getCoordinacionesFilter(userId: string): Promise<string[] | null> {
+    try {
+      const permissions = await this.getUserPermissions(userId);
+      if (!permissions) return null;
+
+      // Admin no tiene filtro
+      if (permissions.role === 'admin') return null;
+
+      // Ejecutivo: retornar su coordinación única
+      if (permissions.role === 'ejecutivo') {
+        return permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+      }
+
+      // Coordinador: obtener todas sus coordinaciones desde tabla intermedia
+      if (permissions.role === 'coordinador') {
+        const { data, error } = await supabaseSystemUIAdmin
+          .from('coordinador_coordinaciones')
+          .select('coordinacion_id')
+          .eq('coordinador_id', userId);
+
+        if (error) {
+          console.error('Error obteniendo coordinaciones del coordinador:', error);
+          // Fallback: usar coordinacion_id del permiso si existe
+          return permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+        }
+
+        if (data && data.length > 0) {
+          return data.map(row => row.coordinacion_id);
+        }
+
+        // Si no tiene coordinaciones asignadas, retornar null (no debería ver nada)
+        return null;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error obteniendo filtro de coordinaciones:', error);
       return null;
     }
   }

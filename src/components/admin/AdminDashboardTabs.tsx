@@ -1,68 +1,118 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UserManagement from './UserManagement';
 import SystemPreferences from './SystemPreferences';
 import DatabaseConfiguration from './DatabaseConfiguration';
-import AcademiaAdminPanel from '../academia/AcademiaAdminPanel';
+// import AcademiaAdminPanel from '../academia/AcademiaAdminPanel'; // Comentado: función aún no desarrollada
 import TokenManagement from './TokenManagement';
+import EjecutivosManager from './EjecutivosManager';
+import CoordinacionesManager from './CoordinacionesManager';
+import { useAuth } from '../../contexts/AuthContext';
+import { permissionsService } from '../../services/permissionsService';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'academia' | 'tokens';
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'ejecutivos' | 'coordinaciones'; // 'academia' comentado: función aún no desarrollada
 
 const AdminDashboardTabs: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role_name === 'admin';
+  const [isCoordinador, setIsCoordinador] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('usuarios');
 
+  useEffect(() => {
+    const checkCoordinador = async () => {
+      if (user?.id) {
+        try {
+          const isCoord = await permissionsService.isCoordinador(user.id);
+          setIsCoordinador(isCoord);
+          // Si es coordinador y no admin, establecer tab inicial a ejecutivos
+          if (isCoord && !isAdmin) {
+            setActiveTab('ejecutivos');
+          }
+        } catch (error) {
+          console.error('Error verificando coordinador:', error);
+        }
+      }
+    };
+    checkCoordinador();
+  }, [user?.id, isAdmin]);
+  
   const tabs = [
-    {
-      id: 'usuarios' as AdminTab,
-      name: 'Gestión de Usuarios',
+    // Tabs solo para admin
+    ...(isAdmin ? [
+      {
+        id: 'usuarios' as AdminTab,
+        name: 'Gestión de Usuarios',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+          </svg>
+        ),
+        description: 'Crear, editar y gestionar usuarios del sistema'
+      },
+      {
+        id: 'preferencias' as AdminTab,
+        name: 'Preferencias del Sistema',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        ),
+        description: 'Configurar branding, temas y ajustes generales'
+      },
+      {
+        id: 'configuracion-db' as AdminTab,
+        name: 'Configuración DB',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+          </svg>
+        ),
+        description: 'Gestionar conexiones y esquemas de bases de datos'
+      },
+      {
+        id: 'tokens' as AdminTab,
+        name: 'Gestión de Tokens',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+          </svg>
+        ),
+        description: 'Configurar límites de tokens para usuarios productores'
+      },
+      // Comentado: Academia de Ventas - función aún no desarrollada
+      // {
+      //   id: 'academia' as AdminTab,
+      //   name: 'Academia de Ventas',
+      //   icon: (
+      //     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+      //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+      //     </svg>
+      //   ),
+      //   description: 'Gestionar niveles, asistentes virtuales y configuración de la Academia'
+      // },
+      {
+        id: 'coordinaciones' as AdminTab,
+        name: 'Gestión de Coordinaciones',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        ),
+        description: 'Gestionar coordinaciones, ejecutivos y analíticas'
+      }
+    ] : []),
+    // Tab solo visible para coordinadores
+    ...(isCoordinador ? [{
+      id: 'ejecutivos' as AdminTab,
+      name: 'Gestión de Ejecutivos',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       ),
-      description: 'Crear, editar y gestionar usuarios del sistema'
-    },
-    {
-      id: 'preferencias' as AdminTab,
-      name: 'Preferencias del Sistema',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-      description: 'Configurar branding, temas y ajustes generales'
-    },
-    {
-      id: 'configuracion-db' as AdminTab,
-      name: 'Configuración DB',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-        </svg>
-      ),
-      description: 'Gestionar conexiones y esquemas de bases de datos'
-    },
-    {
-      id: 'tokens' as AdminTab,
-      name: 'Gestión de Tokens',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-        </svg>
-      ),
-      description: 'Configurar límites de tokens para usuarios productores'
-    },
-    {
-      id: 'academia' as AdminTab,
-      name: 'Academia de Ventas',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-        </svg>
-      ),
-      description: 'Gestionar niveles, asistentes virtuales y configuración de la Academia'
-    }
+      description: 'Gestionar ejecutivos de tu coordinación'
+    }] : [])
   ];
 
   return (
@@ -134,33 +184,46 @@ const AdminDashboardTabs: React.FC = () => {
 
         {/* Contenido de las pestañas */}
         <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
-          {activeTab === 'usuarios' && (
+          {activeTab === 'usuarios' && isAdmin && (
             <div className="p-6">
               <UserManagement />
             </div>
           )}
           
-          {activeTab === 'preferencias' && (
+          {activeTab === 'preferencias' && isAdmin && (
             <div className="p-6">
               <SystemPreferences />
             </div>
           )}
           
-          {activeTab === 'configuracion-db' && (
+          {activeTab === 'configuracion-db' && isAdmin && (
             <div className="p-6">
               <DatabaseConfiguration />
             </div>
           )}
           
-          {activeTab === 'tokens' && (
+          {activeTab === 'tokens' && isAdmin && (
             <div className="p-6">
               <TokenManagement />
             </div>
           )}
           
-          {activeTab === 'academia' && (
+          {/* Comentado: Academia de Ventas - función aún no desarrollada */}
+          {/* {activeTab === 'academia' && isAdmin && (
             <div className="p-6">
               <AcademiaAdminPanel onClose={() => {}} />
+            </div>
+          )} */}
+          
+          {activeTab === 'ejecutivos' && isCoordinador && (
+            <div className="p-6">
+              <EjecutivosManager />
+            </div>
+          )}
+          
+          {activeTab === 'coordinaciones' && isAdmin && (
+            <div className="p-6">
+              <CoordinacionesManager />
             </div>
           )}
         </div>

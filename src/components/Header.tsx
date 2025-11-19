@@ -2,6 +2,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useUserProfile } from '../hooks/useUserProfile';
+import { AssignmentBadge } from './analysis/AssignmentBadge';
 
 interface HeaderProps {
   currentStep: number;
@@ -435,6 +436,16 @@ const Header = ({
                     )}
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white dark:border-gray-900 rounded-full"></div>
                   </div>
+                  {/* Mostrar coordinación para ejecutivos */}
+                  {user.role_name === 'ejecutivo' && profile?.coordinacion_codigo && (
+                    <AssignmentBadge
+                      call={{
+                        coordinacion_codigo: profile.coordinacion_codigo,
+                        coordinacion_nombre: profile.coordinacion_nombre
+                      } as any}
+                      variant="header"
+                    />
+                  )}
                 </div>
                 
                 <button

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { pqncSupabase as supabase } from '../config/pqncSupabase';
+import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
 import { useAuth } from '../contexts/AuthContext';
 import { userProfileEvents } from '../utils/userProfileEvents';
 
@@ -11,6 +11,9 @@ interface UserProfile {
   last_name?: string;
   avatar_url?: string;
   role_name?: string;
+  coordinacion_id?: string;
+  coordinacion_codigo?: string;
+  coordinacion_nombre?: string;
 }
 
 export const useUserProfile = () => {
@@ -28,7 +31,7 @@ export const useUserProfile = () => {
     try {
       setLoading(true);
       
-      // Primero obtener datos básicos del usuario
+      // Primero obtener datos básicos del usuario con coordinación
       const { data: userData, error: userError } = await supabase
         .from('auth_users')
         .select(`
@@ -37,7 +40,12 @@ export const useUserProfile = () => {
           full_name,
           first_name,
           last_name,
-          auth_roles!inner(name)
+          coordinacion_id,
+          auth_roles!inner(name),
+          coordinaciones:coordinacion_id (
+            codigo,
+            nombre
+          )
         `)
         .eq('id', user.id)
         .single();
@@ -61,10 +69,17 @@ export const useUserProfile = () => {
       }
 
       if (userData) {
+        const coordinacion = Array.isArray(userData.coordinaciones) 
+          ? userData.coordinaciones[0] 
+          : userData.coordinaciones;
+
         setProfile({
           ...userData,
           role_name: userData.auth_roles?.name,
-          avatar_url: avatarData?.avatar_url || null
+          avatar_url: avatarData?.avatar_url || null,
+          coordinacion_id: userData.coordinacion_id,
+          coordinacion_codigo: coordinacion?.codigo,
+          coordinacion_nombre: coordinacion?.nombre
         });
       }
     } catch (error) {

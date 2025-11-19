@@ -17,6 +17,14 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { createPortal } from 'react-dom';
+
+// ✅ Tipos para requestIdleCallback (soporte TypeScript)
+declare global {
+  interface Window {
+    requestIdleCallback?: (callback: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (id: number) => void;
+  }
+}
 import { 
   Search, 
   Phone,
@@ -32,6 +40,7 @@ import {
   Paperclip
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { uchatService } from '../../services/uchatService';
 import { permissionsService } from '../../services/permissionsService';
@@ -146,7 +155,9 @@ const LiveChatCanvas: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
   const [prospectNameById, setProspectNameById] = useState<{ [id: string]: string }>({});
+  const [agentNamesById, setAgentNamesById] = useState<{ [id: string]: string }>({});
   const [sending, setSending] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sendingToConversation, setSendingToConversation] = useState<string | null>(null);
   const [showImageCatalog, setShowImageCatalog] = useState(false);
   const [showProspectSidebar, setShowProspectSidebar] = useState(false);
@@ -163,6 +174,9 @@ const LiveChatCanvas: React.FC = () => {
   // Estado para bloqueo de moderación
   const [isUserBlocked, setIsUserBlocked] = useState(false);
   const [warningStats, setWarningStats] = useState<any>(null);
+
+  // Estado para respuestas rápidas
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
 
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -206,6 +220,13 @@ const LiveChatCanvas: React.FC = () => {
     prospectId: string;
     coordinacionId?: string;
     ejecutivoId?: string;
+    prospectData?: {
+      id_dynamics?: string | null;
+      nombre_completo?: string | null;
+      nombre_whatsapp?: string | null;
+      email?: string | null;
+      whatsapp?: string | null;
+    };
     position: { x: number; y: number };
   } | null>(null);
 
@@ -232,6 +253,17 @@ const LiveChatCanvas: React.FC = () => {
   
   // Ref para debounce timer de scroll
   const scrollDebounceTimerRef = useRef<number | null>(null);
+  
+  // Ref para almacenar datos de prospectos (coordinacion_id, ejecutivo_id) para acceso desde handlers
+  const prospectosDataRef = useRef<Map<string, { 
+    coordinacion_id?: string; 
+    ejecutivo_id?: string;
+    id_dynamics?: string | null;
+    nombre_completo?: string | null;
+    nombre_whatsapp?: string | null;
+    email?: string | null;
+    whatsapp?: string | null;
+  }>>(new Map());
 
   const [metrics, setMetrics] = useState({
     totalConversations: 0,
@@ -431,18 +463,15 @@ const LiveChatCanvas: React.FC = () => {
           table: 'mensajes_whatsapp',
         },
         (payload) => {
-          
+          // ✅ OPTIMIZACIÓN CRÍTICA: Procesar mensaje inmediatamente pero de forma eficiente
+          // Separar operaciones críticas (mostrar mensaje) de no críticas (actualizar lista)
           const newMessagePayload = payload.new as any;
-
-          // Usar el prospecto_id del payload para encontrar la conversación en la UI
           const targetProspectoId = newMessagePayload.prospecto_id;
           if (!targetProspectoId) {
             return;
           }
 
-          // 🔍 DEBUG: Ver si el mensaje es para la conversación activa
-
-          // Crear el objeto de mensaje
+          // Crear el objeto de mensaje (operación ligera)
           const newMessage: Message = {
             id: newMessagePayload.id,
             message_id: `real_${newMessagePayload.id}`,
@@ -456,131 +485,151 @@ const LiveChatCanvas: React.FC = () => {
 
           const isActiveConversation = selectedConversationRef.current === targetProspectoId;
 
-          // ✅ OPTIMIZACIÓN: Si es la conversación activa, marcar el mensaje como leído inmediatamente
+          // ✅ OPTIMIZACIÓN: Marcar como leído de forma diferida (no bloquea)
           if (isActiveConversation && !newMessage.is_read) {
-            // Marcar como leído en la BD de forma asíncrona (no bloquea)
-            setTimeout(() => {
+            newMessage.is_read = true;
+            // Diferir escritura a BD usando requestIdleCallback
+            const markAsRead = () => {
               analysisSupabase
                 .from('mensajes_whatsapp')
                 .update({ leido: true })
                 .eq('id', newMessage.id)
                 .then(() => {})
-                .catch(() => {}); // Ignorar errores silenciosamente
-            }, 0);
+                .catch(() => {});
+            };
             
-            // Actualizar el mensaje local
-            newMessage.is_read = true;
+            if (window.requestIdleCallback) {
+              window.requestIdleCallback(markAsRead, { timeout: 1000 });
+            } else {
+              setTimeout(markAsRead, 0);
+            }
           }
 
-          // ✅ OPTIMIZACIÓN: Usar startTransition para actualizaciones no críticas
-          // Añadir el mensaje a la conversación correcta (crítico - hacer inmediatamente)
+          // ✅ CRÍTICO: Actualizar mensajes inmediatamente (debe ser rápido)
           setMessagesByConversation(prev => {
             const current = prev[targetProspectoId] || [];
-            // Prevenir duplicados y reemplazar mensajes optimistas
-            const withoutOptimistic = current.filter(m => !m.id.startsWith('temp_'));
-            if (withoutOptimistic.some(m => m.id === newMessage.id)) {
-              return prev;
+            
+            // ✅ OPTIMIZACIÓN: Verificación rápida de duplicados usando Set
+            const lastMessage = current[current.length - 1];
+            if (lastMessage?.id === newMessage.id) {
+              return prev; // Ya existe, evitar duplicados
             }
             
-              return {
+            // ✅ OPTIMIZACIÓN: Filtrar optimistas solo si hay mensajes optimistas
+            const hasOptimistic = current.some(m => m.id.startsWith('temp_'));
+            const withoutOptimistic = hasOptimistic 
+              ? current.filter(m => !m.id.startsWith('temp_'))
+              : current;
+            
+            return {
               ...prev,
               [targetProspectoId]: [...withoutOptimistic, newMessage],
             };
           });
 
-          // Actualizar la lista de conversaciones (no crítico - diferir con startTransition)
-          startTransition(() => {
-            setConversations(prev => {
-            const conversationIndex = prev.findIndex(c => c.id === targetProspectoId || c.prospecto_id === targetProspectoId);
-            
-            if (conversationIndex === -1) {
-              // ✅ Si la conversación no está en la lista, cargar solo esa conversación nueva SIN recargar todo
-              logDev('📨 [REALTIME] Conversación nueva detectada, cargando datos del prospecto...');
-              
-              // ✅ OPTIMIZACIÓN: Diferir carga de conversación nueva (no crítico)
-              setTimeout(() => {
-                (async () => {
-                  try {
-                    const { data: convData, error } = await analysisSupabase.rpc('get_conversations_ordered');
-                    if (error || !convData) return;
-                    
-                    // Encontrar la conversación del prospecto en los resultados
-                    const newConv = convData.find((c: any) => c.prospecto_id === targetProspectoId);
-                    if (!newConv) return;
-                    
-                    // Adaptar al formato de Conversation
-                    const adaptedConv: Conversation = {
-                      id: newConv.prospecto_id,
-                      prospecto_id: newConv.prospecto_id,
-                      nombre_contacto: newConv.nombre_contacto || newConv.numero_telefono,
-                      customer_name: newConv.nombre_contacto,
-                      status: newConv.estado_prospecto,
-                      last_message_at: newConv.fecha_ultimo_mensaje,
-                      message_count: newConv.mensajes_totales,
-                      unread_count: newConv.mensajes_no_leidos,
-                      ultimo_mensaje_preview: newConv.ultimo_mensaje,
-                      numero_telefono: newConv.numero_telefono,
-                      updated_at: newConv.fecha_ultimo_mensaje,
-                      fecha_inicio: newConv.fecha_creacion_prospecto,
-                      tipo: 'whatsapp',
-                      metadata: { 
-                        prospecto_id: newConv.prospecto_id,
-                        id_uchat: newConv.id_uchat
-                      }
-                    };
-                    
-                    // Agregar la conversación nueva usando startTransition
-                    startTransition(() => {
-                      setConversations(prevList => {
-                        // Verificar si ya fue agregada (evitar duplicados)
-                        if (prevList.some(c => c.id === targetProspectoId || c.prospecto_id === targetProspectoId)) {
-                          return prevList;
-                        }
-                        return [adaptedConv, ...prevList];
-                      });
-                    });
-                    
-                    logDev('✅ [REALTIME] Conversación nueva agregada sin recargar toda la lista');
-                  } catch (error) {
-                    console.error('❌ Error cargando conversación nueva:', error);
+          // ✅ NO CRÍTICO: Actualizar lista de conversaciones usando startTransition + requestIdleCallback
+          const updateConversations = () => {
+            startTransition(() => {
+              setConversations(prev => {
+                // ✅ OPTIMIZACIÓN: Crear Map una vez para búsqueda eficiente O(1)
+                const convMap = new Map<string, { index: number; conv: Conversation }>();
+                prev.forEach((c, idx) => {
+                  const key = c.id || c.prospecto_id || '';
+                  if (key) {
+                    convMap.set(key, { index: idx, conv: c });
                   }
-                })();
-              }, 0);
-              
-              return prev; // Mantener la lista actual mientras se carga la nueva
-            }
+                });
+                
+                const convEntry = convMap.get(targetProspectoId);
+                
+                if (!convEntry) {
+                  // ✅ OPTIMIZACIÓN: Diferir carga de conversación nueva usando requestIdleCallback
+                  const loadNewConversation = () => {
+                    (async () => {
+                      try {
+                        const { data: convData, error } = await analysisSupabase.rpc('get_conversations_ordered');
+                        if (error || !convData) return;
+                        
+                        const newConv = convData.find((c: any) => c.prospecto_id === targetProspectoId);
+                        if (!newConv) return;
+                        
+                        const adaptedConv: Conversation = {
+                          id: newConv.prospecto_id,
+                          prospecto_id: newConv.prospecto_id,
+                          nombre_contacto: newConv.nombre_contacto || newConv.numero_telefono,
+                          customer_name: newConv.nombre_contacto,
+                          status: newConv.estado_prospecto,
+                          last_message_at: newConv.fecha_ultimo_mensaje,
+                          message_count: newConv.mensajes_totales,
+                          unread_count: newConv.mensajes_no_leidos,
+                          ultimo_mensaje_preview: newConv.ultimo_mensaje,
+                          numero_telefono: newConv.numero_telefono,
+                          updated_at: newConv.fecha_ultimo_mensaje,
+                          fecha_inicio: newConv.fecha_creacion_prospecto,
+                          tipo: 'whatsapp',
+                          metadata: { 
+                            prospecto_id: newConv.prospecto_id,
+                            id_uchat: newConv.id_uchat
+                          }
+                        };
+                        
+                        startTransition(() => {
+                          setConversations(prevList => {
+                            const exists = prevList.some(c => c.id === targetProspectoId || c.prospecto_id === targetProspectoId);
+                            if (exists) return prevList;
+                            return [adaptedConv, ...prevList];
+                          });
+                        });
+                      } catch (error) {
+                        console.error('❌ Error cargando conversación nueva:', error);
+                      }
+                    })();
+                  };
+                  
+                  // Diferir usando requestIdleCallback o setTimeout como fallback
+                  if (window.requestIdleCallback) {
+                    window.requestIdleCallback(loadNewConversation, { timeout: 2000 });
+                  } else {
+                    setTimeout(loadNewConversation, 100);
+                  }
+                  
+                  return prev; // Mantener lista actual mientras carga
+                }
 
-            const currentConv = prev[conversationIndex];
-            const isFromAgent = newMessage.sender_type === 'agent';
+                const { index: conversationIndex, conv: currentConv } = convEntry;
+                const isFromAgent = newMessage.sender_type === 'agent';
 
-
-            const updatedConv: Conversation = { 
-              ...currentConv, 
-              last_message_at: newMessage.created_at, 
-              updated_at: newMessage.created_at, // ✅ Actualizar también updated_at para ordenamiento
-              ultimo_mensaje_preview: newMessage.content?.substring(0, 100) || '',
-              message_count: (currentConv.message_count || 0) + 1,
-              // ✅ OPTIMIZACIÓN: Si es la conversación activa, NO incrementar el contador
-              unread_count: (!isActiveConversation && !isFromAgent)
-                ? (currentConv.unread_count || 0) + 1
-                : 0, // Forzar a 0 si está activa
-              mensajes_no_leidos: (!isActiveConversation && !isFromAgent)
-                ? (currentConv.mensajes_no_leidos || 0) + 1
-                : 0 // Forzar a 0 si está activa
-            };
-            
-            
-            // ✅ Mover la conversación al principio de la lista (siempre la más reciente arriba)
-            const conversationsWithoutUpdated = prev.filter(c => c.id !== targetProspectoId && c.prospecto_id !== targetProspectoId);
-            const reorderedList = [updatedConv, ...conversationsWithoutUpdated];
-            
-            logDev('✅ [REALTIME] Conversación actualizada y movida a posición 1');
-            
-            return reorderedList;
-          });
-        });
-        }
-      )
+                const updatedConv: Conversation = { 
+                  ...currentConv, 
+                  last_message_at: newMessage.created_at, 
+                  updated_at: newMessage.created_at,
+                  ultimo_mensaje_preview: newMessage.content?.substring(0, 100) || '',
+                  message_count: (currentConv.message_count || 0) + 1,
+                  unread_count: (!isActiveConversation && !isFromAgent)
+                    ? (currentConv.unread_count || 0) + 1
+                    : 0,
+                  mensajes_no_leidos: (!isActiveConversation && !isFromAgent)
+                    ? (currentConv.mensajes_no_leidos || 0) + 1
+                    : 0
+                };
+                
+                // ✅ OPTIMIZACIÓN: Reordenar usando splice en lugar de filter + spread
+                const reorderedList = [...prev];
+                reorderedList.splice(conversationIndex, 1); // Remover del índice actual
+                reorderedList.unshift(updatedConv); // Agregar al inicio
+                
+                return reorderedList;
+              });
+            });
+          };
+          
+          // ✅ Diferir actualización de conversaciones (no crítico)
+          if (window.requestIdleCallback) {
+            window.requestIdleCallback(updateConversations, { timeout: 100 });
+          } else {
+            setTimeout(updateConversations, 0);
+          }
+        })
       // ========================================
       // 🔔 SUSCRIPCIÓN 2: Cambios en tabla PROSPECTOS
       // ========================================
@@ -598,28 +647,39 @@ const LiveChatCanvas: React.FC = () => {
           const updatedProspecto = payload.new as any;
           const prospectoId = updatedProspecto.id;
           
-          // ✅ OPTIMIZACIÓN: Diferir actualización de nombre (no crítico)
-          startTransition(() => {
-            setConversations(prev => {
-              return prev.map(conv => {
-                if (conv.prospecto_id === prospectoId) {
-                  // ✅ Usar función helper para determinar nombre según priorización
-                  const newName = getDisplayName({
-                    nombre_completo: updatedProspecto.nombre_completo,
-                    nombre_whatsapp: updatedProspecto.nombre_whatsapp,
-                    whatsapp: updatedProspecto.whatsapp
-                  });
-                  
-                  return {
-                    ...conv,
-                    customer_name: newName,
-                    nombre_contacto: newName
-                  };
-                }
-                return conv;
+          // ✅ OPTIMIZACIÓN: Diferir actualización de nombre usando requestIdleCallback
+          const updateName = () => {
+            startTransition(() => {
+              setConversations(prev => {
+                // ✅ OPTIMIZACIÓN: Buscar índice primero para evitar map completo si no existe
+                const index = prev.findIndex(conv => conv.prospecto_id === prospectoId);
+                if (index === -1) return prev; // No existe, no hacer nada
+                
+                // ✅ OPTIMIZACIÓN: Solo actualizar el elemento necesario
+                const newName = getDisplayName({
+                  nombre_completo: updatedProspecto.nombre_completo,
+                  nombre_whatsapp: updatedProspecto.nombre_whatsapp,
+                  whatsapp: updatedProspecto.whatsapp
+                });
+                
+                const updated = [...prev];
+                updated[index] = {
+                  ...updated[index],
+                  customer_name: newName,
+                  nombre_contacto: newName
+                };
+                
+                return updated;
               });
             });
-          });
+          };
+          
+          // Diferir usando requestIdleCallback o setTimeout como fallback
+          if (window.requestIdleCallback) {
+            window.requestIdleCallback(updateName, { timeout: 1000 });
+          } else {
+            setTimeout(updateName, 0);
+          }
         }
       )
       // ========================================
@@ -863,6 +923,102 @@ const LiveChatCanvas: React.FC = () => {
       selectConversationByProspectId(prospectoId);
     }
   }, [conversations]); // Se ejecuta cuando las conversaciones cambian
+
+  // Efecto para cargar el nombre del agente asignado cuando se selecciona una conversación
+  useEffect(() => {
+    if (selectedConversation?.id) {
+      const conversationId = selectedConversation.id;
+      
+      // Si ya tenemos el nombre en metadata, guardarlo en caché
+      if (selectedConversation.metadata?.ejecutivo_nombre) {
+        setAgentNamesById(prev => ({
+          ...prev,
+          [conversationId]: selectedConversation.metadata!.ejecutivo_nombre!
+        }));
+        return;
+      }
+
+      // Si ya está en caché, no hacer nada
+      if (agentNamesById[conversationId]) {
+        return;
+      }
+
+      // Si no tenemos el nombre, intentar obtenerlo
+      getAssignedAgentName(conversationId).catch(error => {
+        console.warn('No se pudo cargar el nombre del agente:', error);
+      });
+    }
+  }, [selectedConversation?.id, selectedConversation?.metadata?.ejecutivo_nombre]);
+
+  // Obtener el último mensaje del cliente para detectar cambios
+  const lastCustomerMessage = useMemo(() => {
+    if (!selectedConversation?.id) return null;
+    const messages = messagesByConversation[selectedConversation.id] || [];
+    return messages
+      .filter(m => m.sender_type === 'customer')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] || null;
+  }, [
+    selectedConversation?.id, 
+    messagesByConversation[selectedConversation?.id || '']?.length,
+    // Usar el contenido del último mensaje como dependencia adicional
+    JSON.stringify(messagesByConversation[selectedConversation?.id || '']?.slice(-1))
+  ]);
+
+  // Calcular la clave del último mensaje del cliente para detectar cambios
+  const lastCustomerMessageKey = useMemo(() => {
+    if (!lastCustomerMessage) return '';
+    // Crear una clave única basada en ID, contenido y timestamp
+    return `${lastCustomerMessage.id}_${lastCustomerMessage.content?.substring(0, 50) || ''}_${lastCustomerMessage.created_at}`;
+  }, [lastCustomerMessage]);
+
+  // Efecto para generar respuestas rápidas basadas en el último mensaje del cliente
+  useEffect(() => {
+    if (!selectedConversation?.id) {
+      setQuickReplies([]);
+      return;
+    }
+
+    const messages = messagesByConversation[selectedConversation.id] || [];
+    
+    // Obtener historial reciente (últimos 5 mensajes) para contexto
+    const recentMessages = messages
+      .slice(-5)
+      .map(m => m.content || '')
+      .filter(Boolean);
+
+    // Generar respuestas rápidas basadas en el contexto
+    const isFirstInteraction = messages.filter(m => m.sender_type === 'customer').length <= 1;
+    const lastMessageContent = lastCustomerMessage?.content || '';
+    
+    const context = {
+      lastMessage: lastMessageContent,
+      messageHistory: recentMessages,
+      prospectStage: selectedConversation.status || selectedConversation.estado,
+      isFirstInteraction,
+      conversationType: selectedConversation.tipo === 'whatsapp' ? 'whatsapp' : 'uchat'
+    };
+
+    let replies = quickRepliesService.generateQuickReplies(context);
+    
+    // Reemplazar [Nombre] con el nombre del usuario si es primera interacción
+    if (isFirstInteraction && user?.full_name) {
+      const firstName = user.full_name.split(' ')[0] || user.full_name;
+      replies = replies.map(reply => ({
+        ...reply,
+        text: reply.text.replace('[Nombre]', firstName)
+      }));
+    }
+    
+    setQuickReplies(replies);
+  }, [
+    selectedConversation?.id, 
+    selectedConversation?.status, 
+    selectedConversation?.estado, 
+    selectedConversation?.tipo, 
+    user?.full_name,
+    lastCustomerMessageKey, // Usar la clave calculada como dependencia
+    messagesByConversation[selectedConversation?.id || '']?.length // También depender de la cantidad de mensajes
+  ]);
 
   const selectConversationByProspectId = (prospectoId: string) => {
     // Método 1: Buscar por prospect_id en metadata
@@ -1447,131 +1603,247 @@ const LiveChatCanvas: React.FC = () => {
   // ============================================
 
   const loadConversations = async (searchTerm = '') => {
-      setLoading(true);
+    setLoading(true);
     try {
-      // Usar uchatService.getConversations que aplica filtros de permisos automáticamente
-      // Esto asegura que coordinadores vean todas las conversaciones de su coordinación
-      const uchatConversationsRaw = await uchatService.getConversations({
-        userId: user?.id, // Pasar userId para aplicar filtros de permisos
-        limit: 100
+      // OPTIMIZACIÓN: Cargar ambas fuentes en paralelo
+      const [uchatConversationsRaw, rpcDataResult] = await Promise.all([
+        // Consulta 1: Conversaciones de uchat
+        uchatService.getConversations({
+          userId: user?.id,
+          limit: 100
+        }),
+        // Consulta 2: Conversaciones de WhatsApp (RPC)
+        analysisSupabase.rpc('get_conversations_ordered')
+          .then(({ data, error }) => ({ data, error }))
+          .catch(() => ({ data: null, error: null }))
+      ]);
+
+      // OPTIMIZACIÓN: Recolectar IDs únicos para consultas batch
+      const coordinacionIds = new Set<string>();
+      const ejecutivoIds = new Set<string>();
+      const prospectoIds = new Set<string>();
+
+      // Recolectar IDs de uchat conversations (necesitamos prospect_id para obtener asignación)
+      uchatConversationsRaw.forEach(conv => {
+        if (conv.prospect_id) prospectoIds.add(conv.prospect_id);
+        // También verificar si tienen coordinacion_id/ejecutivo_id directamente (por si acaso)
+        if ((conv as any).coordinacion_id) coordinacionIds.add((conv as any).coordinacion_id);
+        if ((conv as any).ejecutivo_id) ejecutivoIds.add((conv as any).ejecutivo_id);
       });
 
-      // Enriquecer conversaciones con datos de coordinación y ejecutivo
-      const uchatConversations = await Promise.all(
-        uchatConversationsRaw.map(async (conv) => {
-          let coordinacionInfo = null;
-          let ejecutivoInfo = null;
+      // Recolectar IDs de WhatsApp conversations
+      const rpcData = rpcDataResult.data || [];
+      rpcData.forEach((c: any) => {
+        if (c.prospecto_id) prospectoIds.add(c.prospecto_id);
+      });
 
-          if (conv.coordinacion_id) {
-            try {
-              coordinacionInfo = await coordinacionService.getCoordinacionById(conv.coordinacion_id);
-            } catch (error) {
-              console.warn('Error obteniendo coordinación:', error);
+      // OPTIMIZACIÓN: Cargar datos de asignación en batch
+      const [prospectosData, coordinacionesMap, ejecutivosMap] = await Promise.all([
+        // Batch 1: Obtener todos los prospectos necesarios
+        prospectoIds.size > 0
+          ? analysisSupabase
+              .from('prospectos')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, email, whatsapp')
+              .in('id', Array.from(prospectoIds))
+              .then(({ data }) => {
+                const map = new Map<string, { 
+                  coordinacion_id?: string; 
+                  ejecutivo_id?: string;
+                  id_dynamics?: string | null;
+                  nombre_completo?: string | null;
+                  nombre_whatsapp?: string | null;
+                  email?: string | null;
+                  whatsapp?: string | null;
+                }>();
+                (data || []).forEach(p => {
+                  map.set(p.id, { 
+                    coordinacion_id: p.coordinacion_id, 
+                    ejecutivo_id: p.ejecutivo_id,
+                    id_dynamics: p.id_dynamics,
+                    nombre_completo: p.nombre_completo,
+                    nombre_whatsapp: p.nombre_whatsapp,
+                    email: p.email,
+                    whatsapp: p.whatsapp,
+                  });
+                  if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
+                  if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
+                });
+                // Guardar en ref para acceso desde handlers
+                prospectosDataRef.current = map;
+                return map;
+              })
+              .catch(() => new Map())
+          : Promise.resolve(new Map()),
+        // Batch 2: Obtener todas las coordinaciones necesarias
+        coordinacionIds.size > 0
+          ? coordinacionService.getCoordinacionesByIds(Array.from(coordinacionIds))
+          : Promise.resolve(new Map()),
+        // Batch 3: Obtener todos los ejecutivos necesarios
+        ejecutivoIds.size > 0
+          ? coordinacionService.getEjecutivosByIds(Array.from(ejecutivoIds))
+          : Promise.resolve(new Map())
+      ]);
+
+      // OPTIMIZACIÓN: Obtener filtros de permisos una sola vez (antes de enriquecer)
+      let ejecutivoFilter: string | null = null;
+      let coordinacionesFilter: string[] | null = null;
+      
+      if (user?.id) {
+        ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
+        coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
+      }
+
+      // OPTIMIZACIÓN: Enriquecer uchat conversations usando los maps
+      const uchatConversationsEnriched = uchatConversationsRaw.map(conv => {
+        // Obtener datos de asignación desde prospectos usando prospect_id
+        const prospectoData = conv.prospect_id ? prospectosData.get(conv.prospect_id) : null;
+        const coordinacionId = prospectoData?.coordinacion_id || (conv as any).coordinacion_id;
+        const ejecutivoId = prospectoData?.ejecutivo_id || (conv as any).ejecutivo_id;
+        
+        const coordinacionInfo = coordinacionId ? coordinacionesMap.get(coordinacionId) : null;
+        const ejecutivoInfo = ejecutivoId ? ejecutivosMap.get(ejecutivoId) : null;
+
+        // También verificar si hay assigned_agent_id en la conversación de uchat
+        const assignedAgentId = conv.assigned_agent_id;
+        let agentName = ejecutivoInfo?.full_name;
+
+        // Si no hay ejecutivo en prospectos pero hay assigned_agent_id, guardar el ID para cargarlo después
+        // (se cargará cuando se seleccione la conversación o cuando se renderice el mensaje)
+
+        const enrichedConv = {
+          ...conv,
+          prospecto_id: conv.prospect_id,
+          metadata: {
+            ...conv.metadata,
+            coordinacion_id: coordinacionId,
+            coordinacion_codigo: coordinacionInfo?.codigo,
+            coordinacion_nombre: coordinacionInfo?.nombre,
+            ejecutivo_id: ejecutivoId,
+            ejecutivo_nombre: agentName,
+            ejecutivo_email: ejecutivoInfo?.email
+          }
+        };
+
+        // Guardar el nombre del ejecutivo en el caché si existe (usar tanto conversationId como prospect_id)
+        if (agentName) {
+          setAgentNamesById(prev => {
+            const updated = { ...prev };
+            if (conv.id) updated[conv.id] = agentName;
+            if (conv.prospect_id) updated[conv.prospect_id] = agentName;
+            return updated;
+          });
+        }
+
+        return enrichedConv;
+      });
+
+      // OPTIMIZACIÓN: Aplicar filtros de permisos a uchat conversations
+      let uchatConversations: Conversation[] = [];
+      if (!coordinacionesFilter && !ejecutivoFilter) {
+        // Admin: sin filtros
+        uchatConversations = uchatConversationsEnriched;
+      } else {
+        // Filtrar según permisos
+        for (const conv of uchatConversationsEnriched) {
+          if (conv.prospecto_id) {
+            const prospectoData = prospectosData.get(conv.prospecto_id);
+            if (ejecutivoFilter) {
+              // Ejecutivo: solo sus prospectos asignados
+              if (prospectoData?.ejecutivo_id === ejecutivoFilter) {
+                uchatConversations.push(conv);
+              }
+            } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              // Coordinador: todos los prospectos de sus coordinaciones (múltiples)
+              // Excluir prospectos sin coordinación asignada
+              if (prospectoData?.coordinacion_id && coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
+                uchatConversations.push(conv);
+              }
             }
           }
+        }
+      }
 
-          if (conv.ejecutivo_id) {
-            try {
-              ejecutivoInfo = await coordinacionService.getEjecutivoById(conv.ejecutivo_id);
-            } catch (error) {
-              console.warn('Error obteniendo ejecutivo:', error);
-            }
-          }
+      // OPTIMIZACIÓN: Enriquecer WhatsApp conversations usando los maps
+      let whatsappConversations: Conversation[] = [];
+      
+      if (rpcData && rpcData.length > 0) {
+        const adaptedConversations: Conversation[] = rpcData.map((c: any) => {
+          const prospectoData = c.prospecto_id ? prospectosData.get(c.prospecto_id) : null;
+          const coordinacionInfo = prospectoData?.coordinacion_id 
+            ? coordinacionesMap.get(prospectoData.coordinacion_id) 
+            : null;
+          const ejecutivoInfo = prospectoData?.ejecutivo_id 
+            ? ejecutivosMap.get(prospectoData.ejecutivo_id) 
+            : null;
 
-          return {
-            ...conv,
-            metadata: {
-              ...conv.metadata,
-              coordinacion_id: conv.coordinacion_id,
+          const adaptedConv = {
+            id: c.prospecto_id,
+            prospecto_id: c.prospecto_id,
+            nombre_contacto: c.nombre_contacto || c.numero_telefono,
+            customer_name: c.nombre_contacto,
+            status: c.estado_prospecto,
+            last_message_at: c.fecha_ultimo_mensaje,
+            message_count: c.mensajes_totales,
+            unread_count: c.mensajes_no_leidos,
+            ultimo_mensaje_preview: c.ultimo_mensaje,
+            numero_telefono: c.numero_telefono,
+            updated_at: c.fecha_ultimo_mensaje,
+            fecha_inicio: c.fecha_creacion_prospecto,
+            tipo: 'whatsapp',
+            metadata: { 
+              prospecto_id: c.prospecto_id,
+              id_uchat: c.id_uchat,
+              coordinacion_id: coordinacionInfo?.id,
               coordinacion_codigo: coordinacionInfo?.codigo,
               coordinacion_nombre: coordinacionInfo?.nombre,
-              ejecutivo_id: conv.ejecutivo_id,
+              ejecutivo_id: ejecutivoInfo?.id,
               ejecutivo_nombre: ejecutivoInfo?.full_name,
               ejecutivo_email: ejecutivoInfo?.email
             }
           };
-        })
-      );
 
-      // También obtener conversaciones desde mensajes_whatsapp para conversaciones sin uchat_conversations
-      // pero aplicar filtros de permisos
-      let whatsappConversations: Conversation[] = [];
-      
-      try {
-        const { data: rpcData, error: rpcError } = await analysisSupabase.rpc('get_conversations_ordered');
-        
-        if (!rpcError && rpcData) {
-          // Adaptar los datos al formato que espera la UI y enriquecer con asignación
-          const adaptedConversations: Conversation[] = await Promise.all(
-            rpcData.map(async (c: any) => {
-              let coordinacionInfo = null;
-              let ejecutivoInfo = null;
-
-              // Obtener datos de asignación del prospecto
+          // Guardar el nombre del ejecutivo en el caché si existe (usar tanto conversationId como prospect_id)
+          if (ejecutivoInfo?.full_name) {
+            setAgentNamesById(prev => {
+              const updated = { ...prev };
               if (c.prospecto_id) {
-                try {
-                  const { data: prospecto } = await analysisSupabase
-                    .from('prospectos')
-                    .select('coordinacion_id, ejecutivo_id')
-                    .eq('id', c.prospecto_id)
-                    .single();
-
-                  if (prospecto?.coordinacion_id) {
-                    coordinacionInfo = await coordinacionService.getCoordinacionById(prospecto.coordinacion_id);
-                  }
-
-                  if (prospecto?.ejecutivo_id) {
-                    ejecutivoInfo = await coordinacionService.getEjecutivoById(prospecto.ejecutivo_id);
-                  }
-                } catch (error) {
-                  console.warn('Error obteniendo asignación del prospecto:', error);
+                updated[c.prospecto_id] = ejecutivoInfo.full_name;
+                // También guardar con el id de la conversación si es diferente
+                if (adaptedConv.id && adaptedConv.id !== c.prospecto_id) {
+                  updated[adaptedConv.id] = ejecutivoInfo.full_name;
                 }
               }
+              return updated;
+            });
+          }
 
-              return {
-                id: c.prospecto_id,
-                prospecto_id: c.prospecto_id,
-                nombre_contacto: c.nombre_contacto || c.numero_telefono,
-                customer_name: c.nombre_contacto,
-                status: c.estado_prospecto,
-                last_message_at: c.fecha_ultimo_mensaje,
-                message_count: c.mensajes_totales,
-                unread_count: c.mensajes_no_leidos,
-                ultimo_mensaje_preview: c.ultimo_mensaje,
-                numero_telefono: c.numero_telefono,
-                updated_at: c.fecha_ultimo_mensaje,
-                fecha_inicio: c.fecha_creacion_prospecto,
-                tipo: 'whatsapp',
-                metadata: { 
-                  prospecto_id: c.prospecto_id,
-                  id_uchat: c.id_uchat,
-                  coordinacion_id: coordinacionInfo?.id,
-                  coordinacion_codigo: coordinacionInfo?.codigo,
-                  coordinacion_nombre: coordinacionInfo?.nombre,
-                  ejecutivo_id: ejecutivoInfo?.id,
-                  ejecutivo_nombre: ejecutivoInfo?.full_name,
-                  ejecutivo_email: ejecutivoInfo?.email
+          return adaptedConv;
+        });
+
+        // OPTIMIZACIÓN: Aplicar filtros de permisos en batch (usando los filtros ya obtenidos arriba)
+        if (!coordinacionesFilter && !ejecutivoFilter) {
+          // Admin: sin filtros
+          whatsappConversations = adaptedConversations;
+        } else {
+          // Filtrar según permisos
+          for (const conv of adaptedConversations) {
+            if (conv.prospecto_id) {
+              const prospectoData = prospectosData.get(conv.prospecto_id);
+              if (ejecutivoFilter) {
+                // Ejecutivo: solo sus prospectos asignados
+                if (prospectoData?.ejecutivo_id === ejecutivoFilter) {
+                  whatsappConversations.push(conv);
                 }
-              };
-            })
-          );
-          
-          // Aplicar filtros de permisos para conversaciones de WhatsApp
-          if (user?.id) {
-            for (const conv of adaptedConversations) {
-              if (conv.prospecto_id) {
-                const canAccess = await permissionsService.canUserAccessProspect(user.id, conv.prospecto_id);
-                if (canAccess.canAccess) {
+              } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                // Coordinador: todos los prospectos de sus coordinaciones (múltiples)
+                // Excluir prospectos sin coordinación asignada
+                if (prospectoData?.coordinacion_id && coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
                   whatsappConversations.push(conv);
                 }
               }
             }
-          } else {
-            whatsappConversations = adaptedConversations;
           }
         }
-      } catch (rpcError) {
-        console.warn('⚠️ Error obteniendo conversaciones desde RPC, continuando solo con uchat:', rpcError);
       }
 
       // Combinar conversaciones de uchat y whatsapp, eliminando duplicados
@@ -2532,6 +2804,12 @@ const LiveChatCanvas: React.FC = () => {
     }));
 
     setNewMessage('');
+    // Resetear altura del textarea después de enviar
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '44px';
+      }
+    }, 0);
     scrollToBottom('smooth');
 
     try {
@@ -2568,6 +2846,37 @@ const LiveChatCanvas: React.FC = () => {
       handleSendMessage();
     }
   };
+
+  // Función para ajustar la altura del textarea automáticamente
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    // Resetear altura para obtener el scrollHeight correcto
+    textarea.style.height = 'auto';
+    
+    // Calcular altura de una línea (aproximadamente)
+    const lineHeight = 24; // px (basado en text-sm + py-3)
+    const minHeight = 44; // altura mínima (1 línea)
+    const maxHeight = lineHeight * 3 + 24; // 3 líneas + padding
+    
+    // Obtener altura necesaria
+    const scrollHeight = textarea.scrollHeight;
+    
+    // Limitar a máximo 3 renglones
+    if (scrollHeight <= maxHeight) {
+      textarea.style.height = `${Math.max(scrollHeight, minHeight)}px`;
+      textarea.style.overflowY = 'hidden';
+    } else {
+      textarea.style.height = `${maxHeight}px`;
+      textarea.style.overflowY = 'auto';
+    }
+  };
+
+  // Ajustar altura cuando cambia el mensaje
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [newMessage]);
 
   // ============================================
   // MÉTODOS DE UI
@@ -2733,6 +3042,88 @@ const LiveChatCanvas: React.FC = () => {
     const lastMessageDate = new Date(lastUserMessage.created_at);
     const now = new Date();
     return (now.getTime() - lastMessageDate.getTime()) / (1000 * 60 * 60);
+  };
+
+  // Función para obtener las iniciales de un nombre completo
+  const getInitials = (fullName: string | null | undefined): string => {
+    if (!fullName || typeof fullName !== 'string') return 'A';
+    
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 0) return 'A';
+    
+    if (parts.length === 1) {
+      // Si solo hay un nombre, tomar las dos primeras letras
+      return parts[0].substring(0, 2).toUpperCase();
+    }
+    
+    // Si hay múltiples palabras, tomar la primera letra de las dos primeras palabras
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+  };
+
+  // Función para obtener el nombre del agente asignado a una conversación
+  const getAssignedAgentName = async (conversationId: string): Promise<string | null> => {
+    try {
+      // Primero verificar si ya tenemos el nombre en caché
+      if (agentNamesById[conversationId]) {
+        return agentNamesById[conversationId];
+      }
+
+      // Buscar en la conversación actual si tiene metadata con ejecutivo
+      const conversation = conversations.find(c => c.id === conversationId);
+      if (conversation?.metadata?.ejecutivo_nombre) {
+        const agentName = conversation.metadata.ejecutivo_nombre;
+        setAgentNamesById(prev => ({ ...prev, [conversationId]: agentName }));
+        return agentName;
+      }
+
+      // Intentar obtener el assigned_agent_id primero, luego buscar el nombre
+      let assignedAgentId: string | null = null;
+
+      // Si es una conversación de uchat, buscar por conversation_id de UChat
+      if (conversation?.metadata?.id_uchat) {
+        const { data: uchatConv, error } = await supabaseSystemUI
+          .from('uchat_conversations')
+          .select('assigned_agent_id')
+          .eq('conversation_id', conversation.metadata.id_uchat)
+          .single();
+
+        if (!error && uchatConv?.assigned_agent_id) {
+          assignedAgentId = uchatConv.assigned_agent_id;
+        }
+      }
+
+      // Si no encontramos el agent_id, intentar buscar por id directo
+      if (!assignedAgentId) {
+        const { data: uchatConv, error } = await supabaseSystemUI
+          .from('uchat_conversations')
+          .select('assigned_agent_id')
+          .eq('id', conversationId)
+          .maybeSingle(); // Usar maybeSingle en lugar de single para evitar error si no existe
+
+        if (!error && uchatConv?.assigned_agent_id) {
+          assignedAgentId = uchatConv.assigned_agent_id;
+        }
+      }
+
+      // Si tenemos el assigned_agent_id, buscar el nombre en auth_users
+      if (assignedAgentId) {
+        const { data: agentData, error: agentError } = await supabaseSystemUI
+          .from('auth_users')
+          .select('full_name')
+          .eq('id', assignedAgentId)
+          .maybeSingle();
+
+        if (!agentError && agentData?.full_name) {
+          setAgentNamesById(prev => ({ ...prev, [conversationId]: agentData.full_name }));
+          return agentData.full_name;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      // Silenciar errores para no llenar la consola
+      return null;
+    }
   };
 
   const getStatusIndicator = (status: string) => {
@@ -2909,10 +3300,9 @@ const LiveChatCanvas: React.FC = () => {
         {/* Área de scroll INDIVIDUAL de la caja */}
         <div 
           ref={conversationsScrollRef}
-          className="flex-1 overflow-y-auto"
+          className="flex-1 overflow-y-auto scrollbar-ultra-thin"
           style={{ 
-            overscrollBehavior: 'contain',
-            scrollbarWidth: 'thin'
+            overscrollBehavior: 'contain'
           }}
           onWheel={(e) => {
             // PREVENIR scroll global
@@ -2934,10 +3324,22 @@ const LiveChatCanvas: React.FC = () => {
                 e.preventDefault();
                 if (user?.role_name === 'coordinador' || user?.role_name === 'admin') {
                   const prospectId = conversation.prospecto_id || conversation.id;
+                  // Obtener ejecutivo_id desde metadata o desde el prospecto directamente usando el ref
+                  const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                  const ejecutivoId = conversation.metadata?.ejecutivo_id || prospectoData?.ejecutivo_id;
+                  const coordinacionId = conversation.metadata?.coordinacion_id || prospectoData?.coordinacion_id;
+                  
                   setAssignmentContextMenu({
                     prospectId,
-                    coordinacionId: conversation.metadata?.coordinacion_id,
-                    ejecutivoId: conversation.metadata?.ejecutivo_id,
+                    coordinacionId,
+                    ejecutivoId,
+                    prospectData: prospectoData ? {
+                      id_dynamics: prospectoData.id_dynamics,
+                      nombre_completo: prospectoData.nombre_completo,
+                      nombre_whatsapp: prospectoData.nombre_whatsapp,
+                      email: prospectoData.email,
+                      whatsapp: prospectoData.whatsapp,
+                    } : undefined,
                     position: { x: e.clientX, y: e.clientY }
                   });
                 }
@@ -2969,13 +3371,14 @@ const LiveChatCanvas: React.FC = () => {
                   <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{conversation.customer_phone}</p>
                   <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{conversation.metadata?.etapa}</p>
                   
-                  {/* Información de asignación */}
-                  {(conversation.metadata?.coordinacion_codigo || conversation.metadata?.ejecutivo_nombre) && (
+                  {/* Información de asignación - Mostrar según rol del usuario */}
+                  {(user?.role_name === 'admin' || user?.role_name === 'coordinador') && (
                     <div className="mb-2">
                       <AssignmentBadge
                         call={{
                           coordinacion_codigo: conversation.metadata?.coordinacion_codigo,
                           coordinacion_nombre: conversation.metadata?.coordinacion_nombre,
+                          ejecutivo_id: conversation.metadata?.ejecutivo_id,
                           ejecutivo_nombre: conversation.metadata?.ejecutivo_nombre,
                           ejecutivo_email: conversation.metadata?.ejecutivo_email
                         } as any}
@@ -3001,6 +3404,7 @@ const LiveChatCanvas: React.FC = () => {
           prospectId={assignmentContextMenu.prospectId}
           coordinacionId={assignmentContextMenu.coordinacionId}
           ejecutivoId={assignmentContextMenu.ejecutivoId}
+          prospectData={assignmentContextMenu.prospectData}
           isOpen={!!assignmentContextMenu}
           position={assignmentContextMenu.position}
           onClose={() => setAssignmentContextMenu(null)}
@@ -3137,12 +3541,22 @@ const LiveChatCanvas: React.FC = () => {
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                     {selectedConversation.customer_name}
                   </h3>
-                  <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-300">
+                  <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-300 flex-wrap gap-2">
                     <Phone className="w-4 h-4" />
                     <span>{selectedConversation.customer_phone}</span>
                     <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
                       {selectedConversation.metadata?.etapa}
                     </span>
+                    {/* Información de asignación según rol */}
+                    <AssignmentBadge
+                      call={{
+                        coordinacion_codigo: selectedConversation.metadata?.coordinacion_codigo,
+                        coordinacion_nombre: selectedConversation.metadata?.coordinacion_nombre,
+                        ejecutivo_nombre: selectedConversation.metadata?.ejecutivo_nombre,
+                        ejecutivo_email: selectedConversation.metadata?.ejecutivo_email
+                      } as any}
+                      variant="compact"
+                    />
                   </div>
                 </div>
               </div>
@@ -3214,10 +3628,9 @@ const LiveChatCanvas: React.FC = () => {
           {/* Área de mensajes - SCROLL INDIVIDUAL (hacia arriba desde abajo) */}
           <div 
             ref={messagesScrollRef}
-            className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-slate-25 to-white dark:from-gray-800 dark:to-gray-900"
+            className="flex-1 overflow-y-auto scrollbar-ultra-thin p-6 bg-gradient-to-b from-slate-25 to-white dark:from-gray-800 dark:to-gray-900"
             style={{ 
               overscrollBehavior: 'contain',
-              scrollbarWidth: 'thin',
               display: 'flex',
               flexDirection: 'column-reverse' // MOSTRAR DESDE ABAJO
             }}
@@ -3359,7 +3772,28 @@ const LiveChatCanvas: React.FC = () => {
                               ? (selectedConversation?.customer_name?.charAt(0).toUpperCase() || 'C')
                               : isBot 
                                 ? 'B'
-                                : 'A'
+                                : (() => {
+                                    // Obtener iniciales del agente asignado
+                                    const conversationId = selectedConversation?.id || '';
+                                    const prospectId = selectedConversation?.prospecto_id || '';
+                                    
+                                    // Buscar en caché por conversationId o prospectId
+                                    const agentName = agentNamesById[conversationId] 
+                                      || agentNamesById[prospectId]
+                                      || selectedConversation?.metadata?.ejecutivo_nombre
+                                      || user?.full_name; // Fallback al usuario actual si no hay agente asignado
+                                    
+                                    if (agentName) {
+                                      return getInitials(agentName);
+                                    }
+                                    
+                                    // Si aún no tenemos el nombre, intentar cargarlo
+                                    if (conversationId && !agentNamesById[conversationId] && !agentNamesById[prospectId]) {
+                                      getAssignedAgentName(conversationId).catch(() => {});
+                                    }
+                                    
+                                    return 'A';
+                                  })()
                             }
                           </span>
                         </div>
@@ -3373,12 +3807,52 @@ const LiveChatCanvas: React.FC = () => {
 
           {/* Input FIJO - Separado del historial pero en el mismo grupo */}
           <div 
-            className="p-4 border-t border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+            className="border-t border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800"
             style={{ 
-              flexShrink: 0,
-              height: '80px'
+              flexShrink: 0
             }}
           >
+            {/* Barra de Respuestas Rápidas */}
+            <AnimatePresence>
+              {quickReplies.length > 0 && isWithin24HourWindow(selectedConversation) && !isUserBlocked && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="px-4 pt-3 pb-2 border-b border-slate-100 dark:border-gray-700 bg-gradient-to-r from-slate-50/50 to-transparent dark:from-gray-800/50"
+                >
+                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent pb-1">
+                    {quickReplies.map((reply, index) => (
+                      <motion.button
+                        key={index}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.05, duration: 0.2 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      onClick={async () => {
+                        // Enviar directamente sin pasar por el filtro del LLM
+                        await sendMessageWithText(reply.text);
+                      }}
+                        className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 border border-slate-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 rounded-lg transition-all duration-200 whitespace-nowrap shadow-sm hover:shadow"
+                        title={reply.text}
+                      >
+                        {reply.text}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div 
+              className="p-4"
+              style={{ 
+                flexShrink: 0,
+                minHeight: '80px'
+              }}
+            >
             {!isWithin24HourWindow(selectedConversation) ? (
               // VENTANA DE 24 HORAS EXPIRADA - Mostrar restricción de WhatsApp
               <div className="flex items-center justify-center h-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200 dark:border-amber-700/50 px-4">
@@ -3439,16 +3913,25 @@ const LiveChatCanvas: React.FC = () => {
                   Escribe un mensaje
                 </label>
                 <textarea
+                  ref={textareaRef}
                   id="livechat-message-input"
                   name="livechat-message"
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    // Ajustar altura después de actualizar el estado
+                    setTimeout(() => adjustTextareaHeight(), 0);
+                  }}
                   onKeyPress={handleKeyPress}
                   placeholder="Escribe un mensaje..."
                   rows={1}
                   autoComplete="off"
-                  className="w-full px-4 py-3 text-sm border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none shadow-sm"
-                  style={{ height: '44px' }}
+                  className="w-full px-4 py-3 text-sm border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none shadow-sm overflow-y-auto scrollbar-hide"
+                  style={{ 
+                    minHeight: '44px',
+                    maxHeight: '96px', // 3 renglones máximo (24px * 3 + padding)
+                    transition: 'height 0.1s ease-out'
+                  }}
                 />
               </div>
 
@@ -3466,6 +3949,7 @@ const LiveChatCanvas: React.FC = () => {
               </button>
             </div>
             )}
+            </div>
           </div>
         </div>
       ) : (
@@ -3558,9 +4042,10 @@ const LiveChatCanvas: React.FC = () => {
       />
 
       {/* Modal de Llamada Manual */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showCallModal && (
           <motion.div
+            key="call-modal-wrapper"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -3574,6 +4059,7 @@ const LiveChatCanvas: React.FC = () => {
             }}
           >
             <motion.div
+              key="call-modal-content"
               initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 10 }}

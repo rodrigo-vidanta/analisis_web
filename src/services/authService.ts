@@ -20,6 +20,7 @@
 // ============================================
 
 import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
+import { errorLogService } from './errorLogService';
 
 // Tipos de datos para autenticación
 export interface User {
@@ -38,6 +39,9 @@ export interface User {
   email_verified: boolean;
   last_login?: string;
   created_at: string;
+  must_change_password?: boolean;
+  id_colaborador?: string;
+  id_dynamics?: string;
 }
 
 export interface Permission {
@@ -150,6 +154,20 @@ class AuthService {
       };
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Log error crítico
+          errorLogService.logError(error, {
+            module: 'auth',
+            component: 'AuthService',
+            function: 'login',
+            severity: 'critico',
+            category: 'autenticacion',
+            details: {
+              email: credentials.email,
+              error_type: error instanceof Error ? error.constructor.name : 'Unknown'
+            }
+          }).catch(() => {}); // No queremos que errores de logging afecten el flujo principal
+      
       return {
         user: null,
         permissions: [],
@@ -367,7 +385,7 @@ class AuthService {
       throw new Error('Sesión inválida');
     }
 
-    // Cargar datos del usuario desde la vista
+    // Cargar datos del usuario desde la vista y tabla directa para campos adicionales
     const { data: userData, error: userError } = await supabase
       .from('auth_user_profiles')
       .select('*')
@@ -379,7 +397,20 @@ class AuthService {
       throw new Error('Usuario no encontrado o inactivo');
     }
 
-    this.currentUser = userData as User;
+    // Cargar campos adicionales desde auth_users directamente
+    const { data: additionalData } = await supabase
+      .from('auth_users')
+      .select('must_change_password, id_colaborador, id_dynamics')
+      .eq('id', sessionData.user_id)
+      .single();
+
+    // Combinar datos
+    this.currentUser = {
+      ...userData,
+      must_change_password: additionalData?.must_change_password || false,
+      id_colaborador: additionalData?.id_colaborador,
+      id_dynamics: additionalData?.id_dynamics,
+    } as User;
 
     // Cargar permisos del usuario
     // Nota: En System_UI, auth_user_permissions tiene permission_name, module, sub_module

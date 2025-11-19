@@ -140,3 +140,6 @@ curl http://localhost:3000
 5. Configurar HTTPS con certificado ACM
 6. Verificar funcionamiento completo
 
+
+
+

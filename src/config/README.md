@@ -28,6 +28,12 @@ Configuraciones centralizadas de todas las conexiones Supabase del proyecto.
 - **Tablas**: `ai_models`, `generated_images`
 - **Clientes**: `supabaseMain`, `supabaseMainAdmin`
 
+### supabaseLogMonitor.ts
+- **URL**: dffuwdzybhypxfzrmdcz.supabase.co
+- **Uso**: Log Monitor, Dashboard de Errores
+- **Tablas**: `error_log`, `ui_error_log_status`, `ui_error_log_annotations`, `ui_error_log_tags`, `ui_error_log_ai_analysis`
+- **Clientes**: `supabaseLogMonitor` (normal), `supabaseLogMonitorAdmin` (admin)
+
 ## Estructura de Conexiones
 ```
 Módulo → Base de Datos
@@ -37,7 +43,8 @@ Módulo → Base de Datos
 ├── Live Chat → supabaseSystemUI
 ├── Admin → pqncSupabase
 ├── AI Models → supabaseMain
-└── Prompts → supabaseSystemUI
+├── Prompts → supabaseSystemUI
+└── Log Monitor → supabaseLogMonitor
 ```
 
 ## Variables de Entorno

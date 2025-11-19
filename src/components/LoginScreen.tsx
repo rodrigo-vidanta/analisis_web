@@ -14,19 +14,15 @@ const LoginScreen: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('🚀 LOGIN - Iniciando proceso de login...');
-    
     // Guardar email si "recordarme" está activado
     if (rememberMe) {
       localStorage.setItem('remembered_email', email.trim());
-      console.log('💾 Email guardado para recordar');
     } else {
       localStorage.removeItem('remembered_email');
     }
     
     // Ejecutar login - la animación se maneja en AuthContext
     await login({ email: email.trim(), password });
-    console.log('🚀 LOGIN - Proceso de login completado');
   };
 
   // Cargar email recordado al inicializar
@@ -35,7 +31,6 @@ const LoginScreen: React.FC = () => {
     if (rememberedEmail) {
       setEmail(rememberedEmail);
       setRememberMe(true);
-      console.log('📧 Email recordado cargado:', rememberedEmail);
     }
   }, []);
 
@@ -114,6 +109,8 @@ const LoginScreen: React.FC = () => {
               <input
                 type="email"
                 id="email"
+                name="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

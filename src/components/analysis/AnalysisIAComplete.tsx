@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 // Importar el sidebar original del módulo Prospectos
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 
 // Sidebar del Prospecto - VERSIÓN COMPLETA como en ProspectosManager
 interface ProspectoSidebarProps {
@@ -67,7 +68,9 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
           precio_ofertado,
           costo_total,
           tiene_feedback,
-          feedback_resultado
+          feedback_resultado,
+          datos_llamada,
+          audio_ruta_bucket
         `)
         .eq('prospecto', prospectoId)
         .order('fecha_llamada', { ascending: false });
@@ -77,7 +80,45 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
         return;
       }
 
-      setLlamadas(data || []);
+      // Filtrar llamadas "activas" que en realidad ya finalizaron
+      const llamadasFiltradas = (data || []).map(llamada => {
+        // Extraer razon_finalizacion de datos_llamada (JSONB)
+        const razonFinalizacion = llamada.datos_llamada?.razon_finalizacion || 
+                                  (typeof llamada.datos_llamada === 'string' 
+                                    ? JSON.parse(llamada.datos_llamada)?.razon_finalizacion 
+                                    : null);
+        
+        // Calcular antigüedad de la llamada (en horas)
+        const fechaLlamada = llamada.fecha_llamada ? new Date(llamada.fecha_llamada) : null;
+        const horasTranscurridas = fechaLlamada 
+          ? (Date.now() - fechaLlamada.getTime()) / (1000 * 60 * 60)
+          : 0;
+        
+        // Si tiene call_status 'activa' pero tiene razon_finalizacion o duracion_segundos > 0, 
+        // entonces ya finalizó y debe mostrarse como 'finalizada'
+        if (llamada.call_status === 'activa' && (razonFinalizacion || (llamada.duracion_segundos && llamada.duracion_segundos > 0))) {
+          return {
+            ...llamada,
+            call_status: 'finalizada'
+          };
+        }
+        
+        // Si tiene call_status 'activa' pero es muy antigua (> 2 horas) y no tiene duración ni audio,
+        // entonces probablemente falló y debe mostrarse como 'perdida'
+        if (llamada.call_status === 'activa' && 
+            horasTranscurridas > 2 && 
+            (!llamada.duracion_segundos || llamada.duracion_segundos === 0) && 
+            !llamada.audio_ruta_bucket) {
+          return {
+            ...llamada,
+            call_status: 'perdida'
+          };
+        }
+        
+        return llamada;
+      });
+
+      setLlamadas(llamadasFiltradas);
     } catch (error) {
       console.error('Error loading llamadas:', error);
     }
@@ -360,6 +401,15 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                       {prospecto.observaciones}
                     </p>
                   </div>
+                )}
+
+                {/* Llamadas Programadas */}
+                {prospecto?.id && (
+                  <ScheduledCallsSection
+                    prospectoId={prospecto.id}
+                    prospectoNombre={prospecto.nombre_completo || prospecto.nombre_whatsapp}
+                    delay={0.5}
+                  />
                 )}
 
                 {/* Historial de Llamadas - IGUAL QUE EN PROSPECTOS */}
@@ -1867,82 +1917,119 @@ const AnalysisIAComplete: React.FC = () => {
       <AnimatePresence>
         {showDetailedView && selectedCallForDetail && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 z-50"
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-md z-50"
               onClick={() => {
                 setShowDetailedView(false);
                 setSelectedCallForDetail(null);
                 setTranscript([]);
               }}
             />
-            
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="fixed inset-4 md:inset-12 lg:inset-20 xl:inset-32 bg-white dark:bg-slate-900 rounded-xl shadow-2xl z-50 overflow-hidden"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="fixed inset-0 flex items-center justify-center z-50 p-4 lg:p-6 pointer-events-none"
             >
-              <div className="flex flex-col h-full">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <button
-                        onClick={() => selectedCallForDetail.prospecto && handleProspectoClick(selectedCallForDetail.prospecto)}
-                        className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-lg hover:shadow-xl transition-all cursor-pointer group"
-                        title="Ver información del prospecto"
-                      >
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">
-                            {(selectedCallForDetail.prospecto_nombre || 'P').charAt(0).toUpperCase()}
-                          </span>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden pointer-events-auto"
+              >
+                <div className="flex flex-col h-full">
+                  {/* Header */}
+                  <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-4 flex-1 min-w-0">
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                          className="relative flex-shrink-0"
+                        >
+                          <button
+                            onClick={() => selectedCallForDetail.prospecto && handleProspectoClick(selectedCallForDetail.prospecto)}
+                            className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-0.5 shadow-lg group cursor-pointer"
+                            title="Ver información del prospecto"
+                          >
+                            <div className="w-full h-full rounded-2xl bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                              <span className="text-white font-bold text-xl">
+                                {(selectedCallForDetail.prospecto_nombre || 'P').charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          </button>
+                          {/* Lupa con animación heartbeat */}
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                            className="absolute -bottom-1 -right-1 p-1 bg-white dark:bg-gray-900 rounded-full shadow-lg border-2 border-blue-500"
+                          >
+                            <Eye size={12} className="text-blue-600 dark:text-blue-400" />
+                          </motion.div>
+                        </motion.div>
+                        <div className="flex-1 min-w-0">
+                          <motion.h2
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.15 }}
+                            className="text-2xl font-bold text-gray-900 dark:text-white mb-1 flex items-center"
+                          >
+                            <BarChart3 className="w-6 h-6 mr-3 text-emerald-500" />
+                            {selectedCallForDetail.prospecto_nombre || 'Análisis de Llamada'}
+                          </motion.h2>
+                          <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.2 }}
+                            className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                          >
+                            {selectedCallForDetail.call_id} • {new Date(selectedCallForDetail.fecha_llamada || selectedCallForDetail.created_at).toLocaleDateString()}
+                          </motion.p>
                         </div>
-                      </button>
-                      
-                      {/* Lupa con animación heartbeat */}
-                      <div className="absolute -top-1 -right-1 p-1 bg-white dark:bg-slate-800 rounded-full shadow-lg border-2 border-blue-500 animate-pulse">
-                        <Eye size={12} className="text-blue-600 dark:text-blue-400" />
                       </div>
-                    </div>
-                    <div 
-                      onClick={() => selectedCallForDetail.prospecto && handleProspectoClick(selectedCallForDetail.prospecto)}
-                      className="cursor-pointer hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-lg p-2 transition-colors"
-                      title="Ver información del prospecto"
-                    >
-                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                        {selectedCallForDetail.prospecto_nombre || 'Análisis de Llamada'}
-                      </h2>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        {selectedCallForDetail.call_id} • {new Date(selectedCallForDetail.fecha_llamada || selectedCallForDetail.created_at).toLocaleDateString()}
-                      </p>
+                      <motion.button
+                        initial={{ opacity: 0, rotate: -90 }}
+                        animate={{ opacity: 1, rotate: 0 }}
+                        transition={{ delay: 0.25 }}
+                        onClick={() => {
+                          setShowDetailedView(false);
+                          setSelectedCallForDetail(null);
+                          setTranscript([]);
+                        }}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group ml-4 flex-shrink-0"
+                      >
+                        <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                      </motion.button>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => {
-                      setShowDetailedView(false);
-                      setSelectedCallForDetail(null);
-                      setTranscript([]);
-                    }}
-                    className="p-2 hover:bg-white/80 dark:hover:bg-slate-800/80 rounded-full transition-colors"
-                  >
-                    <X size={24} className="text-slate-400" />
-                  </button>
-                </div>
-                
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
+                  
+                  {/* Content */}
+                  <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent px-8 py-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     
                     {/* Panel Izquierdo - Métricas */}
                     <div className="space-y-6">
-                      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                          Métricas de Análisis
-                        </h3>
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-center space-x-2 mb-4">
+                          <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                            Métricas de Análisis
+                          </h3>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="text-center p-4 bg-white dark:bg-slate-700 rounded-lg">
                             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
@@ -1969,14 +2056,22 @@ const AnalysisIAComplete: React.FC = () => {
                             <div className="text-sm text-slate-600 dark:text-slate-400">Áreas Mejora</div>
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
 
                       {/* Calificaciones Detalladas */}
                       {selectedCallForDetail.calificaciones && (
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
-                          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                            Evaluación de Continuidad y Discovery
-                          </h3>
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                        >
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                              Evaluación de Continuidad y Discovery
+                            </h3>
+                          </div>
                           <div className="space-y-3">
                             {Object.entries(selectedCallForDetail.calificaciones)
                               .filter(([key]) => key !== 'calidad_cierre') // Filtrar métrica del enfoque anterior
@@ -2024,15 +2119,23 @@ const AnalysisIAComplete: React.FC = () => {
                                 );
                               })}
                           </div>
-                        </div>
+                        </motion.div>
                       )}
 
                       {/* Audio Player */}
                       {selectedCallForDetail.audio_ruta_bucket && (
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
-                          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                            Grabación de Audio
-                          </h3>
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                          className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                        >
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                              Grabación de Audio
+                            </h3>
+                          </div>
                           <div className="text-center">
                             <audio 
                               controls 
@@ -2043,16 +2146,24 @@ const AnalysisIAComplete: React.FC = () => {
                               Tu navegador no soporta el elemento de audio.
                             </audio>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                     </div>
 
                     {/* Panel Derecho - Conversación */}
                     <div className="space-y-6">
-                      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                          Transcripción de Conversación
-                        </h3>
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-center space-x-2 mb-4">
+                          <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                            Transcripción de Conversación
+                          </h3>
+                        </div>
                         <div className="max-h-96 overflow-y-auto space-y-3">
                           {transcript.length > 0 ? (
                             transcript.map((segment, index) => (
@@ -2086,26 +2197,42 @@ const AnalysisIAComplete: React.FC = () => {
                             </div>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
 
                       {/* Resumen de la Llamada */}
                       {selectedCallForDetail.resumen_llamada && (
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
-                          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                            Resumen de la Llamada
-                          </h3>
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                        >
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                              Resumen de la Llamada
+                            </h3>
+                          </div>
                           <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                             {selectedCallForDetail.resumen_llamada}
                           </p>
-                        </div>
+                        </motion.div>
                       )}
 
                       {/* Feedback */}
                       {(selectedCallForDetail.feedback_positivo?.length > 0 || selectedCallForDetail.feedback_constructivo?.length > 0) && (
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
-                          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                            Retroalimentación IA
-                          </h3>
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                          className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                        >
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                              Retroalimentación IA
+                            </h3>
+                          </div>
                           
                           {selectedCallForDetail.feedback_positivo?.length > 0 && (
                             <div className="mb-4">
@@ -2140,15 +2267,23 @@ const AnalysisIAComplete: React.FC = () => {
                               </ul>
                             </div>
                           )}
-                        </div>
+                        </motion.div>
                       )}
 
                       {/* Gráfica Radar de Evaluación */}
                       {selectedCallForDetail.calificaciones && Object.keys(selectedCallForDetail.calificaciones).length > 0 && (
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6">
-                          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                            Análisis Visual de Continuidad y Discovery
-                          </h3>
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.4 }}
+                          className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                        >
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                              Análisis Visual de Continuidad y Discovery
+                            </h3>
+                          </div>
                           <div className="relative h-80 flex items-center justify-center">
                             <canvas 
                               id={`radar-chart-${selectedCallForDetail.call_id}`}
@@ -2185,13 +2320,14 @@ const AnalysisIAComplete: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                     </div>
                   </div>
                 </div>
               </div>
             </motion.div>
+          </motion.div>
           </>
         )}
       </AnimatePresence>

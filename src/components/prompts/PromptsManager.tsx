@@ -31,16 +31,8 @@ const PromptsManager: React.FC = () => {
   const loadWorkflows = async () => {
     setLoading(true);
     try {
-      console.log('🔄 Cargando workflows desde n8n...');
-      
       // Obtener workflows desde n8n
       const result = await n8nLocalProxyService.getWorkflows();
-      
-      console.log('📊 Resultado de n8n:', { 
-        success: result.success, 
-        workflowsCount: result.workflows?.length || 0,
-        error: result.error 
-      });
       
       if (result.success && result.workflows) {
         // Filtrar solo los workflows específicos que solicitaste
@@ -51,15 +43,11 @@ const PromptsManager: React.FC = () => {
             target.toLowerCase().includes(workflow.name.toLowerCase())
           )
         );
-        
-        console.log('🎯 Workflows filtrados:', filteredWorkflows.map(w => ({ id: w.id, name: w.name })));
 
         // Procesar workflows y extraer prompts
         const processedWorkflows = await Promise.all(
           filteredWorkflows.map(async (workflow) => {
-            console.log('🔍 Procesando workflow:', workflow.name);
             const prompts = n8nLocalProxyService.extractPromptsFromWorkflow(workflow);
-            console.log('📝 Prompts extraídos:', prompts.length);
             
             // Obtener métricas (por ahora mock, luego implementar proxy)
             const metricsResult = { 
@@ -91,7 +79,6 @@ const PromptsManager: React.FC = () => {
           })
         );
 
-        console.log('✅ Workflows procesados:', processedWorkflows.length);
         setWorkflows(processedWorkflows);
       } else {
         console.error('❌ Error obteniendo workflows:', result.error);
@@ -106,7 +93,6 @@ const PromptsManager: React.FC = () => {
   const loadPromptVersions = async (workflowId: string, nodeId: string) => {
     try {
       // Temporalmente deshabilitado hasta crear las tablas en System_UI
-      console.log('Cargando versiones para:', { workflowId, nodeId });
       setPromptVersions([]); // Array vacío por ahora
     } catch (error) {
       console.error('Error cargando versiones:', error);

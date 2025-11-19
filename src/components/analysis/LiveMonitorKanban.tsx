@@ -29,6 +29,7 @@ import { ParaphraseModal } from '../chat/ParaphraseModal';
 import { AssignmentBadge } from './AssignmentBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProspectAvatar } from './ProspectAvatar';
+import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 
 // Función para reproducir sonido de checkpoint completado (4 repeticiones)
 const playCheckpointCompleteSound = () => {
@@ -467,6 +468,15 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                       {prospecto.observaciones}
                     </p>
                   </div>
+                )}
+
+                {/* Llamadas Programadas */}
+                {prospecto?.id && (
+                  <ScheduledCallsSection
+                    prospectoId={prospecto.id}
+                    prospectoNombre={prospecto.nombre_completo || prospecto.nombre_whatsapp}
+                    delay={0.5}
+                  />
                 )}
 
                 {/* Historial de Llamadas */}

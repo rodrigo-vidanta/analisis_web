@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { permissionsService } from '../../services/permissionsService';
 
 interface AnalyticsData {
   // Métricas básicas
@@ -62,6 +64,7 @@ interface AnalyticsData {
 }
 
 const LiveChatAnalytics: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
@@ -104,20 +107,87 @@ const LiveChatAnalytics: React.FC = () => {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
       
+      // Aplicar filtros de permisos según el rol del usuario
+      let prospectoIdsFilter: string[] | null = null;
+      
+      if (user?.id) {
+        const coordinacionFilter = await permissionsService.getCoordinacionFilter(user.id);
+        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
+        
+        if (ejecutivoFilter) {
+          // Ejecutivo: solo prospectos asignados a él
+          const { data: ejecutivoProspectos } = await analysisSupabase
+            .from('prospectos')
+            .select('id')
+            .eq('ejecutivo_id', ejecutivoFilter);
+          
+          prospectoIdsFilter = ejecutivoProspectos?.map(p => p.id) || [];
+        } else if (coordinacionFilter) {
+          // Coordinador: todos los prospectos de su coordinación
+          const { data: coordinacionProspectos } = await analysisSupabase
+            .from('prospectos')
+            .select('id')
+            .eq('coordinacion_id', coordinacionFilter);
+          
+          prospectoIdsFilter = coordinacionProspectos?.map(p => p.id) || [];
+        }
+        // Admin: sin filtros (prospectoIdsFilter = null)
+      }
+      
       // 1. Cargar conversaciones_whatsapp (bloques de 24 horas con resumen)
-      const { data: conversations, error: convError } = await analysisSupabase
+      let conversationsQuery = analysisSupabase
         .from('conversaciones_whatsapp')
         .select('*')
-        .gte('fecha_inicio', startDate.toISOString())
+        .gte('fecha_inicio', startDate.toISOString());
+      
+      // Aplicar filtro de prospectos si es necesario
+      if (prospectoIdsFilter !== null) {
+        if (prospectoIdsFilter.length === 0) {
+          // Si no hay prospectos asignados, retornar métricas vacías
+          setAnalytics({
+            totalConversations: 0,
+            activeConversations: 0,
+            transferredConversations: 0,
+            closedConversations: 0,
+            handoffRate: 0,
+            conversationTrends: [],
+            messageDistribution: [],
+            avgResponseTime: 0,
+            avgResponseTimeBot: 0,
+            avgResponseTimeAgent: 0,
+            peakHours: [],
+            priorityDistribution: [],
+            readRate: 0,
+            avgConversationDuration: 0,
+            previousPeriod: {
+              totalConversations: 0,
+              activeConversations: 0,
+              avgResponseTime: 0
+            }
+          });
+          setLoading(false);
+          return;
+        }
+        conversationsQuery = conversationsQuery.in('prospecto_id', prospectoIdsFilter);
+      }
+      
+      const { data: conversations, error: convError } = await conversationsQuery
         .order('fecha_inicio', { ascending: false });
 
       if (convError) throw convError;
 
       // 2. Cargar mensajes_whatsapp (mensajes de las últimas 24 horas)
-      const { data: messages, error: msgError } = await analysisSupabase
+      let messagesQuery = analysisSupabase
         .from('mensajes_whatsapp')
         .select('*')
-        .gte('fecha_hora', startDate.toISOString())
+        .gte('fecha_hora', startDate.toISOString());
+      
+      // Aplicar filtro de prospectos si es necesario
+      if (prospectoIdsFilter !== null && prospectoIdsFilter.length > 0) {
+        messagesQuery = messagesQuery.in('prospecto_id', prospectoIdsFilter);
+      }
+      
+      const { data: messages, error: msgError } = await messagesQuery
         .order('fecha_hora', { ascending: true });
 
       if (msgError) throw msgError;
@@ -127,6 +197,33 @@ const LiveChatAnalytics: React.FC = () => {
         ...(conversations?.map((c: any) => c.prospecto_id) || []),
         ...(messages?.map((m: any) => m.prospecto_id) || [])
       ].filter(Boolean))];
+      
+      if (prospectoIds.length === 0) {
+        // Si no hay prospectos, retornar métricas vacías
+        setAnalytics({
+          totalConversations: 0,
+          activeConversations: 0,
+          transferredConversations: 0,
+          closedConversations: 0,
+          handoffRate: 0,
+          conversationTrends: [],
+          messageDistribution: [],
+          avgResponseTime: 0,
+          avgResponseTimeBot: 0,
+          avgResponseTimeAgent: 0,
+          peakHours: [],
+          priorityDistribution: [],
+          readRate: 0,
+          avgConversationDuration: 0,
+          previousPeriod: {
+            totalConversations: 0,
+            activeConversations: 0,
+            avgResponseTime: 0
+          }
+        });
+        setLoading(false);
+        return;
+      }
       
       const { data: prospectos, error: prospectosError } = await analysisSupabase
         .from('prospectos')
@@ -182,12 +279,18 @@ const LiveChatAnalytics: React.FC = () => {
       previousStartDate.setDate(previousStartDate.getDate() - days);
       const previousEndDate = new Date(startDate);
       
-      // Obtener conversaciones del período anterior
-      const { data: previousConversations } = await analysisSupabase
+      // Obtener conversaciones del período anterior (con filtros de permisos)
+      let previousConversationsQuery = analysisSupabase
         .from('conversaciones_whatsapp')
         .select('*')
         .gte('fecha_inicio', previousStartDate.toISOString())
         .lt('fecha_inicio', previousEndDate.toISOString());
+      
+      if (prospectoIdsFilter !== null && prospectoIdsFilter.length > 0) {
+        previousConversationsQuery = previousConversationsQuery.in('prospecto_id', prospectoIdsFilter);
+      }
+      
+      const { data: previousConversations } = await previousConversationsQuery;
       
       const previousConversationsFormatted = previousConversations?.map((conv: any) => ({
         id: conv.id,
@@ -195,12 +298,18 @@ const LiveChatAnalytics: React.FC = () => {
         fecha_inicio: conv.fecha_inicio
       })) || [];
       
-      // Obtener mensajes del período anterior
-      const { data: previousMessages } = await analysisSupabase
+      // Obtener mensajes del período anterior (con filtros de permisos)
+      let previousMessagesQuery = analysisSupabase
         .from('mensajes_whatsapp')
         .select('*')
         .gte('fecha_hora', previousStartDate.toISOString())
         .lt('fecha_hora', previousEndDate.toISOString());
+      
+      if (prospectoIdsFilter !== null && prospectoIdsFilter.length > 0) {
+        previousMessagesQuery = previousMessagesQuery.in('prospecto_id', prospectoIdsFilter);
+      }
+      
+      const { data: previousMessages } = await previousMessagesQuery;
       
       const previousResponseTimes = calculateResponseTimes(previousMessages || []);
       

@@ -15,7 +15,8 @@
  *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Chart, registerables } from 'chart.js/auto';
 // RETROALIMENTACIÓN: Importaciones para el sistema de feedback
 import FeedbackModal from './FeedbackModal';
@@ -28,6 +29,8 @@ import ComplianceChart from './ComplianceChart';
 import UniversalDataView from './UniversalDataView';
 // REPRODUCTOR DE AUDIO: Componente para reproducir archivos WAV
 import AudioPlayer from './AudioPlayer';
+// Iconos
+import { X, MessageSquare, Edit2, Plus } from 'lucide-react';
 
 Chart.register(...registerables);
 
@@ -140,119 +143,193 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
   
   // Removed debugging logs for security
 
-  // Effect para crear gráfica de barras en Performance
-  useEffect(() => {
-    if (performanceCanvasRef.current && activeTab === 'performance') {
-      const ctx = performanceCanvasRef.current.getContext('2d');
-      if (ctx) {
-        if (chartRefs.current['performance']) {
-          chartRefs.current['performance']?.destroy();
-        }
+  // Función para crear el chart (extraída para reutilización)
+  const createPerformanceChartIfNeeded = useCallback(() => {
+    if (activeTab !== 'performance' || !performanceCanvasRef.current) {
+      return;
+    }
 
-        const agentPerf = call.agent_performance?.datos_originales || {};
-        
-        // Calcular scores desde datos booleanos
-        const calculateScore = (category: any) => {
-          if (!category) return 0;
-          const booleans = Object.values(category).filter(v => typeof v === 'boolean');
-          const trueCount = booleans.filter(Boolean).length;
-          return booleans.length > 0 ? (trueCount / booleans.length) * 100 : 0;
-        };
+    // Si ya existe un chart, no crear otro
+    if (chartRefs.current['performance']) {
+      return;
+    }
 
-        const performanceScores = {
-          cierre: calculateScore(agentPerf.cierreEfectivo),
-          proactividad: calculateScore(agentPerf.proactividad),
-          escucha: calculateScore(agentPerf.escuchaActiva),
-          informacion: calculateScore(agentPerf.manejoInformacion),
-          amabilidad: calculateScore(agentPerf.amabilidadYTono)
-        };
-        
-        chartRefs.current['performance'] = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: ['Cierre Efectivo', 'Proactividad', 'Escucha Activa', 'Manejo Info', 'Amabilidad'],
-            datasets: [{
-              label: 'Performance del Agente',
-              data: [
-                performanceScores.cierre,
-                performanceScores.proactividad,
-                performanceScores.escucha,
-                performanceScores.informacion,
-                performanceScores.amabilidad
-              ],
-              backgroundColor: 'rgba(59, 130, 246, 0.8)',
-              borderColor: 'rgba(59, 130, 246, 1)',
-              borderWidth: 1
-            }]
+    const canvas = performanceCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      return;
+    }
+    
+    // Destruir chart anterior si existe
+    if (chartRefs.current['performance']) {
+      chartRefs.current['performance']?.destroy();
+    }
+
+    const agentPerf = call.agent_performance?.datos_originales || {};
+    
+    // Calcular scores desde datos booleanos
+    const calculateScore = (category: any) => {
+      if (!category) return 0;
+      const booleans = Object.values(category).filter(v => typeof v === 'boolean');
+      const trueCount = booleans.filter(Boolean).length;
+      return booleans.length > 0 ? (trueCount / booleans.length) * 100 : 0;
+    };
+
+    const performanceScores = {
+      cierre: calculateScore(agentPerf.cierreEfectivo),
+      proactividad: calculateScore(agentPerf.proactividad),
+      escucha: calculateScore(agentPerf.escuchaActiva),
+      informacion: calculateScore(agentPerf.manejoInformacion),
+      amabilidad: calculateScore(agentPerf.amabilidadYTono)
+    };
+    
+    try {
+      const chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Cierre Efectivo', 'Proactividad', 'Escucha Activa', 'Manejo Info', 'Amabilidad'],
+          datasets: [{
+            label: 'Performance del Agente',
+            data: [
+              performanceScores.cierre,
+              performanceScores.proactividad,
+              performanceScores.escucha,
+              performanceScores.informacion,
+              performanceScores.amabilidad
+            ],
+            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 2000,
+            easing: 'easeInOutQuart'
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: {
-              duration: 2000,
-              easing: 'easeInOutQuart'
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100,
-                grid: {
-                  color: 'rgba(148, 163, 184, 0.3)'
-                },
-                ticks: {
-                  color: 'rgba(51, 65, 85, 1)'
-                }
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              grid: {
+                color: 'rgba(148, 163, 184, 0.3)'
               },
-              x: {
-                grid: {
-                  display: false
-                },
-                ticks: {
-                  color: 'rgba(51, 65, 85, 1)',
-                  font: {
-                    size: 11
-                  }
-                }
+              ticks: {
+                color: 'rgba(51, 65, 85, 1)'
               }
             },
-            plugins: {
-              legend: {
+            x: {
+              grid: {
                 display: false
+              },
+              ticks: {
+                color: 'rgba(51, 65, 85, 1)',
+                font: {
+                  size: 11
+                }
               }
             }
+          },
+          plugins: {
+            legend: {
+              display: false
+            }
           }
-        });
+        }
+      });
+      
+      chartRefs.current['performance'] = chartInstance;
+    } catch (error) {
+      console.error('Error creando gráfica de performance:', error);
+    }
+  }, [activeTab, call]);
+
+  // Callback ref para detectar cuando el canvas se monta
+  const performanceCanvasCallbackRef = useCallback((node: HTMLCanvasElement | null) => {
+    if (node) {
+      performanceCanvasRef.current = node;
+      // Si estamos en el tab de performance, crear el chart inmediatamente
+      if (activeTab === 'performance') {
+        setTimeout(() => {
+          createPerformanceChartIfNeeded();
+        }, 100);
       }
     }
-  }, [call, activeTab]);
+  }, [activeTab, createPerformanceChartIfNeeded]);
+
+  // Effect para crear gráfica de barras en Performance
+  useEffect(() => {
+    // Cleanup: destruir chart si existe cuando cambia el tab o se desmonta
+    if (activeTab !== 'performance') {
+      if (chartRefs.current['performance']) {
+        chartRefs.current['performance']?.destroy();
+        chartRefs.current['performance'] = null;
+      }
+      return;
+    }
+
+    // Intentar crear el chart después de un pequeño delay para asegurar que el canvas esté renderizado
+    const timer = setTimeout(() => {
+      createPerformanceChartIfNeeded();
+    }, 300);
+    
+    return () => {
+      clearTimeout(timer);
+      if (chartRefs.current['performance']) {
+        chartRefs.current['performance']?.destroy();
+        chartRefs.current['performance'] = null;
+      }
+    };
+  }, [call, activeTab, createPerformanceChartIfNeeded]);
 
   // Effect para crear gráfica de radar en Summary
   useEffect(() => {
-    if (summaryCanvasRef.current && activeTab === 'summary') {
-      const ctx = summaryCanvasRef.current.getContext('2d');
-      if (ctx) {
-        if (chartRefs.current['summary']) {
-          chartRefs.current['summary']?.destroy();
-        }
+    // Cleanup: destruir chart si existe cuando cambia el tab o se desmonta
+    if (activeTab !== 'summary') {
+      if (chartRefs.current['summary']) {
+        chartRefs.current['summary']?.destroy();
+        chartRefs.current['summary'] = null;
+      }
+      return;
+    }
 
-        const agentPerf = call.agent_performance?.datos_originales || {};
-        
-        // Calcular scores desde datos booleanos
-        const calculateScore = (category: any) => {
-          if (!category) return 0;
-          const booleans = Object.values(category).filter(v => typeof v === 'boolean');
-          const trueCount = booleans.filter(Boolean).length;
-          return booleans.length > 0 ? (trueCount / booleans.length) * 100 : 0;
-        };
+    if (!summaryCanvasRef.current) {
+      return;
+    }
 
-        const performanceScores = {
-          cierre: calculateScore(agentPerf.cierreEfectivo),
-          proactividad: calculateScore(agentPerf.proactividad),
-          escucha: calculateScore(agentPerf.escuchaActiva),
-          informacion: calculateScore(agentPerf.manejoInformacion),
-          amabilidad: calculateScore(agentPerf.amabilidadYTono)
-        };
-        
+    // Función para crear el chart
+    const createSummaryChart = (ctx: CanvasRenderingContext2D) => {
+      // Destruir chart anterior si existe
+      if (chartRefs.current['summary']) {
+        chartRefs.current['summary']?.destroy();
+      }
+
+      const agentPerf = call.agent_performance?.datos_originales || {};
+      
+      // Calcular scores desde datos booleanos
+      const calculateScore = (category: any) => {
+        if (!category) return 0;
+        const booleans = Object.values(category).filter(v => typeof v === 'boolean');
+        const trueCount = booleans.filter(Boolean).length;
+        return booleans.length > 0 ? (trueCount / booleans.length) * 100 : 0;
+      };
+
+      const performanceScores = {
+        cierre: calculateScore(agentPerf.cierreEfectivo),
+        proactividad: calculateScore(agentPerf.proactividad),
+        escucha: calculateScore(agentPerf.escuchaActiva),
+        informacion: calculateScore(agentPerf.manejoInformacion),
+        amabilidad: calculateScore(agentPerf.amabilidadYTono)
+      };
+      
+      try {
         chartRefs.current['summary'] = new Chart(ctx, {
           type: 'radar',
           data: {
@@ -308,23 +385,59 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
             }
           }
         });
+      } catch (error) {
+        console.error('Error creando gráfica de summary:', error);
       }
-    }
+    };
+
+    // Esperar a que el canvas esté completamente renderizado y visible
+    const timer = setTimeout(() => {
+      const canvas = summaryCanvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Verificar que el canvas tenga dimensiones válidas
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        console.warn('Canvas summary tiene dimensiones cero, reintentando...');
+        setTimeout(() => {
+          if (summaryCanvasRef.current && activeTab === 'summary') {
+            const retryCtx = summaryCanvasRef.current.getContext('2d');
+            if (retryCtx) {
+              createSummaryChart(retryCtx);
+            }
+          }
+        }, 200);
+        return;
+      }
+
+      createSummaryChart(ctx);
+    }, 300);
+    
+    return () => {
+      clearTimeout(timer);
+      if (chartRefs.current['summary']) {
+        chartRefs.current['summary']?.destroy();
+        chartRefs.current['summary'] = null;
+      }
+    };
   }, [call, activeTab]);
 
   // Función para obtener color por etapa - COLORES BALANCEADOS PARA AMBOS MODOS
   const getStageColor = (etapa: string) => {
     const colors: { [key: string]: string } = {
-      'saludo': 'from-blue-400 to-blue-500 dark:from-blue-600 dark:to-blue-700',
-      'presentacion': 'from-indigo-400 to-indigo-500 dark:from-indigo-600 dark:to-indigo-700',
-      'discovery': 'from-green-400 to-green-500 dark:from-green-600 dark:to-green-700',
-      'small_talk': 'from-purple-400 to-purple-500 dark:from-purple-600 dark:to-purple-700',
-      'presentacion_costos': 'from-orange-400 to-orange-500 dark:from-orange-600 dark:to-orange-700',
-      'manejo_objeciones': 'from-red-400 to-red-500 dark:from-red-600 dark:to-red-700',
-      'cierre': 'from-emerald-400 to-emerald-500 dark:from-emerald-600 dark:to-emerald-700',
-      'despedida': 'from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700'
+      'saludo': 'from-blue-200 to-blue-300 dark:from-blue-600 dark:to-blue-700',
+      'presentacion': 'from-indigo-200 to-indigo-300 dark:from-indigo-600 dark:to-indigo-700',
+      'discovery': 'from-green-200 to-green-300 dark:from-green-600 dark:to-green-700',
+      'small_talk': 'from-purple-200 to-purple-300 dark:from-purple-600 dark:to-purple-700',
+      'presentacion_costos': 'from-orange-200 to-orange-300 dark:from-orange-600 dark:to-orange-700',
+      'manejo_objeciones': 'from-red-200 to-red-300 dark:from-red-600 dark:to-red-700',
+      'cierre': 'from-emerald-200 to-emerald-300 dark:from-emerald-600 dark:to-emerald-700',
+      'despedida': 'from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700'
     };
-    return colors[etapa.toLowerCase()] || 'from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700';
+    return colors[etapa.toLowerCase()] || 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700';
   };
 
   // Función para toggle de segmentos
@@ -426,16 +539,28 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
 
   const renderPerformanceChart = () => {
     return (
-      <div className="relative h-64">
-        <canvas ref={performanceCanvasRef} className="w-full h-full"></canvas>
+      <div className="relative w-full" style={{ minHeight: '256px', height: '256px' }}>
+        <canvas 
+          ref={performanceCanvasCallbackRef} 
+          width={800}
+          height={256}
+          className="w-full"
+          style={{ height: '256px', display: 'block', maxWidth: '100%' }}
+        ></canvas>
       </div>
     );
   };
 
   const renderSummaryChart = () => {
     return (
-      <div className="relative h-64">
-        <canvas ref={summaryCanvasRef} className="w-full h-full"></canvas>
+      <div className="relative h-64 w-full" style={{ minHeight: '256px' }}>
+        <canvas 
+          ref={summaryCanvasRef} 
+          width={800}
+          height={256}
+          className="w-full"
+          style={{ maxHeight: '256px', display: 'block' }}
+        ></canvas>
       </div>
     );
   };
@@ -446,15 +571,14 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
         return (
           <div className="flex h-full">
               {/* Left Sidebar - Conversation */}
-              <div className="w-1/2 p-6 border-r border-slate-200 dark:border-slate-700 overflow-y-auto analysis-scroll">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                </div>
-                Conversación por Turnos
-              </h3>
+              <div className="w-1/2 px-8 py-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+              <div className="flex items-center space-x-2 mb-6">
+                <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                  <MessageSquare className="w-4 h-4 mr-2 text-blue-500" />
+                  Conversación por Turnos
+                </h3>
+              </div>
               <div className="space-y-4">
                 {transcript.map((segment) => {
                   const conversations = parseConversationByRoles(segment.text);
@@ -462,7 +586,13 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   const stageColor = getStageColor(segment.etapa_script);
                   
                   return (
-                    <div key={segment.id} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                    <motion.div
+                      key={segment.id}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 * segment.segment_index }}
+                      className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                    >
                       {/* Header del segmento con código de color */}
                       <div 
                         className={`bg-gradient-to-r ${stageColor} px-4 py-3 cursor-pointer hover:opacity-90 transition-opacity`}
@@ -471,26 +601,26 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <svg 
-                              className={`w-4 h-4 text-white transition-transform ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} 
+                              className={`w-4 h-4 text-gray-900 dark:text-white transition-transform ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} 
                               fill="none" 
                               stroke="currentColor" 
                               viewBox="0 0 24 24"
                             >
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <span className="text-sm font-medium text-white">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
                               Segmento {segment.segment_index} • {segment.etapa_script.replace('_', ' ').toUpperCase()}
                             </span>
                           </div>
-                          <span className="text-xs px-2 py-1 bg-white bg-opacity-20 text-white rounded-full">
+                          <span className="text-xs px-2 py-1 bg-gray-900 bg-opacity-20 dark:bg-white dark:bg-opacity-20 text-gray-900 dark:text-white rounded-full">
                             Q: {segment.quality_score}
                           </span>
                         </div>
                         
                         {/* Contexto cuando está colapsado */}
                         {isCollapsed && (
-                          <div className="mt-2 text-xs text-white opacity-90">
-                            <div className="bg-white bg-opacity-10 rounded p-2">
+                          <div className="mt-2 text-xs text-gray-900 dark:text-white opacity-90">
+                            <div className="bg-gray-900 bg-opacity-10 dark:bg-white dark:bg-opacity-10 rounded p-2">
                               {segment.context_text || 'Resumen del contexto del segmento'}
                             </div>
                           </div>
@@ -501,7 +631,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                       {!isCollapsed && (
                         <>
                           {/* Badges */}
-                          <div className="bg-slate-50 dark:bg-slate-800 px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                          <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                             <div className="flex flex-wrap gap-1">
                               {segment.elementos_obligatorios?.map(elemento => (
                                 <span key={elemento} className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
@@ -522,7 +652,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                           </div>
 
                           {/* Conversaciones */}
-                          <div className="p-4 space-y-3 bg-white dark:bg-slate-800">
+                          <div className="p-4 space-y-3 bg-white dark:bg-gray-800">
                             {conversations.map((conv, convIndex) => (
                               <div key={convIndex} className={`flex ${conv.isAgent ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[80%] p-3 rounded-lg ${
@@ -545,26 +675,24 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                           </div>
                         </>
                       )}
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
             </div>
 
             {/* Right Sidebar - Analytics */}
-            <div className="w-1/2 p-6 overflow-y-auto analysis-scroll">
+            <div className="w-1/2 px-8 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
               {/* Resumen de la llamada */}
               {call.call_evaluation?.analisisGeneral && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                    <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center mr-3">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    Resumen de la Llamada
-                  </h3>
-                  <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Resumen de la Llamada
+                    </h3>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                     {call.call_evaluation.analisisGeneral.descripcion && (
                       <div className="mb-3">
                         <p className="text-sm text-slate-700 dark:text-slate-300">
@@ -609,28 +737,36 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                 )}
               </div>
 
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                Análisis y Métricas
-              </h3>
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Análisis y Métricas
+                </h3>
+              </div>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Calidad</h4>
-                    <p className="text-2xl font-bold text-blue-600">{call.quality_score}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Score Ponderado</h4>
-                    <p className="text-2xl font-bold text-green-600">{scorePonderado.toFixed(1)}</p>
-                  </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-5 rounded-xl border border-blue-200 dark:border-blue-800"
+                  >
+                    <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Calidad</h4>
+                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{call.quality_score}</p>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.15 }}
+                    className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 p-5 rounded-xl border border-emerald-200 dark:border-emerald-800"
+                  >
+                    <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Score Ponderado</h4>
+                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{scorePonderado.toFixed(1)}</p>
+                  </motion.div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                   <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Performance del Agente</h4>
                   {renderSummaryChart()}
                 </div>
@@ -641,50 +777,54 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
 
       case 'performance':
         return (
-          <div className="p-6 space-y-6">
+          <div className="px-8 py-6 space-y-6">
             
             {/* Gráfico principal - MOVIDO AL TOP */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                Gráfica de Performance
-              </h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Gráfica de Performance
+                </h3>
+              </div>
               {renderPerformanceChart()}
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Score General */}
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  Score General
-                </h3>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.15 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Score General
+                  </h3>
+                </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                  <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                     {call.agent_performance?.score_ponderado || 0}
                   </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">Score Ponderado del Agente</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Score Ponderado del Agente</div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Fortalezas */}
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  Fortalezas
-                </h3>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Fortalezas
+                  </h3>
+                </div>
                 <div className="space-y-2">
                   {call.agent_performance?.areas_performance?.fortalezas?.length > 0 ? (
                     call.agent_performance.areas_performance.fortalezas.map((fortaleza: string, index: number) => (
@@ -699,18 +839,21 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                     <span className="text-sm text-slate-500 dark:text-slate-400">No se identificaron fortalezas específicas</span>
                   )}
                 </div>
-              </div>
+              </motion.div>
 
               {/* Debilidades */}
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  Áreas de Mejora
-                </h3>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.25 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-5 bg-gradient-to-b from-red-500 to-pink-500 rounded-full"></div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Áreas de Mejora
+                  </h3>
+                </div>
                 <div className="space-y-2">
                   {call.agent_performance?.areas_performance?.debilidades?.map((debilidad: string, index: number) => (
                     <div key={index} className="flex items-start">
@@ -721,47 +864,58 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                     </div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             </div>
 
             {/* PERFORMANCE COMPLETO DEL AGENTE - MOVIDO AL FINAL Y EXPANDIDO POR DEFECTO */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                Performance Completo del Agente
-              </h3>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="space-y-4"
+            >
+              <div className="flex items-center space-x-2">
+                <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Performance Completo del Agente
+                </h3>
+              </div>
               <UniversalDataView
                 data={call.agent_performance || {}}
                 title=""
                 icon={null}
                 className=""
               />
-            </div>
+            </motion.div>
 
           </div>
         );
 
       case 'script':
         return (
-          <div className="p-6 space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                Análisis de Script
-              </h3>
+          <div className="px-8 py-6 space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+            >
+              <div className="flex items-center space-x-2 mb-6">
+                <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Análisis de Script
+                </h3>
+              </div>
               
               <div className="space-y-6">
                 {/* Balance FODA - MOVIDO ANTES DE ETAPAS */}
                 {call.call_evaluation?.metricas_foda && (
-                  <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.15 }}
+                    className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 p-5 rounded-xl border border-indigo-200 dark:border-indigo-800"
+                  >
                     <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Balance FODA</h4>
                     <div className="flex justify-center">
                       <div className="text-center">
@@ -769,7 +923,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                         <div className="text-sm text-slate-600 dark:text-slate-400">Score Balance</div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* Métricas de etapas de comunicacion_data */}
@@ -849,22 +1003,25 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {/* SECCIONES MOVIDAS DESDE COMPLIANCE */}
             <div className="space-y-6">
               
               {/* Resumen de Objeciones - EXPANDIDO POR DEFECTO */}
               {call.call_evaluation?.objeciones_resumen && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                    <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg flex items-center justify-center mr-3">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    Resumen de Objeciones
-                  </h3>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-orange-500 to-red-500 rounded-full"></div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Resumen de Objeciones
+                    </h3>
+                  </div>
                   <div className="space-y-3">
                     {Object.entries(call.call_evaluation.objeciones_resumen).map(([key, value]) => (
                       <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
@@ -877,20 +1034,23 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                       </div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               )}
 
               {/* Problemas Detectados - EXPANDIDO POR DEFECTO */}
               {call.call_evaluation?.problemas_detectados && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                    <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center mr-3">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                    Problemas Detectados
-                  </h3>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                  className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-red-500 to-pink-500 rounded-full"></div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Problemas Detectados
+                    </h3>
+                  </div>
                   <div className="space-y-3">
                     {Object.entries(call.call_evaluation.problemas_detectados).map(([key, value]) => (
                       <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
@@ -903,7 +1063,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                       </div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               )}
 
               
@@ -925,24 +1085,27 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
 
       case 'compliance':
         return (
-          <div className="p-6 space-y-6">
+          <div className="px-8 py-6 space-y-6">
             
             {/* Gráfica de Cumplimiento Normativo - MOVIDA DESDE SCRIPT */}
             {(call as any).compliance_data && (
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                  </div>
-                  Cumplimiento Normativo
-                </h3>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Cumplimiento Normativo
+                  </h3>
+                </div>
                 
                 <ComplianceChart 
                   complianceData={(call as any).compliance_data}
                 />
-              </div>
+              </motion.div>
             )}
 
             {/* DATOS DE COMPLIANCE */}
@@ -962,15 +1125,18 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
 
               {/* Problemas Detectados - EXPANDIDO POR DEFECTO */}
               {call.call_evaluation?.problemas_detectados && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                    <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center mr-3">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                    Problemas Detectados
-                  </h3>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-red-500 to-pink-500 rounded-full"></div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Problemas Detectados
+                    </h3>
+                  </div>
                   <div className="space-y-3">
                     {Object.entries(call.call_evaluation.problemas_detectados).map(([key, value]) => (
                       <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
@@ -983,7 +1149,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                       </div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               )}
 
               
@@ -994,7 +1160,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
 
       case 'customer':
         return (
-          <div className="p-6 space-y-6">
+          <div className="px-8 py-6 space-y-6">
             
             {/* DATOS DEL CLIENTE */}
             <UniversalDataView
@@ -1024,7 +1190,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
 
       case 'raw-data':
         return (
-          <div className="p-6 space-y-6">
+          <div className="px-8 py-6 space-y-6">
             
             {/* TODOS LOS DATOS ESTRUCTURADOS */}
             <UniversalDataView
@@ -1074,15 +1240,18 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
               }
             />
             
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-slate-500 to-slate-600 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                  </svg>
-                </div>
-                Datos Técnicos Completos
-              </h3>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+            >
+              <div className="flex items-center space-x-2 mb-6">
+                <div className="w-1 h-5 bg-gradient-to-b from-gray-500 to-gray-600 rounded-full"></div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Datos Técnicos Completos
+                </h3>
+              </div>
               
               <div className="space-y-6">
                 {/* Metadatos principales */}
@@ -1122,7 +1291,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         );
 
@@ -1147,98 +1316,157 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-[96rem] h-full max-h-[92vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-              Análisis Detallado - {call.customer_name}
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Agente: {call.agent_name} • {call.call_type} • {call.direction}
-            </p>
+    <>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="detailed-call-view"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] h-full max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden"
+          >
+          {/* Header */}
+          <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <motion.h2
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="text-2xl font-bold text-gray-900 dark:text-white mb-1"
+                >
+                  Análisis Detallado
+                </motion.h2>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.15 }}
+                  className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                >
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{call.customer_name}</span> • Agente: {call.agent_name} • {call.call_type} • {call.direction}
+                </motion.p>
+              </div>
+              
+              {/* RETROALIMENTACIÓN: Botones del header */}
+              <div className="flex items-center gap-3 ml-4">
+                {/* Botón de Retroalimentación */}
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleOpenFeedbackModal}
+                  disabled={feedbackLoading}
+                  className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 shadow-lg ${
+                    feedbackData 
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white' 
+                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  `}
+                  title={feedbackData ? 'Editar retroalimentación existente' : 'Agregar retroalimentación'}
+                >
+                  {feedbackLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm">Cargando...</span>
+                    </>
+                  ) : feedbackData ? (
+                    <>
+                      <Edit2 className="w-4 h-4" />
+                      <span className="text-sm">Editar Retro</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span className="text-sm">Retroalimentación</span>
+                    </>
+                  )}
+                </motion.button>
+                
+                {/* Botón de Cerrar */}
+                <motion.button
+                  initial={{ opacity: 0, rotate: -90 }}
+                  animate={{ opacity: 1, rotate: 0 }}
+                  transition={{ delay: 0.25 }}
+                  onClick={onClose}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group"
+                  title="Cerrar análisis detallado"
+                >
+                  <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                </motion.button>
+              </div>
+            </div>
           </div>
-          
-          {/* RETROALIMENTACIÓN: Botones del header */}
-          <div className="flex items-center gap-3">
-            {/* Botón de Retroalimentación */}
-            <button
-              onClick={handleOpenFeedbackModal}
-              disabled={feedbackLoading}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2
-                ${feedbackData 
-                  ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg' 
-                  : 'bg-blue-500 hover:bg-blue-600 text-white shadow-md'
-                }
-                disabled:opacity-50 disabled:cursor-not-allowed
-              `}
-              title={feedbackData ? 'Editar retroalimentación existente' : 'Agregar retroalimentación'}
-            >
-              {feedbackLoading ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
-                    <path fill="currentColor" className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span className="text-sm">Cargando...</span>
-                </>
-              ) : feedbackData ? (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <span className="text-sm">Editar Retro</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span className="text-sm">Retroalimentación</span>
-                </>
-              )}
-            </button>
-            
-            {/* Botón de Cerrar */}
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-              title="Cerrar análisis detallado"
-            >
-              <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="border-b border-slate-200 dark:border-slate-700">
-          <nav className="flex space-x-8 px-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as TabType)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
-                }`}
+          {/* Tabs */}
+          <div className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+            <nav className="flex space-x-1 px-8 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+              {tabs.map((tab, index) => (
+                <motion.button
+                  key={tab.id}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 + index * 0.05 }}
+                  onClick={() => setActiveTab(tab.id as TabType)}
+                  className={`relative py-4 px-4 font-medium text-sm transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+                >
+                  {tab.label}
+                  {activeTab === tab.id && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-t-full"
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    />
+                  )}
+                </motion.button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                style={{ minHeight: '100%' }}
+                onAnimationComplete={() => {
+                  // Forzar creación del chart después de la animación
+                  if (activeTab === 'performance') {
+                    setTimeout(() => {
+                      createPerformanceChartIfNeeded();
+                    }, 100);
+                  }
+                }}
               >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto analysis-scroll">
-          {renderTabContent()}
-        </div>
-      </div>
+                {renderTabContent()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
       
-      {/* RETROALIMENTACIÓN: Modal de feedback */}
+      {/* RETROALIMENTACIÓN: Modal de feedback - Fuera del AnimatePresence */}
       <FeedbackModal
         isOpen={showFeedbackModal}
         onClose={handleCloseFeedbackModal}
@@ -1252,7 +1480,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
         existingFeedback={feedbackData}
         onSave={handleSaveFeedback}
       />
-    </div>
+    </>
   );
 };
 

@@ -12,6 +12,7 @@ import LiveMonitorKanban from './analysis/LiveMonitorKanban';
 import AdminDashboardTabs from './admin/AdminDashboardTabs';
 import { useAuth, ProtectedRoute } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
+import { errorLogService } from '../services/errorLogService';
 import { useTheme } from '../hooks/useTheme';
 // Componentes Linear
 import LinearLayout from './linear/LinearLayout';
@@ -29,11 +30,16 @@ import LiveChatModule from './chat/LiveChatModule';
 // AWS Manager
 import AWSManager from './aws/AWSManager';
 
+// Log Server Manager
+import LogServerManager from './admin/LogServerManager';
+
 // Prospectos Manager
 import ProspectosManager from './prospectos/ProspectosManager';
 
 // Analysis IA Complete
 import AnalysisIAComplete from './analysis/AnalysisIAComplete';
+// Change Password Modal
+import ChangePasswordModal from './auth/ChangePasswordModal';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -71,6 +77,11 @@ function MainApp() {
   const [localDarkMode, setLocalDarkMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Por defecto abierto
   
+  // Actualizar el módulo activo en el servicio de logging cuando cambia
+  useEffect(() => {
+    errorLogService.setActiveModule(appMode);
+  }, [appMode]);
+  
   // Hook de tema para el rediseño
   const { currentTheme, getThemeClasses, isLinearTheme } = useTheme();
 
@@ -99,9 +110,16 @@ function MainApp() {
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    
-    // Prioridad: 1) Tema guardado, 2) Preferencia del sistema
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+    // Prioridad: 1) Tema guardado explícitamente, 2) Preferencia del sistema
+    let shouldBeDark: boolean;
+    if (savedTheme === 'dark') {
+      shouldBeDark = true;
+    } else if (savedTheme === 'light') {
+      shouldBeDark = false;
+    } else {
+      // Si no hay tema guardado, usar preferencia del sistema
+      shouldBeDark = systemPrefersDark;
+    }
     
     setLocalDarkMode(shouldBeDark);
     
@@ -110,11 +128,15 @@ function MainApp() {
       toggleDarkMode();
     }
     
+    // Aplicar tema al documento inmediatamente
     if (shouldBeDark) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    
+    // Guardar el tema en localStorage para asegurar persistencia
+    localStorage.setItem('theme', shouldBeDark ? 'dark' : 'light');
     
   }, []);
 
@@ -181,8 +203,6 @@ function MainApp() {
   }, [isAuthenticated, user, hasInitializedRedirect, getFirstAvailableModule, setAppMode, appMode]);
 
   const handleToggleDarkMode = () => {
-    console.log('🌙 Cambiando tema desde:', { darkMode, localDarkMode, appMode });
-    
     if (appMode === 'agent-studio') {
       // En constructor, usar el store global y sincronizar local
       toggleDarkMode();
@@ -195,7 +215,7 @@ function MainApp() {
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia' | 'live-chat' | 'aws-manager') => {
+  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia' | 'live-chat' | 'aws-manager' | 'log-server') => {
     setAppMode(mode);
     // Resetear steps cuando cambies de modo para evitar problemas
     if (mode !== 'constructor') {
@@ -218,6 +238,19 @@ function MainApp() {
   // Mostrar login si no está autenticado
   if (!isAuthenticated) {
     return <LoginScreen />;
+  }
+
+  // Mostrar modal de cambio de contraseña si es requerido
+  if (user?.must_change_password) {
+    return (
+      <ChangePasswordModal
+        userId={user.id}
+        onSuccess={async () => {
+          // Recargar datos del usuario después de cambiar contraseña
+          await authData.refreshUser();
+        }}
+      />
+    );
   }
 
   // Función para renderizar contenido según el modo
@@ -291,7 +324,7 @@ function MainApp() {
         );
       case 'admin':
         return (
-          user?.role_name === 'admin' ? (
+          (user?.role_name === 'admin' || user?.role_name === 'coordinador') ? (
             <AdminDashboardTabs />
           ) : (
             <div className="min-h-screen flex items-center justify-center">
@@ -321,6 +354,24 @@ function MainApp() {
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
                   No tienes permisos para acceder al AWS Manager
+                </p>
+              </div>
+            </div>
+          )
+        );
+
+      case 'log-server':
+        return (
+          user?.role_name === 'admin' ? (
+            <LogServerManager />
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Acceso Denegado
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Solo administradores pueden acceder al Log Server Manager
                 </p>
               </div>
             </div>

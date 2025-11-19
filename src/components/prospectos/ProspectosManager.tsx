@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Search, Filter, SortAsc, SortDesc, X, User, Phone, Mail,
+  Search, Filter, SortAsc, SortDesc, X, User, Users, Phone, Mail,
   Calendar, MapPin, Building, DollarSign, Clock, Tag,
   ChevronRight, Eye, Edit, Star, TrendingUp, Activity,
   FileText, MessageSquare, CheckCircle, AlertTriangle, Network,
@@ -28,9 +28,14 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import Chart from 'chart.js/auto';
 import { useAuth } from '../../contexts/AuthContext';
+import { permissionsService } from '../../services/permissionsService';
 import { prospectsViewPreferencesService } from '../../services/prospectsViewPreferencesService';
 import type { ViewType } from '../../services/prospectsViewPreferencesService';
 import ProspectosKanban from './ProspectosKanban';
+import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
+import { AssignmentBadge } from '../analysis/AssignmentBadge';
+import { coordinacionService } from '../../services/coordinacionService';
+import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 
 interface Prospecto {
   id: string;
@@ -67,6 +72,12 @@ interface Prospecto {
   asesor_asignado?: string;
   crm_data?: any[];
   id_dynamics?: string;
+  coordinacion_id?: string;
+  ejecutivo_id?: string;
+  coordinacion_codigo?: string;
+  coordinacion_nombre?: string;
+  ejecutivo_nombre?: string;
+  ejecutivo_email?: string;
 }
 
 interface FilterState {
@@ -215,12 +226,12 @@ const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen, onClo
     try {
       setLoading(true);
       
-      // Cargar datos de análisis
+      // Cargar datos de análisis (usar maybeSingle para evitar error 406 si no existe)
       const { data: analysisData, error: analysisError } = await analysisSupabase
         .from('call_analysis_summary')
         .select('*')
         .eq('call_id', callId)
-        .single();
+        .maybeSingle();
 
       // Cargar datos complementarios de llamadas_ventas
       const { data: llamadaData, error: llamadaError } = await analysisSupabase
@@ -547,7 +558,9 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
           precio_ofertado,
           costo_total,
           tiene_feedback,
-          feedback_resultado
+          feedback_resultado,
+          datos_llamada,
+          audio_ruta_bucket
         `)
         .eq('prospecto', prospectoId)
         .order('fecha_llamada', { ascending: false });
@@ -557,7 +570,45 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
         return;
       }
 
-      setLlamadas(data || []);
+      // Filtrar llamadas "activas" que en realidad ya finalizaron
+      const llamadasFiltradas = (data || []).map(llamada => {
+        // Extraer razon_finalizacion de datos_llamada (JSONB)
+        const razonFinalizacion = llamada.datos_llamada?.razon_finalizacion || 
+                                  (typeof llamada.datos_llamada === 'string' 
+                                    ? JSON.parse(llamada.datos_llamada)?.razon_finalizacion 
+                                    : null);
+        
+        // Calcular antigüedad de la llamada (en horas)
+        const fechaLlamada = llamada.fecha_llamada ? new Date(llamada.fecha_llamada) : null;
+        const horasTranscurridas = fechaLlamada 
+          ? (Date.now() - fechaLlamada.getTime()) / (1000 * 60 * 60)
+          : 0;
+        
+        // Si tiene call_status 'activa' pero tiene razon_finalizacion o duracion_segundos > 0, 
+        // entonces ya finalizó y debe mostrarse como 'finalizada'
+        if (llamada.call_status === 'activa' && (razonFinalizacion || (llamada.duracion_segundos && llamada.duracion_segundos > 0))) {
+          return {
+            ...llamada,
+            call_status: 'finalizada'
+          };
+        }
+        
+        // Si tiene call_status 'activa' pero es muy antigua (> 2 horas) y no tiene duración ni audio,
+        // entonces probablemente falló y debe mostrarse como 'perdida'
+        if (llamada.call_status === 'activa' && 
+            horasTranscurridas > 2 && 
+            (!llamada.duracion_segundos || llamada.duracion_segundos === 0) && 
+            !llamada.audio_ruta_bucket) {
+          return {
+            ...llamada,
+            call_status: 'perdida'
+          };
+        }
+        
+        return llamada;
+      });
+
+      setLlamadas(llamadasFiltradas);
     } catch (error) {
       console.error('Error loading llamadas:', error);
     }
@@ -810,6 +861,30 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                   </div>
                 </motion.div>
 
+                {/* Información de Asignación */}
+                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.35, ease: "easeOut" }}
+                    className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 space-y-3 border border-purple-200 dark:border-purple-800"
+                  >
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Users size={18} className="text-purple-600 dark:text-purple-400" />
+                      Asignación
+                    </h3>
+                    <AssignmentBadge
+                      call={{
+                        coordinacion_codigo: prospecto.coordinacion_codigo,
+                        coordinacion_nombre: prospecto.coordinacion_nombre,
+                        ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                        ejecutivo_email: prospecto.ejecutivo_email
+                      } as any}
+                      variant="inline"
+                    />
+                  </motion.div>
+                )}
+
                 {/* Información Comercial */}
                 <motion.div 
                   initial={{ opacity: 0 }}
@@ -955,6 +1030,13 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                   </motion.div>
                 )}
 
+                {/* Llamadas Programadas */}
+                <ScheduledCallsSection
+                  prospectoId={prospecto.id}
+                  prospectoNombre={prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                  delay={0.6}
+                />
+
                 {/* Historial de Llamadas */}
                 <motion.div 
                   initial={{ opacity: 0 }}
@@ -1078,6 +1160,21 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     direction: 'desc'
   });
 
+  // Estado para menú contextual de asignación
+  const [assignmentContextMenu, setAssignmentContextMenu] = useState<{
+    prospectId: string;
+    coordinacionId?: string;
+    ejecutivoId?: string;
+    prospectData?: {
+      id_dynamics?: string | null;
+      nombre_completo?: string | null;
+      nombre_whatsapp?: string | null;
+      email?: string | null;
+      whatsapp?: string | null;
+    };
+    position: { x: number; y: number };
+  } | null>(null);
+
   // Cargar preferencias de vista al inicio
   useEffect(() => {
     const preferences = prospectsViewPreferencesService.getUserPreferences(user?.id || null);
@@ -1087,26 +1184,75 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
 
   // Cargar prospectos
   useEffect(() => {
-    loadProspectos();
-  }, []);
+    if (user?.id) {
+      loadProspectos();
+    }
+  }, [user?.id]);
 
   const loadProspectos = async () => {
     try {
       setLoading(true);
       
-      const { data, error } = await analysisSupabase
+      let query = analysisSupabase
         .from('prospectos')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
+      // Aplicar filtros de permisos si hay usuario
+      if (user?.id) {
+        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
+        const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
+
+        if (ejecutivoFilter) {
+          // Ejecutivo: solo sus prospectos asignados
+          query = query.eq('ejecutivo_id', ejecutivoFilter);
+        } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+          // Coordinador: todos los prospectos de sus coordinaciones (múltiples)
+          // Excluir prospectos sin coordinación asignada
+          query = query.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+        }
+        // Admin: sin filtros
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Error loading prospectos:', error);
-        // Intentar con diferentes nombres de tabla
         return;
       }
 
-      setProspectos(data || []);
+      // Enriquecer prospectos con datos de coordinación y ejecutivo
+      const enrichedProspectos = await Promise.all(
+        (data || []).map(async (prospecto: Prospecto) => {
+          let coordinacionInfo = null;
+          let ejecutivoInfo = null;
+
+          if (prospecto.coordinacion_id) {
+            try {
+              coordinacionInfo = await coordinacionService.getCoordinacionById(prospecto.coordinacion_id);
+            } catch (error) {
+              console.warn('Error obteniendo coordinación:', error);
+            }
+          }
+
+          if (prospecto.ejecutivo_id) {
+            try {
+              ejecutivoInfo = await coordinacionService.getEjecutivoById(prospecto.ejecutivo_id);
+            } catch (error) {
+              console.warn('Error obteniendo ejecutivo:', error);
+            }
+          }
+
+          return {
+            ...prospecto,
+            coordinacion_codigo: coordinacionInfo?.codigo,
+            coordinacion_nombre: coordinacionInfo?.nombre,
+            ejecutivo_nombre: ejecutivoInfo?.full_name,
+            ejecutivo_email: ejecutivoInfo?.email
+          };
+        })
+      );
+
+      setProspectos(enrichedProspectos);
     } catch (error) {
       console.error('❌ Error loading prospectos:', error);
     } finally {
@@ -1353,6 +1499,23 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           <ProspectosKanban
             prospectos={filteredAndSortedProspectos}
             onProspectoClick={handleProspectoClick}
+            onProspectoContextMenu={(e, prospecto) => {
+              if (user?.role_name === 'coordinador' || user?.role_name === 'admin') {
+                setAssignmentContextMenu({
+                  prospectId: prospecto.id,
+                  coordinacionId: prospecto.coordinacion_id,
+                  ejecutivoId: prospecto.ejecutivo_id,
+                  prospectData: {
+                    id_dynamics: prospecto.id_dynamics,
+                    nombre_completo: prospecto.nombre_completo,
+                    nombre_whatsapp: prospecto.nombre_whatsapp,
+                    email: prospecto.email,
+                    whatsapp: prospecto.whatsapp,
+                  },
+                  position: { x: e.clientX, y: e.clientY }
+                });
+              }
+            }}
             collapsedColumns={collapsedColumns}
             onToggleColumnCollapse={handleToggleColumnCollapse}
             getStatusColor={getStatusColor}
@@ -1367,24 +1530,92 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
           className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
         >
-          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-            <table className="w-full min-w-[800px]">
+          {/* Vista móvil: Cards */}
+          <div className="block md:hidden p-4 space-y-4">
+            {filteredAndSortedProspectos.map((prospecto, index) => (
+              <motion.div
+                key={prospecto.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                onClick={() => handleProspectoClick(prospecto)}
+                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full">
+                      <User size={18} className="text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                        {prospecto.ciudad_residencia}
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">WhatsApp:</span>
+                    <div className="text-gray-900 dark:text-white font-mono truncate">{prospecto.whatsapp || '-'}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Email:</span>
+                    <div className="text-gray-900 dark:text-white truncate">{prospecto.email || '-'}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Etapa:</span>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
+                      {prospecto.etapa}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Score:</span>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getScoreColor(prospecto.score || '')}`}>
+                      {prospecto.score}
+                    </span>
+                  </div>
+                </div>
+                
+                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                  <div className="mt-2">
+                    <AssignmentBadge
+                      call={{
+                        coordinacion_codigo: prospecto.coordinacion_codigo,
+                        coordinacion_nombre: prospecto.coordinacion_nombre,
+                        ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                        ejecutivo_email: prospecto.ejecutivo_email
+                      } as any}
+                      variant="compact"
+                    />
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Vista desktop/tablet: Tabla con scroll horizontal mejorado */}
+          <div className="hidden md:block overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+            <table className="w-full min-w-[600px]">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   {[
                     { key: 'nombre_completo', label: 'Nombre', sortable: true, responsive: false },
                     { key: 'whatsapp', label: 'WhatsApp', sortable: true, responsive: false },
-                    { key: 'email', label: 'Email', sortable: true, responsive: false },
-                    { key: 'telefono_principal', label: 'Teléfono', sortable: false, responsive: 'lg' },
+                    { key: 'email', label: 'Email', sortable: true, responsive: 'md' },
                     { key: 'etapa', label: 'Etapa', sortable: true, responsive: false },
                     { key: 'score', label: 'Score', sortable: true, responsive: false },
-                    { key: 'campana_origen', label: 'Campaña', sortable: true, responsive: false },
+                    { key: 'campana_origen', label: 'Campaña', sortable: true, responsive: 'lg' },
                     { key: 'created_at', label: 'Creado', sortable: true, responsive: 'md' },
                     { key: 'actions', label: '', sortable: false, responsive: false }
                   ].map(column => (
                     <th 
                       key={column.key}
-                      className={`px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
+                      className={`px-3 md:px-4 lg:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
                         column.sortable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' : ''
                       } ${column.responsive === 'lg' ? 'hidden lg:table-cell' : column.responsive === 'md' ? 'hidden md:table-cell' : ''}`}
                       onClick={column.sortable ? () => handleSort(column.key as keyof Prospecto) : undefined}
@@ -1411,50 +1642,79 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.3, delay: index * 0.01, ease: "easeOut" }}
                       onClick={() => handleProspectoClick(prospecto)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        if (user?.role_name === 'coordinador' || user?.role_name === 'admin') {
+                          setAssignmentContextMenu({
+                            prospectId: prospecto.id,
+                            coordinacionId: prospecto.coordinacion_id,
+                            ejecutivoId: prospecto.ejecutivo_id,
+                            prospectData: {
+                              id_dynamics: prospecto.id_dynamics,
+                              nombre_completo: prospecto.nombre_completo,
+                              nombre_whatsapp: prospecto.nombre_whatsapp,
+                              email: prospecto.email,
+                              whatsapp: prospecto.whatsapp,
+                            },
+                            position: { x: e.clientX, y: e.clientY }
+                          });
+                        }
+                      }}
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full">
-                            <User size={16} className="text-blue-600 dark:text-blue-400" />
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
+                        <div className="flex items-center gap-2 md:gap-3 min-w-[200px]">
+                          <div className="p-1.5 md:p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full flex-shrink-0">
+                            <User size={14} className="md:w-4 md:h-4 text-blue-600 dark:text-blue-400" />
                           </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs md:text-sm font-medium text-gray-900 dark:text-white truncate">
                               {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
                             </div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                            <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
                               {prospecto.ciudad_residencia}
                             </div>
+                            {/* Información de asignación */}
+                            {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                              <div className="mt-1">
+                                <AssignmentBadge
+                                  call={{
+                                    coordinacion_codigo: prospecto.coordinacion_codigo,
+                                    coordinacion_nombre: prospecto.coordinacion_nombre,
+                                    ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                                    ejecutivo_email: prospecto.ejecutivo_email
+                                  } as any}
+                                  variant="compact"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">
-                        <div className="min-w-[120px]">{prospecto.whatsapp || '-'}</div>
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-900 dark:text-white font-mono">
+                        <div className="min-w-[100px] md:min-w-[120px] truncate">{prospecto.whatsapp || '-'}</div>
                       </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                        <div className="max-w-[200px] truncate">{prospecto.email || '-'}</div>
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                        <div className="max-w-[150px] md:max-w-[200px] truncate">{prospecto.email || '-'}</div>
                       </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 font-mono hidden lg:table-cell">
-                        {prospecto.telefono_principal || '-'}
-                      </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
                           {prospecto.etapa}
                         </span>
                       </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getScoreColor(prospecto.score || '')}`}>
                           {prospecto.score}
                         </span>
                       </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                        <div className="max-w-[150px] truncate">{prospecto.campana_origen || '-'}</div>
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden lg:table-cell">
+                        <div className="max-w-[120px] md:max-w-[150px] truncate">{prospecto.campana_origen || '-'}</div>
                       </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                        {prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' }) : 'N/A'}
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                        <div className="min-w-[60px]">{prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' }) : 'N/A'}</div>
                       </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right">
-                        <ChevronRight size={16} className="text-gray-400" />
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-right">
+                        <ChevronRight size={14} className="md:w-4 md:h-4 text-gray-400" />
                       </td>
                     </motion.tr>
                   ))}
@@ -1464,18 +1724,50 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           </div>
           
           {filteredAndSortedProspectos.length === 0 && !loading && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-12"
-            >
-              <User size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
-                No se encontraron prospectos con los filtros aplicados
-              </p>
-            </motion.div>
+            <>
+              {/* Mensaje vacío para vista móvil */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="block md:hidden text-center py-12 px-4"
+              >
+                <User size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  No se encontraron prospectos con los filtros aplicados
+                </p>
+              </motion.div>
+              
+              {/* Mensaje vacío para vista desktop/tablet */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="hidden md:block text-center py-12 px-4"
+              >
+                <User size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">
+                  No se encontraron prospectos con los filtros aplicados
+                </p>
+              </motion.div>
+            </>
           )}
         </motion.div>
+      )}
+
+      {/* Menú contextual de asignación */}
+      {assignmentContextMenu && (
+        <AssignmentContextMenu
+          prospectId={assignmentContextMenu.prospectId}
+          coordinacionId={assignmentContextMenu.coordinacionId}
+          ejecutivoId={assignmentContextMenu.ejecutivoId}
+          prospectData={assignmentContextMenu.prospectData}
+          isOpen={!!assignmentContextMenu}
+          position={assignmentContextMenu.position}
+          onClose={() => setAssignmentContextMenu(null)}
+          onAssignmentComplete={() => {
+            loadProspectos();
+            setAssignmentContextMenu(null);
+          }}
+        />
       )}
 
       {/* Sidebar */}
