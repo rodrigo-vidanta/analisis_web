@@ -1503,7 +1503,7 @@ const UserManagement: React.FC = () => {
 
       {/* Filtros y búsqueda */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
           {/* Campo de búsqueda */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -1551,7 +1551,7 @@ const UserManagement: React.FC = () => {
           </div>
 
           {/* Switch para cambiar entre vista activos/archivados */}
-          <div className="flex items-center space-x-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+          <div className="flex items-center space-x-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 sm:col-span-2 lg:col-span-1">
             <button
               type="button"
               onClick={() => setViewMode('active')}
@@ -1577,7 +1577,7 @@ const UserManagement: React.FC = () => {
           </div>
 
           {/* Items por página */}
-          <div className="relative">
+          <div className="relative sm:col-span-2 lg:col-span-1">
             <select
               value={itemsPerPage}
               onChange={(e) => {
@@ -1607,7 +1607,7 @@ const UserManagement: React.FC = () => {
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className="px-4 sm:px-5 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => {
                     if (sortColumn === 'name') {
                       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -1631,7 +1631,7 @@ const UserManagement: React.FC = () => {
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className="px-4 sm:px-5 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => {
                     if (sortColumn === 'role') {
                       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -1655,7 +1655,7 @@ const UserManagement: React.FC = () => {
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className="px-4 sm:px-5 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => {
                     if (sortColumn === 'department') {
                       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -1679,7 +1679,7 @@ const UserManagement: React.FC = () => {
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className="px-4 sm:px-5 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => {
                     if (sortColumn === 'last_login') {
                       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -1702,7 +1702,7 @@ const UserManagement: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-48">
+                <th className="px-4 sm:px-5 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-48">
                   Acciones
                 </th>
               </tr>
@@ -1710,7 +1710,7 @@ const UserManagement: React.FC = () => {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center">
+                  <td colSpan={5} className="px-4 sm:px-5 lg:px-6 py-4 text-center">
                     <div className="flex justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                     </div>
@@ -1727,7 +1727,7 @@ const UserManagement: React.FC = () => {
               ) : (
                 paginatedUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 lg:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0 relative">
                           {user.avatar_url ? (
@@ -1758,7 +1758,7 @@ const UserManagement: React.FC = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 lg:px-6 py-4 whitespace-nowrap">
                       {(() => {
                         const colors = getRoleColors(user.role_name);
                         return (
@@ -1768,7 +1768,7 @@ const UserManagement: React.FC = () => {
                         );
                       })()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-4 sm:px-5 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {(() => {
                         // Mostrar departamento > coordinación > nada
                         if (user.department) {
@@ -1786,7 +1786,7 @@ const UserManagement: React.FC = () => {
                         return '-';
                       })()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-4 sm:px-5 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {user.last_login 
                         ? new Date(user.last_login).toLocaleDateString('es-ES', {
                             year: 'numeric',
@@ -1798,7 +1798,7 @@ const UserManagement: React.FC = () => {
                         : 'Nunca'
                       }
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-4 sm:px-5 lg:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center space-x-4">
                         {/* Toggle Operativo/No Operativo */}
                         {canEdit && !user.archivado && (
@@ -1863,7 +1863,7 @@ const UserManagement: React.FC = () => {
 
         {/* Paginación */}
         {totalPages > 1 && (
-          <div className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
+          <div className="bg-white dark:bg-gray-800 px-4 sm:px-5 lg:px-6 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
