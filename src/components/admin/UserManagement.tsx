@@ -18,6 +18,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import AvatarUpload from './AvatarUpload';
 import AvatarCropModal from './AvatarCropModal';
@@ -38,7 +39,8 @@ interface User {
   role_name: string;
   role_display_name: string;
   role_id: string;
-  is_active: boolean;
+  is_active: boolean; // Activo/Inactivo (archivado) - impide login
+  is_operativo?: boolean; // Operativo/No operativo - estado lógico sin limitar acceso
   archivado?: boolean;
   email_verified: boolean;
   last_login?: string;
@@ -84,7 +86,10 @@ const UserManagement: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showArchiveConfirmModal, setShowArchiveConfirmModal] = useState(false);
   const [userToArchive, setUserToArchive] = useState<User | null>(null);
+  const [selectedCoordinatorForArchive, setSelectedCoordinatorForArchive] = useState<string>('');
+  const [userProspectsCount, setUserProspectsCount] = useState<number>(0);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
@@ -110,6 +115,7 @@ const UserManagement: React.FC = () => {
     coordinacion_id: '', // Para ejecutivos (una sola coordinación)
     coordinaciones_ids: [] as string[], // Para coordinadores (múltiples coordinaciones)
     is_active: true,
+    is_operativo: true, // Operativo por defecto
     // Subpermisos específicos para evaluadores y vendedores
     analysis_sources: [] as string[] // ['natalia', 'pqnc', 'live_monitor']
   });
@@ -123,8 +129,7 @@ const UserManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCoordinacion, setFilterCoordinacion] = useState<string>('');
   const [filterDepartment, setFilterDepartment] = useState<string>('');
-  const [filterArchived, setFilterArchived] = useState<boolean>(false); // false = solo mostrar no archivados
-  const [filterActive, setFilterActive] = useState<boolean>(true); // true = solo mostrar activos/operativos
+  const [viewMode, setViewMode] = useState<'active' | 'archived'>('active'); // 'active' = usuarios operativos/activos, 'archived' = usuarios archivados
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   
   // Estados para ordenamiento
@@ -260,8 +265,9 @@ const UserManagement: React.FC = () => {
             const isBlocked = counter?.is_blocked || false;
             const warningCount = counter?.total_warnings || 0;
             
-            // Extraer archivado directamente de auth_users (ya estamos en esa tabla)
+            // Extraer archivado e is_operativo directamente de auth_users (ya estamos en esa tabla)
             const archivado = (user as any).archivado || false;
+            const is_operativo = (user as any).is_operativo !== undefined ? (user as any).is_operativo : true; // Por defecto true si no existe
             
             // Extraer información del rol
             const role = (user as any).auth_roles;
@@ -270,6 +276,7 @@ const UserManagement: React.FC = () => {
             return {
               ...user,
               archivado,
+              is_operativo,
               role_name: role?.name || '',
               role_display_name: role?.display_name || '',
               role_id: role?.id || '',
@@ -316,9 +323,11 @@ const UserManagement: React.FC = () => {
             (data || []).map(async (user: any) => {
               const role = user.auth_roles;
               const archivado = user.archivado || false;
+              const is_operativo = user.is_operativo !== undefined ? user.is_operativo : true; // Por defecto true si no existe
               const mappedUser = {
                 ...user,
                 archivado,
+                is_operativo,
                 role_name: role?.name || '',
                 role_display_name: role?.display_name || '',
                 role_id: role?.id || '',
@@ -350,9 +359,11 @@ const UserManagement: React.FC = () => {
           (data || []).map(async (user: any) => {
             const role = user.auth_roles;
             const archivado = user.archivado || false;
+            const is_operativo = user.is_operativo !== undefined ? user.is_operativo : true; // Por defecto true si no existe
             const mappedUser = {
               ...user,
               archivado,
+              is_operativo,
               role_name: role?.name || '',
               role_display_name: role?.display_name || '',
               role_id: role?.id || '',
@@ -390,25 +401,27 @@ const UserManagement: React.FC = () => {
   useEffect(() => {
     let filtered = [...users];
 
-    // Filtro por archivado: por defecto solo mostrar usuarios no archivados
-    if (!filterArchived) {
+    // Filtro por modo de vista: 'active' = usuarios no archivados, 'archived' = solo archivados
+    if (viewMode === 'active') {
       filtered = filtered.filter(user => !user.archivado);
+    } else {
+      filtered = filtered.filter(user => user.archivado);
     }
 
-    // Filtro por is_active (operativo/no operativo): por defecto solo mostrar usuarios activos
-    if (filterActive) {
-      filtered = filtered.filter(user => user.is_active === true);
-    }
+    // NOTA: Los usuarios no operativos SÍ se muestran (no se filtran)
+    // Solo se filtran por archivado según el modo de vista
 
     // Filtro de búsqueda (nombre, email)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(user =>
-        user.full_name.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query) ||
-        user.first_name.toLowerCase().includes(query) ||
-        user.last_name.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(user => {
+        return (
+          user.full_name.toLowerCase().includes(query) ||
+          user.email.toLowerCase().includes(query) ||
+          user.first_name.toLowerCase().includes(query) ||
+          user.last_name.toLowerCase().includes(query)
+        );
+      });
     }
 
     // Filtro por coordinación
@@ -435,7 +448,7 @@ const UserManagement: React.FC = () => {
 
     setFilteredUsers(filtered);
     setCurrentPage(1); // Resetear a primera página cuando cambian los filtros
-  }, [users, searchQuery, filterCoordinacion, filterDepartment, filterArchived, filterActive]);
+  }, [users, searchQuery, filterCoordinacion, filterDepartment, viewMode]);
 
   // Función para ordenar usuarios
   const sortUsers = (usersToSort: User[]): User[] => {
@@ -626,6 +639,7 @@ const UserManagement: React.FC = () => {
       coordinacion_id: '',
       coordinaciones_ids: [],
       is_active: true,
+      is_operativo: true,
       analysis_sources: []
     });
     setAvatarPreview(null);
@@ -881,6 +895,7 @@ const UserManagement: React.FC = () => {
         // department y position no existen en System_UI auth_users
         role_id: formData.role_id,
         is_active: formData.is_active,
+        is_operativo: formData.is_operativo,
         updated_at: new Date().toISOString()
       };
 
@@ -1159,6 +1174,82 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  // Función para archivar usuario directamente (sin modal de confirmación)
+  const handleArchiveUserDirect = async (userId: string, coordinatorId?: string) => {
+    if (!canDelete) {
+      setError('No tienes permisos para archivar usuarios');
+      return;
+    }
+
+    if (userId === currentUser?.id) {
+      setError('No puedes archivar tu propio usuario');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const user = users.find(u => u.id === userId);
+      if (!user) {
+        setError('Usuario no encontrado');
+        return;
+      }
+
+      // Si tiene coordinación y prospectos, reasignar prospectos
+      if (coordinatorId && (user.coordinacion_id || (user.coordinaciones_ids && user.coordinaciones_ids.length > 0))) {
+        try {
+          // Reasignar prospectos de ejecutivos
+          if (user.role_name === 'ejecutivo' && user.coordinacion_id) {
+            await analysisSupabase
+              .from('prospectos')
+              .update({ ejecutivo_id: coordinatorId })
+              .eq('ejecutivo_id', userId)
+              .eq('coordinacion_id', user.coordinacion_id);
+          }
+          
+          // Reasignar prospectos de coordinadores (prospectos de sus coordinaciones)
+          if (user.role_name === 'coordinador' && user.coordinaciones_ids) {
+            for (const coordId of user.coordinaciones_ids) {
+              await analysisSupabase
+                .from('prospectos')
+                .update({ coordinacion_id: coordinatorId })
+                .eq('coordinacion_id', coordId)
+                .is('ejecutivo_id', null);
+            }
+          }
+        } catch (reassignError) {
+          console.error('Error reasignando prospectos:', reassignError);
+          // Continuar con el archivado aunque falle la reasignación
+        }
+      }
+
+      // Archivar usuario
+      const { error: archiveError } = await supabaseSystemUIAdmin
+        .from('auth_users')
+        .update({ 
+          archivado: true,
+          is_active: false // También desactivar al archivar
+        })
+        .eq('id', userId);
+
+      if (archiveError) throw archiveError;
+
+      await loadUsers();
+      setError(null);
+      setShowEditModal(false);
+      setSelectedUser(null);
+      setShowArchiveConfirmModal(false);
+      setSelectedCoordinatorForArchive('');
+      
+    } catch (err: any) {
+      console.error('❌ Error archiving user:', err);
+      setError(`Error al archivar usuario: ${err.message || 'Error desconocido'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Gestión de subpermisos usando localStorage temporal + función RPC cuando esté disponible
   const assignAnalysisSubPermissions = async (userId: string, sources: string[]) => {
     try {
@@ -1344,6 +1435,7 @@ const UserManagement: React.FC = () => {
       coordinacion_id: coordinacionId,
       coordinaciones_ids: coordinacionesIds,
       is_active: user.is_active,
+      is_operativo: user.is_operativo !== undefined ? user.is_operativo : true,
       analysis_sources: []
     });
     
@@ -1458,32 +1550,30 @@ const UserManagement: React.FC = () => {
             </select>
           </div>
 
-          {/* Toggle para mostrar archivados */}
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="showArchived"
-              checked={filterArchived}
-              onChange={(e) => setFilterArchived(e.target.checked)}
-              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-            />
-            <label htmlFor="showArchived" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-              Mostrar archivados
-            </label>
-          </div>
-
-          {/* Toggle para mostrar inactivos/no operativos */}
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="showInactive"
-              checked={!filterActive}
-              onChange={(e) => setFilterActive(!e.target.checked)}
-              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-            />
-            <label htmlFor="showInactive" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-              Mostrar inactivos
-            </label>
+          {/* Switch para cambiar entre vista activos/archivados */}
+          <div className="flex items-center space-x-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('active')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                viewMode === 'active'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Activos
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('archived')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                viewMode === 'archived'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Archivados
+            </button>
           </div>
 
           {/* Items por página */}
@@ -1588,9 +1678,6 @@ const UserManagement: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Moderación
-                </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => {
@@ -1615,7 +1702,7 @@ const UserManagement: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-48">
                   Acciones
                 </th>
               </tr>
@@ -1623,7 +1710,7 @@ const UserManagement: React.FC = () => {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center">
+                  <td colSpan={5} className="px-6 py-4 text-center">
                     <div className="flex justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                     </div>
@@ -1631,7 +1718,7 @@ const UserManagement: React.FC = () => {
                 </tr>
               ) : sortedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                     {searchQuery || filterCoordinacion || filterDepartment
                       ? 'No se encontraron usuarios con los filtros aplicados'
                       : 'No hay usuarios registrados'}
@@ -1682,41 +1769,22 @@ const UserManagement: React.FC = () => {
                       })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {user.department || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.is_blocked ? (
-                        <button
-                          onClick={() => isAdmin && handleUnblockUser(user)}
-                          disabled={!isAdmin || unblockingUserId === user.id}
-                          className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full transition-all duration-200 ${
-                            unblockingUserId === user.id
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 cursor-wait'
-                              : isAdmin
-                              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800 cursor-pointer active:scale-95'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 cursor-not-allowed'
-                          }`}
-                          title={isAdmin ? 'Haz clic para desbloquear' : 'Solo administradores pueden desbloquear'}
-                        >
-                          {unblockingUserId === user.id ? (
-                            <>
-                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                              Desbloqueando...
-                            </>
-                          ) : (
-                            <>
-                              <ShieldAlert className="w-3 h-3 mr-1" />
-                              Bloqueado ({user.warning_count})
-                            </>
-                          )}
-                        </button>
-                      ) : (user.warning_count ?? 0) > 0 ? (
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                          {user.warning_count} warnings
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
+                      {(() => {
+                        // Mostrar departamento > coordinación > nada
+                        if (user.department) {
+                          return user.department;
+                        }
+                        // Si no tiene departamento, buscar coordinación
+                        if (user.coordinacion_id) {
+                          const coordinacion = coordinaciones.find(c => c.id === user.coordinacion_id);
+                          return coordinacion ? coordinacion.nombre : '-';
+                        }
+                        if (user.coordinaciones_ids && user.coordinaciones_ids.length > 0) {
+                          const primeraCoord = coordinaciones.find(c => user.coordinaciones_ids?.includes(c.id));
+                          return primeraCoord ? primeraCoord.nombre : '-';
+                        }
+                        return '-';
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {user.last_login 
@@ -1731,55 +1799,58 @@ const UserManagement: React.FC = () => {
                       }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => openPermissionsModal(user)}
-                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                          title="Ver permisos"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                          </svg>
-                        </button>
+                      <div className="flex justify-end items-center space-x-4">
+                        {/* Toggle Operativo/No Operativo */}
+                        {canEdit && !user.archivado && (
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={user.is_operativo !== false}
+                              onChange={async (e) => {
+                                try {
+                                  const nuevoEstado = e.target.checked;
+                                  await supabaseSystemUIAdmin
+                                    .from('auth_users')
+                                    .update({ is_operativo: nuevoEstado })
+                                    .eq('id', user.id);
+                                  await loadUsers();
+                                } catch (error) {
+                                  console.error('Error actualizando is_operativo:', error);
+                                  setError('Error al actualizar estado operativo');
+                                }
+                              }}
+                              className="sr-only peer"
+                            />
+                            <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                            <span className="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                              {user.is_operativo !== false ? 'Operativo' : 'No Operativo'}
+                            </span>
+                          </label>
+                        )}
 
                         {canEdit && (
                           <button
                             onClick={() => openEditModal(user)}
-                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                            className="p-2.5 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all duration-200"
                             title="Editar usuario"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
                         )}
 
-                        {canDelete && !user.archivado ? (
-                          <button
-                            onClick={() => {
-                              console.log('🖱️ Click en botón archivar:', user.id);
-                              openArchiveModal(user.id);
-                            }}
-                            className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300"
-                            title="Archivar usuario"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                            </svg>
-                          </button>
-                        ) : user.archivado && canDelete ? (
+                        {user.archivado && canDelete && (
                           <button
                             onClick={() => handleUnarchiveUser(user.id)}
-                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                            className="p-2.5 text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all duration-200"
                             title="Desarchivar usuario"
                             disabled={loading}
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                           </button>
-                        ) : (
-                          <span className="text-gray-400" title="Sin permisos para archivar">🔒</span>
                         )}
                       </div>
                     </td>
@@ -2093,7 +2164,7 @@ const UserManagement: React.FC = () => {
                     </h4>
                   </div>
                   <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                    {coordinaciones.filter(c => c.is_active).map((coordinacion, index) => {
+                    {coordinaciones.filter(c => !c.archivado).map((coordinacion, index) => {
                       const isChecked = formData.coordinaciones_ids.includes(coordinacion.id);
                       return (
                         <motion.label
@@ -2145,7 +2216,7 @@ const UserManagement: React.FC = () => {
                         </motion.label>
                       );
                     })}
-                    {coordinaciones.filter(c => c.is_active).length === 0 && (
+                    {coordinaciones.filter(c => !c.archivado).length === 0 && (
                       <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
                         No hay coordinaciones activas disponibles
                       </p>
@@ -2175,7 +2246,7 @@ const UserManagement: React.FC = () => {
                       className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
                     >
                       <option value="">Seleccionar coordinación...</option>
-                      {coordinaciones.filter(c => c.is_active).map(coordinacion => (
+                      {coordinaciones.filter(c => !c.archivado).map(coordinacion => (
                         <option key={coordinacion.id} value={coordinacion.id}>
                           {coordinacion.codigo} - {coordinacion.nombre}
                         </option>
@@ -2660,7 +2731,7 @@ const UserManagement: React.FC = () => {
                     </h4>
                   </div>
                   <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                    {coordinaciones.filter(c => c.is_active).map((coordinacion, index) => {
+                    {coordinaciones.filter(c => !c.archivado).map((coordinacion, index) => {
                       const isChecked = formData.coordinaciones_ids.includes(coordinacion.id);
                       return (
                         <motion.label
@@ -2712,7 +2783,7 @@ const UserManagement: React.FC = () => {
                         </motion.label>
                       );
                     })}
-                    {coordinaciones.filter(c => c.is_active).length === 0 && (
+                    {coordinaciones.filter(c => !c.archivado).length === 0 && (
                       <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
                         No hay coordinaciones activas disponibles
                       </p>
@@ -2742,7 +2813,7 @@ const UserManagement: React.FC = () => {
                       className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
                     >
                       <option value="">Seleccionar coordinación...</option>
-                      {coordinaciones.filter(c => c.is_active).map(coordinacion => (
+                      {coordinaciones.filter(c => !c.archivado).map(coordinacion => (
                         <option key={coordinacion.id} value={coordinacion.id}>
                           {coordinacion.codigo} - {coordinacion.nombre}
                         </option>
@@ -2881,7 +2952,7 @@ const UserManagement: React.FC = () => {
                 />
               </div>
 
-                    {/* Toggle Switch para Usuario Activo */}
+                    {/* Toggle Switch para Usuario Operativo */}
                     <motion.label
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -2890,28 +2961,28 @@ const UserManagement: React.FC = () => {
                     >
                       <div className="flex items-center space-x-3">
                         <div className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
-                          formData.is_active ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'
+                          formData.is_operativo !== false ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'
                         }`}>
                           <motion.div
-                            animate={{ x: formData.is_active ? 24 : 0 }}
+                            animate={{ x: formData.is_operativo !== false ? 24 : 0 }}
                             transition={{ type: "spring", stiffness: 500, damping: 30 }}
                             className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
                           />
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Usuario Activo
+                            Usuario Operativo
                           </span>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            El usuario podrá iniciar sesión en el sistema
+                            Estado lógico que no limita acceso ni permisos
                           </p>
                         </div>
                       </div>
                 <input
                   type="checkbox"
                         className="sr-only"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  checked={formData.is_operativo !== false}
+                  onChange={(e) => setFormData({ ...formData, is_operativo: e.target.checked })}
                       />
                     </motion.label>
                   </motion.div>
@@ -2919,33 +2990,90 @@ const UserManagement: React.FC = () => {
               </div>
 
               {/* Footer con Botones */}
-              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="button"
-                  onClick={() => { setShowEditModal(false); setSelectedUser(null); resetForm(); }}
-                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-                >
-                  Cancelar
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  form="edit-user-form"
-                  disabled={loading}
-                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25"
-                >
-                  {loading ? (
-                    <span className="flex items-center space-x-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Guardando...</span>
-                    </span>
-                  ) : (
-                    'Guardar Cambios'
-                  )}
-                </motion.button>
+              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-between items-center">
+                {/* Botón Archivar a la izquierda */}
+                {canDelete && selectedUser && !selectedUser.archivado && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="button"
+                    onClick={async () => {
+                      // Contar prospectos del usuario en la base de análisis
+                      try {
+                        let count = 0;
+                        
+                        // Contar prospectos de ejecutivos
+                        if (selectedUser.role_name === 'ejecutivo' && selectedUser.coordinacion_id) {
+                          const { count: ejecutivoCount } = await analysisSupabase
+                            .from('prospectos')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('ejecutivo_id', selectedUser.id)
+                            .eq('coordinacion_id', selectedUser.coordinacion_id);
+                          count += ejecutivoCount || 0;
+                        }
+                        
+                        // Contar prospectos de coordinadores
+                        if (selectedUser.role_name === 'coordinador' && selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids.length > 0) {
+                          const { count: coordinadorCount } = await analysisSupabase
+                            .from('prospectos')
+                            .select('*', { count: 'exact', head: true })
+                            .in('coordinacion_id', selectedUser.coordinaciones_ids);
+                          count += coordinadorCount || 0;
+                        }
+                        
+                        setUserProspectsCount(count);
+                        
+                        // Si tiene coordinación y prospectos, mostrar modal de confirmación
+                        if ((selectedUser.coordinacion_id || (selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids.length > 0)) && count > 0) {
+                          setShowArchiveConfirmModal(true);
+                        } else {
+                          // Si no tiene coordinación o prospectos, archivar directamente
+                          await handleArchiveUserDirect(selectedUser.id);
+                        }
+                      } catch (error) {
+                        console.error('Error contando prospectos:', error);
+                        // En caso de error, archivar directamente
+                        await handleArchiveUserDirect(selectedUser.id);
+                      }
+                    }}
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all duration-200 shadow-lg shadow-orange-500/25 flex items-center space-x-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
+                    <span>Archivar Usuario</span>
+                  </motion.button>
+                )}
+                
+                {/* Botones de acción a la derecha */}
+                <div className="flex justify-end space-x-3 ml-auto">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="button"
+                    onClick={() => { setShowEditModal(false); setSelectedUser(null); resetForm(); }}
+                    className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                  >
+                    Cancelar
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    form="edit-user-form"
+                    disabled={loading}
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25"
+                  >
+                    {loading ? (
+                      <span className="flex items-center space-x-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Guardando...</span>
+                      </span>
+                    ) : (
+                      'Guardar Cambios'
+                    )}
+                  </motion.button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -3162,6 +3290,208 @@ const UserManagement: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                       </svg>
                       <span>Archivar Usuario</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Archive Confirm Modal - Para seleccionar coordinador */}
+      <AnimatePresence>
+        {showArchiveConfirmModal && selectedUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            onClick={() => { setShowArchiveConfirmModal(false); setSelectedCoordinatorForArchive(''); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
+            >
+              {/* Header */}
+              <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      Archivar Usuario
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Reasignar prospectos antes de archivar
+                    </p>
+                  </div>
+                  <motion.button
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    transition={{ delay: 0.25 }}
+                    onClick={() => { setShowArchiveConfirmModal(false); setSelectedCoordinatorForArchive(''); }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group"
+                  >
+                    <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                <div className="space-y-6">
+                  {/* Información del usuario */}
+                  <div className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {selectedUser.full_name}
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {selectedUser.email}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                        {userProspectsCount} prospecto(s) asignado(s)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Advertencia */}
+                  <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center mt-0.5">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-orange-900 dark:text-orange-200 mb-2">
+                          Acciones Irreversibles
+                        </h4>
+                        <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1.5">
+                          <li className="flex items-start space-x-2">
+                            <span className="text-orange-500 mt-0.5">•</span>
+                            <span>El usuario será archivado y no podrá hacer login</span>
+                          </li>
+                          <li className="flex items-start space-x-2">
+                            <span className="text-orange-500 mt-0.5">•</span>
+                            <span>Los {userProspectsCount} prospecto(s) serán reasignados al coordinador seleccionado</span>
+                          </li>
+                          <li className="flex items-start space-x-2">
+                            <span className="text-orange-500 mt-0.5">•</span>
+                            <span>El usuario no aparecerá en búsquedas ni filtros</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Selector de coordinador */}
+                  {(() => {
+                    // Obtener coordinación del usuario
+                    const userCoordinacionId = selectedUser.coordinacion_id || (selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids[0]);
+                    const userCoordinacion = coordinaciones.find(c => c.id === userCoordinacionId);
+                    
+                    // Obtener coordinadores de esa coordinación (solo excluir archivados, no operativos)
+                    const coordinadoresEnCoordinacion = users.filter(u => 
+                      u.role_name === 'coordinador' && 
+                      !u.archivado && // Solo excluir archivados
+                      (u.coordinaciones_ids?.includes(userCoordinacionId || '') || false)
+                    );
+
+                    if (coordinadoresEnCoordinacion.length === 0) {
+                      return (
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
+                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            No hay coordinadores disponibles en esta coordinación. Los prospectos se archivarán sin reasignar.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="group">
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                          <Users className="w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                          <span>Seleccionar Coordinador para Reasignar Prospectos *</span>
+                        </label>
+                        <select
+                          value={selectedCoordinatorForArchive}
+                          onChange={(e) => setSelectedCoordinatorForArchive(e.target.value)}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
+                        >
+                          <option value="">Seleccionar coordinador...</option>
+                          {coordinadoresEnCoordinacion.map(coord => (
+                            <option key={coord.id} value={coord.id}>
+                              {coord.full_name} ({coord.email})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setShowArchiveConfirmModal(false); setSelectedCoordinatorForArchive(''); }}
+                  disabled={loading}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancelar
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: loading ? 1 : 1.02 }}
+                  whileTap={{ scale: loading ? 1 : 0.98 }}
+                  onClick={async () => {
+                    // Si hay prospectos pero no hay coordinadores disponibles, permitir archivar sin reasignar
+                    // Solo excluir archivados, no operativos
+                    const coordinadoresDisponibles = users.filter(u => 
+                      u.role_name === 'coordinador' && 
+                      !u.archivado && // Solo excluir archivados
+                      (u.coordinaciones_ids?.includes(selectedUser.coordinacion_id || '') || 
+                       (selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids.some(cid => u.coordinaciones_ids?.includes(cid))))
+                    );
+                    
+                    if (userProspectsCount > 0 && coordinadoresDisponibles.length > 0 && !selectedCoordinatorForArchive) {
+                      setError('Debes seleccionar un coordinador para reasignar los prospectos');
+                      return;
+                    }
+                    await handleArchiveUserDirect(selectedUser.id, selectedCoordinatorForArchive || undefined);
+                  }}
+                  disabled={loading || (userProspectsCount > 0 && (() => {
+                    // Solo excluir archivados, no operativos
+                    const coordinadoresDisponibles = users.filter(u => 
+                      u.role_name === 'coordinador' && 
+                      !u.archivado && // Solo excluir archivados
+                      (u.coordinaciones_ids?.includes(selectedUser.coordinacion_id || '') || 
+                       (selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids.some(cid => u.coordinaciones_ids?.includes(cid))))
+                    );
+                    return coordinadoresDisponibles.length > 0 && !selectedCoordinatorForArchive;
+                  })())}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl hover:from-orange-700 hover:to-orange-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-orange-500/25 flex items-center space-x-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Archivando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                      <span>Confirmar Archivado</span>
                     </>
                   )}
                 </motion.button>

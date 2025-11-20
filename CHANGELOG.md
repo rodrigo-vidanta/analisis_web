@@ -1,5 +1,72 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión B2.1.0-N6.0.0 - Gestión de Usuarios: Estados Operativo/Archivado y Mejoras de UI (Enero 2025)
+
+### 🎯 **RELEASE BETA - Estados de Usuarios y Mejoras Visuales**
+
+#### 👥 **Gestión de Usuarios - Estados Operativo y Archivado**
+- **Campo is_operativo:** Nuevo campo lógico para marcar usuarios como operativos/no operativos sin limitar acceso
+- **Estados diferenciados:** Separación clara entre `is_operativo` (estado lógico) e `is_active`/`archivado` (control de acceso)
+- **Toggle operativo en data grid:** Switch directo para cambiar estado operativo sin abrir modal
+- **Archivado mejorado:** Proceso de archivado desde modal de edición con reasignación automática de prospectos
+- **Modal de confirmación:** Modal para seleccionar coordinador al archivar usuarios con prospectos asignados
+- **Reasignación de prospectos:** Al archivar ejecutivos/coordinadores, prospectos se reasignan automáticamente al coordinador seleccionado
+
+#### 🎨 **Mejoras de Interfaz**
+- **Switch de vista:** Reemplazado checkbox por switch de botones para alternar entre usuarios activos y archivados
+- **Columna departamento mejorada:** Muestra departamento > coordinación > nada (jerarquía clara)
+- **Columna moderación eliminada:** Removida para dar más espacio a botones de acción
+- **Botones de acción ampliados:** Más espacio (w-48) y mejor visibilidad en data grid
+- **Toggle operativo visual:** Switch elegante con animaciones en data grid para cambiar estado operativo
+
+#### 🔧 **Funcionalidades Técnicas**
+- **Filtros optimizados:** Coordinaciones y usuarios filtrados solo por `archivado`, no por `is_operativo`
+- **Asignación flexible:** Ejecutivos pueden asignarse a coordinaciones no operativas (solo excluye archivadas)
+- **Usuarios no operativos visibles:** Se muestran en modales y selecciones, solo archivados están ocultos
+- **Filtros inteligentes:** Usuarios archivados invisibles por defecto, solo visibles con switch de vista
+
+#### 📊 **Base de Datos**
+- **Campo is_operativo:** Agregado a tabla `auth_users` en System_UI con valor por defecto `true`
+- **Índice creado:** Índice en `is_operativo` para mejorar rendimiento de consultas
+- **Migración automática:** Todos los usuarios existentes marcados como operativos por defecto
+- **Script SQL:** `scripts/sql/add_is_operativo_to_auth_users.sql` para migración
+
+#### 📍 **Módulos Modificados**
+
+##### **UserManagement.tsx** (`src/components/admin/UserManagement.tsx`)
+- Campo `is_operativo` agregado a interfaz User y formData
+- Toggle operativo/no operativo en data grid
+- Switch de vista activos/archivados reemplazando checkbox
+- Modal de confirmación de archivado con selección de coordinador
+- Función `handleArchiveUserDirect()` con reasignación de prospectos
+- Filtros actualizados para usar solo `archivado`, no `is_operativo`
+- Columna departamento mejorada con jerarquía departamento > coordinación
+- Columna moderación eliminada
+- Botones de acción ampliados y mejorados
+
+##### **Base de Datos System_UI**
+- Columna `is_operativo BOOLEAN DEFAULT true` agregada a `auth_users`
+- Índice `idx_auth_users_is_operativo` creado
+- Comentario explicativo en columna `is_operativo`
+
+##### **Base de Datos Análisis**
+- Reasignación de prospectos al archivar ejecutivos/coordinadores
+- Actualización de `ejecutivo_id` y `coordinacion_id` en tabla `prospectos`
+
+#### ✅ **Beneficios**
+- ✅ Estados claramente diferenciados: operativo (lógico) vs activo/archivado (acceso)
+- ✅ Usuarios no operativos siguen siendo visibles y editables
+- ✅ Archivado con reasignación automática de prospectos
+- ✅ Interfaz más limpia y organizada
+- ✅ Mejor experiencia de usuario con switches visuales
+
+#### 📝 **Archivos Modificados**
+- `src/components/admin/UserManagement.tsx` - Estados operativo/archivado y mejoras de UI
+- `src/components/admin/CHANGELOG_PQNC_HUMANS.md` - Documentación actualizada a v5.8.0
+- `scripts/sql/add_is_operativo_to_auth_users.sql` - Script de migración
+
+---
+
 ## 🔧 Versión B2.0.9-N6.0.0 - Gestión de Usuarios y Coordinaciones: Eliminación Lógica y Mejoras de UI (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Eliminación Lógica y Mejoras Visuales**

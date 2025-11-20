@@ -17,6 +17,41 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.8.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **👥 Gestión de Usuarios - Estados Operativo y Archivado**
+- **Campo is_operativo:** Nuevo campo lógico para marcar usuarios como operativos/no operativos sin limitar acceso
+- **Estados diferenciados:** Separación clara entre `is_operativo` (estado lógico) e `is_active`/`archivado` (control de acceso)
+- **Toggle operativo:** Switch en data grid para cambiar estado operativo sin abrir modal
+- **Archivado mejorado:** Proceso de archivado desde modal de edición con reasignación de prospectos
+- **Modal de confirmación:** Modal para seleccionar coordinador al archivar usuarios con prospectos asignados
+
+#### **🎨 Mejoras de Interfaz**
+- **Switch de vista:** Reemplazado checkbox por switch de botones para alternar entre usuarios activos y archivados
+- **Columna departamento mejorada:** Muestra departamento > coordinación > nada (jerarquía clara)
+- **Columna moderación eliminada:** Removida para dar más espacio a botones de acción
+- **Botones de acción ampliados:** Más espacio y mejor visibilidad en data grid
+- **Filtros optimizados:** Coordinaciones y usuarios filtrados solo por `archivado`, no por `is_operativo`
+
+#### **🔧 Funcionalidades Técnicas**
+- **Reasignación de prospectos:** Al archivar ejecutivos/coordinadores, prospectos se reasignan automáticamente
+- **Filtros inteligentes:** Usuarios archivados invisibles por defecto, solo visibles con switch de vista
+- **Asignación flexible:** Ejecutivos pueden asignarse a coordinaciones no operativas (solo excluye archivadas)
+- **Usuarios no operativos visibles:** Se muestran en modales y selecciones, solo archivados están ocultos
+
+#### **📊 Base de Datos**
+- **Campo is_operativo:** Agregado a tabla `auth_users` en System_UI con valor por defecto `true`
+- **Índice creado:** Índice en `is_operativo` para mejorar rendimiento de consultas
+- **Migración automática:** Todos los usuarios existentes marcados como operativos por defecto
+
+#### **🏗️ Arquitectura**
+- **Base de datos:** `zbylezfyagwrxoecioup.supabase.co` (System_UI)
+- **Script SQL:** `scripts/sql/add_is_operativo_to_auth_users.sql` para migración
+- **Integración:** Reasignación de prospectos en base de análisis (`glsmifhkoaifvaegsozd.supabase.co`)
+
+---
+
 ### **v5.7.0** - Octubre 2025
 **Estado:** ✅ Producción
 
@@ -156,6 +191,6 @@ Cada entrada del changelog debe incluir:
 
 ---
 
-**Última actualización:** Octubre 2025
-**Versión actual:** v5.7.0
+**Última actualización:** Enero 2025
+**Versión actual:** v5.8.0
 **Estado:** ✅ Producción estable
