@@ -610,11 +610,9 @@ class ErrorLogService {
 
       // Método 3: Intentar obtener de la URL o del contexto
       const moduleMap: Record<string, string> = {
-        'agent-studio': 'agent-studio',
         'live-chat': 'live-chat',
         'live-monitor': 'live-monitor',
         'admin': 'admin',
-        'academia': 'academia',
         'ai-models': 'ai-models',
         'prompts-manager': 'prompts-manager',
         'aws-manager': 'aws-manager',

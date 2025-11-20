@@ -171,6 +171,20 @@ console.error = (...args: any[]) => {
     return; // No loggear errores del propio servicio de logging
   }
   
+  // Excluir errores de Realtime que son warnings esperados (no críticos)
+  if (fullMessage.includes('[REALTIME V4]') ||
+      fullMessage.includes('REALTIME V4') ||
+      fullMessage.includes('posible sobrecarga de conexiones') ||
+      fullMessage.includes('Demasiadas conversaciones') ||
+      fullMessage.includes('Reintentando Realtime') ||
+      fullMessage.includes('realtime_undefined') ||
+      fullMessage.includes('realtime_overload') ||
+      fullMessage.includes('channel_error') ||
+      fullMessage.includes('Canal cerrado') ||
+      fullMessage.includes('Timeout, reintentando')) {
+    return; // No loggear errores de Realtime - son warnings esperados de conexión
+  }
+  
   // Intentar capturar errores críticos (solo los que parecen ser errores reales, no warnings)
   if (firstArg instanceof Error || 
       (typeof firstArg === 'string' && (

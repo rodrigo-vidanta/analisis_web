@@ -214,44 +214,54 @@ class AuthService {
         // Solo Admin puede ver plantillas (NO developer)
         return this.currentUser.role_name === 'admin';
       
-      case 'agent-studio':
-        // Solo Admin puede acceder a agent-studio (NO developer)
-        return this.currentUser.role_name === 'admin';
       
       case 'analisis':
         // Admin, Evaluator y Developer pueden ver análisis
+        // Usuarios con rol direccion NO pueden acceder
+        if (this.currentUser.role_name === 'direccion') return false;
         return ['admin', 'evaluator', 'developer'].includes(this.currentUser.role_name);
-      
-      case 'academia':
-        // Academia para Admin, Developer y Evaluator
-        return ['admin', 'developer', 'evaluator'].includes(this.currentUser.role_name);
       
       case 'ai-models':
         // AI Models para productor, admin y developer
+        // Usuarios con rol direccion NO pueden acceder
+        if (this.currentUser.role_name === 'direccion') return false;
         return ['productor', 'admin', 'developer'].includes(this.currentUser.role_name);
       
       case 'live-chat':
-        // Live Chat disponible para todos los usuarios autenticados
+        // Live Chat disponible para todos los usuarios autenticados EXCEPTO direccion
+        if (this.currentUser.role_name === 'direccion') return false;
         return true;
       
       case 'live-monitor':
         // Live Monitor para admin, evaluator, developer, coordinador y ejecutivo
+        // Usuarios con rol direccion NO pueden acceder
+        if (this.currentUser.role_name === 'direccion') return false;
         return ['admin', 'evaluator', 'developer', 'coordinador', 'ejecutivo'].includes(this.currentUser.role_name);
       
       case 'prospectos':
-        // Prospectos disponible para todos los usuarios autenticados (igual que Live Chat)
+        // Prospectos disponible para todos los usuarios autenticados EXCEPTO direccion
+        if (this.currentUser.role_name === 'direccion') return false;
         return true;
+      
+      case 'direccion':
+        // Dirección solo para usuarios con rol direccion y admin
+        return this.currentUser.role_name === 'direccion' || this.currentUser.role_name === 'admin';
       
       case 'admin':
         // Admin y Coordinadores pueden acceder a administración
         return this.currentUser.role_name === 'admin' || this.currentUser.role_name === 'coordinador';
       
       default:
+        // Si el usuario tiene rol direccion, solo puede acceder al módulo direccion
+        if (this.currentUser.role_name === 'direccion') {
+          return false; // Bloquear acceso a cualquier otro módulo
+        }
+        
         // Para módulos nuevos (como AWS), permitir a admin y developer
         if (this.currentUser.role_name === 'admin') return true;
         if (this.currentUser.role_name === 'developer') {
           // Developer puede acceder a todo excepto los módulos restringidos
-          const restrictedModules = ['admin', 'constructor', 'plantillas', 'agent-studio'];
+          const restrictedModules = ['admin', 'constructor', 'plantillas'];
           return !restrictedModules.includes(module);
         }
         

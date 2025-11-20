@@ -35,10 +35,6 @@ Servicios centralizados para manejo de datos, autenticación y funcionalidades e
 - **Base de datos**: supabase
 - **Uso**: AI Models, límites de uso
 
-### academiaService.ts
-- **Función**: Servicios de academia
-- **Base de datos**: Según configuración
-- **Uso**: Módulo Academia
 
 ## Servicios Específicos
 
@@ -52,7 +48,6 @@ Servicios centralizados para manejo de datos, autenticación y funcionalidades e
 - **Base de datos**: analysisSupabase
 - **Uso**: Módulo Prospectos
 
-### agentStudioService.ts
 - **Función**: Servicios de Agent Studio
 - **Base de datos**: supabase
 - **Uso**: Agent Studio

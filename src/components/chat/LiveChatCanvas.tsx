@@ -69,7 +69,12 @@ const logErrThrottled = (key: string, ...args: any[]) => {
   const now = Date.now();
   const last = lastErrLogRef.current[key] || 0;
   if (now - last > 15000) { // máx 1 cada 15s por canal
-    console.error(...args);
+    // Usar console.warn para errores de Realtime (son warnings esperados, no errores críticos)
+    if (key.includes('realtime') || args[0]?.toString().includes('[REALTIME V4]')) {
+      console.warn(...args);
+    } else {
+      console.error(...args);
+    }
     lastErrLogRef.current[key] = now;
   }
 };
@@ -486,14 +491,14 @@ const LiveChatCanvas: React.FC = () => {
           const isActiveConversation = selectedConversationRef.current === targetProspectoId;
 
           // ✅ OPTIMIZACIÓN: Marcar como leído de forma diferida (no bloquea)
+          // ✅ GLOBAL: Marcar TODOS los mensajes de la conversación como leídos (no solo este mensaje)
           if (isActiveConversation && !newMessage.is_read) {
             newMessage.is_read = true;
             // Diferir escritura a BD usando requestIdleCallback
+            // Usar RPC para marcar TODA la conversación como leída (global, no por usuario)
             const markAsRead = () => {
               analysisSupabase
-                .from('mensajes_whatsapp')
-                .update({ leido: true })
-                .eq('id', newMessage.id)
+                .rpc('mark_messages_as_read', { p_prospecto_id: targetProspectoId })
                 .then(() => {})
                 .catch(() => {});
             };

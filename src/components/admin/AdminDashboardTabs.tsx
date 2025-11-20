@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import UserManagement from './UserManagement';
 import SystemPreferences from './SystemPreferences';
 import DatabaseConfiguration from './DatabaseConfiguration';
-// import AcademiaAdminPanel from '../academia/AcademiaAdminPanel'; // Comentado: función aún no desarrollada
 import TokenManagement from './TokenManagement';
 import EjecutivosManager from './EjecutivosManager';
 import CoordinacionesManager from './CoordinacionesManager';
 import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'ejecutivos' | 'coordinaciones'; // 'academia' comentado: función aún no desarrollada
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'ejecutivos' | 'coordinaciones';
 
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
@@ -79,18 +78,6 @@ const AdminDashboardTabs: React.FC = () => {
         ),
         description: 'Configurar límites de tokens para usuarios productores'
       },
-      // Comentado: Academia de Ventas - función aún no desarrollada
-      // {
-      //   id: 'academia' as AdminTab,
-      //   name: 'Academia de Ventas',
-      //   icon: (
-      //     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-      //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-      //     </svg>
-      //   ),
-      //   description: 'Gestionar niveles, asistentes virtuales y configuración de la Academia'
-      // },
       {
         id: 'coordinaciones' as AdminTab,
         name: 'Gestión de Coordinaciones',
@@ -207,13 +194,6 @@ const AdminDashboardTabs: React.FC = () => {
               <TokenManagement />
             </div>
           )}
-          
-          {/* Comentado: Academia de Ventas - función aún no desarrollada */}
-          {/* {activeTab === 'academia' && isAdmin && (
-            <div className="p-6">
-              <AcademiaAdminPanel onClose={() => {}} />
-            </div>
-          )} */}
           
           {activeTab === 'ejecutivos' && isCoordinador && (
             <div className="p-6">

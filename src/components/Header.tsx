@@ -3,16 +3,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { AssignmentBadge } from './analysis/AssignmentBadge';
+import NotificationBell from './notifications/NotificationBell';
 
 interface HeaderProps {
   currentStep: number;
   progress: number;
   progressText: string;
   darkMode: boolean;
-  appMode?: 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager';
+  appMode?: 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion';
   onToggleDarkMode: () => void;
   onReset: () => void;
-  onModeChange?: (mode: 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager') => void;
+  onModeChange?: (mode: 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion') => void;
   simplified?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -56,7 +57,6 @@ const Header = ({
               <h1 className="text-xl font-semibold text-slate-900 dark:text-white capitalize">
                 {appMode === 'constructor' ? 'Constructor de Agentes' :
                  appMode === 'plantillas' ? 'Gestión de Plantillas' :
-                 appMode === 'agent-studio' ? 'Agent Studio' :
                  appMode === 'natalia' ? 'Análisis Natalia IA' :
                  appMode === 'pqnc' ? 'Análisis PQNC Humans' :
                  appMode === 'live-monitor' ? 'Monitor en Vivo' :
@@ -82,6 +82,29 @@ const Header = ({
 
             {/* Controles de usuario */}
             <div className="flex items-center space-x-3">
+              
+              {/* Notificaciones */}
+              <NotificationBell darkMode={darkMode} />
+              
+              {/* Botón Dirección para admin */}
+              {user?.role_name === 'admin' && (
+                <button 
+                  onClick={() => onModeChange?.('direccion')}
+                  className={`relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium ${
+                    appMode === 'direccion'
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
+                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                  title="Modo Dirección - Timeline de Actividades"
+                >
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Dirección</span>
+                  </div>
+                </button>
+              )}
               
               {/* Botones de navegación para admin */}
               {user?.role_name === 'admin' && (
@@ -285,6 +308,29 @@ const Header = ({
 
           {/* Controles modernos */}
           <div className="flex items-center space-x-3">
+            {/* Notificaciones */}
+            <NotificationBell darkMode={darkMode} />
+            
+            {/* Botón Dirección para admin */}
+            {user?.role_name === 'admin' && (
+              <button 
+                onClick={() => onModeChange?.('direccion')}
+                className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
+                  appMode === 'direccion'
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+                title="Modo Dirección - Timeline de Actividades"
+              >
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Dirección</span>
+                </div>
+              </button>
+            )}
+            
             {/* Navegación principal */}
             <nav className="flex items-center space-x-1">
               {canAccessModule('constructor') && (

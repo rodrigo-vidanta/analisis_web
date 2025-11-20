@@ -6,7 +6,6 @@ import ProjectSelector from './ProjectSelector';
 import LoginScreen from './LoginScreen';
 import IndividualAgentWizard from './IndividualAgentWizard';
 import AdminDashboard from './AdminDashboard';
-import AgentStudio from './AgentStudio';
 import AnalysisDashboard from './analysis/AnalysisDashboard';
 import LiveMonitorKanban from './analysis/LiveMonitorKanban';
 import AdminDashboardTabs from './admin/AdminDashboardTabs';
@@ -17,8 +16,6 @@ import { useTheme } from '../hooks/useTheme';
 // Componentes Linear
 import LinearLayout from './linear/LinearLayout';
 import LinearLiveMonitor from './linear/LinearLiveMonitor';
-// Academia
-import AcademiaDashboard from './academia/AcademiaDashboard';
 // AI Models Manager
 import AIModelsManager from './ai-models/AIModelsManager';
 
@@ -40,6 +37,10 @@ import ProspectosManager from './prospectos/ProspectosManager';
 import AnalysisIAComplete from './analysis/AnalysisIAComplete';
 // Change Password Modal
 import ChangePasswordModal from './auth/ChangePasswordModal';
+// Notification Listener
+import NotificationListener from './notifications/NotificationListener';
+// Timeline Dirección
+import Timeline from './direccion/Timeline';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -143,7 +144,7 @@ function MainApp() {
   useEffect(() => {
     // Para constructor, usar darkMode del store
     // Para otros módulos, usar localDarkMode
-    const shouldBeDark = appMode === 'agent-studio' ? darkMode : localDarkMode;
+    const shouldBeDark = localDarkMode;
     
     
     if (shouldBeDark) {
@@ -172,6 +173,22 @@ function MainApp() {
     };
   }, []);
 
+  // Listener para navegación desde notificaciones
+  useEffect(() => {
+    const handleNavigateToModule = (event: CustomEvent) => {
+      const module = event.detail;
+      if (module === 'live-chat' || module === 'live-monitor') {
+        setAppMode(module);
+      }
+    };
+
+    window.addEventListener('navigate-to-module', handleNavigateToModule as EventListener);
+    
+    return () => {
+      window.removeEventListener('navigate-to-module', handleNavigateToModule as EventListener);
+    };
+  }, [setAppMode]);
+
   // Listener para redirecciones desde AccessDenied
   useEffect(() => {
     const handleRedirect = (event: CustomEvent) => {
@@ -193,29 +210,41 @@ function MainApp() {
   
   useEffect(() => {
     if (isAuthenticated && user && !hasInitializedRedirect) {
-      // Solo redirigir automáticamente en el login inicial, no cuando el usuario selecciona constructor manualmente
+      // Si el usuario tiene rol direccion, redirigir directamente al timeline y forzar el modo
+      if (user.role_name === 'direccion') {
+        setAppMode('direccion');
+        setHasInitializedRedirect(true);
+        return;
+      }
+      
+      // Solo redirigir automáticamente en el login inicial
       const firstModule = getFirstAvailableModule();
-      if (firstModule && firstModule !== 'agent-studio' && appMode === 'agent-studio') {
+      if (firstModule) {
         setAppMode(firstModule);
       }
       setHasInitializedRedirect(true);
     }
   }, [isAuthenticated, user, hasInitializedRedirect, getFirstAvailableModule, setAppMode, appMode]);
 
-  const handleToggleDarkMode = () => {
-    if (appMode === 'agent-studio') {
-      // En constructor, usar el store global y sincronizar local
-      toggleDarkMode();
-      setLocalDarkMode(!darkMode);
-    } else {
-      // En otros módulos, cambiar solo estado local
-      const newDarkMode = !localDarkMode;
-      setLocalDarkMode(newDarkMode);
+  // Bloquear cambio de módulo para usuarios con rol direccion
+  useEffect(() => {
+    if (user?.role_name === 'direccion' && appMode !== 'direccion') {
+      setAppMode('direccion');
     }
+  }, [user?.role_name, appMode, setAppMode]);
+
+  const handleToggleDarkMode = () => {
+    // Cambiar solo estado local
+    const newDarkMode = !localDarkMode;
+    setLocalDarkMode(newDarkMode);
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'academia' | 'live-chat' | 'aws-manager' | 'log-server') => {
+  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'live-chat' | 'aws-manager' | 'log-server' | 'direccion') => {
+    // Bloquear cambio de módulo para usuarios con rol direccion
+    if (user?.role_name === 'direccion' && mode !== 'direccion') {
+      return; // No permitir cambiar de módulo
+    }
     setAppMode(mode);
     // Resetear steps cuando cambies de modo para evitar problemas
     if (mode !== 'constructor') {
@@ -256,23 +285,6 @@ function MainApp() {
   // Función para renderizar contenido según el modo
   const renderContent = () => {
     switch (appMode) {
-      case 'agent-studio':
-        return (
-          user?.role_name === 'admin' || user?.role_name === 'developer' ? (
-            <AgentStudio />
-          ) : (
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  Acceso Denegado
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Solo administradores y desarrolladores pueden acceder al Agent Studio
-                </p>
-              </div>
-            </div>
-          )
-        );
       case 'natalia':
         return (
           <ProtectedRoute requireModule="analisis" requireSubModule="natalia">
@@ -289,12 +301,6 @@ function MainApp() {
         return (
           <ProtectedRoute requireLiveMonitor={true}>
             {isLinearTheme ? <LinearLiveMonitor /> : <LiveMonitorKanban />}
-          </ProtectedRoute>
-        );
-      case 'academia':
-        return (
-          <ProtectedRoute requireModule="academia">
-            <AcademiaDashboard />
           </ProtectedRoute>
         );
       case 'ai-models':
@@ -343,7 +349,7 @@ function MainApp() {
         return (
           canAccessModule('aws-manager') ? (
             <AWSManager 
-              darkMode={appMode === 'agent-studio' ? darkMode : localDarkMode}
+              darkMode={localDarkMode}
               onToggleDarkMode={handleToggleDarkMode}
             />
           ) : (
@@ -410,6 +416,10 @@ function MainApp() {
           )
         );
 
+      case 'direccion':
+        // Módulo completamente desacoplado - diseño independiente
+        return <Timeline />;
+
       default:
         return (
           <div className="min-h-screen flex items-center justify-center">
@@ -428,14 +438,25 @@ function MainApp() {
 
   const themeClasses = getThemeClasses();
 
+  // Si es módulo dirección, renderizar sin layout (completamente desacoplado)
+  if (appMode === 'direccion') {
+    return (
+      <>
+        <NotificationListener />
+        {renderContent()}
+      </>
+    );
+  }
+
   // Si el tema Linear está activo, usar layout completamente diferente
   if (isLinearTheme) {
     return (
-      <div className={`${(appMode === 'agent-studio' ? darkMode : localDarkMode) ? 'dark' : ''}`}
+      <div className={`${localDarkMode ? 'dark' : ''}`}
         data-module={appMode}
       >
+        <NotificationListener />
         <LinearLayout
-          darkMode={appMode === 'agent-studio' ? darkMode : localDarkMode}
+          darkMode={localDarkMode}
           onToggleDarkMode={handleToggleDarkMode}
           currentMode={appMode}
         >
@@ -450,6 +471,7 @@ function MainApp() {
     <div className={`min-h-screen transition-colors duration-300 ${
       (appMode === 'constructor' ? darkMode : localDarkMode) ? 'dark' : ''
     }`} data-module={appMode}>
+      <NotificationListener />
       <div className={`min-h-screen ${themeClasses.background} flex transition-all duration-300`}>
         
         {/* Sidebar with theme support */}
@@ -470,7 +492,7 @@ function MainApp() {
             currentStep={currentStep}
             progress={progress}
             progressText={getProgressText()}
-            darkMode={appMode === 'agent-studio' ? darkMode : localDarkMode}
+            darkMode={localDarkMode}
             appMode={appMode}
             onToggleDarkMode={handleToggleDarkMode}
             onReset={resetApp}

@@ -17,7 +17,7 @@ interface AuthContextType extends AuthState {
   canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | 'live-chat' | null;
+  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | null;
   refreshUser: () => Promise<void>;
 }
 
@@ -315,17 +315,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'agent-studio' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'academia' | 'ai-models' | 'live-chat' | null => {
+  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | null => {
     if (!authState.user) return null;
+
+    // Si el usuario tiene rol direccion, solo puede acceder al módulo direccion
+    if (authState.user.role_name === 'direccion') {
+      return 'direccion';
+    }
 
     // Orden de prioridad de módulos
     if (canAccessModule('constructor')) return 'constructor';
     if (canAccessModule('plantillas')) return 'plantillas';
-    
-    // Agent Studio solo para admin (NO developer)
-    if (authState.user.role_name === 'admin') {
-      return 'agent-studio';
-    }
     
     // AI Models para productor, admin y developer
     if (['productor', 'admin', 'developer'].includes(authState.user.role_name)) {
@@ -340,8 +340,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Live Chat disponible para todos los usuarios autenticados
     if (canAccessModule('live-chat')) return 'live-chat';
     
-    // Academia disponible para todos
-    if (canAccessModule('academia')) return 'academia';
     
     if (authState.user.role_name === 'admin') return 'admin';
 

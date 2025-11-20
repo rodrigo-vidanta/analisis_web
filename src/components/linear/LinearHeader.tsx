@@ -23,7 +23,6 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
     switch (currentMode) {
       case 'constructor': return 'Constructor de Agentes';
       case 'plantillas': return 'Plantillas';
-      case 'agent-studio': return 'Agent Studio';
       case 'natalia': return 'Natalia IA';
       case 'pqnc': return 'PQNC Humans';
       case 'live-monitor': return 'Live Monitor';

@@ -1,5 +1,32 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.0.9-N6.0.0 (Enero 2025) - Gestión de Usuarios y Coordinaciones: Eliminación Lógica y Mejoras de UI
+
+### 🔧 RELEASE BETA - Eliminación Lógica y Mejoras Visuales
+
+#### Gestión de Usuarios
+- **Eliminación lógica**: Usuarios se archivan en lugar de eliminarse permanentemente
+- **Campo archivado**: Nueva columna en `auth_users` para eliminación lógica
+- **Filtros mejorados**: Filtros independientes para archivados y activos/inactivos
+- **Desarchivado**: Funcionalidad para reactivar usuarios archivados
+
+#### Gestión de Coordinaciones
+- **Botón is_operativo mejorado**: Diseño más visible con gradientes y animaciones
+- **Etiqueta de estado**: Badge visual en footer mostrando estado operativo
+- **Indicador de pulso**: Animación cuando coordinación está operativa
+
+#### Mejoras de Interfaz
+- **Diseño consistente**: Modales siguen mismo patrón de diseño
+- **Animaciones suaves**: Transiciones con framer-motion
+- **Sin emojis**: Diseño limpio con iconos SVG
+
+#### Archivos Principales
+- `src/components/admin/UserManagement.tsx` - Eliminación lógica
+- `src/components/admin/CoordinacionesManager.tsx` - Mejoras visuales
+- `src/components/Footer.tsx` - Versión B2.0.9-N6.0.0
+
+---
+
 ## Versión B2.0.0-N6.0.0 (Enero 2025) - Log Monitor: Mejoras de UI y Seguimiento de Usuarios
 
 ### 🔧 RELEASE BETA - Mejoras en Dashboard de Logs

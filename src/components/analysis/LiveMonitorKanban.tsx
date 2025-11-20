@@ -30,6 +30,7 @@ import { AssignmentBadge } from './AssignmentBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProspectAvatar } from './ProspectAvatar';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
+import { useNotifications } from '../../hooks/useNotifications';
 
 // Función para reproducir sonido de checkpoint completado (4 repeticiones)
 const playCheckpointCompleteSound = () => {
@@ -560,6 +561,9 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
 
 const LiveMonitorKanban: React.FC = () => {
   const { user } = useAuth();
+  
+  // Marcar notificaciones de Live Monitor como leídas al entrar al módulo
+  useNotifications({ currentModule: 'live-monitor' });
   
   // Estado para el tipo de vista (Kanban o DataGrid)
   const [viewMode, setViewMode] = useState<'kanban' | 'datagrid'>(() => {

@@ -22,7 +22,9 @@ export interface Coordinacion {
   codigo: string;
   nombre: string;
   descripcion?: string;
-  is_active: boolean;
+  is_active?: boolean; // Deprecated: usar archivado en su lugar
+  archivado?: boolean; // Nuevo: borrado lógico
+  is_operativo?: boolean; // Nuevo: status operativo para asignación de prospectos
   created_at: string;
   updated_at: string;
 }
@@ -79,20 +81,79 @@ class CoordinacionService {
   // ============================================
 
   /**
-   * Obtiene todas las coordinaciones activas
+   * Obtiene todas las coordinaciones no archivadas
    */
   async getCoordinaciones(): Promise<Coordinacion[]> {
     try {
-      const { data, error } = await supabaseSystemUI
+      // Intentar obtener con filtro de archivado
+      let query = supabaseSystemUI
+        .from('coordinaciones')
+        .select('*')
+        .order('codigo');
+
+      // Intentar filtrar por archivado, pero si falla usar is_active
+      try {
+        const { data, error } = await query.eq('archivado', false);
+        if (!error) {
+          return (data || []).map((coord: any) => ({
+            ...coord,
+            archivado: coord.archivado !== undefined ? coord.archivado : !coord.is_active,
+            is_operativo: coord.is_operativo !== undefined ? coord.is_operativo : true,
+          }));
+        }
+        throw error;
+      } catch (err: any) {
+        // Si falla por columnas nuevas, usar is_active como fallback
+        if (err.code === 'PGRST204' || err.message?.includes('archivado')) {
+          console.warn('Usando is_active como fallback para archivado');
+          const { data, error } = await supabaseSystemUI
+            .from('coordinaciones')
+            .select('*')
+            .eq('is_active', true)
+            .order('codigo');
+          
+          if (error) throw error;
+          
+          return (data || []).map((coord: any) => ({
+            ...coord,
+            archivado: false,
+            is_operativo: true,
+          }));
+        }
+        throw err;
+      }
+    } catch (error) {
+      console.error('Error obteniendo coordinaciones:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene coordinaciones operativas para asignación de prospectos
+   */
+  async getCoordinacionesParaAsignacion(): Promise<Coordinacion[]> {
+    try {
+      // Intentar usar RPC primero
+      try {
+        const { data, error } = await supabaseSystemUIAdmin.rpc('get_coordinaciones_para_asignacion');
+        if (!error && data) {
+          return data;
+        }
+      } catch (rpcError) {
+        console.warn('RPC no disponible, usando método directo:', rpcError);
+      }
+
+      // Fallback: obtener coordinaciones activas directamente
+      const { data, error } = await supabaseSystemUIAdmin
         .from('coordinaciones')
         .select('*')
         .eq('is_active', true)
-        .order('codigo');
+        .order('codigo', { ascending: true });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error obteniendo coordinaciones:', error);
+      console.error('Error obteniendo coordinaciones para asignación:', error);
       throw error;
     }
   }
@@ -142,21 +203,59 @@ class CoordinacionService {
     codigo: string;
     nombre: string;
     descripcion?: string;
-    is_active?: boolean;
+    archivado?: boolean;
+    is_operativo?: boolean;
   }): Promise<Coordinacion> {
     try {
+      const insertData: any = {
+        codigo: coordinacionData.codigo,
+        nombre: coordinacionData.nombre,
+        descripcion: coordinacionData.descripcion || null,
+      };
+
+      // Intentar agregar campos nuevos, pero con fallback
+      try {
+        insertData.archivado = coordinacionData.archivado !== undefined ? coordinacionData.archivado : false;
+        insertData.is_operativo = coordinacionData.is_operativo !== undefined ? coordinacionData.is_operativo : true;
+        insertData.is_active = !insertData.archivado; // Mantener compatibilidad
+      } catch {
+        // Si falla, usar solo is_active
+        insertData.is_active = coordinacionData.archivado === false ? true : false;
+      }
+
       const { data, error } = await supabaseSystemUIAdmin
         .from('coordinaciones')
-        .insert({
-          codigo: coordinacionData.codigo,
-          nombre: coordinacionData.nombre,
-          descripcion: coordinacionData.descripcion || null,
-          is_active: coordinacionData.is_active !== undefined ? coordinacionData.is_active : true,
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Si falla por columnas nuevas, intentar solo con campos básicos
+        if (error.code === 'PGRST204' || error.message?.includes('archivado') || error.message?.includes('is_operativo')) {
+          console.warn('Columnas nuevas no disponibles aún, usando campos básicos');
+          const basicInsertData = {
+            codigo: coordinacionData.codigo,
+            nombre: coordinacionData.nombre,
+            descripcion: coordinacionData.descripcion || null,
+            is_active: coordinacionData.archivado === false ? true : false,
+          };
+          
+          const { data: basicData, error: basicError } = await supabaseSystemUIAdmin
+            .from('coordinaciones')
+            .insert(basicInsertData)
+            .select()
+            .single();
+          
+          if (basicError) throw basicError;
+          
+          return {
+            ...basicData,
+            archivado: !basicData.is_active,
+            is_operativo: true,
+          } as Coordinacion;
+        }
+        throw error;
+      }
       return data;
     } catch (error: any) {
       console.error('Error creando coordinación:', error);
@@ -176,7 +275,8 @@ class CoordinacionService {
       codigo?: string;
       nombre?: string;
       descripcion?: string;
-      is_active?: boolean;
+      archivado?: boolean;
+      is_operativo?: boolean;
     }
   ): Promise<Coordinacion> {
     try {
@@ -187,8 +287,42 @@ class CoordinacionService {
       if (updates.codigo !== undefined) updateData.codigo = updates.codigo;
       if (updates.nombre !== undefined) updateData.nombre = updates.nombre;
       if (updates.descripcion !== undefined) updateData.descripcion = updates.descripcion || null;
-      if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
+      
+      // Manejar campos nuevos con fallback a is_active si las columnas no existen aún
+      // Intentar actualizar archivado e is_operativo, pero si falla, usar is_active como fallback
+      if (updates.archivado !== undefined) {
+        updateData.archivado = updates.archivado;
+        // Fallback: si archivado = true, entonces is_active = false
+        if (updates.archivado) {
+          updateData.is_active = false;
+        } else {
+          updateData.is_active = true;
+        }
+      }
+      
+      if (updates.is_operativo !== undefined) {
+        updateData.is_operativo = updates.is_operativo;
+      }
 
+      // Intentar usar función RPC segura primero
+      try {
+        const { data: rpcData, error: rpcError } = await supabaseSystemUIAdmin.rpc('update_coordinacion_safe', {
+          p_id: coordinacionId,
+          p_codigo: updates.codigo || null,
+          p_nombre: updates.nombre || null,
+          p_descripcion: updates.descripcion || null,
+          p_archivado: updates.archivado !== undefined ? updates.archivado : null,
+          p_is_operativo: updates.is_operativo !== undefined ? updates.is_operativo : null,
+        });
+
+        if (!rpcError && rpcData) {
+          return rpcData as Coordinacion;
+        }
+      } catch (rpcErr) {
+        console.warn('RPC no disponible, usando método directo:', rpcErr);
+      }
+
+      // Fallback: método directo con manejo de errores
       const { data, error } = await supabaseSystemUIAdmin
         .from('coordinaciones')
         .update(updateData)
@@ -196,7 +330,41 @@ class CoordinacionService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Si el error es porque las columnas no existen, intentar solo con campos básicos
+        if (error.code === 'PGRST204' || error.message?.includes('archivado') || error.message?.includes('is_operativo')) {
+          console.warn('Columnas nuevas no disponibles aún, usando campos básicos');
+          const basicUpdateData: any = {
+            updated_at: new Date().toISOString(),
+          };
+          
+          if (updates.codigo !== undefined) basicUpdateData.codigo = updates.codigo;
+          if (updates.nombre !== undefined) basicUpdateData.nombre = updates.nombre;
+          if (updates.descripcion !== undefined) basicUpdateData.descripcion = updates.descripcion || null;
+          
+          // Mapear archivado a is_active
+          if (updates.archivado !== undefined) {
+            basicUpdateData.is_active = !updates.archivado;
+          }
+          
+          const { data: basicData, error: basicError } = await supabaseSystemUIAdmin
+            .from('coordinaciones')
+            .update(basicUpdateData)
+            .eq('id', coordinacionId)
+            .select()
+            .single();
+          
+          if (basicError) throw basicError;
+          
+          // Retornar datos con mapeo inverso
+          return {
+            ...basicData,
+            archivado: !basicData.is_active,
+            is_operativo: updates.is_operativo !== undefined ? updates.is_operativo : true,
+          } as Coordinacion;
+        }
+        throw error;
+      }
       return data;
     } catch (error: any) {
       console.error('Error actualizando coordinación:', error);
@@ -238,24 +406,62 @@ class CoordinacionService {
   }
 
   /**
-   * Activa o desactiva una coordinación
+   * Archiva una coordinación y reasigna todos sus ejecutivos y coordinadores
    */
-  async toggleCoordinacionActive(coordinacionId: string, isActive: boolean): Promise<Coordinacion> {
+  async archivarCoordinacionYReasignar(
+    coordinacionId: string,
+    nuevaCoordinacionId: string,
+    usuarioId: string
+  ): Promise<{
+    success: boolean;
+    ejecutivos_reasignados: number;
+    coordinadores_reasignados: number;
+    error?: string;
+  }> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
-        .from('coordinaciones')
-        .update({
-          is_active: isActive,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', coordinacionId)
-        .select()
-        .single();
+      const { data, error } = await supabaseSystemUIAdmin.rpc('archivar_coordinacion_y_reasignar', {
+        p_coordinacion_id: coordinacionId,
+        p_nueva_coordinacion_id: nuevaCoordinacionId,
+        p_usuario_id: usuarioId,
+      });
 
       if (error) throw error;
-      return data;
+      
+      if (data && !data.success) {
+        throw new Error(data.error || 'Error al archivar coordinación');
+      }
+
+      return {
+        success: data?.success || false,
+        ejecutivos_reasignados: data?.ejecutivos_reasignados || 0,
+        coordinadores_reasignados: data?.coordinadores_reasignados || 0,
+      };
+    } catch (error: any) {
+      console.error('Error archivando coordinación:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene ejecutivos y coordinadores de una coordinación (para modal de reasignación)
+   */
+  async getUsuariosParaReasignacion(coordinacionId: string): Promise<{
+    ejecutivos: Ejecutivo[];
+    coordinadores: Ejecutivo[];
+  }> {
+    try {
+      // Obtener ejecutivos
+      const ejecutivos = await this.getEjecutivosByCoordinacion(coordinacionId);
+
+      // Obtener coordinadores
+      const coordinadores = await this.getCoordinadoresByCoordinacion(coordinacionId);
+
+      return {
+        ejecutivos,
+        coordinadores,
+      };
     } catch (error) {
-      console.error('Error cambiando estado de coordinación:', error);
+      console.error('Error obteniendo usuarios para reasignación:', error);
       throw error;
     }
   }
@@ -472,7 +678,8 @@ class CoordinacionService {
 
   /**
    * Obtiene todos los coordinadores de una coordinación específica
-   * Útil para que coordinadores puedan asignarse entre sí
+   * IMPORTANTE: Solo obtiene coordinadores que están asignados a esta coordinación específica
+   * a través de la tabla coordinador_coordinaciones
    */
   async getCoordinadoresByCoordinacion(coordinacionId: string): Promise<Ejecutivo[]> {
     try {
@@ -482,17 +689,19 @@ class CoordinacionService {
       const coordinacion = await this.getCoordinacionById(coordinacionId);
       console.log('✅ [coordinacionService] Coordinación encontrada:', coordinacion?.nombre);
       
-      // Obtener coordinadores a través de la tabla intermedia
+      // Obtener coordinadores SOLO a través de la tabla intermedia coordinador_coordinaciones
+      // Esto asegura que solo obtenemos coordinadores que realmente pertenecen a esta coordinación
       const { data: coordinadorCoordinaciones, error: ccError } = await supabaseSystemUI
         .from('coordinador_coordinaciones')
         .select(`
           coordinador_id,
+          coordinacion_id,
           coordinaciones:coordinacion_id (
             codigo,
             nombre
           )
         `)
-        .eq('coordinacion_id', coordinacionId);
+        .eq('coordinacion_id', coordinacionId); // CRÍTICO: Solo esta coordinación específica
 
       if (ccError) {
         console.error('❌ [coordinacionService] Error obteniendo relaciones coordinador-coordinación:', ccError);
@@ -502,15 +711,23 @@ class CoordinacionService {
       console.log('📊 [coordinacionService] Relaciones encontradas:', coordinadorCoordinaciones?.length || 0);
 
       if (!coordinadorCoordinaciones || coordinadorCoordinaciones.length === 0) {
-        console.warn('⚠️ [coordinacionService] No se encontraron relaciones coordinador-coordinación');
+        console.warn('⚠️ [coordinacionService] No se encontraron relaciones coordinador-coordinación para esta coordinación');
         return [];
       }
 
-      // Extraer IDs de coordinadores
-      const coordinadorIds = coordinadorCoordinaciones.map(cc => cc.coordinador_id);
-      console.log('👥 [coordinacionService] IDs de coordinadores:', coordinadorIds);
+      // Extraer IDs de coordinadores (solo los que están en esta coordinación específica)
+      const coordinadorIds = coordinadorCoordinaciones
+        .map(cc => cc.coordinador_id)
+        .filter((id): id is string => id !== null && id !== undefined);
+      
+      console.log('👥 [coordinacionService] IDs de coordinadores para esta coordinación:', coordinadorIds);
 
-      // Obtener datos de los coordinadores
+      if (coordinadorIds.length === 0) {
+        return [];
+      }
+
+      // Obtener datos de los coordinadores (solo los que están en la lista)
+      // IMPORTANTE: Solo obtener coordinadores que están en coordinador_coordinaciones para esta coordinación específica
       const { data: usersData, error: usersError } = await supabaseSystemUI
         .from('auth_users')
         .select(`
@@ -526,7 +743,7 @@ class CoordinacionService {
           last_login,
           created_at
         `)
-        .in('id', coordinadorIds)
+        .in('id', coordinadorIds) // Solo los IDs que pertenecen a esta coordinación específica
         .eq('is_coordinator', true)
         .eq('is_active', true)
         .order('full_name');
@@ -539,31 +756,65 @@ class CoordinacionService {
       console.log('✅ [coordinacionService] Coordinadores encontrados:', usersData?.length || 0, usersData?.map(u => ({ id: u.id, name: u.full_name })));
 
       // Transformar datos para incluir información de coordinación
-      const resultado = (usersData || []).map((user: any) => {
-        const relacion = coordinadorCoordinaciones.find(cc => cc.coordinador_id === user.id);
-        const coordinacionData = relacion?.coordinaciones;
-        const coordInfo = Array.isArray(coordinacionData) 
-          ? coordinacionData[0] 
-          : coordinacionData;
-        
-        return {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          phone: user.phone,
-          coordinacion_id: coordinacionId, // Usar la coordinación filtrada
-          coordinacion_codigo: coordInfo?.codigo || coordinacion?.codigo,
-          coordinacion_nombre: coordInfo?.nombre || coordinacion?.nombre,
-          is_active: user.is_active,
-          email_verified: user.email_verified,
-          last_login: user.last_login,
-          created_at: user.created_at,
-        };
-      });
+      // CRÍTICO: Solo incluir coordinadores que tienen relación en coordinador_coordinaciones para esta coordinación específica
+      const resultado = (usersData || [])
+        .filter((user: any) => {
+          // Verificar que el usuario realmente pertenece a esta coordinación específica
+          const relacion = coordinadorCoordinaciones.find(cc => 
+            cc.coordinador_id === user.id && 
+            cc.coordinacion_id === coordinacionId
+          );
+          
+          if (!relacion) {
+            console.warn('⚠️ [coordinacionService] Usuario encontrado pero sin relación válida para esta coordinación:', {
+              userId: user.id,
+              userName: user.full_name,
+              coordinacionId: coordinacionId
+            });
+            return false;
+          }
+          
+          // Verificar adicionalmente que la relación es para esta coordinación específica
+          if (relacion.coordinacion_id !== coordinacionId) {
+            console.warn('⚠️ [coordinacionService] Relación encontrada pero para otra coordinación:', {
+              userId: user.id,
+              relacionCoordinacionId: relacion.coordinacion_id,
+              coordinacionIdBuscada: coordinacionId
+            });
+            return false;
+          }
+          
+          return true;
+        })
+        .map((user: any) => {
+          const relacion = coordinadorCoordinaciones.find(cc => 
+            cc.coordinador_id === user.id && 
+            cc.coordinacion_id === coordinacionId
+          );
+          
+          const coordinacionData = relacion?.coordinaciones;
+          const coordInfo = Array.isArray(coordinacionData) 
+            ? coordinacionData[0] 
+            : coordinacionData;
+          
+          return {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            phone: user.phone,
+            coordinacion_id: coordinacionId, // Usar la coordinación filtrada
+            coordinacion_codigo: coordInfo?.codigo || coordinacion?.codigo,
+            coordinacion_nombre: coordInfo?.nombre || coordinacion?.nombre,
+            is_active: user.is_active,
+            email_verified: user.email_verified,
+            last_login: user.last_login,
+            created_at: user.created_at,
+          };
+        });
       
-      console.log('✅ [coordinacionService] Retornando', resultado.length, 'coordinadores');
+      console.log('✅ [coordinacionService] Retornando', resultado.length, 'coordinadores válidos');
       return resultado;
     } catch (error) {
       console.error('❌ [coordinacionService] Error obteniendo coordinadores:', error);

@@ -39,6 +39,7 @@ interface User {
   role_display_name: string;
   role_id: string;
   is_active: boolean;
+  archivado?: boolean;
   email_verified: boolean;
   last_login?: string;
   created_at: string;
@@ -82,8 +83,8 @@ const UserManagement: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [userToArchive, setUserToArchive] = useState<User | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
@@ -122,6 +123,8 @@ const UserManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCoordinacion, setFilterCoordinacion] = useState<string>('');
   const [filterDepartment, setFilterDepartment] = useState<string>('');
+  const [filterArchived, setFilterArchived] = useState<boolean>(false); // false = solo mostrar no archivados
+  const [filterActive, setFilterActive] = useState<boolean>(true); // true = solo mostrar activos/operativos
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   
   // Estados para ordenamiento
@@ -169,9 +172,13 @@ const UserManagement: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
+      // Cargar usuarios directamente desde auth_users con información completa
       const { data, error } = await supabaseSystemUIAdmin
-        .from('auth_user_profiles')
-        .select('*')
+        .from('auth_users')
+        .select(`
+          *,
+          auth_roles!inner(id, name, display_name, description)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -253,8 +260,22 @@ const UserManagement: React.FC = () => {
             const isBlocked = counter?.is_blocked || false;
             const warningCount = counter?.total_warnings || 0;
             
+            // Extraer archivado directamente de auth_users (ya estamos en esa tabla)
+            const archivado = (user as any).archivado || false;
+            
+            // Extraer información del rol
+            const role = (user as any).auth_roles;
+            
+            // Mapear campos para compatibilidad con la interfaz User
             return {
               ...user,
+              archivado,
+              role_name: role?.name || '',
+              role_display_name: role?.display_name || '',
+              role_id: role?.id || '',
+              organization: (user as any).organization || 'PQNC',
+              department: (user as any).department || '',
+              position: (user as any).position || '',
               is_blocked: isBlocked,
               warning_count: warningCount,
               system_ui_user_id: systemUserId // Guardar el user_id de System_UI para poder desbloquear
@@ -292,25 +313,33 @@ const UserManagement: React.FC = () => {
           console.error('❌ Error cargando warnings:', warningError);
           // Si falla, usar usuarios sin estado de bloqueo
           const usersWithCoordinaciones = await Promise.all(
-            (data || []).map(async (user: User) => {
-              if (user.role_name === 'ejecutivo') {
-                const { data: systemUser } = await supabaseSystemUIAdmin
-                  .from('auth_users')
-                  .select('coordinacion_id')
-                  .eq('id', user.id)
-                  .single();
-                return { ...user, coordinacion_id: systemUser?.coordinacion_id };
-              } else if (user.role_name === 'coordinador') {
+            (data || []).map(async (user: any) => {
+              const role = user.auth_roles;
+              const archivado = user.archivado || false;
+              const mappedUser = {
+                ...user,
+                archivado,
+                role_name: role?.name || '',
+                role_display_name: role?.display_name || '',
+                role_id: role?.id || '',
+                organization: user.organization || 'PQNC',
+                department: user.department || '',
+                position: user.position || '',
+              };
+              
+              if (mappedUser.role_name === 'ejecutivo') {
+                return { ...mappedUser, coordinacion_id: user.coordinacion_id };
+              } else if (mappedUser.role_name === 'coordinador') {
                 const { data: relaciones } = await supabaseSystemUIAdmin
                   .from('coordinador_coordinaciones')
                   .select('coordinacion_id')
                   .eq('coordinador_id', user.id);
                 return {
-                  ...user,
+                  ...mappedUser,
                   coordinaciones_ids: relaciones?.map(r => r.coordinacion_id) || []
                 };
               }
-              return user;
+              return mappedUser;
             })
           );
           setUsers(usersWithCoordinaciones);
@@ -318,25 +347,33 @@ const UserManagement: React.FC = () => {
       } else {
         // Cargar información de coordinaciones para cada usuario
         const usersWithCoordinaciones = await Promise.all(
-          (data || []).map(async (user: User) => {
-            if (user.role_name === 'ejecutivo') {
-              const { data: systemUser } = await supabaseSystemUIAdmin
-                .from('auth_users')
-                .select('coordinacion_id')
-                .eq('id', user.id)
-                .single();
-              return { ...user, coordinacion_id: systemUser?.coordinacion_id };
-            } else if (user.role_name === 'coordinador') {
+          (data || []).map(async (user: any) => {
+            const role = user.auth_roles;
+            const archivado = user.archivado || false;
+            const mappedUser = {
+              ...user,
+              archivado,
+              role_name: role?.name || '',
+              role_display_name: role?.display_name || '',
+              role_id: role?.id || '',
+              organization: user.organization || 'PQNC',
+              department: user.department || '',
+              position: user.position || '',
+            };
+            
+            if (mappedUser.role_name === 'ejecutivo') {
+              return { ...mappedUser, coordinacion_id: user.coordinacion_id };
+            } else if (mappedUser.role_name === 'coordinador') {
               const { data: relaciones } = await supabaseSystemUIAdmin
                 .from('coordinador_coordinaciones')
                 .select('coordinacion_id')
                 .eq('coordinador_id', user.id);
               return {
-                ...user,
+                ...mappedUser,
                 coordinaciones_ids: relaciones?.map(r => r.coordinacion_id) || []
               };
             }
-            return user;
+            return mappedUser;
           })
         );
         setUsers(usersWithCoordinaciones);
@@ -352,6 +389,16 @@ const UserManagement: React.FC = () => {
   // Efecto para filtrar usuarios cuando cambian los filtros o usuarios
   useEffect(() => {
     let filtered = [...users];
+
+    // Filtro por archivado: por defecto solo mostrar usuarios no archivados
+    if (!filterArchived) {
+      filtered = filtered.filter(user => !user.archivado);
+    }
+
+    // Filtro por is_active (operativo/no operativo): por defecto solo mostrar usuarios activos
+    if (filterActive) {
+      filtered = filtered.filter(user => user.is_active === true);
+    }
 
     // Filtro de búsqueda (nombre, email)
     if (searchQuery.trim()) {
@@ -388,7 +435,7 @@ const UserManagement: React.FC = () => {
 
     setFilteredUsers(filtered);
     setCurrentPage(1); // Resetear a primera página cuando cambian los filtros
-  }, [users, searchQuery, filterCoordinacion, filterDepartment]);
+  }, [users, searchQuery, filterCoordinacion, filterDepartment, filterArchived, filterActive]);
 
   // Función para ordenar usuarios
   const sortUsers = (usersToSort: User[]): User[] => {
@@ -1008,24 +1055,24 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const openDeleteModal = (userId: string) => {
-    console.log('🗑️ Abriendo modal de eliminación para:', userId);
+  const openArchiveModal = (userId: string) => {
+    console.log('📦 Abriendo modal de archivado para:', userId);
     const user = users.find(u => u.id === userId);
     if (user) {
-      setUserToDelete(user);
-      setShowDeleteModal(true);
+      setUserToArchive(user);
+      setShowArchiveModal(true);
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!userToDelete) return;
+  const handleArchiveUser = async () => {
+    if (!userToArchive) return;
     
-    const userId = userToDelete.id;
-    console.log('🗑️ handleDeleteUser ejecutado:', { userId, canDelete, currentUser: currentUser?.role_name });
+    const userId = userToArchive.id;
+    console.log('📦 handleArchiveUser ejecutado:', { userId, canDelete, currentUser: currentUser?.role_name });
     
     if (!canDelete) {
-      console.log('❌ Sin permisos para eliminar');
-      setError('No tienes permisos para eliminar usuarios');
+      console.log('❌ Sin permisos para archivar');
+      setError('No tienes permisos para archivar usuarios');
       return;
     }
 
@@ -1033,70 +1080,81 @@ const UserManagement: React.FC = () => {
 
     // Verificar que no sea el usuario actual
     if (userId === currentUser?.id) {
-      console.log('❌ Intento de auto-eliminación');
-      setError('No puedes eliminar tu propio usuario');
-      setShowDeleteModal(false);
+      console.log('❌ Intento de auto-archivado');
+      setError('No puedes archivar tu propio usuario');
+      setShowArchiveModal(false);
       return;
     }
 
-    console.log('✅ No es auto-eliminación');
+    console.log('✅ No es auto-archivado');
 
-    console.log('🚀 Iniciando eliminación...');
+    console.log('🚀 Iniciando archivado...');
     
     try {
       setLoading(true);
       setError(null);
       console.log('🔄 Loading activado');
 
-      // Intentar usar RPC function para eliminación segura
-      console.log('📞 Llamando a RPC delete_user_complete...');
-      const { error: rpcError } = await supabaseSystemUIAdmin.rpc('delete_user_complete', {
-        p_user_id: userId
-      });
+      // Archivar usuario (eliminación lógica)
+      console.log('📦 Archivando usuario...');
+      const { error: archiveError } = await supabaseSystemUIAdmin
+        .from('auth_users')
+        .update({ 
+          archivado: true,
+          is_active: false // También desactivar al archivar
+        })
+        .eq('id', userId);
 
-      console.log('📞 RPC response:', { rpcError });
-
-      if (rpcError) {
-        console.warn('❌ RPC delete failed, trying direct deletion:', rpcError);
-        
-        // Fallback: usar cliente admin para eliminación directa
-        console.log('🔧 Iniciando fallback con cliente admin...');
-        
-        // Eliminar relaciones primero
-        console.log('🗑️ Eliminando avatares...');
-        await supabaseSystemUIAdmin.from('user_avatars').delete().eq('user_id', userId);
-        
-        console.log('🗑️ Eliminando sesiones...');
-        await supabaseSystemUIAdmin.from('auth_sessions').delete().eq('user_id', userId);
-        
-        console.log('🗑️ Eliminando permisos específicos...');
-        await supabaseSystemUIAdmin.from('auth_user_permissions').delete().eq('user_id', userId);
-        
-        // Eliminar usuario
-        console.log('🗑️ Eliminando usuario principal...');
-        const { error: deleteError } = await supabaseSystemUIAdmin
-          .from('auth_users')
-          .delete()
-          .eq('id', userId);
-
-        console.log('🗑️ Delete response:', { deleteError });
-        if (deleteError) throw deleteError;
-      }
+      console.log('📦 Archive response:', { archiveError });
+      if (archiveError) throw archiveError;
 
       console.log('🔄 Recargando lista de usuarios...');
       await loadUsers();
       setError(null);
-      console.log('✅ Usuario eliminado exitosamente');
-      setShowDeleteModal(false);
-      setUserToDelete(null);
-      alert('Usuario eliminado exitosamente');
+      console.log('✅ Usuario archivado exitosamente');
+      setShowArchiveModal(false);
+      setUserToArchive(null);
       
     } catch (err: any) {
-      console.error('❌ Error deleting user:', err);
+      console.error('❌ Error archiving user:', err);
       console.error('❌ Error details:', { message: err.message, stack: err.stack });
-      setError(`Error al eliminar usuario: ${err.message || 'Error desconocido'}`);
+      setError(`Error al archivar usuario: ${err.message || 'Error desconocido'}`);
     } finally {
       console.log('🏁 Finalizando - loading desactivado');
+      setLoading(false);
+    }
+  };
+
+  const handleUnarchiveUser = async (userId: string) => {
+    console.log('📤 handleUnarchiveUser ejecutado:', { userId });
+    
+    if (!canDelete) {
+      setError('No tienes permisos para desarchivar usuarios');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Desarchivar usuario
+      const { error: unarchiveError } = await supabaseSystemUIAdmin
+        .from('auth_users')
+        .update({ 
+          archivado: false,
+          is_active: true // Reactivar al desarchivar
+        })
+        .eq('id', userId);
+
+      if (unarchiveError) throw unarchiveError;
+
+      await loadUsers();
+      setError(null);
+      
+    } catch (err: any) {
+      console.error('❌ Error unarchiving user:', err);
+      setError(`Error al desarchivar usuario: ${err.message || 'Error desconocido'}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -1400,6 +1458,34 @@ const UserManagement: React.FC = () => {
             </select>
           </div>
 
+          {/* Toggle para mostrar archivados */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showArchived"
+              checked={filterArchived}
+              onChange={(e) => setFilterArchived(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+            />
+            <label htmlFor="showArchived" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+              Mostrar archivados
+            </label>
+          </div>
+
+          {/* Toggle para mostrar inactivos/no operativos */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showInactive"
+              checked={!filterActive}
+              onChange={(e) => setFilterActive(!e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+            />
+            <label htmlFor="showInactive" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+              Mostrar inactivos
+            </label>
+          </div>
+
           {/* Items por página */}
           <div className="relative">
             <select
@@ -1668,21 +1754,32 @@ const UserManagement: React.FC = () => {
                           </button>
                         )}
 
-                        {canDelete ? (
+                        {canDelete && !user.archivado ? (
                           <button
                             onClick={() => {
-                              console.log('🖱️ Click en botón eliminar:', user.id);
-                              openDeleteModal(user.id);
+                              console.log('🖱️ Click en botón archivar:', user.id);
+                              openArchiveModal(user.id);
                             }}
-                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                            title="Eliminar usuario"
+                            className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300"
+                            title="Archivar usuario"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                            </svg>
+                          </button>
+                        ) : user.archivado && canDelete ? (
+                          <button
+                            onClick={() => handleUnarchiveUser(user.id)}
+                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                            title="Desarchivar usuario"
+                            disabled={loading}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                           </button>
                         ) : (
-                          <span className="text-gray-400" title="Sin permisos para eliminar">🔒</span>
+                          <span className="text-gray-400" title="Sin permisos para archivar">🔒</span>
                         )}
                       </div>
                     </td>
@@ -2932,88 +3029,147 @@ const UserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Delete User Modal */}
-      {showDeleteModal && userToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Confirmar Eliminación
-              </h3>
-              <button
-                onClick={() => { setShowDeleteModal(false); setUserToDelete(null); }}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <div className="flex items-center mb-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h4 className="text-lg font-medium text-gray-900 dark:text-white">
-                    ¿Eliminar usuario {userToDelete.full_name}?
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Email: {userToDelete.email}
-                  </p>
+      {/* Archive Modal */}
+      <AnimatePresence>
+        {showArchiveModal && userToArchive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            onClick={() => { setShowArchiveModal(false); setUserToArchive(null); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
+            >
+              {/* Header */}
+              <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      Archivar Usuario
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Eliminación lógica del usuario
+                    </p>
+                  </div>
+                  <motion.button
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    transition={{ delay: 0.25 }}
+                    onClick={() => { setShowArchiveModal(false); setUserToArchive(null); }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group"
+                  >
+                    <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                  </motion.button>
                 </div>
               </div>
 
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p className="text-sm text-red-800 dark:text-red-200 font-medium mb-2">
-                  ⚠️ Esta acción no se puede deshacer
-                </p>
-                <p className="text-sm text-red-700 dark:text-red-300">
-                  Se eliminará permanentemente:
-                </p>
-                <ul className="text-sm text-red-700 dark:text-red-300 mt-2 space-y-1">
-                  <li>• El usuario y su información personal</li>
-                  <li>• Todas sus sesiones activas</li>
-                  <li>• Sus avatares y archivos</li>
-                  <li>• Sus permisos específicos</li>
-                </ul>
-              </div>
-            </div>
+              {/* Content */}
+              <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                <div className="space-y-6">
+                  {/* Información del usuario */}
+                  <div className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {userToArchive.full_name}
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {userToArchive.email}
+                      </p>
+                      {userToArchive.role_display_name && (
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                          {userToArchive.role_display_name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => { setShowDeleteModal(false); setUserToDelete(null); }}
-                className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg transition-colors"
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDeleteUser}
-                disabled={loading}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Eliminando...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <span>Eliminar Usuario</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                  {/* Advertencia */}
+                  <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center mt-0.5">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-orange-900 dark:text-orange-200 mb-2">
+                          Eliminación Lógica
+                        </h4>
+                        <p className="text-sm text-orange-800 dark:text-orange-300 mb-3">
+                          El usuario será archivado (no eliminado permanentemente):
+                        </p>
+                        <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1.5">
+                          <li className="flex items-start space-x-2">
+                            <span className="text-orange-500 mt-0.5">•</span>
+                            <span>El registro se mantiene en la base de datos</span>
+                          </li>
+                          <li className="flex items-start space-x-2">
+                            <span className="text-orange-500 mt-0.5">•</span>
+                            <span>No se mostrará en la lista por defecto</span>
+                          </li>
+                          <li className="flex items-start space-x-2">
+                            <span className="text-orange-500 mt-0.5">•</span>
+                            <span>Puede ser desarchivado en cualquier momento</span>
+                          </li>
+                          <li className="flex items-start space-x-2">
+                            <span className="text-orange-500 mt-0.5">•</span>
+                            <span>Se marcará como inactivo automáticamente (is_active = false)</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setShowArchiveModal(false); setUserToArchive(null); }}
+                  disabled={loading}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancelar
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: loading ? 1 : 1.02 }}
+                  whileTap={{ scale: loading ? 1 : 0.98 }}
+                  onClick={handleArchiveUser}
+                  disabled={loading}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl hover:from-orange-700 hover:to-orange-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-orange-500/25 flex items-center space-x-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Archivando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                      <span>Archivar Usuario</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Avatar Crop Modal */}
       <AvatarCropModal

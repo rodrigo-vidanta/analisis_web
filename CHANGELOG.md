@@ -1,5 +1,64 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión B2.0.9-N6.0.0 - Gestión de Usuarios y Coordinaciones: Eliminación Lógica y Mejoras de UI (Enero 2025)
+
+### 🎯 **RELEASE BETA - Eliminación Lógica y Mejoras Visuales**
+
+#### 👥 **Gestión de Usuarios - Eliminación Lógica**
+- **Eliminación lógica implementada**: Los usuarios ahora se archivan en lugar de eliminarse permanentemente
+- **Campo archivado**: Nueva columna `archivado` en tabla `auth_users` para eliminación lógica
+- **Filtros mejorados**: Filtros independientes para usuarios archivados y usuarios activos/inactivos (`is_active`)
+- **Funcionalidad de desarchivado**: Los usuarios archivados pueden ser desarchivados en cualquier momento
+- **Modal de archivado**: Modal rediseñado siguiendo el diseño de UI moderno con animaciones framer-motion
+- **Sin mensajes emergentes**: Eliminados alerts, solo recarga automática de datos
+
+#### 🏢 **Gestión de Coordinaciones - Mejoras Visuales**
+- **Botón is_operativo mejorado**: Botón Power rediseñado con gradientes, sombras y animaciones para mayor visibilidad
+- **Indicador de pulso**: Animación de pulso cuando la coordinación está operativa
+- **Etiqueta de estado**: Nueva etiqueta visual en el footer de cada tarjeta mostrando estado "Operativa" o "No Operativa"
+- **Iconos diferenciados**: Power cuando está operativa, PowerOff cuando no está operativa
+- **Mejor contraste**: Colores verde esmeralda para operativa, gris para no operativa
+
+#### 🎨 **Mejoras de Interfaz**
+- **Diseño consistente**: Modales de archivado siguen el mismo diseño que modales de coordinaciones
+- **Animaciones suaves**: Transiciones con framer-motion en todos los modales
+- **Sin emojis**: Diseño limpio sin emojis, solo iconos SVG de Lucide
+- **Etiquetas informativas**: Badges con colores y estados claramente diferenciados
+
+#### 📍 **Módulos Modificados**
+
+##### **UserManagement.tsx** (`src/components/admin/UserManagement.tsx`)
+- Implementada eliminación lógica con campo `archivado`
+- Funciones `handleArchiveUser()` y `handleUnarchiveUser()`
+- Modal de archivado rediseñado con diseño moderno
+- Filtros por `archivado` e `is_active` independientes
+- Carga de usuarios desde `auth_users` directamente con join a `auth_roles`
+
+##### **CoordinacionesManager.tsx** (`src/components/admin/CoordinacionesManager.tsx`)
+- Botón Power mejorado con gradientes y animaciones
+- Etiqueta de estado operativo en footer de tarjetas
+- Indicador de pulso animado para coordinaciones operativas
+- Mejor visibilidad del estado operativo/no operativo
+
+##### **Base de Datos**
+- Columna `archivado BOOLEAN DEFAULT FALSE` agregada a `auth_users` en SystemUI
+- Comentario explicativo en columna `archivado`
+
+#### ✅ **Beneficios**
+- ✅ No se pierden registros de usuarios (eliminación lógica)
+- ✅ Usuarios pueden ser desarchivados fácilmente
+- ✅ Estado operativo de coordinaciones más visible y fácil de identificar
+- ✅ Diseño consistente en toda la aplicación
+- ✅ Mejor experiencia de usuario con animaciones y feedback visual
+
+#### 📝 **Archivos Modificados**
+- `src/components/admin/UserManagement.tsx` - Eliminación lógica y mejoras de UI
+- `src/components/admin/CoordinacionesManager.tsx` - Mejoras visuales del botón is_operativo
+- `src/components/Footer.tsx` - Versión actualizada a B2.0.9-N6.0.0
+- `scripts/sql/update_coordinaciones_schema.sql` - Documentación de cambios
+
+---
+
 ## 🔧 Versión B2.0.0-N6.0.0 - Log Monitor: Mejoras de UI y Seguimiento de Usuarios (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras en Dashboard de Logs**
