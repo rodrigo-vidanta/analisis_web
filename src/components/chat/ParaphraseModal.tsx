@@ -36,8 +36,8 @@ interface ParaphraseModalProps {
 // Configuración del webhook de N8N
 const N8N_WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/mensaje-agente';
 
-// Timeout para el webhook (5 segundos)
-const WEBHOOK_TIMEOUT = 5000;
+// Timeout para el webhook (15 segundos)
+const WEBHOOK_TIMEOUT = 15000;
 
 export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
   isOpen,
