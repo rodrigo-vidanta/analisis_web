@@ -17,6 +17,35 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.9.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🔒 Sistema de Bloqueo por Moderación - Indicadores Visuales**
+- **Botón de desbloquear restaurado:** Botón de desbloquear restaurado en el modal de edición de usuarios
+- **Indicador visual en modal:** Alerta visual en el header del modal mostrando estado de bloqueo y número de infracciones
+- **Avatar con candado en datagrid:** Usuarios bloqueados muestran candado rojo en lugar de iniciales en el data grid
+- **Interactividad mejorada:** Clic en el candado rojo abre directamente el modal de edición para desbloquear
+- **Estados visuales claros:** Diferenciación visual inmediata entre usuarios bloqueados y activos
+
+#### **🎨 Mejoras de Interfaz**
+- **Alerta de bloqueo:** Banner informativo en header del modal con icono ShieldAlert y contador de infracciones
+- **Candado clickeable:** Avatar con candado rojo es clickeable y muestra tooltip informativo
+- **Botón de desbloquear:** Botón con gradiente verde esmeralda en footer del modal, solo visible para administradores
+- **Estado de carga:** Indicador de carga durante proceso de desbloqueo
+- **Feedback visual:** Hover effects y transiciones suaves en todos los elementos interactivos
+
+#### **🔧 Funcionalidades Técnicas**
+- **Función handleUnblockUser:** Restaurada y funcional para resetear warnings de usuarios bloqueados
+- **Integración con ParaphraseLogService:** Uso de `resetUserWarnings()` para desbloquear usuarios
+- **Validación de permisos:** Solo administradores pueden desbloquear usuarios
+- **Sincronización de datos:** Recarga automática de usuarios después de desbloquear
+
+#### **📊 Base de Datos**
+- **Sin cambios:** Utiliza tablas existentes `user_warning_counters` y `auth_users`
+- **Integración:** Funciona con sistema de moderación existente
+
+---
+
 ### **v5.8.0** - Enero 2025
 **Estado:** ✅ Producción
 
@@ -192,5 +221,5 @@ Cada entrada del changelog debe incluir:
 ---
 
 **Última actualización:** Enero 2025
-**Versión actual:** v5.8.0
+**Versión actual:** v5.9.0
 **Estado:** ✅ Producción estable

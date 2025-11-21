@@ -1729,8 +1729,17 @@ const UserManagement: React.FC = () => {
                   <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 sm:px-5 lg:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0 relative">
-                          {user.avatar_url ? (
+                        <div 
+                          className={`h-10 w-10 flex-shrink-0 relative ${user.is_blocked ? 'cursor-pointer' : ''}`}
+                          onClick={user.is_blocked && canEdit ? () => openEditModal(user) : undefined}
+                          title={user.is_blocked ? 'Usuario bloqueado - Click para editar' : undefined}
+                        >
+                          {user.is_blocked ? (
+                            // Avatar con candado rojo cuando está bloqueado
+                            <div className="h-10 w-10 rounded-full bg-red-500 dark:bg-red-600 flex items-center justify-center shadow-lg hover:bg-red-600 dark:hover:bg-red-700 transition-colors">
+                              <Lock className="w-5 h-5 text-white" />
+                            </div>
+                          ) : user.avatar_url ? (
                             <img 
                               src={user.avatar_url} 
                               alt={user.full_name}
@@ -2536,6 +2545,27 @@ const UserManagement: React.FC = () => {
                       >
                         {selectedUser.full_name} • {selectedUser.email}
                       </motion.p>
+                      {/* Alerta de bloqueo */}
+                      {selectedUser.is_blocked && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.25 }}
+                          className="mt-3 flex items-center space-x-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+                        >
+                          <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-red-800 dark:text-red-300">
+                              Usuario bloqueado por moderación
+                            </p>
+                            {selectedUser.warning_count !== undefined && (
+                              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                                {selectedUser.warning_count} infracción{selectedUser.warning_count !== 1 ? 'es' : ''} registrada{selectedUser.warning_count !== 1 ? 's' : ''}
+                              </p>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
                   <motion.button
@@ -2991,59 +3021,86 @@ const UserManagement: React.FC = () => {
 
               {/* Footer con Botones */}
               <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-between items-center">
-                {/* Botón Archivar a la izquierda */}
-                {canDelete && selectedUser && !selectedUser.archivado && (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="button"
-                    onClick={async () => {
-                      // Contar prospectos del usuario en la base de análisis
-                      try {
-                        let count = 0;
-                        
-                        // Contar prospectos de ejecutivos
-                        if (selectedUser.role_name === 'ejecutivo' && selectedUser.coordinacion_id) {
-                          const { count: ejecutivoCount } = await analysisSupabase
-                            .from('prospectos')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('ejecutivo_id', selectedUser.id)
-                            .eq('coordinacion_id', selectedUser.coordinacion_id);
-                          count += ejecutivoCount || 0;
-                        }
-                        
-                        // Contar prospectos de coordinadores
-                        if (selectedUser.role_name === 'coordinador' && selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids.length > 0) {
-                          const { count: coordinadorCount } = await analysisSupabase
-                            .from('prospectos')
-                            .select('*', { count: 'exact', head: true })
-                            .in('coordinacion_id', selectedUser.coordinaciones_ids);
-                          count += coordinadorCount || 0;
-                        }
-                        
-                        setUserProspectsCount(count);
-                        
-                        // Si tiene coordinación y prospectos, mostrar modal de confirmación
-                        if ((selectedUser.coordinacion_id || (selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids.length > 0)) && count > 0) {
-                          setShowArchiveConfirmModal(true);
-                        } else {
-                          // Si no tiene coordinación o prospectos, archivar directamente
+                {/* Botones a la izquierda */}
+                <div className="flex items-center space-x-3">
+                  {/* Botón Desbloquear (solo si está bloqueado) */}
+                  {isAdmin && selectedUser && selectedUser.is_blocked && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="button"
+                      onClick={() => handleUnblockUser(selectedUser)}
+                      disabled={unblockingUserId === selectedUser.id}
+                      className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-xl hover:from-emerald-700 hover:to-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-emerald-500/25 flex items-center space-x-2"
+                    >
+                      {unblockingUserId === selectedUser.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Desbloqueando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldAlert className="w-4 h-4" />
+                          <span>Desbloquear Usuario</span>
+                        </>
+                      )}
+                    </motion.button>
+                  )}
+                  
+                  {/* Botón Archivar */}
+                  {canDelete && selectedUser && !selectedUser.archivado && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="button"
+                      onClick={async () => {
+                        // Contar prospectos del usuario en la base de análisis
+                        try {
+                          let count = 0;
+                          
+                          // Contar prospectos de ejecutivos
+                          if (selectedUser.role_name === 'ejecutivo' && selectedUser.coordinacion_id) {
+                            const { count: ejecutivoCount } = await analysisSupabase
+                              .from('prospectos')
+                              .select('*', { count: 'exact', head: true })
+                              .eq('ejecutivo_id', selectedUser.id)
+                              .eq('coordinacion_id', selectedUser.coordinacion_id);
+                            count += ejecutivoCount || 0;
+                          }
+                          
+                          // Contar prospectos de coordinadores
+                          if (selectedUser.role_name === 'coordinador' && selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids.length > 0) {
+                            const { count: coordinadorCount } = await analysisSupabase
+                              .from('prospectos')
+                              .select('*', { count: 'exact', head: true })
+                              .in('coordinacion_id', selectedUser.coordinaciones_ids);
+                            count += coordinadorCount || 0;
+                          }
+                          
+                          setUserProspectsCount(count);
+                          
+                          // Si tiene coordinación y prospectos, mostrar modal de confirmación
+                          if ((selectedUser.coordinacion_id || (selectedUser.coordinaciones_ids && selectedUser.coordinaciones_ids.length > 0)) && count > 0) {
+                            setShowArchiveConfirmModal(true);
+                          } else {
+                            // Si no tiene coordinación o prospectos, archivar directamente
+                            await handleArchiveUserDirect(selectedUser.id);
+                          }
+                        } catch (error) {
+                          console.error('Error contando prospectos:', error);
+                          // En caso de error, archivar directamente
                           await handleArchiveUserDirect(selectedUser.id);
                         }
-                      } catch (error) {
-                        console.error('Error contando prospectos:', error);
-                        // En caso de error, archivar directamente
-                        await handleArchiveUserDirect(selectedUser.id);
-                      }
-                    }}
-                    className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all duration-200 shadow-lg shadow-orange-500/25 flex items-center space-x-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                    </svg>
-                    <span>Archivar Usuario</span>
-                  </motion.button>
-                )}
+                      }}
+                      className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all duration-200 shadow-lg shadow-orange-500/25 flex items-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                      <span>Archivar Usuario</span>
+                    </motion.button>
+                  )}
+                </div>
                 
                 {/* Botones de acción a la derecha */}
                 <div className="flex justify-end space-x-3 ml-auto">

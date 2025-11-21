@@ -1,5 +1,52 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión 2.1.0 - Gestión de Usuarios: Indicadores Visuales de Bloqueo y Botón de Desbloquear (Enero 2025)
+
+### 🎯 **RELEASE - Indicadores Visuales de Moderación**
+
+#### 🔒 **Sistema de Bloqueo por Moderación - Mejoras Visuales**
+- **Botón de desbloquear restaurado:** Botón de desbloquear restaurado en el modal de edición de usuarios
+- **Indicador visual en modal:** Alerta visual en el header del modal mostrando estado de bloqueo y número de infracciones
+- **Avatar con candado en datagrid:** Usuarios bloqueados muestran candado rojo en lugar de iniciales en el data grid
+- **Interactividad mejorada:** Clic en el candado rojo abre directamente el modal de edición para desbloquear
+- **Estados visuales claros:** Diferenciación visual inmediata entre usuarios bloqueados y activos
+
+#### 🎨 **Mejoras de Interfaz**
+- **Alerta de bloqueo:** Banner informativo en header del modal con icono ShieldAlert y contador de infracciones
+- **Candado clickeable:** Avatar con candado rojo es clickeable y muestra tooltip informativo
+- **Botón de desbloquear:** Botón con gradiente verde esmeralda en footer del modal, solo visible para administradores
+- **Estado de carga:** Indicador de carga durante proceso de desbloqueo
+- **Feedback visual:** Hover effects y transiciones suaves en todos los elementos interactivos
+
+#### 🔧 **Funcionalidades Técnicas**
+- **Función handleUnblockUser:** Restaurada y funcional para resetear warnings de usuarios bloqueados
+- **Integración con ParaphraseLogService:** Uso de `resetUserWarnings()` para desbloquear usuarios
+- **Validación de permisos:** Solo administradores pueden desbloquear usuarios
+- **Sincronización de datos:** Recarga automática de usuarios después de desbloquear
+
+#### 📍 **Módulos Modificados**
+
+##### **UserManagement.tsx** (`src/components/admin/UserManagement.tsx`)
+- Botón de desbloquear agregado en footer del modal de edición
+- Alerta visual de bloqueo en header del modal
+- Avatar con candado rojo en data grid para usuarios bloqueados
+- Lógica condicional para mostrar candado cuando `is_blocked === true`
+- Tooltip y cursor pointer en avatar bloqueado
+- Icono ShieldAlert importado y utilizado
+
+#### ✅ **Beneficios**
+- ✅ Identificación visual inmediata de usuarios bloqueados en data grid
+- ✅ Acceso rápido al modal de edición desde el candado
+- ✅ Información clara sobre estado de bloqueo y número de infracciones
+- ✅ Proceso de desbloqueo simplificado y accesible
+- ✅ Mejor experiencia de usuario para administradores
+
+#### 📝 **Archivos Modificados**
+- `src/components/admin/UserManagement.tsx` - Indicadores visuales de bloqueo y botón de desbloquear
+- `src/components/admin/CHANGELOG_PQNC_HUMANS.md` - Documentación actualizada a v5.9.0
+
+---
+
 ## 🔧 Versión B2.1.0-N6.0.0 - Gestión de Usuarios: Estados Operativo/Archivado y Mejoras de UI (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Estados de Usuarios y Mejoras Visuales**
