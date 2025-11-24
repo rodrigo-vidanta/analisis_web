@@ -1,5 +1,48 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión B2.1.0N6.0.0 - Live Monitor: Detección en Tiempo Real de Llamadas (Enero 2025)
+
+### 🎯 **RELEASE BETA - Suscripción Realtime para Live Monitor**
+
+#### ⚡ **Detección en Tiempo Real de Llamadas**
+- **Suscripción Realtime INSERT:** Detección inmediata de nuevas llamadas al crearse en la base de datos
+- **Suscripción Realtime UPDATE:** Actualización en tiempo real de cambios de checkpoint y estado de llamadas
+- **Alertas instantáneas:** Reproducción automática de alerta cuando se detecta una nueva llamada
+- **Actualización local inteligente:** Actualización de datos locales sin recargar toda la lista
+- **Polling optimizado:** Reducción de intervalo de polling de 5s a 30s como respaldo
+
+#### 🔧 **Funcionalidades Técnicas**
+- **Canal Realtime:** Suscripción a tabla `llamadas_ventas` con eventos INSERT y UPDATE
+- **Manejo de datos:** Parseo automático de JSON en campos `datos_proceso` y `datos_llamada`
+- **Reclasificación automática:** Reclasificación de llamadas cuando cambia el estado
+- **Detección de checkpoint:** Alerta automática cuando llamada llega al último checkpoint
+- **Cleanup adecuado:** Desuscripción correcta al desmontar componente
+
+#### 📍 **Módulos Modificados**
+
+##### **LiveMonitor.tsx** (`src/components/analysis/LiveMonitor.tsx`)
+- Suscripción Realtime INSERT para detectar nuevas llamadas inmediatamente
+- Suscripción Realtime UPDATE para actualizar cambios de checkpoint/estado
+- Actualización local inteligente de llamadas existentes sin recargar toda la lista
+- Polling reducido de 5s a 30s como fallback
+- Reproducción de alerta en nueva llamada detectada
+- Manejo de errores y logs informativos
+
+#### ✅ **Beneficios**
+- ✅ Detección instantánea de nuevas llamadas (sin esperar hasta 5 segundos)
+- ✅ Actualización en tiempo real de cambios de checkpoint y estado
+- ✅ Mejor experiencia de usuario con alertas inmediatas
+- ✅ Menor carga en servidor con polling reducido
+- ✅ Sincronización automática con base de datos
+
+#### 📝 **Archivos Modificados**
+- `src/components/analysis/LiveMonitor.tsx` - Suscripción Realtime agregada
+- `CHANGELOG.md` - Documentación actualizada a B2.1.0N6.0.0
+- `VERSIONS.md` - Control de versiones actualizado
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.0N6.0.0
+
+---
+
 ## 🔧 Versión 2.1.0 - Gestión de Usuarios: Indicadores Visuales de Bloqueo y Botón de Desbloquear (Enero 2025)
 
 ### 🎯 **RELEASE - Indicadores Visuales de Moderación**

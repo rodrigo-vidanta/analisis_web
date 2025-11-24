@@ -1,5 +1,27 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.1.0N6.0.0 (Enero 2025) - Live Monitor: Detección en Tiempo Real de Llamadas
+
+### 🔧 RELEASE BETA - Suscripción Realtime para Live Monitor
+
+#### Live Monitor
+- **Detección instantánea:** Suscripción Realtime INSERT para detectar nuevas llamadas inmediatamente
+- **Actualización en tiempo real:** Suscripción Realtime UPDATE para cambios de checkpoint y estado
+- **Alertas automáticas:** Reproducción de alerta cuando se detecta nueva llamada o último checkpoint
+- **Polling optimizado:** Reducción de intervalo de 5s a 30s como respaldo
+
+#### Funcionalidades Técnicas
+- **Canal Realtime:** Suscripción a tabla `llamadas_ventas` con eventos INSERT y UPDATE
+- **Actualización local:** Actualización inteligente de datos locales sin recargar toda la lista
+- **Manejo de JSON:** Parseo automático de campos `datos_proceso` y `datos_llamada`
+- **Reclasificación:** Reclasificación automática cuando cambia el estado de llamada
+
+#### Archivos Principales
+- `src/components/analysis/LiveMonitor.tsx` - Suscripción Realtime agregada
+- `src/components/Footer.tsx` - Versión B2.1.0N6.0.0
+
+---
+
 ## Versión B2.0.9-N6.0.0 (Enero 2025) - Gestión de Usuarios y Coordinaciones: Eliminación Lógica y Mejoras de UI
 
 ### 🔧 RELEASE BETA - Eliminación Lógica y Mejoras Visuales

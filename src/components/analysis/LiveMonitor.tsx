@@ -4460,7 +4460,7 @@ const LiveMonitor: React.FC = () => {
       : 'text-purple-600 dark:text-purple-400';
   };
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales y configurar Realtime
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -4475,14 +4475,127 @@ const LiveMonitor: React.FC = () => {
           setNextAgent(agentsData[0]);
         }
       } catch (error) {
+        console.error('Error cargando datos:', error);
       }
     };
 
-    if (user?.id) {
-      loadData();
-      const interval = setInterval(loadData, 5000);
-      return () => clearInterval(interval);
-    }
+    if (!user?.id) return;
+
+    // Cargar datos iniciales
+    loadData();
+
+    // Configurar suscripción Realtime para detectar nuevas llamadas inmediatamente
+    const channel = analysisSupabase
+      .channel('live-monitor-realtime')
+      // INSERT: nuevas llamadas deben aparecer inmediatamente
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'llamadas_ventas'
+      }, async (payload) => {
+        try {
+          console.log('📞 [LiveMonitor] Nueva llamada detectada por Realtime:', payload.new?.call_id);
+          // Recargar datos para incluir la nueva llamada
+          const [prospectsData, agentsData] = await Promise.all([
+            liveMonitorService.getActiveCalls(user?.id),
+            liveMonitorService.getActiveAgents()
+          ]);
+          setProspects(prospectsData);
+          setAgents(agentsData);
+          
+          // Reproducir alerta para nueva llamada
+          playAlertBeep();
+        } catch (e) {
+          console.error('❌ [LiveMonitor] Error refrescando llamadas en Realtime:', e);
+        }
+      })
+      // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'llamadas_ventas'
+      }, async (payload) => {
+        const rec = payload.new as any;
+        const oldRec = payload.old as any;
+        
+        if (rec && oldRec) {
+          // Detectar cambio de checkpoint
+          if (rec.checkpoint_venta_actual !== oldRec.checkpoint_venta_actual) {
+            // Sonido cuando llega al último checkpoint
+            if (rec.checkpoint_venta_actual === 'checkpoint #5' || 
+                rec.checkpoint_venta_actual?.toLowerCase().includes('checkpoint #5')) {
+              playAlertBeep();
+            }
+          }
+          
+          // Actualizar llamada existente en la lista local
+          setProspects(prev => {
+            return prev.map(prospect => {
+              if (prospect.call_id === rec.call_id) {
+                // Parsear datos_proceso y datos_llamada si son strings
+                let datosProcesoActualizados = rec.datos_proceso;
+                if (typeof rec.datos_proceso === 'string') {
+                  try {
+                    datosProcesoActualizados = JSON.parse(rec.datos_proceso);
+                  } catch (e) {
+                    datosProcesoActualizados = prospect.datos_proceso;
+                  }
+                }
+                
+                let datosLlamadaActualizados = rec.datos_llamada;
+                if (typeof rec.datos_llamada === 'string') {
+                  try {
+                    datosLlamadaActualizados = JSON.parse(rec.datos_llamada);
+                  } catch (e) {
+                    datosLlamadaActualizados = prospect.datos_llamada;
+                  }
+                }
+                
+                return {
+                  ...prospect,
+                  ...rec,
+                  datos_proceso: datosProcesoActualizados,
+                  datos_llamada: datosLlamadaActualizados
+                };
+              }
+              return prospect;
+            });
+          });
+          
+          // Si cambió el estado, recargar para reclasificar
+          if (rec.call_status !== oldRec.call_status) {
+            setTimeout(async () => {
+              try {
+                const [prospectsData] = await Promise.all([
+                  liveMonitorService.getActiveCalls(user?.id)
+                ]);
+                setProspects(prospectsData);
+              } catch (e) {
+                console.error('Error reclasificando llamadas:', e);
+              }
+            }, 500);
+          }
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [LiveMonitor] Realtime suscrito correctamente a llamadas_ventas');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ [LiveMonitor] Error en suscripción Realtime:', status);
+        }
+      });
+
+    // Polling como fallback (intervalo más largo ya que Realtime maneja la mayoría de cambios)
+    const interval = setInterval(loadData, 30000); // Cada 30 segundos
+    
+    return () => {
+      clearInterval(interval);
+      try {
+        channel.unsubscribe();
+      } catch (e) {
+        console.warn('Error al desuscribirse de Realtime:', e);
+      }
+    };
   }, [user?.id]);
 
   // Funciones auxiliares
