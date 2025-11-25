@@ -37,8 +37,65 @@ BEGIN
   tiene_audio := (p_audio_ruta_bucket IS NOT NULL AND p_audio_ruta_bucket != '');
   
   -- LÓGICA DE CLASIFICACIÓN INTELIGENTE
+  -- PRIORIDAD: call_status = 'activa' debe verificarse PRIMERO
   
-  -- 1. Si tiene razón de finalización específica, clasificar según ella
+  -- 1. PRIORIDAD MÁXIMA: Si call_status es 'activa', verificar si realmente está activa
+  IF p_call_status = 'activa' THEN
+    -- Solo marcar como 'perdida' si hay indicadores claros de terminación
+    -- Si tiene razón de finalización explícita, respetarla
+    IF razon_finalizacion != '' THEN
+      -- Si tiene razón de finalización, verificar si es realmente terminada
+      IF razon_finalizacion ILIKE '%customer-ended%' OR
+         razon_finalizacion ILIKE '%customer-busy%' OR
+         razon_finalizacion ILIKE '%customer-did-not-answer%' OR
+         razon_finalizacion ILIKE '%no-answer%' OR
+         razon_finalizacion ILIKE '%busy%' OR
+         razon_finalizacion ILIKE '%assistant-ended%' OR
+         razon_finalizacion ILIKE '%completed%' THEN
+        -- Tiene razón de finalización explícita, clasificar según ella
+        IF razon_finalizacion ILIKE '%transfer%' OR 
+           razon_finalizacion ILIKE '%forwarded%' OR
+           razon_finalizacion = 'assistant-forwarded-call' THEN
+          RETURN 'transferida';
+        ELSIF razon_finalizacion ILIKE '%assistant-ended%' OR
+              razon_finalizacion ILIKE '%completed%' THEN
+          RETURN 'finalizada';
+        ELSE
+          RETURN 'perdida';
+        END IF;
+      END IF;
+    END IF;
+    
+    -- Si tiene duración > 0 Y audio, está finalizada (no activa)
+    IF p_duracion_segundos > 0 AND tiene_audio THEN
+      RETURN 'finalizada';
+    END IF;
+    
+    -- Si han pasado más de 30 minutos Y no tiene audio, probablemente está perdida
+    IF minutos_transcurridos > 30 AND NOT tiene_audio AND p_duracion_segundos IS NULL THEN
+      RETURN 'perdida';
+    END IF;
+    
+    -- Si no hay indicadores de terminación, está activa
+    RETURN 'activa';
+  END IF;
+  
+  -- 2. Si call_status es 'transferida', mantenerlo
+  IF p_call_status = 'transferida' THEN
+    RETURN 'transferida';
+  END IF;
+  
+  -- 3. Si call_status es 'finalizada' o 'exitosa', mantenerlo
+  IF p_call_status IN ('finalizada', 'exitosa') THEN
+    RETURN 'finalizada';
+  END IF;
+  
+  -- 4. Si call_status es 'perdida' o 'colgada', mantenerlo
+  IF p_call_status IN ('perdida', 'colgada') THEN
+    RETURN 'perdida';
+  END IF;
+  
+  -- 5. Si tiene razón de finalización específica, clasificar según ella
   IF razon_finalizacion != '' THEN
     -- Transferida
     IF razon_finalizacion ILIKE '%transfer%' OR 
@@ -63,39 +120,19 @@ BEGIN
     END IF;
   END IF;
   
-  -- 2. Si tiene duración > 0 Y audio, está finalizada
+  -- 6. Si tiene duración > 0 Y audio, está finalizada
   IF p_duracion_segundos > 0 AND tiene_audio THEN
     RETURN 'finalizada';
   END IF;
   
-  -- 3. Si tiene duración = 0 o muy baja (< 10 segundos), está perdida
+  -- 7. Si tiene duración = 0 o muy baja (< 10 segundos), está perdida
   IF p_duracion_segundos IS NOT NULL AND p_duracion_segundos < 10 THEN
     RETURN 'perdida';
   END IF;
   
-  -- 4. Si han pasado más de 30 minutos desde fecha_llamada, está perdida
+  -- 8. Si han pasado más de 30 minutos desde fecha_llamada, está perdida
   IF minutos_transcurridos > 30 THEN
     RETURN 'perdida';
-  END IF;
-  
-  -- 5. Si call_status es 'transferida', mantenerlo
-  IF p_call_status = 'transferida' THEN
-    RETURN 'transferida';
-  END IF;
-  
-  -- 6. Si call_status es 'finalizada' o 'exitosa', mantenerlo
-  IF p_call_status IN ('finalizada', 'exitosa') THEN
-    RETURN 'finalizada';
-  END IF;
-  
-  -- 7. Si call_status es 'perdida' o 'colgada', mantenerlo
-  IF p_call_status IN ('perdida', 'colgada') THEN
-    RETURN 'perdida';
-  END IF;
-  
-  -- 8. Por defecto, si call_status es 'activa' y no cumple ninguna condición anterior, está activa
-  IF p_call_status = 'activa' THEN
-    RETURN 'activa';
   END IF;
   
   -- 9. Fallback: usar el estado original

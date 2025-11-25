@@ -157,11 +157,14 @@ class LiveMonitorKanbanOptimizedService {
       
       allCalls.forEach(call => {
         // 🚀 [OPTIMIZED] CLASIFICACIÓN SIMPLIFICADA - La vista ya hizo el trabajo pesado
+        // Usar call_status_inteligente de la vista, no call_status del mapeo
         
-        switch (call.call_status) {
+        const estadoInteligente = call.call_status; // Este ya viene mapeado desde call_status_inteligente
+        
+        switch (estadoInteligente) {
           case 'activa':
             active.push(call);
-            // Llamada realmente activa (silencioso)
+            // Llamada realmente activa
             break;
             
           case 'transferida':
@@ -183,8 +186,12 @@ class LiveMonitorKanbanOptimizedService {
             break;
             
           default:
-            // Estado desconocido (silencioso)
-            finished.push(call);
+            // Estado desconocido - verificar call_status_bd como fallback
+            if (call.call_status_bd === 'activa') {
+              active.push(call);
+            } else {
+              failed.push(call);
+            }
         }
       });
       
@@ -220,26 +227,54 @@ class LiveMonitorKanbanOptimizedService {
    */
   async subscribeToChanges(onCallsUpdate: (calls: any) => void) {
     try {
-      // Configurando suscripción Realtime (silencioso)
+      // Configurando suscripción Realtime optimizada
       
-      // Suscribirse a cambios en la tabla base (que activará los triggers)
+      // Suscribirse a cambios en la tabla base (INSERT y UPDATE)
       const channel = analysisSupabase
         .channel('kanban_optimized_realtime')
+        // INSERT: nuevas llamadas deben aparecer inmediatamente
         .on(
           'postgres_changes',
           { 
-            event: '*', 
+            event: 'INSERT', 
             schema: 'public', 
             table: 'llamadas_ventas' 
           },
           async (payload) => {
-            // Cambio detectado en llamadas_ventas (silencioso)
-            
-            // Recargar datos clasificados desde la vista optimizada
+            // Nueva llamada detectada - recargar inmediatamente
             const classifiedCalls = await this.getClassifiedCalls();
             onCallsUpdate(classifiedCalls);
           }
         )
+        // UPDATE: cambios de estado, checkpoint, etc.
+        .on(
+          'postgres_changes',
+          { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'llamadas_ventas' 
+          },
+          async (payload) => {
+            // Cambio detectado en llamadas_ventas - recargar para obtener clasificación actualizada
+            const classifiedCalls = await this.getClassifiedCalls();
+            onCallsUpdate(classifiedCalls);
+          }
+        )
+        // DELETE: llamadas eliminadas
+        .on(
+          'postgres_changes',
+          { 
+            event: 'DELETE', 
+            schema: 'public', 
+            table: 'llamadas_ventas' 
+          },
+          async (payload) => {
+            // Llamada eliminada - recargar para actualizar listas
+            const classifiedCalls = await this.getClassifiedCalls();
+            onCallsUpdate(classifiedCalls);
+          }
+        )
+        // UPDATE en prospectos: puede afectar datos de la vista
         .on(
           'postgres_changes',
           { 
@@ -248,15 +283,17 @@ class LiveMonitorKanbanOptimizedService {
             table: 'prospectos' 
           },
           async (payload) => {
-            // Cambio detectado en prospectos (silencioso)
-            
-            // Solo recargar si es un prospecto que tiene llamadas activas
+            // Cambio en prospecto - recargar para actualizar datos del prospecto en la vista
             const classifiedCalls = await this.getClassifiedCalls();
             onCallsUpdate(classifiedCalls);
           }
         )
         .subscribe((status) => {
-          // Suscripción activa (silencioso)
+          if (status === 'SUBSCRIBED') {
+            // Suscripción Realtime activa
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Error en canal Realtime optimizado');
+          }
         });
       
       return channel;

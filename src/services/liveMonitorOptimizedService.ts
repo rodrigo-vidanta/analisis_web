@@ -122,26 +122,47 @@ class LiveMonitorOptimizedService {
    * Obtener datos desde la vista optimizada
    * YA NO necesita JOIN manual - todo está pre-calculado
    */
-  async getOptimizedCalls(limit: number = 50): Promise<LiveMonitorViewData[]> {
+  async getOptimizedCalls(limit: number = 200): Promise<LiveMonitorViewData[]> {
     try {
-      // Cargar desde vista optimizada (sin logs excesivos)
+      // Cargar desde vista optimizada
+      // Estrategia: Primero obtener llamadas activas, luego las más recientes
       
-      const { data, error } = await analysisSupabase
+      // 1. Obtener todas las llamadas activas (sin límite)
+      const { data: activeCalls, error: activeError } = await analysisSupabase
         .from('live_monitor_view')
         .select('*')
-        .order('fecha_llamada', { ascending: false })
-        .limit(limit);
+        .eq('call_status_inteligente', 'activa')
+        .order('fecha_llamada', { ascending: false });
       
-      if (error) {
-        console.error('❌ Error cargando vista optimizada:', error);
-        throw error;
+      if (activeError) {
+        console.error('❌ Error cargando llamadas activas:', activeError);
       }
       
-      // Registros cargados desde vista
+      // 2. Obtener llamadas recientes (no activas) para completar el límite
+      const remainingLimit = limit - (activeCalls?.length || 0);
+      let recentCalls: LiveMonitorViewData[] = [];
+      
+      if (remainingLimit > 0) {
+        const { data: recentData, error: recentError } = await analysisSupabase
+          .from('live_monitor_view')
+          .select('*')
+          .neq('call_status_inteligente', 'activa')
+          .order('fecha_llamada', { ascending: false })
+          .limit(remainingLimit);
+        
+        if (recentError) {
+          console.error('❌ Error cargando llamadas recientes:', recentError);
+        } else {
+          recentCalls = recentData || [];
+        }
+      }
+      
+      // 3. Combinar: activas primero, luego recientes
+      const data = [...(activeCalls || []), ...recentCalls];
       
       // Logs de diagnóstico
-      const estadosInteligentes = {};
-      const estadosBD = {};
+      const estadosInteligentes: Record<string, number> = {};
+      const estadosBD: Record<string, number> = {};
       let reclasificadas = 0;
       
       data.forEach(call => {
@@ -159,7 +180,7 @@ class LiveMonitorOptimizedService {
         }
       });
       
-      // Estadísticas de clasificación inteligente (sin logs)
+      // Estadísticas de clasificación inteligente
       
       return data;
     } catch (error) {
