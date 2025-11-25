@@ -131,18 +131,34 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   const loadImages = async () => {
     setLoading(true);
     try {
+      // Primero obtener el total de imágenes disponibles
+      const { count, error: countError } = await analysisSupabase
+        .from('content_management')
+        .select('*', { count: 'exact', head: true })
+        .eq('tipo_contenido', 'imagen');
+
+      if (countError) {
+        console.warn('⚠️ Error obteniendo conteo de imágenes:', countError);
+      } else {
+        console.log(`📊 Total de imágenes en BD: ${count || 0}`);
+      }
+
+      // Cargar todas las imágenes (sin límite o con límite alto)
       const { data, error } = await analysisSupabase
         .from('content_management')
         .select('*')
         .eq('tipo_contenido', 'imagen')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(1000); // Aumentado de 50 a 1000 para cargar más imágenes
 
       if (error) throw error;
+      
+      console.log(`✅ Imágenes cargadas: ${data?.length || 0} de ${count || 'desconocido'}`);
+      
       setImages(data || []);
       setFilteredImages(data || []);
     } catch (error) {
-      console.error('Error loading images:', error);
+      console.error('❌ Error loading images:', error);
     } finally {
       setLoading(false);
     }
@@ -271,23 +287,29 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   // Filtrar imágenes
   useEffect(() => {
     let filtered = images;
+    const initialCount = images.length;
 
     // Filtro por destino
     if (selectedDestino !== 'all') {
+      const beforeDestino = filtered.length;
       filtered = filtered.filter(img => 
         img.destinos?.includes(selectedDestino)
       );
+      console.log(`🔍 Filtro destino "${selectedDestino}": ${beforeDestino} → ${filtered.length} imágenes`);
     }
 
     // Filtro por resort
     if (selectedResort !== 'all') {
+      const beforeResort = filtered.length;
       filtered = filtered.filter(img => 
         img.resorts?.includes(selectedResort)
       );
+      console.log(`🔍 Filtro resort "${selectedResort}": ${beforeResort} → ${filtered.length} imágenes`);
     }
 
     // Búsqueda por keyword
     if (searchTerm.trim()) {
+      const beforeSearch = filtered.length;
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(img => 
         img.nombre.toLowerCase().includes(term) ||
@@ -296,8 +318,11 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         img.resorts?.some(r => r.toLowerCase().includes(term)) ||
         img.atracciones?.some(a => a.toLowerCase().includes(term))
       );
+      console.log(`🔍 Búsqueda "${searchTerm}": ${beforeSearch} → ${filtered.length} imágenes`);
     }
 
+    console.log(`📊 Filtrado final: ${initialCount} imágenes originales → ${filtered.length} imágenes filtradas`);
+    
     setFilteredImages(filtered);
     setCurrentPage(1); // Reset a primera página cuando cambian los filtros
   }, [searchTerm, selectedDestino, selectedResort, images]);
@@ -307,6 +332,11 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   const startIndex = (currentPage - 1) * imagesPerPage;
   const endIndex = startIndex + imagesPerPage;
   const currentImages = filteredImages.slice(startIndex, endIndex);
+  
+  // Log para debugging
+  useEffect(() => {
+    console.log(`🖼️ Renderizado: Mostrando ${currentImages.length} imágenes (página ${currentPage} de ${totalPages}, total filtradas: ${filteredImages.length})`);
+  }, [currentImages.length, currentPage, totalPages, filteredImages.length]);
 
   // Guardar en cache local
   const addToRecentImages = (item: ContentItem) => {
