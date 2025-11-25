@@ -20,6 +20,39 @@ import { pqncSupabase as supabase } from '../../config/pqncSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { systemConfigEvents } from '../../utils/systemConfigEvents';
 
+/**
+ * Actualiza el favicon en el documento HTML
+ * Elimina los favicons existentes y crea nuevos elementos link
+ */
+const updateFavicon = (faviconUrl: string) => {
+  // Obtener el tipo de archivo desde la URL
+  const isSvg = faviconUrl.toLowerCase().includes('.svg') || faviconUrl.toLowerCase().includes('svg+xml');
+  const isIco = faviconUrl.toLowerCase().includes('.ico');
+  
+  // Eliminar todos los favicons existentes
+  const existingLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+  existingLinks.forEach(link => link.remove());
+
+  // Crear nuevo link para favicon principal
+  const link = document.createElement('link');
+  link.rel = 'icon';
+  link.type = isSvg ? 'image/svg+xml' : isIco ? 'image/x-icon' : 'image/png';
+  link.href = faviconUrl;
+  document.head.appendChild(link);
+
+  // Crear también shortcut icon para compatibilidad
+  const shortcutLink = document.createElement('link');
+  shortcutLink.rel = 'shortcut icon';
+  shortcutLink.type = isSvg ? 'image/svg+xml' : isIco ? 'image/x-icon' : 'image/png';
+  shortcutLink.href = faviconUrl;
+  document.head.appendChild(shortcutLink);
+
+  // Forzar recarga del favicon agregando timestamp (para evitar caché)
+  const timestamp = new Date().getTime();
+  link.href = `${faviconUrl}?t=${timestamp}`;
+  shortcutLink.href = `${faviconUrl}?t=${timestamp}`;
+};
+
 // Nota: tipos reservados para futuras ampliaciones de preferencias
 // (se omiten variables no usadas para evitar warnings)
 
@@ -123,6 +156,10 @@ const SystemPreferences: React.FC = () => {
 
       if (brandingData) {
         setBrandingConfig(brandingData.config_value);
+        // Aplicar favicon si existe
+        if (brandingData.config_value?.favicon_url) {
+          updateFavicon(brandingData.config_value.favicon_url);
+        }
       }
 
       // Limpiar y configurar temas
@@ -255,6 +292,11 @@ const SystemPreferences: React.FC = () => {
       setFaviconFile(null);
       setFaviconPreview(null);
       setSuccess('Configuración de marca actualizada exitosamente');
+      
+      // Aplicar favicon inmediatamente si se actualizó
+      if (faviconUrl) {
+        updateFavicon(faviconUrl);
+      }
       
       // Notificar actualización global
       systemConfigEvents.notifyUpdate();

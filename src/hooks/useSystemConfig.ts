@@ -2,6 +2,39 @@ import { useState, useEffect } from 'react';
 import { pqncSupabase as supabase } from '../config/pqncSupabase';
 import { systemConfigEvents } from '../utils/systemConfigEvents';
 
+/**
+ * Actualiza el favicon en el documento HTML
+ * Elimina los favicons existentes y crea nuevos elementos link
+ */
+const updateFavicon = (faviconUrl: string) => {
+  // Obtener el tipo de archivo desde la URL
+  const isSvg = faviconUrl.toLowerCase().includes('.svg') || faviconUrl.toLowerCase().includes('svg+xml');
+  const isIco = faviconUrl.toLowerCase().includes('.ico');
+  
+  // Eliminar todos los favicons existentes
+  const existingLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+  existingLinks.forEach(link => link.remove());
+
+  // Crear nuevo link para favicon principal
+  const link = document.createElement('link');
+  link.rel = 'icon';
+  link.type = isSvg ? 'image/svg+xml' : isIco ? 'image/x-icon' : 'image/png';
+  link.href = faviconUrl;
+  document.head.appendChild(link);
+
+  // Crear también shortcut icon para compatibilidad
+  const shortcutLink = document.createElement('link');
+  shortcutLink.rel = 'shortcut icon';
+  shortcutLink.type = isSvg ? 'image/svg+xml' : isIco ? 'image/x-icon' : 'image/png';
+  shortcutLink.href = faviconUrl;
+  document.head.appendChild(shortcutLink);
+
+  // Forzar recarga del favicon agregando timestamp (para evitar caché)
+  const timestamp = new Date().getTime();
+  link.href = `${faviconUrl}?t=${timestamp}`;
+  shortcutLink.href = `${faviconUrl}?t=${timestamp}`;
+};
+
 interface SystemConfig {
   app_branding?: {
     app_name?: string;
@@ -56,6 +89,12 @@ export const useSystemConfig = () => {
         document.documentElement.setAttribute('data-theme', activeTheme);
       } else {
         document.documentElement.removeAttribute('data-theme');
+      }
+
+      // Aplicar favicon al documento
+      const faviconUrl = newConfig.app_branding?.favicon_url;
+      if (faviconUrl) {
+        updateFavicon(faviconUrl);
       }
 
       setConfig(newConfig);
