@@ -1,5 +1,37 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión B2.1.1N6.1.0 - Live Monitor: Detección Mejorada de Llamadas Activas y Manejo de Realtime (Noviembre 2025)
+
+### 🎯 **RELEASE BETA - Corrección Detección Tiempo Real**
+
+#### 🔧 **Live Monitor - Detección Mejorada**
+- **Polling como respaldo principal:** Polling reducido a 3 segundos para detección rápida de llamadas activas
+- **Manejo robusto de Realtime:** Fallback automático cuando hay sobrecarga de conexiones
+- **Función de clasificación mejorada:** Prioriza `call_status = 'activa'` y solo reclasifica con indicadores claros
+- **Búsqueda dual:** Busca llamadas activas por `call_status_inteligente` y `call_status_bd` para máxima cobertura
+- **Logs de diagnóstico:** Logs detallados para debugging y monitoreo del sistema
+
+#### 🐛 **Problemas Resueltos**
+- **Realtime sobrecarga:** Manejo correcto cuando Realtime falla por sobrecarga de conexiones
+- **Llamadas activas no detectadas:** Polling cada 3 segundos asegura detección incluso sin Realtime
+- **Reclasificación incorrecta:** Llamadas activas ya no se reclasifican incorrectamente como "transferidas"
+- **Detección en tiempo real:** Llamadas activas se detectan correctamente cada 3 segundos
+
+#### 📝 **Archivos Modificados**
+- `src/services/liveMonitorKanbanOptimized.ts` - Manejo mejorado de Realtime y logs de diagnóstico
+- `src/services/liveMonitorOptimizedService.ts` - Búsqueda dual de llamadas activas y logs
+- `src/components/analysis/LiveMonitorKanban.tsx` - Polling mejorado y manejo de errores Realtime
+- `scripts/sql/create-live-monitor-view-complete.sql` - Función de clasificación corregida
+- `src/components/analysis/README_LIVEMONITOR.md` - Documentación actualizada a v5.4.0
+
+#### ✅ **Beneficios**
+- ✅ Llamadas activas se detectan correctamente cada 3 segundos
+- ✅ Sistema funciona incluso si Realtime falla completamente
+- ✅ Llamadas activas se mantienen en su estado correcto
+- ✅ Logs detallados para debugging y monitoreo
+
+---
+
 ## 🔧 Versión B2.1.1N6.0.0 - Live Monitor: Corrección Vista Optimizada y Clasificación Inteligente (Noviembre 2025)
 
 ### 🎯 **RELEASE BETA - Corrección Crítica Live Monitor**

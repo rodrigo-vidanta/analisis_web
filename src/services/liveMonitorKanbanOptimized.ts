@@ -139,12 +139,12 @@ class LiveMonitorKanbanOptimizedService {
    */
   async getClassifiedCalls() {
     try {
-      // Cargando desde vista optimizada (silencioso)
+      // Cargando desde vista optimizada
       
       const optimizedCalls = await liveMonitorOptimizedService.getOptimizedCalls();
       const allCalls = optimizedCalls.map(call => this.mapOptimizedToKanban(call));
       
-      // Llamadas cargadas desde vista
+      console.log(`📊 Total llamadas cargadas: ${allCalls.length}`);
       
       // Log de estadísticas de auto-clasificación (silencioso)
       const reclasificadas = optimizedCalls.filter(c => c.call_status_bd !== c.call_status_inteligente);
@@ -160,11 +160,12 @@ class LiveMonitorKanbanOptimizedService {
         // Usar call_status_inteligente de la vista, no call_status del mapeo
         
         const estadoInteligente = call.call_status; // Este ya viene mapeado desde call_status_inteligente
+        const estadoBD = call.call_status_bd;
         
         switch (estadoInteligente) {
           case 'activa':
             active.push(call);
-            // Llamada realmente activa
+            console.log(`✅ Llamada activa detectada: ${call.call_id} (BD: ${estadoBD}, Inteligente: ${estadoInteligente})`);
             break;
             
           case 'transferida':
@@ -195,7 +196,8 @@ class LiveMonitorKanbanOptimizedService {
         }
       });
       
-      // Clasificación completada (silencioso)
+      // Clasificación completada
+      console.log(`📊 Clasificación: ${active.length} activas, ${transferred.length} transferidas, ${failed.length} fallidas`);
       
       return {
         active,
@@ -224,14 +226,14 @@ class LiveMonitorKanbanOptimizedService {
   
   /**
    * Configurar suscripción realtime optimizada
+   * Si falla, retorna null y el componente usará solo polling
    */
   async subscribeToChanges(onCallsUpdate: (calls: any) => void) {
     try {
-      // Configurando suscripción Realtime optimizada
-      
-      // Suscribirse a cambios en la tabla base (INSERT y UPDATE)
+      // Intentar suscribirse a cambios en la tabla base (INSERT y UPDATE)
+      // Si hay sobrecarga de conexiones, simplemente retornar null y usar solo polling
       const channel = analysisSupabase
-        .channel('kanban_optimized_realtime')
+        .channel(`kanban_optimized_realtime_${Date.now()}`) // Canal único para evitar conflictos
         // INSERT: nuevas llamadas deben aparecer inmediatamente
         .on(
           'postgres_changes',
@@ -242,6 +244,7 @@ class LiveMonitorKanbanOptimizedService {
           },
           async (payload) => {
             // Nueva llamada detectada - recargar inmediatamente
+            console.log('🔔 Realtime INSERT detectado en llamadas_ventas:', payload.new?.call_id);
             const classifiedCalls = await this.getClassifiedCalls();
             onCallsUpdate(classifiedCalls);
           }
@@ -256,6 +259,11 @@ class LiveMonitorKanbanOptimizedService {
           },
           async (payload) => {
             // Cambio detectado en llamadas_ventas - recargar para obtener clasificación actualizada
+            const newCall = payload.new as any;
+            const oldCall = payload.old as any;
+            if (newCall?.call_status === 'activa' || (oldCall?.call_status !== 'activa' && newCall?.call_status === 'activa')) {
+              console.log('🔔 Realtime UPDATE detectado - Llamada activa:', newCall?.call_id);
+            }
             const classifiedCalls = await this.getClassifiedCalls();
             onCallsUpdate(classifiedCalls);
           }
@@ -290,15 +298,29 @@ class LiveMonitorKanbanOptimizedService {
         )
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
-            // Suscripción Realtime activa
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Error en canal Realtime optimizado');
+            console.log('✅ Suscripción Realtime optimizada activa - Detectando cambios en llamadas_ventas y prospectos');
+          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+            console.warn('⚠️ Realtime no disponible (sobrecarga o error). Usando solo polling cada 3 segundos.');
+            // No hacer nada - el polling se encargará de detectar cambios
+            return null;
+          } else {
+            console.log('⚠️ Estado de suscripción Realtime:', status);
           }
         });
       
+      // Esperar un momento para verificar si la suscripción se establece correctamente
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Verificar el estado del canal
+      if (channel.state === 'closed' || channel.state === 'errored') {
+        console.warn('⚠️ Canal Realtime cerrado o con error. Usando solo polling.');
+        return null;
+      }
+      
       return channel;
     } catch (error) {
-      console.error('💥 Error configurando suscripción Kanban optimizada:', error);
+      console.warn('⚠️ Error configurando Realtime (usando solo polling):', error);
+      // No es crítico - el polling se encargará de detectar cambios
       return null;
     }
   }

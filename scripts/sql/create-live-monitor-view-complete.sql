@@ -39,44 +39,47 @@ BEGIN
   -- LÓGICA DE CLASIFICACIÓN INTELIGENTE
   -- PRIORIDAD: call_status = 'activa' debe verificarse PRIMERO
   
-  -- 1. PRIORIDAD MÁXIMA: Si call_status es 'activa', verificar si realmente está activa
+  -- 1. PRIORIDAD MÁXIMA: Si call_status es 'activa', mantenerla activa a menos que haya indicadores MUY claros de terminación
   IF p_call_status = 'activa' THEN
-    -- Solo marcar como 'perdida' si hay indicadores claros de terminación
-    -- Si tiene razón de finalización explícita, respetarla
+    -- CRÍTICO: Solo reclasificar si hay indicadores MUY claros de que la llamada terminó
+    
+    -- Si tiene razón de finalización explícita Y es una razón de terminación real
     IF razon_finalizacion != '' THEN
-      -- Si tiene razón de finalización, verificar si es realmente terminada
-      IF razon_finalizacion ILIKE '%customer-ended%' OR
-         razon_finalizacion ILIKE '%customer-busy%' OR
-         razon_finalizacion ILIKE '%customer-did-not-answer%' OR
-         razon_finalizacion ILIKE '%no-answer%' OR
-         razon_finalizacion ILIKE '%busy%' OR
-         razon_finalizacion ILIKE '%assistant-ended%' OR
-         razon_finalizacion ILIKE '%completed%' THEN
-        -- Tiene razón de finalización explícita, clasificar según ella
-        IF razon_finalizacion ILIKE '%transfer%' OR 
-           razon_finalizacion ILIKE '%forwarded%' OR
-           razon_finalizacion = 'assistant-forwarded-call' THEN
-          RETURN 'transferida';
-        ELSIF razon_finalizacion ILIKE '%assistant-ended%' OR
-              razon_finalizacion ILIKE '%completed%' THEN
-          RETURN 'finalizada';
-        ELSE
-          RETURN 'perdida';
-        END IF;
+      -- Verificar si es una razón de finalización REAL (no solo un campo con texto)
+      -- Transferida: solo si es explícitamente una transferencia
+      IF razon_finalizacion = 'assistant-forwarded-call' OR
+         razon_finalizacion ILIKE 'assistant-forwarded%' THEN
+        RETURN 'transferida';
+      END IF;
+      
+      -- Finalizada: solo si el asistente terminó explícitamente
+      IF razon_finalizacion ILIKE 'assistant-ended%' OR
+         razon_finalizacion = 'completed' THEN
+        RETURN 'finalizada';
+      END IF;
+      
+      -- Perdida: solo si el cliente terminó explícitamente
+      IF razon_finalizacion ILIKE 'customer-ended%' OR
+         razon_finalizacion ILIKE 'customer-busy%' OR
+         razon_finalizacion ILIKE 'customer-did-not-answer%' OR
+         razon_finalizacion = 'no-answer' THEN
+        RETURN 'perdida';
       END IF;
     END IF;
     
-    -- Si tiene duración > 0 Y audio, está finalizada (no activa)
-    IF p_duracion_segundos > 0 AND tiene_audio THEN
+    -- Si tiene duración > 0 Y audio Y han pasado más de 5 minutos desde la última actualización, está finalizada
+    -- (Esto evita marcar llamadas activas como finalizadas solo por tener audio)
+    IF p_duracion_segundos > 0 AND tiene_audio AND minutos_transcurridos > 5 THEN
       RETURN 'finalizada';
     END IF;
     
-    -- Si han pasado más de 30 minutos Y no tiene audio, probablemente está perdida
-    IF minutos_transcurridos > 30 AND NOT tiene_audio AND p_duracion_segundos IS NULL THEN
+    -- Si han pasado más de 60 minutos Y no tiene audio Y no tiene duración, probablemente está perdida
+    -- (Aumentado de 30 a 60 minutos para dar más margen a llamadas activas)
+    IF minutos_transcurridos > 60 AND NOT tiene_audio AND (p_duracion_segundos IS NULL OR p_duracion_segundos = 0) THEN
       RETURN 'perdida';
     END IF;
     
-    -- Si no hay indicadores de terminación, está activa
+    -- Si no hay indicadores claros de terminación, MANTENER como activa
     RETURN 'activa';
   END IF;
   

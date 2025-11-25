@@ -1,5 +1,24 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.1.1N6.1.0 (Noviembre 2025) - Live Monitor: Detección Mejorada de Llamadas Activas y Manejo de Realtime
+
+### 🔧 RELEASE BETA - Corrección Detección Tiempo Real
+
+#### Live Monitor - Detección Mejorada
+- **Polling como respaldo principal:** Polling reducido a 3 segundos para detección rápida
+- **Manejo robusto de Realtime:** Fallback automático cuando hay sobrecarga de conexiones
+- **Función de clasificación mejorada:** Prioriza `call_status = 'activa'` correctamente
+- **Búsqueda dual:** Busca llamadas activas por ambos campos para máxima cobertura
+- **Logs de diagnóstico:** Logs detallados para debugging y monitoreo
+
+#### Problemas Resueltos
+- Realtime sobrecarga manejada correctamente
+- Llamadas activas detectadas correctamente cada 3 segundos
+- Reclasificación incorrecta corregida
+- Sistema funciona incluso sin Realtime
+
+---
+
 ## Versión B2.1.1N6.0.0 (Noviembre 2025) - Live Monitor: Corrección Vista Optimizada y Clasificación Inteligente
 
 ### 🔧 RELEASE BETA - Corrección Crítica Live Monitor

@@ -5,8 +5,8 @@
 **Módulo:** Sistema de monitoreo en tiempo real de llamadas de ventas
 **Propósito:** Visualización y gestión de llamadas activas con clasificación automática inteligente
 **Base de datos:** `glsmifhkoaifvaegsozd.supabase.co` (Base Natalia - Análisis IA)
-**Versión:** 5.3.0 (Octubre 2025)
-**Estado:** ✅ Producción con vista optimizada y DataGrid
+**Versión:** 5.4.0 (Noviembre 2025)
+**Estado:** ✅ Producción con vista optimizada, DataGrid y detección mejorada de llamadas activas
 
 ---
 
@@ -428,7 +428,7 @@ VITE_DEBUG_MIXED_SOURCES=true
 ## 🛠️ MANTENIMIENTO
 
 ### **Scripts de Utilidad**
-- **Vista optimizada:** `scripts/sql/create-live-monitor-view-fixed.sql`
+- **Vista optimizada:** `scripts/sql/create-live-monitor-view-complete.sql`
 - **Triggers realtime:** `scripts/sql/enable-realtime-view-safe.sql`
 - **Permisos:** `scripts/sql/SIMPLE_LIVE_MONITOR_PERMISSIONS.sql`
 - **Debug:** `scripts/debug-database-state.js`
@@ -516,7 +516,60 @@ VITE_DEBUG_MIXED_SOURCES=true
 
 ---
 
-## 📋 ESTADO ACTUAL (v5.3.0)
+## 🔧 SOLUCIÓN PROBLEMA REALTIME (v5.4.0)
+
+### **Problema Identificado**
+- Realtime fallaba por sobrecarga de conexiones (`CHANNEL_ERROR`, `CLOSED`)
+- Llamadas activas no se detectaban en tiempo real
+- La función de clasificación reclasificaba incorrectamente llamadas activas como "transferidas"
+
+### **Solución Implementada**
+
+#### 1. **Polling como Respaldo Principal**
+- Polling reducido a **3 segundos** para detección rápida
+- Funciona independientemente de Realtime
+- Asegura detección de llamadas activas incluso si Realtime falla completamente
+
+#### 2. **Función de Clasificación Mejorada**
+- Prioriza `call_status = 'activa'` al inicio de la función
+- Solo reclasifica con indicadores **MUY claros** de terminación:
+  - Razón de finalización explícita (`assistant-forwarded-call`, `customer-ended-call`, etc.)
+  - Duración > 0 + audio + más de 5 minutos transcurridos
+  - Más de 60 minutos sin audio ni duración
+- Si no hay indicadores claros, **mantiene como activa**
+
+#### 3. **Manejo Robusto de Errores Realtime**
+- Canal único por instancia para evitar conflictos
+- Verificación del estado del canal antes de retornarlo
+- Fallback automático a polling si Realtime falla
+- Logs informativos (no errores críticos) cuando Realtime no está disponible
+
+#### 4. **Búsqueda Dual de Llamadas Activas**
+- Busca por `call_status_inteligente = 'activa'` **O** `call_status_bd = 'activa'`
+- Asegura máxima cobertura de detección
+- Prioriza llamadas activas sin límite antes de cargar otras
+
+#### 5. **Logs de Diagnóstico**
+- Logs cuando se encuentran llamadas activas
+- Logs de clasificación (activas, transferidas, fallidas)
+- Logs en cada actualización del Live Monitor
+- Logs cuando se detecta una llamada activa específica
+
+### **Archivos Modificados**
+- `src/services/liveMonitorKanbanOptimized.ts` - Manejo mejorado de Realtime y logs
+- `src/services/liveMonitorOptimizedService.ts` - Búsqueda dual y logs
+- `src/components/analysis/LiveMonitorKanban.tsx` - Polling mejorado y manejo de errores
+- `scripts/sql/create-live-monitor-view-complete.sql` - Función de clasificación corregida
+
+### **Resultado**
+✅ Llamadas activas se detectan correctamente cada 3 segundos  
+✅ Realtime funciona cuando está disponible, pero no es crítico  
+✅ Llamadas activas se mantienen en su estado correcto  
+✅ Logs detallados para debugging y monitoreo  
+
+---
+
+## 📋 ESTADO ACTUAL (v5.4.0)
 
 ### ✅ **Funcionalidades Operativas**
 - Vista Kanban completamente funcional con clasificación automática
@@ -528,11 +581,22 @@ VITE_DEBUG_MIXED_SOURCES=true
 - Procesamiento de audio profesional con Tone.js
 - Sistema de transferencia y retroalimentación completo
 - Vista optimizada con rendimiento mejorado significativamente
+- **Detección robusta de llamadas activas** con polling como respaldo principal
+- **Manejo mejorado de errores Realtime** con fallback automático
 
 ### ⚠️ **Limitaciones Conocidas**
 - **Dependencia de VAPI** para URLs de control y monitoreo
 - **Clasificación automática** requiere ajuste fino según casos específicos
 - **Vistas materializadas** necesitan mantenimiento ocasional
+- **Realtime puede fallar** por sobrecarga de conexiones (mitigado con polling)
+
+### 🔄 **Mejoras Implementadas (v5.4.0)**
+- **Detección mejorada de llamadas activas:** Función de clasificación prioriza `call_status = 'activa'` correctamente
+- **Polling como respaldo principal:** Polling cada 3 segundos asegura detección incluso si Realtime falla
+- **Manejo robusto de errores Realtime:** Fallback automático cuando hay sobrecarga de conexiones
+- **Logs de diagnóstico:** Logs detallados para debugging y monitoreo
+- **Búsqueda dual:** Busca llamadas activas por `call_status_inteligente` y `call_status_bd` para máxima cobertura
+- **Lógica de clasificación mejorada:** Llamadas activas solo se reclasifican con indicadores claros de terminación
 
 ### 🔄 **Mejoras Implementadas (v5.3.0)**
 - **Selector de vista** Kanban/DataGrid con persistencia

@@ -128,14 +128,17 @@ class LiveMonitorOptimizedService {
       // Estrategia: Primero obtener llamadas activas, luego las más recientes
       
       // 1. Obtener todas las llamadas activas (sin límite)
+      // Buscar tanto por call_status_inteligente como call_status_bd para asegurar detección
       const { data: activeCalls, error: activeError } = await analysisSupabase
         .from('live_monitor_view')
         .select('*')
-        .eq('call_status_inteligente', 'activa')
+        .or('call_status_inteligente.eq.activa,call_status_bd.eq.activa')
         .order('fecha_llamada', { ascending: false });
       
       if (activeError) {
         console.error('❌ Error cargando llamadas activas:', activeError);
+      } else {
+        console.log(`📞 Llamadas activas encontradas: ${activeCalls?.length || 0}`);
       }
       
       // 2. Obtener llamadas recientes (no activas) para completar el límite

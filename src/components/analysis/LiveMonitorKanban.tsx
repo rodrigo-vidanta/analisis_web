@@ -1253,6 +1253,8 @@ const LiveMonitorKanban: React.FC = () => {
       if (USE_OPTIMIZED_VIEW) {
         const classifiedCalls = await liveMonitorKanbanOptimized.getClassifiedCalls();
         
+        console.log(`🔄 Actualizando Live Monitor: ${classifiedCalls.active.length} activas, ${classifiedCalls.transferred.length} transferidas, ${classifiedCalls.failed.length} fallidas`);
+        
         // Actualizar estados directamente desde la clasificación automática
         setActiveCalls(classifiedCalls.active);
         setTransferredCalls(classifiedCalls.transferred);
@@ -1542,7 +1544,8 @@ const LiveMonitorKanban: React.FC = () => {
     let realtimeChannel: any = null;
     
     if (USE_OPTIMIZED_VIEW) {
-      // MODO OPTIMIZADO: Usar suscripción del servicio optimizado
+      // MODO OPTIMIZADO: Intentar suscripción Realtime, pero no es crítico si falla
+      // El polling cada 3 segundos se encargará de detectar cambios
       liveMonitorKanbanOptimized.subscribeToChanges((classifiedCalls) => {
         // Actualizar estados directamente desde la clasificación automática
         setActiveCalls(classifiedCalls.active);
@@ -1552,137 +1555,139 @@ const LiveMonitorKanban: React.FC = () => {
         setHasRecentChanges(true);
       }).then((channel) => {
         realtimeChannel = channel;
-        if (channel) {
-          // Suscripción Realtime optimizada activa
+        if (channel && channel.state === 'joined') {
+          console.log('✅ Suscripción Realtime optimizada activa');
+        } else {
+          console.log('ℹ️ Realtime no disponible - usando polling cada 3 segundos (suficiente para detección)');
         }
       }).catch((error) => {
-        console.error('Error configurando Realtime optimizado:', error);
-        // Fallback: usar polling más frecuente si Realtime falla
+        // No es crítico - el polling se encargará
+        console.log('ℹ️ Realtime no disponible - usando polling cada 3 segundos');
       });
     } else {
       // MODO LEGACY: Suscripción directa a la tabla
       realtimeChannel = analysisSupabase
-        .channel('live-monitor-calls')
-        // INSERT: nuevas llamadas deben aparecer inmediatamente
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'llamadas_ventas'
-        }, async (payload) => {
-          try {
+      .channel('live-monitor-calls')
+      // INSERT: nuevas llamadas deben aparecer inmediatamente
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'llamadas_ventas'
+      }, async (payload) => {
+        try {
             // Recargar llamadas inmediatamente cuando se inserta una nueva
-            await loadCalls(true, true); // preserveRealtimeData=true para no sobrescribir
+          await loadCalls(true, true); // preserveRealtimeData=true para no sobrescribir
+        } catch (e) {
+          // Error refreshing calls on realtime
+        }
+      })
+      // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'llamadas_ventas'
+      }, async (payload) => {
+        const rec = payload.new as any;
+        const oldRec = payload.old as any;
+        
+        if (rec && oldRec) {
+          // Log específico para cambios de checkpoint
+          if (rec.checkpoint_venta_actual !== oldRec.checkpoint_venta_actual) {
+            // Sonido cuando llega al último checkpoint
+            if (rec.checkpoint_venta_actual === 'checkpoint #5') {
+              playCheckpointCompleteSound();
+              // Emitir notificación global para el sidebar
+              triggerCallNotification(rec.call_id, rec.checkpoint_venta_actual);
+            }
+          }
+          
+          // Log para cambios de call_status
+          if (rec.call_status !== oldRec.call_status) {
+            // RECLASIFICACIÓN AUTOMÁTICA cuando llamada cambia de activa → finalizada
+            if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
+              // Extraer razon_finalizacion para clasificar correctamente
+              let razonFinalizacion = null;
+              try {
+                const datosLlamada = typeof rec.datos_llamada === 'string' 
+                  ? JSON.parse(rec.datos_llamada) 
+                  : rec.datos_llamada;
+                razonFinalizacion = datosLlamada?.razon_finalizacion;
+              } catch (e) {
+                // Error parsing datos_llamada
+              }
+              
+              // Forzar reclasificación inmediata después de actualizar datos locales
+              setTimeout(() => {
+                loadCalls(true, true); // preserveRealtimeData=true
+              }, 500);
+            }
+          }
+          
+          // Actualización inteligente de datos en todas las listas
+          const updateCallData = (calls: KanbanCall[]) => {
+            return calls.map(call => {
+              if (call.call_id === rec.call_id) {
+                // Parsear datos_proceso para obtener datos familiares actualizados
+                let datosProcesoActualizados = rec.datos_proceso;
+                if (typeof rec.datos_proceso === 'string') {
+                  try {
+                    datosProcesoActualizados = JSON.parse(rec.datos_proceso);
+                  } catch (e) {
+                    datosProcesoActualizados = call.datos_proceso;
+                  }
+                }
+                
+                // Parsear datos_llamada también
+                let datosLlamadaActualizados = rec.datos_llamada;
+                if (typeof rec.datos_llamada === 'string') {
+                  try {
+                    datosLlamadaActualizados = JSON.parse(rec.datos_llamada);
+                  } catch (e) {
+                    datosLlamadaActualizados = call.datos_llamada;
+                  }
+                }
+                
+                const updatedCall = { 
+                  ...call, 
+                  ...rec,
+                  datos_proceso: datosProcesoActualizados,
+                  datos_llamada: datosLlamadaActualizados
+                };
+                
+                return updatedCall;
+              }
+              return call;
+            });
+          };
+          
+          setActiveCalls(updateCallData);
+          setTransferredCalls(updateCallData);
+          setFailedCalls(updateCallData);
+        }
+        
+          // Modo legacy: actualización local inteligente
+        // NO hacer loadCalls para evitar sobrescribir datos actualizados con datos viejos del prospecto
+        // La actualización local ya maneja todos los cambios necesarios
+        // Solo hacer loadCalls si hay cambios de estado que requieren reclasificación
+        if (rec && oldRec && rec.call_status !== oldRec.call_status) {
+          try {
+            await loadCalls(true, true); // preserveRealtimeData=true
           } catch (e) {
             // Error refreshing calls on realtime
           }
-        })
-        // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'llamadas_ventas'
-        }, async (payload) => {
-          const rec = payload.new as any;
-          const oldRec = payload.old as any;
-          
-          if (rec && oldRec) {
-            // Log específico para cambios de checkpoint
-            if (rec.checkpoint_venta_actual !== oldRec.checkpoint_venta_actual) {
-              // Sonido cuando llega al último checkpoint
-              if (rec.checkpoint_venta_actual === 'checkpoint #5') {
-                playCheckpointCompleteSound();
-                // Emitir notificación global para el sidebar
-                triggerCallNotification(rec.call_id, rec.checkpoint_venta_actual);
-              }
-            }
-            
-            // Log para cambios de call_status
-            if (rec.call_status !== oldRec.call_status) {
-              // RECLASIFICACIÓN AUTOMÁTICA cuando llamada cambia de activa → finalizada
-              if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
-                // Extraer razon_finalizacion para clasificar correctamente
-                let razonFinalizacion = null;
-                try {
-                  const datosLlamada = typeof rec.datos_llamada === 'string' 
-                    ? JSON.parse(rec.datos_llamada) 
-                    : rec.datos_llamada;
-                  razonFinalizacion = datosLlamada?.razon_finalizacion;
-                } catch (e) {
-                  // Error parsing datos_llamada
-                }
-                
-                // Forzar reclasificación inmediata después de actualizar datos locales
-                setTimeout(() => {
-                  loadCalls(true, true); // preserveRealtimeData=true
-                }, 500);
-              }
-            }
-            
-            // Actualización inteligente de datos en todas las listas
-            const updateCallData = (calls: KanbanCall[]) => {
-              return calls.map(call => {
-                if (call.call_id === rec.call_id) {
-                  // Parsear datos_proceso para obtener datos familiares actualizados
-                  let datosProcesoActualizados = rec.datos_proceso;
-                  if (typeof rec.datos_proceso === 'string') {
-                    try {
-                      datosProcesoActualizados = JSON.parse(rec.datos_proceso);
-                    } catch (e) {
-                      datosProcesoActualizados = call.datos_proceso;
-                    }
-                  }
-                  
-                  // Parsear datos_llamada también
-                  let datosLlamadaActualizados = rec.datos_llamada;
-                  if (typeof rec.datos_llamada === 'string') {
-                    try {
-                      datosLlamadaActualizados = JSON.parse(rec.datos_llamada);
-                    } catch (e) {
-                      datosLlamadaActualizados = call.datos_llamada;
-                    }
-                  }
-                  
-                  const updatedCall = { 
-                    ...call, 
-                    ...rec,
-                    datos_proceso: datosProcesoActualizados,
-                    datos_llamada: datosLlamadaActualizados
-                  };
-                  
-                  return updatedCall;
-                }
-                return call;
-              });
-            };
-            
-            setActiveCalls(updateCallData);
-            setTransferredCalls(updateCallData);
-            setFailedCalls(updateCallData);
-          }
-          
-          // Modo legacy: actualización local inteligente
-          // NO hacer loadCalls para evitar sobrescribir datos actualizados con datos viejos del prospecto
-          // La actualización local ya maneja todos los cambios necesarios
-          // Solo hacer loadCalls si hay cambios de estado que requieren reclasificación
-          if (rec && oldRec && rec.call_status !== oldRec.call_status) {
-            try {
-              await loadCalls(true, true); // preserveRealtimeData=true
-            } catch (e) {
-              // Error refreshing calls on realtime
-            }
-          }
-        })
+        }
+      })
       .subscribe((status) => {
         // Suscripción Realtime activa (silencioso)
       });
     }
 
     // Polling para detectar llamadas nuevas que no lleguen por Realtime
-    // Reducido a 5 segundos para mejor detección de nuevas llamadas activas
+    // Reducido a 3 segundos para mejor detección de nuevas llamadas activas
     // Esto asegura que incluso si Realtime falla, las llamadas aparecerán rápidamente
     const interval = setInterval(() => {
       loadCalls(true, true); // isRefresh=true, preserveRealtimeData=true
-    }, 5000); // Cada 5 segundos para detección rápida de nuevas llamadas
+    }, 3000); // Cada 3 segundos para detección rápida de nuevas llamadas activas
     
     return () => {
       clearInterval(interval);
