@@ -48,6 +48,8 @@ const SystemPreferences: React.FC = () => {
   // Estados para forms
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [faviconFile, setFaviconFile] = useState<File | null>(null);
+  const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
 
   useEffect(() => {
     loadSystemConfig();
@@ -170,6 +172,22 @@ const SystemPreferences: React.FC = () => {
     }
   };
 
+  const handleFaviconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+        setFaviconFile(file);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setFaviconPreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setError('Por favor selecciona un archivo de imagen válido (SVG, PNG, JPG)');
+      }
+    }
+  };
+
   const handleBrandingSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -178,6 +196,7 @@ const SystemPreferences: React.FC = () => {
 
     try {
       let logoUrl = brandingConfig.logo_url;
+      let faviconUrl = brandingConfig.favicon_url;
 
       // Si hay un nuevo logo, subirlo primero
       if (logoFile) {
@@ -197,10 +216,29 @@ const SystemPreferences: React.FC = () => {
         logoUrl = publicUrl;
       }
 
+      // Si hay un nuevo favicon, subirlo
+      if (faviconFile) {
+        const fileExt = faviconFile.name.split('.').pop();
+        const fileName = `favicon-${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('system-assets')
+          .upload(fileName, faviconFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('system-assets')
+          .getPublicUrl(fileName);
+
+        faviconUrl = publicUrl;
+      }
+
       // Actualizar configuración de branding
       const updatedBranding = {
         ...brandingConfig,
-        logo_url: logoUrl
+        logo_url: logoUrl,
+        favicon_url: faviconUrl
       };
 
       const { error } = await supabase.rpc('update_system_config', {
@@ -214,6 +252,8 @@ const SystemPreferences: React.FC = () => {
       setBrandingConfig(updatedBranding);
       setLogoFile(null);
       setLogoPreview(null);
+      setFaviconFile(null);
+      setFaviconPreview(null);
       setSuccess('Configuración de marca actualizada exitosamente');
       
       // Notificar actualización global
@@ -387,6 +427,62 @@ const SystemPreferences: React.FC = () => {
               )}
             </div>
           </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-600 my-6"></div>
+
+          {/* Favicon actual */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Favicon Actual
+            </label>
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center shadow-sm border border-gray-200 dark:border-gray-600">
+                {brandingConfig.favicon_url ? (
+                  <img 
+                    src={brandingConfig.favicon_url} 
+                    alt="Favicon actual" 
+                    className="w-8 h-8 object-contain"
+                  />
+                ) : (
+                  <span className="text-xs text-gray-400">N/A</span>
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Icono de pestaña del navegador
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500">
+                  Recomendado: SVG o PNG 32x32px
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Subir nuevo favicon */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Nuevo Favicon (SVG/PNG)
+            </label>
+            <div className="flex items-center space-x-4">
+              <input
+                type="file"
+                accept="image/svg+xml,image/png,image/x-icon,image/jpeg"
+                onChange={handleFaviconChange}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {faviconPreview && (
+                <div className="w-12 h-12 border-2 border-dashed border-gray-300 rounded-lg p-1 flex items-center justify-center">
+                  <img 
+                    src={faviconPreview} 
+                    alt="Preview Favicon" 
+                    className="w-8 h-8 object-contain"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-600 my-6"></div>
 
           {/* Nombre de la aplicación */}
           <div>

@@ -152,6 +152,8 @@ const LiveChatCanvas: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const selectedConversationRef = useRef<string | null>(null);
+  // Ref para distinguir entre selección manual (click) y automática (localStorage)
+  const isManualSelectionRef = useRef<boolean>(false);
   const [conversationBlocks, setConversationBlocks] = useState<ConversationBlock[]>([]);
   const [messagesByConversation, setMessagesByConversation] = useState<Record<string, Message[]>>({});
   const [loading, setLoading] = useState(true);
@@ -299,6 +301,11 @@ const LiveChatCanvas: React.FC = () => {
   useEffect(() => {
     isUnmountingRef.current = false; // Resetear flag al montar
     
+    // ✅ CRÍTICO: Resetear flags de selección al montar/remontar el componente
+    // Esto previene que se marquen conversaciones como leídas cuando se regresa al módulo
+    selectedConversationRef.current = null;
+    isManualSelectionRef.current = false;
+    
     const initializeChat = async () => {
       // Inicialización silenciosa
       await loadConversations();
@@ -309,6 +316,10 @@ const LiveChatCanvas: React.FC = () => {
     
     return () => {
       isUnmountingRef.current = true; // Marcar que estamos desmontando (hot reload)
+      
+      // ✅ CRÍTICO: Resetear flags al desmontar para evitar que se mantengan entre navegaciones
+      selectedConversationRef.current = null;
+      isManualSelectionRef.current = false;
       
       // Cleanup realtime subscriptions usando la función optimizada
       cleanupRealtimeChannels();
@@ -331,8 +342,17 @@ const LiveChatCanvas: React.FC = () => {
   }, []); // ✅ Solo ejecutar una vez al montar
 
   useEffect(() => {
-    selectedConversationRef.current = selectedConversation?.id || null;
-  }, [selectedConversation]);
+    // ✅ CRÍTICO: Actualizar refs cuando cambia la conversación seleccionada
+    if (selectedConversation) {
+      // Si hay una conversación seleccionada, actualizar el ref con el prospecto_id
+      selectedConversationRef.current = selectedConversation.prospecto_id || selectedConversation.id || null;
+    } else {
+      // ✅ CRÍTICO: Cuando se cierra la conversación, resetear TODOS los refs
+      // Esto previene que se marquen mensajes como leídos cuando la conversación está cerrada
+      selectedConversationRef.current = null;
+      isManualSelectionRef.current = false;
+    }
+  }, [selectedConversation?.id]); // ✅ Cambiar dependencia a selectedConversation?.id para detectar cambios
 
   // Debouncing para el searchTerm para evitar filtrado excesivo
   useEffect(() => {
@@ -488,11 +508,23 @@ const LiveChatCanvas: React.FC = () => {
             created_at: newMessagePayload.fecha_hora,
           };
 
-          const isActiveConversation = selectedConversationRef.current === targetProspectoId;
+          // ✅ CRÍTICO: Solo considerar activa si realmente está seleccionada Y fue selección manual
+          // NO marcar como leída si fue selección automática desde localStorage
+          // ✅ ADICIONAL: Verificar que selectedConversation realmente existe y coincide
+          // ✅ CRÍTICO: Verificar también que selectedConversation no sea null
+          const isActuallySelected = selectedConversation !== null &&
+                                     (selectedConversation?.id === targetProspectoId || 
+                                      selectedConversation?.prospecto_id === targetProspectoId);
+          const isActiveConversation = isActuallySelected && 
+                                       selectedConversationRef.current === targetProspectoId && 
+                                       isManualSelectionRef.current;
 
           // ✅ OPTIMIZACIÓN: Marcar como leído de forma diferida (no bloquea)
           // ✅ GLOBAL: Marcar TODOS los mensajes de la conversación como leídos (no solo este mensaje)
-          if (isActiveConversation && !newMessage.is_read) {
+          // ✅ SOLO si la conversación está realmente abierta por el usuario (selección manual)
+          // ✅ CRÍTICO: Solo marcar mensajes del Prospecto, NUNCA mensajes del bot o del agente
+          if (isActiveConversation && !newMessage.is_read && newMessage.sender_type === 'customer') {
+            // Solo marcar mensajes del Prospecto como leídos, NO mensajes del bot
             newMessage.is_read = true;
             // Diferir escritura a BD usando requestIdleCallback
             // Usar RPC para marcar TODA la conversación como leída (global, no por usuario)
@@ -509,6 +541,9 @@ const LiveChatCanvas: React.FC = () => {
               setTimeout(markAsRead, 0);
             }
           }
+          
+          // ✅ CRÍTICO: NUNCA marcar como leída cuando llega un mensaje del bot o del agente
+          // Esto previene que se marquen conversaciones como leídas cuando el bot responde
 
           // ✅ CRÍTICO: Actualizar mensajes inmediatamente (debe ser rápido)
           setMessagesByConversation(prev => {
@@ -924,10 +959,46 @@ const LiveChatCanvas: React.FC = () => {
     // Verificar si hay un prospecto específico para seleccionar
     const prospectoId = localStorage.getItem('livechat-prospect-id');
     if (prospectoId && conversations.length > 0) {
-      localStorage.removeItem('livechat-prospect-id');
-      selectConversationByProspectId(prospectoId);
+      console.log('🔍 [LiveChat] Detectado prospectoId en localStorage, buscando conversación...');
+      // Pequeño delay para asegurar que las conversaciones estén completamente procesadas
+      setTimeout(() => {
+        const stillInStorage = localStorage.getItem('livechat-prospect-id');
+        if (stillInStorage === prospectoId) {
+          localStorage.removeItem('livechat-prospect-id');
+          selectConversationByProspectId(prospectoId);
+        }
+      }, 200);
     }
-  }, [conversations]); // Se ejecuta cuando las conversaciones cambian
+  }, [conversations.length]); // Se ejecuta cuando cambia el número de conversaciones
+
+  // Efecto adicional para detectar cuando se navega al módulo con un prospecto específico
+  // Este efecto se ejecuta cuando el componente se monta o cuando cambia selectedConversation
+  useEffect(() => {
+    const prospectoId = localStorage.getItem('livechat-prospect-id');
+    if (prospectoId && conversations.length > 0) {
+      // Si ya hay una conversación seleccionada, verificar que sea la correcta
+      if (selectedConversation) {
+        const isCorrectConversation = 
+          selectedConversation.prospecto_id === prospectoId ||
+          selectedConversation.metadata?.prospect_id === prospectoId ||
+          selectedConversation.metadata?.prospecto_id === prospectoId;
+        
+        if (isCorrectConversation) {
+          // Ya está seleccionada la conversación correcta, limpiar localStorage
+          localStorage.removeItem('livechat-prospect-id');
+          return;
+        }
+      }
+      
+      // Si no hay conversación seleccionada o no es la correcta, buscar
+      if (!selectedConversation) {
+        console.log('🔍 [LiveChat] No hay conversación seleccionada, buscando...');
+        setTimeout(() => {
+          selectConversationByProspectId(prospectoId);
+        }, 300);
+      }
+    }
+  }, [conversations.length, selectedConversation?.id]); // Se ejecuta cuando cambia el número de conversaciones o la conversación seleccionada
 
   // Efecto para cargar el nombre del agente asignado cuando se selecciona una conversación
   useEffect(() => {
@@ -1026,17 +1097,34 @@ const LiveChatCanvas: React.FC = () => {
   ]);
 
   const selectConversationByProspectId = (prospectoId: string) => {
+    console.log('🔍 Buscando conversación para prospecto:', prospectoId);
+    console.log('📋 Conversaciones disponibles:', conversations.length);
+    
     // Método 1: Buscar por prospect_id en metadata
     let conversation = conversations.find(conv => 
-      conv.metadata?.prospect_id === prospectoId
+      conv.metadata?.prospect_id === prospectoId || conv.metadata?.prospecto_id === prospectoId
     );
     
     if (conversation) {
+      console.log('✅ Conversación encontrada por prospect_id en metadata:', conversation.id);
+      // ✅ Selección automática desde localStorage - NO marcar como leída
+      isManualSelectionRef.current = false;
       setSelectedConversation(conversation);
       return;
     }
     
-    // Método 2: Buscar por whatsapp del prospecto
+    // Método 2: Buscar por prospecto_id directo en la conversación
+    conversation = conversations.find(conv => conv.prospecto_id === prospectoId);
+    
+    if (conversation) {
+      console.log('✅ Conversación encontrada por prospecto_id directo:', conversation.id);
+      // ✅ Selección automática desde localStorage - NO marcar como leída
+      isManualSelectionRef.current = false;
+      setSelectedConversation(conversation);
+      return;
+    }
+    
+    // Método 3: Buscar por whatsapp del prospecto
     loadProspectoAndFindConversation(prospectoId);
   };
 
@@ -1048,14 +1136,20 @@ const LiveChatCanvas: React.FC = () => {
         .eq('id', prospectoId)
         .single();
 
-      if (error || !prospecto) return;
+      if (error || !prospecto) {
+        console.warn('⚠️ No se encontró prospecto para buscar conversación:', prospectoId);
+        return;
+      }
 
-      // Buscar por whatsapp (customer_phone)
+      // Buscar por whatsapp (customer_phone) - comparación exacta primero
       let conversation = conversations.find(conv => 
         conv.customer_phone === prospecto.whatsapp
       );
 
       if (conversation) {
+        console.log('✅ Conversación encontrada por whatsapp exacto:', conversation.id);
+        // ✅ Selección automática desde localStorage - NO marcar como leída
+        isManualSelectionRef.current = false;
         setSelectedConversation(conversation);
         return;
       }
@@ -1063,47 +1157,92 @@ const LiveChatCanvas: React.FC = () => {
       // Buscar variaciones de teléfono
       const phoneVariations = [
         prospecto.whatsapp,
-        prospecto.whatsapp.replace('+52', ''),
-        prospecto.whatsapp.replace('52', ''),
+        prospecto.whatsapp?.replace('+52', ''),
+        prospecto.whatsapp?.replace('52', ''),
         `+52${prospecto.whatsapp}`,
         `52${prospecto.whatsapp}`
-      ];
+      ].filter(Boolean); // Eliminar valores nulos o indefinidos
 
       for (const phoneVar of phoneVariations) {
         conversation = conversations.find(conv => 
           conv.customer_phone === phoneVar || 
-          conv.customer_phone.includes(phoneVar) ||
-          phoneVar.includes(conv.customer_phone)
+          (conv.customer_phone && phoneVar && (
+            conv.customer_phone.includes(phoneVar) ||
+            phoneVar.includes(conv.customer_phone)
+          ))
         );
         
         if (conversation) {
+          console.log('✅ Conversación encontrada por variación de teléfono:', conversation.id);
+          // ✅ Selección automática desde localStorage - NO marcar como leída
+          isManualSelectionRef.current = false;
           setSelectedConversation(conversation);
           return;
         }
       }
 
-      // Buscar por id_uchat
+      // Buscar por id_uchat (conversation_id)
       if (prospecto.id_uchat) {
         conversation = conversations.find(conv => 
-          conv.conversation_id === prospecto.id_uchat
+          conv.conversation_id === prospecto.id_uchat ||
+          conv.id_uchat === prospecto.id_uchat ||
+          (conv.metadata && (conv.metadata as any).id_uchat === prospecto.id_uchat)
         );
 
         if (conversation) {
+          console.log('✅ Conversación encontrada por id_uchat:', conversation.id);
+          // ✅ Selección automática desde localStorage - NO marcar como leída
+          isManualSelectionRef.current = false;
           setSelectedConversation(conversation);
           return;
         }
       }
 
+      // Si no se encontró, intentar buscar en la base de datos directamente
+      console.log('⚠️ No se encontró conversación en memoria, buscando en BD...');
+      const { data: uchatConv, error: uchatError } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('*')
+        .or(`customer_phone.eq.${prospecto.whatsapp},conversation_id.eq.${prospecto.id_uchat || ''},metadata->>prospect_id.eq.${prospectoId}`)
+        .eq('status', 'active')
+        .limit(1)
+        .single();
+
+      if (!uchatError && uchatConv) {
+        // Recargar conversaciones para incluir esta
+        await loadConversations();
+        // Intentar seleccionar después de recargar (selección automática - NO marcar como leída)
+        setTimeout(() => {
+          isManualSelectionRef.current = false; // ✅ Asegurar que es selección automática
+          selectConversationByProspectId(prospectoId);
+        }, 500);
+      } else {
+        console.log('ℹ️ No se encontró conversación activa para este prospecto');
+      }
+
     } catch (error) {
-      // Silencioso
+      console.error('❌ Error buscando conversación por prospecto:', error);
     }
   };
 
   useEffect(() => {
     if (selectedConversation) {
+      // ✅ ACTUALIZAR refs cuando se selecciona una conversación
+      selectedConversationRef.current = selectedConversation.prospecto_id;
+      
       loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
-      // Marcar como leída al seleccionar
-      markConversationAsRead(selectedConversation.prospecto_id);
+      // ✅ CRÍTICO: Solo marcar como leída si fue selección MANUAL (click del usuario)
+      // NO marcar si fue selección automática desde localStorage
+      if (isManualSelectionRef.current) {
+        markConversationAsRead(selectedConversation.prospecto_id);
+        // ✅ NO resetear el flag aquí - se mantiene mientras la conversación esté seleccionada manualmente
+        // Solo se resetea cuando se deselecciona o cambia la conversación
+      }
+    } else {
+      // ✅ CRÍTICO: Cuando se cierra la conversación, resetear TODOS los refs
+      // Esto previene que se marquen mensajes como leídos cuando la conversación está cerrada
+      selectedConversationRef.current = null;
+      isManualSelectionRef.current = false;
     }
   }, [selectedConversation?.id]);
 
@@ -2782,7 +2921,8 @@ const LiveChatCanvas: React.FC = () => {
     const tempId = `temp_${Date.now()}`;
     const conversationId = selectedConversation.id;
     const messageContent = messageText;
-      const uchatId = selectedConversation.metadata?.id_uchat;
+    // Obtener uchatId de múltiples fuentes posibles
+    const uchatId = selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat || selectedConversation.id;
 
     // Validar que tenemos el uchat_id necesario
     if (!uchatId) {
@@ -3090,7 +3230,7 @@ const LiveChatCanvas: React.FC = () => {
           .from('uchat_conversations')
           .select('assigned_agent_id')
           .eq('conversation_id', conversation.metadata.id_uchat)
-          .single();
+          .maybeSingle(); // ✅ Cambiar a maybeSingle para evitar error 406 si no existe
 
         if (!error && uchatConv?.assigned_agent_id) {
           assignedAgentId = uchatConv.assigned_agent_id;
@@ -3323,6 +3463,15 @@ const LiveChatCanvas: React.FC = () => {
                   : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
               }`}
               onClick={() => {
+                // ✅ CRÍTICO: Resetear refs de la conversación anterior antes de seleccionar nueva
+                if (selectedConversationRef.current && selectedConversationRef.current !== conversation.prospecto_id) {
+                  // Si había otra conversación abierta, resetear sus refs
+                  selectedConversationRef.current = null;
+                  isManualSelectionRef.current = false;
+                }
+                // ✅ Marcar como selección manual para que se marque como leída
+                isManualSelectionRef.current = true;
+                selectedConversationRef.current = conversation.prospecto_id;
                 setSelectedConversation(conversation);
               }}
               onContextMenu={(e) => {
@@ -3621,7 +3770,12 @@ const LiveChatCanvas: React.FC = () => {
                 })()}
 
                 <button
-                  onClick={() => setSelectedConversation(null)}
+                  onClick={() => {
+                    // ✅ CRÍTICO: Resetear refs al cerrar conversación
+                    selectedConversationRef.current = null;
+                    isManualSelectionRef.current = false;
+                    setSelectedConversation(null);
+                  }}
                   className="p-2 text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -3978,6 +4132,7 @@ const LiveChatCanvas: React.FC = () => {
           console.log('Imagen enviada:', imageData);
         }}
         selectedConversation={selectedConversation}
+        onPauseBot={pauseBot}
         onImageSent={(imageUrl, caption) => {
           // UI optimista: Mostrar imagen inmediatamente como "enviando"
           if (!selectedConversation) return;

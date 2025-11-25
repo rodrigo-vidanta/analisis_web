@@ -7,6 +7,7 @@ interface SystemConfig {
     app_name?: string;
     company_name?: string;
     logo_url?: string;
+    favicon_url?: string;
     login_description?: string;
     header_description?: string;
   };

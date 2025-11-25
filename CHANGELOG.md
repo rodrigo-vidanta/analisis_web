@@ -1,5 +1,39 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión B2.1.0N7.0.0 - Limpieza y Optimizaciones del Proyecto (Enero 2025)
+
+### 🎯 **RELEASE BETA - Limpieza y Optimizaciones**
+
+#### 🧹 **Limpieza del Proyecto**
+- **Archivos de diagnóstico eliminados:** Removidos todos los archivos de troubleshooting y scripts de prueba no esenciales
+- **Documentación temporal eliminada:** Limpieza de archivos MD de instrucciones temporales
+- **Scripts de diagnóstico removidos:** Eliminados scripts SQL y shell de diagnóstico que ya no son necesarios
+- **Proyecto optimizado:** Estructura más limpia y mantenible
+
+#### ⚙️ **Configuración del Servidor de Desarrollo**
+- **Configuración de Vite mejorada:** Actualizado `vite.config.ts` con `host: '0.0.0.0'` para mejor accesibilidad
+- **Apertura automática:** Configurado `open: true` para abrir automáticamente en el navegador
+- **Hosts permitidos:** Configuración optimizada de `allowedHosts` para desarrollo local
+
+#### 🔧 **Correcciones y Mejoras**
+- **Servidor de desarrollo:** Corrección de problemas de carga en navegador
+- **Dependencias:** Verificación e instalación de dependencias faltantes
+- **Puerto 5173:** Configuración correcta y consistente del puerto de desarrollo
+
+#### 📝 **Archivos Modificados**
+- `vite.config.ts` - Configuración mejorada del servidor de desarrollo
+- `CHANGELOG.md` - Documentación actualizada a B2.1.0N7.0.0
+- `VERSIONS.md` - Control de versiones actualizado
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.0N7.0.0
+
+#### ✅ **Beneficios**
+- ✅ Proyecto más limpio y mantenible
+- ✅ Mejor experiencia de desarrollo con servidor optimizado
+- ✅ Estructura de archivos más organizada
+- ✅ Configuración de desarrollo más robusta
+
+---
+
 ## 🔧 Versión B2.1.0N6.0.0 - Live Monitor: Detección en Tiempo Real de Llamadas (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Suscripción Realtime para Live Monitor**

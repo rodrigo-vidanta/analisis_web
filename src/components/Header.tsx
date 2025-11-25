@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { AssignmentBadge } from './analysis/AssignmentBadge';
-import NotificationBell from './notifications/NotificationBell';
 
 interface HeaderProps {
   currentStep: number;
@@ -82,9 +81,6 @@ const Header = ({
 
             {/* Controles de usuario */}
             <div className="flex items-center space-x-3">
-              
-              {/* Notificaciones */}
-              <NotificationBell darkMode={darkMode} />
               
               {/* Botón Dirección para admin */}
               {user?.role_name === 'admin' && (
@@ -308,9 +304,6 @@ const Header = ({
 
           {/* Controles modernos */}
           <div className="flex items-center space-x-3">
-            {/* Notificaciones */}
-            <NotificationBell darkMode={darkMode} />
-            
             {/* Botón Dirección para admin */}
             {user?.role_name === 'admin' && (
               <button 

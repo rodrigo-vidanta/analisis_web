@@ -1509,7 +1509,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                         </div>
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Mensaje
+                        Descripción
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">
                         Actividad
@@ -1538,12 +1538,12 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                       const logWithUI = log as any;
                       // Obtener estado de lectura del objeto procesado
                       const isRead = logWithUI.ui_is_read === true;
-                      const mensajeStr = typeof log.mensaje === 'string' 
-                        ? log.mensaje 
-                        : JSON.stringify(log.mensaje);
-                      const mensajePreview = mensajeStr.length > 100 
-                        ? mensajeStr.substring(0, 100) + '...' 
-                        : mensajeStr;
+                      const descripcionStr = typeof log.descripcion === 'string' 
+                        ? log.descripcion 
+                        : (log.descripcion ? JSON.stringify(log.descripcion) : 'Sin descripción');
+                      const descripcionPreview = descripcionStr.length > 100 
+                        ? descripcionStr.substring(0, 100) + '...' 
+                        : descripcionStr;
                       
                       const logWithActivity = log as any;
                       const hasAnnotations = logWithActivity.has_annotations || false;
@@ -1586,8 +1586,8 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-md">
-                            <div className="truncate" title={mensajeStr}>
-                              {mensajePreview}
+                            <div className="truncate" title={descripcionStr}>
+                              {descripcionPreview}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">

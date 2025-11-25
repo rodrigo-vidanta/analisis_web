@@ -3,8 +3,83 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
 import { useUserProfile } from '../hooks/useUserProfile';
 import useAnalysisPermissions from '../hooks/useAnalysisPermissions';
+import { useSystemConfig } from '../hooks/useSystemConfig';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import type { TokenLimits } from '../services/tokenService';
+
+// Estilos para el logo con animación y glow
+const sidebarLogoStyles = `
+  @keyframes sidebar-leaf-sway {
+    0% {
+      transform: rotate(0deg) translateY(0px) scale(1);
+    }
+    3% {
+      transform: rotate(-10deg) translateY(-3px) scale(1.03);
+    }
+    6% {
+      transform: rotate(12deg) translateY(-4px) scale(1.04);
+    }
+    9% {
+      transform: rotate(-6deg) translateY(-2px) scale(1.02);
+    }
+    12% {
+      transform: rotate(4deg) translateY(-1px) scale(1.01);
+    }
+    15%, 100% {
+      transform: rotate(0deg) translateY(0px) scale(1);
+    }
+  }
+
+  @keyframes sidebar-neon-glow {
+    0%, 100% {
+      filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.9))
+              drop-shadow(0 0 4px rgba(59, 130, 246, 0.7))
+              drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
+    }
+    50% {
+      filter: drop-shadow(0 0 3px rgba(59, 130, 246, 1))
+              drop-shadow(0 0 6px rgba(59, 130, 246, 0.9))
+              drop-shadow(0 0 9px rgba(59, 130, 246, 0.7));
+    }
+  }
+
+  .sidebar-logo-container {
+    position: relative;
+  }
+
+  .sidebar-logo {
+    animation: sidebar-leaf-sway 30s ease-in-out infinite,
+               sidebar-neon-glow 2s ease-in-out infinite;
+    transform-origin: center bottom;
+    backface-visibility: hidden;
+    will-change: transform, filter;
+  }
+
+  .sidebar-logo img,
+  .sidebar-logo svg {
+    filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.9))
+            drop-shadow(0 0 4px rgba(59, 130, 246, 0.7))
+            drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
+  }
+
+  .dark .sidebar-logo img,
+  .dark .sidebar-logo svg {
+    filter: drop-shadow(0 0 2px rgba(96, 165, 250, 1))
+            drop-shadow(0 0 4px rgba(96, 165, 250, 0.8))
+            drop-shadow(0 0 6px rgba(96, 165, 250, 0.6));
+  }
+`;
+
+// Inyectar estilos en el head
+if (typeof document !== 'undefined') {
+  const styleId = 'sidebar-logo-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = sidebarLogoStyles;
+    document.head.appendChild(style);
+  }
+}
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -109,6 +184,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const [tokenInfo, setTokenInfo] = useState<TokenLimits | null>(null);
   const { natalia, pqnc, liveMonitor } = useAnalysisPermissions();
   const [analysisMode, setAnalysisMode] = useState<'natalia' | 'pqnc'>('natalia');
+  const { config } = useSystemConfig();
+  
+  const faviconUrl = config.app_branding?.favicon_url;
 
   const handleAnalysisChange = (mode: 'natalia' | 'pqnc') => {
     setAnalysisMode(mode);
@@ -195,6 +273,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('prospectos')
     }] : []),
 
+    // 6.5. Llamadas Programadas
+    ...(canAccessModule('scheduled-calls') ? [{
+      icon: (
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+      label: 'Llamadas Programadas',
+      active: appMode === 'scheduled-calls',
+      onClick: () => setAppMode('scheduled-calls')
+    }] : []),
+
     // 7. AI Models (SÉPTIMO)
     ...((user?.role_name === 'admin' || user?.role_name === 'productor' || user?.role_name === 'developer') ? [{
       icon: (
@@ -279,24 +369,73 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         {/* Header del Sidebar */}
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} p-4 border-b border-slate-200 dark:border-slate-700`}>
           {isCollapsed ? (
-            // Modo colapsado: solo botón de expansión centrado
-            <button
-              onClick={onToggle}
-              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Expandir sidebar"
-            >
-              <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+            // Modo colapsado: favicon/logo + botón de expansión
+            <div className="flex flex-col items-center gap-2 w-full">
+              <div className="w-8 h-8 flex items-center justify-center sidebar-logo-container">
+                {faviconUrl ? (
+                  <img 
+                    src={faviconUrl} 
+                    alt="Logo" 
+                    className="w-full h-full object-contain sidebar-logo"
+                    onError={(e) => {
+                      // Fallback al icono SVG si el favicon falla
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.innerHTML = `
+                          <svg class="w-5 h-5 text-blue-500 sidebar-logo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        `;
+                      }
+                    }}
+                  />
+                ) : (
+                  <svg className="w-5 h-5 text-blue-500 sidebar-logo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                )}
+              </div>
+              <button
+                onClick={onToggle}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title="Expandir sidebar"
+              >
+                <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
           ) : (
             // Modo expandido: logo + texto + botón
             <>
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                <div className="w-8 h-8 flex items-center justify-center sidebar-logo-container">
+                  {faviconUrl ? (
+                    <img 
+                      src={faviconUrl} 
+                      alt="Logo" 
+                      className="w-full h-full object-contain sidebar-logo"
+                      onError={(e) => {
+                        // Fallback al icono SVG si el favicon falla
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                            <svg class="w-5 h-5 text-blue-500 sidebar-logo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          `;
+                        }
+                      }}
+                    />
+                  ) : (
+                    <svg className="w-5 h-5 text-blue-500 sidebar-logo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  )}
                 </div>
                 <span className="font-semibold text-slate-900 dark:text-white">PQNC AI</span>
               </div>

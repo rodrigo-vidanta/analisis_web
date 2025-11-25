@@ -27,6 +27,7 @@ interface ImageCatalogModalProps {
   onSendImage: (imageData: SendImageData) => void;
   selectedConversation: any; // La conversación completa con prospecto_id
   onImageSent?: (imageUrl: string, caption: string) => void; // Callback para UI optimista
+  onPauseBot?: (uchatId: string, durationMinutes: number) => Promise<boolean>; // Función para pausar el bot
 }
 
 interface SendImageData {
@@ -44,7 +45,8 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   onClose,
   onSendImage,
   selectedConversation,
-  onImageSent
+  onImageSent,
+  onPauseBot
 }) => {
   const [images, setImages] = useState<ContentItem[]>([]);
   const [filteredImages, setFilteredImages] = useState<ContentItem[]>([]);
@@ -415,6 +417,20 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
       const result = await response.json();
       console.log('✅ Imagen enviada correctamente:', result);
+
+      // PAUSAR EL BOT POR 15 MINUTOS después de enviar adjunto exitosamente
+      if (onPauseBot && prospectoData.id_uchat) {
+        try {
+          const success = await onPauseBot(prospectoData.id_uchat, 15);
+          if (success) {
+            console.log('✅ Bot pausado por 15 minutos después de enviar adjunto');
+          } else {
+            console.warn('⚠️ No se pudo pausar el bot después de enviar adjunto');
+          }
+        } catch (error) {
+          console.error('❌ Error pausando bot después de enviar adjunto:', error);
+        }
+      }
 
       // Animación de éxito (check)
       // Cerrar modales después de breve pausa

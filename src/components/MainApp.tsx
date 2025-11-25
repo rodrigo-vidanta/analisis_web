@@ -33,12 +33,13 @@ import LogServerManager from './admin/LogServerManager';
 // Prospectos Manager
 import ProspectosManager from './prospectos/ProspectosManager';
 
+// Scheduled Calls Manager
+import ScheduledCallsManager from './scheduled-calls/ScheduledCallsManager';
+
 // Analysis IA Complete
 import AnalysisIAComplete from './analysis/AnalysisIAComplete';
 // Change Password Modal
 import ChangePasswordModal from './auth/ChangePasswordModal';
-// Notification Listener
-import NotificationListener from './notifications/NotificationListener';
 // Timeline Dirección
 import Timeline from './direccion/Timeline';
 
@@ -416,6 +417,31 @@ function MainApp() {
           )
         );
 
+      case 'scheduled-calls':
+        return (
+          canAccessModule('scheduled-calls') ? (
+            <ProtectedRoute requireModule="scheduled-calls">
+              <ScheduledCallsManager 
+                onNavigateToLiveChat={(prospectoId) => {
+                  setAppMode('live-chat');
+                  localStorage.setItem('livechat-prospect-id', prospectoId);
+                }}
+              />
+            </ProtectedRoute>
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Acceso Denegado
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  No tienes permisos para acceder al módulo de Llamadas Programadas
+                </p>
+              </div>
+            </div>
+          )
+        );
+
       case 'direccion':
         // Módulo completamente desacoplado - diseño independiente
         return <Timeline />;
@@ -442,7 +468,7 @@ function MainApp() {
   if (appMode === 'direccion') {
     return (
       <>
-        <NotificationListener />
+        {/* <NotificationListener /> */}
         {renderContent()}
       </>
     );
@@ -454,7 +480,7 @@ function MainApp() {
       <div className={`${localDarkMode ? 'dark' : ''}`}
         data-module={appMode}
       >
-        <NotificationListener />
+        {/* <NotificationListener /> */}
         <LinearLayout
           darkMode={localDarkMode}
           onToggleDarkMode={handleToggleDarkMode}
@@ -471,7 +497,7 @@ function MainApp() {
     <div className={`min-h-screen transition-colors duration-300 ${
       (appMode === 'constructor' ? darkMode : localDarkMode) ? 'dark' : ''
     }`} data-module={appMode}>
-      <NotificationListener />
+      {/* <NotificationListener /> */}
       <div className={`min-h-screen ${themeClasses.background} flex transition-all duration-300`}>
         
         {/* Sidebar with theme support */}

@@ -744,17 +744,10 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => {
-                      if (hasActiveChat) {
-                        onNavigateToLiveChat?.(prospecto.id);
-                      }
+                      onNavigateToLiveChat?.(prospecto.id);
                     }}
-                    disabled={!hasActiveChat}
-                    className={`p-2 rounded-full transition-colors shadow-lg ${
-                      hasActiveChat 
-                        ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer' 
-                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                    }`}
-                    title={hasActiveChat ? "Ir a conversación activa" : "No hay conversación activa"}
+                    className="p-2 rounded-full transition-colors shadow-lg bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+                    title="Ir a Live Chat (buscar o crear conversación)"
                   >
                     <MessageSquare size={20} />
                   </button>

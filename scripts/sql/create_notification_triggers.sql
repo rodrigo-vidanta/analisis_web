@@ -1,0 +1,20 @@
+-- ============================================
+-- NOTA IMPORTANTE: TRIGGERS NO SE CREAN
+-- ============================================
+-- 
+-- Los triggers NO se pueden crear porque:
+-- 1. mensajes_whatsapp y llamadas_ventas están en analysisSupabase
+-- 2. user_notifications está en supabaseSystemUI
+-- 3. PostgreSQL no permite cross-database queries desde triggers sin dblink
+--
+-- SOLUCIÓN: Las notificaciones se crean desde el frontend cuando detecta
+-- eventos en tiempo real usando suscripciones Supabase Realtime.
+--
+-- El frontend detecta INSERT en mensajes_whatsapp y llamadas_ventas,
+-- determina qué usuarios deben recibir la notificación según permisos,
+-- y llama a create_message_notifications_batch o create_call_notifications_batch
+-- en supabaseSystemUI.
+--
+-- Ver: src/services/notificationListenerService.ts (por crear)
+
+-- Este archivo se mantiene como referencia pero NO se ejecuta
