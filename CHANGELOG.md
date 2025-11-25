@@ -1,5 +1,48 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔧 Versión B2.1.1N6.0.0 - Live Monitor: Corrección Vista Optimizada y Clasificación Inteligente (Noviembre 2025)
+
+### 🎯 **RELEASE BETA - Corrección Crítica Live Monitor**
+
+#### 🔧 **Live Monitor - Vista Optimizada**
+- **Vista `live_monitor_view` recreada:** Vista optimizada recreada completamente con estructura correcta
+- **Función de clasificación corregida:** Priorización de `call_status = 'activa'` sin límite de tiempo
+- **Problema resuelto:** Llamadas activas ya no se marcan incorrectamente como "perdida" después de 30 minutos
+- **Realtime configurado:** Triggers y notificaciones configurados correctamente
+
+#### 📚 **Documentación Completa**
+- **Nueva documentación:** `docs/LIVE_MONITOR_VIEW_DOCUMENTATION.md` creada con especificaciones completas
+- **Script SQL documentado:** `scripts/sql/create-live-monitor-view-complete.sql` con todos los detalles
+- **Guía de resolución de problemas:** Sección completa de troubleshooting agregada
+
+#### 🐛 **Correcciones Técnicas**
+- **Función `clasificar_estado_llamada`:** Lógica corregida para respetar `call_status = 'activa'`
+- **Vista optimizada:** JOIN correcto entre `llamadas_ventas` y `prospectos`
+- **Campos calculados:** `minutos_transcurridos` calculado correctamente en la vista
+- **Prioridad de campos:** Composición familiar y preferencias con prioridad llamada > prospecto
+
+#### 🗄️ **Cambios en Base de Datos**
+- **Vista recreada:** `live_monitor_view` con estructura completa y validada
+- **Función actualizada:** `clasificar_estado_llamada` con lógica corregida
+- **Triggers configurados:** `live_monitor_llamadas_trigger` y `live_monitor_prospectos_trigger`
+- **Realtime habilitado:** Tablas `llamadas_ventas` y `prospectos` en publicación `supabase_realtime`
+
+#### 📝 **Archivos Modificados**
+- `scripts/sql/create-live-monitor-view-complete.sql` - Script completo de creación
+- `docs/LIVE_MONITOR_VIEW_DOCUMENTATION.md` - Nueva documentación completa
+- `src/components/analysis/CHANGELOG_LIVEMONITOR.md` - Actualizado con cambios
+- `CHANGELOG.md` - Documentación actualizada a B2.1.1N6.0.0
+- `VERSIONS.md` - Control de versiones actualizado
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.1N6.0.0
+
+#### ✅ **Beneficios**
+- ✅ Llamadas activas se muestran correctamente en Live Monitor
+- ✅ Clasificación inteligente funciona correctamente
+- ✅ Vista optimizada mejora rendimiento del módulo
+- ✅ Documentación completa para futuras referencias
+
+---
+
 ## 🔧 Versión B2.1.0N7.0.0 - Limpieza y Optimizaciones del Proyecto (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Limpieza y Optimizaciones**
