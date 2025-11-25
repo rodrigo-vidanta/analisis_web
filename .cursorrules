@@ -1,0 +1,257 @@
+# ============================================
+# REGLAS DEL PROYECTO - PQNC QA AI PLATFORM
+# ============================================
+# 
+# ⚠️ ESTADO: PRODUCCIÓN ACTIVA
+# ⚠️ VERSIÓN: v2.1.0
+# ⚠️ FECHA ÚLTIMA ACTUALIZACIÓN: 25 de Noviembre 2025
+#
+# ============================================
+
+## 🚨 REGLAS CRÍTICAS DE PRODUCCIÓN
+
+### ❌ PROHIBIDO SIN AUTORIZACIÓN EXPLÍCITA
+
+1. **DESPLIEGUES AUTOMÁTICOS**
+   - ❌ NUNCA hacer push a Git sin autorización explícita del usuario
+   - ❌ NUNCA hacer deploy a AWS sin solicitud explícita del usuario
+   - ❌ NUNCA ejecutar scripts de despliegue automáticamente
+   - ✅ SOLO hacer commits/push cuando el usuario lo solicite explícitamente
+   - ✅ SOLO hacer deploy cuando el usuario lo solicite explícitamente
+
+2. **CÓDIGO DE PRUEBA Y MOCKS**
+   - ❌ NUNCA generar código con funciones mock o de prueba
+   - ❌ NUNCA crear datos de prueba hardcodeados
+   - ❌ NUNCA dejar TODOs o placeholders sin implementar
+   - ❌ NUNCA crear funciones "de ejemplo" o "temporales"
+   - ✅ TODO el código debe ser código de producción funcional
+   - ✅ TODAS las funciones deben estar completamente implementadas
+   - ✅ TODOS los datos deben venir de fuentes reales (APIs, BD, etc.)
+
+3. **ENTORNO DE PRODUCCIÓN**
+   - ⚠️ Este es un entorno 100% productivo
+   - ⚠️ Cualquier cambio afecta usuarios reales
+   - ⚠️ Todos los servicios están en producción (AWS, Supabase, etc.)
+   - ✅ Verificar impacto antes de cualquier cambio
+   - ✅ Probar cambios localmente antes de sugerir despliegue
+
+---
+
+## 📋 REGLAS GENERALES DE DESARROLLO
+
+### 🔧 Principios de Código
+
+1. **TypeScript Estricto**
+   - Usar TypeScript para todo el código nuevo
+   - Tipar todas las funciones, props, y estados
+   - No usar `any` a menos que sea absolutamente necesario
+   - Validar tipos en runtime cuando sea necesario
+
+2. **React 19 Best Practices**
+   - Componentes funcionales con hooks
+   - Usar `useState`, `useEffect`, `useCallback`, `useMemo` apropiadamente
+   - Evitar re-renders innecesarios
+   - Manejar errores con boundaries y try-catch
+
+3. **TailwindCSS Exclusivo**
+   - NO crear archivos CSS adicionales
+   - NO usar estilos inline (excepto dinámicos)
+   - Usar clases de Tailwind y utilidades existentes
+   - Seguir patrones de diseño establecidos
+
+4. **Estado y Servicios**
+   - Usar Zustand para estado global cuando sea necesario
+   - Reutilizar servicios existentes (supabaseService, n8nService, etc.)
+   - NO crear nuevos servicios sin verificar si existe uno similar
+   - Mantener separación de responsabilidades
+
+---
+
+## 🏗️ Arquitectura del Proyecto
+
+### Estructura de Carpetas
+
+```
+src/
+├── components/        # Componentes React organizados por módulo
+├── services/         # Servicios de negocio (Supabase, N8N, VAPI, etc.)
+├── hooks/            # Custom hooks reutilizables
+├── contexts/         # Context providers (Auth, etc.)
+├── stores/           # Zustand stores
+├── config/           # Configuraciones (Supabase, AWS, etc.)
+└── utils/            # Utilidades y helpers
+```
+
+### Servicios Principales
+
+- `supabaseService` - Cliente Supabase principal
+- `pqncSupabase` - Cliente Supabase para PQNC
+- `n8nDeploymentServiceV3` - Servicio de despliegue N8N
+- `intelligentImportService` - Servicio de importación inteligente
+- `vapiService` - Integración con VAPI
+- `awsDiagramService` - Gestión de diagramas AWS
+
+---
+
+## 🔐 Seguridad y Credenciales
+
+### ❌ PROHIBIDO
+
+- ❌ Hardcodear credenciales en el código
+- ❌ Exponer API keys o secrets
+- ❌ Commitear archivos `.env` o con credenciales
+- ❌ Usar credenciales de producción en desarrollo
+
+### ✅ CORRECTO
+
+- ✅ Usar variables de entorno (`import.meta.env.VITE_*`)
+- ✅ Usar servicios de configuración existentes
+- ✅ Validar permisos antes de operaciones sensibles
+- ✅ Usar autenticación y autorización apropiadas
+
+---
+
+## 🚀 Despliegue y Git
+
+### Flujo de Trabajo Git
+
+1. **Antes de hacer cambios**:
+   - Verificar estado actual (`git status`)
+   - Crear branch si es necesario (solo si el usuario lo solicita)
+   - NO hacer commits automáticos
+
+2. **Al hacer cambios**:
+   - Hacer cambios en archivos específicos
+   - Verificar que no hay errores de linting
+   - NO hacer commit hasta que el usuario lo solicite
+
+3. **Commit y Push**:
+   - ✅ SOLO cuando el usuario lo solicite explícitamente
+   - Usar mensajes descriptivos y claros
+   - NO hacer push automático
+   - Verificar que el usuario quiere hacer push antes de ejecutar
+
+4. **Despliegue AWS**:
+   - ✅ SOLO cuando el usuario lo solicite explícitamente
+   - Verificar que el build funciona localmente primero
+   - Ejecutar script de despliegue (`update-frontend.sh`)
+   - Informar al usuario del resultado
+
+---
+
+## 🧪 Testing y Calidad
+
+### Código de Producción
+
+- ✅ Todo el código debe ser funcional y completo
+- ✅ Manejar casos edge y errores apropiadamente
+- ✅ Validar inputs y outputs
+- ✅ Logging apropiado para debugging en producción
+- ✅ Comentarios claros cuando el código es complejo
+
+### NO Permitido
+
+- ❌ Código de prueba o mock
+- ❌ Funciones incompletas o con placeholders
+- ❌ Datos hardcodeados de ejemplo
+- ❌ Console.logs de debug sin propósito
+- ❌ Código comentado "por si acaso"
+
+---
+
+## 📝 Documentación
+
+### Cuando Crear Documentación
+
+- ✅ Para nuevas funcionalidades complejas
+- ✅ Para cambios en arquitectura
+- ✅ Para procesos de despliegue
+- ✅ Para configuraciones importantes
+
+### Formato de Documentación
+
+- Usar Markdown
+- Incluir ejemplos de código cuando sea útil
+- Mantener actualizada con cambios
+- Ubicar en carpeta `docs/` o como comentarios en código
+
+---
+
+## 🎨 UI/UX
+
+### Principios de Diseño
+
+- Seguir guía de diseño de modales (ver workspace rules)
+- Mantener consistencia visual
+- Usar animaciones sutiles (framer-motion)
+- Accesibilidad básica (aria-labels, keyboard navigation)
+- Dark mode compatible
+
+### Componentes Reutilizables
+
+- Usar componentes existentes antes de crear nuevos
+- Verificar si hay componentes similares en el proyecto
+- Mantener componentes pequeños y enfocados
+- Props tipadas con TypeScript
+
+---
+
+## 🔄 Integraciones
+
+### Supabase
+
+- Usar clientes configurados (`pqncSupabase`, `supabaseService`)
+- Manejar errores de Supabase apropiadamente
+- Usar RPCs cuando sea necesario
+- Validar permisos antes de operaciones
+
+### AWS
+
+- Usar servicios AWS existentes
+- No crear recursos AWS sin autorización
+- Verificar costos antes de crear recursos
+- Usar scripts de despliegue existentes
+
+### N8N
+
+- Usar `n8nDeploymentServiceV3` para despliegues
+- No modificar workflows sin verificar impacto
+- Validar configuración antes de desplegar
+
+---
+
+## ⚠️ ADVERTENCIAS FINALES
+
+1. **Este es un entorno de PRODUCCIÓN**
+   - Usuarios reales dependen de esta aplicación
+   - Cualquier cambio puede afectar operaciones
+   - Verificar impacto antes de cambios
+
+2. **NO hacer despliegues automáticos**
+   - Siempre esperar autorización explícita
+   - Verificar que el usuario quiere desplegar
+   - Informar del resultado del despliegue
+
+3. **NO generar código de prueba**
+   - Todo debe ser código de producción
+   - Funciones completas y funcionales
+   - Sin mocks ni datos de ejemplo
+
+4. **Mantener calidad de código**
+   - TypeScript estricto
+   - Manejo de errores apropiado
+   - Código limpio y mantenible
+
+---
+
+## 📞 Contacto y Soporte
+
+- **Proyecto**: PQNC QA AI Platform
+- **Versión**: v2.1.0
+- **Estado**: Producción Activa
+- **Última Actualización**: 25 de Noviembre 2025
+
+---
+
+**⚠️ RECUERDA: Este es un entorno de PRODUCCIÓN. Actúa con precaución y siempre solicita autorización antes de desplegar cambios.**
+

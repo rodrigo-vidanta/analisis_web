@@ -1,6 +1,12 @@
-# 🚀 PQNC QA AI Platform v5.2.0
+# 🚀 PQNC QA AI Platform v2.1.0
+
+**⚠️ ESTADO: PRODUCCIÓN ACTIVA**  
+**🌐 URL Producción**: https://d3m6zgat40u0u1.cloudfront.net  
+**📅 Última Actualización**: 25 de Noviembre 2025
 
 Plataforma empresarial completa para gestión de prospectos, análisis de llamadas con IA y monitoreo en tiempo real.
+
+> **⚠️ IMPORTANTE**: Este es un entorno de producción activo. Ver [`.cursorrules`](.cursorrules) para reglas de desarrollo y despliegue.
 
 ## 🎯 Módulos Principales
 
@@ -33,13 +39,14 @@ Sistema completo de gestión de prospectos con historial de llamadas.
 
 ## 🛠️ Stack Tecnológico
 
-- **Frontend**: React 18 + TypeScript + Vite
+- **Frontend**: React 19 + TypeScript + Vite 7
 - **Styling**: Tailwind CSS + Framer Motion
 - **Estado**: Zustand
 - **Base de Datos**: 4 instancias Supabase especializadas
 - **Gráficas**: Chart.js
 - **Iconos**: Lucide React
-- **Despliegue**: AWS S3 + CloudFront
+- **Despliegue**: AWS S3 + CloudFront (Producción)
+- **Infraestructura**: AWS us-west-2
 
 ## 📊 Bases de Datos
 
@@ -99,3 +106,22 @@ Cada módulo incluye README específico con:
 - Funcionalidades y navegación
 
 Ver `/src/components/[modulo]/README.md` para detalles específicos.
+
+## 🚨 Reglas de Desarrollo y Despliegue
+
+**⚠️ ESTE ES UN ENTORNO DE PRODUCCIÓN**
+
+- ❌ **NO hacer despliegues automáticos** - Solo cuando se solicite explícitamente
+- ❌ **NO generar código con mocks** - Todo debe ser código de producción funcional
+- ❌ **NO hacer push a Git sin autorización** - Solo cuando se solicite explícitamente
+- ✅ Verificar impacto antes de cambios
+- ✅ Probar localmente antes de sugerir despliegue
+
+Ver [`.cursorrules`](.cursorrules) para reglas completas de desarrollo.
+
+## 📦 Despliegues
+
+- **Último Despliegue**: 25 de Noviembre 2025
+- **Versión**: v2.1.0-production-20251125
+- **Documentación**: Ver [`docs/DEPLOYMENT_PRODUCTION_2025-11-25.md`](docs/DEPLOYMENT_PRODUCTION_2025-11-25.md)
+- **Backups**: Disponibles en `backups/`
