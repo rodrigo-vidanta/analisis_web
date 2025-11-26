@@ -243,6 +243,12 @@ class AuthService {
         if (this.currentUser.role_name === 'direccion') return false;
         return true;
       
+      case 'scheduled-calls':
+        // Llamadas Programadas disponible para coordinadores, ejecutivos y admin
+        // Usuarios con rol direccion NO pueden acceder
+        if (this.currentUser.role_name === 'direccion') return false;
+        return ['admin', 'coordinador', 'ejecutivo'].includes(this.currentUser.role_name);
+      
       case 'direccion':
         // Dirección solo para usuarios con rol direccion y admin
         return this.currentUser.role_name === 'direccion' || this.currentUser.role_name === 'admin';
