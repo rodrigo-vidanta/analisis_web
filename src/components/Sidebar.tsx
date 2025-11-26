@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
@@ -299,6 +299,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const { config } = useSystemConfig();
   const { activeCallNotification, clearCallNotification } = useNotificationStore();
   const [isRinging, setIsRinging] = useState(false);
+  const lastProcessedCallRef = useRef<{ callId: string; timestamp: number } | null>(null);
   
   const faviconUrl = config.app_branding?.favicon_url;
 
@@ -308,6 +309,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       setIsRinging(false);
       return;
     }
+    
+    // Evitar procesar la misma llamada múltiples veces
+    const lastProcessed = lastProcessedCallRef.current;
+    if (lastProcessed && 
+        lastProcessed.callId === activeCallNotification.callId &&
+        activeCallNotification.timestamp - lastProcessed.timestamp < 2000) {
+      // Ya se procesó esta llamada recientemente (menos de 2 segundos), ignorar
+      return;
+    }
+    
+    // Marcar esta llamada como procesada
+    lastProcessedCallRef.current = {
+      callId: activeCallNotification.callId,
+      timestamp: activeCallNotification.timestamp
+    };
     
     // Capturar el timestamp actual para verificar después
     const currentTimestamp = activeCallNotification.timestamp;
@@ -337,7 +353,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       clearTimeout(activateTimer);
       clearTimeout(deactivateTimer);
     };
-  }, [activeCallNotification?.timestamp, activeCallNotification?.checkpoint, clearCallNotification]);
+  }, [activeCallNotification?.timestamp, activeCallNotification?.checkpoint, activeCallNotification?.callId, clearCallNotification]);
 
   const handleAnalysisChange = (mode: 'natalia' | 'pqnc') => {
     setAnalysisMode(mode);

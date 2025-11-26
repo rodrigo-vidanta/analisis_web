@@ -1,5 +1,38 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔔 Versión B2.2.2N6.0.0 - Live Chat: Indicador de Llamadas Activas y Corrección de Sonido Duplicado (Enero 2025)
+
+### 🎯 **RELEASE BETA - Mejoras de UX y Correcciones**
+
+#### 🔔 **Indicador Visual de Llamadas Activas en Live Chat**
+- **Avatar dinámico:** Cuando un prospecto tiene una llamada activa, el avatar cambia de iniciales a icono de teléfono vectorizado
+- **Estilo distintivo:** Fondo verde con degradado (`from-green-500 to-emerald-600`) para diferenciarlo del avatar normal
+- **Animación heartbeat:** Animación tipo heartbeat (escala 1 → 1.1 → 1) cada 1.5 segundos
+- **Navegación directa:** Click en el avatar navega automáticamente al módulo Live Monitor
+- **Detección automática:** Verificación periódica cada 10 segundos de llamadas activas
+- **Filtrado inteligente:** Solo cuenta llamadas realmente activas (sin razón de finalización, sin duración, < 15 minutos)
+
+#### 🔧 **Corrección de Sonido Duplicado**
+- **Problema resuelto:** Sonido de notificación se reproducía dos veces cuando una llamada llegaba al checkpoint #5
+- **Solución:** Eliminado sonido duplicado en Live Monitor, solo Sidebar reproduce el sonido
+- **Deduplicación:** Agregada lógica en Sidebar para evitar procesar la misma llamada múltiples veces en menos de 2 segundos
+- **Resultado:** Sonido se reproduce solo una vez, independientemente del módulo activo
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Indicador visual de llamadas activas con avatar dinámico
+- `src/components/analysis/LiveMonitorKanban.tsx` - Eliminado sonido duplicado, solo notificación
+- `src/components/Sidebar.tsx` - Deduplicación de sonido para evitar reproducciones múltiples
+- `src/components/chat/CHANGELOG_LIVECHAT.md` - Documentación de cambios del módulo
+- `src/components/Footer.tsx` - Versión actualizada a B2.2.2N6.0.0
+
+#### ✅ **Beneficios**
+- ✅ Identificación visual inmediata de prospectos en llamada activa
+- ✅ Navegación fluida entre módulos con un solo clic
+- ✅ Experiencia de audio mejorada sin duplicaciones
+- ✅ Feedback visual claro sin saturación
+
+---
+
 ## 🎨 Versión B2.2.1N6.0.0 - Llamadas Programadas: Mejoras Visuales y UX (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras de Interfaz**

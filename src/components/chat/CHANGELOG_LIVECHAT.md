@@ -17,6 +17,39 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.16.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🔔 Indicador Visual de Llamadas Activas**
+- **Avatar dinámico con icono de teléfono:** Cuando un prospecto tiene una llamada activa, el avatar cambia de iniciales a un icono de teléfono vectorizado
+- **Estilo visual distintivo:** Fondo verde con degradado (`from-green-500 to-emerald-600`) para diferenciarlo del avatar normal
+- **Animación heartbeat:** Animación tipo heartbeat (escala 1 → 1.1 → 1) cada 1.5 segundos para llamar la atención
+- **Navegación directa:** Al hacer clic en el avatar con teléfono, navega automáticamente al módulo Live Monitor
+- **Detección automática:** Verificación periódica cada 10 segundos de llamadas activas para prospectos en conversaciones
+- **Filtrado inteligente:** Solo cuenta llamadas realmente activas (sin razón de finalización, sin duración, < 15 minutos)
+
+#### **🔧 Funcionalidades Implementadas**
+- **Estado de llamadas activas:** Nuevo estado `prospectsWithActiveCalls` para rastrear prospectos con llamadas activas
+- **Verificación periódica:** `useEffect` que consulta llamadas activas cada 10 segundos
+- **Integración con Live Monitor:** Navegación directa usando `setAppMode('live-monitor')` desde el store de aplicación
+
+#### **📝 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx`
+  - Agregado estado `prospectsWithActiveCalls` para rastrear prospectos con llamadas activas
+  - Agregado `useEffect` para verificación periódica de llamadas activas
+  - Modificado avatar condicional para mostrar icono de teléfono cuando hay llamada activa
+  - Agregada animación heartbeat con CSS
+  - Agregado onClick para navegar a Live Monitor
+  - Importado `useAppStore` para navegación entre módulos
+
+#### **🎯 Mejoras de UX**
+- **Feedback visual inmediato:** Los usuarios pueden identificar rápidamente qué prospectos están en llamada activa
+- **Navegación fluida:** Un solo clic lleva directamente al Live Monitor para ver la llamada activa
+- **Animación sutil:** La animación heartbeat llama la atención sin ser invasiva
+- **Actualización en tiempo real:** El estado se actualiza automáticamente cada 10 segundos
+
+---
+
 ### **v5.15.0** - Diciembre 2025
 **Estado:** ✅ Producción
 

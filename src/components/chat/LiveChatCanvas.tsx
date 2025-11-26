@@ -59,6 +59,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
+import { useAppStore } from '../../stores/appStore';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -149,8 +150,10 @@ interface ConversationBlock {
 
 const LiveChatCanvas: React.FC = () => {
   const { user } = useAuth();
+  const { setAppMode } = useAppStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [prospectsWithActiveCalls, setProspectsWithActiveCalls] = useState<Set<string>>(new Set());
   const selectedConversationRef = useRef<string | null>(null);
   // Ref para distinguir entre selección manual (click) y automática (localStorage)
   const isManualSelectionRef = useRef<boolean>(false);
@@ -362,6 +365,68 @@ const LiveChatCanvas: React.FC = () => {
     
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Verificar llamadas activas para prospectos en conversaciones
+  useEffect(() => {
+    const checkActiveCalls = async () => {
+      if (conversations.length === 0) return;
+      
+      try {
+        // Obtener todos los prospecto_id únicos de las conversaciones
+        const prospectIds = conversations
+          .map(c => c.prospecto_id)
+          .filter((id): id is string => !!id);
+        
+        if (prospectIds.length === 0) return;
+        
+        // Consultar llamadas activas para estos prospectos
+        const { data: activeCalls, error } = await analysisSupabase
+          .from('llamadas_ventas')
+          .select('prospecto, call_status, fecha_llamada, duracion_segundos, audio_ruta_bucket, datos_llamada')
+          .in('prospecto', prospectIds)
+          .eq('call_status', 'activa');
+        
+        if (error) {
+          console.error('Error verificando llamadas activas:', error);
+          return;
+        }
+        
+        // Filtrar llamadas realmente activas (sin razón de finalización, sin duración, recientes)
+        const reallyActiveCalls = (activeCalls || []).filter(call => {
+          const razonFinalizacion = call.datos_llamada?.razon_finalizacion || 
+                                   (typeof call.datos_llamada === 'string' 
+                                     ? JSON.parse(call.datos_llamada)?.razon_finalizacion 
+                                     : null);
+          
+          const fechaLlamada = call.fecha_llamada ? new Date(call.fecha_llamada) : null;
+          const minutosAgo = fechaLlamada 
+            ? (Date.now() - fechaLlamada.getTime()) / (1000 * 60)
+            : 999;
+          
+          // Llamada realmente activa si no tiene razón de finalización, no tiene duración, y es reciente (< 15 min)
+          return !razonFinalizacion && 
+                 (!call.duracion_segundos || call.duracion_segundos === 0) && 
+                 minutosAgo < 15;
+        });
+        
+        // Crear Set de prospectos con llamadas activas
+        const activeProspectIds = new Set(
+          reallyActiveCalls.map(call => call.prospecto).filter((id): id is string => !!id)
+        );
+        
+        setProspectsWithActiveCalls(activeProspectIds);
+      } catch (error) {
+        console.error('Error en checkActiveCalls:', error);
+      }
+    };
+    
+    checkActiveCalls();
+    
+    // Verificar cada 10 segundos
+    const interval = setInterval(checkActiveCalls, 10000);
+    
+    return () => clearInterval(interval);
+  }, [conversations]);
 
   const cleanupRealtimeChannels = useCallback(() => {
     const channels = [
@@ -3471,11 +3536,32 @@ const LiveChatCanvas: React.FC = () => {
               }}
             >
               <div className="flex items-start space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="text-sm font-semibold text-white">
-                    {conversation.customer_name?.charAt(0).toUpperCase() || 'C'}
-                  </span>
-                </div>
+                {prospectsWithActiveCalls.has(conversation.prospecto_id) ? (
+                  <div
+                    className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm cursor-pointer animate-pulse hover:animate-none hover:scale-110 transition-transform"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAppMode('live-monitor');
+                    }}
+                    style={{
+                      animation: 'heartbeat 1.5s ease-in-out infinite'
+                    }}
+                  >
+                    <style>{`
+                      @keyframes heartbeat {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                      }
+                    `}</style>
+                    <Phone className="w-5 h-5 text-white" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <span className="text-sm font-semibold text-white">
+                      {conversation.customer_name?.charAt(0).toUpperCase() || 'C'}
+                    </span>
+                  </div>
+                )}
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
