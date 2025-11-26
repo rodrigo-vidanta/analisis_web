@@ -1,5 +1,48 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🗑️ Versión B2.1.9N6.0.0 - Eliminación Completa del Módulo Prompts Manager (Enero 2025)
+
+### 🎯 **RELEASE BETA - Limpieza de Código**
+
+#### 🗑️ **Eliminación del Módulo Prompts Manager**
+- **Módulo eliminado completamente:** Todo el módulo Prompts Manager ha sido removido del sistema
+- **Archivos eliminados:**
+  - `src/components/prompts/PromptsManager.tsx` - Componente principal
+  - `src/components/prompts/VAPIConfigEditor.tsx` - Editor de configuración VAPI
+  - `src/components/prompts/PromptVersionHistory.tsx` - Historial de versiones
+  - `src/components/prompts/PromptVersionManager.tsx` - Gestor de versiones
+  - `src/components/prompts/ToolsEditor.tsx` - Editor de herramientas
+  - `src/components/prompts/WorkflowMetrics.tsx` - Métricas de workflows
+  - `src/components/prompts/README.md` - Documentación del módulo
+  - `src/services/promptsDbService.ts` - Servicio de base de datos
+  - Directorio completo `src/components/prompts/` eliminado
+- **Referencias eliminadas:**
+  - `MainApp.tsx` - Import y case del módulo eliminados
+  - `Sidebar.tsx` - Item del menú eliminado
+  - `Header.tsx` - Referencias en tipos y título eliminadas
+  - `appStore.ts` - Tipo `'prompts-manager'` eliminado de AppMode
+  - `errorLogService.ts` - Referencia en moduleMap eliminada
+  - `supabaseSystemUI.ts` - Tipos específicos eliminados (PromptVersion, WorkflowMetrics, PromptChangeLog)
+  - `config/README.md` - Referencias en documentación eliminadas
+
+#### 📝 **Archivos Modificados**
+- `src/components/MainApp.tsx` - Eliminación de import y case de PromptsManager
+- `src/components/Sidebar.tsx` - Eliminación de item del menú
+- `src/components/Header.tsx` - Eliminación de referencias en tipos
+- `src/stores/appStore.ts` - Eliminación de tipo 'prompts-manager' de AppMode
+- `src/services/errorLogService.ts` - Eliminación de referencia en moduleMap
+- `src/config/supabaseSystemUI.ts` - Eliminación de tipos específicos del módulo
+- `src/config/README.md` - Actualización de documentación
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.9N6.0.0
+
+#### ✅ **Beneficios**
+- ✅ Código más limpio y mantenible
+- ✅ Reducción de complejidad del sistema
+- ✅ Menor superficie de código a mantener
+- ✅ Eliminación de dependencias innecesarias
+
+---
+
 ## 🧹 Versión B2.1.8N6.0.0 - Live Chat: Limpieza de Logs Innecesarios (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Limpieza y Optimización**

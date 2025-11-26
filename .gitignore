@@ -31,3 +31,4 @@ dist-ssr
 *.sw?
 AWS_Project/diagram-platform
 AWS_Project/amplify-con-token.yaml
+backups/

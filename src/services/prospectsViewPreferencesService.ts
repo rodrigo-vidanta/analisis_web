@@ -56,7 +56,6 @@ class ProspectsViewPreferencesService {
    */
   saveUserPreferences(userId: string | null, preferences: ProspectsViewPreferences): void {
     if (!userId) {
-      console.warn('⚠️ No se puede guardar preferencias sin userId');
       return;
     }
 
@@ -68,7 +67,6 @@ class ProspectsViewPreferencesService {
       };
       
       localStorage.setItem(storageKey, JSON.stringify(preferencesToSave));
-      console.log('💾 Preferencias de vista guardadas:', preferencesToSave);
     } catch (error) {
       console.error('❌ Error guardando preferencias de vista:', error);
     }

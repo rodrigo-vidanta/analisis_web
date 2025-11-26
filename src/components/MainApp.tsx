@@ -19,8 +19,6 @@ import LinearLiveMonitor from './linear/LinearLiveMonitor';
 // AI Models Manager
 import AIModelsManager from './ai-models/AIModelsManager';
 
-// Prompts Manager
-import PromptsManager from './prompts/PromptsManager';
 // Live Chat
 import LiveChatModule from './chat/LiveChatModule';
 
@@ -360,23 +358,6 @@ function MainApp() {
         );
       case 'ai-models':
         return <AIModelsManager />;
-      case 'prompts-manager':
-        return (
-          user?.role_name === 'admin' ? (
-            <PromptsManager />
-          ) : (
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  Acceso Restringido
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Solo administradores pueden acceder al módulo de prompts
-                </p>
-              </div>
-            </div>
-          )
-        );
       case 'live-chat':
         return (
           <ProtectedRoute requireModule="live-chat">

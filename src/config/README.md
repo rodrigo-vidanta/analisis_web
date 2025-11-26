@@ -18,7 +18,7 @@ Configuraciones centralizadas de todas las conexiones Supabase del proyecto.
 
 ### supabaseSystemUI.ts
 - **URL**: zbylezfyagwrxoecioup.supabase.co
-- **Uso**: Live Chat, Prompts Manager
+- **Uso**: Live Chat
 - **Tablas**: `uchat_conversations`, `uchat_messages`, `prompt_versions`
 - **Clientes**: `supabaseSystemUI` (normal), `supabaseSystemUIAdmin` (admin)
 
@@ -43,7 +43,6 @@ Módulo → Base de Datos
 ├── Live Chat → supabaseSystemUI
 ├── Admin → pqncSupabase
 ├── AI Models → supabaseMain
-├── Prompts → supabaseSystemUI
 └── Log Monitor → supabaseLogMonitor
 ```
 

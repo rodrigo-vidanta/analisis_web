@@ -1592,8 +1592,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           </div>
 
           {/* Vista desktop/tablet: Tabla con scroll horizontal mejorado */}
-          <div className="hidden md:block overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-            <table className="w-full min-w-[600px]">
+          <div className="block overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+            <table className="w-full min-w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   {[
@@ -1601,8 +1601,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                     { key: 'whatsapp', label: 'WhatsApp', sortable: true, responsive: false },
                     { key: 'email', label: 'Email', sortable: true, responsive: 'md' },
                     { key: 'etapa', label: 'Etapa', sortable: true, responsive: false },
-                    { key: 'score', label: 'Score', sortable: true, responsive: false },
-                    { key: 'campana_origen', label: 'Campaña', sortable: true, responsive: 'lg' },
                     { key: 'created_at', label: 'Creado', sortable: true, responsive: 'md' },
                     { key: 'actions', label: '', sortable: false, responsive: false }
                   ].map(column => (
@@ -1694,14 +1692,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
                           {prospecto.etapa}
                         </span>
-                      </td>
-                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getScoreColor(prospecto.score || '')}`}>
-                          {prospecto.score}
-                        </span>
-                      </td>
-                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden lg:table-cell">
-                        <div className="max-w-[120px] md:max-w-[150px] truncate">{prospecto.campana_origen || '-'}</div>
                       </td>
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
                         <div className="min-w-[60px]">{prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' }) : 'N/A'}</div>

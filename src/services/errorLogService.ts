@@ -598,7 +598,6 @@ class ErrorLogService {
         'live-monitor': 'live-monitor',
         'admin': 'admin',
         'ai-models': 'ai-models',
-        'prompts-manager': 'prompts-manager',
         'aws-manager': 'aws-manager',
         'log-server': 'log-server',
         'prospectos': 'prospectos',

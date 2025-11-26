@@ -5,24 +5,24 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { AssignmentBadge } from './analysis/AssignmentBadge';
 
 interface HeaderProps {
-  currentStep: number;
-  progress: number;
-  progressText: string;
+  currentStep?: number;
+  progress?: number;
+  progressText?: string;
   darkMode: boolean;
-  appMode?: 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion';
+  appMode?: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls';
   onToggleDarkMode: () => void;
-  onReset: () => void;
-  onModeChange?: (mode: 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion') => void;
+  onReset?: () => void;
+  onModeChange?: (mode: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls') => void;
   simplified?: boolean;
   onToggleSidebar?: () => void;
 }
 
 const Header = ({ 
-  currentStep, 
-  progress, 
-  progressText, 
+  currentStep = 0, 
+  progress = 0, 
+  progressText = '', 
   darkMode,
-  appMode = 'constructor',
+  appMode = 'admin',
   onToggleDarkMode, 
   onReset,
   onModeChange,
@@ -54,29 +54,18 @@ const Header = ({
               </button>
 
               <h1 className="text-xl font-semibold text-slate-900 dark:text-white capitalize">
-                {appMode === 'constructor' ? 'Constructor de Agentes' :
-                 appMode === 'plantillas' ? 'Gestión de Plantillas' :
-                 appMode === 'natalia' ? 'Análisis Natalia IA' :
+                {appMode === 'natalia' ? 'Análisis Natalia IA' :
                  appMode === 'pqnc' ? 'Análisis PQNC Humans' :
                  appMode === 'live-monitor' ? 'Monitor en Vivo' :
                  appMode === 'admin' ? 'Administración' :
-                 appMode === 'aws-manager' ? 'AWS Manager' : 'PQNC AI'}
+                 appMode === 'live-chat' ? 'Live Chat' :
+                 appMode === 'ai-models' ? 'AI Models' :
+                 appMode === 'aws-manager' ? 'AWS Manager' :
+                 appMode === 'log-server' ? 'Log Server' :
+                 appMode === 'prospectos' ? 'Prospectos' :
+                 appMode === 'scheduled-calls' ? 'Llamadas Programadas' :
+                 appMode === 'direccion' ? 'Dirección' : 'PQNC AI Platform'}
               </h1>
-              
-              {/* Barra de progreso para constructor */}
-              {appMode === 'constructor' && currentStep > 0 && (
-                <div className="hidden lg:flex items-center space-x-3">
-                  <div className="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-600 transition-all duration-500 ease-out rounded-full"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
-                    {progressText}
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* Controles de usuario */}
@@ -326,43 +315,7 @@ const Header = ({
             
             {/* Navegación principal */}
             <nav className="flex items-center space-x-1">
-              {canAccessModule('constructor') && (
-                <button 
-                  onClick={() => onModeChange?.('constructor')}
-                  className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
-                    appMode === 'constructor'
-                      ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}
-                  title="Constructor de Agentes"
-                >
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                    <span>Constructor</span>
-                  </div>
-                </button>
-              )}
-              
-              {canAccessModule('plantillas') && (
-                <button 
-                  onClick={() => onModeChange?.('plantillas')}
-                  className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
-                    appMode === 'plantillas'
-                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}
-                  title="Gestión de Plantillas"
-                >
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                    <span>Plantillas</span>
-                  </div>
-                </button>
-              )}
+              {/* Módulos disponibles */}
               
               {canAccessModule('analisis') && (
                 <button 

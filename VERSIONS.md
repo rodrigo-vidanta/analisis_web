@@ -1,5 +1,28 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.1.9N6.0.0 (Enero 2025) - Eliminación Completa del Módulo Prompts Manager
+
+### 🗑️ RELEASE BETA - Limpieza de Código
+
+#### Eliminación del Módulo Prompts Manager
+- **Módulo eliminado completamente:** Todo el módulo Prompts Manager removido del sistema
+- **Archivos eliminados:** 7 componentes, 1 servicio, 1 README y directorio completo
+- **Referencias eliminadas:** MainApp, Sidebar, Header, appStore, errorLogService, config
+- **Tipos eliminados:** PromptVersion, WorkflowMetrics, PromptChangeLog de supabaseSystemUI
+
+#### Archivos Principales
+- `src/components/prompts/` - Directorio completo eliminado
+- `src/services/promptsDbService.ts` - Servicio eliminado
+- `src/components/MainApp.tsx` - Referencias eliminadas
+- `src/components/Sidebar.tsx` - Item del menú eliminado
+- `src/components/Header.tsx` - Referencias eliminadas
+- `src/stores/appStore.ts` - Tipo eliminado
+- `src/services/errorLogService.ts` - Referencia eliminada
+- `src/config/supabaseSystemUI.ts` - Tipos eliminados
+- `src/components/Footer.tsx` - Versión B2.1.9N6.0.0
+
+---
+
 ## Versión B2.1.8N6.0.0 (Enero 2025) - Live Chat: Limpieza de Logs Innecesarios
 
 ### 🧹 RELEASE BETA - Limpieza y Optimización

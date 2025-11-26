@@ -3382,14 +3382,6 @@ const LiveChatCanvas: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Conversaciones</h1>
-              <p className="text-xs text-slate-500 dark:text-gray-400">
-                Datos reales de UChat • Sidebar: {sidebarCollapsed ? 'Colapsado (+192px)' : 'Expandido'}
-                {syncInProgress && <span className="text-blue-600 dark:text-blue-400"> • Sincronizando...</span>}
-              </p>
-            </div>
-            <div className="flex items-center text-xs text-slate-500 dark:text-gray-400">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-              Tiempo real activo
             </div>
           </div>
 

@@ -427,18 +427,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('ai-models')
     }] : []),
 
-    // 7. Prompts Manager (SÉPTIMO)
-    ...((user?.role_name === 'admin' || user?.role_name === 'developer') ? [{
-      icon: (
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>
-      ),
-      label: 'Prompts Manager',
-      active: appMode === 'prompts-manager',
-      onClick: () => setAppMode('prompts-manager')
-    }] : []),
-
   ];
 
   // Log Server Manager - Solo para Admin
