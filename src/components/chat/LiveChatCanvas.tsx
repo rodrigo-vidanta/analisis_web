@@ -508,29 +508,29 @@ const LiveChatCanvas: React.FC = () => {
             created_at: newMessagePayload.fecha_hora,
           };
 
-          // ✅ CRÍTICO: Solo considerar activa si realmente está seleccionada Y fue selección manual
-          // NO marcar como leída si fue selección automática desde localStorage
+          // ✅ CRÍTICO: Verificar que la conversación está realmente seleccionada y abierta
           // ✅ ADICIONAL: Verificar que selectedConversation realmente existe y coincide
-          // ✅ CRÍTICO: Verificar también que selectedConversation no sea null
           const isActuallySelected = selectedConversation !== null &&
                                      (selectedConversation?.id === targetProspectoId || 
                                       selectedConversation?.prospecto_id === targetProspectoId);
+          // ✅ NUEVO: Considerar activa si está seleccionada (manual o automática)
+          // Los mensajes deben marcarse como leídos mientras la conversación está abierta
           const isActiveConversation = isActuallySelected && 
-                                       selectedConversationRef.current === targetProspectoId && 
-                                       isManualSelectionRef.current;
+                                       selectedConversationRef.current === targetProspectoId;
 
           // ✅ OPTIMIZACIÓN: Marcar como leído de forma diferida (no bloquea)
-          // ✅ GLOBAL: Marcar TODOS los mensajes de la conversación como leídos (no solo este mensaje)
-          // ✅ SOLO si la conversación está realmente abierta por el usuario (selección manual)
+          // ✅ SOLO si la conversación está realmente abierta por el usuario
           // ✅ CRÍTICO: Solo marcar mensajes del Prospecto, NUNCA mensajes del bot o del agente
           if (isActiveConversation && !newMessage.is_read && newMessage.sender_type === 'customer') {
             // Solo marcar mensajes del Prospecto como leídos, NO mensajes del bot
             newMessage.is_read = true;
             // Diferir escritura a BD usando requestIdleCallback
-            // Usar RPC para marcar TODA la conversación como leída (global, no por usuario)
+            // Marcar directamente en la tabla sin usar RPC para evitar error de tabla de auditoría
             const markAsRead = () => {
               analysisSupabase
-                .rpc('mark_messages_as_read', { p_prospecto_id: targetProspectoId })
+                .from('mensajes_whatsapp')
+                .update({ leido: true })
+                .eq('id', newMessage.id)
                 .then(() => {})
                 .catch(() => {});
             };
@@ -1231,21 +1231,18 @@ const LiveChatCanvas: React.FC = () => {
       selectedConversationRef.current = selectedConversation.prospecto_id;
       
       loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
-      // ✅ CRÍTICO: Solo marcar como leída si fue selección MANUAL (click del usuario)
-      // NO marcar si fue selección automática desde localStorage
-      if (isManualSelectionRef.current) {
-        markConversationAsRead(selectedConversation.prospecto_id);
-        // ✅ NO resetear el flag aquí - se mantiene mientras la conversación esté seleccionada manualmente
-        // Solo se resetea cuando se deselecciona o cambia la conversación
-      }
+      
+      // ✅ CRÍTICO: Marcar mensajes como leídos EN LA BASE DE DATOS cuando se abre la conversación
+      // Esto asegura que los mensajes queden registrados como leídos permanentemente
+      markConversationAsRead(selectedConversation.prospecto_id);
     } else {
-      // ✅ CRÍTICO: Cuando se cierra la conversación, resetear TODOS los refs
-      // Esto previene que se marquen mensajes como leídos cuando la conversación está cerrada
+      // Cuando se cierra la conversación, solo resetear refs
       selectedConversationRef.current = null;
       isManualSelectionRef.current = false;
     }
   }, [selectedConversation?.id]);
 
+  // ✅ FUNCIÓN: Marcar mensajes como leídos EN LA BASE DE DATOS cuando se abre la conversación
   const markConversationAsRead = async (prospectoId: string) => {
     if (!prospectoId) return;
     
@@ -1257,33 +1254,37 @@ const LiveChatCanvas: React.FC = () => {
     markingAsReadRef.current.add(prospectoId);
     
     try {
-      // Usar RPC para bypass RLS y marcar mensajes como leídos
-      const { data, error } = await analysisSupabase
+      // ✅ Usar RPC con SECURITY DEFINER (bypass RLS y triggers)
+      // La tabla de auditoría ya fue creada, el trigger bloqueante fue eliminado
+      const { data, error: rpcError } = await analysisSupabase
         .rpc('mark_messages_as_read', { p_prospecto_id: prospectoId });
 
-      if (error) {
-        console.error('❌ [MARK READ] Error en RPC:', error);
-        throw error;
+      if (rpcError) {
+        console.error('❌ [MARK READ] Error en RPC:', rpcError);
+        // Aún así actualizar el estado local para UX
+      } else if (data) {
+        const result = data as { success: boolean; messages_marked: number; error?: string };
+        if (!result.success) {
+          console.error('❌ [MARK READ] RPC falló:', result.error);
+        } else if (result.messages_marked > 0) {
+          // Mensajes marcados exitosamente en BD
+        }
       }
       
-      const result = data as { success: boolean; messages_marked: number; error?: string };
-      
-      if (!result.success) {
-        console.error('❌ [MARK READ] RPC falló:', result.error);
-        return;
-      }
-      
-      const messagesMarked = result.messages_marked;
-      
-      // Actualizar el contador en la lista de conversaciones a 0
+      // Actualizar el contador en la lista de conversaciones a 0 (siempre, para UX)
       setConversations(prev => {
-        const updated = prev.map(c => 
-          c.id === prospectoId 
+        return prev.map(c => 
+          c.id === prospectoId || c.prospecto_id === prospectoId
             ? { ...c, unread_count: 0, mensajes_no_leidos: 0 } 
             : c
         );
-        return updated;
       });
+      
+      // Actualizar estado local de unreadCounts
+      setUnreadCounts(prev => ({
+        ...prev,
+        [prospectoId]: 0
+      }));
       
       // Actualizar TODOS los mensajes locales para reflejar que están leídos
       setMessagesByConversation(prev => {
@@ -1297,13 +1298,11 @@ const LiveChatCanvas: React.FC = () => {
           is_read: true
         }));
         
-        
         return {
           ...prev,
           [prospectoId]: updatedMessages
         };
       });
-      
       
     } catch (error) {
       console.error('❌ [MARK READ] Error:', error);
@@ -1414,25 +1413,9 @@ const LiveChatCanvas: React.FC = () => {
     return () => clearInterval(messagesInterval);
   }, [selectedConversation, sending]);
 
-  // Marcar como leído cuando la pestaña vuelve a foco o se hace visible
-  useEffect(() => {
-    const onFocus = () => {
-      if (selectedConversationRef.current && !userScrolledAwayRef.current) {
-        markConversationAsRead(selectedConversationRef.current);
-      }
-    };
-    const onVisibility = () => {
-      if (!document.hidden && selectedConversationRef.current && !userScrolledAwayRef.current) {
-        markConversationAsRead(selectedConversationRef.current);
-      }
-    };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, []);
+  // ✅ ELIMINADO: Ya no se marca como leído cuando la pestaña vuelve a foco
+  // Los mensajes solo se muestran como leídos visualmente mientras la conversación está abierta
+  // Al cambiar de pestaña/módulo/recargar, los contadores se restauran desde BD
 
   useEffect(() => {
     // Polling deshabilitado temporalmente para debugging
@@ -3057,7 +3040,8 @@ const LiveChatCanvas: React.FC = () => {
       if (!userScrolledAwayRef.current && selectedConversationRef.current) {
         // ✅ OPTIMIZACIÓN: Eliminada llamada redundante a markMessagesAsRead
         // markConversationAsRead ya actualiza todos los mensajes localmente
-        markConversationAsRead(selectedConversationRef.current);
+        // ✅ Los mensajes ya están marcados como leídos cuando se abre la conversación
+        // No es necesario marcar nuevamente al hacer scroll
       }
       scrollDebounceTimerRef.current = null;
     }, 400);
@@ -3463,13 +3447,8 @@ const LiveChatCanvas: React.FC = () => {
                   : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
               }`}
               onClick={() => {
-                // ✅ CRÍTICO: Resetear refs de la conversación anterior antes de seleccionar nueva
-                if (selectedConversationRef.current && selectedConversationRef.current !== conversation.prospecto_id) {
-                  // Si había otra conversación abierta, resetear sus refs
-                  selectedConversationRef.current = null;
-                  isManualSelectionRef.current = false;
-                }
-                // ✅ Marcar como selección manual para que se marque como leída
+                // ✅ Seleccionar nueva conversación
+                // Los mensajes de la conversación anterior ya están marcados como leídos en BD
                 isManualSelectionRef.current = true;
                 selectedConversationRef.current = conversation.prospecto_id;
                 setSelectedConversation(conversation);

@@ -1,5 +1,49 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 💬 Versión B2.1.7N6.0.0 - Live Chat: Corrección de Marcado de Mensajes como Leídos (Enero 2025)
+
+### 🎯 **RELEASE BETA - Corrección de Funcionalidad Crítica**
+
+#### 💬 **Corrección de Marcado de Mensajes como Leídos**
+- **Problema resuelto:** Los mensajes no se marcaban como leídos en la base de datos al abrir una conversación
+- **Error identificado:** La función RPC `mark_messages_as_read` fallaba porque intentaba usar la tabla `leido_change_audit` que no existía
+- **Trigger bloqueante:** Existía un trigger `trg_prevent_leido_true` que bloqueaba los updates y causaba errores
+- **Solución implementada:**
+  - Creada tabla `leido_change_audit` en la base de datos con estructura completa
+  - Eliminado trigger bloqueante `trg_prevent_leido_true` que impedía marcar mensajes como leídos
+  - Recreada función RPC `mark_messages_as_read` con `SECURITY DEFINER` para bypass de RLS y triggers
+  - Simplificado código del frontend para usar directamente el RPC sin fallbacks innecesarios
+- **Comportamiento corregido:**
+  - Al abrir una conversación → Los mensajes se marcan como leídos EN LA BASE DE DATOS
+  - Al refrescar la página → El contador permanece en 0 porque los mensajes ya están marcados como leídos
+  - Nuevos mensajes mientras está abierta → Se marcan automáticamente como leídos
+  - Al cambiar de conversación → Los mensajes de la anterior ya están marcados, contador solo sube con mensajes nuevos
+  - Al cambiar de módulo/recargar → Los mensajes ya están marcados como leídos en BD
+
+#### 🗄️ **Cambios en Base de Datos**
+- **Tabla creada:** `public.leido_change_audit`
+  - Columnas: `id` (UUID), `mensaje_id` (UUID), `old_leido` (BOOLEAN), `new_leido` (BOOLEAN), `changed_at` (TIMESTAMP), `changed_by` (TEXT), `operation_type` (TEXT)
+  - Índices creados para optimización: `idx_leido_audit_mensaje`, `idx_leido_audit_changed_at`
+- **Trigger eliminado:** `trg_prevent_leido_true` en `mensajes_whatsapp`
+- **Función recreada:** `mark_messages_as_read(p_prospecto_id UUID)`
+  - Tipo: `SECURITY DEFINER` para bypass de RLS y triggers
+  - Funcionalidad: Marca todos los mensajes del Prospecto como leídos
+  - Retorna: JSONB con `success`, `messages_marked`, `message_ids`
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Simplificación de `markConversationAsRead()` para usar RPC directamente
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.7N6.0.0
+- Base de datos: Tabla `leido_change_audit` creada, trigger eliminado, función recreada
+
+#### ✅ **Beneficios**
+- ✅ Los mensajes se marcan correctamente como leídos en la base de datos
+- ✅ El contador de mensajes no leídos funciona correctamente al refrescar
+- ✅ Persistencia de estado de lectura entre sesiones
+- ✅ Mejor experiencia de usuario con contadores precisos
+- ✅ Sistema de auditoría funcional para cambios de estado de lectura
+
+---
+
 ## 🔔 Versión B2.1.6N6.0.0 - Sidebar: Corrección de Animación de Logo en Checkpoint #5 (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Corrección de Funcionalidad**

@@ -1,5 +1,27 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.1.7N6.0.0 (Enero 2025) - Live Chat: Corrección de Marcado de Mensajes como Leídos
+
+### 💬 RELEASE BETA - Corrección de Funcionalidad Crítica
+
+#### Corrección de Marcado de Mensajes como Leídos
+- **Problema resuelto:** Los mensajes no se marcaban como leídos en BD al abrir conversación
+- **Error identificado:** RPC fallaba por tabla `leido_change_audit` inexistente y trigger bloqueante
+- **Solución:** Creada tabla de auditoría, eliminado trigger bloqueante, recreada función RPC
+- **Resultado:** Mensajes se marcan correctamente en BD, contador funciona al refrescar
+
+#### Cambios en Base de Datos
+- **Tabla creada:** `leido_change_audit` con estructura completa e índices
+- **Trigger eliminado:** `trg_prevent_leido_true` que bloqueaba updates
+- **Función recreada:** `mark_messages_as_read` con SECURITY DEFINER
+
+#### Archivos Principales
+- `src/components/chat/LiveChatCanvas.tsx` - Simplificación de función de marcado
+- `src/components/Footer.tsx` - Versión B2.1.7N6.0.0
+- Base de datos: Tabla, trigger y función actualizados
+
+---
+
 ## Versión B2.1.6N6.1.0 (Enero 2025) - Live Monitor: Limpieza Completa de Logs de Seguridad
 
 ### 🔒 RELEASE BETA - Seguridad y Limpieza
