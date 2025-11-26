@@ -141,18 +141,28 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.02 }}
                       onClick={() => onCallClick(call)}
-                      className="group cursor-pointer"
+                      className="group cursor-pointer relative"
                     >
-                      <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 hover:shadow-sm p-0.5 sm:p-1 md:p-1.5">
+                      <div className="bg-white dark:bg-gray-800 rounded transition-colors transition-all duration-200 hover:shadow-sm p-0.5 sm:p-1 md:p-1.5 relative group">
+                        {(call.estatus === 'ejecutada' || call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto') && (
+                          <div
+                            className="absolute inset-0 rounded pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out transform translate-x-full group-hover:translate-x-0"
+                            style={{
+                              background: call.estatus === 'ejecutada'
+                                ? 'linear-gradient(to left, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 30%, transparent 60%)'
+                                : 'linear-gradient(to left, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.15) 30%, transparent 60%)',
+                            }}
+                          />
+                        )}
                         {/* Hora y estatus en una línea ultra compacta */}
-                        <div className="flex items-center justify-between gap-0.5 mb-0.5">
+                        <div className="flex items-center justify-between gap-0.5 mb-0.5 relative z-0">
                           <div className="flex items-center gap-0.5 min-w-0 flex-1">
                             <Clock className="w-1.5 h-1.5 sm:w-2 sm:h-2 flex-shrink-0 text-gray-400 dark:text-gray-500" />
                             <span className="text-[8px] sm:text-[9px] font-medium text-gray-900 dark:text-white truncate">
                               {formatTime(call.fecha_programada)}
                             </span>
                           </div>
-                          <span className={`inline-flex items-center px-0.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium border flex-shrink-0 ${getStatusColor(call.estatus)}`}>
+                          <span className={`inline-flex items-center px-0.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium border flex-shrink-0 relative z-30 ${getStatusColor(call.estatus)}`}>
                             {call.estatus === 'programada' ? 'P' : call.estatus === 'ejecutada' ? 'E' : call.estatus === 'cancelada' ? 'C' : 'N'}
                           </span>
                         </div>

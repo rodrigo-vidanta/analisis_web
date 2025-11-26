@@ -1,5 +1,31 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎨 Versión B2.2.1N6.0.0 - Llamadas Programadas: Mejoras Visuales y UX (Enero 2025)
+
+### 🎯 **RELEASE BETA - Mejoras de Interfaz**
+
+#### 🎨 **Mejoras Visuales en Llamadas Programadas**
+- **Badge de contador en calendario:** Reemplazado el punto pequeño por un badge circular con contador de llamadas programadas por día
+- **Posicionamiento optimizado:** Badge ubicado en la esquina inferior derecha del día, sobre el borde para mejor visibilidad
+- **Overlay animado en hover:** Implementado degradado animado que emerge desde el borde derecho al pasar el mouse sobre tarjetas ejecutadas/no contestadas
+- **Diferenciación visual:** Degradado verde para ejecutadas y rojo para no contestadas, solo visible en hover para mantener diseño minimalista
+- **Compatibilidad de temas:** Funciona correctamente en modo claro y oscuro
+
+#### 📝 **Archivos Modificados**
+- `src/components/scheduled-calls/CalendarSidebar.tsx` - Implementación de badge de contador en calendario
+- `src/components/scheduled-calls/views/DailyView.tsx` - Overlay animado en hover para tarjetas ejecutadas/no contestadas
+- `src/components/scheduled-calls/views/WeeklyView.tsx` - Overlay animado en hover para tarjetas ejecutadas/no contestadas
+- `src/components/scheduled-calls/CHANGELOG_SCHEDULED_CALLS.md` - Documentación de cambios del módulo
+- `src/components/Footer.tsx` - Versión actualizada a B2.2.1N6.0.0
+
+#### ✅ **Beneficios**
+- ✅ Mejor identificación visual de días con múltiples llamadas programadas
+- ✅ Feedback visual mejorado al interactuar con tarjetas
+- ✅ Diseño más limpio y profesional
+- ✅ Experiencia de usuario mejorada sin saturación visual
+
+---
+
 ## 🗑️ Versión B2.1.9N6.0.0 - Eliminación Completa del Módulo Prompts Manager (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Limpieza de Código**

@@ -180,8 +180,6 @@ export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({
                         const isSelectedDate = dayData.date ? isSelected(dayData.date) : false;
 
                         const hasCalls = callsCount > 0;
-                        const maxDots = 5; // Máximo de puntitos visibles
-                        const dotsToShow = Math.min(callsCount, maxDots);
 
                         return (
                           <button
@@ -205,39 +203,20 @@ export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({
                           >
                             <span className="relative z-10">{dayData.day}</span>
                             {hasCalls && (
-                              <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex items-center justify-center gap-0.5 flex-wrap max-w-full px-0.5">
-                                {Array.from({ length: dotsToShow }).map((_, i) => (
-                                  <motion.div
-                                    key={i}
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ delay: i * 0.05 }}
-                                    className={`w-1 h-1 rounded-full flex-shrink-0 ${
-                                      isSelectedDate
-                                        ? 'bg-white'
-                                        : isTodayDate
-                                        ? 'bg-blue-600 dark:bg-blue-400'
-                                        : 'bg-blue-500 dark:bg-blue-400'
-                                    }`}
-                                  />
-                                ))}
-                                {callsCount > maxDots && (
-                                  <motion.span
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ delay: dotsToShow * 0.05 }}
-                                    className={`text-[7px] font-bold ml-0.5 ${
-                                      isSelectedDate
-                                        ? 'text-white'
-                                        : isTodayDate
-                                        ? 'text-blue-600 dark:text-blue-400'
-                                        : 'text-blue-500 dark:text-blue-400'
-                                    }`}
-                                  >
-                                    +{callsCount - maxDots}
-                                  </motion.span>
-                                )}
-                              </div>
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                className={`absolute bottom-0 right-0 w-4 h-4 flex items-center justify-center rounded-full text-[8px] font-bold shadow-sm translate-x-1/2 translate-y-1/2 ${
+                                  isSelectedDate
+                                    ? 'bg-white text-blue-600'
+                                    : isTodayDate
+                                    ? 'bg-blue-600 dark:bg-blue-500 text-white'
+                                    : 'bg-blue-500 dark:bg-blue-400 text-white'
+                                }`}
+                              >
+                                {callsCount > 9 ? '9+' : callsCount}
+                              </motion.div>
                             )}
                           </button>
                         );

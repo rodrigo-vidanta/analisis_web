@@ -149,8 +149,18 @@ export const DailyView: React.FC<DailyViewProps> = ({
                           onClick={() => onCallClick(call)}
                           className="group cursor-pointer relative"
                         >
-                          <div className="relative overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600">
-                            <div className="p-4">
+                          <div className="relative overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg bg-white dark:bg-gray-800 group">
+                            {(call.estatus === 'ejecutada' || call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto') && (
+                              <div
+                                className="absolute inset-0 rounded-xl pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out transform translate-x-full group-hover:translate-x-0"
+                                style={{
+                                  background: call.estatus === 'ejecutada'
+                                    ? 'linear-gradient(to left, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 30%, transparent 60%)'
+                                    : 'linear-gradient(to left, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.15) 30%, transparent 60%)',
+                                }}
+                              />
+                            )}
+                            <div className="p-4 relative z-0">
                               <div className="flex items-start gap-4">
                                 {/* Avatar */}
                                 <ProspectAvatar
@@ -165,7 +175,7 @@ export const DailyView: React.FC<DailyViewProps> = ({
                                     <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
                                       {call.prospecto_nombre}
                                     </h3>
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(call.estatus)}`}>
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium relative z-30 ${getStatusColor(call.estatus)}`}>
                                       {call.estatus}
                                     </span>
                                   </div>
