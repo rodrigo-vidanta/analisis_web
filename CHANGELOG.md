@@ -1,5 +1,30 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔒 Versión B2.1.6N6.1.0 - Live Monitor: Limpieza Completa de Logs de Seguridad (Enero 2025)
+
+### 🎯 **RELEASE BETA - Seguridad y Limpieza**
+
+#### 🔒 **Limpieza de Logs de Seguridad**
+- **Logs eliminados de servicios optimizados:** Removidos todos los logs informativos de `liveMonitorKanbanOptimized.ts`
+- **Logs eliminados de servicios base:** Removidos logs de `liveMonitorOptimizedService.ts`
+- **Logs de Realtime eliminados:** Removidos logs de suscripciones y cambios en tiempo real
+- **Logs de clasificación eliminados:** Removidos logs de clasificación de llamadas y estadísticas
+- **Consola completamente limpia:** Solo se mantienen `console.error` para errores críticos
+- **Funcionalidad intacta:** Todas las funciones se mantienen, solo se eliminaron logs informativos
+
+#### 📝 **Archivos Modificados**
+- `src/services/liveMonitorKanbanOptimized.ts` - Eliminación completa de logs informativos
+- `src/services/liveMonitorOptimizedService.ts` - Eliminación de logs de llamadas activas y Realtime
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.6N6.1.0
+
+#### ✅ **Beneficios**
+- ✅ Consola completamente limpia sin información sensible
+- ✅ Mejor seguridad al no exponer información del sistema en consola
+- ✅ Mejor rendimiento al reducir escrituras innecesarias a consola
+- ✅ Experiencia de desarrollo más limpia y profesional
+
+---
+
 ## 🧹 Versión B2.1.5N6.1.0 - Live Monitor: Limpieza de Logs y Eliminación de Botón Actualizar (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Limpieza y Optimización**

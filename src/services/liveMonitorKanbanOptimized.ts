@@ -144,8 +144,6 @@ class LiveMonitorKanbanOptimizedService {
       const optimizedCalls = await liveMonitorOptimizedService.getOptimizedCalls();
       const allCalls = optimizedCalls.map(call => this.mapOptimizedToKanban(call));
       
-      console.log(`📊 Total llamadas cargadas: ${allCalls.length}`);
-      
       // Log de estadísticas de auto-clasificación (silencioso)
       const reclasificadas = optimizedCalls.filter(c => c.call_status_bd !== c.call_status_inteligente);
       
@@ -165,7 +163,6 @@ class LiveMonitorKanbanOptimizedService {
         switch (estadoInteligente) {
           case 'activa':
             active.push(call);
-            console.log(`✅ Llamada activa detectada: ${call.call_id} (BD: ${estadoBD}, Inteligente: ${estadoInteligente})`);
             break;
             
           case 'transferida':
@@ -195,9 +192,6 @@ class LiveMonitorKanbanOptimizedService {
             }
         }
       });
-      
-      // Clasificación completada
-      console.log(`📊 Clasificación: ${active.length} activas, ${transferred.length} transferidas, ${failed.length} fallidas`);
       
       return {
         active,
@@ -244,7 +238,6 @@ class LiveMonitorKanbanOptimizedService {
           },
           async (payload) => {
             // Nueva llamada detectada - recargar inmediatamente
-            console.log('🔔 Realtime INSERT detectado en llamadas_ventas:', payload.new?.call_id);
             const classifiedCalls = await this.getClassifiedCalls();
             onCallsUpdate(classifiedCalls);
           }
@@ -261,9 +254,6 @@ class LiveMonitorKanbanOptimizedService {
             // Cambio detectado en llamadas_ventas - recargar para obtener clasificación actualizada
             const newCall = payload.new as any;
             const oldCall = payload.old as any;
-            if (newCall?.call_status === 'activa' || (oldCall?.call_status !== 'activa' && newCall?.call_status === 'activa')) {
-              console.log('🔔 Realtime UPDATE detectado - Llamada activa:', newCall?.call_id);
-            }
             const classifiedCalls = await this.getClassifiedCalls();
             onCallsUpdate(classifiedCalls);
           }
@@ -298,13 +288,13 @@ class LiveMonitorKanbanOptimizedService {
         )
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Suscripción Realtime optimizada activa - Detectando cambios en llamadas_ventas y prospectos');
+            // Suscripción Realtime optimizada activa
           } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
-            console.warn('⚠️ Realtime no disponible (sobrecarga o error). Usando solo polling cada 3 segundos.');
+            // Realtime no disponible (sobrecarga o error). Usando solo polling cada 3 segundos.
             // No hacer nada - el polling se encargará de detectar cambios
             return null;
           } else {
-            console.log('⚠️ Estado de suscripción Realtime:', status);
+            // Estado de suscripción Realtime (no crítico)
           }
         });
       
@@ -313,13 +303,13 @@ class LiveMonitorKanbanOptimizedService {
       
       // Verificar el estado del canal
       if (channel.state === 'closed' || channel.state === 'errored') {
-        console.warn('⚠️ Canal Realtime cerrado o con error. Usando solo polling.');
+        // Canal Realtime cerrado o con error. Usando solo polling.
         return null;
       }
       
       return channel;
     } catch (error) {
-      console.warn('⚠️ Error configurando Realtime (usando solo polling):', error);
+      // Error configurando Realtime (usando solo polling) - no crítico
       // No es crítico - el polling se encargará de detectar cambios
       return null;
     }

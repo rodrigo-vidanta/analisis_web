@@ -137,8 +137,6 @@ class LiveMonitorOptimizedService {
       
       if (activeError) {
         console.error('❌ Error cargando llamadas activas:', activeError);
-      } else {
-        console.log(`📞 Llamadas activas encontradas: ${activeCalls?.length || 0}`);
       }
       
       // 2. Obtener llamadas recientes (no activas) para completar el límite
@@ -280,7 +278,7 @@ class LiveMonitorOptimizedService {
             // Suscripción activa (silencioso)
           });
       } catch (viewError) {
-        console.warn('⚠️ [OPTIMIZED] Realtime en vista no disponible, usando tablas base:', viewError);
+        // Realtime en vista no disponible, usando tablas base (no crítico)
         
         // Fallback: suscribirse a las tablas base
         channel = analysisSupabase
