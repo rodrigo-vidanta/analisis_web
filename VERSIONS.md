@@ -17,13 +17,15 @@
 
 ---
 
-## Versión B2.1.5N6.1.0 (Enero 2025) - Live Monitor: Limpieza de Logs y Eliminación de Botón Actualizar
+## Versión B2.1.5N6.1.0 (Enero 2025) - Live Monitor: Limpieza Completa de Logs y Eliminación de Botón Actualizar
 
-### 🧹 RELEASE BETA - Limpieza y Optimización
+### 🧹 RELEASE BETA - Limpieza y Optimización Completa
 
-#### Limpieza de Logs de Consola
-- **Logs eliminados:** Removidos todos los logs informativos de LiveMonitorKanban y LiveMonitor
-- **Consola limpia:** Solo se mantienen errores críticos
+#### Limpieza Completa de Logs de Consola
+- **Logs eliminados de componentes:** Removidos todos los logs informativos de LiveMonitorKanban y LiveMonitor
+- **Logs eliminados de servicios:** Removidos logs de liveMonitorKanbanOptimized y liveMonitorOptimizedService
+- **Logs de Realtime eliminados:** Removidos logs de suscripciones, cambios en tiempo real y clasificación
+- **Consola completamente limpia:** Solo se mantienen errores críticos con console.error
 - **Funcionalidad intacta:** Todas las funciones se mantienen
 
 #### Eliminación de Botón Actualizar
@@ -34,6 +36,8 @@
 #### Archivos Principales
 - `src/components/analysis/LiveMonitorKanban.tsx` - Eliminación de botón y logs
 - `src/components/analysis/LiveMonitor.tsx` - Limpieza de logs de Realtime
+- `src/services/liveMonitorKanbanOptimized.ts` - Eliminación completa de logs informativos
+- `src/services/liveMonitorOptimizedService.ts` - Eliminación de logs de llamadas activas y Realtime
 - `src/components/Footer.tsx` - Versión B2.1.5N6.1.0
 
 ---
