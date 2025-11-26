@@ -1,5 +1,42 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## ⚡ Versión B2.1.4N6.1.0 - Optimizaciones de Rendimiento y Mejoras de UX (Enero 2025)
+
+### 🎯 **RELEASE BETA - Optimizaciones de Rendimiento**
+
+#### 🎨 **Modal PQNC - Scroll Invisible**
+- **Scroll funcional sin barra visible:** Modal de detalle de PQNC con scroll invisible pero funcional
+- **Mejora de UX:** Experiencia más limpia y profesional sin barras de desplazamiento visibles
+- **Compatibilidad completa:** Funciona con rueda del mouse, gestos táctiles y teclado
+
+#### 🎵 **Reproductor de Audio Profesional en Análisis IA**
+- **Diseño profesional:** Reproductor de audio con mismo diseño que PQNC Humans
+- **Controles avanzados:** Barra de progreso, play/pause, volumen y tiempo
+- **Header elegante:** Diseño con gradiente y nombre del cliente
+- **Funcionalidad completa:** Usa directamente `audio_ruta_bucket` sin firmar URL
+
+#### ⚡ **Optimizaciones de Rendimiento - PQNC Humans**
+- **startTransition implementado:** Actualizaciones de estado marcadas como no urgentes
+- **Sort optimizado:** Pre-cálculo de scores para evitar recálculos durante ordenación
+- **Handlers optimizados:** Todos los handlers de click usan `startTransition` para evitar bloqueos
+- **Reducción de violaciones:** Eliminadas violaciones de rendimiento en consola
+- **Mejor responsividad:** UI más fluida y responsive
+
+#### 📝 **Archivos Modificados**
+- `src/components/analysis/DetailedCallView.tsx` - Scroll invisible en modal PQNC
+- `src/components/analysis/AnalysisIAComplete.tsx` - Reproductor de audio profesional
+- `src/components/analysis/PQNCDashboard.tsx` - Optimizaciones de rendimiento
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.4N6.1.0
+
+#### ✅ **Beneficios**
+- ✅ Modales más limpios visualmente sin barras de desplazamiento
+- ✅ Reproductor de audio consistente entre módulos
+- ✅ Mejor rendimiento y menos bloqueos en PQNC Humans
+- ✅ Consola sin violaciones de rendimiento
+- ✅ Experiencia de usuario mejorada en todos los módulos
+
+---
+
 ## 🔧 Versión B2.1.3N6.1.0 - Análisis IA: Scroll Invisible en Modal y Limpieza de Logs (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras de UX y Limpieza**

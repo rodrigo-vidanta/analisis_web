@@ -571,7 +571,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
         return (
           <div className="flex h-full">
               {/* Left Sidebar - Conversation */}
-              <div className="w-1/2 px-8 py-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+              <div className="w-1/2 px-8 py-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto scrollbar-hide">
               <div className="flex items-center space-x-2 mb-6">
                 <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
@@ -682,7 +682,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
             </div>
 
             {/* Right Sidebar - Analytics */}
-            <div className="w-1/2 px-8 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+            <div className="w-1/2 px-8 py-6 overflow-y-auto scrollbar-hide">
               {/* Resumen de la llamada */}
               {call.call_evaluation?.analisisGeneral && (
                 <div className="mb-6">
@@ -1285,7 +1285,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                     Datos Completos (JSON)
                   </h4>
                   <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
-                    <pre className="text-xs overflow-auto max-h-96 whitespace-pre-wrap text-slate-700 dark:text-slate-300 analysis-scroll">
+                    <pre className="text-xs overflow-auto max-h-96 whitespace-pre-wrap text-slate-700 dark:text-slate-300 scrollbar-hide">
                       {JSON.stringify(call, null, 2)}
                     </pre>
                   </div>
@@ -1412,7 +1412,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
 
           {/* Tabs */}
           <div className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
-            <nav className="flex space-x-1 px-8 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+            <nav className="flex space-x-1 px-8 overflow-x-auto scrollbar-hide">
               {tabs.map((tab, index) => (
                 <motion.button
                   key={tab.id}
@@ -1440,7 +1440,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}

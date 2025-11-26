@@ -786,12 +786,26 @@ const PQNCDashboard: React.FC = () => {
       filtered = performIntelligentSearch(searchQuery, filtered);
     }
 
-    // Ordenar por score ponderado descendente - usar cache de scores
-    filtered.sort((a, b) => {
-      const scoreA = callScoresCache.get(a.id) ?? calcularQualityScorePonderado(a, ponderacionConfig);
-      const scoreB = callScoresCache.get(b.id) ?? calcularQualityScorePonderado(b, ponderacionConfig);
-      return scoreB - scoreA;
-    });
+    // OPTIMIZACIÓN: Ordenar por score ponderado descendente - usar cache de scores
+    // Usar sort optimizado con memoización para evitar cálculos repetidos
+    if (filtered.length > 0) {
+      // Pre-calcular scores solo una vez para evitar recálculos durante sort
+      const scoresMap = new Map<string, number>();
+      filtered.forEach(call => {
+        if (!callScoresCache.has(call.id)) {
+          const score = calcularQualityScorePonderado(call, ponderacionConfig);
+          callScoresCache.set(call.id, score);
+        }
+        scoresMap.set(call.id, callScoresCache.get(call.id)!);
+      });
+      
+      // Sort usando scores pre-calculados (más rápido)
+      filtered.sort((a, b) => {
+        const scoreA = scoresMap.get(a.id) ?? 0;
+        const scoreB = scoresMap.get(b.id) ?? 0;
+        return scoreB - scoreA;
+      });
+    }
     
     return filtered;
   }, [
@@ -820,9 +834,12 @@ const PQNCDashboard: React.FC = () => {
   ]);
 
   // Aplicar filtros y actualizar estado cuando cambien los resultados computados
+  // OPTIMIZACIÓN: Usar startTransition para actualizaciones no críticas y evitar violaciones de rendimiento
   useEffect(() => {
-    setFilteredCalls(computedFilteredCalls);
-    setCurrentPage(1);
+    startTransition(() => {
+      setFilteredCalls(computedFilteredCalls);
+      setCurrentPage(1);
+    });
   }, [computedFilteredCalls]);
 
   const loadTranscript = async (callId: string) => {
@@ -1304,7 +1321,7 @@ const PQNCDashboard: React.FC = () => {
                   {[1000, 3000, 5000, 999999].map(num => (
                     <button
                       key={num}
-                      onClick={() => setTopRecords(num as 1000 | 3000 | 5000 | 999999)}
+                      onClick={() => startTransition(() => setTopRecords(num as 1000 | 3000 | 5000 | 999999))}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         topRecords === num
                           ? 'bg-blue-600 text-white shadow-md'
@@ -1326,7 +1343,7 @@ const PQNCDashboard: React.FC = () => {
 
               {/* Botón para mostrar filtros avanzados - Alineado */}
               <button
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    onClick={() => startTransition(() => setShowAdvancedFilters(!showAdvancedFilters))}
                 className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-all text-sm font-medium flex items-center gap-2"
               >
                 <svg className={`w-4 h-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1868,8 +1885,10 @@ const PQNCDashboard: React.FC = () => {
                     value={itemsPerPage}
                     onChange={(e) => {
                       const newPerPage = Number(e.target.value);
-                      setItemsPerPage(newPerPage);
-                      setCurrentPage(1);
+                      startTransition(() => {
+                        setItemsPerPage(newPerPage);
+                        setCurrentPage(1);
+                      });
                     }}
                     className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
@@ -1883,7 +1902,7 @@ const PQNCDashboard: React.FC = () => {
               {totalPages > 1 && (
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                    onClick={() => startTransition(() => setCurrentPage(page => Math.max(1, page - 1)))}
                     disabled={currentPage === 1}
                     className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
                   >
@@ -1893,7 +1912,7 @@ const PQNCDashboard: React.FC = () => {
                     {currentPage} de {totalPages}
                   </span>
                   <button
-                    onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+                    onClick={() => startTransition(() => setCurrentPage(page => Math.min(totalPages, page + 1)))}
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
                   >
