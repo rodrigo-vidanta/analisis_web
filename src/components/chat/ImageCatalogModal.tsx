@@ -430,9 +430,6 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         } catch (error) {
           console.error('❌ Error pausando bot después de enviar adjunto:', error);
         }
-        } catch (error) {
-          console.error('❌ Error pausando bot después de enviar adjunto:', error);
-        }
       }
 
       // Animación de éxito (check)
