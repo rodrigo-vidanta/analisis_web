@@ -1,5 +1,27 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.1.3N6.1.0 (Enero 2025) - Análisis IA: Scroll Invisible en Modal y Limpieza de Logs
+
+### 🔧 RELEASE BETA - Mejoras de UX y Limpieza
+
+#### Modal de Detalle - Scroll Invisible
+- **Scroll funcional sin barra visible:** Modal de detalle de llamadas con scroll invisible pero funcional
+- **Transcripción con scroll invisible:** Área de transcripción también con scroll sin barra visible
+- **Mejora de UX:** Experiencia más limpia y profesional sin barras de desplazamiento visibles
+
+#### Limpieza de Logs de Consola
+- **Logs de debug eliminados:** Removidos todos los logs informativos de `errorLogService.ts`
+- **Logs de UserManagement eliminados:** Removidos 28+ logs de debug del módulo de gestión de usuarios
+- **Solo errores críticos:** Consola limpia, solo se muestran `console.error` para errores reales
+
+#### Archivos Principales
+- `src/components/analysis/AnalysisIAComplete.tsx` - Scroll invisible en modal y transcripción
+- `src/services/errorLogService.ts` - Limpieza de logs informativos
+- `src/components/admin/UserManagement.tsx` - Eliminación de logs de debug
+- `src/components/Footer.tsx` - Versión B2.1.3N6.1.0
+
+---
+
 ## Versión B2.1.2N6.1.0 (Enero 2025) - Sistema de Temas Global: Modo Oscuro por Defecto y Exclusión Módulo Dirección
 
 ### 🎨 RELEASE BETA - Sistema de Temas Mejorado

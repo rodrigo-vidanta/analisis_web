@@ -74,11 +74,7 @@ class ErrorLogService {
 
   async initialize(): Promise<void> {
     await this.loadConfig();
-    console.log('[ErrorLogService] Initialized with config:', {
-      enabled: this.config?.enabled,
-      webhook_url: this.config?.webhook_url,
-      rate_limit: this.config?.rate_limit
-    });
+    // Log de inicialización removido - solo mantener logs de error
   }
 
   // ============================================
@@ -217,7 +213,6 @@ class ErrorLogService {
         if (error) {
           // Si la tabla no existe, solo guardar en localStorage
           if (error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('does not exist')) {
-            console.warn('[ErrorLogService] Tabla log_server_config no existe en Supabase. Configuración guardada en localStorage.');
             this.config = configToSave;
             this.configCacheTime = Date.now();
             return true; // Retornar true porque se guardó en localStorage
@@ -245,7 +240,6 @@ class ErrorLogService {
         return true;
       } catch (dbError) {
         // Error de base de datos, pero la configuración ya está en localStorage
-        console.warn('[ErrorLogService] Error guardando en Supabase, pero configuración guardada en localStorage:', dbError);
         this.config = configToSave;
         this.configCacheTime = Date.now();
         return true; // Retornar true porque se guardó en localStorage
@@ -377,23 +371,13 @@ class ErrorLogService {
       // Verificar rate limiting
       const errorKey = this.getErrorKey(errorData);
       if (this.isRateLimited(errorKey)) {
-        console.warn(`[ErrorLogService] Error rate limited: ${errorKey}`);
         return;
       }
 
       // Enviar al webhook si está habilitado
       if (this.config?.enabled && this.config?.webhook_url) {
         await this.sendToWebhook(errorData);
-      } else {
-        console.warn('[ErrorLogService] Webhook deshabilitado o URL no configurada:', {
-          enabled: this.config?.enabled,
-          webhook_url: this.config?.webhook_url
-        });
       }
-
-      // También registrar en consola para debugging (usar console.log para evitar loops)
-      const originalLog = console.log;
-      originalLog('[ErrorLogService] Error logged:', errorData);
     } catch (logError) {
       // No queremos que errores en el logging causen más errores
       console.error('[ErrorLogService] Error logging error:', logError);
@@ -669,9 +653,6 @@ class ErrorLogService {
    */
   private async sendToWebhook(errorData: ErrorLogData): Promise<void> {
     if (!this.config?.webhook_url) {
-      // Usar console.warn directamente sin interceptor para evitar loops
-      const originalWarn = console.warn;
-      originalWarn('[ErrorLogService] No webhook URL configured');
       return;
     }
 
@@ -696,26 +677,13 @@ class ErrorLogService {
       });
 
       if (!response.ok) {
-        // Usar console.warn en lugar de console.error para evitar loops
-        const originalWarn = console.warn;
+        // Error silencioso para evitar loops - solo registrar en caso de fallo crítico
         const errorText = await response.text().catch(() => 'Unable to read error');
-        originalWarn(`[ErrorLogService] Webhook responded with status ${response.status}:`, errorText);
-      } else {
-        // Log minimalista solo cuando se envía exitosamente
-        console.log(`[ErrorLogService] Error enviado: ${errorData.error_id}`);
+        // No loguear para mantener consola limpia
       }
     } catch (error) {
       // No queremos que errores de red causen más errores
-      // Usar console.warn en lugar de console.error para evitar loops
-      const originalWarn = console.warn;
-      originalWarn('[ErrorLogService] Error sending to webhook:', error);
-      if (error instanceof Error) {
-        originalWarn('[ErrorLogService] Error details:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        });
-      }
+      // Error silencioso para mantener consola limpia
     }
   }
 }

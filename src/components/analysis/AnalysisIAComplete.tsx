@@ -1942,11 +1942,11 @@ const AnalysisIAComplete: React.FC = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden pointer-events-auto"
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] h-[92vh] max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden pointer-events-auto"
               >
-                <div className="flex flex-col h-full">
+                <div className="flex flex-col h-full overflow-hidden">
                   {/* Header */}
-                  <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
+                  <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-4 flex-1 min-w-0">
                         <motion.div
@@ -2012,9 +2012,9 @@ const AnalysisIAComplete: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* Content */}
-                  <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent px-8 py-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Content - Scroll invisible */}
+                  <div className="flex-1 overflow-y-auto px-8 py-6 min-h-0 scrollbar-hide">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     
                     {/* Panel Izquierdo - Métricas */}
                     <div className="space-y-6">
@@ -2164,7 +2164,7 @@ const AnalysisIAComplete: React.FC = () => {
                             Transcripción de Conversación
                           </h3>
                         </div>
-                        <div className="max-h-96 overflow-y-auto space-y-3">
+                        <div className="max-h-96 overflow-y-auto scrollbar-hide space-y-3">
                           {transcript.length > 0 ? (
                             transcript.map((segment, index) => (
                               <div

@@ -146,16 +146,7 @@ const UserManagement: React.FC = () => {
   const canEdit = hasPermission('admin.users.edit') || isAdmin;
   const canDelete = isAdmin; // FORZAR TRUE para admin temporalmente
 
-  // Debug temporal para verificar permisos
-  console.log('🔍 Debug permisos UserManagement:', {
-    currentUser: currentUser?.role_name,
-    isAdmin,
-    hasDeletePermission: hasPermission('admin.users.delete'),
-    canDelete,
-    canView,
-    canEdit,
-    canCreate
-  });
+  // Debug temporal removido - solo mantener logs de error
 
   useEffect(() => {
     if (canView) {
@@ -744,8 +735,6 @@ const UserManagement: React.FC = () => {
 
           if (relacionesError) {
             console.error('Error asignando coordinaciones al coordinador:', relacionesError);
-          } else {
-            console.log('✅ Coordinaciones asignadas correctamente');
           }
         } catch (coordError) {
           console.error('Error asignando coordinaciones:', coordError);
@@ -767,8 +756,6 @@ const UserManagement: React.FC = () => {
 
           if (updateError) {
             console.error('Error actualizando coordinación del ejecutivo:', updateError);
-          } else {
-            console.log('✅ Coordinación asignada correctamente');
           }
         } catch (coordError) {
           console.error('Error asignando coordinación:', coordError);
@@ -989,8 +976,6 @@ const UserManagement: React.FC = () => {
 
             if (relacionesError) {
               console.error('Error actualizando coordinaciones del coordinador:', relacionesError);
-            } else {
-              console.log('✅ Coordinaciones actualizadas correctamente');
             }
           }
         } catch (coordError) {
@@ -1016,8 +1001,6 @@ const UserManagement: React.FC = () => {
 
           if (coordUpdateError) {
             console.error('Error actualizando coordinación del ejecutivo:', coordUpdateError);
-          } else {
-            console.log('✅ Coordinación actualizada correctamente');
           }
         } catch (coordError) {
           console.error('Error actualizando coordinación:', coordError);
@@ -1098,7 +1081,6 @@ const UserManagement: React.FC = () => {
   };
 
   const openArchiveModal = (userId: string) => {
-    console.log('📦 Abriendo modal de archivado para:', userId);
     const user = users.find(u => u.id === userId);
     if (user) {
       setUserToArchive(user);
@@ -1110,35 +1092,24 @@ const UserManagement: React.FC = () => {
     if (!userToArchive) return;
     
     const userId = userToArchive.id;
-    console.log('📦 handleArchiveUser ejecutado:', { userId, canDelete, currentUser: currentUser?.role_name });
     
     if (!canDelete) {
-      console.log('❌ Sin permisos para archivar');
       setError('No tienes permisos para archivar usuarios');
       return;
     }
 
-    console.log('✅ Permisos verificados');
-
     // Verificar que no sea el usuario actual
     if (userId === currentUser?.id) {
-      console.log('❌ Intento de auto-archivado');
       setError('No puedes archivar tu propio usuario');
       setShowArchiveModal(false);
       return;
     }
-
-    console.log('✅ No es auto-archivado');
-
-    console.log('🚀 Iniciando archivado...');
     
     try {
       setLoading(true);
       setError(null);
-      console.log('🔄 Loading activado');
 
       // Archivar usuario (eliminación lógica)
-      console.log('📦 Archivando usuario...');
       const { error: archiveError } = await supabaseSystemUIAdmin
         .from('auth_users')
         .update({ 
@@ -1147,13 +1118,10 @@ const UserManagement: React.FC = () => {
         })
         .eq('id', userId);
 
-      console.log('📦 Archive response:', { archiveError });
       if (archiveError) throw archiveError;
 
-      console.log('🔄 Recargando lista de usuarios...');
       await loadUsers();
       setError(null);
-      console.log('✅ Usuario archivado exitosamente');
       setShowArchiveModal(false);
       setUserToArchive(null);
       
@@ -1162,13 +1130,11 @@ const UserManagement: React.FC = () => {
       console.error('❌ Error details:', { message: err.message, stack: err.stack });
       setError(`Error al archivar usuario: ${err.message || 'Error desconocido'}`);
     } finally {
-      console.log('🏁 Finalizando - loading desactivado');
       setLoading(false);
     }
   };
 
   const handleUnarchiveUser = async (userId: string) => {
-    console.log('📤 handleUnarchiveUser ejecutado:', { userId });
     
     if (!canDelete) {
       setError('No tienes permisos para desarchivar usuarios');
@@ -1284,8 +1250,6 @@ const UserManagement: React.FC = () => {
       const pqncAccess = sources.includes('pqnc');
       const liveMonitorAccess = sources.includes('live_monitor');
       
-      console.log('📋 Configurando permisos:', { userId, nataliaAccess, pqncAccess, liveMonitorAccess });
-      
       // MÉTODO TEMPORAL: Guardar en localStorage hasta que RPC funcione completamente
       const userEmail = users.find(u => u.id === userId)?.email;
       if (userEmail) {
@@ -1300,7 +1264,6 @@ const UserManagement: React.FC = () => {
         };
         
         localStorage.setItem(permissionsKey, JSON.stringify(permissionsData));
-        console.log('✅ Permisos guardados temporalmente en localStorage:', permissionsData);
         
         // Disparar evento para notificar cambios
         window.dispatchEvent(new StorageEvent('storage', {
@@ -1320,12 +1283,10 @@ const UserManagement: React.FC = () => {
         });
 
         if (error) {
-          console.log('⚠️ Función RPC no disponible completamente, usando localStorage temporal');
-        } else {
-          console.log('✅ Permisos también guardados via RPC:', result);
+          // RPC no disponible, usando localStorage temporal
         }
       } catch (err) {
-        console.log('⚠️ RPC no disponible, usando solo localStorage temporal');
+        // RPC no disponible, usando solo localStorage temporal
       }
 
     } catch (err) {
@@ -1374,8 +1335,6 @@ const UserManagement: React.FC = () => {
   // Función para cargar permisos específicos del usuario desde localStorage
   const loadUserPermissionsDirect = async (userId: string) => {
     try {
-      console.log('🔍 Cargando permisos específicos para usuario:', userId);
-      
       const userEmail = users.find(u => u.id === userId)?.email;
       if (!userEmail) {
         console.error('❌ No se encontró email para usuario:', userId);
@@ -1395,14 +1354,12 @@ const UserManagement: React.FC = () => {
           if (permData.pqnc_access) sources.push('pqnc');
           if (permData.live_monitor_access) sources.push('live_monitor');
           
-          console.log('✅ Permisos cargados desde localStorage:', sources);
           setFormData(prev => ({ ...prev, analysis_sources: sources }));
         } catch (err) {
           console.error('❌ Error parseando localStorage:', err);
           setFormData(prev => ({ ...prev, analysis_sources: [] }));
         }
       } else {
-        console.log('⚠️ No hay configuración en localStorage para:', userEmail);
         setFormData(prev => ({ ...prev, analysis_sources: [] }));
       }
 
@@ -1475,7 +1432,6 @@ const UserManagement: React.FC = () => {
 
     // Cargar subpermisos actuales si es evaluador
     if (user.role_name === 'evaluator') {
-      console.log('📋 Cargando configuración para evaluador:', user.email);
       // Usar localStorage como fuente principal para gestión dinámica
       await loadUserPermissionsDirect(user.id);
     }
@@ -3027,10 +2983,10 @@ const UserManagement: React.FC = () => {
 
                     {/* Toggle Switch para Usuario Operativo - Solo para coordinadores y ejecutivos */}
                     {selectedUser && (selectedUser.role_name === 'coordinador' || selectedUser.role_name === 'ejecutivo') && (
-                      <motion.label
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.4 }}
+                    <motion.label
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 }}
                         className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all duration-200 group ${
                           // Deshabilitar si es ejecutivo sin id_dynamics y se intenta habilitar operativo
                           selectedUser.role_name === 'ejecutivo' && 
@@ -3039,32 +2995,32 @@ const UserManagement: React.FC = () => {
                             ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 cursor-not-allowed opacity-60'
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer'
                         }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
-                            formData.is_operativo !== false ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'
-                          }`}>
-                            <motion.div
-                              animate={{ x: formData.is_operativo !== false ? 24 : 0 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                              className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
-                            />
-                          </div>
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
+                          formData.is_operativo !== false ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'
+                        }`}>
+                          <motion.div
+                            animate={{ x: formData.is_operativo !== false ? 24 : 0 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
+                          />
+                        </div>
                           <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Usuario Operativo
-                            </span>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Usuario Operativo
+                          </span>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                               {selectedUser.role_name === 'ejecutivo' && !selectedUser.id_dynamics
                                 ? 'Se requiere ID_Dynamics para habilitar operativo'
                                 : 'Estado lógico que no limita acceso ni permisos'}
-                            </p>
-                          </div>
+                          </p>
                         </div>
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={formData.is_operativo !== false}
+                      </div>
+                <input
+                  type="checkbox"
+                        className="sr-only"
+                  checked={formData.is_operativo !== false}
                           disabled={
                             selectedUser.role_name === 'ejecutivo' && 
                             !selectedUser.id_dynamics && 
@@ -3079,8 +3035,8 @@ const UserManagement: React.FC = () => {
                             setFormData({ ...formData, is_operativo: e.target.checked });
                             setError(null);
                           }}
-                        />
-                      </motion.label>
+                      />
+                    </motion.label>
                     )}
                   </motion.div>
                 </form>
