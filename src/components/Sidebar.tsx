@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
 import { useUserProfile } from '../hooks/useUserProfile';
 import useAnalysisPermissions from '../hooks/useAnalysisPermissions';
 import { useSystemConfig } from '../hooks/useSystemConfig';
+import { useNotificationStore } from '../stores/notificationStore';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import type { TokenLimits } from '../services/tokenService';
 
@@ -43,6 +45,40 @@ const sidebarLogoStyles = `
     }
   }
 
+  @keyframes sidebar-neon-glow-green {
+    0%, 100% {
+      filter: drop-shadow(0 0 2px rgba(34, 197, 94, 0.9))
+              drop-shadow(0 0 4px rgba(34, 197, 94, 0.7))
+              drop-shadow(0 0 6px rgba(34, 197, 94, 0.5));
+    }
+    50% {
+      filter: drop-shadow(0 0 3px rgba(34, 197, 94, 1))
+              drop-shadow(0 0 6px rgba(34, 197, 94, 0.9))
+              drop-shadow(0 0 9px rgba(34, 197, 94, 0.7));
+    }
+  }
+
+  @keyframes sidebar-ringing {
+    0%, 100% {
+      transform: rotate(0deg) scale(1);
+    }
+    10% {
+      transform: rotate(-5deg) scale(1.05);
+    }
+    20% {
+      transform: rotate(5deg) scale(1.05);
+    }
+    30% {
+      transform: rotate(-5deg) scale(1.05);
+    }
+    40% {
+      transform: rotate(5deg) scale(1.05);
+    }
+    50% {
+      transform: rotate(0deg) scale(1);
+    }
+  }
+
   .sidebar-logo-container {
     position: relative;
   }
@@ -53,6 +89,12 @@ const sidebarLogoStyles = `
     transform-origin: center bottom;
     backface-visibility: hidden;
     will-change: transform, filter;
+  }
+
+  .sidebar-logo.ringing {
+    animation: sidebar-leaf-sway 30s ease-in-out infinite,
+               sidebar-neon-glow-green 1s ease-in-out infinite,
+               sidebar-ringing 0.5s ease-in-out infinite;
   }
 
   .sidebar-logo img,
@@ -67,6 +109,13 @@ const sidebarLogoStyles = `
     filter: drop-shadow(0 0 2px rgba(96, 165, 250, 1))
             drop-shadow(0 0 4px rgba(96, 165, 250, 0.8))
             drop-shadow(0 0 6px rgba(96, 165, 250, 0.6));
+  }
+
+  .dark .sidebar-logo.ringing img,
+  .dark .sidebar-logo.ringing svg {
+    filter: drop-shadow(0 0 2px rgba(74, 222, 128, 1))
+            drop-shadow(0 0 4px rgba(74, 222, 128, 0.8))
+            drop-shadow(0 0 6px rgba(74, 222, 128, 0.6));
   }
 `;
 
@@ -177,6 +226,48 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
   );
 };
 
+// Función para reproducir sonido de checkpoint completado (misma que LiveMonitor)
+const playCheckpointCompleteSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    const playTone = (frequency: number, duration: number, delay: number = 0) => {
+      setTimeout(() => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        const compressor = audioContext.createDynamicsCompressor();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(compressor);
+        compressor.connect(audioContext.destination);
+        
+        compressor.threshold.setValueAtTime(-10, audioContext.currentTime);
+        compressor.knee.setValueAtTime(20, audioContext.currentTime);
+        compressor.ratio.setValueAtTime(8, audioContext.currentTime);
+        compressor.attack.setValueAtTime(0.01, audioContext.currentTime);
+        compressor.release.setValueAtTime(0.1, audioContext.currentTime);
+        
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.8, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + duration);
+      }, delay);
+    };
+    
+    for (let i = 0; i < 4; i++) {
+      const baseDelay = i * 800;
+      playTone(800, 0.5, baseDelay);
+    }
+  } catch (error) {
+    // Silenciar errores de audio
+  }
+};
+
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const { user, canAccessModule, canAccessLiveMonitor } = useAuth();
   const { profile } = useUserProfile();
@@ -185,8 +276,47 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const { natalia, pqnc, liveMonitor } = useAnalysisPermissions();
   const [analysisMode, setAnalysisMode] = useState<'natalia' | 'pqnc'>('natalia');
   const { config } = useSystemConfig();
+  const { activeCallNotification, clearCallNotification } = useNotificationStore();
+  const [isRinging, setIsRinging] = useState(false);
   
   const faviconUrl = config.app_branding?.favicon_url;
+
+  // Escuchar notificaciones de llamadas y activar animación
+  useEffect(() => {
+    if (!activeCallNotification || activeCallNotification.checkpoint !== 'checkpoint #5') {
+      setIsRinging(false);
+      return;
+    }
+    
+    // Capturar el timestamp actual para verificar después
+    const currentTimestamp = activeCallNotification.timestamp;
+    
+    // Resetear primero para permitir reactivación
+    setIsRinging(false);
+    
+    // Pequeño delay para asegurar que el estado se resetea antes de activar
+    const activateTimer = setTimeout(() => {
+      // Verificar que la notificación sigue siendo la misma antes de activar
+      if (activeCallNotification?.timestamp === currentTimestamp) {
+        setIsRinging(true);
+        playCheckpointCompleteSound();
+      }
+    }, 50);
+    
+    // Auto-detener después de 5 segundos
+    const deactivateTimer = setTimeout(() => {
+      // Solo desactivar si esta sigue siendo la notificación activa
+      if (activeCallNotification?.timestamp === currentTimestamp) {
+        setIsRinging(false);
+        clearCallNotification();
+      }
+    }, 5000);
+    
+    return () => {
+      clearTimeout(activateTimer);
+      clearTimeout(deactivateTimer);
+    };
+  }, [activeCallNotification?.timestamp, activeCallNotification?.checkpoint, clearCallNotification]);
 
   const handleAnalysisChange = (mode: 'natalia' | 'pqnc') => {
     setAnalysisMode(mode);
@@ -376,7 +506,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                   <img 
                     src={faviconUrl} 
                     alt="Logo" 
-                    className="w-full h-full object-contain sidebar-logo"
+                    className={`w-full h-full object-contain sidebar-logo ${isRinging ? 'ringing' : ''}`}
                     onError={(e) => {
                       // Fallback al icono SVG si el favicon falla
                       const target = e.target as HTMLImageElement;
@@ -384,7 +514,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                       const parent = target.parentElement;
                       if (parent) {
                         parent.innerHTML = `
-                          <svg class="w-5 h-5 text-blue-500 sidebar-logo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
                         `;
@@ -392,7 +522,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                     }}
                   />
                 ) : (
-                  <svg className="w-5 h-5 text-blue-500 sidebar-logo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 )}
@@ -416,7 +546,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                     <img 
                       src={faviconUrl} 
                       alt="Logo" 
-                      className="w-full h-full object-contain sidebar-logo"
+                      className={`w-full h-full object-contain sidebar-logo ${isRinging ? 'ringing' : ''}`}
                       onError={(e) => {
                         // Fallback al icono SVG si el favicon falla
                         const target = e.target as HTMLImageElement;
@@ -424,7 +554,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                         const parent = target.parentElement;
                         if (parent) {
                           parent.innerHTML = `
-                            <svg class="w-5 h-5 text-blue-500 sidebar-logo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
                           `;
@@ -432,7 +562,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                       }}
                     />
                   ) : (
-                    <svg className="w-5 h-5 text-blue-500 sidebar-logo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   )}

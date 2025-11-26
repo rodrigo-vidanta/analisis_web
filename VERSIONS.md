@@ -17,6 +17,21 @@
 
 ---
 
+## Versión B2.1.6N6.0.0 (Enero 2025) - Sidebar: Corrección de Animación de Logo en Checkpoint #5
+
+### 🔔 RELEASE BETA - Corrección de Funcionalidad
+
+#### Corrección de Animación del Logo del Sidebar
+- **Problema resuelto:** El logo del sidebar solo se animaba una vez cuando llegaba una llamada a checkpoint #5
+- **Solución:** Corrección del `useEffect` para manejar múltiples notificaciones consecutivas usando `timestamp` como dependencia
+- **Resultado:** El logo ahora se anima correctamente cada vez que llega una nueva llamada a checkpoint #5
+
+#### Archivos Principales
+- `src/components/Sidebar.tsx` - Corrección del `useEffect` para múltiples notificaciones
+- `src/components/Footer.tsx` - Versión B2.1.6N6.0.0
+
+---
+
 ## Versión B2.1.5N6.1.0 (Enero 2025) - Live Monitor: Limpieza Completa de Logs y Eliminación de Botón Actualizar
 
 ### 🧹 RELEASE BETA - Limpieza y Optimización Completa

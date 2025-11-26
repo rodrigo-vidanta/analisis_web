@@ -1,5 +1,30 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔔 Versión B2.1.6N6.0.0 - Sidebar: Corrección de Animación de Logo en Checkpoint #5 (Enero 2025)
+
+### 🎯 **RELEASE BETA - Corrección de Funcionalidad**
+
+#### 🔔 **Corrección de Animación del Logo del Sidebar**
+- **Problema resuelto:** El logo del sidebar solo se animaba una vez cuando llegaba una llamada a "presentación de oportunidad" (checkpoint #5)
+- **Causa identificada:** El `useEffect` no se ejecutaba correctamente en notificaciones consecutivas debido a dependencias incorrectas
+- **Solución implementada:**
+  - Dependencias actualizadas para usar `activeCallNotification?.timestamp` para detectar cada nueva notificación
+  - Reset del estado `isRinging` antes de reactivar la animación
+  - Verificación de timestamp para asegurar que se activa la notificación correcta
+  - Delay de activación para permitir reset antes de activar la animación
+- **Resultado:** El logo ahora se anima correctamente cada vez que llega una nueva llamada a checkpoint #5, incluso con múltiples llamadas consecutivas
+
+#### 📝 **Archivos Modificados**
+- `src/components/Sidebar.tsx` - Corrección del `useEffect` para manejar múltiples notificaciones consecutivas
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.6N6.0.0
+
+#### ✅ **Beneficios**
+- ✅ Animación del logo funciona correctamente en todas las llamadas a checkpoint #5
+- ✅ Mejor experiencia de usuario con feedback visual consistente
+- ✅ Sistema de notificaciones más robusto y confiable
+
+---
+
 ## 🔒 Versión B2.1.6N6.1.0 - Live Monitor: Limpieza Completa de Logs de Seguridad (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Seguridad y Limpieza**
