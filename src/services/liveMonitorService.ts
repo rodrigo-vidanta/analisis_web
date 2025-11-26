@@ -225,15 +225,17 @@ class LiveMonitorService {
           // Ignorar errores de parsing
         }
 
-        // Criterio 2: Duración cero + sin audio
+        // Criterio 2: Duración cero + sin audio + más de 15 minutos
+        // Si no tiene grabación ni duración y han pasado más de 15 minutos → perdida
         if (!shouldMarkAsFailed && 
             (call.duracion_segundos === 0 || call.duracion_segundos === null) && 
-            !call.audio_ruta_bucket) {
+            !call.audio_ruta_bucket &&
+            minutesAgo > 15) {
           shouldMarkAsFailed = true;
-          reason = 'Sin duración ni audio';
+          reason = `Sin duración ni audio (${minutesAgo} min)`;
         }
 
-        // Criterio 3: Llamadas muy antiguas (más de 2 horas)
+        // Criterio 3: Llamadas muy antiguas (más de 2 horas) - sin importar otros factores
         if (!shouldMarkAsFailed && minutesAgo > 120) {
           shouldMarkAsFailed = true;
           reason = `Muy antigua (${minutesAgo} min)`;

@@ -147,47 +147,147 @@ class LiveMonitorKanbanOptimizedService {
       // Log de estadísticas de auto-clasificación (silencioso)
       const reclasificadas = optimizedCalls.filter(c => c.call_status_bd !== c.call_status_inteligente);
       
-      // Clasificar llamadas usando la auto-clasificación de la vista (¡Sin lógica manual!)
+      // Clasificar llamadas usando la auto-clasificación de la vista con nueva lógica mejorada
       const active: KanbanCallOptimized[] = [];
       const transferred: KanbanCallOptimized[] = [];
-      const finished: KanbanCallOptimized[] = []; // Finalizadas exitosas
+      const attended: KanbanCallOptimized[] = []; // Nueva: Atendida / no Transferida
       const failed: KanbanCallOptimized[] = [];
       
+      // Función helper para extraer razon_finalizacion
+      const getRazonFinalizacion = (call: KanbanCallOptimized): string | null => {
+        return call.razon_finalizacion || null;
+      };
+
+      // Función helper para determinar si tiene grabación
+      const hasRecording = (call: KanbanCallOptimized): boolean => {
+        return !!(call.audio_ruta_bucket && call.audio_ruta_bucket.length > 0);
+      };
+
+      // Razones de finalización que indican transferencia
+      const TRANSFER_REASONS = [
+        'assistant-forwarded-call',
+        'call.ringing.hook-executed-transfer'
+      ];
+
+      // Razones de finalización que indican pérdida/no contestada
+      const FAILED_REASONS = [
+        'customer-did-not-answer',
+        'customer-busy',
+        'assistant-not-found',
+        'assistant-not-valid',
+        'assistant-not-provided',
+        'assistant-join-timed-out',
+        'twilio-failed-to-connect-call',
+        'vonage-failed-to-connect-call',
+        'vonage-rejected',
+        'voicemail'
+      ];
+      
       allCalls.forEach(call => {
-        // 🚀 [OPTIMIZED] CLASIFICACIÓN SIMPLIFICADA - La vista ya hizo el trabajo pesado
-        // Usar call_status_inteligente de la vista, no call_status del mapeo
-        
-        const estadoInteligente = call.call_status; // Este ya viene mapeado desde call_status_inteligente
+        const razonFinalizacion = getRazonFinalizacion(call);
+        const hasRecordingValue = hasRecording(call);
+        const duration = call.duracion_segundos || 0;
+        const hasFeedback = call.tiene_feedback === true;
+        const estadoInteligente = call.call_status;
         const estadoBD = call.call_status_bd;
         
+        // REGLA 1: Si tiene grabación, la llamada YA TERMINÓ
+        if (hasRecordingValue) {
+          // REGLA 1.1: Transferidas
+          if (razonFinalizacion && TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+            if (!hasFeedback) {
+              transferred.push(call);
+            }
+            return;
+          }
+          
+          // REGLA 1.2: Duración < 30 segundos → Fallida
+          if (duration < 30) {
+            if (!hasFeedback) {
+              failed.push(call);
+            }
+            return;
+          }
+          
+          // REGLA 1.3: Duración >= 30 segundos pero NO transferida → Atendida
+          if (duration >= 30) {
+            if (razonFinalizacion === 'customer-ended-call' || 
+                razonFinalizacion === 'assistant-ended-call' ||
+                razonFinalizacion === 'assistant-ended-call-after-message-spoken' ||
+                razonFinalizacion === 'assistant-ended-call-with-hangup-task' ||
+                razonFinalizacion === 'assistant-said-end-call-phrase' ||
+                !razonFinalizacion) {
+              if (!hasFeedback) {
+                attended.push(call);
+              }
+              return;
+            }
+            
+            if (!TRANSFER_REASONS.some(r => razonFinalizacion?.includes(r)) &&
+                !FAILED_REASONS.some(r => razonFinalizacion?.includes(r))) {
+              if (!hasFeedback) {
+                attended.push(call);
+              }
+              return;
+            }
+          }
+        }
+        
+        // REGLA 2: Clasificación por estado inteligente
         switch (estadoInteligente) {
           case 'activa':
-            active.push(call);
+            // Solo si NO tiene grabación, NO tiene razón, y NO tiene duración
+            // ADEMÁS: Verificar que no sean muy antiguas (más de 15 minutos sin actividad = perdida)
+            if (!hasRecordingValue && !razonFinalizacion && duration === 0) {
+              // Verificar tiempo transcurrido
+              const minutosTranscurridos = call.minutos_transcurridos || 0;
+              
+              // Si la llamada tiene más de 15 minutos sin grabación ni duración → perdida
+              if (minutosTranscurridos > 15) {
+                if (!hasFeedback) {
+                  failed.push(call);
+                }
+              } else {
+                active.push(call);
+              }
+            }
             break;
             
           case 'transferida':
-            transferred.push(call);
+            if (!hasFeedback) {
+              transferred.push(call);
+            }
             break;
             
           case 'finalizada':
-            finished.push(call);
+            // Si tiene grabación y duración >= 30 seg y NO es transferida → atendida
+            if (hasRecordingValue && duration >= 30 && 
+                (!razonFinalizacion || !TRANSFER_REASONS.some(r => razonFinalizacion.includes(r)))) {
+              if (!hasFeedback) {
+                attended.push(call);
+              }
+            }
             break;
             
           case 'perdida':
-            failed.push(call);
-            break;
-            
-          // Mapear estados legacy al nuevo sistema
-          case 'colgada':
-          case 'exitosa':
-            finished.push(call);
+            if (!hasFeedback) {
+              failed.push(call);
+            }
             break;
             
           default:
             // Estado desconocido - verificar call_status_bd como fallback
-            if (call.call_status_bd === 'activa') {
-              active.push(call);
-            } else {
+            if (estadoBD === 'activa' && !hasRecordingValue && !razonFinalizacion && duration === 0) {
+              // Verificar tiempo transcurrido también en fallback
+              const minutosTranscurridos = call.minutos_transcurridos || 0;
+              if (minutosTranscurridos > 15) {
+                if (!hasFeedback) {
+                  failed.push(call);
+                }
+              } else {
+                active.push(call);
+              }
+            } else if (!hasFeedback) {
               failed.push(call);
             }
         }
@@ -195,8 +295,8 @@ class LiveMonitorKanbanOptimizedService {
       
       return {
         active,
-        transferred: transferred.concat(finished), // Combinar transferidas + finalizadas para compatibilidad
-        finished: [], // Vacío - se usa transferred
+        transferred,
+        attended,
         failed,
         all: allCalls,
         stats: {
@@ -210,7 +310,7 @@ class LiveMonitorKanbanOptimizedService {
       return {
         active: [],
         transferred: [],
-        finished: [],
+        attended: [],
         failed: [],
         all: [],
         stats: { total: 0, reclasificadas: 0 }
@@ -222,7 +322,7 @@ class LiveMonitorKanbanOptimizedService {
    * Configurar suscripción realtime optimizada
    * Si falla, retorna null y el componente usará solo polling
    */
-  async subscribeToChanges(onCallsUpdate: (calls: any) => void) {
+  async subscribeToChanges(onCallsUpdate: (calls: any, payloadData?: any) => void) {
     try {
       // Intentar suscribirse a cambios en la tabla base (INSERT y UPDATE)
       // Si hay sobrecarga de conexiones, simplemente retornar null y usar solo polling
@@ -239,7 +339,7 @@ class LiveMonitorKanbanOptimizedService {
           async (payload) => {
             // Nueva llamada detectada - recargar inmediatamente
             const classifiedCalls = await this.getClassifiedCalls();
-            onCallsUpdate(classifiedCalls);
+            onCallsUpdate(classifiedCalls, { event: 'INSERT', new: payload.new, old: payload.old });
           }
         )
         // UPDATE: cambios de estado, checkpoint, etc.
@@ -255,7 +355,8 @@ class LiveMonitorKanbanOptimizedService {
             const newCall = payload.new as any;
             const oldCall = payload.old as any;
             const classifiedCalls = await this.getClassifiedCalls();
-            onCallsUpdate(classifiedCalls);
+            // Pasar datos del payload para detectar cambios de checkpoint
+            onCallsUpdate(classifiedCalls, { event: 'UPDATE', new: newCall, old: oldCall });
           }
         )
         // DELETE: llamadas eliminadas
@@ -269,7 +370,7 @@ class LiveMonitorKanbanOptimizedService {
           async (payload) => {
             // Llamada eliminada - recargar para actualizar listas
             const classifiedCalls = await this.getClassifiedCalls();
-            onCallsUpdate(classifiedCalls);
+            onCallsUpdate(classifiedCalls, { event: 'DELETE', new: payload.new, old: payload.old });
           }
         )
         // UPDATE en prospectos: puede afectar datos de la vista
@@ -283,7 +384,7 @@ class LiveMonitorKanbanOptimizedService {
           async (payload) => {
             // Cambio en prospecto - recargar para actualizar datos del prospecto en la vista
             const classifiedCalls = await this.getClassifiedCalls();
-            onCallsUpdate(classifiedCalls);
+            onCallsUpdate(classifiedCalls, { event: 'UPDATE', new: payload.new, old: payload.old });
           }
         )
         .subscribe((status) => {

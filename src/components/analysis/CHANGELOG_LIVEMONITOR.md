@@ -17,6 +17,50 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.5.0** - Noviembre 26, 2025
+**Estado:** ✅ Producción
+
+#### **🎯 Mejora Crítica: Clasificación de Llamadas Mejorada**
+- **Nueva categoría "Atendida / no Transferida":** Reemplazada columna "Finalizadas" por categoría más específica
+- **Lógica de clasificación mejorada:** Basada en grabación, duración y `razon_finalizacion` de VAPI
+- **Reglas de clasificación:**
+  - Si tiene grabación → llamada terminó
+  - Si tiene grabación y dura < 30 seg → fallida
+  - Si tiene grabación y dura ≥ 30 seg pero NO transferida → atendida / no transferida
+  - Para ser transferida → `razon_finalizacion` debe ser `assistant-forwarded-call`
+  - `customer-ended-call` + > 30 seg → atendida pero no transferida
+  - `customer-did-not-answer` → perdida
+
+#### **🔧 Corrección de Llamadas Activas Colgadas**
+- **Detección automática:** Llamadas "activas" sin grabación ni duración con más de 15 minutos → marcadas como perdidas
+- **Auto-corrección mejorada:** Función `autoFixFailedCalls()` actualizada con criterio de 15 minutos
+- **Corrección manual:** Llamada específica de Darig Samuel Rosales corregida
+
+#### **🔔 Detección de Checkpoint #5 Mejorada**
+- **Sonido de alerta:** Reproducción mejorada cuando llamada llega a checkpoint #5 (Presentación e Oportunidad)
+- **Animación de ringing:** Logo del sidebar con animación cuando llega al checkpoint #5
+- **Detección en ambos modos:** Optimizado y Legacy con detección robusta
+- **Manejo de AudioContext:** Verificación y reanudación automática si está suspendido
+
+#### **📊 Razones de Finalización VAPI Implementadas**
+- **Transferencia:** `assistant-forwarded-call`, `call.ringing.hook-executed-transfer`
+- **Pérdida:** `customer-did-not-answer`, `customer-busy`, `assistant-not-found`, etc.
+- **Atendida:** `customer-ended-call`, `assistant-ended-call`, etc. (con duración ≥ 30 seg)
+
+#### **🎯 Archivos Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Lógica de clasificación mejorada y detección de checkpoint
+- `src/services/liveMonitorKanbanOptimized.ts` - Clasificación optimizada con nueva categoría
+- `src/services/liveMonitorService.ts` - Auto-corrección mejorada (15 minutos)
+- `src/components/Sidebar.tsx` - Sonido mejorado y manejo de AudioContext
+
+#### **📊 Validación**
+- ✅ Nueva categoría "Atendida / no Transferida" funcionando correctamente
+- ✅ Llamadas activas colgadas detectadas y corregidas automáticamente
+- ✅ Sonido y animación de checkpoint #5 funcionando
+- ✅ Clasificación basada en `razon_finalizacion` de VAPI implementada
+
+---
+
 ### **v5.4.0** - Noviembre 25, 2025
 **Estado:** ✅ Producción
 

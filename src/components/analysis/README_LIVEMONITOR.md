@@ -5,8 +5,8 @@
 **Módulo:** Sistema de monitoreo en tiempo real de llamadas de ventas
 **Propósito:** Visualización y gestión de llamadas activas con clasificación automática inteligente
 **Base de datos:** `glsmifhkoaifvaegsozd.supabase.co` (Base Natalia - Análisis IA)
-**Versión:** 5.4.0 (Noviembre 2025)
-**Estado:** ✅ Producción con vista optimizada, DataGrid y detección mejorada de llamadas activas
+**Versión:** 5.5.0 (Noviembre 26, 2025)
+**Estado:** ✅ Producción con vista optimizada, DataGrid, clasificación mejorada y detección de checkpoint #5
 
 ---
 
@@ -385,20 +385,33 @@ VITE_DEBUG_MIXED_SOURCES=true
 
 ## 🔄 SINCRONIZACIÓN Y ESTADO
 
-### **Estados de Llamadas**
-- **activa:** Llamada en progreso < 30 minutos
-- **perdida:** No contestada o colgada por cliente
-- **transferida:** Transferida a agente humano
-- **finalizada:** Completada exitosamente
+### **Estados de Llamadas (v5.5.0)**
+- **activa:** Llamada en progreso (sin grabación, sin razón de finalización, sin duración, < 15 minutos)
+- **transferida:** Transferida a agente humano (`razon_finalizacion` = `assistant-forwarded-call`)
+- **atendida / no transferida:** Atendida pero no transferida (grabación + duración ≥ 30 seg)
+- **perdida:** No contestada, colgada o con duración < 30 seg
 
-### **Clasificación Inteligente**
-```sql
--- Basado en:
--- 1. razon_finalizacion (customer-ended-call, customer-busy, etc.)
--- 2. duracion_segundos (0 o muy baja)
--- 3. tiempo transcurrido (> 30 minutos)
--- 4. estado en datos_llamada
-```
+### **Clasificación Inteligente Mejorada (v5.5.0)**
+**Reglas de Clasificación:**
+1. **Si tiene grabación (`audio_ruta_bucket`):** La llamada YA TERMINÓ
+   - Duración < 30 seg → **Fallida**
+   - Duración ≥ 30 seg pero NO transferida → **Atendida / no Transferida**
+   - `razon_finalizacion` = `assistant-forwarded-call` → **Transferida**
+
+2. **Llamadas REALMENTE ACTIVAS:**
+   - Solo si NO tienen grabación, NO tienen `razon_finalizacion`, y NO tienen duración
+   - Si tienen > 15 minutos sin grabación ni duración → **Perdida** (auto-corrección)
+
+3. **Razones de Finalización VAPI:**
+   - **Transferencia:** `assistant-forwarded-call`, `call.ringing.hook-executed-transfer`
+   - **Pérdida:** `customer-did-not-answer`, `customer-busy`, `assistant-not-found`, etc.
+   - **Atendida:** `customer-ended-call`, `assistant-ended-call` (con duración ≥ 30 seg)
+
+**Categorías de Clasificación:**
+- **Activas:** Llamadas realmente en curso
+- **Transferidas:** Transferidas a agente humano
+- **Atendida / no Transferida:** Atendidas pero no transferidas (duración ≥ 30 seg)
+- **Fallidas:** No contestadas, colgadas o con duración < 30 seg
 
 ### **Actualización en Tiempo Real**
 - **Suscripción a tablas:** `llamadas_ventas`, `prospectos`

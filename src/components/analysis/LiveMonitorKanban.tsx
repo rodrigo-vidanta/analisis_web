@@ -39,9 +39,28 @@ const playCheckpointCompleteSound = () => {
     // Crear un contexto de audio
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     
+    // Asegurar que el contexto esté en estado "running"
+    // Si está suspendido, intentar reanudarlo
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {
+        // Si falla, el sonido no se reproducirá pero no romperá la app
+        return;
+      });
+    }
+    
     // Crear una secuencia de tonos para simular una campana
     const playTone = (frequency: number, duration: number, delay: number = 0) => {
       setTimeout(() => {
+        // Verificar que el contexto siga activo
+        if (audioContext.state === 'closed') {
+          return;
+        }
+        
+        // Si está suspendido, intentar reanudarlo
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(() => {});
+        }
+        
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         const compressor = audioContext.createDynamicsCompressor();
@@ -80,6 +99,7 @@ const playCheckpointCompleteSound = () => {
     }
     
   } catch (error) {
+    // Silenciar errores de audio para no romper la aplicación
   }
 };
 
@@ -579,14 +599,18 @@ const LiveMonitorKanban: React.FC = () => {
   }, [viewMode]);
 
   const [activeCalls, setActiveCalls] = useState<KanbanCall[]>([]);
-  const [transferredCalls, setTransferredCalls] = useState<KanbanCall[]>([]);  // Renombrado de finishedCalls
+  const [transferredCalls, setTransferredCalls] = useState<KanbanCall[]>([]);
+  const [attendedCalls, setAttendedCalls] = useState<KanbanCall[]>([]);  // Nueva: Atendida / no Transferida
   const [failedCalls, setFailedCalls] = useState<KanbanCall[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'active' | 'transferred' | 'failed' | 'all' | 'finished'>('active');  // Agregado finished tab
+  const [selectedTab, setSelectedTab] = useState<'active' | 'transferred' | 'attended' | 'failed' | 'all'>('active');
   const [allCalls, setAllCalls] = useState<KanbanCall[]>([]);
   const [selectedCall, setSelectedCall] = useState<KanbanCall | null>(null);
   const [viewedCalls, setViewedCalls] = useState<Set<string>>(new Set()); // Track de llamadas vistas en modal
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Ref para mantener checkpoints anteriores entre renders (para detectar cambios)
+  const previousCheckpointsRef = React.useRef<Map<string, string>>(new Map());
   
   // Estados para sorting
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -715,7 +739,7 @@ const LiveMonitorKanban: React.FC = () => {
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
   const [callToFinalize, setCallToFinalize] = useState<KanbanCall | null>(null);
   const [finalizationLoading, setFinalizationLoading] = useState(false);
-  const [finishedCalls, setFinishedCalls] = useState<KanbanCall[]>([]);
+  // finishedCalls eliminado - ahora usamos attendedCalls
   
   // Estado para mostrar indicador de actualización
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
@@ -811,7 +835,7 @@ const LiveMonitorKanban: React.FC = () => {
         .eq('call_id', callToFinalize.call_id);
 
       // Mover la llamada a la lista de finalizadas
-      setFinishedCalls(prev => [...prev, callToFinalize]);
+      // La llamada se reclasificará automáticamente en la próxima carga
       
       // Removerla de las listas activas
       setActiveCalls(prev => prev.filter(c => c.id !== callToFinalize.id));
@@ -1253,10 +1277,41 @@ const LiveMonitorKanban: React.FC = () => {
       if (USE_OPTIMIZED_VIEW) {
         const classifiedCalls = await liveMonitorKanbanOptimized.getClassifiedCalls();
         
+        // Detectar cambios de checkpoint antes de actualizar (solo en refresh)
+        if (isRefresh) {
+          const allCallsToCheck = [...classifiedCalls.active, ...classifiedCalls.transferred, ...classifiedCalls.attended || [], ...classifiedCalls.failed];
+          allCallsToCheck.forEach(call => {
+            if (call.checkpoint_venta_actual) {
+              const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
+              const currentCheckpoint = call.checkpoint_venta_actual;
+              
+              // Detectar cambio a checkpoint #5
+              if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
+                if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
+                  // Cambió a checkpoint #5 - reproducir sonido y notificación
+                  playCheckpointCompleteSound();
+                  triggerCallNotification(call.call_id, currentCheckpoint);
+                }
+              }
+              
+              // Actualizar referencia
+              previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
+            }
+          });
+        } else {
+          // En carga inicial, solo inicializar checkpoints sin disparar sonido
+          const allCallsToCheck = [...classifiedCalls.active, ...classifiedCalls.transferred, ...classifiedCalls.attended || [], ...classifiedCalls.failed];
+          allCallsToCheck.forEach(call => {
+            if (call.checkpoint_venta_actual) {
+              previousCheckpointsRef.current.set(call.call_id, call.checkpoint_venta_actual);
+            }
+          });
+        }
         
         // Actualizar estados directamente desde la clasificación automática
         setActiveCalls(classifiedCalls.active);
         setTransferredCalls(classifiedCalls.transferred);
+        setAttendedCalls(classifiedCalls.attended || []);
         setFailedCalls(classifiedCalls.failed);
         
         if (!isRefresh) {
@@ -1278,7 +1333,7 @@ const LiveMonitorKanban: React.FC = () => {
       if (preserveRealtimeData) {
         // Crear mapa de llamadas existentes con datos de Realtime
         const existingCallsMap = new Map<string, KanbanCall>();
-        [...activeCalls, ...transferredCalls, ...failedCalls].forEach(call => {
+        [...activeCalls, ...transferredCalls, ...attendedCalls, ...failedCalls].forEach(call => {
           existingCallsMap.set(call.call_id, call);
         });
         
@@ -1302,103 +1357,208 @@ const LiveMonitorKanban: React.FC = () => {
       }
       
       
-      // Clasificar llamadas por estado con nueva lógica
-      const active: KanbanCall[] = [];
-      const transferred: KanbanCall[] = [];
-      const failed: KanbanCall[] = [];
-      
-      finalCalls.forEach(call => {
-        const hasFeedback = call.tiene_feedback === true;
-        const wasViewed = viewedCalls.has(call.call_id);
-        
-        
-        // NUEVA LÓGICA DE CLASIFICACIÓN BASADA EN DATOS REALES:
-        
-        // Extraer razon_finalizacion de datos_llamada
-        let razonFinalizacion = null;
+      // Función helper para extraer razon_finalizacion
+      const getRazonFinalizacion = (call: KanbanCall): string | null => {
         try {
           if (call.datos_llamada && typeof call.datos_llamada === 'object') {
-            razonFinalizacion = call.datos_llamada.razon_finalizacion;
+            return call.datos_llamada.razon_finalizacion || null;
           } else if (call.datos_llamada && typeof call.datos_llamada === 'string') {
             const parsed = JSON.parse(call.datos_llamada);
-            razonFinalizacion = parsed.razon_finalizacion;
+            return parsed.razon_finalizacion || null;
           }
         } catch (e) {
           // Ignorar errores de parsing
         }
+        return null;
+      };
+
+      // Función helper para determinar si tiene grabación
+      const hasRecording = (call: KanbanCall): boolean => {
+        return !!(call.audio_ruta_bucket && call.audio_ruta_bucket.length > 0);
+      };
+
+      // Razones de finalización que indican transferencia
+      const TRANSFER_REASONS = [
+        'assistant-forwarded-call',
+        'call.ringing.hook-executed-transfer'
+      ];
+
+      // Razones de finalización que indican pérdida/no contestada
+      const FAILED_REASONS = [
+        'customer-did-not-answer',
+        'customer-busy',
+        'assistant-not-found',
+        'assistant-not-valid',
+        'assistant-not-provided',
+        'assistant-join-timed-out',
+        'twilio-failed-to-connect-call',
+        'vonage-failed-to-connect-call',
+        'vonage-rejected',
+        'call.start.error-*',
+        'voicemail'
+      ];
+
+      // Clasificar llamadas por estado con nueva lógica mejorada
+      const active: KanbanCall[] = [];
+      const transferred: KanbanCall[] = [];
+      const attended: KanbanCall[] = [];  // Nueva categoría: Atendida / no Transferida
+      const failed: KanbanCall[] = [];
+      
+      finalCalls.forEach(call => {
+        const hasFeedback = call.tiene_feedback === true;
+        const razonFinalizacion = getRazonFinalizacion(call);
+        const hasRecordingValue = hasRecording(call);
+        const duration = call.duracion_segundos || 0;
+        const hasEndReason = !!razonFinalizacion;
         
-        const hasEndReason = razonFinalizacion && razonFinalizacion !== '';
-        const hasDuration = call.duracion_segundos && call.duracion_segundos > 0;
+        // REGLA 1: Si tiene grabación, la llamada YA TERMINÓ
+        // Si tiene grabación, clasificar según duración y razón
+        if (hasRecordingValue) {
+          // REGLA 1.1: Transferidas - razon_finalizacion indica transferencia
+          if (razonFinalizacion && TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+            if (!hasFeedback) {
+              transferred.push(call);
+            }
+            return; // Salir temprano
+          }
+          
+          // REGLA 1.2: Duración < 30 segundos → Fallida
+          if (duration < 30) {
+            if (!hasFeedback) {
+              failed.push(call);
+            }
+            return;
+          }
+          
+          // REGLA 1.3: Duración >= 30 segundos pero NO transferida → Atendida / no Transferida
+          // Esto incluye customer-ended-call con duración > 30 seg
+          if (duration >= 30) {
+            // Si es customer-ended-call con duración > 30 seg → atendida pero no transferida
+            if (razonFinalizacion === 'customer-ended-call' || 
+                razonFinalizacion === 'assistant-ended-call' ||
+                razonFinalizacion === 'assistant-ended-call-after-message-spoken' ||
+                razonFinalizacion === 'assistant-ended-call-with-hangup-task' ||
+                razonFinalizacion === 'assistant-said-end-call-phrase' ||
+                !razonFinalizacion) {
+              if (!hasFeedback) {
+                attended.push(call);
+              }
+              return;
+            }
+            
+            // Si tiene otra razón que no es transferencia ni fallida → atendida
+            if (!TRANSFER_REASONS.some(r => razonFinalizacion.includes(r)) &&
+                !FAILED_REASONS.some(r => razonFinalizacion.includes(r))) {
+              if (!hasFeedback) {
+                attended.push(call);
+              }
+              return;
+            }
+          }
+        }
         
-        // 1. LLAMADAS REALMENTE ACTIVAS: 
-        // - SOLO call_status = 'activa' Y NO tienen razon_finalizacion Y NO tienen duración
-        if (call.call_status === 'activa' && !hasEndReason && !hasDuration) {
+        // REGLA 2: Llamadas REALMENTE ACTIVAS
+        // Solo si NO tienen grabación, NO tienen razón de finalización, y NO tienen duración
+        // ADEMÁS: Verificar que no sean muy antiguas (más de 15 minutos sin actividad = perdida)
+        if (call.call_status === 'activa' && !hasEndReason && duration === 0 && !hasRecordingValue) {
+          // Verificar tiempo transcurrido desde fecha_llamada
+          const callDate = call.fecha_llamada ? new Date(call.fecha_llamada) : null;
+          if (callDate) {
+            const minutesAgo = Math.floor((Date.now() - callDate.getTime()) / (1000 * 60));
+            
+            // Si la llamada tiene más de 15 minutos sin grabación ni duración → perdida
+            if (minutesAgo > 15) {
+              if (!hasFeedback) {
+                failed.push(call);
+              }
+              return;
+            }
+          }
+          
+          // Solo si pasa todas las verificaciones → realmente activa
           active.push(call);
+          return;
         }
         
-        // 1.5. LLAMADAS QUE PARECEN ACTIVAS PERO YA FINALIZARON (DETECCIÓN AUTOMÁTICA)
-        else if (call.call_status === 'activa' && (hasEndReason || hasDuration)) {
-          // Clasificar según razón de finalización
-          if (razonFinalizacion === 'assistant-forwarded-call') {
+        // REGLA 3: Llamadas que parecen activas pero ya terminaron (detección automática)
+        if (call.call_status === 'activa' && (hasEndReason || hasRecordingValue || duration > 0)) {
+          // Si tiene razón de transferencia
+          if (razonFinalizacion && TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+            if (!hasFeedback) {
+              transferred.push(call);
+            }
+            return;
+          }
+          
+          // Si tiene razón de pérdida
+          if (razonFinalizacion && FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+            if (!hasFeedback) {
+              failed.push(call);
+            }
+            return;
+          }
+          
+          // Si tiene grabación y duración >= 30 seg → atendida
+          if (hasRecordingValue && duration >= 30) {
+            if (!hasFeedback) {
+              attended.push(call);
+            }
+            return;
+          }
+          
+          // Si tiene grabación pero duración < 30 seg → fallida
+          if (hasRecordingValue && duration < 30) {
+            if (!hasFeedback) {
+              failed.push(call);
+            }
+            return;
+          }
+        }
+        
+        // REGLA 4: Llamadas con call_status = 'transferida' o razón de transferencia
+        if (call.call_status === 'transferida' || 
+            (razonFinalizacion && TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason)))) {
+          if (!hasFeedback) {
             transferred.push(call);
-          } else if (razonFinalizacion === 'customer-ended-call') {
-            failed.push(call);
-          } else if (hasDuration) {
-            failed.push(call);
-          } else {
-            failed.push(call);
           }
+          return;
         }
         
-        // 2. LLAMADAS TRANSFERIDAS:
-        // - call_status = 'transferida' (todas las transferidas van aquí)
-        // - razon_finalizacion = 'assistant-forwarded-call' (todas las transferidas van aquí)
-        else if (
-          (call.call_status === 'transferida' || razonFinalizacion === 'assistant-forwarded-call') &&
-          !hasFeedback
-        ) {
-          transferred.push(call);
-        }
-        
-        // 3. LLAMADAS QUE PARECEN ACTIVAS PERO YA TERMINARON:
-        // Estas ya deberían estar corregidas en la BD, pero por si acaso
-        else if (call.call_status === 'activa' && hasEndReason) {
-          // Cualquier llamada "activa" con razon_finalizacion va a fallidas
+        // REGLA 5: Llamadas fallidas/perdidas
+        if (call.call_status === 'perdida' || 
+            call.call_status === 'colgada' ||
+            (razonFinalizacion && FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) ||
+            (razonFinalizacion === 'customer-did-not-answer')) {
           if (!hasFeedback) {
             failed.push(call);
           }
+          return;
         }
         
-        // 4. LLAMADAS FALLIDAS:
-        // - call_status = 'colgada', 'perdida'
-        // - razon_finalizacion indica falla: 'customer-busy', 'customer-did-not-answer', etc.
-        else if (
-          call.call_status === 'colgada' ||
-          call.call_status === 'perdida' ||
-          (hasEndReason && [
-            'customer-busy',
-            'customer-did-not-answer', 
-            'customer-ended-call',
-            'assistant-ended-call'
-          ].includes(razonFinalizacion))
-        ) {
-          // Solo mostrar si NO tienen feedback
-          if (!hasFeedback) {
-            failed.push(call);
+        // REGLA 6: Llamadas con call_status = 'finalizada' o 'exitosa'
+        // Si tienen grabación y duración >= 30 seg → atendida
+        if ((call.call_status === 'finalizada' || call.call_status === 'exitosa') && 
+            hasRecordingValue && duration >= 30) {
+          // Verificar si NO es transferida
+          if (!razonFinalizacion || !TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+            if (!hasFeedback) {
+              attended.push(call);
+            }
+            return;
           }
         }
         
-        // 5. LLAMADAS FINALIZADAS EXITOSAS:
-        // - call_status = 'finalizada', 'exitosa'
-        // - Tienen duración > 0
-        // Estas NO aparecen en pestañas activas, solo en historial con feedback
+        // REGLA 7: Fallback - si tiene grabación pero no cumple otras condiciones → atendida
+        if (hasRecordingValue && duration >= 30 && !hasFeedback) {
+          attended.push(call);
+        }
       });
       
       // Actualización inteligente que detecta cambios sin re-render innecesario
       if (isRefresh) {
-        // Crear mapas completos de todas las llamadas (activas, transferidas, fallidas)
+        // Crear mapas completos de todas las llamadas (activas, transferidas, atendidas, fallidas)
         const currentAllCalls = new Map();
-        [...activeCalls, ...transferredCalls, ...failedCalls].forEach(call => {
+        [...activeCalls, ...transferredCalls, ...attendedCalls, ...failedCalls].forEach(call => {
           currentAllCalls.set(call.call_id, {
             status: call.call_status,
             checkpoint: call.checkpoint_venta_actual,
@@ -1408,7 +1568,7 @@ const LiveMonitorKanban: React.FC = () => {
         });
         
         const newAllCalls = new Map();
-        [...active, ...transferred, ...failed].forEach(call => {
+        [...active, ...transferred, ...attended, ...failed].forEach(call => {
           newAllCalls.set(call.call_id, {
             status: call.call_status,
             checkpoint: call.checkpoint_venta_actual,
@@ -1468,8 +1628,30 @@ const LiveMonitorKanban: React.FC = () => {
         
         // Solo actualizar si hay cambios detectados
         if (hasChanges) {
+          // Detectar cambios de checkpoint antes de actualizar
+          const allCallsToCheck = [...active, ...transferred, ...attended, ...failed];
+          allCallsToCheck.forEach(call => {
+            if (call.checkpoint_venta_actual) {
+              const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
+              const currentCheckpoint = call.checkpoint_venta_actual;
+              
+              // Detectar cambio a checkpoint #5
+              if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
+                if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
+                  // Cambió a checkpoint #5 - reproducir sonido y notificación
+                  playCheckpointCompleteSound();
+                  triggerCallNotification(call.call_id, currentCheckpoint);
+                }
+              }
+              
+              // Actualizar referencia
+              previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
+            }
+          });
+          
           setActiveCalls(active);
           setTransferredCalls(transferred);
+          setAttendedCalls(attended);
           setFailedCalls(failed);
         }
         
@@ -1487,8 +1669,18 @@ const LiveMonitorKanban: React.FC = () => {
         
         setAllCalls(completedCalls);
       } else {
+        // Detectar cambios de checkpoint en carga inicial
+        const allCallsToCheck = [...active, ...transferred, ...attended, ...failed];
+        allCallsToCheck.forEach(call => {
+          if (call.checkpoint_venta_actual) {
+            // Solo inicializar, no disparar sonido en carga inicial
+            previousCheckpointsRef.current.set(call.call_id, call.checkpoint_venta_actual);
+          }
+        });
+        
         setActiveCalls(active);
         setTransferredCalls(transferred);
+        setAttendedCalls(attended);
         setFailedCalls(failed);
       }
       
@@ -1545,10 +1737,59 @@ const LiveMonitorKanban: React.FC = () => {
     if (USE_OPTIMIZED_VIEW) {
       // MODO OPTIMIZADO: Intentar suscripción Realtime, pero no es crítico si falla
       // El polling cada 3 segundos se encargará de detectar cambios
-      liveMonitorKanbanOptimized.subscribeToChanges((classifiedCalls) => {
+      
+      liveMonitorKanbanOptimized.subscribeToChanges((classifiedCalls, payloadData) => {
+        // Detectar cambios de checkpoint antes de actualizar las listas
+        if (payloadData && payloadData.event === 'UPDATE') {
+          const newCall = payloadData.new as any;
+          const oldCall = payloadData.old as any;
+          
+          if (newCall) {
+            const newCheckpoint = newCall.checkpoint_venta_actual;
+            const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
+            
+            // Detectar cambio a checkpoint #5
+            if (newCheckpoint && 
+                (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
+                oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
+              // Reproducir sonido inmediatamente
+              playCheckpointCompleteSound();
+              // Emitir notificación global para el sidebar (con animación de ringing)
+              triggerCallNotification(newCall.call_id, newCheckpoint);
+            }
+            
+            // Actualizar mapa de checkpoints anteriores
+            if (newCheckpoint) {
+              previousCheckpointsRef.current.set(newCall.call_id, newCheckpoint);
+            }
+          }
+        }
+        
+        // También detectar cambios comparando con checkpoints anteriores después de actualizar
+        // Esto cubre casos donde el payload no tiene oldRec
+        const allCalls = [...classifiedCalls.active, ...classifiedCalls.transferred, ...classifiedCalls.attended || [], ...classifiedCalls.failed];
+        allCalls.forEach(call => {
+          if (call.checkpoint_venta_actual) {
+            const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
+            const currentCheckpoint = call.checkpoint_venta_actual;
+            
+            if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
+              if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
+                // Cambió a checkpoint #5 - reproducir sonido y notificación
+                playCheckpointCompleteSound();
+                triggerCallNotification(call.call_id, currentCheckpoint);
+              }
+            }
+            
+            // Actualizar referencia
+            previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
+          }
+        });
+        
         // Actualizar estados directamente desde la clasificación automática
         setActiveCalls(classifiedCalls.active);
         setTransferredCalls(classifiedCalls.transferred);
+        setAttendedCalls(classifiedCalls.attended || []);
         setFailedCalls(classifiedCalls.failed);
         setLastUpdateTime(new Date());
         setHasRecentChanges(true);
@@ -1589,14 +1830,23 @@ const LiveMonitorKanban: React.FC = () => {
         const rec = payload.new as any;
         const oldRec = payload.old as any;
         
-        if (rec && oldRec) {
+        if (rec) {
           // Log específico para cambios de checkpoint
-          if (rec.checkpoint_venta_actual !== oldRec.checkpoint_venta_actual) {
+          const newCheckpoint = rec.checkpoint_venta_actual;
+          const oldCheckpoint = oldRec?.checkpoint_venta_actual;
+          
+          // Detectar cambio de checkpoint (manejar casos donde oldRec puede ser null)
+          if (newCheckpoint && newCheckpoint !== oldCheckpoint) {
             // Sonido cuando llega al último checkpoint
-            if (rec.checkpoint_venta_actual === 'checkpoint #5') {
-              playCheckpointCompleteSound();
-              // Emitir notificación global para el sidebar
-              triggerCallNotification(rec.call_id, rec.checkpoint_venta_actual);
+            // Disparar si el nuevo checkpoint es #5 (sin importar el anterior, para asegurar que funcione)
+            if (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) {
+              // Solo disparar si realmente cambió (no si ya estaba en #5)
+              if (!oldCheckpoint || oldCheckpoint !== 'checkpoint #5') {
+                // Reproducir sonido inmediatamente
+                playCheckpointCompleteSound();
+                // Emitir notificación global para el sidebar (con animación de ringing)
+                triggerCallNotification(rec.call_id, newCheckpoint);
+              }
             }
           }
           
@@ -1830,9 +2080,13 @@ const LiveMonitorKanban: React.FC = () => {
         const oldCheckpoint = selectedCall.checkpoint_venta_actual;
         const newCheckpoint = rec.checkpoint_venta_actual;
         
-        if (oldCheckpoint !== newCheckpoint && newCheckpoint === 'checkpoint #5') {
+        // Solo disparar si cambió DE otro checkpoint A checkpoint #5
+        if (oldCheckpoint !== newCheckpoint && 
+            (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) && 
+            oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
+          // Reproducir sonido inmediatamente
           playCheckpointCompleteSound();
-          // Emitir notificación global para el sidebar
+          // Emitir notificación global para el sidebar (con animación de ringing)
           triggerCallNotification(rec.call_id, newCheckpoint);
         }
         
@@ -2360,6 +2614,25 @@ const LiveMonitorKanban: React.FC = () => {
             </button>
             
             <button
+              onClick={() => setSelectedTab('attended')}
+              className={`px-6 py-4 text-sm font-medium transition-colors ${
+                selectedTab === 'attended'
+                  ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-b-2 border-amber-500'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Atendida / no Transferida</span>
+                <span className="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {attendedCalls.length}
+                </span>
+              </div>
+            </button>
+            
+            <button
               onClick={() => setSelectedTab('failed')}
               className={`px-6 py-4 text-sm font-medium transition-colors ${
                 selectedTab === 'failed'
@@ -2393,25 +2666,6 @@ const LiveMonitorKanban: React.FC = () => {
                 <span>Historial</span>
                 <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
                   {allCalls.length}
-                </span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setSelectedTab('finished')}
-              className={`px-6 py-4 text-sm font-medium transition-colors ${
-                selectedTab === 'finished'
-                  ? 'bg-gray-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400 border-b-2 border-gray-500'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Finalizadas</span>
-                <span className="bg-gray-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {finishedCalls.length}
                 </span>
               </div>
             </button>
@@ -3637,12 +3891,12 @@ const LiveMonitorKanban: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* Tab Finalizadas */}
-        {selectedTab === 'finished' && (
+        {/* Tab Atendida / no Transferida */}
+        {selectedTab === 'attended' && (
           <div className="overflow-x-auto">
             <LiveMonitorDataGrid
-              calls={finishedCalls}
-              title="🏁 Llamadas Finalizadas"
+              calls={attendedCalls}
+              title="📞 Llamadas Atendidas / no Transferidas"
               onCallClick={(call) => setSelectedCall(call)}
               onFinalize={openFinalizationModal}
             />

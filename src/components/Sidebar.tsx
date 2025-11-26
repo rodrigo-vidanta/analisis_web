@@ -231,8 +231,27 @@ const playCheckpointCompleteSound = () => {
   try {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     
+    // Asegurar que el contexto esté en estado "running"
+    // Si está suspendido, intentar reanudarlo
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {
+        // Si falla, el sonido no se reproducirá pero no romperá la app
+        return;
+      });
+    }
+    
     const playTone = (frequency: number, duration: number, delay: number = 0) => {
       setTimeout(() => {
+        // Verificar que el contexto siga activo
+        if (audioContext.state === 'closed') {
+          return;
+        }
+        
+        // Si está suspendido, intentar reanudarlo
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(() => {});
+        }
+        
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         const compressor = audioContext.createDynamicsCompressor();
@@ -262,6 +281,8 @@ const playCheckpointCompleteSound = () => {
     for (let i = 0; i < 4; i++) {
       const baseDelay = i * 800;
       playTone(800, 0.5, baseDelay);
+      playTone(1000, 0.3, baseDelay + 100);  // Armónico
+      playTone(600, 0.4, baseDelay + 200);   // Tono grave
     }
   } catch (error) {
     // Silenciar errores de audio
