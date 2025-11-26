@@ -33,75 +33,9 @@ import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useNotificationStore } from '../../stores/notificationStore';
 
-// Función para reproducir sonido de checkpoint completado (4 repeticiones)
-const playCheckpointCompleteSound = () => {
-  try {
-    // Crear un contexto de audio
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
-    // Asegurar que el contexto esté en estado "running"
-    // Si está suspendido, intentar reanudarlo
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().catch(() => {
-        // Si falla, el sonido no se reproducirá pero no romperá la app
-        return;
-      });
-    }
-    
-    // Crear una secuencia de tonos para simular una campana
-    const playTone = (frequency: number, duration: number, delay: number = 0) => {
-      setTimeout(() => {
-        // Verificar que el contexto siga activo
-        if (audioContext.state === 'closed') {
-          return;
-        }
-        
-        // Si está suspendido, intentar reanudarlo
-        if (audioContext.state === 'suspended') {
-          audioContext.resume().catch(() => {});
-        }
-        
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        const compressor = audioContext.createDynamicsCompressor();
-        
-        // Cadena de audio: oscillator -> gain -> compressor -> destination
-        oscillator.connect(gainNode);
-        gainNode.connect(compressor);
-        compressor.connect(audioContext.destination);
-        
-        // Configurar compressor para sonido más potente
-        compressor.threshold.setValueAtTime(-10, audioContext.currentTime);
-        compressor.knee.setValueAtTime(20, audioContext.currentTime);
-        compressor.ratio.setValueAtTime(8, audioContext.currentTime);
-        compressor.attack.setValueAtTime(0.01, audioContext.currentTime);
-        compressor.release.setValueAtTime(0.1, audioContext.currentTime);
-        
-        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-        oscillator.type = 'sine';
-        
-        // Envelope para sonido de campana (volumen aumentado)
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.8, audioContext.currentTime + 0.01); // Aumentado de 0.3 a 0.8
-        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + duration);
-      }, delay);
-    };
-    
-    // Reproducir secuencia 4 veces
-    for (let i = 0; i < 4; i++) {
-      const baseDelay = i * 800; // 800ms entre cada repetición
-      playTone(800, 0.5, baseDelay);     // Tono principal
-      playTone(1000, 0.3, baseDelay + 100);  // Armónico
-      playTone(600, 0.4, baseDelay + 200);   // Tono grave
-    }
-    
-  } catch (error) {
-    // Silenciar errores de audio para no romper la aplicación
-  }
-};
+// Nota: El sonido de checkpoint #5 se reproduce desde el Sidebar para evitar duplicación
+// cuando se está en el módulo Live Monitor. El Sidebar reproduce el sonido independientemente
+// del módulo activo, por lo que no es necesario reproducirlo aquí también.
 
 // Definición de checkpoints del proceso de venta
 const CHECKPOINTS = {
@@ -1288,8 +1222,7 @@ const LiveMonitorKanban: React.FC = () => {
               // Detectar cambio a checkpoint #5
               if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
                 if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
-                  // Cambió a checkpoint #5 - reproducir sonido y notificación
-                  playCheckpointCompleteSound();
+                  // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
                   triggerCallNotification(call.call_id, currentCheckpoint);
                 }
               }
@@ -1638,8 +1571,7 @@ const LiveMonitorKanban: React.FC = () => {
               // Detectar cambio a checkpoint #5
               if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
                 if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
-                  // Cambió a checkpoint #5 - reproducir sonido y notificación
-                  playCheckpointCompleteSound();
+                  // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
                   triggerCallNotification(call.call_id, currentCheckpoint);
                 }
               }
@@ -1752,9 +1684,7 @@ const LiveMonitorKanban: React.FC = () => {
             if (newCheckpoint && 
                 (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
                 oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
-              // Reproducir sonido inmediatamente
-              playCheckpointCompleteSound();
-              // Emitir notificación global para el sidebar (con animación de ringing)
+              // Emitir notificación global para el sidebar (con animación de ringing y sonido)
               triggerCallNotification(newCall.call_id, newCheckpoint);
             }
             
@@ -1775,8 +1705,7 @@ const LiveMonitorKanban: React.FC = () => {
             
             if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
               if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
-                // Cambió a checkpoint #5 - reproducir sonido y notificación
-                playCheckpointCompleteSound();
+                // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
                 triggerCallNotification(call.call_id, currentCheckpoint);
               }
             }
@@ -1837,14 +1766,12 @@ const LiveMonitorKanban: React.FC = () => {
           
           // Detectar cambio de checkpoint (manejar casos donde oldRec puede ser null)
           if (newCheckpoint && newCheckpoint !== oldCheckpoint) {
-            // Sonido cuando llega al último checkpoint
+            // Notificación cuando llega al último checkpoint
             // Disparar si el nuevo checkpoint es #5 (sin importar el anterior, para asegurar que funcione)
             if (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) {
               // Solo disparar si realmente cambió (no si ya estaba en #5)
               if (!oldCheckpoint || oldCheckpoint !== 'checkpoint #5') {
-                // Reproducir sonido inmediatamente
-                playCheckpointCompleteSound();
-                // Emitir notificación global para el sidebar (con animación de ringing)
+                // Emitir notificación global para el sidebar (con animación de ringing y sonido)
                 triggerCallNotification(rec.call_id, newCheckpoint);
               }
             }
@@ -2084,9 +2011,7 @@ const LiveMonitorKanban: React.FC = () => {
         if (oldCheckpoint !== newCheckpoint && 
             (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) && 
             oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
-          // Reproducir sonido inmediatamente
-          playCheckpointCompleteSound();
-          // Emitir notificación global para el sidebar (con animación de ringing)
+          // Emitir notificación global para el sidebar (con animación de ringing y sonido)
           triggerCallNotification(rec.call_id, newCheckpoint);
         }
         
