@@ -1,5 +1,39 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎨 Versión B2.1.2N6.1.0 - Sistema de Temas Global: Modo Oscuro por Defecto y Exclusión Módulo Dirección (Enero 2025)
+
+### 🎯 **RELEASE BETA - Sistema de Temas Mejorado**
+
+#### 🎨 **Sistema de Temas Global**
+- **Modo oscuro por defecto:** El sistema inicia en modo oscuro automáticamente
+- **Sincronización global:** El cambio de tema se aplica a todos los módulos del sistema
+- **Persistencia entre módulos:** El tema seleccionado se mantiene al cambiar entre módulos
+- **Exclusión módulo dirección:** El módulo "direccion" tiene su propio sistema de temas independiente
+
+#### 🔧 **Implementación Técnica**
+- **Default dark mode:** Estado inicial cambiado a `true` en `MainApp.tsx` y `appStore.ts`
+- **Sincronización automática:** Cambios de tema se guardan en `localStorage` y se aplican globalmente
+- **Exclusión inteligente:** Módulo direccion completamente desacoplado del sistema de temas global
+- **Restauración automática:** Al salir del módulo direccion, se restaura el tema global guardado
+
+#### 🐛 **Problemas Resueltos**
+- **Tema no persistía:** Ahora el tema se mantiene al cambiar entre módulos
+- **Default claro:** Sistema ahora inicia en modo oscuro por defecto
+- **Conflicto con direccion:** Módulo direccion ya no interfiere con el tema global
+
+#### 📝 **Archivos Modificados**
+- `src/components/MainApp.tsx` - Lógica de tema mejorada con sincronización global
+- `src/stores/appStore.ts` - Default cambiado a modo oscuro
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.2N6.1.0
+
+#### ✅ **Beneficios**
+- ✅ Modo oscuro por defecto mejora la experiencia visual
+- ✅ Tema consistente entre todos los módulos
+- ✅ Módulo direccion mantiene su independencia visual
+- ✅ Persistencia confiable del tema seleccionado
+
+---
+
 ## 🔧 Versión B2.1.1N6.1.0 - Live Monitor: Detección Mejorada de Llamadas Activas y Manejo de Realtime (Noviembre 2025)
 
 ### 🎯 **RELEASE BETA - Corrección Detección Tiempo Real**

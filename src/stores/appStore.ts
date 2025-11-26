@@ -22,12 +22,12 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   currentStep: 1,
   projectType: '',
-  darkMode: false,
+  darkMode: true, // Por defecto modo oscuro
   appMode: 'admin',
   
   setCurrentStep: (step) => set({ currentStep: step }),
   setProjectType: (type) => set({ projectType: type }),
   toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
   setAppMode: (mode) => set({ appMode: mode, currentStep: 1, projectType: '' }),
-  resetApp: () => set({ currentStep: 1, projectType: '', darkMode: false, appMode: 'admin' }),
+  resetApp: () => set({ currentStep: 1, projectType: '', darkMode: true, appMode: 'admin' }),
 }));

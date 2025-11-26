@@ -1,5 +1,28 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.1.2N6.1.0 (Enero 2025) - Sistema de Temas Global: Modo Oscuro por Defecto y Exclusión Módulo Dirección
+
+### 🎨 RELEASE BETA - Sistema de Temas Mejorado
+
+#### Sistema de Temas Global
+- **Modo oscuro por defecto:** El sistema inicia en modo oscuro automáticamente
+- **Sincronización global:** El cambio de tema se aplica a todos los módulos del sistema
+- **Persistencia entre módulos:** El tema seleccionado se mantiene al cambiar entre módulos
+- **Exclusión módulo dirección:** El módulo "direccion" tiene su propio sistema de temas independiente
+
+#### Implementación Técnica
+- **Default dark mode:** Estado inicial cambiado a `true` en `MainApp.tsx` y `appStore.ts`
+- **Sincronización automática:** Cambios de tema se guardan en `localStorage` y se aplican globalmente
+- **Exclusión inteligente:** Módulo direccion completamente desacoplado del sistema de temas global
+- **Restauración automática:** Al salir del módulo direccion, se restaura el tema global guardado
+
+#### Archivos Principales
+- `src/components/MainApp.tsx` - Lógica de tema mejorada con sincronización global
+- `src/stores/appStore.ts` - Default cambiado a modo oscuro
+- `src/components/Footer.tsx` - Versión B2.1.2N6.1.0
+
+---
+
 ## Versión B2.1.1N6.1.0 (Noviembre 2025) - Live Monitor: Detección Mejorada de Llamadas Activas y Manejo de Realtime
 
 ### 🔧 RELEASE BETA - Corrección Detección Tiempo Real

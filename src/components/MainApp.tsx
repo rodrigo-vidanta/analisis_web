@@ -76,7 +76,7 @@ function MainApp() {
     setAppMode, 
     resetApp 
   } = useAppStore();
-  const [localDarkMode, setLocalDarkMode] = useState(false);
+  const [localDarkMode, setLocalDarkMode] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Por defecto abierto
   
   // Actualizar el módulo activo en el servicio de logging cuando cambia
@@ -107,20 +107,19 @@ function MainApp() {
     return `Paso ${currentStep} de ${totalSteps}`;
   };
 
-  // Manejar tema oscuro - detectar preferencia del sistema
+  // Manejar tema oscuro - por defecto oscuro, detectar preferencia guardada
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    // Prioridad: 1) Tema guardado explícitamente, 2) Preferencia del sistema
+    // Prioridad: 1) Tema guardado explícitamente, 2) Por defecto oscuro
     let shouldBeDark: boolean;
     if (savedTheme === 'dark') {
       shouldBeDark = true;
     } else if (savedTheme === 'light') {
       shouldBeDark = false;
     } else {
-      // Si no hay tema guardado, usar preferencia del sistema
-      shouldBeDark = systemPrefersDark;
+      // Si no hay tema guardado, usar modo oscuro por defecto
+      shouldBeDark = true;
     }
     
     setLocalDarkMode(shouldBeDark);
@@ -130,24 +129,37 @@ function MainApp() {
       toggleDarkMode();
     }
     
-    // Aplicar tema al documento inmediatamente
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
+    // Aplicar tema al documento inmediatamente (excepto módulo direccion)
+    // El módulo direccion maneja su propio tema, así que no aplicamos clase dark aquí
+    if (appMode !== 'direccion') {
+      if (shouldBeDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     } else {
+      // Asegurar que direccion no tenga clase dark
       document.documentElement.classList.remove('dark');
     }
     
     // Guardar el tema en localStorage para asegurar persistencia
     localStorage.setItem('theme', shouldBeDark ? 'dark' : 'light');
     
-  }, []);
+  }, [appMode, darkMode, toggleDarkMode]);
 
   useEffect(() => {
+    // Excluir módulo direccion del sistema de temas global
+    if (appMode === 'direccion') {
+      // Remover clase dark del documento para que direccion maneje su propio tema
+      document.documentElement.classList.remove('dark');
+      return;
+    }
+    
     // Para constructor, usar darkMode del store
     // Para otros módulos, usar localDarkMode
     const shouldBeDark = localDarkMode;
     
-    
+    // Sincronizar tema globalmente entre módulos
     if (shouldBeDark) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -155,7 +167,12 @@ function MainApp() {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
-  }, [darkMode, localDarkMode, appMode]);
+    
+    // Sincronizar store global si es necesario
+    if (shouldBeDark !== darkMode) {
+      toggleDarkMode();
+    }
+  }, [darkMode, localDarkMode, appMode, toggleDarkMode]);
 
   // Listener para navegación a Live Chat desde sidebars
   useEffect(() => {
@@ -235,9 +252,29 @@ function MainApp() {
   }, [user?.role_name, appMode, setAppMode]);
 
   const handleToggleDarkMode = () => {
-    // Cambiar solo estado local
+    // Excluir módulo direccion del toggle global
+    if (appMode === 'direccion') {
+      return;
+    }
+    
+    // Cambiar estado local y sincronizar globalmente
     const newDarkMode = !localDarkMode;
     setLocalDarkMode(newDarkMode);
+    
+    // Sincronizar con store global
+    if (newDarkMode !== darkMode) {
+      toggleDarkMode();
+    }
+    
+    // Aplicar inmediatamente al documento
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    // Guardar en localStorage para persistencia entre módulos
+    localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
   };
 
   // Función para manejar cambio de modo
@@ -246,6 +283,23 @@ function MainApp() {
     if (user?.role_name === 'direccion' && mode !== 'direccion') {
       return; // No permitir cambiar de módulo
     }
+    
+    // Si se sale del módulo direccion, restaurar tema global
+    if (appMode === 'direccion' && mode !== 'direccion') {
+      const savedTheme = localStorage.getItem('theme');
+      const shouldBeDark = savedTheme === 'dark' || (savedTheme !== 'light' && true); // Default dark
+      if (shouldBeDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+    
+    // Si se entra al módulo direccion, remover clase dark del documento
+    if (mode === 'direccion') {
+      document.documentElement.classList.remove('dark');
+    }
+    
     setAppMode(mode);
     // Resetear steps cuando cambies de modo para evitar problemas
     if (mode !== 'constructor') {
