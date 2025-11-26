@@ -99,8 +99,6 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
     }
 
     try {
-      console.log('🔍 Buscando datos del prospecto:', selectedConversation.prospecto_id);
-      
       const { data, error } = await analysisSupabase
         .from('prospectos')
         .select('whatsapp, id_uchat')
@@ -117,7 +115,6 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         return;
       }
 
-      console.log('✅ Datos del prospecto obtenidos:', data);
       setProspectoData({
         whatsapp: data.whatsapp,
         id_uchat: data.id_uchat
@@ -138,9 +135,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         .eq('tipo_contenido', 'imagen');
 
       if (countError) {
-        console.warn('⚠️ Error obteniendo conteo de imágenes:', countError);
-      } else {
-        console.log(`📊 Total de imágenes en BD: ${count || 0}`);
+        // Silenciar error de conteo, no es crítico
       }
 
       // Cargar todas las imágenes (sin límite o con límite alto)
@@ -152,8 +147,6 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         .limit(1000); // Aumentado de 50 a 1000 para cargar más imágenes
 
       if (error) throw error;
-      
-      console.log(`✅ Imágenes cargadas: ${data?.length || 0} de ${count || 'desconocido'}`);
       
       setImages(data || []);
       setFilteredImages(data || []);
@@ -291,25 +284,20 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
     // Filtro por destino
     if (selectedDestino !== 'all') {
-      const beforeDestino = filtered.length;
       filtered = filtered.filter(img => 
         img.destinos?.includes(selectedDestino)
       );
-      console.log(`🔍 Filtro destino "${selectedDestino}": ${beforeDestino} → ${filtered.length} imágenes`);
     }
 
     // Filtro por resort
     if (selectedResort !== 'all') {
-      const beforeResort = filtered.length;
       filtered = filtered.filter(img => 
         img.resorts?.includes(selectedResort)
       );
-      console.log(`🔍 Filtro resort "${selectedResort}": ${beforeResort} → ${filtered.length} imágenes`);
     }
 
     // Búsqueda por keyword
     if (searchTerm.trim()) {
-      const beforeSearch = filtered.length;
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(img => 
         img.nombre.toLowerCase().includes(term) ||
@@ -318,10 +306,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         img.resorts?.some(r => r.toLowerCase().includes(term)) ||
         img.atracciones?.some(a => a.toLowerCase().includes(term))
       );
-      console.log(`🔍 Búsqueda "${searchTerm}": ${beforeSearch} → ${filtered.length} imágenes`);
     }
-
-    console.log(`📊 Filtrado final: ${initialCount} imágenes originales → ${filtered.length} imágenes filtradas`);
     
     setFilteredImages(filtered);
     setCurrentPage(1); // Reset a primera página cuando cambian los filtros
@@ -332,11 +317,6 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   const startIndex = (currentPage - 1) * imagesPerPage;
   const endIndex = startIndex + imagesPerPage;
   const currentImages = filteredImages.slice(startIndex, endIndex);
-  
-  // Log para debugging
-  useEffect(() => {
-    console.log(`🖼️ Renderizado: Mostrando ${currentImages.length} imágenes (página ${currentPage} de ${totalPages}, total filtradas: ${filteredImages.length})`);
-  }, [currentImages.length, currentPage, totalPages, filteredImages.length]);
 
   // Guardar en cache local
   const addToRecentImages = (item: ContentItem) => {
@@ -423,8 +403,6 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         }]
       }];
 
-      console.log('📤 Enviando imagen:', payload);
-
       // Usar Supabase Edge Function como proxy para evitar CORS
       const proxyUrl = 'https://zbylezfyagwrxoecioup.supabase.co/functions/v1/send-img-proxy';
       
@@ -437,8 +415,6 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         body: JSON.stringify(payload)
       });
 
-      console.log('📥 Respuesta del servidor:', response.status, response.statusText);
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Error del servidor:', errorText);
@@ -446,17 +422,14 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       }
 
       const result = await response.json();
-      console.log('✅ Imagen enviada correctamente:', result);
 
       // PAUSAR EL BOT POR 15 MINUTOS después de enviar adjunto exitosamente
       if (onPauseBot && prospectoData.id_uchat) {
         try {
-          const success = await onPauseBot(prospectoData.id_uchat, 15);
-          if (success) {
-            console.log('✅ Bot pausado por 15 minutos después de enviar adjunto');
-          } else {
-            console.warn('⚠️ No se pudo pausar el bot después de enviar adjunto');
-          }
+          await onPauseBot(prospectoData.id_uchat, 15);
+        } catch (error) {
+          console.error('❌ Error pausando bot después de enviar adjunto:', error);
+        }
         } catch (error) {
           console.error('❌ Error pausando bot después de enviar adjunto:', error);
         }

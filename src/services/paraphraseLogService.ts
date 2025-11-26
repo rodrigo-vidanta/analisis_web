@@ -49,15 +49,6 @@ export class ParaphraseLogService {
     processingTimeMs?: number
   ): Promise<string | null> {
     try {
-      // Log solo en desarrollo
-      if (import.meta.env.DEV) {
-        console.log('📝 Registrando log de parafraseo:', {
-          userId,
-          hasWarning: hasModerationWarning,
-          selectedOption: selectedOptionNumber
-        });
-      }
-
       const { data, error } = await supabaseSystemUI.rpc('register_paraphrase_log', {
         p_user_id: userId,
         p_user_email: userEmail || null,
@@ -78,10 +69,6 @@ export class ParaphraseLogService {
         return null;
       }
 
-      // Log solo en desarrollo
-      if (import.meta.env.DEV) {
-        console.log('✅ Log de parafraseo registrado:', data);
-      }
       return data;
     } catch (error) {
       console.error('❌ Error en registerLog:', error);

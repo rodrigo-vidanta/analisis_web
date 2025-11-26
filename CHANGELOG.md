@@ -1,5 +1,32 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🧹 Versión B2.1.8N6.0.0 - Live Chat: Limpieza de Logs Innecesarios (Enero 2025)
+
+### 🎯 **RELEASE BETA - Limpieza y Optimización**
+
+#### 🧹 **Limpieza de Logs de Consola**
+- **Logs eliminados de ImageCatalogModal:** Removidos todos los logs informativos de filtrado, renderizado, carga de imágenes y envío
+- **Logs eliminados de ParaphraseModal:** Removidos logs de envío al webhook N8N, respuestas, warnings y registros
+- **Logs eliminados de moderationService:** Removidos logs de registro de warnings de moderación
+- **Logs eliminados de paraphraseLogService:** Removidos logs de registro de logs de parafraseo
+- **Consola limpia:** Solo se mantienen `console.error` para errores críticos
+- **Funcionalidad intacta:** Todas las funciones se mantienen, solo se eliminaron logs informativos
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/ImageCatalogModal.tsx` - Eliminación completa de logs informativos
+- `src/components/chat/ParaphraseModal.tsx` - Eliminación de logs de webhook y warnings
+- `src/services/moderationService.ts` - Eliminación de logs de registro de warnings
+- `src/services/paraphraseLogService.ts` - Eliminación de logs de registro de parafraseo
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.8N6.0.0
+
+#### ✅ **Beneficios**
+- ✅ Consola completamente limpia sin información innecesaria
+- ✅ Mejor rendimiento al reducir escrituras innecesarias a consola
+- ✅ Mejor seguridad al no exponer información del sistema en consola
+- ✅ Experiencia de desarrollo más limpia y profesional
+
+---
+
 ## 💬 Versión B2.1.7N6.0.0 - Live Chat: Corrección de Marcado de Mensajes como Leídos (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Corrección de Funcionalidad Crítica**

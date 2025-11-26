@@ -90,10 +90,6 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
     // Si había un warning de moderación y el usuario selecciona una opción,
     // marcar el warning como "mensaje enviado"
     if (moderationFlag?.warningId) {
-      // Log solo en desarrollo
-      if (import.meta.env.DEV) {
-        console.log('⚠️ Usuario seleccionó opción a pesar del warning, marcando como enviado');
-      }
       await ModerationService.markWarningAsSent(moderationFlag.warningId);
       
       // Actualizar el warning con el output seleccionado
@@ -144,11 +140,6 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT);
 
-      console.log('📤 [PARAPHRASE] Enviando al webhook N8N:', {
-        context,
-        textLength: originalText.length
-      });
-
       // Llamar al webhook de N8N
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
@@ -178,19 +169,9 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
       }
 
       const data = await response.json();
-      
-      console.log('📥 [PARAPHRASE] Respuesta del webhook N8N:', {
-        hasOption1: !!data.option1,
-        hasOption2: !!data.option2,
-        hasGuardrail: !!data.guardrail
-      });
 
       // ⚠️ DETECCIÓN DE GUARDRAIL - PRIORITARIO
       if (data.guardrail === true || data.guardrail === 'true') {
-        if (import.meta.env.DEV) {
-          console.warn('🛡️ Guardrail activado:', data);
-        }
-        
         const warningReason = data.reason || 'Contenido inapropiado detectado';
         const warningCategory = (data.category || 'otro') as ModerationWarning['warning_category'];
         
@@ -207,10 +188,6 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
             undefined, // conversation_id
             undefined  // prospect_id
           );
-          
-          if (warningId && import.meta.env.DEV) {
-            console.log('✅ Warning registrado en BD:', warningId);
-          }
         }
         
         setModerationFlag({
@@ -284,7 +261,7 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
       
       // Si es timeout o error de red, usar texto original como fallback
       if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('fetch'))) {
-        console.warn('⚠️ [PARAPHRASE] Webhook no respondió, usando texto original como fallback');
+        // Webhook no respondió, usando texto original como fallback
         setError('El servicio de parafraseo no está disponible. Usando texto original.');
         // Fallback: usar texto original en ambas opciones
         setOption1(originalText);

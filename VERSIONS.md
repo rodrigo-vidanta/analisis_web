@@ -1,5 +1,24 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.1.8N6.0.0 (Enero 2025) - Live Chat: Limpieza de Logs Innecesarios
+
+### 🧹 RELEASE BETA - Limpieza y Optimización
+
+#### Limpieza de Logs de Consola
+- **Logs eliminados de componentes:** Removidos todos los logs informativos de ImageCatalogModal y ParaphraseModal
+- **Logs eliminados de servicios:** Removidos logs de moderationService y paraphraseLogService
+- **Consola completamente limpia:** Solo se mantienen console.error para errores críticos
+- **Funcionalidad intacta:** Todas las funciones se mantienen
+
+#### Archivos Principales
+- `src/components/chat/ImageCatalogModal.tsx` - Eliminación completa de logs informativos
+- `src/components/chat/ParaphraseModal.tsx` - Eliminación de logs de webhook y warnings
+- `src/services/moderationService.ts` - Eliminación de logs de registro
+- `src/services/paraphraseLogService.ts` - Eliminación de logs de registro
+- `src/components/Footer.tsx` - Versión B2.1.8N6.0.0
+
+---
+
 ## Versión B2.1.7N6.0.0 (Enero 2025) - Live Chat: Corrección de Marcado de Mensajes como Leídos
 
 ### 💬 RELEASE BETA - Corrección de Funcionalidad Crítica

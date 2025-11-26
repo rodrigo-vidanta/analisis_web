@@ -3,7 +3,7 @@ import SnakeEasterEgg from './SnakeEasterEgg';
 
 const Footer: React.FC = () => {
   // Versión actual
-  const version = 'B2.1.7N6.0.0';
+  const version = 'B2.1.8N6.0.0';
   
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);

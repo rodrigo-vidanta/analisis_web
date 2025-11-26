@@ -44,15 +44,6 @@ export class ModerationService {
     prospectId?: string
   ): Promise<string | null> {
     try {
-      // Log solo en desarrollo
-      if (import.meta.env.DEV) {
-        console.log('🛡️ Registrando warning de moderación:', {
-          userId,
-          category: warningCategory,
-          reason: warningReason.substring(0, 50)
-        });
-      }
-
       const { data, error } = await supabaseSystemUI.rpc('register_moderation_warning', {
         p_user_id: userId,
         p_user_email: userEmail || null,
@@ -69,10 +60,6 @@ export class ModerationService {
         return null;
       }
 
-      // Log solo en desarrollo
-      if (import.meta.env.DEV) {
-        console.log('✅ Warning registrado:', data);
-      }
       return data;
     } catch (error) {
       console.error('❌ Error en registerWarning:', error);
