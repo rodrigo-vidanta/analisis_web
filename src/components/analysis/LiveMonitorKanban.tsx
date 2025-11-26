@@ -2550,7 +2550,7 @@ const LiveMonitorKanban: React.FC = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>Atendida / no Transferida</span>
+                <span>Atendida / No transferida</span>
                 <span className="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
                   {attendedCalls.length}
                 </span>
@@ -3821,7 +3821,7 @@ const LiveMonitorKanban: React.FC = () => {
           <div className="overflow-x-auto">
             <LiveMonitorDataGrid
               calls={attendedCalls}
-              title="📞 Llamadas Atendidas / no Transferidas"
+              title="📞 Llamadas Atendidas / No transferidas"
               onCallClick={(call) => setSelectedCall(call)}
               onFinalize={openFinalizationModal}
             />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Calendar, Clock, Eye, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Calendar, Clock, Eye, X, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { scheduledCallsService, type ScheduledCall } from '../../services/scheduledCallsService';
 import { CalendarSidebar } from './CalendarSidebar';
@@ -26,6 +26,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   const [selectedProspectoIdForSidebar, setSelectedProspectoIdForSidebar] = useState<string>('');
   const [calendarWidth, setCalendarWidth] = useState(320);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -38,6 +39,17 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
       loadCalls();
     }
   }, [searchTerm, user?.id]);
+
+  // Actualización automática silenciosa cada 60 segundos
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const interval = setInterval(() => {
+      loadCallsSilent();
+    }, 60000); // 60 segundos
+    
+    return () => clearInterval(interval);
+  }, [user?.id, searchTerm]);
 
   // Observer para el ancho del calendario
   useEffect(() => {
@@ -72,6 +84,52 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
     } finally {
       setLoading(false);
     }
+  };
+
+  // Carga silenciosa sin mostrar loading ni causar rerenders visibles
+  const loadCallsSilent = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const filters = {
+        search: searchTerm || undefined,
+        estatus: 'all' as const
+      };
+      const data = await scheduledCallsService.getScheduledCalls(user.id, filters);
+      // Actualizar solo si hay cambios reales para evitar rerenders innecesarios
+      setCalls(prevCalls => {
+        // Comparar por IDs para detectar cambios reales
+        const prevIds = new Set(prevCalls.map(c => c.id));
+        const newIds = new Set(data.map(c => c.id));
+        
+        // Si los IDs son diferentes, hay cambios
+        if (prevIds.size !== newIds.size || 
+            [...prevIds].some(id => !newIds.has(id)) ||
+            [...newIds].some(id => !prevIds.has(id))) {
+          return data;
+        }
+        
+        // Si los IDs son iguales, comparar contenido
+        const hasChanges = prevCalls.some((prevCall, index) => {
+          const newCall = data[index];
+          if (!newCall) return true;
+          return prevCall.estatus !== newCall.estatus ||
+                 prevCall.fecha_programada !== newCall.fecha_programada ||
+                 prevCall.justificacion_llamada !== newCall.justificacion_llamada;
+        });
+        
+        return hasChanges ? data : prevCalls;
+      });
+    } catch (error) {
+      // Silenciar errores en actualización automática
+    }
+  };
+
+  // Función para sincronización manual
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await loadCalls();
+    setIsRefreshing(false);
   };
 
   const statistics = {
@@ -134,6 +192,15 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Botón de sincronización discreto */}
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing || loading}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Sincronizar"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />

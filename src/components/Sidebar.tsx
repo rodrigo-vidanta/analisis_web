@@ -299,7 +299,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const { config } = useSystemConfig();
   const { activeCallNotification, clearCallNotification } = useNotificationStore();
   const [isRinging, setIsRinging] = useState(false);
-  const lastProcessedCallRef = useRef<{ callId: string; timestamp: number } | null>(null);
+  const processedCallsRef = useRef<Set<string>>(new Set());
   
   const faviconUrl = config.app_branding?.favicon_url;
 
@@ -310,20 +310,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       return;
     }
     
-    // Evitar procesar la misma llamada múltiples veces
-    const lastProcessed = lastProcessedCallRef.current;
-    if (lastProcessed && 
-        lastProcessed.callId === activeCallNotification.callId &&
-        activeCallNotification.timestamp - lastProcessed.timestamp < 2000) {
-      // Ya se procesó esta llamada recientemente (menos de 2 segundos), ignorar
+    // Evitar procesar la misma llamada múltiples veces (una vez por callId único)
+    if (processedCallsRef.current.has(activeCallNotification.callId)) {
+      // Ya se procesó esta llamada, ignorar completamente
       return;
     }
     
-    // Marcar esta llamada como procesada
-    lastProcessedCallRef.current = {
-      callId: activeCallNotification.callId,
-      timestamp: activeCallNotification.timestamp
-    };
+    // Marcar esta llamada como procesada (solo una vez por callId)
+    processedCallsRef.current.add(activeCallNotification.callId);
+    
+    // Limpiar callIds antiguos después de 5 minutos para evitar acumulación de memoria
+    setTimeout(() => {
+      processedCallsRef.current.delete(activeCallNotification.callId);
+    }, 300000); // 5 minutos
     
     // Capturar el timestamp actual para verificar después
     const currentTimestamp = activeCallNotification.timestamp;
