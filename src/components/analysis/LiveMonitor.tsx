@@ -4494,7 +4494,6 @@ const LiveMonitor: React.FC = () => {
         table: 'llamadas_ventas'
       }, async (payload) => {
         try {
-          console.log('📞 [LiveMonitor] Nueva llamada detectada por Realtime:', payload.new?.call_id);
           // Recargar datos para incluir la nueva llamada
           const [prospectsData, agentsData] = await Promise.all([
             liveMonitorService.getActiveCalls(user?.id),
@@ -4579,7 +4578,6 @@ const LiveMonitor: React.FC = () => {
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('✅ [LiveMonitor] Realtime suscrito correctamente a llamadas_ventas');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ [LiveMonitor] Error en suscripción Realtime:', status);
         }
@@ -4593,7 +4591,7 @@ const LiveMonitor: React.FC = () => {
       try {
         channel.unsubscribe();
       } catch (e) {
-        console.warn('Error al desuscribirse de Realtime:', e);
+        // Error al desuscribirse de Realtime (no crítico)
       }
     };
   }, [user?.id]);

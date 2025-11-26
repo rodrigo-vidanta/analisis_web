@@ -1,5 +1,34 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🧹 Versión B2.1.5N6.1.0 - Live Monitor: Limpieza de Logs y Eliminación de Botón Actualizar (Enero 2025)
+
+### 🎯 **RELEASE BETA - Limpieza y Optimización**
+
+#### 🧹 **Limpieza de Logs de Consola**
+- **Logs eliminados:** Removidos todos los logs informativos de `LiveMonitorKanban.tsx`
+- **Logs eliminados:** Removidos logs de Realtime y suscripciones de `LiveMonitor.tsx`
+- **Consola limpia:** Solo se mantienen errores críticos con `console.error`
+- **Funcionalidad intacta:** Todas las funciones se mantienen, solo se eliminaron logs informativos
+
+#### 🎨 **Eliminación de Botón Actualizar**
+- **Botón removido:** Eliminado botón de "Actualizar" que parpadeaba constantemente
+- **Función mantenida:** La función de actualización automática sigue funcionando en background
+- **UI más limpia:** Interfaz más profesional sin elementos parpadeantes
+- **Actualización automática:** El sistema sigue actualizándose automáticamente mediante Realtime y polling
+
+#### 📝 **Archivos Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Eliminación de botón y logs
+- `src/components/analysis/LiveMonitor.tsx` - Limpieza de logs de Realtime
+- `src/components/Footer.tsx` - Versión actualizada a B2.1.5N6.1.0
+
+#### ✅ **Beneficios**
+- ✅ Consola de desarrollo más limpia y fácil de depurar
+- ✅ UI más profesional sin elementos parpadeantes
+- ✅ Mejor rendimiento al reducir escrituras innecesarias a consola
+- ✅ Experiencia de usuario mejorada sin distracciones visuales
+
+---
+
 ## ⚡ Versión B2.1.4N6.1.0 - Optimizaciones de Rendimiento y Mejoras de UX (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Optimizaciones de Rendimiento**
