@@ -1298,7 +1298,7 @@ html {
 
 /* Modo claro con transición suave - Ajustado para reducir brillo y cumplir WCAG */
 /* WCAG: Texto normal necesita 4.5:1, texto grande necesita 3:1 de contraste */
-html:not(.dark) {
+html:not(.dark):not(.theme-indigo) {
   background-color: #f1f5f9 !important; /* slate-100 - menos brillante, más cómodo para la vista */
 }
 
@@ -1306,6 +1306,7 @@ html:not(.dark) {
 html.dark {
   background-color: #0f172a !important; /* slate-900 - modo oscuro */
 }
+
 
 /* ============================================
    AJUSTE GLOBAL PARA MODO CLARO MENOS BRILLANTE

@@ -16,14 +16,16 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
   Search, Filter, Calendar, BarChart3, TrendingUp,
   Phone, User, Clock, Star, MessageSquare, Volume2,
   X, ChevronRight, Play, Pause, Download, Eye,
   CheckCircle, AlertTriangle, FileText, Activity, DollarSign,
-  Square
+  Square, PhoneCall, MapPin
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { permissionsService } from '../../services/permissionsService';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import Chart from 'chart.js/auto';
 // import DetailedCallView from './DetailedCallView'; // Comentado por incompatibilidad
@@ -397,9 +399,18 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                       <FileText size={18} />
                       Observaciones
                     </h3>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                      {prospecto.observaciones}
-                    </p>
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-3 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                          strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                          br: () => <br />,
+                        }}
+                      >
+                        {prospecto.observaciones?.replace(/\\n/g, '\n') || ''}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 )}
 
@@ -922,19 +933,47 @@ const AnalysisIAComplete: React.FC = () => {
           // Cargar datos de prospectos
           let prospectosData: any[] = [];
           if (prospectoIds.length > 0) {
-            const { data: prospectosResult, error: prospectosError } = await analysisSupabase
+            // Aplicar filtros de permisos según rol del usuario
+            let prospectosQuery = analysisSupabase
               .from('prospectos')
-              .select('id, nombre_completo, nombre, apellido_paterno, apellido_materno, whatsapp, ciudad_residencia')
+              .select('id, nombre_completo, nombre, apellido_paterno, apellido_materno, whatsapp, ciudad_residencia, coordinacion_id, ejecutivo_id')
               .in('id', prospectoIds);
+            
+            // Obtener filtros de permisos
+            if (user?.id) {
+              const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
+              const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
+              const isAdmin = await permissionsService.isAdmin(user.id);
+              
+              if (!isAdmin) {
+                if (ejecutivoFilter) {
+                  // Ejecutivo: solo prospectos asignados a él
+                  prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter);
+                } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                  // Coordinador: solo prospectos de sus coordinaciones
+                  prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+                }
+              }
+            }
+            
+            const { data: prospectosResult, error: prospectosError } = await prospectosQuery;
             
             if (!prospectosError && prospectosResult) {
               prospectosData = prospectosResult;
             }
           }
           
+          // Filtrar análisis para incluir solo los que tienen prospectos permitidos
+          const allowedProspectoIds = new Set(prospectosData.map(p => p.id));
+          
           enrichedData = (analysisData || []).map(analysis => {
             const llamada = llamadasData.find(l => l.call_id === analysis.call_id);
             const prospecto = prospectosData.find(p => p.id === llamada?.prospecto);
+            
+            // Si el prospecto no está en la lista permitida, excluir este análisis
+            if (llamada?.prospecto && !allowedProspectoIds.has(llamada.prospecto)) {
+              return null;
+            }
             
             return {
               ...analysis,
@@ -945,7 +984,7 @@ const AnalysisIAComplete: React.FC = () => {
               prospecto_whatsapp: prospecto?.whatsapp,
               prospecto_ciudad: prospecto?.ciudad_residencia
             };
-          });
+          }).filter((item): item is NonNullable<typeof item> => item !== null);
         }
       }
 

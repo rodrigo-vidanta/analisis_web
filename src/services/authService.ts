@@ -21,6 +21,7 @@
 
 import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
 import { errorLogService } from './errorLogService';
+import { loginLogService } from './loginLogService';
 
 // Tipos de datos para autenticación
 export interface User {
@@ -142,6 +143,17 @@ class AuthService {
       // Actualizar último login
       await this.updateLastLogin(authData.user_id);
 
+      // Registrar login exitoso en logs
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // Sesión válida por 24 horas
+      await loginLogService.logLogin({
+        user_id: authData.user_id,
+        email: credentials.email,
+        session_token: sessionToken,
+        login_status: 'success',
+        expires_at: expiresAt.toISOString()
+      }).catch(err => console.error('Error logging successful login:', err));
+
       // Guardar token en localStorage
       localStorage.setItem('auth_token', sessionToken);
 
@@ -155,25 +167,33 @@ class AuthService {
     } catch (error) {
       console.error('Login error:', error);
       
+      // Registrar login fallido en logs
+      const errorMessage = error instanceof Error ? error.message : 'Error de autenticación';
+      await loginLogService.logLogin({
+        email: credentials.email,
+        login_status: 'failed',
+        failure_reason: errorMessage
+      }).catch(err => console.error('Error logging failed login:', err));
+      
       // Log error crítico
-          errorLogService.logError(error, {
-            module: 'auth',
-            component: 'AuthService',
-            function: 'login',
-            severity: 'critico',
-            category: 'autenticacion',
-            details: {
-              email: credentials.email,
-              error_type: error instanceof Error ? error.constructor.name : 'Unknown'
-            }
-          }).catch(() => {}); // No queremos que errores de logging afecten el flujo principal
+      errorLogService.logError(error, {
+        module: 'auth',
+        component: 'AuthService',
+        function: 'login',
+        severity: 'critico',
+        category: 'autenticacion',
+        details: {
+          email: credentials.email,
+          error_type: error instanceof Error ? error.constructor.name : 'Unknown'
+        }
+      }).catch(() => {}); // No queremos que errores de logging afecten el flujo principal
       
       return {
         user: null,
         permissions: [],
         isAuthenticated: false,
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Error de autenticación'
+        error: errorMessage
       };
     }
   }
@@ -204,69 +224,101 @@ class AuthService {
   canAccessModule(module: string, subModule?: string): boolean {
     if (!this.currentUser) return false;
     
-    // Lógica específica por módulo ya que userPermissions está vacío
+    const role = this.currentUser.role_name;
+    
+    // Lógica específica por módulo con nuevos roles
     switch (module) {
       case 'constructor':
-        // Solo Admin puede acceder al constructor (NO developer)
-        return this.currentUser.role_name === 'admin';
+        // Solo Admin puede acceder al constructor
+        return role === 'admin';
       
       case 'plantillas':
-        // Solo Admin puede ver plantillas (NO developer)
-        return this.currentUser.role_name === 'admin';
-      
+        // Solo Admin puede ver plantillas
+        return role === 'admin';
       
       case 'analisis':
-        // Admin, Evaluator y Developer pueden ver análisis
-        // Usuarios con rol direccion NO pueden acceder
-        if (this.currentUser.role_name === 'direccion') return false;
-        return ['admin', 'evaluator', 'developer'].includes(this.currentUser.role_name);
+        // Admin: acceso completo
+        // Administrador Operativo: NO tiene acceso
+        // Coordinador: acceso a análisis de su coordinación
+        // Ejecutivo: acceso a análisis de sus prospectos
+        // Evaluator, Developer: acceso completo
+        // Dirección: NO tiene acceso
+        if (role === 'direccion' || role === 'administrador_operativo') return false;
+        return ['admin', 'evaluator', 'developer', 'coordinador', 'ejecutivo'].includes(role);
       
       case 'ai-models':
-        // AI Models para productor, admin y developer
-        // Usuarios con rol direccion NO pueden acceder
-        if (this.currentUser.role_name === 'direccion') return false;
-        return ['productor', 'admin', 'developer'].includes(this.currentUser.role_name);
+        // Solo productor, admin y developer
+        if (role === 'direccion') return false;
+        return ['productor', 'admin', 'developer'].includes(role);
       
       case 'live-chat':
-        // Live Chat disponible para todos los usuarios autenticados EXCEPTO direccion
-        if (this.currentUser.role_name === 'direccion') return false;
-        return true;
+        // Admin: acceso completo
+        // Administrador Operativo: solo lectura (ver todos, no puede enviar mensajes/imágenes/programar llamadas)
+        // Coordinador: acceso a su coordinación, puede enviar mensajes/imágenes/programar llamadas
+        // Ejecutivo: acceso solo a sus prospectos, puede enviar mensajes/imágenes
+        // Dirección: NO tiene acceso
+        if (role === 'direccion') return false;
+        return ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo', 'evaluator', 'developer'].includes(role);
       
       case 'live-monitor':
-        // Live Monitor para admin, evaluator, developer, coordinador y ejecutivo
-        // Usuarios con rol direccion NO pueden acceder
-        if (this.currentUser.role_name === 'direccion') return false;
-        return ['admin', 'evaluator', 'developer', 'coordinador', 'ejecutivo'].includes(this.currentUser.role_name);
+        // Admin: acceso completo
+        // Administrador Operativo: acceso a todos los prospectos
+        // Coordinador: acceso solo a su coordinación
+        // Ejecutivo: acceso solo a sus prospectos
+        // Evaluator, Developer: acceso completo
+        // Dirección: NO tiene acceso
+        if (role === 'direccion') return false;
+        return ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo', 'evaluator', 'developer'].includes(role);
       
       case 'prospectos':
-        // Prospectos disponible para todos los usuarios autenticados EXCEPTO direccion
-        if (this.currentUser.role_name === 'direccion') return false;
-        return true;
+        // Admin: acceso completo
+        // Administrador Operativo: puede ver todos, cambiar coordinación (con razón documentada)
+        // Coordinador: acceso a su coordinación, puede reasignar entre ejecutivos/coordinadores de su coordinación
+        // Ejecutivo: acceso solo a sus prospectos, NO puede cambiar propietario
+        // Dirección: NO tiene acceso
+        if (role === 'direccion') return false;
+        return ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo', 'evaluator', 'developer'].includes(role);
       
       case 'scheduled-calls':
-        // Llamadas Programadas disponible para coordinadores, ejecutivos y admin
-        // Usuarios con rol direccion NO pueden acceder
-        if (this.currentUser.role_name === 'direccion') return false;
-        return ['admin', 'coordinador', 'ejecutivo'].includes(this.currentUser.role_name);
+        // Admin: acceso completo
+        // Administrador Operativo: puede ver todas las llamadas programadas
+        // Coordinador: puede ver llamadas de su coordinación
+        // Ejecutivo: puede ver llamadas de sus prospectos
+        // Dirección: NO tiene acceso
+        if (role === 'direccion') return false;
+        return ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo'].includes(role);
       
       case 'direccion':
-        // Dirección solo para usuarios con rol direccion y admin
-        return this.currentUser.role_name === 'direccion' || this.currentUser.role_name === 'admin';
+        // Dirección: acceso completo para direccion y admin
+        // También para administrador_operativo, coordinador y ejecutivo según requerimientos
+        return ['direccion', 'admin', 'administrador_operativo', 'coordinador', 'ejecutivo'].includes(role);
       
       case 'admin':
-        // Admin y Coordinadores pueden acceder a administración
-        return this.currentUser.role_name === 'admin' || this.currentUser.role_name === 'coordinador';
+        // Admin: acceso completo
+        // Administrador Operativo: solo gestión de usuarios y coordinaciones
+        // Coordinador: solo gestión de ejecutivos de su coordinación
+        // Otros: NO tienen acceso
+        return ['admin', 'administrador_operativo', 'coordinador'].includes(role);
+      
+      case 'log-server':
+        // Solo admin
+        return role === 'admin';
+      
+      case 'aws-manager':
+        // Solo admin y developer
+        return ['admin', 'developer'].includes(role);
       
       default:
         // Si el usuario tiene rol direccion, solo puede acceder al módulo direccion
-        if (this.currentUser.role_name === 'direccion') {
-          return false; // Bloquear acceso a cualquier otro módulo
+        if (role === 'direccion') {
+          return false;
         }
         
-        // Para módulos nuevos (como AWS), permitir a admin y developer
-        if (this.currentUser.role_name === 'admin') return true;
-        if (this.currentUser.role_name === 'developer') {
-          // Developer puede acceder a todo excepto los módulos restringidos
+        // Admin tiene acceso completo
+        if (role === 'admin') return true;
+        
+        // Developer puede acceder a todo excepto módulos restringidos
+        if (role === 'developer') {
           const restrictedModules = ['admin', 'constructor', 'plantillas'];
           return !restrictedModules.includes(module);
         }

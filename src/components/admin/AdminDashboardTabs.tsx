@@ -13,6 +13,7 @@ type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'e
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role_name === 'admin';
+  const isAdminOperativo = user?.role_name === 'administrador_operativo';
   const [isCoordinador, setIsCoordinador] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('usuarios');
 
@@ -35,7 +36,7 @@ const AdminDashboardTabs: React.FC = () => {
   }, [user?.id, isAdmin]);
   
   const tabs = [
-    // Tabs solo para admin
+    // Tabs para admin completo
     ...(isAdmin ? [
       {
         id: 'usuarios' as AdminTab,
@@ -77,6 +78,29 @@ const AdminDashboardTabs: React.FC = () => {
           </svg>
         ),
         description: 'Configurar límites de tokens para usuarios productores'
+      },
+      {
+        id: 'coordinaciones' as AdminTab,
+        name: 'Gestión de Coordinaciones',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        ),
+        description: 'Gestionar coordinaciones, ejecutivos y analíticas'
+      }
+    ] : []),
+    // Tabs para Administrador Operativo: solo usuarios y coordinaciones
+    ...(isAdminOperativo ? [
+      {
+        id: 'usuarios' as AdminTab,
+        name: 'Gestión de Usuarios',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+          </svg>
+        ),
+        description: 'Crear, editar y gestionar usuarios coordinadores y ejecutivos'
       },
       {
         id: 'coordinaciones' as AdminTab,
@@ -171,7 +195,7 @@ const AdminDashboardTabs: React.FC = () => {
 
         {/* Contenido de las pestañas */}
         <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
-          {activeTab === 'usuarios' && isAdmin && (
+          {activeTab === 'usuarios' && (isAdmin || isAdminOperativo) && (
             <div className="p-4 sm:p-5 md:p-6 lg:p-8">
               <UserManagement />
             </div>
@@ -201,7 +225,7 @@ const AdminDashboardTabs: React.FC = () => {
             </div>
           )}
           
-          {activeTab === 'coordinaciones' && isAdmin && (
+          {activeTab === 'coordinaciones' && (isAdmin || isAdminOperativo) && (
             <div className="p-4 sm:p-5 md:p-6 lg:p-8">
               <CoordinacionesManager />
             </div>

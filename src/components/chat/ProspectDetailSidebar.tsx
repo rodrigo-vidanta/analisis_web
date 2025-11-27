@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import { 
   X, 
   User, 
@@ -26,6 +27,7 @@ import {
   PhoneMissed,
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { CallDetailModal } from './CallDetailModal';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
@@ -44,6 +46,25 @@ interface CallHistory {
   costo_total: string;
   tiene_feedback: boolean;
   feedback_resultado: string;
+}
+
+interface WhatsAppConversation {
+  id: string;
+  conversation_id: string;
+  created_at: string;
+  last_message_at?: string;
+  status: string;
+  message_count?: number;
+  customer_name?: string;
+}
+
+interface TimelineEvent {
+  id: string;
+  type: 'call' | 'message' | 'created' | 'updated';
+  date: string;
+  title: string;
+  description?: string;
+  icon: React.ReactNode;
 }
 
 
@@ -95,8 +116,10 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   
   const [prospecto, setProspecto] = useState<ProspectData | null>(null);
   const [callHistory, setCallHistory] = useState<CallHistory[]>([]);
+  const [whatsappConversations, setWhatsappConversations] = useState<WhatsAppConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingCalls, setLoadingCalls] = useState(true);
+  const [loadingConversations, setLoadingConversations] = useState(true);
   
   // Estados para el modal de detalle de llamada
   const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
@@ -106,6 +129,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
     if (isOpen && prospectoId) {
       loadProspectData();
       loadCallHistory();
+      loadWhatsAppConversations();
     }
   }, [isOpen, prospectoId]);
 
@@ -188,6 +212,98 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
     } finally {
       setLoadingCalls(false);
     }
+  };
+
+  const loadWhatsAppConversations = async () => {
+    setLoadingConversations(true);
+    try {
+      let conversations: WhatsAppConversation[] = [];
+
+      // Primero buscar todas las conversaciones activas y filtrar por metadata
+      const { data: allActiveConversations, error: errorAll } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('id, conversation_id, created_at, last_message_at, status, message_count, customer_name, metadata')
+        .eq('status', 'active');
+
+      if (allActiveConversations && !errorAll) {
+        conversations = allActiveConversations.filter(conv => 
+          conv.metadata && (conv.metadata as any).prospect_id === prospectoId
+        );
+      }
+
+      // Si no hay conversaciones por metadata, buscar por customer_phone (whatsapp)
+      if (conversations.length === 0 && prospecto?.whatsapp) {
+        const { data: conversationsByPhone, error: errorPhone } = await supabaseSystemUI
+          .from('uchat_conversations')
+          .select('id, conversation_id, created_at, last_message_at, status, message_count, customer_name')
+          .eq('customer_phone', prospecto.whatsapp)
+          .order('last_message_at', { ascending: false });
+
+        if (conversationsByPhone && !errorPhone) {
+          conversations = conversationsByPhone;
+        }
+      }
+
+      setWhatsappConversations(conversations || []);
+    } catch (error) {
+      console.error('Error cargando conversaciones WhatsApp:', error);
+      setWhatsappConversations([]);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  const buildTimelineEvents = (): TimelineEvent[] => {
+    const events: TimelineEvent[] = [];
+
+    // Agregar eventos de llamadas
+    callHistory.forEach(call => {
+      events.push({
+        id: `call-${call.call_id}`,
+        type: 'call',
+        date: call.fecha_llamada,
+        title: `Llamada ${call.call_status}`,
+        description: `${formatDuration(call.duracion_segundos)} • ${call.nivel_interes || 'Sin interés'}`,
+        icon: <PhoneCall className="w-4 h-4 text-blue-500" />
+      });
+    });
+
+    // Agregar eventos de conversaciones WhatsApp
+    whatsappConversations.forEach(conv => {
+      const convDate = conv.last_message_at || conv.created_at;
+      events.push({
+        id: `conv-${conv.id}`,
+        type: 'message',
+        date: convDate,
+        title: `Conversación WhatsApp ${conv.status === 'active' ? '(Activa)' : ''}`,
+        description: `${conv.message_count || 0} mensajes • ${conv.customer_name || 'Sin nombre'}`,
+        icon: <MessageSquare className="w-4 h-4 text-green-500" />
+      });
+    });
+
+    // Agregar eventos de creación y actualización
+    if (prospecto?.created_at) {
+      events.push({
+        id: 'created',
+        type: 'created',
+        date: prospecto.created_at,
+        title: 'Prospecto creado',
+        icon: <CheckCircle className="w-4 h-4 text-green-500" />
+      });
+    }
+
+    if (prospecto?.updated_at && prospecto.updated_at !== prospecto.created_at) {
+      events.push({
+        id: 'updated',
+        type: 'updated',
+        date: prospecto.updated_at,
+        title: 'Última actualización',
+        icon: <Clock className="w-4 h-4 text-gray-500" />
+      });
+    }
+
+    // Ordenar por fecha descendente (más reciente primero)
+    return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
 
@@ -328,30 +444,39 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
               </div>
             ) : prospecto ? (
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Estado y Prioridad */}
+                {/* Etapa Destacada */}
                 <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
-                  className="flex items-center gap-4 flex-wrap"
+                  className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-800"
                 >
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(prospecto.etapa || '')}`}>
-                    {prospecto.etapa || 'Sin etapa'}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Star className={getScoreColor(prospecto.score || '')} size={16} />
-                    <span className={`text-sm font-medium ${getScoreColor(prospecto.score || '').replace('bg-', 'text-').replace('-100', '-600').replace('-900/20', '-400')}`}>
-                      {prospecto.score || 'Sin score'}
-                    </span>
-                  </div>
-                  {prospecto.requiere_atencion_humana && (
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="text-orange-600 dark:text-orange-400" size={16} />
-                      <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
-                        Requiere atención
-                      </span>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
+                      <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
+                        {prospecto.etapa || 'Sin etapa'}
+                      </h3>
                     </div>
-                  )}
+                    <div className="flex items-center gap-3">
+                      {prospecto.score && (
+                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <Star className="text-yellow-500 dark:text-yellow-400" size={16} />
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                            {prospecto.score}
+                          </span>
+                        </div>
+                      )}
+                      {prospecto.requiere_atencion_humana && (
+                        <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <AlertTriangle className="text-orange-600 dark:text-orange-400" size={16} />
+                          <span className="text-sm font-semibold text-orange-700 dark:text-orange-300">
+                            Requiere atención
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </motion.div>
 
                 {/* Información Personal y Contacto */}
@@ -441,6 +566,17 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                         <div className="text-gray-900 dark:text-white">{prospecto.campana_origen}</div>
                       </div>
                     )}
+                    {prospecto.ingresos && (
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                          <DollarSign className="w-3 h-3 inline mr-1" />
+                          Ingresos
+                        </label>
+                        <div className="text-gray-900 dark:text-white font-medium">
+                          {prospecto.ingresos}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
 
@@ -468,51 +604,12 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   </motion.div>
                 )}
 
-                {/* Información Comercial */}
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.4, ease: "easeOut" }}
-                  className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
-                >
-                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <DollarSign size={18} />
-                    Información Comercial
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Score</label>
-                      <div className={`inline-block px-2 py-1 rounded text-sm font-medium ${getScoreColor(prospecto.score || '')}`}>
-                        {prospecto.score || 'Sin score'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ingresos</label>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {prospecto.ingresos || 'No definido'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Interés Principal</label>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {prospecto.interes_principal || 'No definido'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Asesor Asignado</label>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {prospecto.asesor_asignado || 'No asignado'}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-
                 {/* Información de Viaje (si aplica) */}
                 {(prospecto.destino_preferencia || prospecto.tamano_grupo || prospecto.cantidad_menores || prospecto.viaja_con) && (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.45, ease: "easeOut" }}
+                    transition={{ duration: 0.3, delay: 0.4, ease: "easeOut" }}
                     className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
                   >
                     <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -561,6 +658,13 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   </motion.div>
                 )}
 
+                {/* Llamadas Programadas */}
+                <ScheduledCallsSection
+                  prospectoId={prospectoId}
+                  prospectoNombre={prospecto?.nombre || prospecto?.nombre_whatsapp}
+                  delay={0.45}
+                />
+
                 {/* Observaciones */}
                 {prospecto.observaciones && (
                   <motion.div 
@@ -573,24 +677,26 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                       <FileText size={18} className="text-yellow-600 dark:text-yellow-400" />
                       Observaciones
                     </h3>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                      {prospecto.observaciones}
-                    </p>
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-3 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                          strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                          br: () => <br />,
+                        }}
+                      >
+                        {prospecto.observaciones.replace(/\\n/g, '\n')}
+                      </ReactMarkdown>
+                    </div>
                   </motion.div>
                 )}
-
-                {/* Llamadas Programadas */}
-                <ScheduledCallsSection
-                  prospectoId={prospectoId}
-                  prospectoNombre={prospecto?.nombre || prospecto?.nombre_whatsapp}
-                  delay={0.55}
-                />
 
                 {/* Historial de Llamadas */}
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
+                  transition={{ duration: 0.3, delay: 0.55, ease: "easeOut" }}
                   className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
                 >
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -628,7 +734,10 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                             {new Date(call.fecha_llamada).toLocaleDateString('es-MX', {
                               day: '2-digit',
                               month: 'short',
-                              year: 'numeric',
+                              year: 'numeric'
+                            })}
+                            {' • '}
+                            {new Date(call.fecha_llamada).toLocaleTimeString('es-MX', {
                               hour: '2-digit',
                               minute: '2-digit'
                             })}
@@ -678,27 +787,64 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.65, ease: "easeOut" }}
-                  className="space-y-3"
+                  transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
+                  className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
                 >
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <Calendar size={18} />
                     Timeline
                   </h3>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800/50 rounded">
-                      <span className="text-gray-600 dark:text-gray-400">Creado:</span>
-                      <span className="text-gray-900 dark:text-white font-medium">
-                        {formatDate(prospecto.created_at)}
-                      </span>
+                  {loadingCalls || loadingConversations ? (
+                    <div className="text-center py-4">
+                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">Cargando timeline...</p>
                     </div>
-                    <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800/50 rounded">
-                      <span className="text-gray-600 dark:text-gray-400">Última Actualización:</span>
-                      <span className="text-gray-900 dark:text-white font-medium">
-                        {formatDate(prospecto.updated_at)}
-                      </span>
+                  ) : (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {buildTimelineEvents().map((event, index) => (
+                        <motion.div
+                          key={event.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                        >
+                          <div className="mt-0.5">
+                            {event.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                                {event.title}
+                              </h4>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
+                                {new Date(event.date).toLocaleDateString('es-MX', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            {event.description && (
+                              <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                                {event.description}
+                              </p>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                      {buildTimelineEvents().length === 0 && (
+                        <div className="text-center py-4">
+                          <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            No hay eventos en el timeline
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </motion.div>
               </div>
             ) : (

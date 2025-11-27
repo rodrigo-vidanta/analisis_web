@@ -1,5 +1,38 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.2.3N6.0.0 (Enero 2025) - Gestión de Perfil de Usuario y Corrección de Sistema de Avatares
+
+### 👤 RELEASE BETA - Mejoras de Usuario y Correcciones Críticas
+
+#### Modal de Perfil de Usuario
+- **Nuevo modal:** `UserProfileModal.tsx` para gestión de avatar y contraseña
+- **Acceso desde header:** Click en avatar abre modal centrado
+- **Dos pestañas:** Foto de Perfil y Contraseña con validaciones completas
+
+#### Corrección Crítica del Sistema de Avatares
+- **Problema:** Bucket en PQNC pero función RPC en System UI
+- **Solución:** Uso de ambos clientes correctamente (PQNC para storage, System UI para RPC)
+- **Archivos corregidos:** UserProfileModal, AvatarUpload, UserManagement
+
+#### Mejoras en Sidebars de Prospectos
+- **Markdown:** Soporte completo en campo Observaciones
+- **Timeline:** Incluye llamadas y conversaciones WhatsApp
+- **Reestructuración:** Nuevo orden de secciones, Etapa destacada
+
+#### Archivos Principales
+- `src/components/shared/UserProfileModal.tsx` - Nuevo componente (555 líneas)
+- `src/components/shared/ManualCallModal.tsx` - Validación mejorada
+- `src/components/admin/AvatarUpload.tsx` - Corrección de clientes
+- `src/components/admin/UserManagement.tsx` - Corrección de clientes
+- `src/components/Header.tsx` - Integración modal perfil
+- `src/components/chat/ProspectDetailSidebar.tsx` - Mejoras UI
+- `src/components/prospectos/ProspectosManager.tsx` - Mejoras UI
+- `src/components/analysis/AnalysisIAComplete.tsx` - Mejoras UI
+- `src/services/scheduledCallsService.ts` - Corrección ReferenceError
+- `src/components/Footer.tsx` - Versión B2.2.3N6.0.0
+
+---
+
 ## Versión B2.1.9N6.0.0 (Enero 2025) - Eliminación Completa del Módulo Prompts Manager
 
 ### 🗑️ RELEASE BETA - Limpieza de Código

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { supabaseSystemUI as supabase } from '../../config/supabaseSystemUI';
+import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
+import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
 import { userProfileEvents } from '../../utils/userProfileEvents';
 
 interface AvatarUploadProps {
@@ -44,18 +45,19 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
       const fileExt = file.name.split('.').pop();
       const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
       
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      // Subir archivo al storage de PQNC (donde está el bucket)
+      const { data: uploadData, error: uploadError } = await pqncSupabaseAdmin.storage
         .from('user-avatars')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = pqncSupabaseAdmin.storage
         .from('user-avatars')
         .getPublicUrl(fileName);
 
-      // Guardar en base de datos
-      const { error: dbError } = await supabase.rpc('upload_user_avatar', {
+      // La función RPC está en System UI, no en PQNC
+      const { error: dbError } = await supabaseSystemUIAdmin.rpc('upload_user_avatar', {
         p_user_id: userId,
         p_avatar_url: publicUrl,
         p_filename: file.name,
@@ -84,8 +86,8 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
 
     setUploading(true);
     try {
-      // Eliminar de base de datos
-      const { error } = await supabase
+      // Eliminar de base de datos (tabla está en System UI)
+      const { error } = await supabaseSystemUIAdmin
         .from('user_avatars')
         .delete()
         .eq('user_id', userId);

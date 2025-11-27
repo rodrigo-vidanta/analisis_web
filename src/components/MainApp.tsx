@@ -291,6 +291,7 @@ function MainApp() {
       } else {
         document.documentElement.classList.remove('dark');
       }
+      toggleDarkMode();
     }
     
     // Si se entra al módulo direccion, remover clase dark del documento
@@ -366,7 +367,7 @@ function MainApp() {
         );
       case 'admin':
         return (
-          (user?.role_name === 'admin' || user?.role_name === 'coordinador') ? (
+          canAccessModule('admin') ? (
             <AdminDashboardTabs />
           ) : (
             <div className="min-h-screen flex items-center justify-center">

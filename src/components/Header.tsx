@@ -1,8 +1,9 @@
-// import { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { AssignmentBadge } from './analysis/AssignmentBadge';
+import UserProfileModal from './shared/UserProfileModal';
 
 interface HeaderProps {
   currentStep?: number;
@@ -31,7 +32,8 @@ const Header = ({
 }: HeaderProps) => {
   const { user, logout, canAccessModule } = useAuth();
   const { config } = useSystemConfig();
-  const { profile } = useUserProfile();
+  const { profile, refreshProfile } = useUserProfile();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Renderizar header simplificado para layout con sidebar
   if (simplified) {
@@ -64,15 +66,15 @@ const Header = ({
                  appMode === 'log-server' ? 'Log Server' :
                  appMode === 'prospectos' ? 'Prospectos' :
                  appMode === 'scheduled-calls' ? 'Llamadas Programadas' :
-                 appMode === 'direccion' ? 'Dirección' : 'PQNC AI Platform'}
+                 appMode === 'direccion' ? 'Mis Tareas' : 'PQNC AI Platform'}
               </h1>
             </div>
 
             {/* Controles de usuario */}
             <div className="flex items-center space-x-3">
               
-              {/* Botón Dirección para admin */}
-              {user?.role_name === 'admin' && (
+              {/* Botón Mis Tareas para roles con acceso */}
+              {canAccessModule('direccion') && (
                 <button 
                   onClick={() => onModeChange?.('direccion')}
                   className={`relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium ${
@@ -80,13 +82,13 @@ const Header = ({
                       ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
                       : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
-                  title="Modo Dirección - Timeline de Actividades"
+                  title="Mis Tareas - Timeline de Actividades"
                 >
                   <div className="flex items-center space-x-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>Dirección</span>
+                    <span>Mis Tareas</span>
                   </div>
                 </button>
               )}
@@ -153,7 +155,11 @@ const Header = ({
                 <div className="flex items-center space-x-3">
                   {/* Avatar y info */}
                   <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center overflow-hidden">
+                    <button
+                      onClick={() => setIsProfileModalOpen(true)}
+                      className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer"
+                      title="Editar perfil"
+                    >
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -169,7 +175,7 @@ const Header = ({
                           {user.full_name?.charAt(0).toUpperCase() || 'U'}
                         </span>
                       )}
-                    </div>
+                    </button>
                     <div className="hidden md:block">
                       <p className="text-sm font-medium text-slate-900 dark:text-white">
                         {user.full_name || user.email}
@@ -198,6 +204,20 @@ const Header = ({
             </div>
           </div>
         </div>
+
+        {/* Modal de Perfil de Usuario */}
+        {user && (
+          <UserProfileModal
+            isOpen={isProfileModalOpen}
+            onClose={() => setIsProfileModalOpen(false)}
+            userId={user.id}
+            userEmail={user.email}
+            currentAvatarUrl={profile?.avatar_url}
+            onAvatarUpdated={() => {
+              refreshProfile();
+            }}
+          />
+        )}
       </header>
     );
   }
@@ -293,8 +313,8 @@ const Header = ({
 
           {/* Controles modernos */}
           <div className="flex items-center space-x-3">
-            {/* Botón Dirección para admin */}
-            {user?.role_name === 'admin' && (
+            {/* Botón Mis Tareas para roles con acceso */}
+            {canAccessModule('direccion') && (
               <button 
                 onClick={() => onModeChange?.('direccion')}
                 className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
@@ -302,13 +322,13 @@ const Header = ({
                     ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
                     : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
-                title="Modo Dirección - Timeline de Actividades"
+                title="Mis Tareas - Timeline de Actividades"
               >
                 <div className="flex items-center space-x-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span>Dirección</span>
+                  <span>Mis Tareas</span>
                 </div>
               </button>
             )}
@@ -410,7 +430,11 @@ const Header = ({
                       {profile?.role_name || user.role_display_name} • {profile?.email || user.email}
                     </p>
                   </div>
-                  <div className="relative">
+                  <button
+                    onClick={() => setIsProfileModalOpen(true)}
+                    className="relative hover:ring-2 hover:ring-blue-500/50 rounded-full transition-all cursor-pointer"
+                    title="Editar perfil"
+                  >
                     {profile?.avatar_url ? (
                       <div className="w-10 h-10 rounded-full ring-2 ring-blue-500/20 overflow-hidden">
                         <img 
@@ -427,7 +451,7 @@ const Header = ({
                       </div>
                     )}
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white dark:border-gray-900 rounded-full"></div>
-                  </div>
+                  </button>
                   {/* Mostrar coordinación para ejecutivos */}
                   {user.role_name === 'ejecutivo' && profile?.coordinacion_codigo && (
                     <AssignmentBadge
@@ -456,7 +480,7 @@ const Header = ({
             <button
               onClick={onToggleDarkMode}
               className="relative p-3 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 group"
-              title="Cambiar tema"
+              title={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
             >
               <div className="relative w-5 h-5">
                 {darkMode ? (
@@ -485,6 +509,20 @@ const Header = ({
             )}
           </div>
         </div>
+
+        {/* Modal de Perfil de Usuario */}
+        {user && (
+          <UserProfileModal
+            isOpen={isProfileModalOpen}
+            onClose={() => setIsProfileModalOpen(false)}
+            userId={user.id}
+            userEmail={user.email}
+            currentAvatarUrl={profile?.avatar_url}
+            onAvatarUpdated={() => {
+              refreshProfile();
+            }}
+          />
+        )}
       </div>
     </header>
   );

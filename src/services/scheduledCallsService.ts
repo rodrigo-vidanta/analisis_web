@@ -82,7 +82,51 @@ class ScheduledCallsService {
         return [];
       }
 
-      const prospectoIds = [...new Set(callsData.map(call => call.prospecto))];
+      // Aplicar filtros de permisos
+      let filteredCallsData = callsData;
+      
+      if (!isAdmin) {
+        if (ejecutivoFilter) {
+          // Ejecutivo: solo sus prospectos asignados
+          // Necesitamos obtener los prospectos primero para filtrar
+          const prospectoIds = [...new Set(callsData.map(call => call.prospecto))];
+          const { data: prospectosData } = await analysisSupabase
+            .from('prospectos')
+            .select('id, ejecutivo_id')
+            .in('id', prospectoIds);
+
+          const prospectosMap = new Map(
+            (prospectosData || []).map(p => [p.id, p])
+          );
+
+          filteredCallsData = callsData.filter(call => {
+            const prospecto = prospectosMap.get(call.prospecto);
+            return prospecto?.ejecutivo_id === ejecutivoFilter;
+          });
+        } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+          // Coordinador: prospectos de sus coordinaciones
+          const prospectoIds = [...new Set(callsData.map(call => call.prospecto))];
+          const { data: prospectosData } = await analysisSupabase
+            .from('prospectos')
+            .select('id, coordinacion_id')
+            .in('id', prospectoIds);
+
+          const prospectosMap = new Map(
+            (prospectosData || []).map(p => [p.id, p])
+          );
+
+          filteredCallsData = callsData.filter(call => {
+            const prospecto = prospectosMap.get(call.prospecto);
+            return prospecto?.coordinacion_id && coordinacionesFilter.includes(prospecto.coordinacion_id);
+          });
+        }
+      }
+
+      if (filteredCallsData.length === 0) {
+        return [];
+      }
+
+      const prospectoIds = [...new Set(filteredCallsData.map(call => call.prospecto))];
 
       const { data: prospectosData, error: prospectosError } = await analysisSupabase
         .from('prospectos')
@@ -144,7 +188,7 @@ class ScheduledCallsService {
         }
       }
 
-      const enrichedCalls: ScheduledCall[] = callsData
+      const enrichedCalls: ScheduledCall[] = filteredCallsData
         .map(call => {
           const prospecto = prospectosMap.get(call.prospecto);
           if (!prospecto) return null;
@@ -166,18 +210,10 @@ class ScheduledCallsService {
         })
         .filter((call): call is ScheduledCall => call !== null);
 
-      // Aplicar filtros de permisos
-      const filteredByPermissions = enrichedCalls.filter(call => {
-        if (isAdmin) return true;
-        if (ejecutivoFilter && call.ejecutivo_id === ejecutivoFilter) return true;
-        if (coordinacionesFilter && call.coordinacion_id && coordinacionesFilter.includes(call.coordinacion_id)) return true;
-        return false;
-      });
-
       // Aplicar filtro de búsqueda por texto
       if (filters?.search) {
         const searchTerm = filters.search.toLowerCase();
-        return filteredByPermissions.filter(call =>
+        return enrichedCalls.filter(call =>
           call.prospecto_nombre?.toLowerCase().includes(searchTerm) ||
           call.prospecto_whatsapp?.toLowerCase().includes(searchTerm) ||
           call.justificacion_llamada?.toLowerCase().includes(searchTerm) ||
@@ -186,7 +222,7 @@ class ScheduledCallsService {
         );
       }
 
-      return filteredByPermissions;
+      return enrichedCalls;
     } catch (error) {
       console.error('Error en getScheduledCalls:', error);
       return [];

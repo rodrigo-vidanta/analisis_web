@@ -236,8 +236,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Developers tienen acceso a Live Monitor
     if (authState.user.role_name === 'developer') return true;
     
-    // Vendedores tienen acceso a Live Monitor
-    if (authState.user.role_name === 'vendedor') return true;
     
     // Coordinadores tienen acceso a Live Monitor (ven todas las llamadas de su coordinación)
     if (authState.user.role_name === 'coordinador') return true;

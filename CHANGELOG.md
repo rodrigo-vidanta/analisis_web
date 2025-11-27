@@ -1,5 +1,71 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 👤 Versión B2.2.3N6.0.0 - Gestión de Perfil de Usuario y Corrección de Sistema de Avatares (Enero 2025)
+
+### 🎯 **RELEASE BETA - Mejoras de Usuario y Correcciones Críticas**
+
+#### 👤 **Modal de Perfil de Usuario**
+- **Nuevo modal:** Creado `UserProfileModal.tsx` para que cualquier usuario pueda cambiar su foto de perfil y/o contraseña
+- **Acceso desde avatar:** Click en el avatar del header abre el modal centrado en pantalla
+- **Dos pestañas:**
+  - **Foto de Perfil:** Subir nueva imagen, preview en tiempo real, eliminar avatar existente
+  - **Contraseña:** Cambio seguro con validación de contraseña actual y requisitos de seguridad
+- **Validaciones:** Tamaño máximo 5MB, formatos permitidos (JPEG, PNG, GIF, WebP)
+- **Notificaciones:** Toast notifications para éxito/error en todas las operaciones
+- **Integración:** Notifica cambios globalmente usando `userProfileEvents` para actualizar header automáticamente
+
+#### 🔧 **Corrección Crítica del Sistema de Avatares**
+- **Problema identificado:** El bucket `user-avatars` está en PQNC pero la función RPC `upload_user_avatar` está en System UI
+- **Solución implementada:**
+  - Storage (subida de archivo): Usa `pqncSupabaseAdmin` para subir al bucket en PQNC (`hmmfuhqgvsehkizlfzga`)
+  - RPC (guardar en BD): Usa `supabaseSystemUIAdmin` para llamar a la función RPC en System UI (`zbylezfyagwrxoecioup`)
+  - Eliminación: Usa `supabaseSystemUIAdmin` para eliminar de la tabla en System UI
+- **Archivos corregidos:**
+  - `UserProfileModal.tsx` - Usa ambos clientes correctamente
+  - `AvatarUpload.tsx` - Usa ambos clientes correctamente
+  - `UserManagement.tsx` - Corregido para usar ambos clientes en todas las operaciones
+
+#### 📝 **Mejoras en Sidebars de Prospectos**
+- **Markdown en Observaciones:** Campo "Observaciones" ahora interpreta markdown correctamente con soporte para negritas y saltos de línea
+- **Etapa destacada:** Sección "Etapa" con mayor protagonismo pero con color menos llamativo (`bg-blue-50` en lugar de gradiente fuerte)
+- **Reestructuración de secciones:**
+  - "Ingresos" movido a "Información Personal y Contacto"
+  - Eliminada sección "Información Comercial"
+  - Nuevo orden: Información del Viaje → Llamadas Programadas → Observaciones → Timeline
+- **Timeline mejorado:**
+  - Incluye eventos de historial de llamadas con hora
+  - Incluye conversaciones WhatsApp (grupos de `uchat_conversations`)
+  - Ordenado de más reciente a más antiguo
+- **Historial de Llamadas:** Siempre visible, muestra hora además de fecha, mensaje cuando está vacío
+
+#### 🔄 **Mejoras en Llamadas Programadas**
+- **Validación robusta:** Validación mejorada para evitar múltiples llamadas programadas por prospecto
+- **Modo INSERT/UPDATE:** El modal detecta automáticamente si existe una llamada programada y cambia entre modo INSERT y UPDATE
+- **Pre-validación:** Verificación antes de enviar para prevenir duplicados
+- **Corrección de servicio:** Corregido `ReferenceError` en `scheduledCallsService.ts` con filtrado correcto de permisos
+
+#### 📝 **Archivos Modificados**
+- `src/components/shared/UserProfileModal.tsx` - Nuevo modal para gestión de perfil (⭐ 555 líneas)
+- `src/components/shared/ManualCallModal.tsx` - Mejoras en validación de llamadas programadas
+- `src/components/admin/AvatarUpload.tsx` - Corrección para usar ambos clientes (PQNC + System UI)
+- `src/components/admin/UserManagement.tsx` - Corrección para usar ambos clientes en operaciones de avatar
+- `src/components/Header.tsx` - Integración del modal de perfil con click en avatar
+- `src/components/chat/ProspectDetailSidebar.tsx` - Mejoras en UI, markdown, timeline
+- `src/components/prospectos/ProspectosManager.tsx` - Mejoras en UI, markdown, timeline
+- `src/components/analysis/AnalysisIAComplete.tsx` - Mejoras en UI, markdown, timeline
+- `src/services/scheduledCallsService.ts` - Corrección de `ReferenceError` y filtrado de permisos
+- `src/components/Footer.tsx` - Versión actualizada a B2.2.3N6.0.0
+
+#### ✅ **Beneficios**
+- ✅ Usuarios pueden gestionar su propio perfil sin necesidad de administrador
+- ✅ Sistema de avatares funcionando correctamente en todos los módulos
+- ✅ Mejor experiencia visual en sidebars de prospectos
+- ✅ Timeline más completo con información de llamadas y WhatsApp
+- ✅ Validación robusta previene duplicados en llamadas programadas
+- ✅ Código más mantenible con separación clara de responsabilidades
+
+---
+
 ## 🔔 Versión B2.2.2N6.0.0 - Live Chat: Indicador de Llamadas Activas y Corrección de Sonido Duplicado (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras de UX y Correcciones**

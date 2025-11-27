@@ -60,6 +60,7 @@ import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { useAppStore } from '../../stores/appStore';
+import { ManualCallModal } from '../shared/ManualCallModal';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -178,8 +179,6 @@ const LiveChatCanvas: React.FC = () => {
   
   // Estado para modal de llamada
   const [showCallModal, setShowCallModal] = useState(false);
-  const [callContext, setCallContext] = useState('');
-  const [isCalling, setIsCalling] = useState(false);
   
   // Estado para bloqueo de moderación
   const [isUserBlocked, setIsUserBlocked] = useState(false);
@@ -2669,76 +2668,6 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
-  // Función para iniciar llamada manual
-  const handleInitiateCall = async () => {
-    if (!selectedConversation) {
-      alert('No hay conversación seleccionada');
-      return;
-    }
-
-    setIsCalling(true);
-    
-    try {
-      // Usar la misma lógica que el header para obtener uchatId
-      const uchatId = selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat || selectedConversation.id;
-      
-      // 1. Pausar el bot por 15 minutos
-      await pauseBot(uchatId, 15);
-      
-      // 2. Recopilar datos útiles de la conversación en cache
-      const conversationData = {
-        uchat_id: uchatId,
-        conversation_id: selectedConversation.id,
-        prospecto_id: selectedConversation.prospecto_id,
-        customer_name: selectedConversation.customer_name || selectedConversation.nombre_contacto,
-        customer_phone: selectedConversation.customer_phone || selectedConversation.numero_telefono,
-        last_message_at: selectedConversation.last_message_at,
-        message_count: selectedConversation.message_count,
-        summary: selectedConversation.summary,
-        resultado: selectedConversation.resultado,
-        tipo: selectedConversation.tipo,
-        metadata: selectedConversation.metadata,
-        // Contexto adicional proporcionado por el usuario
-        context: callContext.trim() || null,
-        // Agente que inició la llamada
-        agent_email: user?.email || 'unknown',
-        agent_name: (user as any)?.user_metadata?.full_name || user?.email || 'unknown',
-        // Timestamp
-        initiated_at: new Date().toISOString()
-      };
-
-      // 3. Enviar al webhook
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/trigger-manual', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(conversationData)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Error desconocido');
-        throw new Error(`Error en webhook: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json().catch(() => ({}));
-      
-      console.log('✅ [CALL] Llamada iniciada exitosamente:', result);
-      
-      // Esperar 5 segundos antes de cerrar el modal para mostrar la animación de éxito
-      setTimeout(() => {
-        setShowCallModal(false);
-        setCallContext('');
-        setIsCalling(false);
-      }, 5000);
-      
-    } catch (error) {
-      console.error('❌ [CALL] Error iniciando llamada:', error);
-      setIsCalling(false);
-      alert(`Error al iniciar la llamada: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-    }
-  };
 
   const resumeBot = async (uchatId: string): Promise<boolean> => {
     try {
@@ -4259,182 +4188,21 @@ const LiveChatCanvas: React.FC = () => {
       />
 
       {/* Modal de Llamada Manual */}
-      <AnimatePresence mode="wait">
-        {showCallModal && (
-          <motion.div
-            key="call-modal-wrapper"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
-            onClick={() => {
-              if (!isCalling) {
-                setShowCallModal(false);
-                setCallContext('');
-              }
-            }}
-          >
-            <motion.div
-              key="call-modal-content"
-              initial={{ opacity: 0, scale: 0.96, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 10 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
-            >
-              {/* Header */}
-              <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <motion.h3
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2"
-                    >
-                      <Phone className="w-6 h-6 text-green-500" />
-                      Iniciar Llamada
-                    </motion.h3>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.15 }}
-                      className="text-sm text-gray-500 dark:text-gray-400 mt-1"
-                    >
-                      El bot será pausado por 15 minutos
-                    </motion.p>
-                  </div>
-                  <motion.button
-                    initial={{ opacity: 0, rotate: -90 }}
-                    animate={{ opacity: 1, rotate: 0 }}
-                    transition={{ delay: 0.25 }}
-                    onClick={() => {
-                      if (!isCalling) {
-                        setShowCallModal(false);
-                        setCallContext('');
-                      }
-                    }}
-                    disabled={isCalling}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
-                  </motion.button>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                <div className="space-y-6">
-                  {/* Sección: Enviarle contexto al agente de IA */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-center space-x-2 mb-4">
-                      <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
-                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        Enviarle contexto al agente de IA
-                      </h4>
-                    </div>
-
-                    <div className="group">
-                      <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        <MessageSquare className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                        <span>Contexto adicional (opcional)</span>
-                      </label>
-                      <textarea
-                        value={callContext}
-                        onChange={(e) => {
-                          if (e.target.value.length <= 300) {
-                            setCallContext(e.target.value);
-                          }
-                        }}
-                        placeholder="Escribe información adicional que el agente de IA debe conocer..."
-                        rows={4}
-                        maxLength={300}
-                        disabled={isCalling}
-                        className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                      <div className="flex justify-between items-center mt-1">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                          Opcional - Máximo 300 caracteres
-                        </span>
-                        <span className={`text-xs font-medium ${
-                          callContext.length > 280 
-                            ? 'text-orange-500' 
-                            : callContext.length > 250 
-                              ? 'text-yellow-500' 
-                              : 'text-gray-400 dark:text-gray-500'
-                        }`}>
-                          {callContext.length}/300
-                        </span>
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  {/* Botón grande de llamada */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="flex justify-center pt-4"
-                  >
-                    <motion.button
-                      whileHover={!isCalling ? { scale: 1.02 } : {}}
-                      whileTap={!isCalling ? { scale: 0.98 } : {}}
-                      animate={isCalling ? {
-                        scale: [1, 1.05, 1],
-                        boxShadow: [
-                          "0 10px 25px -5px rgba(34, 197, 94, 0.25)",
-                          "0 20px 40px -5px rgba(34, 197, 94, 0.4)",
-                          "0 10px 25px -5px rgba(34, 197, 94, 0.25)"
-                        ]
-                      } : {}}
-                      transition={isCalling ? {
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      } : {}}
-                      onClick={handleInitiateCall}
-                      disabled={isCalling}
-                      className={`w-full py-4 px-6 text-base font-medium text-white rounded-xl disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3 ${
-                        isCalling
-                          ? 'bg-gradient-to-r from-green-500 to-emerald-500 shadow-2xl shadow-green-500/50'
-                          : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg shadow-green-500/25'
-                      }`}
-                    >
-                      {isCalling ? (
-                        <>
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                          />
-                          <motion.span
-                            animate={{ opacity: [1, 0.7, 1] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                          >
-                            Llamada iniciada exitosamente...
-                          </motion.span>
-                        </>
-                      ) : (
-                        <>
-                          <Phone className="w-5 h-5" />
-                          <span>Iniciar Llamada</span>
-                        </>
-                      )}
-                    </motion.button>
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {selectedConversation && (
+        <ManualCallModal
+          isOpen={showCallModal}
+          onClose={() => setShowCallModal(false)}
+          prospectoId={selectedConversation.prospecto_id}
+          prospectoNombre={selectedConversation.customer_name || selectedConversation.nombre_contacto}
+          customerPhone={selectedConversation.customer_phone || selectedConversation.numero_telefono}
+          customerName={selectedConversation.customer_name || selectedConversation.nombre_contacto}
+          conversationId={selectedConversation.id}
+          onSuccess={() => {
+            // Recargar conversaciones si es necesario
+            // loadConversations();
+          }}
+        />
+      )}
 
       {/* Sidebar de Detalles del Prospecto - Renderizado con Portal */}
       {selectedConversation && createPortal(

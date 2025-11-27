@@ -275,21 +275,74 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
     setError('');
     
     try {
+      // Obtener filtros de permisos según rol del usuario
+      let coordinacionesFilter: string[] | null = null;
+      let ejecutivoFilter: string | null = null;
+      let isAdmin = false;
+      
+      if (user?.id) {
+        const { permissionsService } = await import('../../services/permissionsService');
+        ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
+        coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
+        isAdmin = await permissionsService.isAdmin(user.id);
+      }
+
+      // Cargar análisis
+      const { data: analysisData, error } = await analysisSupabase
+        .from('call_analysis_summary')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit * 2); // Cargar más para compensar filtros
+
+      if (error) throw error;
+
+      // Si no es admin, filtrar por coordinación/ejecutivo
+      let filteredData = analysisData || [];
+      
+      if (!isAdmin && (ejecutivoFilter || (coordinacionesFilter && coordinacionesFilter.length > 0))) {
+        // Obtener llamadas_ventas para filtrar por prospectos
+        const callIds = filteredData.map(a => a.call_id);
+        
+        if (callIds.length > 0) {
+          const { data: llamadasData } = await analysisSupabase
+            .from('llamadas_ventas')
+            .select('call_id, prospecto, coordinacion_id')
+            .in('call_id', callIds);
+          
+          if (llamadasData && llamadasData.length > 0) {
+            // Obtener prospectos permitidos
+            const prospectoIds = llamadasData.map(l => l.prospecto).filter(Boolean);
+            
+            let prospectosQuery = analysisSupabase
+              .from('prospectos')
+              .select('id, coordinacion_id, ejecutivo_id')
+              .in('id', prospectoIds);
+            
+            if (ejecutivoFilter) {
+              prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter);
+            } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+            }
+            
+            const { data: prospectosData } = await prospectosQuery;
+            const allowedProspectoIds = new Set(prospectosData?.map(p => p.id) || []);
+            
+            // Filtrar análisis por prospectos permitidos
+            filteredData = filteredData.filter(analysis => {
+              const llamada = llamadasData.find(l => l.call_id === analysis.call_id);
+              return llamada?.prospecto && allowedProspectoIds.has(llamada.prospecto);
+            });
+          }
+        }
+      }
+
+      // Obtener count total (aproximado)
       const { count } = await analysisSupabase
         .from('call_analysis_summary')
         .select('*', { count: 'exact', head: true });
       
       setTotalRecords(count || 0);
-
-      const { data, error } = await analysisSupabase
-        .from('call_analysis_summary')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-
-      setAllData(data || []);
+      setAllData(filteredData.slice(0, limit));
       applyFilters();
     } catch (err: any) {
       setError(`Error al cargar registros: ${err.message}`);

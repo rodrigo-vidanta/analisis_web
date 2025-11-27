@@ -18,6 +18,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import AvatarUpload from './AvatarUpload';
@@ -117,7 +118,7 @@ const UserManagement: React.FC = () => {
     coordinaciones_ids: [] as string[], // Para coordinadores (múltiples coordinaciones)
     is_active: true,
     is_operativo: true, // Operativo por defecto
-    // Subpermisos específicos para evaluadores y vendedores
+    // Subpermisos específicos para evaluadores
     analysis_sources: [] as string[] // ['natalia', 'pqnc', 'live_monitor']
   });
 
@@ -137,14 +138,29 @@ const UserManagement: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'department' | 'last_login' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Verificar permisos - FORZAR TRUE para admin mientras se arregla hasPermission
+  // Verificar permisos según nuevo sistema de roles
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role_name === 'admin';
+  const isAdminOperativo = currentUser?.role_name === 'administrador_operativo';
+  const isCoordinador = currentUser?.role_name === 'coordinador';
   
-  const canView = hasPermission('admin.users.view') || isAdmin;
-  const canCreate = hasPermission('admin.users.create') || isAdmin;
-  const canEdit = hasPermission('admin.users.edit') || isAdmin;
-  const canDelete = isAdmin; // FORZAR TRUE para admin temporalmente
+  // Permisos de visualización
+  const canView = hasPermission('admin.users.view') || isAdmin || isAdminOperativo || isCoordinador;
+  
+  // Permisos de creación
+  // Admin: puede crear cualquier rol
+  // Admin Operativo: solo puede crear coordinadores y ejecutivos
+  // Coordinador: NO puede crear usuarios nuevos
+  const canCreate = isAdmin || (isAdminOperativo && true); // Se validará en handleCreateUser
+  
+  // Permisos de edición
+  // Admin: puede editar cualquier usuario
+  // Admin Operativo: solo puede editar coordinadores y ejecutivos
+  // Coordinador: solo puede editar ejecutivos de su coordinación
+  const canEdit = hasPermission('admin.users.edit') || isAdmin || isAdminOperativo || isCoordinador;
+  
+  // Permisos de eliminación
+  const canDelete = isAdmin; // Solo admin puede eliminar
 
   // Debug temporal removido - solo mantener logs de error
 
@@ -154,8 +170,37 @@ const UserManagement: React.FC = () => {
       loadRoles();
       loadPermissions();
       loadCoordinaciones();
+      
+      // Cargar coordinaciones del usuario actual si es coordinador
+      if (isCoordinador && currentUser?.id) {
+        loadCurrentUserCoordinaciones();
+      }
     }
-  }, [canView]);
+  }, [canView, isCoordinador, currentUser?.id]);
+
+  // Cargar coordinaciones del usuario actual (coordinador)
+  const loadCurrentUserCoordinaciones = async () => {
+    if (!currentUser?.id) return;
+    
+    try {
+      const { data: relaciones } = await supabaseSystemUIAdmin
+        .from('auth_user_coordinaciones')
+        .select('coordinacion_id')
+        .eq('user_id', currentUser.id);
+      
+      if (relaciones) {
+        // Actualizar currentUser con coordinaciones (esto requiere actualizar el contexto)
+        // Por ahora, guardamos en un estado local
+        const coordinacionesIds = relaciones.map(r => r.coordinacion_id);
+        // Actualizar el objeto currentUser localmente para el filtro
+        if (currentUser) {
+          (currentUser as any).coordinaciones_ids = coordinacionesIds;
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando coordinaciones del usuario actual:', error);
+    }
+  };
 
   const loadCoordinaciones = async () => {
     try {
@@ -294,11 +339,11 @@ const UserManagement: React.FC = () => {
                   .single();
                 return { ...user, coordinacion_id: systemUser?.coordinacion_id };
               } else if (user.role_name === 'coordinador') {
-                // Para coordinadores: cargar coordinaciones desde tabla intermedia
+                // Para coordinadores: cargar coordinaciones desde tabla intermedia (nueva tabla)
                 const { data: relaciones } = await supabaseSystemUIAdmin
-                  .from('coordinador_coordinaciones')
+                  .from('auth_user_coordinaciones')
                   .select('coordinacion_id')
-                  .eq('coordinador_id', user.id);
+                  .eq('user_id', user.id);
                 return {
                   ...user,
                   coordinaciones_ids: relaciones?.map(r => r.coordinacion_id) || []
@@ -432,6 +477,26 @@ const UserManagement: React.FC = () => {
       });
     }
 
+    // Filtro por permisos según rol del usuario actual
+    // Administrador Operativo: solo ve coordinadores y ejecutivos
+    if (isAdminOperativo) {
+      filtered = filtered.filter(user => 
+        ['coordinador', 'ejecutivo'].includes(user.role_name)
+      );
+    }
+    
+    // Coordinador: solo ve ejecutivos de su coordinación
+    if (isCoordinador && currentUser?.coordinaciones_ids && currentUser.coordinaciones_ids.length > 0) {
+      filtered = filtered.filter(user => {
+        // Puede ver ejecutivos de su coordinación
+        if (user.role_name === 'ejecutivo' && user.coordinacion_id) {
+          return currentUser.coordinaciones_ids.includes(user.coordinacion_id);
+        }
+        // NO puede ver otros coordinadores ni otros roles
+        return false;
+      });
+    }
+
     // Filtro por departamento
     if (filterDepartment) {
       filtered = filtered.filter(user =>
@@ -549,11 +614,11 @@ const UserManagement: React.FC = () => {
         darkBg: 'dark:bg-cyan-900',
         darkText: 'dark:text-cyan-200'
       },
-      vendedor: {
-        bg: 'bg-orange-100',
-        text: 'text-orange-800',
-        darkBg: 'dark:bg-orange-900',
-        darkText: 'dark:text-orange-200'
+      administrador_operativo: {
+        bg: 'bg-violet-100',
+        text: 'text-violet-800',
+        darkBg: 'dark:bg-violet-900',
+        darkText: 'dark:text-violet-200'
       },
       productor: {
         bg: 'bg-pink-100',
@@ -651,6 +716,25 @@ const UserManagement: React.FC = () => {
       return;
     }
 
+    // Validar restricciones según rol
+    const selectedRole = roles.find(r => r.id === formData.role_id);
+    if (!selectedRole) {
+      setError('Debes seleccionar un rol');
+      return;
+    }
+
+    // Administrador Operativo: solo puede crear coordinadores o ejecutivos
+    if (isAdminOperativo && !['coordinador', 'ejecutivo'].includes(selectedRole.name)) {
+      setError('Solo puedes crear usuarios con rol Coordinador o Ejecutivo');
+      return;
+    }
+
+    // Coordinador: NO puede crear usuarios nuevos
+    if (isCoordinador) {
+      setError('No tienes permisos para crear usuarios nuevos');
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -678,15 +762,16 @@ const UserManagement: React.FC = () => {
           const fileExt = 'jpg';
           const fileName = `avatar-${newUser[0].user_id}-${Date.now()}.${fileExt}`;
           
-          const { data: uploadData, error: uploadError } = await supabaseSystemUIAdmin.storage
+          const { data: uploadData, error: uploadError } = await pqncSupabaseAdmin.storage
             .from('user-avatars')
             .upload(fileName, avatarFile);
 
           if (!uploadError) {
-            const { data: { publicUrl } } = supabaseSystemUIAdmin.storage
+            const { data: { publicUrl } } = pqncSupabaseAdmin.storage
               .from('user-avatars')
               .getPublicUrl(fileName);
 
+            // La función RPC está en System UI, no en PQNC
             await supabaseSystemUIAdmin.rpc('upload_user_avatar', {
               p_user_id: newUser[0].user_id,
               p_avatar_url: publicUrl,
@@ -723,14 +808,15 @@ const UserManagement: React.FC = () => {
             console.error('Error actualizando flags del coordinador:', updateError);
           }
 
-          // Insertar relaciones en tabla intermedia
+          // Insertar relaciones en tabla intermedia (nueva tabla auth_user_coordinaciones)
           const relaciones = formData.coordinaciones_ids.map(coordId => ({
-            coordinador_id: newUser[0].user_id,
+            user_id: newUser[0].user_id,
             coordinacion_id: coordId,
+            assigned_by: currentUser?.id || null
           }));
 
           const { error: relacionesError } = await supabaseSystemUIAdmin
-            .from('coordinador_coordinaciones')
+            .from('auth_user_coordinaciones')
             .insert(relaciones);
 
           if (relacionesError) {
@@ -810,6 +896,53 @@ const UserManagement: React.FC = () => {
       return;
     }
 
+    // Validar restricciones según rol
+    const selectedRole = roles.find(r => r.id === formData.role_id);
+    if (!selectedRole) {
+      setError('Debes seleccionar un rol');
+      return;
+    }
+
+    // Administrador Operativo: solo puede editar coordinadores o ejecutivos
+    if (isAdminOperativo && !['coordinador', 'ejecutivo'].includes(selectedRole.name)) {
+      setError('Solo puedes editar usuarios con rol Coordinador o Ejecutivo');
+      return;
+    }
+
+    // Coordinador: solo puede editar ejecutivos de su coordinación
+    if (isCoordinador) {
+      // Verificar que el usuario a editar es ejecutivo
+      if (selectedUser.role_name !== 'ejecutivo') {
+        setError('Solo puedes editar ejecutivos asignados a tu coordinación');
+        return;
+      }
+      
+      // Verificar que el ejecutivo pertenece a una de las coordinaciones del coordinador
+      if (!currentUser?.coordinaciones_ids || currentUser.coordinaciones_ids.length === 0) {
+        setError('No tienes coordinaciones asignadas');
+        return;
+      }
+
+      // Cargar coordinación del ejecutivo
+      const { data: ejecutivoData } = await supabaseSystemUIAdmin
+        .from('auth_users')
+        .select('coordinacion_id')
+        .eq('id', selectedUser.id)
+        .single();
+
+      if (!ejecutivoData?.coordinacion_id || 
+          !currentUser.coordinaciones_ids.includes(ejecutivoData.coordinacion_id)) {
+        setError('Solo puedes editar ejecutivos asignados a tu coordinación');
+        return;
+      }
+
+      // Coordinador NO puede cambiar el rol a coordinador
+      if (selectedRole.name === 'coordinador') {
+        setError('No puedes cambiar el rol de un ejecutivo a coordinador');
+        return;
+      }
+    }
+
     // Manejar avatar si hay cambios
     let newAvatarUrl = selectedUser.avatar_url;
     
@@ -843,21 +976,23 @@ const UserManagement: React.FC = () => {
         const fileExt = editAvatarFile.type.split('/')[1] || 'jpg';
         const fileName = `avatar-${selectedUser.id}-${Date.now()}.${fileExt}`;
         
-        const { data: uploadData, error: uploadError } = await supabaseSystemUIAdmin.storage
+        const { data: uploadData, error: uploadError } = await pqncSupabaseAdmin.storage
           .from('user-avatars')
           .upload(fileName, editAvatarFile);
         
         if (uploadError) throw uploadError;
         
-        const { data: { publicUrl } } = supabaseSystemUIAdmin.storage
+        const { data: { publicUrl } } = pqncSupabaseAdmin.storage
           .from('user-avatars')
           .getPublicUrl(fileName);
         
+        // La función RPC está en System UI, no en PQNC
         const { error: updateError } = await supabaseSystemUIAdmin.rpc('upload_user_avatar', {
           p_user_id: selectedUser.id,
           p_avatar_url: publicUrl,
           p_file_name: fileName,
-          p_file_size: editAvatarFile.size
+          p_file_size: editAvatarFile.size,
+          p_mime_type: editAvatarFile.type
         });
         
         if (updateError) throw updateError;
@@ -868,13 +1003,7 @@ const UserManagement: React.FC = () => {
       }
     }
     
-    if (!canEdit || !selectedUser) {
-      setError('No tienes permisos para editar usuarios');
-      return;
-    }
-
     // Validar: ejecutivos no pueden habilitar operativo sin id_dynamics
-    const selectedRole = roles.find(r => r.id === formData.role_id);
     if (selectedRole?.name === 'ejecutivo' && formData.is_operativo !== false) {
       // Cargar id_dynamics actualizado si no está en selectedUser
       let currentIdDynamics = selectedUser.id_dynamics;
@@ -957,21 +1086,22 @@ const UserManagement: React.FC = () => {
             console.error('Error actualizando flags del coordinador:', updateError);
           }
 
-          // Eliminar relaciones existentes
+          // Eliminar relaciones existentes (nueva tabla)
           await supabaseSystemUIAdmin
-            .from('coordinador_coordinaciones')
+            .from('auth_user_coordinaciones')
             .delete()
-            .eq('coordinador_id', selectedUser.id);
+            .eq('user_id', selectedUser.id);
 
           // Insertar nuevas relaciones si hay coordinaciones seleccionadas
           if (formData.coordinaciones_ids.length > 0) {
             const relaciones = formData.coordinaciones_ids.map(coordId => ({
-              coordinador_id: selectedUser.id,
+              user_id: selectedUser.id,
               coordinacion_id: coordId,
+              assigned_by: currentUser?.id || null
             }));
 
             const { error: relacionesError } = await supabaseSystemUIAdmin
-              .from('coordinador_coordinaciones')
+              .from('auth_user_coordinaciones')
               .insert(relaciones);
 
             if (relacionesError) {
@@ -984,11 +1114,11 @@ const UserManagement: React.FC = () => {
       } else if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id) {
         // Si es ejecutivo, actualizar una sola coordinación
         try {
-          // Limpiar relaciones de coordinador_coordinaciones si existían
+          // Limpiar relaciones de auth_user_coordinaciones si existían
           await supabaseSystemUIAdmin
-            .from('coordinador_coordinaciones')
+            .from('auth_user_coordinaciones')
             .delete()
-            .eq('coordinador_id', selectedUser.id);
+            .eq('user_id', selectedUser.id);
 
           const { error: coordUpdateError } = await supabaseSystemUIAdmin
             .from('auth_users')
@@ -1377,12 +1507,12 @@ const UserManagement: React.FC = () => {
     let coordinacionesIds: string[] = [];
     
     if (user.role_name === 'coordinador') {
-      // Para coordinadores: cargar desde tabla intermedia
+      // Para coordinadores: cargar desde tabla intermedia (nueva tabla)
       try {
         const { data: relaciones, error: relacionesError } = await supabaseSystemUIAdmin
-          .from('coordinador_coordinaciones')
+          .from('auth_user_coordinaciones')
           .select('coordinacion_id')
-          .eq('coordinador_id', user.id);
+          .eq('user_id', user.id);
         
         if (!relacionesError && relaciones) {
           coordinacionesIds = relaciones.map(r => r.coordinacion_id);
@@ -1468,7 +1598,7 @@ const UserManagement: React.FC = () => {
           </p>
         </div>
         
-        {canCreate && (
+        {canCreate && !isCoordinador && (
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
@@ -1836,17 +1966,36 @@ const UserManagement: React.FC = () => {
                           </label>
                         )}
 
-                        {canEdit && (
-                          <button
-                            onClick={() => openEditModal(user)}
-                            className="p-2.5 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all duration-200"
-                            title="Editar usuario"
-                          >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                        )}
+                        {canEdit && (() => {
+                          // Administrador Operativo: solo puede editar coordinadores y ejecutivos
+                          if (isAdminOperativo && !['coordinador', 'ejecutivo'].includes(user.role_name)) {
+                            return null;
+                          }
+                          // Coordinador: solo puede editar ejecutivos de su coordinación
+                          if (isCoordinador) {
+                            if (user.role_name !== 'ejecutivo') {
+                              return null;
+                            }
+                            // Verificar que el ejecutivo pertenece a una de las coordinaciones del coordinador
+                            if (!currentUser?.coordinaciones_ids || currentUser.coordinaciones_ids.length === 0) {
+                              return null;
+                            }
+                            if (!user.coordinacion_id || !currentUser.coordinaciones_ids.includes(user.coordinacion_id)) {
+                              return null;
+                            }
+                          }
+                          return (
+                            <button
+                              onClick={() => openEditModal(user)}
+                              className="p-2.5 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all duration-200"
+                              title="Editar usuario"
+                            >
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          );
+                        })()}
 
                         {user.archivado && canDelete && (
                           <button
@@ -2148,11 +2297,27 @@ const UserManagement: React.FC = () => {
                         className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
                 >
                   <option value="">Seleccionar rol...</option>
-                  {roles.map(role => (
-                    <option key={role.id} value={role.id}>
-                      {role.display_name}
-                    </option>
-                  ))}
+                  {roles
+                    .filter(role => {
+                      // Administrador Operativo: solo puede seleccionar coordinador o ejecutivo
+                      if (isAdminOperativo) {
+                        return ['coordinador', 'ejecutivo'].includes(role.name);
+                      }
+                      // Admin: puede seleccionar cualquier rol
+                      if (isAdmin) {
+                        return true;
+                      }
+                      // Coordinador: solo puede seleccionar ejecutivos
+                      if (isCoordinador) {
+                        return role.name === 'ejecutivo';
+                      }
+                      return true;
+                    })
+                    .map(role => (
+                      <option key={role.id} value={role.id}>
+                        {role.display_name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -2736,11 +2901,27 @@ const UserManagement: React.FC = () => {
                         className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
                 >
                   <option value="">Seleccionar rol...</option>
-                  {roles.map(role => (
-                    <option key={role.id} value={role.id}>
-                      {role.display_name}
-                    </option>
-                  ))}
+                  {roles
+                    .filter(role => {
+                      // Administrador Operativo: solo puede seleccionar coordinador o ejecutivo
+                      if (isAdminOperativo) {
+                        return ['coordinador', 'ejecutivo'].includes(role.name);
+                      }
+                      // Admin: puede seleccionar cualquier rol
+                      if (isAdmin) {
+                        return true;
+                      }
+                      // Coordinador: no puede crear usuarios, pero si pudiera sería solo ejecutivos
+                      if (isCoordinador) {
+                        return role.name === 'ejecutivo';
+                      }
+                      return true;
+                    })
+                    .map(role => (
+                      <option key={role.id} value={role.id}>
+                        {role.display_name}
+                      </option>
+                    ))}
                 </select>
               </div>
 

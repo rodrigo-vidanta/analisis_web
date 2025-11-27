@@ -36,12 +36,6 @@ export const useAnalysisPermissions = () => {
       return;
     }
 
-    // Vendedores tienen acceso por defecto a PQNC y Live Monitor
-    if (user.role_name === 'vendedor') {
-      console.log('👤 Usuario vendedor detectado:', user.email);
-      setPermissions({ natalia: false, pqnc: true, liveMonitor: true, loading: false });
-      return;
-    }
 
     // Evaluators: usar función RPC existente
     if (user.role_name === 'evaluator') {
