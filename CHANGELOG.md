@@ -1,5 +1,41 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎨 Versión B2.2.7N6.0.0 - Mejoras en Reproductor de Audio y Timeline (Enero 2025)
+
+### 🎯 **RELEASE BETA - Optimización de Experiencia de Chat**
+
+#### 🎵 **Reproductor de Audio Rediseñado**
+- **Diseño minimalista estilo WhatsApp:** Reproductor completamente rediseñado con estilo limpio y moderno
+- **Integración visual perfecta:** Mismo fondo y colores que los mensajes del chat (cliente y bot/agente)
+- **Bloque unificado:** Reproductor y descripción en un solo contenedor sin bordes visibles
+- **Colores adaptativos:** 
+  - Cliente: `bg-white dark:bg-gray-700` con texto `text-slate-900 dark:text-white`
+  - Bot/Agente: `bg-slate-900 dark:bg-gray-800` con texto `text-white`
+- **Paddings optimizados:** Espaciado mejorado para mejor legibilidad y estética
+- **Controles personalizados:** Botón play/pause circular, barra de progreso delgada, tiempo formateado
+- **Sin elementos innecesarios:** Eliminado nombre de archivo, bordes y gradientes para diseño más limpio
+
+#### 📅 **Llamadas Programadas en Timeline**
+- **Eventos en timeline:** Las llamadas programadas ahora aparecen en el timeline de la conversación
+- **Diferenciación visual:** 
+  - Futuras: Borde púrpura y fondo púrpura claro con icono de calendario
+  - Pasadas: Estilo normal con icono de teléfono gris
+- **Información completa:** Muestra fecha/hora formateada y motivo de la llamada
+- **Integración cronológica:** Se ordenan junto con llamadas ejecutadas y conversaciones WhatsApp
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/MultimediaMessage.tsx` - Reproductor de audio rediseñado (⭐ 672 líneas)
+- `src/components/chat/ProspectDetailSidebar.tsx` - Timeline con llamadas programadas
+
+#### ✅ **Beneficios**
+- ✅ Reproductor de audio más estético y profesional
+- ✅ Mejor integración visual con el resto del chat
+- ✅ Experiencia más limpia sin elementos innecesarios
+- ✅ Timeline más completo con información de llamadas programadas
+- ✅ Diseño consistente en modo claro y oscuro
+
+---
+
 ## 🤖 Versión B2.2.6N6.0.0 - Mejoras en Control de Bot y Multimedia (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Optimización de Experiencia de Chat**

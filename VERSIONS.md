@@ -1,5 +1,29 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.2.7N6.0.0 (Enero 2025) - Mejoras en Reproductor de Audio y Timeline
+
+### 🎨 RELEASE BETA - Optimización de Experiencia de Chat
+
+#### Reproductor de Audio Rediseñado
+- **Diseño minimalista:** Estilo WhatsApp con diseño limpio y moderno
+- **Integración visual:** Mismo fondo y colores que los mensajes del chat
+- **Bloque unificado:** Reproductor y descripción sin bordes visibles
+- **Colores adaptativos:** Diferentes según cliente o bot/agente
+- **Paddings optimizados:** Mejor espaciado y legibilidad
+- **Controles personalizados:** Botón circular, barra de progreso, tiempo formateado
+
+#### Llamadas Programadas en Timeline
+- **Eventos en timeline:** Llamadas programadas aparecen en el timeline
+- **Diferenciación visual:** Futuras vs pasadas con colores distintos
+- **Información completa:** Fecha/hora y motivo de la llamada
+- **Integración cronológica:** Ordenadas con llamadas y conversaciones
+
+#### Archivos Principales
+- `src/components/chat/MultimediaMessage.tsx` - Reproductor rediseñado
+- `src/components/chat/ProspectDetailSidebar.tsx` - Timeline mejorado
+
+---
+
 ## Versión B2.2.6N6.0.0 (Enero 2025) - Mejoras en Control de Bot y Multimedia
 
 ### 🤖 RELEASE BETA - Optimización de Experiencia de Chat

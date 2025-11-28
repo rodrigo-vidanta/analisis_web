@@ -4,7 +4,7 @@
 // 📋 Verificación: Revisar CHANGELOG antes de modificar
 
 import { useState, useEffect, useRef } from 'react';
-import { FileText, Download, Image, Music, Film, FileArchive, Loader } from 'lucide-react';
+import { FileText, Download, Image, Music, Film, FileArchive, Loader, Play, Pause } from 'lucide-react';
 
 interface Adjunto {
   tipo?: string;
@@ -21,6 +21,7 @@ interface MultimediaMessageProps {
   adjuntos: Adjunto[];
   isVisible?: boolean;
   hasTextContent?: boolean; // Si el mensaje tiene texto adicional
+  isFromCustomer?: boolean; // Si el mensaje es del prospecto/usuario (para ocultar descripción en imágenes)
 }
 
 // Helper: determinar si un tipo de archivo necesita globo de conversación
@@ -211,38 +212,50 @@ const getFileIcon = (tipo: string | undefined) => {
 const getFileType = (tipo: string, filename: string): 'image' | 'audio' | 'video' | 'sticker' | 'document' => {
   // Validar campos
   if (!filename) {
-    console.warn('⚠️ Filename es undefined');
     return 'document';
   }
 
   const tipoLower = (tipo || '').toLowerCase();
   const filenameLower = filename.toLowerCase();
   
-  // Stickers de WhatsApp (suelen tener extensiones específicas o nombres cortos sin extensión)
-  // Los stickers NO tienen extensión o tienen .webp y son archivos pequeños
+  // Stickers de WhatsApp - Patrones específicos:
+  // 1. Tipo explícito "sticker"
   if (tipoLower.includes('sticker')) {
     return 'sticker';
   }
   
-  // Archivos sin extensión o con extensiones raras que son de WhatsApp (probablemente stickers)
-  // Ejemplo: 148a1416ffa3e66bd3d9dabb8a91e2df.-4rkS
-  if (!filenameLower.match(/\.(jpg|jpeg|png|webp|gif|bmp|svg|mp3|mp4|pdf|doc|docx|zip|rar)$/i) && 
-      filenameLower.match(/\.-[a-z0-9]{4}$/i)) {
+  // 2. Filename con patrón de sticker de WhatsApp: hash.-XXXX (ej: 07f52716df5f33ac2e48abe557918333.-N52f)
+  // Este es el patrón más confiable para identificar stickers de WhatsApp
+  if (filenameLower.match(/^[a-f0-9]{32}\.-[a-z0-9]{4,5}$/i)) {
     return 'sticker';
   }
   
-  // WebP y GIF son típicamente stickers/GIFs animados
-  if (filenameLower.match(/\.(webp|gif)$/i)) {
+  // 3. Archivos sin extensión estándar pero con patrón de sticker
+  if (!filenameLower.match(/\.(jpg|jpeg|png|webp|gif|bmp|svg|mp3|mp4|pdf|doc|docx|zip|rar)$/i) && 
+      filenameLower.match(/\.-[a-z0-9]{4,5}$/i)) {
     return 'sticker';
+  }
+  
+  // 4. WebP y GIF pueden ser stickers (pero solo si no tienen extensión estándar o son muy pequeños)
+  // Si tiene extensión estándar (.jpg, .png, etc.) y tipo "Imagen", es imagen
+  if (tipoLower.includes('imagen') || tipoLower.includes('image')) {
+    // Si tiene extensión estándar de imagen, es imagen real
+    if (filenameLower.match(/\.(jpg|jpeg|png|bmp|svg)$/i)) {
+      return 'image';
+    }
+    // Si es WebP/GIF pero tipo dice "Imagen", podría ser imagen
+    if (filenameLower.match(/\.(webp|gif)$/i)) {
+      return 'image';
+    }
+  }
+  
+  // Imágenes explícitas (después de verificar stickers)
+  if (tipoLower.includes('imagen') || tipoLower.includes('image')) {
+    return 'image';
   }
   
   // Documentos que son imágenes (WhatsApp a veces los marca como "Documento")
   if (filenameLower.match(/\.(jpg|jpeg|png|bmp|svg)$/i)) {
-    return 'image';
-  }
-  
-  // Imágenes explícitas
-  if (tipoLower.includes('imagen') || tipoLower.includes('image')) {
     return 'image';
   }
   
@@ -259,7 +272,7 @@ const getFileType = (tipo: string, filename: string): 'image' | 'audio' | 'video
   return 'document';
 };
 
-export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, isVisible = false }) => {
+export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, isVisible = false, isFromCustomer = false }) => {
   const [loadedUrls, setLoadedUrls] = useState<Record<string, string>>({});
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -337,7 +350,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
 
   // Detectar dimensiones y orientación de imagen
   const detectImageDimensions = (url: string, key: string) => {
-    const img = new Image();
+    const img = document.createElement('img');
     img.onload = () => {
       const width = img.naturalWidth;
       const height = img.naturalHeight;
@@ -369,7 +382,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
       return 'w-full max-w-sm h-auto';
     }
 
-    const { orientation, width, height } = dimensions;
+    const { orientation } = dimensions;
     
     // Stickers: siempre pequeños y compactos
     if (fileType === 'sticker') {
@@ -434,13 +447,13 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
               </div>
             )}
 
-            {/* Sticker (sin fondo, más pequeño, estilo WhatsApp) */}
+            {/* Sticker (sin fondo, más pequeño, estilo WhatsApp, NO descargable, SIN descripción) */}
             {url && fileType === 'sticker' && (
               <div className="relative group inline-block">
                 <img 
                   src={url} 
                   alt="Sticker" 
-                  className={`${getImageClasses(key, 'sticker')} cursor-pointer hover:scale-105 transition-transform rounded-lg`}
+                  className="max-w-[120px] max-h-[120px] w-auto h-auto cursor-pointer hover:scale-105 transition-transform rounded-lg"
                   onClick={() => window.open(url, '_blank')}
                   loading="lazy"
                   decoding="async"
@@ -449,7 +462,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
               </div>
             )}
 
-            {/* Imagen */}
+            {/* Imagen (tamaño normal, descargable) */}
             {url && fileType === 'image' && (
               <div className="relative group">
                 <img 
@@ -472,23 +485,20 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
               </div>
             )}
 
-            {/* Audio */}
+            {/* Audio - Diseño minimalista estilo WhatsApp */}
             {url && fileType === 'audio' && (
-              <div className="p-3">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Music className="w-4 h-4 text-blue-500" />
-                  <span className="text-xs text-slate-600 dark:text-gray-300">
-                    {filename}
-                  </span>
-                </div>
-                <audio 
-                  controls 
-                  src={url}
-                  className="w-full max-w-sm"
-                  preload="metadata"
-                >
-                  Tu navegador no soporta audio.
-                </audio>
+              <div className={`${isFromCustomer ? 'bg-white dark:bg-gray-700' : 'bg-slate-900 dark:bg-gray-800'} rounded-2xl overflow-hidden`}>
+                <AudioPlayer url={url} isFromCustomer={isFromCustomer} />
+                {/* Descripción del audio si existe */}
+                {adjunto.descripcion && (
+                  <div className={`px-3 pb-2 pt-1 text-sm leading-relaxed whitespace-pre-wrap ${
+                    isFromCustomer 
+                      ? 'text-slate-900 dark:text-white' 
+                      : 'text-white'
+                  }`}>
+                    {adjunto.descripcion}
+                  </div>
+                )}
               </div>
             )}
 
@@ -537,8 +547,14 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
             )}
 
             {/* Descripción si existe */}
-            {adjunto.descripcion && url && (
-              <div className="px-3 pb-2 text-xs text-slate-600 dark:text-gray-400">
+            {/* OCULTAR descripción para: stickers, imágenes del prospecto/usuario, audios (ya incluida en el contenedor del audio) */}
+            {/* Mostrar descripción para: imágenes del bot/agente, videos, documentos */}
+            {adjunto.descripcion && url && fileType !== 'sticker' && fileType !== 'audio' && !(fileType === 'image' && isFromCustomer) && (
+              <div className={`px-3 pb-2 pt-2 text-sm leading-relaxed whitespace-pre-wrap ${
+                isFromCustomer 
+                  ? 'bg-white dark:bg-gray-700 text-slate-900 dark:text-white' 
+                  : 'bg-slate-900 dark:bg-gray-800 text-white'
+              }`}>
                 {adjunto.descripcion}
               </div>
             )}
@@ -548,4 +564,120 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
     </div>
   );
 };
+
+// Componente de reproductor de audio minimalista estilo WhatsApp
+const AudioPlayer: React.FC<{ url: string; isFromCustomer?: boolean }> = ({ url, isFromCustomer = false }) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateDuration = () => setDuration(audio.duration);
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => setIsPlaying(false);
+
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      audio.play();
+    }
+  };
+
+  const formatTime = (seconds: number): string => {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Colores que coinciden con los mensajes del chat
+  const buttonBg = isFromCustomer 
+    ? 'bg-white dark:bg-gray-700' 
+    : 'bg-slate-900 dark:bg-gray-800';
+  const buttonHover = isFromCustomer
+    ? 'hover:bg-slate-50 dark:hover:bg-gray-600'
+    : 'hover:bg-slate-800 dark:hover:bg-gray-700';
+  const buttonIcon = isFromCustomer
+    ? 'text-slate-600 dark:text-slate-300'
+    : 'text-white';
+  const progressBg = isFromCustomer
+    ? 'bg-slate-200 dark:bg-gray-600'
+    : 'bg-slate-700 dark:bg-gray-600';
+  const progressFill = isFromCustomer
+    ? 'bg-slate-400 dark:bg-slate-400'
+    : 'bg-white dark:bg-gray-300';
+  const textColor = isFromCustomer
+    ? 'text-slate-900 dark:text-white'
+    : 'text-white';
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2">
+      {/* Botón de play/pause */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          togglePlay();
+        }}
+        className={`w-10 h-10 rounded-full ${buttonBg} ${buttonHover} flex items-center justify-center flex-shrink-0 transition-colors active:scale-95`}
+      >
+        {isPlaying ? (
+          <Pause className={`w-4 h-4 ${buttonIcon} fill-current`} />
+        ) : (
+          <Play className={`w-4 h-4 ${buttonIcon} fill-current ml-0.5`} />
+        )}
+      </button>
+      
+      {/* Contenedor del audio con controles personalizados */}
+      <div className="flex-1 min-w-0 flex items-center gap-3">
+        {/* Barra de progreso */}
+        <div className={`flex-1 relative h-1.5 ${progressBg} rounded-full overflow-hidden`}>
+          <div 
+            className={`absolute top-0 left-0 h-full ${progressFill} rounded-full transition-all`}
+            style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+          />
+        </div>
+        
+        {/* Tiempo */}
+        <span className={`text-xs ${textColor} font-mono tabular-nums whitespace-nowrap opacity-75`}>
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
+      </div>
+
+      {/* Audio oculto para funcionalidad */}
+      <audio 
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        className="hidden"
+      />
+    </div>
+  );
+};
+
+export default MultimediaMessage;
 

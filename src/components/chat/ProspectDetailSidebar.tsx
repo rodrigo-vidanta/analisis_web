@@ -60,12 +60,14 @@ interface WhatsAppConversation {
 
 interface TimelineEvent {
   id: string;
-  type: 'call' | 'message' | 'created' | 'updated';
+  type: 'call' | 'message' | 'created' | 'updated' | 'scheduled_call';
   date: string;
   title: string;
   description?: string;
   icon: React.ReactNode;
   callId?: string; // Para identificar llamadas y abrir el modal
+  scheduledCallId?: string; // Para identificar llamadas programadas
+  isPast?: boolean; // Si la llamada programada ya pasó
 }
 
 
@@ -121,6 +123,9 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   const [loading, setLoading] = useState(true);
   const [loadingCalls, setLoadingCalls] = useState(true);
   const [loadingConversations, setLoadingConversations] = useState(true);
+  const [scheduledCalls, setScheduledCalls] = useState<any[]>([]);
+  
+  // Nota: loadingCalls se usa en el componente pero el linter no lo detecta correctamente
   
   // Estados para el modal de detalle de llamada
   const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
@@ -132,6 +137,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
       setProspecto(null);
       setCallHistory([]);
       setWhatsappConversations([]);
+      setScheduledCalls([]);
       setLoading(true);
       setLoadingCalls(true);
       setLoadingConversations(true);
@@ -140,6 +146,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
       loadProspectData();
       loadCallHistory();
       loadWhatsAppConversations();
+      loadScheduledCalls();
     }
   }, [isOpen, prospectoId]);
 
@@ -263,10 +270,29 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
     }
   };
 
+  const loadScheduledCalls = async () => {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('llamadas_programadas')
+        .select('*')
+        .eq('prospecto', prospectoId)
+        .order('fecha_programada', { ascending: false });
+
+      if (error) {
+        console.error('Error cargando llamadas programadas:', error);
+        return;
+      }
+
+      setScheduledCalls(data || []);
+    } catch (error) {
+      console.error('Error cargando llamadas programadas:', error);
+    }
+  };
+
   const buildTimelineEvents = (): TimelineEvent[] => {
     const events: TimelineEvent[] = [];
 
-    // Agregar eventos de llamadas (clickeables)
+    // Agregar eventos de llamadas ejecutadas (clickeables)
     callHistory.forEach(call => {
       events.push({
         id: `call-${call.call_id}`,
@@ -277,6 +303,35 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         icon: <PhoneCall className="w-4 h-4 text-blue-500" />,
         callId: call.call_id // Agregar callId para poder abrir el modal
       } as TimelineEvent & { callId?: string });
+    });
+
+    // Agregar eventos de llamadas programadas (pasadas y futuras)
+    scheduledCalls.forEach(scheduledCall => {
+      const fechaProgramada = new Date(scheduledCall.fecha_programada);
+      const ahora = new Date();
+      const isPast = fechaProgramada < ahora;
+      const fechaFormateada = fechaProgramada.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      events.push({
+        id: `scheduled-${scheduledCall.id}`,
+        type: 'scheduled_call',
+        date: scheduledCall.fecha_programada,
+        title: isPast ? 'Llamada programada (Ejecutada)' : 'Llamada programada',
+        description: `${fechaFormateada} • ${scheduledCall.motivo || scheduledCall.justificacion_llamada || 'Sin motivo'}`,
+        icon: isPast ? (
+          <PhoneCall className="w-4 h-4 text-gray-500" />
+        ) : (
+          <Calendar className="w-4 h-4 text-purple-500" />
+        ),
+        scheduledCallId: scheduledCall.id,
+        isPast
+      });
     });
 
     // Agregar eventos de conversaciones WhatsApp
@@ -723,6 +778,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {buildTimelineEvents().map((event, index) => {
                         const isCall = event.type === 'call' && (event as TimelineEvent & { callId?: string }).callId;
+                        const isScheduledCall = event.type === 'scheduled_call';
+                        const isPastScheduled = (event as TimelineEvent & { isPast?: boolean }).isPast;
                         return (
                           <motion.div
                             key={event.id}
@@ -734,8 +791,14 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                                 handleOpenCallDetail((event as TimelineEvent & { callId?: string }).callId!);
                               }
                             }}
-                            className={`flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 ${
-                              isCall ? 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all' : ''
+                            className={`flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border ${
+                              isCall 
+                                ? 'border-blue-200 dark:border-blue-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all' 
+                                : isScheduledCall
+                                  ? isPastScheduled
+                                    ? 'border-gray-200 dark:border-gray-600'
+                                    : 'border-purple-200 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-900/10'
+                                  : 'border-gray-200 dark:border-gray-600'
                             }`}
                           >
                             <div className="mt-0.5">
