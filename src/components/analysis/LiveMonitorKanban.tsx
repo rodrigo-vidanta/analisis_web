@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Phone, MapPin, Calendar, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Activity, AlertTriangle, Wand2 } from 'lucide-react';
+import { X, User, Phone, MapPin, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Wand2, Mail } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { liveMonitorKanbanOptimized } from '../../services/liveMonitorKanbanOptimized';
@@ -32,6 +32,9 @@ import { ProspectAvatar } from './ProspectAvatar';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { coordinacionService } from '../../services/coordinacionService';
+import ReactMarkdown from 'react-markdown';
+import { CallDetailModal } from '../chat/CallDetailModal';
 
 // Nota: El sonido de checkpoint #5 se reproduce desde el Sidebar para evitar duplicación
 // cuando se está en el módulo Live Monitor. El Sidebar reproduce el sonido independientemente
@@ -108,14 +111,140 @@ interface ProspectoSidebarProps {
 const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, onClose }) => {
   const [hasActiveChat, setHasActiveChat] = useState(false);
   const [llamadas, setLlamadas] = useState<any[]>([]);
+  const [whatsappConversations, setWhatsappConversations] = useState<any[]>([]);
+  const [coordinacionInfo, setCoordinacionInfo] = useState<any>(null);
+  const [ejecutivoInfo, setEjecutivoInfo] = useState<any>(null);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
+  const [showCallDetailModal, setShowCallDetailModal] = useState(false);
 
   // Verificar si hay conversación activa y cargar llamadas
   useEffect(() => {
-    if (prospecto?.id) {
+    if (isOpen && prospecto?.id) {
+      // Resetear estados al abrir
+      setHasActiveChat(false);
+      setLlamadas([]);
+      setWhatsappConversations([]);
+      setCoordinacionInfo(null);
+      setEjecutivoInfo(null);
+      
+      // Cargar datos frescos
       checkActiveChat(prospecto.id);
       loadLlamadasProspecto(prospecto.id);
+      loadWhatsAppConversations(prospecto.id);
+      loadCoordinacionInfo();
     }
-  }, [prospecto]);
+  }, [isOpen, prospecto]);
+
+  const loadCoordinacionInfo = async () => {
+    try {
+      if (prospecto?.coordinacion_id) {
+        const coordinacion = await coordinacionService.getCoordinacionById(prospecto.coordinacion_id);
+        setCoordinacionInfo(coordinacion);
+      }
+      if (prospecto?.ejecutivo_id) {
+        const ejecutivo = await coordinacionService.getEjecutivoById(prospecto.ejecutivo_id);
+        setEjecutivoInfo(ejecutivo);
+      }
+    } catch (error) {
+      console.error('Error loading coordinacion info:', error);
+    }
+  };
+
+  const loadWhatsAppConversations = async (prospectoId: string) => {
+    try {
+      let conversations: any[] = [];
+
+      // Primero buscar todas las conversaciones activas y filtrar por metadata
+      const { data: allActiveConversations, error: errorAll } = await supabaseSystemUI
+        .from('uchat_conversations')
+        .select('id, conversation_id, created_at, last_message_at, status, message_count, customer_name, metadata')
+        .eq('status', 'active');
+
+      if (allActiveConversations && !errorAll) {
+        conversations = allActiveConversations.filter(conv => 
+          conv.metadata && (conv.metadata as any).prospect_id === prospectoId
+        );
+      }
+
+      // Si no hay conversaciones por metadata, buscar por customer_phone (whatsapp)
+      if (conversations.length === 0 && prospecto?.whatsapp) {
+        const { data: conversationsByPhone, error: errorPhone } = await supabaseSystemUI
+          .from('uchat_conversations')
+          .select('id, conversation_id, created_at, last_message_at, status, message_count, customer_name')
+          .eq('customer_phone', prospecto.whatsapp)
+          .order('last_message_at', { ascending: false });
+
+        if (conversationsByPhone && !errorPhone) {
+          conversations = conversationsByPhone;
+        }
+      }
+
+      setWhatsappConversations(conversations || []);
+    } catch (error) {
+      console.error('Error cargando conversaciones WhatsApp:', error);
+      setWhatsappConversations([]);
+    }
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const buildTimelineEvents = (): any[] => {
+    const events: any[] = [];
+
+    // Agregar eventos de llamadas (clickeables)
+    llamadas.forEach(call => {
+      events.push({
+        id: `call-${call.call_id}`,
+        type: 'call',
+        date: call.fecha_llamada,
+        title: `Llamada ${call.call_status}`,
+        description: `${formatDuration(call.duracion_segundos || 0)} • ${call.nivel_interes || 'Sin interés'}`,
+        icon: <PhoneCall className="w-4 h-4 text-blue-500" />,
+        callId: call.call_id
+      });
+    });
+
+    // Agregar eventos de conversaciones WhatsApp
+    whatsappConversations.forEach(conv => {
+      const convDate = conv.last_message_at || conv.created_at;
+      events.push({
+        id: `conv-${conv.id}`,
+        type: 'message',
+        date: convDate,
+        title: `Conversación WhatsApp ${conv.status === 'active' ? '(Activa)' : ''}`,
+        description: `${conv.message_count || 0} mensajes • ${conv.customer_name || 'Sin nombre'}`,
+        icon: <MessageSquare className="w-4 h-4 text-green-500" />
+      });
+    });
+
+    // Agregar eventos de creación y actualización
+    if (prospecto?.created_at) {
+      events.push({
+        id: 'created',
+        type: 'created',
+        date: prospecto.created_at,
+        title: 'Prospecto creado',
+        icon: <CheckCircle className="w-4 h-4 text-green-500" />
+      });
+    }
+
+    if (prospecto?.updated_at && prospecto.updated_at !== prospecto.created_at) {
+      events.push({
+        id: 'updated',
+        type: 'updated',
+        date: prospecto.updated_at,
+        title: 'Última actualización',
+        icon: <Clock className="w-4 h-4 text-gray-500" />
+      });
+    }
+
+    // Ordenar por fecha descendente (más reciente primero)
+    return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
 
   const loadLlamadasProspecto = async (prospectoId: string) => {
     try {
@@ -170,7 +299,7 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
           .eq('status', 'active')
           .limit(1);
         
-        hasActiveByPhone = dataByPhone && dataByPhone.length > 0;
+        hasActiveByPhone = !!(dataByPhone && dataByPhone.length > 0);
       }
       
       setHasActiveChat(hasActiveByProspectId || hasActiveByPhone);
@@ -181,27 +310,6 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
 
   if (!prospecto) return null;
 
-  const getStatusColor = (etapa: string) => {
-    switch (etapa?.toLowerCase()) {
-      case 'nuevo': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'contactado': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'calificado': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-      case 'propuesta': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-      case 'transferido': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
-      case 'finalizado': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'perdido': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
-  };
-
-  const getScoreColor = (score: string) => {
-    switch (score) {
-      case 'Q Elite': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-      case 'Q Premium': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'Q Reto': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
-  };
 
   return (
     <AnimatePresence>
@@ -220,22 +328,32 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-slate-900 shadow-2xl z-[100] overflow-hidden"
+            className="fixed right-0 top-0 h-full w-[540px] bg-white dark:bg-slate-900 shadow-2xl z-[100] overflow-hidden"
           >
             <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
+                className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600"
+              >
                 <div className="flex items-center gap-4">
-                  <ProspectAvatar
-                    nombreCompleto={prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
-                    nombreWhatsapp={prospecto.nombre_whatsapp}
-                    size="lg"
-                  />
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-2xl font-bold text-white">
+                      {prospecto.nombre_completo?.charAt(0).toUpperCase() || 
+                       prospecto.nombre?.charAt(0).toUpperCase() || 
+                       prospecto.nombre_whatsapp?.charAt(0).toUpperCase() || 
+                       'P'}
+                    </span>
+                  </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                      {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                    <h2 className="text-xl font-bold text-white">
+                      {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim() || prospecto.nombre_whatsapp || 'Cargando...'}
                     </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {prospecto.ciudad_residencia} • {prospecto.interes_principal}
+                    <p className="text-sm text-white/80">
+                      {prospecto.ciudad_residencia && prospecto.interes_principal 
+                        ? `${prospecto.ciudad_residencia} • ${prospecto.interes_principal}`
+                        : prospecto.ciudad_residencia || prospecto.interes_principal || 'Información del Prospecto'}
                     </p>
                   </div>
                 </div>
@@ -249,8 +367,8 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                     disabled={!hasActiveChat}
                     className={`p-2 rounded-full transition-colors shadow-lg ${
                       hasActiveChat 
-                        ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer' 
-                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        ? 'bg-white/20 hover:bg-white/30 text-white cursor-pointer' 
+                        : 'bg-white/10 text-white/50 cursor-not-allowed'
                     }`}
                     title={hasActiveChat ? "Ir a conversación activa" : "No hay conversación activa"}
                   >
@@ -258,254 +376,325 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                   </button>
                   <button 
                     onClick={onClose}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
                   >
-                    <X size={24} className="text-gray-400" />
+                    <X size={24} className="text-white" />
                   </button>
                 </div>
-              </div>
+              </motion.div>
               
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Estado y Score */}
-                <div className="flex items-center gap-4">
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(prospecto.etapa || '')}`}>
-                    {prospecto.etapa || 'Sin etapa'}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                {/* Etapa Destacada */}
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
+                  className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-800"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {prospecto.etapa || 'Sin etapa'}
+                      </h3>
+                    </div>
+                    {prospecto.score && (
+                      <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <Star className="text-yellow-500 dark:text-yellow-400" size={16} />
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          {prospecto.score}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Star className={getScoreColor(prospecto.score || '')} size={16} />
-                    <span className={`text-sm font-medium ${getScoreColor(prospecto.score || '').replace('bg-', 'text-').replace('-100', '-600').replace('-900/20', '-400')}`}>
-                      {prospecto.score || 'Sin score'}
-                    </span>
-                  </div>
-                </div>
+                </motion.div>
 
                 {/* Información Personal y Contacto */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <User size={18} />
-                    Información Personal y Contacto
-                  </h3>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: 0.3, ease: "easeOut" }}
+                  className="space-y-4"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Información Personal y Contacto
+                    </h3>
+                  </div>
                   
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Email</label>
-                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.email || 'No disponible'}</div>
+                      <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <span>Email</span>
+                      </label>
+                      <div className="text-gray-900 dark:text-white font-mono text-xs break-all bg-white dark:bg-gray-700 px-3 py-2 rounded">
+                        {prospecto.email || 'No disponible'}
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">WhatsApp</label>
-                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.whatsapp || 'No disponible'}</div>
+                      <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        <MessageSquare className="w-4 h-4 text-gray-400" />
+                        <span>WhatsApp</span>
+                      </label>
+                      <div className="text-gray-900 dark:text-white font-mono text-xs bg-white dark:bg-gray-700 px-3 py-2 rounded">
+                        {prospecto.whatsapp || 'No disponible'}
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
-                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.telefono_principal || 'No disponible'}</div>
+                      <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span>Teléfono</span>
+                      </label>
+                      <div className="text-gray-900 dark:text-white font-mono text-xs bg-white dark:bg-gray-700 px-3 py-2 rounded">
+                        {prospecto.telefono_principal || 'No disponible'}
+                      </div>
                     </div>
                     
                     {prospecto.edad && (
                       <div>
                         <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Edad</label>
-                        <div className="text-gray-900 dark:text-white">{prospecto.edad} años</div>
+                        <div className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 px-3 py-2 rounded">
+                          {prospecto.edad} años
+                        </div>
                       </div>
                     )}
                     {prospecto.estado_civil && (
                       <div>
                         <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Estado Civil</label>
-                        <div className="text-gray-900 dark:text-white">{prospecto.estado_civil}</div>
+                        <div className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 px-3 py-2 rounded">
+                          {prospecto.estado_civil}
+                        </div>
                       </div>
                     )}
                     {prospecto.ciudad_residencia && (
                       <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ciudad</label>
-                        <div className="text-gray-900 dark:text-white">{prospecto.ciudad_residencia}</div>
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span>Ciudad</span>
+                        </label>
+                        <div className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 px-3 py-2 rounded">
+                          {prospecto.ciudad_residencia}
+                        </div>
+                      </div>
+                    )}
+                    {prospecto.ingresos && (
+                      <div>
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                          <DollarSign className="w-4 h-4 text-gray-400" />
+                          <span>Ingresos</span>
+                        </label>
+                        <div className="text-sm text-gray-900 dark:text-white font-medium bg-white dark:bg-gray-700 px-3 py-2 rounded">
+                          {prospecto.ingresos}
+                        </div>
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
 
-                {/* Información Comercial */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
-                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <DollarSign size={18} />
-                    Información Comercial
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Score</label>
-                      <div className={`inline-block px-2 py-1 rounded text-sm font-medium ${getScoreColor(prospecto.score || '')}`}>
-                        {prospecto.score || 'Sin score'}
-                      </div>
+                {/* Información de Asignación */}
+                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || coordinacionInfo || ejecutivoInfo) && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.35, ease: "easeOut" }}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center space-x-2 mb-4">
+                      <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Información de Asignación
+                      </h3>
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ingresos</label>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {prospecto.ingresos || 'No definido'}
-                      </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                      <AssignmentBadge 
+                        call={{
+                          coordinacion_codigo: prospecto.coordinacion_codigo || coordinacionInfo?.codigo,
+                          ejecutivo_nombre: prospecto.ejecutivo_nombre || ejecutivoInfo?.nombre_completo,
+                          coordinacion_id: prospecto.coordinacion_id,
+                          ejecutivo_id: prospecto.ejecutivo_id
+                        } as any}
+                        variant="inline"
+                      />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Interés Principal</label>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {prospecto.interes_principal || 'No definido'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Asesor Asignado</label>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {prospecto.asesor_asignado || 'No asignado'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Información de Viaje (si aplica) */}
-                {(prospecto.destino_preferencia || prospecto.tamano_grupo || prospecto.cantidad_menores || prospecto.viaja_con) && (
-                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
-                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      <Activity size={18} />
-                      Información de Viaje
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {prospecto.destino_preferencia && (
-                        <div>
-                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Destinos Preferencia</label>
-                          <div className="text-sm text-gray-900 dark:text-white">
-                            {Array.isArray(prospecto.destino_preferencia) ? 
-                              prospecto.destino_preferencia.join(', ') : 
-                              prospecto.destino_preferencia}
-                          </div>
-                        </div>
-                      )}
-                      {prospecto.tamano_grupo && (
-                        <div>
-                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Tamaño Grupo</label>
-                          <div className="text-sm text-gray-900 dark:text-white">
-                            {prospecto.tamano_grupo} personas
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  </motion.div>
                 )}
 
-                {/* Timeline */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
-                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Clock size={18} />
-                    Timeline
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">Creado</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString() : 'No disponible'}
-                        </div>
+                {/* Información de Viaje */}
+                {(prospecto.destino_preferencia || prospecto.tamano_grupo || prospecto.cantidad_menores || prospecto.viaja_con) && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.4, ease: "easeOut" }}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center space-x-2 mb-4">
+                      <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Información de Viaje
+                      </h3>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        {prospecto.destino_preferencia && (
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                              Destinos Preferencia
+                            </label>
+                            <div className="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded">
+                              {Array.isArray(prospecto.destino_preferencia) ? 
+                                prospecto.destino_preferencia.join(', ') : 
+                                prospecto.destino_preferencia}
+                            </div>
+                          </div>
+                        )}
+                        {prospecto.tamano_grupo && (
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                              <Users className="w-3 h-3 inline mr-1" />
+                              Tamaño Grupo
+                            </label>
+                            <div className="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded">
+                              {prospecto.tamano_grupo} personas
+                            </div>
+                          </div>
+                        )}
+                        {prospecto.cantidad_menores !== null && prospecto.cantidad_menores !== undefined && (
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Menores</label>
+                            <div className="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded">
+                              {prospecto.cantidad_menores} menores
+                            </div>
+                          </div>
+                        )}
+                        {prospecto.viaja_con && (
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Viaja con</label>
+                            <div className="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded">
+                              {prospecto.viaja_con}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">Última Actualización</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {prospecto.updated_at ? new Date(prospecto.updated_at).toLocaleDateString() : 'No disponible'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Observaciones */}
-                {prospecto.observaciones && (
-                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
-                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      <FileText size={18} />
-                      Observaciones
-                    </h3>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                      {prospecto.observaciones}
-                    </p>
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* Llamadas Programadas */}
                 {prospecto?.id && (
-                  <ScheduledCallsSection
-                    prospectoId={prospecto.id}
-                    prospectoNombre={prospecto.nombre_completo || prospecto.nombre_whatsapp}
-                    delay={0.5}
-                  />
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.45, ease: "easeOut" }}
+                  >
+                    <ScheduledCallsSection
+                      prospectoId={prospecto.id}
+                      prospectoNombre={prospecto.nombre_completo || prospecto.nombre_whatsapp}
+                      delay={0}
+                    />
+                  </motion.div>
                 )}
 
-                {/* Historial de Llamadas */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
-                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Phone size={18} />
-                    Historial de Llamadas ({llamadas.length})
-                  </h3>
-                  
-                  {llamadas.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-gray-200 dark:border-gray-600">
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Fecha</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Duración</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Estado</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Interés</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Precio</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Resultado</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {llamadas.map((llamada, index) => (
-                            <tr
-                              key={llamada.call_id}
-                              className="border-b border-gray-100 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                            >
-                              <td className="py-2 px-2 text-gray-900 dark:text-white">
-                                {new Date(llamada.fecha_llamada).toLocaleDateString('es-MX')}
-                              </td>
-                              <td className="py-2 px-2 text-gray-900 dark:text-white">
-                                {Math.floor(llamada.duracion_segundos / 60)}:{(llamada.duracion_segundos % 60).toString().padStart(2, '0')}
-                              </td>
-                              <td className="py-2 px-2">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  llamada.call_status === 'finalizada' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                                  llamada.call_status === 'activa' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                                  'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                                }`}>
-                                  {llamada.call_status}
-                                </span>
-                              </td>
-                              <td className="py-2 px-2 text-gray-900 dark:text-white">
-                                {llamada.nivel_interes}
-                              </td>
-                              <td className="py-2 px-2 text-gray-900 dark:text-white">
-                                ${parseFloat(llamada.precio_ofertado || '0').toLocaleString()}
-                              </td>
-                              <td className="py-2 px-2">
-                                <div className="flex items-center gap-1">
-                                  {llamada.es_venta_exitosa ? (
-                                    <CheckCircle size={12} className="text-green-600 dark:text-green-400" />
-                                  ) : (
-                                    <AlertTriangle size={12} className="text-orange-600 dark:text-orange-400" />
-                                  )}
-                                  <span className="text-gray-900 dark:text-white">
-                                    {llamada.es_venta_exitosa ? 'Exitosa' : 'Seguimiento'}
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                {/* Observaciones */}
+                {prospecto.observaciones && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.5, ease: "easeOut" }}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center space-x-2 mb-4">
+                      <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Observaciones
+                      </h3>
                     </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                      No hay llamadas registradas para este prospecto
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-2 last:mb-0">{children}</p>
+                          }}
+                        >
+                          {prospecto.observaciones?.replace(/\\n/g, '\n') || ''}
+                        </ReactMarkdown>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </motion.div>
+                )}
+
+                {/* Timeline */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: 0.55, ease: "easeOut" }}
+                  className="space-y-4"
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Timeline
+                    </h3>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="space-y-3">
+                      {buildTimelineEvents().length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                          No hay eventos en el timeline
+                        </p>
+                      ) : (
+                        buildTimelineEvents().map((event, index) => (
+                          <div 
+                            key={event.id} 
+                            className={`flex items-start gap-3 pb-3 ${index < buildTimelineEvents().length - 1 ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}
+                          >
+                            <div className="mt-1 flex-shrink-0">
+                              {event.icon || <Clock className="w-4 h-4 text-gray-400" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div 
+                                className={`text-sm font-medium text-gray-900 dark:text-white ${event.callId ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors' : ''}`}
+                                onClick={() => {
+                                  if (event.callId) {
+                                    setSelectedCallId(event.callId);
+                                    setShowCallDetailModal(true);
+                                  }
+                                }}
+                              >
+                                {event.title}
+                              </div>
+                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                {event.description}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                {new Date(event.date).toLocaleString('es-ES', { 
+                                  day: 'numeric', 
+                                  month: 'short', 
+                                  year: 'numeric',
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+
               </div>
+              
+              {/* Modal de Detalle de Llamada */}
+              <CallDetailModal
+                callId={selectedCallId}
+                isOpen={showCallDetailModal}
+                onClose={() => {
+                  setShowCallDetailModal(false);
+                  setSelectedCallId(null);
+                }}
+              />
             </div>
           </motion.div>
         </>

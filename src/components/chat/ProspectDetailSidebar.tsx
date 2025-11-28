@@ -65,6 +65,7 @@ interface TimelineEvent {
   title: string;
   description?: string;
   icon: React.ReactNode;
+  callId?: string; // Para identificar llamadas y abrir el modal
 }
 
 
@@ -127,6 +128,15 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
 
   useEffect(() => {
     if (isOpen && prospectoId) {
+      // Resetear estados al abrir
+      setProspecto(null);
+      setCallHistory([]);
+      setWhatsappConversations([]);
+      setLoading(true);
+      setLoadingCalls(true);
+      setLoadingConversations(true);
+      
+      // Cargar datos frescos
       loadProspectData();
       loadCallHistory();
       loadWhatsAppConversations();
@@ -256,7 +266,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   const buildTimelineEvents = (): TimelineEvent[] => {
     const events: TimelineEvent[] = [];
 
-    // Agregar eventos de llamadas
+    // Agregar eventos de llamadas (clickeables)
     callHistory.forEach(call => {
       events.push({
         id: `call-${call.call_id}`,
@@ -264,8 +274,9 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         date: call.fecha_llamada,
         title: `Llamada ${call.call_status}`,
         description: `${formatDuration(call.duracion_segundos)} • ${call.nivel_interes || 'Sin interés'}`,
-        icon: <PhoneCall className="w-4 h-4 text-blue-500" />
-      });
+        icon: <PhoneCall className="w-4 h-4 text-blue-500" />,
+        callId: call.call_id // Agregar callId para poder abrir el modal
+      } as TimelineEvent & { callId?: string });
     });
 
     // Agregar eventos de conversaciones WhatsApp
@@ -380,9 +391,9 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
       {isOpen && (
         <motion.div
           key="prospect-sidebar-wrapper"
-          initial={false}
-          animate={false}
-          exit={false}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           className="fixed inset-0 z-40 pointer-events-none"
         >
           {/* Overlay */}
@@ -400,7 +411,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full w-[500px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col pointer-events-auto"
+            className="fixed right-0 top-0 h-full w-[540px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col pointer-events-auto"
           >
             {/* Header */}
             <motion.div 
@@ -692,7 +703,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   </motion.div>
                 )}
 
-                {/* Historial de Llamadas */}
+                {/* Timeline */}
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -700,141 +711,60 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
                 >
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <PhoneCall size={18} />
-                    Historial de Llamadas ({callHistory.length})
-                  </h3>
-                  {loadingCalls ? (
-                    <div className="text-center py-4">
-                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">Cargando llamadas...</p>
-                    </div>
-                  ) : callHistory.length > 0 ? (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {callHistory.map((call, index) => (
-                        <div 
-                          key={call.call_id || `call-${index}-${call.fecha_llamada}`}
-                          onClick={() => call.call_id && handleOpenCallDetail(call.call_id)}
-                          className="bg-white dark:bg-gray-700 rounded-lg p-3 space-y-2 border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {getCallStatusIcon(call.call_status)}
-                              <span className={`text-xs font-medium px-2 py-1 rounded ${getCallStatusColor(call.call_status)}`}>
-                                {call.call_status}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                              <Clock className="w-3 h-3" />
-                              <span>{formatDuration(call.duracion_segundos)}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            <Calendar className="w-3 h-3 inline mr-1" />
-                            {new Date(call.fecha_llamada).toLocaleDateString('es-MX', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric'
-                            })}
-                            {' • '}
-                            {new Date(call.fecha_llamada).toLocaleTimeString('es-MX', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            {call.nivel_interes && (
-                              <div>
-                                <span className="text-gray-500 dark:text-gray-400">Interés: </span>
-                                <span className="font-medium text-gray-900 dark:text-white">{call.nivel_interes}</span>
-                              </div>
-                            )}
-                            {call.precio_ofertado && call.precio_ofertado !== '$0' && (
-                              <div>
-                                <span className="text-gray-500 dark:text-gray-400">Precio: </span>
-                                <span className="font-medium text-gray-900 dark:text-white">{call.precio_ofertado}</span>
-                              </div>
-                            )}
-                            {call.feedback_resultado && (
-                              <div className="col-span-3">
-                                <span className="text-gray-500 dark:text-gray-400">Resultado: </span>
-                                <span className="font-medium text-gray-900 dark:text-white">{call.feedback_resultado}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {call.es_venta_exitosa && (
-                            <div className="flex items-center gap-1 text-xs bg-green-50 dark:bg-green-900/20 p-2 rounded">
-                              <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
-                              <span className="text-green-700 dark:text-green-300 font-medium">Venta Exitosa</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <PhoneMissed className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        No hay llamadas registradas
-                      </p>
-                    </div>
-                  )}
-                </motion.div>
-
-                {/* Timeline */}
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
-                  className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
-                >
-                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <Calendar size={18} />
                     Timeline
                   </h3>
-                  {loadingCalls || loadingConversations ? (
+                  {loadingConversations ? (
                     <div className="text-center py-4">
                       <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">Cargando timeline...</p>
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {buildTimelineEvents().map((event, index) => (
-                        <motion.div
-                          key={event.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
-                        >
-                          <div className="mt-0.5">
-                            {event.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                                {event.title}
-                              </h4>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
-                                {new Date(event.date).toLocaleDateString('es-MX', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
+                      {buildTimelineEvents().map((event, index) => {
+                        const isCall = event.type === 'call' && (event as TimelineEvent & { callId?: string }).callId;
+                        return (
+                          <motion.div
+                            key={event.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            onClick={() => {
+                              if (isCall && (event as TimelineEvent & { callId?: string }).callId) {
+                                handleOpenCallDetail((event as TimelineEvent & { callId?: string }).callId!);
+                              }
+                            }}
+                            className={`flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 ${
+                              isCall ? 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all' : ''
+                            }`}
+                          >
+                            <div className="mt-0.5">
+                              {event.icon}
                             </div>
-                            {event.description && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                                {event.description}
-                              </p>
-                            )}
-                          </div>
-                        </motion.div>
-                      ))}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {event.title}
+                                </h4>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
+                                  {new Date(event.date).toLocaleDateString('es-MX', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                              {event.description && (
+                                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                                  {event.description}
+                                </p>
+                              )}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
                       {buildTimelineEvents().length === 0 && (
                         <div className="text-center py-4">
                           <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />

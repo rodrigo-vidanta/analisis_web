@@ -22,7 +22,7 @@ import {
   Calendar, MapPin, Building, DollarSign, Clock, Tag,
   ChevronRight, Eye, Edit, Star, TrendingUp, Activity,
   FileText, MessageSquare, CheckCircle, AlertTriangle, Network,
-  LayoutGrid, Table2, PhoneCall
+  LayoutGrid, Table2, PhoneCall, Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analysisSupabase } from '../../config/analysisSupabase';
@@ -547,6 +547,7 @@ interface TimelineEvent {
   title: string;
   description?: string;
   icon: React.ReactNode;
+  callId?: string; // Para identificar llamadas y abrir el modal
 }
 
 // Sidebar con ficha completa del prospecto
@@ -558,12 +559,19 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
 
   // Verificar si hay conversación activa en live chat y cargar llamadas
   useEffect(() => {
-    if (prospecto?.id) {
+    if (isOpen && prospecto?.id) {
+      // Resetear estados al abrir
+      setHasActiveChat(false);
+      setLlamadas([]);
+      setWhatsappConversations([]);
+      setLoadingConversations(false);
+      
+      // Cargar datos frescos
       checkActiveChat(prospecto.id);
       loadLlamadasProspecto(prospecto.id);
       loadWhatsAppConversations(prospecto.id);
     }
-  }, [prospecto]);
+  }, [isOpen, prospecto]);
 
   const loadLlamadasProspecto = async (prospectoId: string) => {
     try {
@@ -744,7 +752,8 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
         type: 'call',
         date: call.fecha_llamada,
         title: `Llamada ${call.call_status}`,
-        description: `${formatDuration(call.duracion_segundos)} • ${call.nivel_interes || 'Sin interés'}`,
+        description: `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')} • ${call.nivel_interes || 'Sin interés'}`,
+        callId: call.call_id, // Agregar callId para poder abrir el modal
         icon: <PhoneCall className="w-4 h-4 text-blue-500" />
       });
     });
@@ -839,44 +848,53 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden"
+            className="fixed right-0 top-0 h-full w-[540px] bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
               <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-                className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
+                className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600"
               >
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg">
-                    <User className="text-blue-600 dark:text-blue-400" size={24} />
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-2xl font-bold text-white">
+                      {prospecto.nombre_completo?.charAt(0).toUpperCase() || 
+                       prospecto.nombre?.charAt(0).toUpperCase() || 
+                       prospecto.nombre_whatsapp?.charAt(0).toUpperCase() || 
+                       'P'}
+                    </span>
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                      {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                    <h2 className="text-xl font-bold text-white">
+                      {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim() || prospecto.nombre_whatsapp || 'Cargando...'}
                     </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {prospecto.ciudad_residencia} • {prospecto.interes_principal}
+                    <p className="text-sm text-white/80">
+                      {prospecto.ciudad_residencia && prospecto.interes_principal 
+                        ? `${prospecto.ciudad_residencia} • ${prospecto.interes_principal}`
+                        : prospecto.ciudad_residencia || prospecto.interes_principal || 'Información del Prospecto'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => {
-                      onNavigateToLiveChat?.(prospecto.id);
-                    }}
-                    className="p-2 rounded-full transition-colors shadow-lg bg-green-600 hover:bg-green-700 text-white cursor-pointer"
-                    title="Ir a Live Chat (buscar o crear conversación)"
-                  >
-                    <MessageSquare size={20} />
-                  </button>
+                  {onNavigateToLiveChat && (
+                    <button 
+                      onClick={() => {
+                        onNavigateToLiveChat(prospecto.id);
+                      }}
+                      className="p-2 rounded-full transition-colors shadow-lg bg-white/20 hover:bg-white/30 text-white cursor-pointer"
+                      title="Ir a Live Chat (buscar o crear conversación)"
+                    >
+                      <MessageSquare size={20} />
+                    </button>
+                  )}
                   <button 
                     onClick={onClose}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
                   >
-                    <X size={24} className="text-gray-400" />
+                    <X size={24} className="text-white" />
                   </button>
                 </div>
               </motion.div>
@@ -930,18 +948,33 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                     Información Personal y Contacto
                   </h3>
                   
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Email</label>
-                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.email || 'No disponible'}</div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                        <Mail className="w-3 h-3 inline mr-1" />
+                        Email
+                      </label>
+                      <div className="text-gray-900 dark:text-white font-mono text-xs break-all">
+                        {prospecto.email || 'No disponible'}
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">WhatsApp</label>
-                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.whatsapp || 'No disponible'}</div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                        <MessageSquare className="w-3 h-3 inline mr-1" />
+                        WhatsApp
+                      </label>
+                      <div className="text-gray-900 dark:text-white font-mono text-xs">
+                        {prospecto.whatsapp || 'No disponible'}
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
-                      <div className="text-gray-900 dark:text-white font-mono">{prospecto.telefono_principal || 'No disponible'}</div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                        <Phone className="w-3 h-3 inline mr-1" />
+                        Teléfono
+                      </label>
+                      <div className="text-gray-900 dark:text-white font-mono text-xs">
+                        {prospecto.telefono_principal || 'No disponible'}
+                      </div>
                     </div>
                     
                     {prospecto.edad && (
@@ -958,20 +991,29 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                     )}
                     {prospecto.ciudad_residencia && (
                       <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ciudad</label>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                          <MapPin className="w-3 h-3 inline mr-1" />
+                          Ciudad
+                        </label>
                         <div className="text-gray-900 dark:text-white">{prospecto.ciudad_residencia}</div>
                       </div>
                     )}
                     
                     {prospecto.cumpleanos && (
                       <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Cumpleaños</label>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                          <Calendar className="w-3 h-3 inline mr-1" />
+                          Cumpleaños
+                        </label>
                         <div className="text-gray-900 dark:text-white">{prospecto.cumpleanos}</div>
                       </div>
                     )}
                     {prospecto.nombre_conyuge && (
                       <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Cónyuge</label>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                          <Heart className="w-3 h-3 inline mr-1" />
+                          Cónyuge
+                        </label>
                         <div className="text-gray-900 dark:text-white">{prospecto.nombre_conyuge}</div>
                       </div>
                     )}
@@ -1033,7 +1075,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                       {prospecto.destino_preferencia && (
-                        <div>
+                        <div className="col-span-2">
                           <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Destinos Preferencia</label>
                           <div className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 px-3 py-2 rounded">
                             {Array.isArray(prospecto.destino_preferencia) ? 
@@ -1059,7 +1101,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                         </div>
                       )}
                       {prospecto.viaja_con && (
-                        <div>
+                        <div className="col-span-2">
                           <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Viaja Con</label>
                           <div className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 px-3 py-2 rounded">
                             {prospecto.viaja_con}
@@ -1108,7 +1150,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
+                  transition={{ duration: 0.3, delay: 0.55, ease: "easeOut" }}
                   className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
                 >
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1122,14 +1164,23 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {buildTimelineEvents().map((event, index) => (
-                        <motion.div
-                          key={event.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
-                        >
+                      {buildTimelineEvents().map((event, index) => {
+                        const isCall = event.type === 'call' && event.callId;
+                        return (
+                          <motion.div
+                            key={event.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            onClick={() => {
+                              if (isCall && event.callId && onOpenCallDetail) {
+                                onOpenCallDetail(event.callId);
+                              }
+                            }}
+                            className={`flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 ${
+                              isCall ? 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all' : ''
+                            }`}
+                          >
                           <div className="mt-0.5">
                             {event.icon}
                           </div>
@@ -1155,7 +1206,8 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                             )}
                           </div>
                         </motion.div>
-                      ))}
+                        );
+                      })}
                       {buildTimelineEvents().length === 0 && (
                         <div className="text-center py-4">
                           <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
@@ -1168,90 +1220,6 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                   )}
                 </motion.div>
 
-                {/* Historial de Llamadas */}
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.65, ease: "easeOut" }}
-                  className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3"
-                >
-                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Phone size={18} />
-                    Historial de Llamadas ({llamadas.length})
-                  </h3>
-                  
-                  {llamadas.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-gray-200 dark:border-gray-600">
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Fecha</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Duración</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Estado</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Interés</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Precio</th>
-                            <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Resultado</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {llamadas.map((llamada, index) => (
-                            <motion.tr
-                              key={llamada.call_id}
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ delay: index * 0.05, ease: "easeOut" }}
-                              onClick={() => onOpenCallDetail?.(llamada.call_id)}
-                              className="border-b border-gray-100 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                            >
-                              <td className="py-2 px-2 text-gray-900 dark:text-white">
-                                {new Date(llamada.fecha_llamada).toLocaleDateString('es-MX')}
-                                {' • '}
-                                {new Date(llamada.fecha_llamada).toLocaleTimeString('es-MX', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </td>
-                              <td className="py-2 px-2 text-gray-900 dark:text-white">
-                                {Math.floor(llamada.duracion_segundos / 60)}:{(llamada.duracion_segundos % 60).toString().padStart(2, '0')}
-                              </td>
-                              <td className="py-2 px-2">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  llamada.call_status === 'finalizada' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                                  llamada.call_status === 'activa' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                                  'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                                }`}>
-                                  {llamada.call_status}
-                                </span>
-                              </td>
-                              <td className="py-2 px-2 text-gray-900 dark:text-white">
-                                {llamada.nivel_interes}
-                              </td>
-                              <td className="py-2 px-2 text-gray-900 dark:text-white">
-                                ${parseFloat(llamada.precio_ofertado || '0').toLocaleString()}
-                              </td>
-                              <td className="py-2 px-2">
-                                <div className="flex items-center gap-1">
-                                  {llamada.es_venta_exitosa ? (
-                                    <CheckCircle size={12} className="text-green-600 dark:text-green-400" />
-                                  ) : (
-                                    <AlertTriangle size={12} className="text-orange-600 dark:text-orange-400" />
-                                  )}
-                                  <span className="text-gray-900 dark:text-white">
-                                    {llamada.es_venta_exitosa ? 'Exitosa' : 'Seguimiento'}
-                                  </span>
-                                </div>
-                              </td>
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                      No hay llamadas registradas para este prospecto
-                    </div>
-                  )}
-                </motion.div>
 
               </div>
             </div>

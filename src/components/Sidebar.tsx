@@ -165,45 +165,66 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
 
   return (
     <div>
-      <button
+      <motion.button
         onClick={handleClick}
-        className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2.5' : 'justify-between px-3 py-2.5'} rounded-lg transition-all duration-200 text-sm font-medium group ${
+        className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2.5' : 'justify-between px-3 py-2.5'} rounded-lg transition-colors duration-200 text-sm font-medium group ${
           active
             ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-md'
             : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
         }`}
         title={label}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.15 }}
       >
         {isCollapsed ? (
           // Modo colapsado: solo icono centrado
-          <div className="w-5 h-5 flex-shrink-0">
+          <motion.div 
+            className="w-5 h-5 flex-shrink-0"
+            initial={false}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+          >
             {icon}
-          </div>
+          </motion.div>
         ) : (
           // Modo expandido: icono + texto + flecha
           <>
-            <div className="flex items-center space-x-3">
+            <motion.div 
+              className="flex items-center space-x-3"
+              initial={false}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
               <div className="w-5 h-5 flex-shrink-0">
                 {icon}
               </div>
               <span className="truncate">{label}</span>
-            </div>
+            </motion.div>
             {hasSubmenu && (
-              <svg 
-                className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+              <motion.svg 
+                className="w-4 h-4"
+                animate={{ rotate: isExpanded ? 180 : 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              </motion.svg>
             )}
           </>
         )}
-      </button>
+      </motion.button>
       
       {hasSubmenu && isExpanded && submenu && !isCollapsed && (
-        <div className="mt-1 ml-8 space-y-1">
+        <motion.div 
+          className="mt-1 ml-8 space-y-1 overflow-hidden"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
           {submenu.map((item, index) => (
             <button
               key={index}
@@ -220,7 +241,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
               {item.label}
             </button>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );
@@ -514,14 +535,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed top-0 left-0 h-full bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 transition-all duration-300 z-50 flex flex-col ${
-        isCollapsed 
-          ? '-translate-x-full lg:translate-x-0 lg:w-16' 
-          : 'w-64 translate-x-0'
-      }`}>
+      <motion.div 
+        className="fixed top-0 left-0 h-full bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 z-50 flex flex-col"
+        initial={false}
+        animate={{
+          width: isCollapsed ? (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 64 : 0) : 256,
+          x: isCollapsed ? (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : -256) : 0,
+        }}
+        transition={{
+          type: "spring",
+          stiffness: 400,
+          damping: 35,
+          mass: 0.5
+        }}
+      >
         
         {/* Header del Sidebar */}
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} p-4 border-b border-slate-200 dark:border-slate-700`}>
+        <motion.div 
+          className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} p-4 border-b border-slate-200 dark:border-slate-700`}
+          initial={false}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2 }}
+        >
           {isCollapsed ? (
             // Modo colapsado: favicon/logo + botón de expansión
             <div className="flex flex-col items-center gap-2 w-full">
@@ -605,14 +640,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
               </button>
             </>
           )}
-        </div>
+        </motion.div>
 
         {/* Navegación principal */}
-        <nav className="flex-1 p-4 space-y-2">
+        <motion.nav 
+          className="flex-1 p-4 space-y-2 overflow-y-auto"
+          initial={false}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, delay: 0.05 }}
+        >
           {menuItems.map((item, index) => (
             <MenuItem key={index} {...item} isCollapsed={isCollapsed} />
           ))}
-        </nav>
+        </motion.nav>
 
         {/* AWS Manager - Para Admin y Developer */}
         {logServerItem && (
@@ -636,7 +676,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 
         {/* Información del usuario si está expandido */}
         {!isCollapsed && user && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+          <motion.div 
+            className="p-4 border-t border-slate-200 dark:border-slate-700"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: 0.1 }}
+          >
             <div className="flex items-center space-x-3">
               <div className="relative">
                 <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center overflow-hidden">
@@ -680,9 +725,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </>
   );
 };

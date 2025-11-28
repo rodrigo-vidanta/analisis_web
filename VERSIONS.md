@@ -1,5 +1,35 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.2.5N6.0.0 (Enero 2025) - Homologación de Sidebars de Prospectos
+
+### 🎨 RELEASE BETA - Unificación de Interfaz de Usuario
+
+#### Homologación Completa de Sidebars
+- **Ancho unificado:** `w-[540px]` en todos los módulos
+- **Header estandarizado:** Gradiente `from-blue-500 to-purple-600` con avatar circular
+- **Orden de secciones:** Etapa → Personal → Asignación → Viaje → Llamadas → Observaciones → Timeline
+- **Tipografía y colores:** Estilos unificados en todas las secciones
+- **Animaciones:** Delays y transiciones consistentes
+
+#### Mejoras en Timeline
+- **Llamadas clickeables:** Abren modal `CallDetailModal` al hacer click
+- **Integración:** Historial de llamadas integrado en timeline
+- **Conversaciones WhatsApp:** Incluidas en timeline
+- **Ordenamiento:** Eventos ordenados por fecha descendente
+
+#### Actualización de Datos
+- **Carga fresca:** Datos se cargan cada vez que se abre el sidebar
+- **Reset de estados:** Estados se resetean al abrir
+- **Información adicional:** Carga automática de coordinación y ejecutivo
+
+#### Archivos Principales
+- `src/components/chat/ProspectDetailSidebar.tsx` - Homologación completa
+- `src/components/prospectos/ProspectosManager.tsx` - Homologación completa
+- `src/components/analysis/AnalysisIAComplete.tsx` - Homologación completa
+- `src/components/analysis/LiveMonitorKanban.tsx` - Homologación completa
+
+---
+
 ## Versión B2.2.4N6.0.0 (Enero 2025) - Sistema de Notificaciones para Administradores
 
 ### 🔔 RELEASE BETA - Sistema de Mensajería Administrativa

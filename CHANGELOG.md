@@ -1,5 +1,54 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎨 Versión B2.2.5N6.0.0 - Homologación de Sidebars de Prospectos (Enero 2025)
+
+### 🎯 **RELEASE BETA - Unificación de Interfaz de Usuario**
+
+#### 📋 **Homologación Completa de Sidebars**
+- **Ancho unificado:** Todos los sidebars ahora tienen el mismo ancho (`w-[540px]`) en todos los módulos
+- **Header estandarizado:** Mismo estilo con gradiente `from-blue-500 to-purple-600` y avatar circular en todos los módulos
+- **Orden de secciones unificado:**
+  1. Etapa Destacada (con gradiente sutil y score)
+  2. Información Personal y Contacto (incluye Ingresos)
+  3. Información de Asignación (con AssignmentBadge)
+  4. Información de Viaje
+  5. Llamadas Programadas
+  6. Observaciones (con soporte Markdown)
+  7. Timeline (con llamadas y conversaciones WhatsApp)
+- **Tipografía homologada:** Mismos tamaños de fuente, espaciado y estilos en todas las secciones
+- **Colores y efectos unificados:** Barras de sección con gradientes, fondos y bordes consistentes
+- **Animaciones consistentes:** Mismos delays y transiciones en todos los sidebars
+
+#### 🔄 **Mejoras en Timeline**
+- **Llamadas clickeables:** Los eventos de llamadas en el timeline ahora son clickeables y abren el modal `CallDetailModal`
+- **Integración completa:** Historial de llamadas integrado en el timeline (sección dedicada eliminada)
+- **Conversaciones WhatsApp:** Incluye grupos de conversaciones de `uchat_conversations` en el timeline
+- **Ordenamiento:** Eventos ordenados por fecha descendente (más reciente primero)
+- **Información detallada:** Cada evento muestra fecha, hora y descripción contextual
+
+#### 🔄 **Actualización de Datos**
+- **Carga fresca:** Los sidebars ahora cargan datos frescos cada vez que se abren
+- **Reset de estados:** Estados se resetean al abrir para evitar datos obsoletos
+- **Carga de información adicional:** Carga automática de información de coordinación y ejecutivo cuando está disponible
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/ProspectDetailSidebar.tsx` - Homologación completa (⭐ 803 líneas)
+- `src/components/prospectos/ProspectosManager.tsx` - Homologación completa (⭐ 1888 líneas)
+- `src/components/analysis/AnalysisIAComplete.tsx` - Homologación completa (⭐ 2759 líneas)
+- `src/components/analysis/LiveMonitorKanban.tsx` - Homologación completa (⭐ 3938 líneas)
+- `src/components/shared/ScheduledCallsSection.tsx` - Integración mejorada
+- `src/components/chat/CallDetailModal.tsx` - Reutilizado en todos los módulos
+
+#### ✅ **Beneficios**
+- ✅ Experiencia de usuario consistente en todos los módulos
+- ✅ Navegación más intuitiva con timeline unificado
+- ✅ Acceso rápido a detalles de llamadas desde el timeline
+- ✅ Datos siempre actualizados al abrir el sidebar
+- ✅ Código más mantenible con estructura unificada
+- ✅ Mejor organización visual con secciones claramente definidas
+
+---
+
 ## 🔔 Versión B2.2.4N6.0.0 - Sistema de Notificaciones para Administradores (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Sistema de Mensajería Administrativa**
