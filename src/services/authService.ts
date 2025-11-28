@@ -111,25 +111,119 @@ class AuthService {
   // Autenticar usuario con email y contraseña
   async login(credentials: LoginCredentials): Promise<AuthState> {
     try {
-      // Verificar credenciales usando función SQL personalizada
+      console.log('🔐 Intentando autenticar:', credentials.email);
+      
+      // Primero verificar el estado del usuario directamente desde la tabla
+      const { data: userData, error: userError } = await supabase
+        .from('auth_users')
+        .select('id, email, password_hash, is_active, failed_login_attempts, locked_until')
+        .eq('email', credentials.email)
+        .single();
+
+      // Si el usuario existe, verificar bloqueo ANTES de autenticar
+      if (userData && !userError) {
+        // Verificar si la cuenta está bloqueada
+        if (userData.locked_until && new Date(userData.locked_until) > new Date()) {
+          const lockedUntil = new Date(userData.locked_until).toLocaleString('es-ES');
+          const errorMsg = `ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Contacta al administrador. Bloqueado hasta: ${lockedUntil}`;
+          console.log('🔒 Cuenta bloqueada detectada:', errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        // Si estaba bloqueado pero ya pasó el tiempo, desbloquear
+        if (userData.locked_until && new Date(userData.locked_until) <= new Date()) {
+          await supabase
+            .from('auth_users')
+            .update({ failed_login_attempts: 0, locked_until: null })
+            .eq('id', userData.id);
+        }
+      }
+
+      // Ahora intentar autenticar usando la función RPC
       const { data: authResult, error: authError } = await supabase
         .rpc('authenticate_user', {
           user_email: credentials.email,
           user_password: credentials.password
         });
 
+      console.log('📦 Auth result raw:', authResult);
+      console.log('❌ Auth error:', authError);
+
       if (authError) {
         throw new Error(authError?.message || 'Error de autenticación');
       }
 
       if (!authResult || authResult.length === 0) {
+        // Si la función RPC no retorna datos, verificar manualmente el estado después del intento
+        const { data: updatedUserData } = await supabase
+          .from('auth_users')
+          .select('failed_login_attempts, locked_until')
+          .eq('email', credentials.email)
+          .single();
+
+        if (updatedUserData) {
+          const failedAttempts = updatedUserData.failed_login_attempts || 0;
+          const isLocked = updatedUserData.locked_until && new Date(updatedUserData.locked_until) > new Date();
+          
+          if (isLocked) {
+            const lockedUntil = new Date(updatedUserData.locked_until).toLocaleString('es-ES');
+            throw new Error(`ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Contacta al administrador. Bloqueado hasta: ${lockedUntil}`);
+          }
+          
+          if (failedAttempts >= 3) {
+            throw new Error(`CREDENTIALS_INVALID_WARNING: Credenciales inválidas. Te quedan ${4 - failedAttempts} intento(s) antes del bloqueo.`);
+          }
+        }
+        
         throw new Error('Credenciales inválidas');
       }
 
       // La función retorna un array, tomar el primer resultado
       const authData = authResult[0];
       
+      console.log('✅ Auth result completo:', JSON.stringify(authData, null, 2));
+      console.log('📋 Campos disponibles:', Object.keys(authData));
+      
+      // Verificar si la cuenta está bloqueada (puede venir de la función o verificar manualmente)
+      let accountLocked = false;
+      let failedAttempts = 0;
+      let lockedUntil: string | null = null;
+
+      if (authData.account_locked !== undefined) {
+        accountLocked = authData.account_locked === true || authData.account_locked === 'true';
+        failedAttempts = authData.failed_attempts || 0;
+        lockedUntil = authData.locked_until || null;
+      } else {
+        // Si la función no retorna estos campos, obtenerlos manualmente
+        const { data: currentUserData } = await supabase
+          .from('auth_users')
+          .select('failed_login_attempts, locked_until')
+          .eq('email', credentials.email)
+          .single();
+
+        if (currentUserData) {
+          failedAttempts = currentUserData.failed_login_attempts || 0;
+          accountLocked = currentUserData.locked_until && new Date(currentUserData.locked_until) > new Date();
+          lockedUntil = currentUserData.locked_until;
+        }
+      }
+      
+      if (accountLocked || (lockedUntil && new Date(lockedUntil) > new Date())) {
+        const lockedUntilFormatted = lockedUntil 
+          ? new Date(lockedUntil).toLocaleString('es-ES')
+          : '30 minutos';
+        const errorMsg = `ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Contacta al administrador. Bloqueado hasta: ${lockedUntilFormatted}`;
+        console.log('🔒 Cuenta bloqueada detectada:', errorMsg);
+        throw new Error(errorMsg);
+      }
+      
       if (!authData.is_valid || !authData.user_id) {
+        console.log('❌ Login fallido. Intentos fallidos:', failedAttempts);
+        if (failedAttempts >= 3) {
+          const warningMsg = `CREDENTIALS_INVALID_WARNING: Credenciales inválidas. Te quedan ${4 - failedAttempts} intento(s) antes del bloqueo.`;
+          console.log('⚠️ Advertencia de bloqueo:', warningMsg);
+          throw new Error(warningMsg);
+        }
         throw new Error('Credenciales inválidas');
       }
 
@@ -182,6 +276,7 @@ class AuthService {
         function: 'login',
         severity: 'critico',
         category: 'autenticacion',
+        userEmail: credentials.email, // Incluir email del usuario en el contexto
         details: {
           email: credentials.email,
           error_type: error instanceof Error ? error.constructor.name : 'Unknown'

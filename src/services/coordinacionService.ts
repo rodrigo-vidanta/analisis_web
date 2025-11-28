@@ -683,11 +683,8 @@ class CoordinacionService {
    */
   async getCoordinadoresByCoordinacion(coordinacionId: string): Promise<Ejecutivo[]> {
     try {
-      console.log('🔍 [coordinacionService] Obteniendo coordinadores para coordinación:', coordinacionId);
-      
       // Primero obtener la coordinación para tener su información
       const coordinacion = await this.getCoordinacionById(coordinacionId);
-      console.log('✅ [coordinacionService] Coordinación encontrada:', coordinacion?.nombre);
       
       // Obtener coordinadores SOLO a través de la tabla intermedia coordinador_coordinaciones
       // Esto asegura que solo obtenemos coordinadores que realmente pertenecen a esta coordinación
@@ -704,14 +701,10 @@ class CoordinacionService {
         .eq('coordinacion_id', coordinacionId); // CRÍTICO: Solo esta coordinación específica
 
       if (ccError) {
-        console.error('❌ [coordinacionService] Error obteniendo relaciones coordinador-coordinación:', ccError);
         throw ccError;
       }
 
-      console.log('📊 [coordinacionService] Relaciones encontradas:', coordinadorCoordinaciones?.length || 0);
-
       if (!coordinadorCoordinaciones || coordinadorCoordinaciones.length === 0) {
-        console.warn('⚠️ [coordinacionService] No se encontraron relaciones coordinador-coordinación para esta coordinación');
         return [];
       }
 
@@ -719,8 +712,6 @@ class CoordinacionService {
       const coordinadorIds = coordinadorCoordinaciones
         .map(cc => cc.coordinador_id)
         .filter((id): id is string => id !== null && id !== undefined);
-      
-      console.log('👥 [coordinacionService] IDs de coordinadores para esta coordinación:', coordinadorIds);
 
       if (coordinadorIds.length === 0) {
         return [];
@@ -749,11 +740,8 @@ class CoordinacionService {
         .order('full_name');
 
       if (usersError) {
-        console.error('❌ [coordinacionService] Error obteniendo coordinadores:', usersError);
         throw usersError;
       }
-
-      console.log('✅ [coordinacionService] Coordinadores encontrados:', usersData?.length || 0, usersData?.map(u => ({ id: u.id, name: u.full_name })));
 
       // Transformar datos para incluir información de coordinación
       // CRÍTICO: Solo incluir coordinadores que tienen relación en coordinador_coordinaciones para esta coordinación específica
@@ -766,21 +754,11 @@ class CoordinacionService {
           );
           
           if (!relacion) {
-            console.warn('⚠️ [coordinacionService] Usuario encontrado pero sin relación válida para esta coordinación:', {
-              userId: user.id,
-              userName: user.full_name,
-              coordinacionId: coordinacionId
-            });
             return false;
           }
           
           // Verificar adicionalmente que la relación es para esta coordinación específica
           if (relacion.coordinacion_id !== coordinacionId) {
-            console.warn('⚠️ [coordinacionService] Relación encontrada pero para otra coordinación:', {
-              userId: user.id,
-              relacionCoordinacionId: relacion.coordinacion_id,
-              coordinacionIdBuscada: coordinacionId
-            });
             return false;
           }
           
@@ -814,10 +792,9 @@ class CoordinacionService {
           };
         });
       
-      console.log('✅ [coordinacionService] Retornando', resultado.length, 'coordinadores válidos');
       return resultado;
     } catch (error) {
-      console.error('❌ [coordinacionService] Error obteniendo coordinadores:', error);
+      console.error('Error obteniendo coordinadores:', error);
       throw error;
     }
   }

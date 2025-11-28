@@ -424,6 +424,16 @@ class ErrorLogService {
       stackTrace = (error as any).stack;
     }
 
+    // Agregar información del usuario al mensaje si es un error de autenticación/login
+    if ((context.module === 'auth' || context.category === 'autenticacion' || 
+         message.toLowerCase().includes('credenciales') || 
+         message.toLowerCase().includes('login') ||
+         message.toLowerCase().includes('authentication')) &&
+        (context.userEmail || context.details?.email)) {
+      const userEmail = context.userEmail || context.details?.email;
+      message = `Login error, user: ${userEmail} - ${message}`;
+    }
+
     // Determinar categoría si no se proporciona
     const category = context.category || this.inferCategory(errorType, context.module);
 

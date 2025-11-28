@@ -1,5 +1,64 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔔 Versión B2.2.4N6.0.0 - Sistema de Notificaciones para Administradores (Enero 2025)
+
+### 🎯 **RELEASE BETA - Sistema de Mensajería Administrativa**
+
+#### 📬 **Sistema de Notificaciones para Administradores**
+- **Buzón de mensajes:** Botón exclusivo en el header para administradores con contador de notificaciones sin leer
+- **Modal de mensajería:** Modal centrado con lista de mensajes y vista detallada
+- **Tipos de mensajes iniciales:**
+  - `password_reset_request`: Solicitudes de restablecimiento de contraseña desde login
+  - `user_unblock_request`: Solicitudes de desbloqueo de cuenta después de 4 intentos fallidos
+- **Gestión de mensajes:** Marcar como leído, resolver, archivar con notas opcionales
+- **Desbloqueo automático:** Al resolver un mensaje de desbloqueo, se desbloquea automáticamente la cuenta del usuario
+- **Realtime:** Actualización en tiempo real de nuevos mensajes con contador dinámico
+
+#### 🔐 **Sistema de Bloqueo de Cuentas**
+- **Bloqueo automático:** Después de 4 intentos fallidos de login, la cuenta se bloquea por 30 minutos
+- **Modal de desbloqueo:** Usuario bloqueado ve modal con opción de contactar al administrador
+- **Mensaje de confirmación:** Usuario recibe confirmación visual antes de cerrar el modal
+- **Integración:** Mensajes automáticos al buzón del administrador con información del bloqueo
+
+#### 🔄 **Mejoras en Login**
+- **Modal de restablecimiento:** Nuevo modal para solicitar restablecimiento de contraseña
+- **Mensaje de confirmación:** Usuario recibe confirmación visual después de enviar solicitud
+- **Logging mejorado:** Errores de login incluyen email del usuario en el mensaje
+- **Corrección de función:** Corregida función `log_user_login` con tipos correctos
+
+#### 🎨 **Mejoras en UI/UX**
+- **Footer actualizado:** 
+  - Cambio de "AI Builder & Analysis Platform" a "Vidanta World Vacation Planner"
+  - Cambio de "Designed by SamuelRosales" a "Designed by AI Division" con tooltip interactivo
+  - Tooltip muestra avatares y nombres de Samuel Rosales y Rodrigo Mora
+- **Modales centrados:** Todos los modales administrativos ahora usan `createPortal` para centrado perfecto
+- **Contador visual:** Badge rojo con número de mensajes sin leer en el botón del buzón
+
+#### 📝 **Archivos Modificados**
+- `src/services/adminMessagesService.ts` - Nuevo servicio para gestión de mensajes administrativos (⭐ 451 líneas)
+- `src/components/admin/AdminMessagesModal.tsx` - Modal de mensajería con gestión completa (⭐ 429 líneas)
+- `src/components/auth/PasswordResetModal.tsx` - Modal para solicitar restablecimiento de contraseña
+- `src/components/auth/AccountUnlockModal.tsx` - Modal para solicitar desbloqueo de cuenta
+- `src/components/Header.tsx` - Botón de buzón con contador y integración de modales
+- `src/components/LoginScreen.tsx` - Integración de modales de restablecimiento y desbloqueo
+- `src/services/authService.ts` - Mejoras en logging y función `unlockUserAccount`
+- `src/services/errorLogService.ts` - Inclusión de email de usuario en errores de autenticación
+- `src/components/Footer.tsx` - Actualización de branding y tooltip de AI Division
+- `scripts/sql/create_admin_messages_table.sql` - Tabla de mensajes administrativos
+- `scripts/sql/create_admin_message_rpc_final.sql` - Funciones RPC para crear mensajes
+- `scripts/sql/create_unlock_user_account_rpc.sql` - Función RPC para desbloquear cuentas
+- `scripts/sql/update_authenticate_user_block_after_4.sql` - Actualización de función de autenticación
+
+#### ✅ **Beneficios**
+- ✅ Administradores pueden gestionar solicitudes de usuarios de forma centralizada
+- ✅ Usuarios bloqueados pueden solicitar desbloqueo fácilmente
+- ✅ Sistema de notificaciones escalable para futuros tipos de mensajes
+- ✅ Mejor experiencia de usuario con confirmaciones visuales
+- ✅ Branding actualizado reflejando el propósito real de la plataforma
+- ✅ Reconocimiento del equipo AI Division en el footer
+
+---
+
 ## 👤 Versión B2.2.3N6.0.0 - Gestión de Perfil de Usuario y Corrección de Sistema de Avatares (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras de Usuario y Correcciones Críticas**

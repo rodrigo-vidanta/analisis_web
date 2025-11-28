@@ -110,12 +110,12 @@ SET display_name = EXCLUDED.display_name,
 -- ============================================
 
 CREATE OR REPLACE FUNCTION log_user_login(
-  p_user_id UUID,
   p_email VARCHAR(255),
-  p_session_token VARCHAR(255),
   p_ip_address VARCHAR(45),
   p_user_agent TEXT,
   p_login_status VARCHAR(20),
+  p_user_id UUID DEFAULT NULL,
+  p_session_token VARCHAR(255) DEFAULT NULL,
   p_failure_reason TEXT DEFAULT NULL,
   p_expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 )
@@ -129,6 +129,7 @@ DECLARE
   v_os_version VARCHAR(50);
   v_is_suspicious BOOLEAN := false;
   v_suspicious_reasons TEXT[] := ARRAY[]::TEXT[];
+  v_ip_count INTEGER := 0; -- Variable intermedia para COUNT
 BEGIN
   -- Parsear user agent (simplificado)
   IF p_user_agent LIKE '%Mobile%' OR p_user_agent LIKE '%Android%' OR p_user_agent LIKE '%iPhone%' THEN
@@ -155,14 +156,15 @@ BEGIN
   -- Detectar actividad sospechosa básica
   IF p_login_status = 'success' AND p_user_id IS NOT NULL THEN
     -- Verificar si hay múltiples logins desde IPs diferentes en las últimas 2 horas
-    SELECT COUNT(DISTINCT ip_address) INTO v_is_suspicious
+    SELECT COUNT(DISTINCT ip_address) INTO v_ip_count
     FROM auth_login_logs
     WHERE user_id = p_user_id
       AND created_at > NOW() - INTERVAL '2 hours'
       AND login_status = 'success'
       AND ip_address IS DISTINCT FROM p_ip_address;
     
-    IF v_is_suspicious > 0 THEN
+    -- Convertir COUNT a BOOLEAN
+    IF v_ip_count > 0 THEN
       v_is_suspicious := true;
       v_suspicious_reasons := ARRAY['Multiple IP addresses in short time'];
     END IF;

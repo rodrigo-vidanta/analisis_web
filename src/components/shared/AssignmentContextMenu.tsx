@@ -55,8 +55,9 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   } | null>(null);
   const [pendingEjecutivoId, setPendingEjecutivoId] = useState<string | null>(null);
   
-  // Verificar si el usuario es administrador o coordinador
+  // Verificar si el usuario es administrador, administrador operativo o coordinador
   const isAdmin = user?.role_name === 'admin';
+  const isAdminOperativo = user?.role_name === 'administrador_operativo';
   const isCoordinador = user?.role_name === 'coordinador';
 
   // OPTIMIZACIÓN: Cachear coordinación del usuario para evitar consultas repetidas
@@ -67,8 +68,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   // Cargar ejecutivos según el rol del usuario
   useEffect(() => {
     if (isOpen && user?.id) {
-      if (isAdmin) {
-        // Administrador: cargar TODOS los ejecutivos
+      if (isAdmin || isAdminOperativo) {
+        // Administrador y Administrador Operativo: cargar TODOS los ejecutivos de coordinaciones activas
         loadAllEjecutivos();
       } else {
         // Coordinador: cargar solo ejecutivos de su coordinación
@@ -84,7 +85,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         loadUserCoordinacion();
       }
     }
-  }, [isOpen, user?.id, isAdmin]);
+  }, [isOpen, user?.id, isAdmin, isAdminOperativo]);
 
   const loadUserCoordinacion = async () => {
     try {
@@ -100,12 +101,6 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       // Usar getCoordinacionesFilter para obtener todas las coordinaciones del coordinador
       const userCoordinaciones = await permissionsService.getCoordinacionesFilter(user!.id);
       
-      console.log('🔍 [AssignmentContextMenu] Coordinaciones del usuario:', {
-        userId: user!.id,
-        userEmail: user!.email,
-        coordinaciones: userCoordinaciones
-      });
-      
       if (userCoordinaciones && userCoordinaciones.length > 0) {
         // Usar la primera coordinación (o podríamos permitir seleccionar si hay múltiples)
         const userCoordinacionId = userCoordinaciones[0];
@@ -114,16 +109,13 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         userCoordinacionRef.current = userCoordinacionId;
         setCurrentCoordinacionId(userCoordinacionId);
         
-        console.log('✅ [AssignmentContextMenu] Usando coordinación:', userCoordinacionId);
-        
         // Cargar ejecutivos después de obtener la coordinación
         await loadEjecutivos(userCoordinacionId);
       } else {
-        console.warn('⚠️ [AssignmentContextMenu] No se encontraron coordinaciones para el usuario');
         setEjecutivos([]);
       }
     } catch (error) {
-      console.error('❌ [AssignmentContextMenu] Error cargando coordinación:', error);
+      console.error('Error cargando coordinación:', error);
       setEjecutivos([]);
     }
   };
@@ -131,10 +123,21 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   const loadAllEjecutivos = async () => {
     setLoading(true);
     try {
+      // Obtener coordinaciones activas primero
+      const coordinacionesActivas = await coordinacionService.getCoordinacionesParaAsignacion();
+      const coordinacionesActivasIds = new Set(coordinacionesActivas.map(c => c.id));
+      
+      // Obtener todos los ejecutivos
       const allEjecutivos = await coordinacionService.getAllEjecutivos();
-      // Filtrar solo ejecutivos activos para admin
-      const activeEjecutivos = allEjecutivos.filter(e => e.is_active);
-      setEjecutivos(activeEjecutivos);
+      
+      // Filtrar: solo ejecutivos activos que pertenezcan a coordinaciones activas
+      const ejecutivosFiltrados = allEjecutivos.filter(e => 
+        e.is_active && 
+        e.coordinacion_id && 
+        coordinacionesActivasIds.has(e.coordinacion_id)
+      );
+      
+      setEjecutivos(ejecutivosFiltrados);
     } catch (error) {
       toast.error('Error al cargar ejecutivos');
       setEjecutivos([]);
@@ -165,12 +168,9 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       let ejecutivosData = await coordinacionService.getEjecutivosByCoordinacion(coordinacionId);
       
       // Si el usuario es coordinador, también cargar coordinadores de la misma coordinación
-      if (isCoordinador && !isAdmin) {
+      if (isCoordinador && !isAdmin && !isAdminOperativo) {
         try {
-          console.log('🔍 [AssignmentContextMenu] Cargando coordinadores para coordinación:', coordinacionId);
           const coordinadoresData = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
-          
-          console.log('✅ [AssignmentContextMenu] Coordinadores encontrados:', coordinadoresData.length, coordinadoresData.map(c => ({ id: c.id, name: c.full_name })));
           
           // Agregar coordinadores a la lista (marcarlos como coordinadores para diferenciarlos)
           // IMPORTANTE: Incluir al usuario actual si es coordinador
@@ -183,7 +183,6 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           const usuarioActualEnLista = coordinadoresMarcados.some(c => c.id === user!.id);
           if (!usuarioActualEnLista && user!.id) {
             // Agregar al usuario actual si no está en la lista
-            console.log('➕ [AssignmentContextMenu] Agregando usuario actual a la lista:', user!.full_name);
             coordinadoresMarcados.push({
               id: user!.id,
               email: user!.email || '',
@@ -197,9 +196,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           }
           
           ejecutivosData = [...ejecutivosData, ...coordinadoresMarcados];
-          console.log('✅ [AssignmentContextMenu] Total usuarios disponibles:', ejecutivosData.length);
         } catch (coordError) {
-          console.error('❌ [AssignmentContextMenu] Error cargando coordinadores:', coordError);
           // Continuar solo con ejecutivos si falla cargar coordinadores
         }
       }
@@ -257,13 +254,24 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       // Determinar la coordinación a usar
       let coordinacionIdToUse: string;
       
-      if (isAdmin) {
-        // Admin: usar la coordinación del ejecutivo seleccionado
+      if (isAdmin || isAdminOperativo) {
+        // Admin y Admin Operativo: usar la coordinación del ejecutivo seleccionado
         if (!ejecutivoSeleccionado.coordinacion_id) {
           toast.error('El ejecutivo seleccionado no tiene coordinación asignada');
           setAssigning(null);
           return;
         }
+        
+        // Verificar que la coordinación del ejecutivo esté activa
+        const coordinacionesActivas = await coordinacionService.getCoordinacionesParaAsignacion();
+        const coordinacionActiva = coordinacionesActivas.find(c => c.id === ejecutivoSeleccionado.coordinacion_id);
+        
+        if (!coordinacionActiva) {
+          toast.error('No se puede asignar a una coordinación inactiva');
+          setAssigning(null);
+          return;
+        }
+        
         coordinacionIdToUse = ejecutivoSeleccionado.coordinacion_id;
       } else {
         // Coordinador: usar su propia coordinación
@@ -277,8 +285,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
       // Si ya tiene ejecutivo asignado, es una reasignación
       const reason = ejecutivoId
-        ? `Reasignación desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : ''}`
-        : `Asignación manual desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : ''}`;
+        ? `Reasignación desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : isAdminOperativo ? ' (Admin Operativo)' : ''}`
+        : `Asignación manual desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : isAdminOperativo ? ' (Admin Operativo)' : ''}`;
 
       await assignmentService.assignProspectManuallyToEjecutivo(
         prospectId,
@@ -300,7 +308,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
   const handleAssign = async (ejecutivoIdToAssign: string, skipValidation = false) => {
     // VALIDACIÓN: Solo para coordinadores - verificar id_dynamics antes de asignar
-    if (!skipValidation && isCoordinador && !isAdmin) {
+    if (!skipValidation && isCoordinador && !isAdmin && !isAdminOperativo) {
       let prospect: { id_dynamics?: string | null; nombre_completo?: string | null; nombre_whatsapp?: string | null; email?: string | null; whatsapp?: string | null } | null = null;
 
       // Intentar usar datos iniciales si están disponibles
@@ -471,8 +479,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
             </div>
           ) : (
             <>
-              {/* Campo de búsqueda (solo para administradores) */}
-              {isAdmin && (
+              {/* Campo de búsqueda (solo para administradores y admin operativo) */}
+              {(isAdmin || isAdminOperativo) && (
                 <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -490,16 +498,20 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
               {filteredEjecutivos.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                {isCoordinador && !isAdmin 
+                {isCoordinador && !isAdmin && !isAdminOperativo
                   ? 'No hay ejecutivos ni coordinadores disponibles en esta coordinación'
-                  : 'No hay ejecutivos disponibles en esta coordinación'}
+                  : (isAdmin || isAdminOperativo)
+                    ? 'No hay ejecutivos disponibles en coordinaciones activas'
+                    : 'No hay ejecutivos disponibles en esta coordinación'}
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                Coordinación: {currentCoordinacionId?.substring(0, 8)}...
-              </p>
+              {currentCoordinacionId && (
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  Coordinación: {currentCoordinacionId?.substring(0, 8)}...
+                </p>
+              )}
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {isAdmin 
-                  ? 'No se encontraron ejecutivos con el término de búsqueda'
+                {(isAdmin || isAdminOperativo)
+                  ? 'No se encontraron ejecutivos activos en coordinaciones activas'
                   : isCoordinador 
                     ? 'Verifica que los ejecutivos y coordinadores tengan is_active = true'
                   : 'Verifica que los ejecutivos tengan is_ejecutivo = true e is_active = true'}
@@ -507,7 +519,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
             </div>
           ) : (
             <div className="py-2">
-              {isAdmin && searchTerm && (
+              {(isAdmin || isAdminOperativo) && searchTerm && (
                 <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
                   {filteredEjecutivos.length} {filteredEjecutivos.length === 1 ? 'usuario encontrado' : 'usuarios encontrados'}
                 </div>
@@ -587,7 +599,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
                         {!isCurrentUser && (
                           <>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ejecutivo.email}</p>
-                            {isAdmin && ejecutivo.coordinacion_nombre && (
+                            {(isAdmin || isAdminOperativo) && ejecutivo.coordinacion_nombre && (
                               <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
                                 {ejecutivo.coordinacion_codigo} - {ejecutivo.coordinacion_nombre}
                               </p>

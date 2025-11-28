@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
+import PasswordResetModal from './auth/PasswordResetModal';
+import AccountUnlockModal from './auth/AccountUnlockModal';
 // Componentes de transición eliminados - se usa LightSpeedTunnel en AuthContext
 
 const LoginScreen: React.FC = () => {
@@ -8,6 +10,9 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [lockedUntil, setLockedUntil] = useState<string | undefined>();
   const { login, isLoading, error } = useAuth();
   const { config } = useSystemConfig();
 
@@ -94,7 +99,23 @@ const LoginScreen: React.FC = () => {
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>{error}</span>
+                <div className="flex-1">
+                  <span>{error.replace(/^(ACCOUNT_LOCKED|CREDENTIALS_INVALID_WARNING):\s*/i, '')}</span>
+                  {error.includes('ACCOUNT_LOCKED') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Extraer locked_until del mensaje si está disponible
+                        const match = error.match(/Bloqueado hasta: (.+)/);
+                        setLockedUntil(match ? match[1] : undefined);
+                        setShowUnlockModal(true);
+                      }}
+                      className="mt-2 block w-full px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium transition-colors"
+                    >
+                      Contactar Administrador
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -167,7 +188,11 @@ const LoginScreen: React.FC = () => {
                 />
                 <span className="ml-2 text-sm text-white/70">Recordarme</span>
               </label>
-              <button type="button" className="text-sm text-blue-300 hover:text-blue-200 transition-colors">
+              <button 
+                type="button" 
+                onClick={() => setShowPasswordResetModal(true)}
+                className="text-sm text-blue-300 hover:text-blue-200 transition-colors"
+              >
                 ¿Olvidaste tu contraseña?
               </button>
             </div>
@@ -225,6 +250,21 @@ const LoginScreen: React.FC = () => {
         </div>
       </div>
       </div>
+
+      {/* Modal de Restablecimiento de Contraseña */}
+      <PasswordResetModal
+        isOpen={showPasswordResetModal}
+        onClose={() => setShowPasswordResetModal(false)}
+        loginError={error || undefined}
+      />
+
+      {/* Modal de Desbloqueo de Cuenta */}
+      <AccountUnlockModal
+        isOpen={showUnlockModal}
+        onClose={() => setShowUnlockModal(false)}
+        userEmail={email}
+        lockedUntil={lockedUntil}
+      />
     </>
   );
 };

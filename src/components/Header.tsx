@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { AssignmentBadge } from './analysis/AssignmentBadge';
 import UserProfileModal from './shared/UserProfileModal';
+import AdminMessagesModal from './admin/AdminMessagesModal';
+import { adminMessagesService } from '../services/adminMessagesService';
+import { Mail } from 'lucide-react';
 
 interface HeaderProps {
   currentStep?: number;
@@ -34,6 +37,43 @@ const Header = ({
   const { config } = useSystemConfig();
   const { profile, refreshProfile } = useUserProfile();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  
+  const isAdmin = user?.role_name === 'admin';
+  const isAdminOperativo = user?.role_name === 'administrador_operativo';
+
+  // Cargar contador de mensajes no leídos
+  useEffect(() => {
+    if ((isAdmin || isAdminOperativo) && user?.role_name) {
+      const loadUnreadCount = async () => {
+        try {
+          const count = await adminMessagesService.getUnreadCount(user.role_name);
+          setUnreadCount(count);
+        } catch (error) {
+          console.error('Error cargando contador de mensajes:', error);
+          setUnreadCount(0);
+        }
+      };
+      loadUnreadCount();
+
+      // Actualizar cada 30 segundos
+      const interval = setInterval(loadUnreadCount, 30000);
+
+      // Suscribirse a nuevos mensajes en tiempo real
+      const unsubscribe = adminMessagesService.subscribeToMessages(
+        user.role_name,
+        () => {
+          loadUnreadCount();
+        }
+      );
+
+      return () => {
+        clearInterval(interval);
+        unsubscribe();
+      };
+    }
+  }, [isAdmin, isAdminOperativo, user?.role_name]);
 
   // Renderizar header simplificado para layout con sidebar
   if (simplified) {
@@ -153,6 +193,22 @@ const Header = ({
               {/* Usuario y logout */}
               {user && (
                 <div className="flex items-center space-x-3">
+                  {/* Botón de buzón de mensajes (solo para admins) */}
+                  {(isAdmin || isAdminOperativo) && (
+                    <button
+                      onClick={() => setShowMessagesModal(true)}
+                      className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+                      title={`Mensajes de administración${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
+                    >
+                      <Mail className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse shadow-lg border-2 border-white dark:border-slate-900">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                  
                   {/* Avatar y info */}
                   <div className="flex items-center space-x-2">
                     <button
@@ -216,6 +272,21 @@ const Header = ({
             onAvatarUpdated={() => {
               refreshProfile();
             }}
+          />
+        )}
+
+        {/* Modal de Mensajes de Administración */}
+        {(isAdmin || isAdminOperativo) && user?.role_name && (
+          <AdminMessagesModal
+            isOpen={showMessagesModal}
+            onClose={() => {
+              setShowMessagesModal(false);
+              // Recargar contador al cerrar
+              if (user?.role_name) {
+                adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
+              }
+            }}
+            recipientRole={user.role_name}
           />
         )}
       </header>
@@ -421,6 +492,22 @@ const Header = ({
             {/* User section moderna */}
             {user && (
               <div className="flex items-center space-x-4 pl-4 border-l border-gray-200/50 dark:border-gray-700/50">
+                {/* Botón de buzón de mensajes (solo para admins) */}
+                {(isAdmin || isAdminOperativo) && (
+                  <button
+                    onClick={() => setShowMessagesModal(true)}
+                    className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                    title={`Mensajes de administración${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
+                  >
+                    <Mail className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse shadow-lg border-2 border-white dark:border-gray-900">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                )}
+                
                 <div className="flex items-center space-x-3">
                   <div className="text-right hidden md:block">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -521,6 +608,21 @@ const Header = ({
             onAvatarUpdated={() => {
               refreshProfile();
             }}
+          />
+        )}
+
+        {/* Modal de Mensajes de Administración */}
+        {(isAdmin || isAdminOperativo) && user?.role_name && (
+          <AdminMessagesModal
+            isOpen={showMessagesModal}
+            onClose={() => {
+              setShowMessagesModal(false);
+              // Recargar contador al cerrar
+              if (user?.role_name) {
+                adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
+              }
+            }}
+            recipientRole={user.role_name}
           />
         )}
       </div>

@@ -67,13 +67,14 @@ class LoginLogService {
       const deviceInfo = this.parseUserAgent(params.user_agent || navigator.userAgent);
 
       // Llamar a la función SQL que maneja la lógica completa
+      // IMPORTANTE: Orden de parámetros: obligatorios primero, opcionales al final
       const { data, error } = await supabaseSystemUIAdmin.rpc('log_user_login', {
-        p_user_id: params.user_id || null,
         p_email: params.email,
-        p_session_token: params.session_token || null,
         p_ip_address: ipAddress,
         p_user_agent: params.user_agent || navigator.userAgent,
         p_login_status: params.login_status,
+        p_user_id: params.user_id || null,
+        p_session_token: params.session_token || null,
         p_failure_reason: params.failure_reason || null,
         p_expires_at: params.expires_at || null
       });

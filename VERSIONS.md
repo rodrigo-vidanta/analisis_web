@@ -1,5 +1,39 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.2.4N6.0.0 (Enero 2025) - Sistema de Notificaciones para Administradores
+
+### 🔔 RELEASE BETA - Sistema de Mensajería Administrativa
+
+#### Sistema de Notificaciones para Administradores
+- **Buzón de mensajes:** Botón en header con contador de notificaciones sin leer
+- **Modal de mensajería:** Gestión completa de mensajes (leer, resolver, archivar)
+- **Tipos de mensajes:** password_reset_request, user_unblock_request
+- **Desbloqueo automático:** Al resolver mensaje de desbloqueo, se desbloquea la cuenta
+- **Realtime:** Actualización en tiempo real de nuevos mensajes
+
+#### Sistema de Bloqueo de Cuentas
+- **Bloqueo automático:** Después de 4 intentos fallidos, bloqueo por 30 minutos
+- **Modal de desbloqueo:** Usuario puede solicitar desbloqueo al administrador
+- **Confirmación visual:** Usuario recibe confirmación antes de cerrar modales
+
+#### Mejoras en UI/UX
+- **Footer actualizado:** "Vidanta World Vacation Planner" y "Designed by AI Division" con tooltip
+- **Modales centrados:** Uso de createPortal para centrado perfecto
+- **Contador visual:** Badge rojo con número de mensajes sin leer
+
+#### Archivos Principales
+- `src/services/adminMessagesService.ts` - Servicio de mensajes (451 líneas)
+- `src/components/admin/AdminMessagesModal.tsx` - Modal de mensajería (429 líneas)
+- `src/components/auth/PasswordResetModal.tsx` - Modal restablecimiento contraseña
+- `src/components/auth/AccountUnlockModal.tsx` - Modal desbloqueo cuenta
+- `src/components/Header.tsx` - Botón buzón con contador
+- `src/components/Footer.tsx` - Branding actualizado y tooltip AI Division
+- `scripts/sql/create_admin_messages_table.sql` - Tabla de mensajes
+- `scripts/sql/create_admin_message_rpc_final.sql` - Funciones RPC
+- `scripts/sql/create_unlock_user_account_rpc.sql` - Función desbloqueo
+
+---
+
 ## Versión B2.2.3N6.0.0 (Enero 2025) - Gestión de Perfil de Usuario y Corrección de Sistema de Avatares
 
 ### 👤 RELEASE BETA - Mejoras de Usuario y Correcciones Críticas

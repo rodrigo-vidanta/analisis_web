@@ -5,8 +5,11 @@ import DatabaseConfiguration from './DatabaseConfiguration';
 import TokenManagement from './TokenManagement';
 import EjecutivosManager from './EjecutivosManager';
 import CoordinacionesManager from './CoordinacionesManager';
+import AdminMessagesModal from './AdminMessagesModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
+import { adminMessagesService } from '../../services/adminMessagesService';
+import { Mail } from 'lucide-react';
 
 type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'ejecutivos' | 'coordinaciones';
 
@@ -16,6 +19,8 @@ const AdminDashboardTabs: React.FC = () => {
   const isAdminOperativo = user?.role_name === 'administrador_operativo';
   const [isCoordinador, setIsCoordinador] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('usuarios');
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const checkCoordinador = async () => {
@@ -34,6 +39,47 @@ const AdminDashboardTabs: React.FC = () => {
     };
     checkCoordinador();
   }, [user?.id, isAdmin]);
+
+  // Cargar contador de mensajes no leídos
+  useEffect(() => {
+    console.log('🔍 [AdminDashboardTabs] Verificando permisos:', {
+      isAdmin,
+      isAdminOperativo,
+      role_name: user?.role_name,
+      user_id: user?.id
+    });
+    
+    if ((isAdmin || isAdminOperativo) && user?.role_name) {
+      const loadUnreadCount = async () => {
+        try {
+          console.log('📬 [AdminDashboardTabs] Cargando contador de mensajes no leídos...');
+          const count = await adminMessagesService.getUnreadCount(user.role_name);
+          console.log('✅ [AdminDashboardTabs] Contador de mensajes:', count);
+          setUnreadCount(count);
+        } catch (error) {
+          console.error('❌ [AdminDashboardTabs] Error cargando contador:', error);
+          setUnreadCount(0);
+        }
+      };
+      loadUnreadCount();
+
+      // Actualizar cada 30 segundos
+      const interval = setInterval(loadUnreadCount, 30000);
+
+      // Suscribirse a nuevos mensajes en tiempo real
+      const unsubscribe = adminMessagesService.subscribeToMessages(
+        user.role_name,
+        () => {
+          loadUnreadCount();
+        }
+      );
+
+      return () => {
+        clearInterval(interval);
+        unsubscribe();
+      };
+    }
+  }, [isAdmin, isAdminOperativo, user?.role_name]);
   
   const tabs = [
     // Tabs para admin completo
@@ -130,13 +176,16 @@ const AdminDashboardTabs: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
         {/* Header de la sección */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Administración del Sistema
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Gestiona usuarios, roles y configuraciones del sistema
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Administración del Sistema
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Gestiona usuarios, roles y configuraciones del sistema
+            </p>
+          </div>
+          
         </div>
 
         {/* Navegación por pestañas mejorada */}
@@ -232,6 +281,21 @@ const AdminDashboardTabs: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de Mensajes */}
+      {(isAdmin || isAdminOperativo) && (
+        <AdminMessagesModal
+          isOpen={showMessagesModal}
+          onClose={() => {
+            setShowMessagesModal(false);
+            // Recargar contador al cerrar
+            if (user?.role_name) {
+              adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
+            }
+          }}
+          recipientRole={user?.role_name || 'admin'}
+        />
+      )}
     </div>
   );
 };
