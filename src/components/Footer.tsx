@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import SnakeEasterEgg from './SnakeEasterEgg';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
   // Versión actual
   const version = 'B2.2.4N6.0.0';
+  const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division
   const [showAIDivisionTooltip, setShowAIDivisionTooltip] = useState(false);
@@ -112,10 +114,34 @@ const Footer: React.FC = () => {
         <div className="flex items-center justify-center">
           <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
             
-            {/* Texto principal */}
-            <span className="font-medium">
-              Vidanta World Vacation Planner
-            </span>
+            {/* Texto principal con logo */}
+            <div className="flex items-center gap-2">
+              {config.app_branding?.favicon_url ? (
+                <img 
+                  src={config.app_branding.favicon_url} 
+                  alt="Vidanta" 
+                  className="w-4 h-4 flex-shrink-0 object-contain"
+                  style={{ imageRendering: 'crisp-edges' }}
+                  onError={(e) => {
+                    // Si falla, mostrar SVG fallback
+                    e.currentTarget.style.display = 'none';
+                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'block';
+                  }}
+                />
+              ) : null}
+              <svg 
+                className={`w-4 h-4 flex-shrink-0 text-blue-500 dark:text-blue-400 ${config.app_branding?.favicon_url ? 'hidden' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="font-medium">
+                Vidanta World Vacation Planner
+              </span>
+            </div>
             
             {/* Separador */}
             <span className="text-slate-300 dark:text-slate-600">•</span>
