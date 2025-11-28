@@ -1,5 +1,63 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.2.9N6.0.0 (Enero 2025) - Live Chat: Sistema RED FLAG y Llamadas Programadas
+
+### 🔴 RELEASE BETA - Sistema de Atención Humana y Llamadas en Chat
+
+#### Sistema RED FLAG para Atención Humana
+- **Indicador visual en conversaciones:** RED FLAG vectorizado alineado a la derecha para prospectos con `requiere_atencion_humana = true`
+- **Animación de recordatorio:** Sacudida cada 60 segundos durante 5 segundos
+- **Indicador interactivo:** Botón junto a controles de pausa del bot con toggle rojo/gris
+- **Sincronización Realtime:** Actualización automática cuando cambia el estado durante conversación
+- **Persistencia:** Cambios guardados inmediatamente en base de datos
+
+#### Llamadas Programadas Integradas en Chat
+- **Visualización estilo WhatsApp:** Burbujas de mensaje en flujo de conversación
+- **Alineación a la derecha:** Llamadas del equipo alineadas como mensajes del agente
+- **Información completa:** Estado, duración, programada por y timestamp
+- **Estilo consistente:** Fondo oscuro igual que mensajes del agente
+- **Integración cronológica:** Ordenadas junto con mensajes de WhatsApp
+
+#### Identificación de Remitentes
+- **Campo id_sender:** Mensajes incluyen ID del usuario que los envió
+- **Nombre del remitente:** Obtenido desde `auth_users` usando `id_sender`
+- **Tooltip en avatar:** Muestra nombre del usuario al pasar el mouse
+- **Envío de id_sender:** Incluido en payload de imágenes, textos y textos predeterminados
+
+#### Archivos Principales
+- `src/components/chat/LiveChatCanvas.tsx` - Sistema RED FLAG, llamadas programadas, id_sender
+- `src/components/chat/ImageCatalogModal.tsx` - Envío de id_sender en imágenes
+- `src/services/prospectsService.ts` - Método updateProspect
+
+---
+
+## Versión B2.2.8N6.0.0 (Enero 2025) - Prospectos: Vista Kanban Mejorada con Nuevos Estados
+
+### 🎨 RELEASE BETA - Mejoras en Módulo de Prospectos
+
+#### Vista Kanban Mejorada
+- **Vista por defecto**: Cambiada la vista predeterminada de DataGrid a Kanban
+- **Nuevos estados**: "Es miembro" y "Activo PQNC" añadidos al principio del kanban
+- **Estados colapsados**: Los dos nuevos estados aparecen colapsados automáticamente
+- **Columnas optimizadas**: Ancho de columnas colapsadas reducido de 80px a 60px
+- **Colores consistentes**: Mismos colores de etapas en Kanban y DataGrid
+
+#### Colores de Estados Implementados
+- **Es miembro**: Color esmeralda (emerald)
+- **Activo PQNC**: Color teal (verde azulado)
+- **Validando membresia**: Color azul
+- **En seguimiento**: Color amarillo
+- **Interesado**: Color verde
+- **Atendió llamada**: Color morado
+
+#### Archivos Principales
+- `src/components/prospectos/ProspectosKanban.tsx` - Nuevos estados y ajustes de ancho
+- `src/components/prospectos/ProspectosManager.tsx` - Vista por defecto y colores actualizados
+- `src/services/prospectsViewPreferencesService.ts` - Preferencias por defecto actualizadas
+- `src/components/prospectos/CHANGELOG_PROSPECTOS.md` - Documentación actualizada
+
+---
+
 ## Versión B2.2.7N6.0.0 (Enero 2025) - Mejoras en Reproductor de Audio y Timeline
 
 ### 🎨 RELEASE BETA - Optimización de Experiencia de Chat

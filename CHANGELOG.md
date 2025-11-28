@@ -1,5 +1,51 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔴 Versión B2.2.9N6.0.0 - Sistema RED FLAG y Llamadas Programadas en Chat (Enero 2025)
+
+### 🎯 **RELEASE BETA - Sistema de Atención Humana y Llamadas en Chat**
+
+#### 🔴 **Sistema RED FLAG para Atención Humana**
+- **Indicador visual en conversaciones:** RED FLAG vectorizado alineado a la derecha en la lista de conversaciones para prospectos con `requiere_atencion_humana = true`
+- **Animación de recordatorio:** La bandera se sacude cada 60 segundos durante 5 segundos como recordatorio visual
+- **Indicador interactivo en chat:** Botón prominente junto a los controles de pausa del bot que indica cuando un prospecto requiere atención humana
+- **Toggle interactivo:** Al hacer clic, la bandera cambia de estado (rojo activo ↔ gris resuelto) con animación de sacudida
+- **Sincronización Realtime:** El estado se actualiza automáticamente cuando cambia durante una conversación
+- **Persistencia en BD:** Los cambios se guardan inmediatamente en la tabla `prospectos`
+
+#### 📞 **Llamadas Programadas Integradas en Chat**
+- **Visualización estilo WhatsApp:** Las llamadas programadas aparecen como burbujas de mensaje en el flujo de conversación
+- **Alineación a la derecha:** Las llamadas se muestran del lado derecho ya que son programadas por el equipo
+- **Información completa:** Muestra estado (realizada, no contestada, programada), duración, programada por y timestamp
+- **Estilo consistente:** Fondo oscuro (`bg-slate-900`) igual que mensajes del agente, con iconos de teléfono coloreados según estado
+- **Integración cronológica:** Las llamadas se ordenan cronológicamente junto con los mensajes de WhatsApp
+- **Datos enriquecidos:** Obtiene duración desde `llamadas_ventas` cuando la llamada fue ejecutada
+
+#### 👤 **Identificación de Remitentes en Mensajes**
+- **Campo id_sender:** Los mensajes ahora incluyen el ID del usuario que los envió
+- **Nombre del remitente:** Se obtiene el nombre completo desde `auth_users` usando `id_sender`
+- **Tooltip en avatar:** Al pasar el mouse sobre el avatar, se muestra el nombre del usuario que envió el mensaje
+- **Fallback inteligente:** Si no hay `id_sender`, muestra "Bot Vidanta" o "Cliente" según corresponda
+- **Envío de id_sender:** Al enviar imágenes, textos o textos predeterminados, se incluye `id_sender` en el payload
+
+#### 🔄 **Suscripciones Realtime Mejoradas**
+- **Actualización de requiere_atencion_humana:** Nueva suscripción a cambios en `prospectos` para actualizar el estado en tiempo real
+- **Sincronización de llamadas:** Suscripción a `llamadas_programadas` (INSERT, UPDATE, DELETE) para actualizar el chat automáticamente
+- **Actualización de nombres:** Cuando llega un nuevo mensaje, se obtiene el nombre del remitente automáticamente
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Sistema RED FLAG, llamadas programadas, id_sender (⭐ 5000+ líneas)
+- `src/components/chat/ImageCatalogModal.tsx` - Envío de id_sender en imágenes
+- `src/services/prospectsService.ts` - Método `updateProspect` para actualizar `requiere_atencion_humana`
+
+#### ✅ **Beneficios**
+- ✅ Visibilidad inmediata de prospectos que requieren atención humana
+- ✅ Recordatorio visual constante con animación periódica
+- ✅ Integración completa de llamadas programadas en el flujo de conversación
+- ✅ Identificación clara de quién envió cada mensaje
+- ✅ Sincronización en tiempo real de todos los estados
+
+---
+
 ## 🎨 Versión B2.2.7N6.0.0 - Mejoras en Reproductor de Audio y Timeline (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Optimización de Experiencia de Chat**

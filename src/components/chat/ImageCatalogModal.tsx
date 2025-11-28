@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, Send, Eye, Image as ImageIcon, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { ParaphraseModal } from './ParaphraseModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ContentItem {
   id: string;
@@ -27,7 +28,7 @@ interface ImageCatalogModalProps {
   onSendImage: (imageData: SendImageData) => void;
   selectedConversation: any; // La conversación completa con prospecto_id
   onImageSent?: (imageUrl: string, caption: string) => void; // Callback para UI optimista
-  onPauseBot?: (uchatId: string, durationMinutes: number) => Promise<boolean>; // Función para pausar el bot
+  onPauseBot?: (uchatId: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>; // Función para pausar el bot (null = indefinido, force = false para respetar pausas activas)
 }
 
 interface SendImageData {
@@ -48,6 +49,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   onImageSent,
   onPauseBot
 }) => {
+  const { user } = useAuth();
   const [images, setImages] = useState<ContentItem[]>([]);
   const [filteredImages, setFilteredImages] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -396,6 +398,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         whatsapp: prospectoData.whatsapp,
         uchat_id: prospectoData.id_uchat,
         caption: finalCaption || undefined, // Agregar caption si existe
+        id_sender: user?.id || undefined, // Agregar id_sender del usuario que envía
         imagenes: [{
           archivo: imageItem.nombre_archivo,
           destino: imageItem.destinos?.[0] || '',
@@ -423,10 +426,11 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
       const result = await response.json();
 
-      // PAUSAR EL BOT POR 15 MINUTOS después de enviar adjunto exitosamente
+      // PAUSAR EL BOT POR 1 MINUTO después de enviar adjunto exitosamente
+      // force = false para respetar pausas existentes (indefinidas, etc.)
       if (onPauseBot && prospectoData.id_uchat) {
         try {
-          await onPauseBot(prospectoData.id_uchat, 15);
+          await onPauseBot(prospectoData.id_uchat, 1, false);
         } catch (error) {
           console.error('❌ Error pausando bot después de enviar adjunto:', error);
         }

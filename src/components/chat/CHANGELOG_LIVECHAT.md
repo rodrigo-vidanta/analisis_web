@@ -17,6 +17,70 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.17.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🔴 Sistema RED FLAG para Atención Humana**
+- **Indicador visual en conversaciones:** RED FLAG vectorizado alineado a la derecha en la lista de conversaciones para prospectos con `requiere_atencion_humana = true`
+- **Animación de recordatorio:** La bandera se sacude cada 60 segundos durante 5 segundos como recordatorio visual constante
+- **Componente RequiereAtencionListFlag:** Componente dedicado que gestiona la animación periódica sin causar re-renders infinitos
+- **Sincronización Realtime:** El estado se actualiza automáticamente cuando `requiere_atencion_humana` cambia durante una conversación
+
+#### **🔴 Indicador Interactivo en Chat**
+- **Botón prominente:** Indicador junto a los controles de pausa del bot que muestra cuando un prospecto requiere atención humana
+- **Toggle interactivo:** Al hacer clic, la bandera cambia de estado (rojo activo ↔ gris resuelto) con animación de sacudida
+- **Componente RequiereAtencionFlag:** Gestiona su propio estado y sincroniza con `requiere_atencion_humana` del prospecto
+- **Persistencia inmediata:** Los cambios se guardan en la base de datos usando `prospectsService.updateProspect()`
+
+#### **📞 Llamadas Programadas Integradas en Chat**
+- **Visualización estilo WhatsApp:** Las llamadas programadas aparecen como burbujas de mensaje en el flujo de conversación
+- **Alineación a la derecha:** Las llamadas se muestran del lado derecho ya que son programadas por el equipo (no por el prospecto)
+- **Información completa:** Muestra estado (realizada, no contestada, programada), duración, programada por y timestamp
+- **Estilo consistente:** Fondo oscuro (`bg-slate-900 dark:bg-gray-800`) igual que mensajes del agente, con iconos de teléfono coloreados según estado
+- **Integración cronológica:** Las llamadas se ordenan cronológicamente junto con los mensajes de WhatsApp usando `created_at` o `fecha_programada`
+- **Datos enriquecidos:** Obtiene `duracion_segundos` desde `llamadas_ventas` cuando `llamada_ejecutada` está presente
+
+#### **👤 Identificación de Remitentes en Mensajes**
+- **Campo id_sender:** Los mensajes ahora incluyen el ID del usuario que los envió (`id_sender` desde `mensajes_whatsapp`)
+- **Nombre del remitente:** Se obtiene el nombre completo (`full_name`, `first_name`, `last_name`) desde `auth_users` usando `id_sender`
+- **Tooltip en avatar:** Al pasar el mouse sobre el avatar, se muestra el nombre del usuario que envió el mensaje (`sender_user_name`)
+- **Fallback inteligente:** Si no hay `id_sender`, muestra "Bot Vidanta" o "Cliente" según corresponda
+- **Envío de id_sender:** Al enviar imágenes, textos o textos predeterminados, se incluye `id_sender: user?.id` en el payload del webhook
+
+#### **🔄 Suscripciones Realtime Mejoradas**
+- **Actualización de requiere_atencion_humana:** Nueva suscripción `postgres_changes` en tabla `prospectos` (evento UPDATE) para detectar cambios en `requiere_atencion_humana`
+- **Sincronización de llamadas:** Suscripción a `llamadas_programadas` (INSERT, UPDATE, DELETE) para actualizar el chat automáticamente cuando se crean, modifican o eliminan llamadas
+- **Actualización de nombres:** Cuando llega un nuevo mensaje, se obtiene automáticamente el `sender_user_name` desde `auth_users`
+- **Actualización de estado:** Cuando llega un nuevo mensaje, se verifica y actualiza el estado de `requiere_atencion_humana` del prospecto
+
+#### **📝 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx`
+  - Agregado componente `RequiereAtencionFlag` para indicador interactivo en chat
+  - Agregado componente `RequiereAtencionListFlag` para RED FLAG en lista de conversaciones
+  - Modificado `loadConversations` para incluir `requiere_atencion_humana` en query
+  - Agregada función `updateRequiereAtencionHumana` para actualizar estado en BD
+  - Modificado `loadMessagesAndBlocks` para obtener datos de `llamadas_programadas` y `llamadas_ventas`
+  - Modificado `loadMessagesAndBlocks` para obtener `id_sender` y `sender_user_name` desde `auth_users`
+  - Agregado renderizado condicional de `CallBubble` para llamadas programadas
+  - Modificado renderizado de avatar para mostrar tooltip con `sender_user_name`
+  - Agregada suscripción Realtime para cambios en `prospectos` (UPDATE)
+  - Agregada suscripción Realtime para cambios en `llamadas_programadas` (INSERT, UPDATE, DELETE)
+  - Modificado `sendMessageToUChat` para incluir `id_sender` en payload
+  - Modificado `sendMessageWithText` para pasar `user?.id` como `id_sender`
+- `src/components/chat/ImageCatalogModal.tsx`
+  - Modificado `sendImageWithCaption` para incluir `id_sender: user?.id || undefined` en payload
+- `src/services/prospectsService.ts`
+  - Agregado método `updateProspect` para actualizar información del prospecto (específicamente `requiere_atencion_humana`)
+
+#### **🎯 Mejoras de UX**
+- **Visibilidad inmediata:** Los usuarios pueden identificar rápidamente qué prospectos requieren atención humana
+- **Recordatorio visual constante:** La animación periódica asegura que no se olvide ningún prospecto que requiere atención
+- **Contexto completo:** Las llamadas programadas proporcionan contexto histórico en el flujo de conversación
+- **Identificación clara:** Los usuarios saben quién envió cada mensaje, mejorando la trazabilidad
+- **Sincronización automática:** Todos los cambios se reflejan inmediatamente sin necesidad de recargar
+
+---
+
 ### **v5.16.0** - Enero 2025
 **Estado:** ✅ Producción
 

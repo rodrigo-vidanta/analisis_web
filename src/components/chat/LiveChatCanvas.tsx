@@ -37,7 +37,8 @@ import {
   Calendar,
   ChevronRight,
   GripVertical,
-  Paperclip
+  Paperclip,
+  Flag
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
@@ -48,7 +49,10 @@ import { automationService } from '../../services/automationService';
 import { MultimediaMessage, needsBubble } from './MultimediaMessage';
 import { ImageCatalogModal } from './ImageCatalogModal';
 import { ParaphraseModal } from './ParaphraseModal';
+import { botPauseService } from '../../services/botPauseService';
+import { Pause } from 'lucide-react';
 import { ProspectDetailSidebar } from './ProspectDetailSidebar';
+import toast from 'react-hot-toast';
 import ModerationService from '../../services/moderationService';
 import ParaphraseLogService from '../../services/paraphraseLogService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -130,11 +134,23 @@ interface Message {
   id: string;
   message_id: string;
   conversation_id: string;
-  sender_type: 'customer' | 'bot' | 'agent';
+  sender_type: 'customer' | 'bot' | 'agent' | 'call';
   sender_name?: string;
+  id_sender?: string; // ID del usuario que envió el mensaje
+  sender_user_name?: string; // Nombre completo del usuario que envió el mensaje
   content?: string;
   is_read: boolean;
   created_at: string;
+  // Campos específicos para llamadas
+  call_data?: {
+    id: string;
+    fecha_programada: string;
+    estatus: string;
+    llamada_ejecutada?: string;
+    programada_por_nombre?: string;
+    duracion_segundos?: number;
+    call_status?: string;
+  };
 }
 
 interface ConversationBlock {
@@ -144,6 +160,159 @@ interface ConversationBlock {
   last_message_time: string;
   messages: Message[];
 }
+
+// Componente para el flag de requiere atención en la lista (con animación periódica)
+interface RequiereAtencionListFlagProps {
+  requiereAtencionHumana: boolean;
+  prospectId: string;
+}
+
+const RequiereAtencionListFlag: React.FC<RequiereAtencionListFlagProps> = ({ requiereAtencionHumana, prospectId }) => {
+  const [isShaking, setIsShaking] = useState(false);
+  const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Limpiar intervalo anterior si existe
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (!requiereAtencionHumana) {
+      setIsShaking(false);
+      return;
+    }
+
+    // Animación cada 60 segundos
+    intervalRef.current = window.setInterval(() => {
+      setIsShaking(true);
+      // Resetear después de la animación (5 segundos)
+      setTimeout(() => {
+        setIsShaking(false);
+      }, 5000);
+    }, 60000);
+
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [requiereAtencionHumana]);
+
+  if (!requiereAtencionHumana) return null;
+
+  return (
+    <motion.div
+      animate={isShaking ? { rotate: [0, -10, 10, -10, 10, -10, 10, -10, 0] } : { rotate: 0 }}
+      transition={{ duration: 5, ease: "easeInOut" }}
+      className="flex-shrink-0"
+      title="Requiere atención humana"
+    >
+      <Flag className="w-4 h-4 text-red-500 fill-red-500" />
+    </motion.div>
+  );
+};
+
+// Componente para el indicador de requiere atención humana
+interface RequiereAtencionFlagProps {
+  prospectId: string;
+  requiereAtencionHumana: boolean;
+  onResolve: () => Promise<void>;
+  onReEnable: () => Promise<void>;
+}
+
+const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId, requiereAtencionHumana, onResolve, onReEnable }) => {
+  const [isResolving, setIsResolving] = useState(false);
+  const [isReEnabling, setIsReEnabling] = useState(false);
+  
+  // Estado inicial basado en la prop
+  const [isDisabled, setIsDisabled] = useState(!requiereAtencionHumana);
+
+  // Sincronizar con cambios en tiempo real del prospecto
+  useEffect(() => {
+    // Solo actualizar si no estamos en proceso de cambio manual
+    if (!isResolving && !isReEnabling) {
+      setIsDisabled(!requiereAtencionHumana);
+    }
+  }, [requiereAtencionHumana, isResolving, isReEnabling]);
+
+  const handleClick = async () => {
+    // Si está deshabilitado (gris), permitir reactivarlo
+    if (isDisabled) {
+      setIsReEnabling(true);
+      await onReEnable();
+      setIsDisabled(false);
+      setIsReEnabling(false);
+      return;
+    }
+    
+    // Si está activo (rojo), resolverlo directamente
+    if (isResolving) return;
+    
+    setIsResolving(true);
+    await onResolve();
+    setIsDisabled(true);
+    setIsResolving(false);
+  };
+
+  return (
+    <AnimatePresence mode="wait">
+      {isDisabled ? (
+        // Estado gris (deshabilitado, puede reactivarse)
+        <motion.button
+          key="gray-flag"
+          initial={false}
+          animate={{ backgroundColor: "#6b7280" }}
+          transition={{ 
+            duration: 0.3,
+            ease: "easeInOut"
+          }}
+          whileHover={{ scale: 1.05, backgroundColor: "#4b5563" }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleClick}
+          disabled={isReEnabling}
+          className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Click para volver a habilitar atención humana"
+        >
+          <motion.div
+            key="gray-icon"
+            animate={{ rotate: [0, -10, 10, -10, 0] }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <Flag className="w-4 h-4 fill-white" />
+          </motion.div>
+          <span>Requiere Atención</span>
+        </motion.button>
+      ) : (
+        // Estado rojo (activo, requiere atención)
+        <motion.button
+          key="red-flag"
+          initial={false}
+          animate={{ backgroundColor: "#ef4444" }}
+          transition={{ 
+            duration: 0.3,
+            ease: "easeInOut"
+          }}
+          whileHover={{ scale: 1.05, backgroundColor: "#dc2626" }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleClick}
+          disabled={isResolving}
+          className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Requiere atención humana - Click para resolver"
+        >
+          <motion.div
+            animate={{ rotate: [0, -10, 10, -10, 0] }}
+            transition={{ duration: 0.3 }}
+          >
+            <Flag className="w-4 h-4 fill-white" />
+          </motion.div>
+          <span>Requiere Atención</span>
+        </motion.button>
+      )}
+    </AnimatePresence>
+  );
+};
 
 // ============================================
 // COMPONENTE PRINCIPAL - LIENZO CON SECCIONES FIJAS
@@ -207,7 +376,7 @@ const LiveChatCanvas: React.FC = () => {
     isPaused: boolean;
     pausedUntil: Date | null;
     pausedBy: string;
-    duration: number; // en minutos
+    duration: number | null; // en minutos (null para indefinido)
   }}>({});
 
   // Estados para caché de mensajes enviados
@@ -272,6 +441,7 @@ const LiveChatCanvas: React.FC = () => {
     nombre_whatsapp?: string | null;
     email?: string | null;
     whatsapp?: string | null;
+    requiere_atencion_humana?: boolean;
   }>>(new Map());
 
   const [metrics, setMetrics] = useState({
@@ -560,6 +730,73 @@ const LiveChatCanvas: React.FC = () => {
             return;
           }
 
+          // ✅ ACTUALIZAR: Cargar requiere_atencion_humana cuando llega un mensaje nuevo
+          // Esto asegura que siempre tengamos el valor más reciente
+          (async () => {
+            try {
+              const { data: prospectoData } = await analysisSupabase
+                .from('prospectos')
+                .select('requiere_atencion_humana')
+                .eq('id', targetProspectoId)
+                .single();
+              
+              if (prospectoData) {
+                const prospectoDataRef = prospectosDataRef.current.get(targetProspectoId);
+                if (prospectoDataRef) {
+                  const requiereAtencionChanged = prospectoDataRef.requiere_atencion_humana !== prospectoData.requiere_atencion_humana;
+                  if (requiereAtencionChanged) {
+                    prospectosDataRef.current.set(targetProspectoId, {
+                      ...prospectoDataRef,
+                      requiere_atencion_humana: prospectoData.requiere_atencion_humana || false
+                    });
+                    
+                    // Forzar re-render si es necesario
+                    startTransition(() => {
+                      setConversations(prev => [...prev]);
+                      if (selectedConversation && 
+                          (selectedConversation.prospecto_id === targetProspectoId || selectedConversation.id === targetProspectoId)) {
+                        setSelectedConversation(prev => prev ? { ...prev } : null);
+                      }
+                    });
+                  }
+                }
+              }
+            } catch (error) {
+              // Ignorar errores silenciosamente, no es crítico
+            }
+          })();
+
+          // Obtener nombre del usuario si hay id_sender (async, no bloquea)
+          let senderUserName: string | undefined = undefined;
+          if (newMessagePayload.id_sender) {
+            // Obtener nombre de forma asíncrona sin bloquear
+            (async () => {
+              try {
+                const { data: userData } = await supabaseSystemUI
+                  .from('auth_users')
+                  .select('full_name, first_name, last_name')
+                  .eq('id', newMessagePayload.id_sender)
+                  .single();
+                
+                if (userData) {
+                  senderUserName = userData.full_name || `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Usuario';
+                  // Actualizar el mensaje con el nombre del usuario
+                  setMessagesByConversation(prev => {
+                    const conversationMessages = prev[targetProspectoId] || [];
+                    const updatedMessages = conversationMessages.map(msg => 
+                      msg.id === newMessage.id 
+                        ? { ...msg, sender_user_name: senderUserName }
+                        : msg
+                    );
+                    return { ...prev, [targetProspectoId]: updatedMessages };
+                  });
+                }
+              } catch (error) {
+                console.error('❌ Error obteniendo nombre de usuario:', error);
+              }
+            })();
+          }
+
           // Crear el objeto de mensaje (operación ligera)
           const newMessage: Message = {
             id: newMessagePayload.id,
@@ -567,10 +804,13 @@ const LiveChatCanvas: React.FC = () => {
             conversation_id: targetProspectoId,
             sender_type: newMessagePayload.rol === 'Prospecto' ? 'customer' : newMessagePayload.rol === 'AI' ? 'bot' : 'agent',
             sender_name: newMessagePayload.rol || 'Desconocido',
+            id_sender: newMessagePayload.id_sender || undefined,
+            sender_user_name: senderUserName,
             content: newMessagePayload.mensaje,
             is_read: newMessagePayload.leido ?? false,
             created_at: newMessagePayload.fecha_hora,
-          };
+            adjuntos: newMessagePayload.adjuntos, // ✅ Incluir adjuntos multimedia
+          } as any;
 
           // ✅ CRÍTICO: Verificar que la conversación está realmente seleccionada y abierta
           // ✅ ADICIONAL: Verificar que selectedConversation realmente existe y coincide
@@ -737,7 +977,7 @@ const LiveChatCanvas: React.FC = () => {
       // ========================================
       // 🔔 SUSCRIPCIÓN 2: Cambios en tabla PROSPECTOS
       // ========================================
-      // Detectar cuando se actualiza el nombre o nombre_whatsapp
+      // Detectar cuando se actualiza el nombre, nombre_whatsapp o requiere_atencion_humana
       // para refrescar la lista de conversaciones y mostrar el nombre actualizado
       .on(
         'postgres_changes',
@@ -749,7 +989,36 @@ const LiveChatCanvas: React.FC = () => {
         },
         (payload) => {
           const updatedProspecto = payload.new as any;
+          const oldProspecto = payload.old as any;
           const prospectoId = updatedProspecto.id;
+          
+          // ✅ ACTUALIZAR: requiere_atencion_humana en el ref local
+          const requiereAtencionChanged = oldProspecto?.requiere_atencion_humana !== updatedProspecto.requiere_atencion_humana;
+          if (requiereAtencionChanged) {
+            const prospectoData = prospectosDataRef.current.get(prospectoId);
+            if (prospectoData) {
+              prospectosDataRef.current.set(prospectoId, {
+                ...prospectoData,
+                requiere_atencion_humana: updatedProspecto.requiere_atencion_humana || false
+              });
+            }
+            
+            // Forzar re-render de la lista de conversaciones para mostrar/ocultar el flag
+            startTransition(() => {
+              setConversations(prev => {
+                // Solo forzar actualización del array para trigger re-render
+                // El componente leerá el valor desde prospectosDataRef
+                return [...prev];
+              });
+              
+              // ✅ CRÍTICO: Si la conversación seleccionada es la que cambió, forzar re-render
+              // Esto asegura que el indicador RequiereAtencionFlag se actualice
+              if (selectedConversation && 
+                  (selectedConversation.prospecto_id === prospectoId || selectedConversation.id === prospectoId)) {
+                setSelectedConversation(prev => prev ? { ...prev } : null);
+              }
+            });
+          }
           
           // ✅ OPTIMIZACIÓN: Diferir actualización de nombre usando requestIdleCallback
           const updateName = () => {
@@ -1510,8 +1779,9 @@ const LiveChatCanvas: React.FC = () => {
             sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 'AI',
             content: msg.mensaje || msg.content || msg,
             is_read: true,
-            created_at: msg.fecha_hora || msg.timestamp || new Date().toISOString()
-          });
+            created_at: msg.fecha_hora || msg.timestamp || new Date().toISOString(),
+            adjuntos: msg.adjuntos // ✅ Incluir adjuntos multimedia
+          } as any);
         });
       } else {
         // Si es texto plano, crear un mensaje único
@@ -1663,35 +1933,92 @@ const LiveChatCanvas: React.FC = () => {
 
 
   useEffect(() => {
-    // Cargar estado de pausa desde localStorage al iniciar
-    const loadBotPauseStatus = () => {
-      const savedPauseStatus = localStorage.getItem('bot-pause-status');
-      if (savedPauseStatus) {
-        try {
-          const parsed = JSON.parse(savedPauseStatus);
-          const currentTime = new Date();
-          
-        // Filtrar pausas que ya expiraron
-        const activePauses: any = {};
-        Object.entries(parsed).forEach(([uchatId, status]: [string, any]) => {
-          if (status.pausedUntil) {
-            const pausedUntilTime = new Date(status.pausedUntil).getTime();
-            const timeRemaining = pausedUntilTime - currentTime.getTime();
-            
-            
-            if (timeRemaining > 0) {
-              activePauses[uchatId] = {
-                ...status,
-                pausedUntil: new Date(status.pausedUntil)
-              };
-            } else {
-            }
-          }
-        });
+    // Cargar estado de pausa desde base de datos y localStorage al iniciar
+    const loadBotPauseStatus = async () => {
+      try {
+        // 1. Cargar desde base de datos (prioridad)
+        const activePausesFromDB = await botPauseService.getAllActivePauses();
+        const dbPauses: any = {};
         
-        setBotPauseStatus(activePauses);
-        } catch (error) {
-          console.error('❌ Error cargando estado de pausa:', error);
+        activePausesFromDB.forEach(pause => {
+          dbPauses[pause.uchat_id] = {
+            isPaused: pause.is_paused,
+            pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
+            pausedBy: pause.paused_by,
+            duration: pause.duration_minutes
+          };
+        });
+
+        // 2. Cargar desde localStorage como respaldo
+        const savedPauseStatus = localStorage.getItem('bot-pause-status');
+        if (savedPauseStatus) {
+          try {
+            const parsed = JSON.parse(savedPauseStatus);
+            const currentTime = new Date();
+            
+            // Filtrar pausas que ya expiraron y combinar con BD
+            Object.entries(parsed).forEach(([uchatId, status]: [string, any]) => {
+              // Solo usar localStorage si no existe en BD
+              if (!dbPauses[uchatId] && status.pausedUntil) {
+                const pausedUntilTime = new Date(status.pausedUntil).getTime();
+                const timeRemaining = pausedUntilTime - currentTime.getTime();
+                
+                if (timeRemaining > 0) {
+                  dbPauses[uchatId] = {
+                    ...status,
+                    pausedUntil: new Date(status.pausedUntil)
+                  };
+                }
+              }
+            });
+          } catch (error) {
+            console.error('❌ Error parseando localStorage:', error);
+          }
+        }
+
+        setBotPauseStatus(dbPauses);
+        
+        // Sincronizar localStorage con BD
+        const storageData = Object.fromEntries(
+          Object.entries(dbPauses).map(([id, status]: [string, any]) => [
+            id, 
+            { 
+              ...status, 
+              pausedUntil: status.pausedUntil instanceof Date 
+                ? status.pausedUntil.toISOString() 
+                : status.pausedUntil 
+            }
+          ])
+        );
+        localStorage.setItem('bot-pause-status', JSON.stringify(storageData));
+      } catch (error) {
+        console.error('❌ Error cargando estado de pausa:', error);
+        // Fallback a localStorage si falla BD
+        const savedPauseStatus = localStorage.getItem('bot-pause-status');
+        if (savedPauseStatus) {
+          try {
+            const parsed = JSON.parse(savedPauseStatus);
+            const currentTime = new Date();
+            const activePauses: any = {};
+            
+            Object.entries(parsed).forEach(([uchatId, status]: [string, any]) => {
+              if (status.pausedUntil) {
+                const pausedUntilTime = new Date(status.pausedUntil).getTime();
+                const timeRemaining = pausedUntilTime - currentTime.getTime();
+                
+                if (timeRemaining > 0) {
+                  activePauses[uchatId] = {
+                    ...status,
+                    pausedUntil: new Date(status.pausedUntil)
+                  };
+                }
+              }
+            });
+            
+            setBotPauseStatus(activePauses);
+          } catch (parseError) {
+            console.error('❌ Error parseando localStorage fallback:', parseError);
+          }
         }
       }
     };
@@ -1834,7 +2161,7 @@ const LiveChatCanvas: React.FC = () => {
         prospectoIds.size > 0
           ? analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, email, whatsapp')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, email, whatsapp, requiere_atencion_humana')
               .in('id', Array.from(prospectoIds))
               .then(({ data }) => {
                 const map = new Map<string, { 
@@ -1845,6 +2172,7 @@ const LiveChatCanvas: React.FC = () => {
                   nombre_whatsapp?: string | null;
                   email?: string | null;
                   whatsapp?: string | null;
+                  requiere_atencion_humana?: boolean;
                 }>();
                 (data || []).forEach(p => {
                   map.set(p.id, { 
@@ -1855,6 +2183,7 @@ const LiveChatCanvas: React.FC = () => {
                     nombre_whatsapp: p.nombre_whatsapp,
                     email: p.email,
                     whatsapp: p.whatsapp,
+                    requiere_atencion_humana: p.requiere_atencion_humana || false,
                   });
                   if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
                   if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
@@ -2116,26 +2445,125 @@ const LiveChatCanvas: React.FC = () => {
       // El conversationId de la UI es el prospecto_id. Usamos este para la consulta.
       const queryId = conversationId; 
 
-      const { data: conversationMessages, error: messagesError } = await analysisSupabase
+      // Cargar mensajes y llamadas en paralelo
+      const messagesPromise = analysisSupabase
         .from('mensajes_whatsapp')
         .select('*')
-        .eq('prospecto_id', queryId) // CORREGIDO: Usar prospecto_id
+        .eq('prospecto_id', queryId)
         .order('fecha_hora', { ascending: true });
+
+      let callsResult: { data: any[] | null; error: any } = { data: null, error: null };
+      if (prospectoId) {
+        try {
+          const result = await analysisSupabase
+            .from('llamadas_programadas')
+            .select('*')
+            .eq('prospecto', prospectoId)
+            .order('fecha_programada', { ascending: true });
+          callsResult = result;
+        } catch (error) {
+          console.error('❌ Error cargando llamadas programadas:', error);
+          callsResult = { data: null, error };
+        }
+      }
+
+      const messagesResult = await messagesPromise;
+
+      const { data: conversationMessages, error: messagesError } = messagesResult;
+      const { data: scheduledCalls } = callsResult;
 
       let adaptedMessages: Message[] = [];
       if (conversationMessages) {
-        adaptedMessages = conversationMessages.map(msg => ({
+        // Obtener nombres de usuarios para mensajes con id_sender
+        const senderIds = conversationMessages
+          .filter((msg: any) => msg.id_sender)
+          .map((msg: any) => msg.id_sender);
+        
+        const senderNamesMap: Record<string, string> = {};
+        if (senderIds.length > 0) {
+          try {
+            const { data: usersData } = await supabaseSystemUI
+              .from('auth_users')
+              .select('id, full_name, first_name, last_name')
+              .in('id', senderIds);
+            
+            if (usersData) {
+              usersData.forEach(user => {
+                senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
+              });
+            }
+          } catch (error) {
+            console.error('❌ Error obteniendo nombres de usuarios:', error);
+          }
+        }
+
+        adaptedMessages = conversationMessages.map((msg: any) => ({
           id: msg.id,
           message_id: `real_${msg.id}`,
           conversation_id: conversationId,
           sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
           sender_name: msg.rol || 'Desconocido',
+          id_sender: msg.id_sender || undefined,
+          sender_user_name: msg.id_sender ? senderNamesMap[msg.id_sender] : undefined,
           content: msg.mensaje,
           is_read: msg.leido ?? true,
           created_at: msg.fecha_hora,
           adjuntos: msg.adjuntos, // ✅ Incluir adjuntos multimedia
         } as any));
-      } else {
+      }
+
+      // Agregar llamadas como mensajes especiales
+      if (scheduledCalls && scheduledCalls.length > 0) {
+        // Obtener información adicional de llamadas_ventas si está disponible
+        const callIds = scheduledCalls
+          .filter((call: any) => call.llamada_ejecutada)
+          .map((call: any) => call.llamada_ejecutada);
+
+        let callDetailsMap: Record<string, any> = {};
+        if (callIds.length > 0) {
+          try {
+            const { data: callDetails } = await analysisSupabase
+              .from('llamadas_ventas')
+              .select('call_id, duracion_segundos, call_status')
+              .in('call_id', callIds);
+
+            if (callDetails) {
+              callDetails.forEach(detail => {
+                callDetailsMap[detail.call_id] = detail;
+              });
+            }
+          } catch (error) {
+            console.error('❌ Error obteniendo detalles de llamadas:', error);
+          }
+        }
+
+        const callMessages: Message[] = scheduledCalls.map((call: any) => {
+          const callDetail = call.llamada_ejecutada ? callDetailsMap[call.llamada_ejecutada] : null;
+          return {
+            id: `call_${call.id}`,
+            message_id: `call_${call.id}`,
+            conversation_id: conversationId,
+            sender_type: 'call',
+            sender_name: 'Llamada',
+            content: '',
+            is_read: true,
+            created_at: call.fecha_programada,
+            call_data: {
+              id: call.id,
+              fecha_programada: call.fecha_programada,
+              estatus: call.estatus,
+              llamada_ejecutada: call.llamada_ejecutada,
+              programada_por_nombre: call.programada_por_nombre,
+              duracion_segundos: callDetail?.duracion_segundos,
+              call_status: callDetail?.call_status
+            }
+          } as Message;
+        });
+
+        // Combinar mensajes y llamadas, ordenar por fecha
+        adaptedMessages = [...adaptedMessages, ...callMessages].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
       }
 
       setMessagesByConversation(prev => ({
@@ -2360,18 +2788,45 @@ const LiveChatCanvas: React.FC = () => {
 
 
       // Filtrar mensajes que ya existen
+      // Obtener nombres de usuarios para mensajes con id_sender
+      const senderIds = newMessages
+        .filter(msg => msg.id_sender)
+        .map(msg => msg.id_sender);
+      
+      const senderNamesMap: Record<string, string> = {};
+      if (senderIds.length > 0) {
+        try {
+          const { data: usersData } = await supabaseSystemUI
+            .from('auth_users')
+            .select('id, full_name, first_name, last_name')
+            .in('id', senderIds);
+          
+          if (usersData) {
+            usersData.forEach(user => {
+              senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error obteniendo nombres de usuarios:', error);
+        }
+      }
+
       const existingMessageIds = currentMessages.map(m => m.message_id);
       const messagesToInsert = newMessages
         .filter(msg => !existingMessageIds.includes(`real_${msg.id}`))
         .map(msg => ({
+          id: msg.id, // Agregar id requerido
           message_id: `real_${msg.id}`,
           conversation_id: selectedConversation.id,
           sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
           sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 'AI',
+          id_sender: msg.id_sender || undefined,
+          sender_user_name: msg.id_sender ? senderNamesMap[msg.id_sender] : undefined,
           content: msg.mensaje,
           is_read: true,
-          created_at: msg.fecha_hora
-        }));
+          created_at: msg.fecha_hora,
+          adjuntos: msg.adjuntos // ✅ Incluir adjuntos multimedia
+        } as Message));
 
       if (messagesToInsert.length === 0) {
         return; // No hay mensajes realmente nuevos
@@ -2390,21 +2845,21 @@ const LiveChatCanvas: React.FC = () => {
 
       // Actualizar estado SILENCIOSAMENTE
       setMessagesByConversation(prev => {
-        const current = prev[selectedConversation.id] || [];
+        const current = prev[conversation.id] || [];
         const updated = [...current, ...messagesToInsert].sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
-        return { ...prev, [selectedConversation.id]: updated };
+        return { ...prev, [conversation.id]: updated };
       });
 
       // Actualizar contador de mensajes
       await supabaseSystemUI
         .from('uchat_conversations')
         .update({ 
-          message_count: selectedConversation.message_count + messagesToInsert.length,
+          message_count: (conversation.message_count || 0) + messagesToInsert.length,
           last_message_at: new Date().toISOString()
         })
-        .eq('id', selectedConversation.id);
+        .eq('id', conversation.id);
 
     } catch (error) {
       console.error('❌ Error en syncNewMessages:', error);
@@ -2430,15 +2885,42 @@ const LiveChatCanvas: React.FC = () => {
 
       if (recentMessages.length === 0) return;
 
+      // Obtener nombres de usuarios para mensajes con id_sender
+      const senderIds = recentMessages
+        .filter(msg => msg.id_sender)
+        .map(msg => msg.id_sender);
+      
+      const senderNamesMap: Record<string, string> = {};
+      if (senderIds.length > 0) {
+        try {
+          const { data: usersData } = await supabaseSystemUI
+            .from('auth_users')
+            .select('id, full_name, first_name, last_name')
+            .in('id', senderIds);
+          
+          if (usersData) {
+            usersData.forEach(user => {
+              senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error obteniendo nombres de usuarios:', error);
+        }
+      }
+
       const messagesToInsert = recentMessages.map(msg => ({
+        id: msg.id, // Agregar id requerido
         message_id: `real_${msg.id}`,
         conversation_id: conversationId,
         sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
         sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 'AI',
+        id_sender: msg.id_sender || undefined,
+        sender_user_name: msg.id_sender ? senderNamesMap[msg.id_sender] : undefined,
         content: msg.mensaje,
         is_read: true,
-        created_at: msg.fecha_hora
-      }));
+        created_at: msg.fecha_hora,
+        adjuntos: msg.adjuntos // ✅ Incluir adjuntos multimedia
+      } as Message));
 
       const { error: insertError } = await supabaseSystemUI
         .from('uchat_messages')
@@ -2495,17 +2977,45 @@ const LiveChatCanvas: React.FC = () => {
       }
 
       const existingMessageIds = existingMessages.map(m => m.message_id);
+      
+      // Obtener nombres de usuarios para mensajes con id_sender
+      const senderIds = recentMessages
+        .filter(msg => msg.id_sender && !existingMessageIds.includes(`real_${msg.id}`))
+        .map(msg => msg.id_sender);
+      
+      const senderNamesMap: Record<string, string> = {};
+      if (senderIds.length > 0) {
+        try {
+          const { data: usersData } = await supabaseSystemUI
+            .from('auth_users')
+            .select('id, full_name, first_name, last_name')
+            .in('id', senderIds);
+          
+          if (usersData) {
+            usersData.forEach(user => {
+              senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error obteniendo nombres de usuarios:', error);
+        }
+      }
+      
       const messagesToInsert = recentMessages
         .filter(msg => !existingMessageIds.includes(`real_${msg.id}`))
         .map(msg => ({
+          id: msg.id, // Agregar id requerido
           message_id: `real_${msg.id}`,
           conversation_id: selectedConversation.id,
           sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
           sender_name: msg.rol === 'Prospecto' ? 'Prospecto' : 'AI',
+          id_sender: msg.id_sender || undefined,
+          sender_user_name: msg.id_sender ? senderNamesMap[msg.id_sender] : undefined,
           content: msg.mensaje,
           is_read: true,
-          created_at: msg.fecha_hora
-        }));
+          created_at: msg.fecha_hora,
+          adjuntos: msg.adjuntos // ✅ Incluir adjuntos multimedia
+        } as Message));
 
       if (messagesToInsert.length === 0) {
         return; // No hay mensajes nuevos
@@ -2579,39 +3089,8 @@ const LiveChatCanvas: React.FC = () => {
           );
         });
       }
-
-      // El webhook se encargará de actualizar la BD, y el listener de realtime
-      // reemplazará este mensaje temporal por el real.
-
-      // PERO AHORA, guardamos directamente en la BD correcta.
-      const { error: saveError } = await analysisSupabase.from('mensajes_whatsapp').insert({
-        mensaje: optimisticMessage.content,
-        rol: 'Vendedor', // o el rol del agente
-        intencion: 'Respuesta_agente',
-        sentimiento: 'Neutro',
-        prospecto_id: selectedConversation.metadata?.prospect_id,
-        conversacion_id: selectedConversation.id,
-        fecha_hora: optimisticMessage.created_at,
-        adjuntos: '[]'
-      });
-
-      if (saveError) {
-        throw new Error(`Error guardando mensaje en mensajes_whatsapp: ${saveError.message}`);
-      } else {
-        // El listener de realtime se encargará de actualizar la UI desde la BD.
-      }
-
     } catch (error) {
-      console.error('❌ Error enviando mensaje:', error);
-      // Si falla, marcar el mensaje optimista como fallido
-      setMessagesByConversation(prev => {
-        const updatedMessages = (prev[selectedConversation.id] || []).map(msg =>
-          msg.id === tempId ? { ...msg, sender_name: 'Error' } : msg
-        );
-        return { ...prev, [selectedConversation.id]: updatedMessages };
-      });
-    } finally {
-      setSending(false);
+      console.error('❌ Error en syncMessagesForOpenConversation:', error);
     }
   };
 
@@ -2619,28 +3098,100 @@ const LiveChatCanvas: React.FC = () => {
   // MÉTODOS DE CONTROL DEL BOT
   // ============================================
 
-  const pauseBot = async (uchatId: string, durationMinutes: number): Promise<boolean> => {
+  const pauseBot = async (uchatId: string, durationMinutes: number | null, force: boolean = false): Promise<boolean> => {
     try {
+      // ⚠️ LÓGICA DE RESPETO DE PAUSAS ACTIVAS
+      // Si force = false, verificar si ya existe una pausa activa antes de sobreescribir
+      if (!force) {
+        const existingPause = await botPauseService.getPauseStatus(uchatId);
+        
+        if (existingPause && existingPause.is_paused && existingPause.paused_until) {
+          const pausedUntil = new Date(existingPause.paused_until);
+          const now = new Date();
+          
+          // Si la pausa aún no ha expirado, NO sobreescribir
+          if (pausedUntil > now) {
+            console.log(`⏸️ Bot ya está pausado hasta ${pausedUntil.toLocaleString()}. No se sobreescribirá la pausa existente.`);
+            return true; // Retornar true porque el bot ya está pausado (objetivo cumplido)
+          }
+        }
+      }
+
+      // Calcular TTL en segundos
+      // null = indefinido (1 mes = 30 días = 2,592,000 segundos)
+      const ttlSec = durationMinutes === null 
+        ? 30 * 24 * 60 * 60 // 1 mes en segundos
+        : Math.max(0, Math.floor(durationMinutes * 60));
       
-      const ttlSec = Math.max(0, Math.floor(durationMinutes * 60));
-      const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Accept': 'application/json',
-          'livechat_auth': '2025_livechat_auth'
-        },
-        body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec })
-      });
-      if (resp.status !== 200 && resp.status !== 201) {
-        const txt = await resp.text().catch(() => '');
-        console.error('❌ Error pause_bot webhook:', txt);
+      // Crear AbortController para timeout de 6 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      
+      try {
+        const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Accept': 'application/json',
+            'livechat_auth': '2025_livechat_auth'
+          },
+          body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        // Manejar respuesta según código HTTP
+        if (resp.status === 200) {
+          // Éxito - no hacer nada (como solicitado)
+        } else if (resp.status === 400) {
+          // Error del servidor - mostrar mensaje al usuario
+          const errorText = await resp.text().catch(() => 'Error desconocido al pausar el bot');
+          console.error('❌ Error pause_bot webhook (400):', errorText);
+          toast.error('No se pudo pausar el bot. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '⏸️'
+          });
+          return false;
+        } else {
+          // Otro código de error
+          const errorText = await resp.text().catch(() => 'Error desconocido');
+          console.error(`❌ Error pause_bot webhook (${resp.status}):`, errorText);
+          toast.error('Error al pausar el bot. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '⏸️'
+          });
+          return false;
+        }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        
+        // Manejar timeout o error de red
+        if (error.name === 'AbortError') {
+          console.error('❌ Timeout al pausar bot (6 segundos)');
+          toast.error('El servidor no respondió a tiempo. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '⏱️'
+          });
+        } else {
+          console.error('❌ Error de red al pausar bot:', error);
+          toast.error('Error de conexión al pausar el bot. Por favor, verifica tu conexión.', {
+            duration: 4000,
+            icon: '🔌'
+          });
+        }
         return false;
       }
 
-      const pausedUntil = new Date(Date.now() + ttlSec * 1000);
+      // Calcular fecha de expiración
+      const pausedUntil = durationMinutes === null
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 1 mes
+        : new Date(Date.now() + ttlSec * 1000);
       
-      // Guardar estado en localStorage para persistencia
+      // Guardar estado en base de datos
+      await botPauseService.savePauseStatus(uchatId, durationMinutes, 'agent');
+      
+      // Guardar estado en localStorage para persistencia local
       const pauseData = {
         isPaused: true,
         pausedUntil,
@@ -2671,31 +3222,79 @@ const LiveChatCanvas: React.FC = () => {
 
   const resumeBot = async (uchatId: string): Promise<boolean> => {
     try {
+      // Crear AbortController para timeout de 6 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       
-      const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Accept': 'application/json',
-          'livechat_auth': '2025_livechat_auth'
-        },
-        body: JSON.stringify({ uchat_id: uchatId, ttl: 0 })
-      });
-      if (resp.status !== 200 && resp.status !== 201) {
-        const txt = await resp.text().catch(() => '');
-        console.error('❌ Error pause_bot webhook (resume):', txt);
+      try {
+        const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Accept': 'application/json',
+            'livechat_auth': '2025_livechat_auth'
+          },
+          body: JSON.stringify({ uchat_id: uchatId, ttl: 0 }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        // Manejar respuesta según código HTTP
+        if (resp.status === 200) {
+          // Éxito - no hacer nada (como solicitado)
+        } else if (resp.status === 400) {
+          // Error del servidor - mostrar mensaje al usuario
+          const errorText = await resp.text().catch(() => 'Error desconocido al reactivar el bot');
+          console.error('❌ Error pause_bot webhook (resume, 400):', errorText);
+          toast.error('No se pudo reactivar el bot. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '▶️'
+          });
+          return false;
+        } else {
+          // Otro código de error
+          const errorText = await resp.text().catch(() => 'Error desconocido');
+          console.error(`❌ Error pause_bot webhook (resume, ${resp.status}):`, errorText);
+          toast.error('Error al reactivar el bot. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '▶️'
+          });
+          return false;
+        }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        
+        // Manejar timeout o error de red
+        if (error.name === 'AbortError') {
+          console.error('❌ Timeout al reactivar bot (6 segundos)');
+          toast.error('El servidor no respondió a tiempo. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '⏱️'
+          });
+        } else {
+          console.error('❌ Error de red al reactivar bot:', error);
+          toast.error('Error de conexión al reactivar el bot. Por favor, verifica tu conexión.', {
+            duration: 4000,
+            icon: '🔌'
+          });
+        }
         return false;
       }
 
-      setBotPauseStatus(prev => ({
-        ...prev,
-        [uchatId]: {
+      // Eliminar estado de pausa de la base de datos
+      await botPauseService.resumeBot(uchatId);
+
+      setBotPauseStatus(prev => {
+        const updated = { ...prev };
+        updated[uchatId] = {
           isPaused: false,
           pausedUntil: null,
           pausedBy: '',
-          duration: 0
-        }
-      }));
+          duration: null
+        };
+        return updated;
+      });
 
       // Actualizar localStorage
       const allPauseStatus = JSON.parse(localStorage.getItem('bot-pause-status') || '{}');
@@ -2709,7 +3308,7 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
-  const getBotPauseTimeRemaining = (uchatId: string): number => {
+  const getBotPauseTimeRemaining = (uchatId: string): number | null => {
     const status = botPauseStatus[uchatId];
     if (!status || !status.isPaused || !status.pausedUntil) return 0;
     
@@ -2720,22 +3319,67 @@ const LiveChatCanvas: React.FC = () => {
     
     const remaining = Math.max(0, pausedUntilTime - now);
     
+    // Retornar segundos restantes (incluso si es indefinido, mostrar tiempo restante del mes)
     return Math.floor(remaining / 1000); // segundos restantes
   };
 
-  const formatTimeRemaining = (seconds: number): string => {
-    if (seconds <= 0) return '';
+  const formatTimeRemaining = (seconds: number | null): string => {
+    if (seconds === null || seconds <= 0) return '';
     
-    const hours = Math.floor(seconds / 3600);
+    // Calcular días, horas y minutos
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
     
-    if (hours > 0) {
+    // Formatear según la duración
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    } else if (hours > 0) {
       return `${hours}h ${minutes}m`;
     } else if (minutes > 0) {
+      const secs = seconds % 60;
       return `${minutes}m ${secs}s`;
     } else {
-      return `${secs}s`;
+      return `${seconds}s`;
+    }
+  };
+
+  // Función para actualizar requiere_atencion_humana
+  const updateRequiereAtencionHumana = async (prospectoId: string, value: boolean): Promise<boolean> => {
+    try {
+      const { error } = await analysisSupabase
+        .from('prospectos')
+        .update({ requiere_atencion_humana: value })
+        .eq('id', prospectoId);
+
+      if (error) {
+        console.error('❌ Error actualizando requiere_atencion_humana:', error);
+        toast.error('Error al actualizar el estado de atención');
+        return false;
+      }
+
+      // Actualizar el ref local
+      const prospectoData = prospectosDataRef.current.get(prospectoId);
+      if (prospectoData) {
+        prospectosDataRef.current.set(prospectoId, {
+          ...prospectoData,
+          requiere_atencion_humana: value
+        });
+      }
+
+      // Actualizar las conversaciones en el estado
+      setConversations(prev => prev.map(conv => {
+        if (conv.prospecto_id === prospectoId) {
+          return { ...conv };
+        }
+        return conv;
+      }));
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error actualizando requiere_atencion_humana:', error);
+      toast.error('Error al actualizar el estado de atención');
+      return false;
     }
   };
 
@@ -2794,16 +3438,21 @@ const LiveChatCanvas: React.FC = () => {
   // MÉTODOS DE ENVÍO
   // ============================================
 
-  const sendMessageToUChat = async (message: string, uchatId: string): Promise<boolean> => {
+  const sendMessageToUChat = async (message: string, uchatId: string, idSender?: string): Promise<boolean> => {
     try {
       
       const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/send-message';
-      const payload = {
+      const payload: any = {
         message: message,
         uchat_id: uchatId,
         type: 'text',
         ttl: 180
       };
+      
+      // Agregar id_sender si está disponible
+      if (idSender) {
+        payload.id_sender = idSender;
+      }
       
       
       const response = await fetch(webhookUrl, {
@@ -2914,6 +3563,8 @@ const LiveChatCanvas: React.FC = () => {
       conversation_id: conversationId,
       sender_type: 'agent',
       sender_name: 'Agente',
+      id_sender: user?.id || undefined,
+      sender_user_name: user?.full_name || undefined,
       content: messageContent,
       is_read: true,
       created_at: new Date().toISOString(),
@@ -2935,12 +3586,13 @@ const LiveChatCanvas: React.FC = () => {
     scrollToBottom('smooth');
 
     try {
-      // 2. PRIMERO: Pausar el bot (siempre se ejecuta)
-      await pauseBot(uchatId, 15);
+      // 2. PRIMERO: Pausar el bot por 1 minuto (solo si no hay pausa activa)
+      // force = false para respetar pausas existentes (indefinidas, etc.)
+      await pauseBot(uchatId, 1, false);
       
       // 3. SEGUNDO: Enviar mensaje al webhook de UChat
       // n8n lo procesará y lo guardará en la base de datos
-      const success = await sendMessageToUChat(messageContent, uchatId);
+      const success = await sendMessageToUChat(messageContent, uchatId, user?.id);
       
       if (!success) {
         throw new Error('El webhook de UChat no respondió correctamente');
@@ -3465,39 +4117,83 @@ const LiveChatCanvas: React.FC = () => {
               }}
             >
               <div className="flex items-start space-x-3">
-                {prospectsWithActiveCalls.has(conversation.prospecto_id) ? (
-                  <div
-                    className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm cursor-pointer animate-pulse hover:animate-none hover:scale-110 transition-transform"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAppMode('live-monitor');
-                    }}
-                    style={{
-                      animation: 'heartbeat 1.5s ease-in-out infinite'
-                    }}
-                  >
-                    <style>{`
-                      @keyframes heartbeat {
-                        0%, 100% { transform: scale(1); }
-                        50% { transform: scale(1.1); }
-                      }
-                    `}</style>
-                    <Phone className="w-5 h-5 text-white" />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <span className="text-sm font-semibold text-white">
-                      {conversation.customer_name?.charAt(0).toUpperCase() || 'C'}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  // Verificar si hay llamada activa
+                  const hasActiveCall = prospectsWithActiveCalls.has(conversation.prospecto_id);
+                  
+                  // Verificar si el bot está pausado para esta conversación
+                  const uchatId = conversation.metadata?.id_uchat || conversation.id_uchat;
+                  const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
+                  const isBotPaused = pauseStatus?.isPaused && (
+                    pauseStatus.pausedUntil === null || 
+                    pauseStatus.pausedUntil > new Date()
+                  );
+                  
+                  // Prioridad: Llamada activa > Bot pausado > Avatar normal
+                  if (hasActiveCall) {
+                    return (
+                      <div
+                        className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm cursor-pointer animate-pulse hover:animate-none hover:scale-110 transition-transform"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAppMode('live-monitor');
+                        }}
+                        style={{
+                          animation: 'heartbeat 1.5s ease-in-out infinite'
+                        }}
+                      >
+                        <style>{`
+                          @keyframes heartbeat {
+                            0%, 100% { transform: scale(1); }
+                            50% { transform: scale(1.1); }
+                          }
+                        `}</style>
+                        <Phone className="w-5 h-5 text-white" />
+                      </div>
+                    );
+                  }
+                  
+                  // Indicador de bot pausado
+                  if (isBotPaused) {
+                    return (
+                      <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <Pause className="w-5 h-5 text-white" fill="white" />
+                      </div>
+                    );
+                  }
+                  
+                  // Avatar normal con iniciales
+                  return (
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <span className="text-sm font-semibold text-white">
+                        {conversation.customer_name?.charAt(0).toUpperCase() || 'C'}
+                      </span>
+                    </div>
+                  );
+                })()}
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                      {conversation.customer_name}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        {conversation.customer_name}
+                      </h3>
+                    </div>
                     <div className="flex items-center gap-2">
+                      {/* RED FLAG para prospectos que requieren atención - Alineado a la derecha */}
+                      {(() => {
+                        const prospectId = conversation.prospecto_id || conversation.id;
+                        const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                        const requiereAtencion = prospectoData?.requiere_atencion_humana || false;
+                        
+                        return (
+                          <RequiereAtencionListFlag 
+                            key={`flag-${prospectId}`}
+                            prospectId={prospectId}
+                            requiereAtencionHumana={requiereAtencion} 
+                          />
+                        );
+                      })()}
                       {/* Indicador de mensajes no leídos */}
                       {(Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0)) > 0 && (
                         <div className="bg-green-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
@@ -3703,13 +4399,40 @@ const LiveChatCanvas: React.FC = () => {
 
               {/* Controles del Bot */}
               <div className="flex items-center space-x-3">
+                {/* Indicador de requiere atención humana */}
+                {(() => {
+                  const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
+                  const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                  const requiereAtencion = prospectoData?.requiere_atencion_humana || false;
+                  
+                  // Mostrar siempre el botón, pero en diferentes estados según requiere_atencion_humana
+                  return (
+                    <RequiereAtencionFlag
+                      prospectId={prospectId}
+                      requiereAtencionHumana={requiereAtencion}
+                      onResolve={async () => {
+                        const success = await updateRequiereAtencionHumana(prospectId, false);
+                        if (success) {
+                          toast.success('Estado de atención actualizado');
+                        }
+                      }}
+                      onReEnable={async () => {
+                        const success = await updateRequiereAtencionHumana(prospectId, true);
+                        if (success) {
+                          toast.success('Atención humana reactivada');
+                        }
+                      }}
+                    />
+                  );
+                })()}
+                
                 {(() => {
                   // Obtener uchatId de manera consistente (mismo que en handleInitiateCall)
                   const uchatId = selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat || selectedConversation.id;
                   const status = botPauseStatus[uchatId];
                   const timeRemaining = getBotPauseTimeRemaining(uchatId);
                   
-                  if (status?.isPaused && timeRemaining > 0) {
+                  if (status?.isPaused && (timeRemaining === null || timeRemaining > 0)) {
                     return (
                       <div className="flex items-center space-x-3">
                         <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium">
@@ -3725,30 +4448,37 @@ const LiveChatCanvas: React.FC = () => {
                     );
                   } else {
                     return (
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1 flex-wrap gap-1">
                         <button
-                          onClick={() => pauseBot(uchatId, 5)}
+                          onClick={() => pauseBot(uchatId, 5, true)}
                           className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full text-xs font-medium hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors"
                         >
                           5m
                         </button>
                         <button
-                          onClick={() => pauseBot(uchatId, 15)}
+                          onClick={() => pauseBot(uchatId, 15, true)}
                           className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
                         >
                           15m
                         </button>
                         <button
-                          onClick={() => pauseBot(uchatId, 30)}
+                          onClick={() => pauseBot(uchatId, 30, true)}
                           className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
                         >
                           30m
                         </button>
                         <button
-                          onClick={() => pauseBot(uchatId, 60)}
+                          onClick={() => pauseBot(uchatId, 60, true)}
                           className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
                         >
                           1h
+                        </button>
+                        <button
+                          onClick={() => pauseBot(uchatId, null, true)}
+                          className="px-2 py-1 bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-900/50 transition-colors border border-gray-300 dark:border-gray-600"
+                          title="Pausar indefinidamente (1 mes)"
+                        >
+                          ∞
                         </button>
                       </div>
                     );
@@ -3813,6 +4543,7 @@ const LiveChatCanvas: React.FC = () => {
                 {combinedMessages.map((message, index) => {
                   const isCustomer = message.sender_type === 'customer';
                   const isBot = message.sender_type === 'bot';
+                  const isCall = message.sender_type === 'call';
                   const showDate = index === 0 || 
                     formatDate(message.created_at) !== formatDate(combinedMessages[index - 1]?.created_at);
 
@@ -3829,25 +4560,87 @@ const LiveChatCanvas: React.FC = () => {
                         </div>
                       )}
 
-                      <div className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
-                        <div className={`max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
-                          
-                          {(() => {
-                            // Parsear adjuntos si existen
-                            const adjuntos = (message as any).adjuntos 
-                              ? JSON.parse(
-                                  typeof (message as any).adjuntos === 'string' 
-                                    ? (message as any).adjuntos 
-                                    : JSON.stringify((message as any).adjuntos)
-                                )
-                              : null;
+                      {/* Renderizar llamada si es tipo call */}
+                      {isCall && message.call_data ? (
+                        <div className="flex justify-end">
+                          <div className="max-w-md order-1 mr-3">
+                            <div className="relative px-4 py-3 rounded-2xl shadow-sm bg-slate-900 dark:bg-gray-800 text-white border border-slate-700 dark:border-gray-600">
+                              <div className="flex items-center gap-3">
+                                {/* Icono de llamada */}
+                                <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                                  message.call_data.estatus === 'ejecutada' 
+                                    ? 'bg-green-100 dark:bg-green-900/30' 
+                                    : message.call_data.estatus === 'no contesto'
+                                    ? 'bg-red-100 dark:bg-red-900/30'
+                                    : 'bg-blue-100 dark:bg-blue-900/30'
+                                }`}>
+                                  <Phone className={`w-5 h-5 ${
+                                    message.call_data.estatus === 'ejecutada'
+                                      ? 'text-green-600 dark:text-green-400'
+                                      : message.call_data.estatus === 'no contesto'
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : 'text-blue-600 dark:text-blue-400'
+                                  }`} />
+                                </div>
+                                
+                                {/* Información de la llamada */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-sm font-semibold text-white">
+                                      {message.call_data.estatus === 'ejecutada' 
+                                        ? 'Llamada realizada' 
+                                        : message.call_data.estatus === 'no contesto'
+                                        ? 'Llamada no contestada'
+                                        : 'Llamada programada'}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Duración si está disponible */}
+                                  {message.call_data.duracion_segundos && message.call_data.duracion_segundos > 0 && (
+                                    <div className="text-xs text-slate-300 dark:text-gray-300 mb-1">
+                                      Duración: {Math.floor(message.call_data.duracion_segundos / 60)}:{(message.call_data.duracion_segundos % 60).toString().padStart(2, '0')}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Programada por */}
+                                  {message.call_data.programada_por_nombre && (
+                                    <div className="text-xs text-slate-300 dark:text-gray-400">
+                                      Por: {message.call_data.programada_por_nombre}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Timestamp */}
+                                  <div className="text-right text-xs text-slate-300 dark:text-gray-400 mt-1">
+                                    {formatTime(message.created_at)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
 
-                            // Determinar si necesita globo (false para stickers y audios)
-                            const shouldHaveBubble = !adjuntos || needsBubble(adjuntos) || message.content;
+                      {/* Mensajes regulares (no llamadas) */}
+                      {!isCall && (
+                        <div className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
+                          <div className={`max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
+                            
+                            {(() => {
+                              // Parsear adjuntos si existen
+                              const adjuntos = (message as any).adjuntos 
+                                ? JSON.parse(
+                                    typeof (message as any).adjuntos === 'string' 
+                                      ? (message as any).adjuntos 
+                                      : JSON.stringify((message as any).adjuntos)
+                                  )
+                                : null;
 
-                            if (shouldHaveBubble) {
-                              // CON GLOBO: Texto, imágenes, videos, documentos
-                              return (
+                              // Determinar si necesita globo (false para stickers y audios)
+                              const shouldHaveBubble = !adjuntos || needsBubble(adjuntos) || message.content;
+
+                              if (shouldHaveBubble) {
+                                // CON GLOBO: Texto, imágenes, videos, documentos
+                                return (
                           <div className={`relative px-4 py-3 rounded-2xl shadow-sm ${
                             isCustomer 
                               ? 'bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-slate-900 dark:text-white' 
@@ -3868,6 +4661,7 @@ const LiveChatCanvas: React.FC = () => {
                                     <MultimediaMessage 
                                       adjuntos={adjuntos}
                                       hasTextContent={!!message.content}
+                                      isFromCustomer={isCustomer}
                                     />
                                   )}
                                   
@@ -3891,6 +4685,7 @@ const LiveChatCanvas: React.FC = () => {
                                     <MultimediaMessage 
                                       adjuntos={adjuntos}
                                       hasTextContent={false}
+                                      isFromCustomer={isCustomer}
                                     />
                                   )}
                                   {/* Timestamp pequeño debajo */}
@@ -3903,46 +4698,67 @@ const LiveChatCanvas: React.FC = () => {
                           })()}
                         </div>
 
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
-                          isCustomer ? 'order-1' : 'order-2'
-                        } ${
-                          isCustomer 
-                            ? 'bg-gradient-to-br from-slate-400 to-slate-600' 
-                            : isBot
-                              ? 'bg-gradient-to-br from-blue-500 to-blue-700'
-                              : 'bg-gradient-to-br from-slate-800 to-slate-900'
-                        }`}>
-                          <span className="text-xs font-semibold text-white">
-                            {isCustomer 
-                              ? (selectedConversation?.customer_name?.charAt(0).toUpperCase() || 'C')
-                              : isBot 
-                                ? 'B'
-                                : (() => {
-                                    // Obtener iniciales del agente asignado
-                                    const conversationId = selectedConversation?.id || '';
-                                    const prospectId = selectedConversation?.prospecto_id || '';
-                                    
-                                    // Buscar en caché por conversationId o prospectId
-                                    const agentName = agentNamesById[conversationId] 
-                                      || agentNamesById[prospectId]
-                                      || selectedConversation?.metadata?.ejecutivo_nombre
-                                      || user?.full_name; // Fallback al usuario actual si no hay agente asignado
-                                    
-                                    if (agentName) {
-                                      return getInitials(agentName);
-                                    }
-                                    
-                                    // Si aún no tenemos el nombre, intentar cargarlo
-                                    if (conversationId && !agentNamesById[conversationId] && !agentNamesById[prospectId]) {
-                                      getAssignedAgentName(conversationId).catch(() => {});
-                                    }
-                                    
-                                    return 'A';
-                                  })()
-                            }
-                          </span>
-                        </div>
+                        {/* Avatar solo para mensajes que no son llamadas */}
+                        {!isCall && (
+                          <div 
+                            className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
+                              isCustomer ? 'order-1' : 'order-2'
+                            } ${
+                              isCustomer 
+                                ? 'bg-gradient-to-br from-slate-400 to-slate-600' 
+                                : isBot
+                                  ? 'bg-gradient-to-br from-blue-500 to-blue-700'
+                                  : 'bg-gradient-to-br from-slate-800 to-slate-900'
+                            }`}
+                            title={(() => {
+                              if (isCustomer) {
+                                return selectedConversation?.customer_name || 'Cliente';
+                              } else if (isBot) {
+                                return 'Bot Vidanta';
+                              } else {
+                                // Mostrar nombre del usuario que envió el mensaje si está disponible
+                                return message.sender_user_name || message.sender_name || 'Agente';
+                              }
+                            })()}
+                          >
+                            <span className="text-xs font-semibold text-white">
+                              {isCustomer 
+                                ? (selectedConversation?.customer_name?.charAt(0).toUpperCase() || 'C')
+                                : isBot 
+                                  ? 'B'
+                                  : (() => {
+                                      // Si hay sender_user_name, usar ese nombre para las iniciales
+                                      if (message.sender_user_name) {
+                                        return getInitials(message.sender_user_name);
+                                      }
+                                      
+                                      // Obtener iniciales del agente asignado
+                                      const conversationId = selectedConversation?.id || '';
+                                      const prospectId = selectedConversation?.prospecto_id || '';
+                                      
+                                      // Buscar en caché por conversationId o prospectId
+                                      const agentName = agentNamesById[conversationId] 
+                                        || agentNamesById[prospectId]
+                                        || selectedConversation?.metadata?.ejecutivo_nombre
+                                        || user?.full_name; // Fallback al usuario actual si no hay agente asignado
+                                      
+                                      if (agentName) {
+                                        return getInitials(agentName);
+                                      }
+                                      
+                                      // Si aún no tenemos el nombre, intentar cargarlo
+                                      if (conversationId && !agentNamesById[conversationId] && !agentNamesById[prospectId]) {
+                                        getAssignedAgentName(conversationId).catch(() => {});
+                                      }
+                                      
+                                      return 'A';
+                                    })()
+                              }
+                            </span>
+                          </div>
+                        )}
                       </div>
+                      )}
                     </div>
                   );
                 })}
@@ -3976,8 +4792,14 @@ const LiveChatCanvas: React.FC = () => {
                         transition={{ delay: index * 0.05, duration: 0.2 }}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                      onClick={async () => {
+                        onClick={async () => {
                         // Enviar directamente sin pasar por el filtro del LLM
+                        const uchatId = selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat || selectedConversation?.id;
+                        if (uchatId) {
+                          // Pausar el bot por 1 minuto antes de enviar quick reply (solo si no hay pausa activa)
+                          // force = false para respetar pausas existentes (indefinidas, etc.)
+                          await pauseBot(uchatId, 1, false);
+                        }
                         await sendMessageWithText(reply.text);
                       }}
                         className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 border border-slate-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 rounded-lg transition-all duration-200 whitespace-nowrap shadow-sm hover:shadow"
@@ -4132,6 +4954,8 @@ const LiveChatCanvas: React.FC = () => {
             conversation_id: conversationId,
             sender_type: 'agent',
             sender_name: 'Agente',
+            id_sender: user?.id || undefined,
+            sender_user_name: user?.full_name || undefined,
             content: caption || '',
             is_read: true,
             created_at: new Date().toISOString(),
