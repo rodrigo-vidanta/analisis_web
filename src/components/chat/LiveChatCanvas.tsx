@@ -259,7 +259,7 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
   };
 
   return (
-    <div className="relative">
+    <div className="relative" style={{ position: 'relative' }}>
       <AnimatePresence mode="wait">
         {isDisabled ? (
           // Estado gris (deshabilitado, puede reactivarse)
@@ -275,7 +275,11 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
             whileTap={{ scale: 0.95 }}
             onClick={handleClick}
             disabled={isReEnabling}
-            onMouseEnter={() => motivoHandoff && setShowTooltip(true)}
+            onMouseEnter={() => {
+              if (requiereAtencionHumana && motivoHandoff) {
+                setShowTooltip(true);
+              }
+            }}
             onMouseLeave={() => setShowTooltip(false)}
             className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Click para volver a habilitar atención humana"
@@ -303,7 +307,11 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
             whileTap={{ scale: 0.95 }}
             onClick={handleClick}
             disabled={isResolving}
-            onMouseEnter={() => motivoHandoff && setShowTooltip(true)}
+            onMouseEnter={() => {
+              if (requiereAtencionHumana && motivoHandoff) {
+                setShowTooltip(true);
+              }
+            }}
             onMouseLeave={() => setShowTooltip(false)}
             className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Requiere atención humana - Click para resolver"
@@ -319,56 +327,49 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
         )}
       </AnimatePresence>
       
-      {/* Tooltip con motivo_handoff - Estilo globo de chat con urgencia */}
+      {/* Tooltip con motivo_handoff - Estilo globo pequeño y compacto */}
       <AnimatePresence>
         {showTooltip && motivoHandoff && requiereAtencionHumana && (
           <motion.div
-            initial={{ opacity: 0, x: 8, scale: 0.96 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 8, scale: 0.96 }}
+            initial={{ opacity: 0, y: -4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.95 }}
             transition={{ 
-              duration: 0.2, 
-              ease: [0.16, 1, 0.3, 1] // Curva de animación moderna y suave
+              duration: 0.15, 
+              ease: [0.16, 1, 0.3, 1]
             }}
-            className="absolute right-full mr-2 top-1/2 -translate-y-1/2 z-50 shadow-2xl w-[480px] pointer-events-none whitespace-normal"
+            className="absolute top-full mt-2 left-0 z-[9999] shadow-lg pointer-events-none whitespace-normal
+              max-w-xs w-64
+              sm:max-w-sm sm:w-80
+              md:max-w-md md:w-96"
             style={{ 
-              filter: 'drop-shadow(0 10px 25px rgba(239, 68, 68, 0.4))'
+              filter: 'drop-shadow(0 4px 12px rgba(239, 68, 68, 0.3))'
             }}
           >
-            {/* Contenedor del globo con pico */}
-            <div className="relative bg-gradient-to-br from-red-600 to-orange-600 dark:from-red-700 dark:to-orange-700 text-white rounded-2xl">
-              {/* Contenido del globo */}
-              <div className="px-5 py-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-white flex-shrink-0" />
-                  <span className="font-semibold text-white text-sm">Motivo de Atención</span>
-                </div>
-                <div className="text-white/95 leading-relaxed break-words text-xs pl-6">
-                  {motivoHandoff}
-                </div>
-              </div>
-              
-              {/* Pico del globo apuntando hacia el botón (centro vertical, estilo WhatsApp) */}
-              <div className="absolute left-full top-1/2 -translate-y-1/2 -ml-1">
+            {/* Contenedor del globo pequeño con pico */}
+            <div className="relative bg-gradient-to-br from-red-600 to-orange-600 dark:from-red-700 dark:to-orange-700 text-white rounded-lg">
+              {/* Pico del globo apuntando hacia arriba al botón */}
+              <div className="absolute left-4 -top-1.5">
                 <svg
-                  width="8"
-                  height="13"
-                  viewBox="0 0 8 13"
+                  width="12"
+                  height="6"
+                  viewBox="0 0 12 6"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <path
-                    d="M5.188 1H0v11.114l5.188-5.188v-5.926z"
+                    d="M6 0L0 6h12L6 0z"
                     fill="currentColor"
                     className="text-red-600 dark:text-red-700"
-                  />
-                  <path
-                    d="M5.188 6.926L1.074 11.04H0v-1.074l4.114-4.114h1.074z"
-                    fill="currentColor"
-                    className="text-red-600 dark:text-red-700"
-                    opacity="0.1"
                   />
                 </svg>
+              </div>
+              
+              {/* Contenido del globo compacto */}
+              <div className="px-3 py-2">
+                <div className="text-white/95 leading-snug break-words text-xs">
+                  {motivoHandoff}
+                </div>
               </div>
             </div>
           </motion.div>
