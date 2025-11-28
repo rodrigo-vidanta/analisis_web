@@ -17,6 +17,45 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.18.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🔴 Mejoras en Tooltip de Motivo de Atención**
+- **Visibilidad condicional:** El tooltip de `motivo_handoff` solo se muestra cuando `requiere_atencion_humana` está activo (`true`)
+- **Ancho optimizado:** Tooltip aumentado a 480px (`w-[480px]`) para mejor distribución del texto largo
+- **Pico mejorado:** El pico del globo apunta correctamente hacia el centro del botón "Requiere Atención" usando `top-1/2 -translate-y-1/2`
+- **Estilo refinado:** Padding aumentado (`px-5 py-4`) y espaciado mejorado (`space-y-3`) para mejor legibilidad
+
+#### **🗑️ Limpieza Automática de Motivo**
+- **Borrado automático:** Cuando se desactiva `requiere_atencion_humana`, el campo `motivo_handoff` se borra automáticamente de la base de datos (`null`)
+- **Sincronización inmediata:** El borrado se refleja inmediatamente en el estado local (`prospectosDataRef`) y en la UI
+- **Actualización en función:** La función `updateRequiereAtencionHumana` ahora incluye `motivo_handoff: null` cuando `value` es `false`
+
+#### **🔄 Suscripciones Realtime Mejoradas**
+- **Actualización completa:** Las suscripciones de realtime ahora detectan cambios tanto en `requiere_atencion_humana` como en `motivo_handoff`
+- **Suscripción prospectos UPDATE:** Detecta cambios en ambos campos y actualiza el ref local y fuerza re-render
+- **Suscripción mensajes_whatsapp INSERT:** Ahora también carga `motivo_handoff` cuando llega un mensaje nuevo y actualiza si ha cambiado
+- **Re-render optimizado:** Uso de `startTransition` para actualizaciones no bloqueantes del UI
+- **Sincronización bidireccional:** Los cambios se propagan desde la base de datos hacia la UI y viceversa
+
+#### **📝 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx`
+  - Modificado componente `RequiereAtencionFlag` para mostrar tooltip solo cuando `requiereAtencionHumana` es `true`
+  - Modificado tooltip para usar `w-[480px]` y mejor posicionamiento del pico
+  - Modificado `updateRequiereAtencionHumana` para borrar `motivo_handoff` cuando se desactiva `requiere_atencion_humana`
+  - Modificado `updateRequiereAtencionHumana` para forzar re-render de `selectedConversation` usando `startTransition`
+  - Modificado suscripción `postgres_changes` en `prospectos` (UPDATE) para detectar cambios en `motivo_handoff`
+  - Modificado suscripción `postgres_changes` en `mensajes_whatsapp` (INSERT) para cargar `motivo_handoff` junto con `requiere_atencion_humana`
+
+#### **✅ Beneficios**
+- ✅ Tooltip solo visible cuando es relevante (requiere atención activo)
+- ✅ Mejor legibilidad con tooltip más ancho y mejor distribución de texto
+- ✅ Limpieza automática de datos obsoletos (`motivo_handoff` cuando se resuelve)
+- ✅ Sincronización completa en tiempo real de todos los estados relacionados
+- ✅ Mejor rendimiento con actualizaciones optimizadas usando `startTransition`
+
+---
+
 ### **v5.17.0** - Enero 2025
 **Estado:** ✅ Producción
 

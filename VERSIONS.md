@@ -1,5 +1,30 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.3.0N6.0.0 (Enero 2025) - Live Chat: Mejoras en Tooltip y Realtime
+
+### 🔴 RELEASE BETA - Optimización de Tooltip y Sincronización Realtime
+
+#### Mejoras en Tooltip de Motivo de Atención
+- **Visibilidad condicional:** Tooltip solo visible cuando `requiere_atencion_humana` está activo
+- **Ancho optimizado:** Aumentado a 480px para mejor distribución de texto
+- **Pico mejorado:** Apunta correctamente hacia el centro del botón
+- **Estilo refinado:** Padding y espaciado mejorados
+
+#### Limpieza Automática de Motivo
+- **Borrado automático:** `motivo_handoff` se borra cuando se desactiva `requiere_atencion_humana`
+- **Sincronización inmediata:** Cambios reflejados en BD y UI
+
+#### Suscripciones Realtime Mejoradas
+- **Actualización completa:** Detecta cambios en `requiere_atencion_humana` y `motivo_handoff`
+- **Sincronización bidireccional:** Cambios desde BD hacia UI y viceversa
+- **Actualización en mensajes:** `motivo_handoff` se actualiza cuando llegan mensajes nuevos
+- **Re-render optimizado:** Uso de `startTransition` para mejor rendimiento
+
+#### Archivos Principales
+- `src/components/chat/LiveChatCanvas.tsx` - Tooltip condicional, borrado automático, suscripciones mejoradas
+
+---
+
 ## Versión B2.2.9N6.0.0 (Enero 2025) - Live Chat: Sistema RED FLAG y Llamadas Programadas
 
 ### 🔴 RELEASE BETA - Sistema de Atención Humana y Llamadas en Chat

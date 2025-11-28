@@ -1,5 +1,37 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🔴 Versión B2.3.0N6.0.0 - Mejoras en Sistema RED FLAG y Tooltip de Motivo (Enero 2025)
+
+### 🎯 **RELEASE BETA - Optimización de Tooltip y Sincronización Realtime**
+
+#### 🔴 **Mejoras en Tooltip de Motivo de Atención**
+- **Visibilidad condicional:** El tooltip de `motivo_handoff` solo se muestra cuando `requiere_atencion_humana` está activo (`true`)
+- **Ancho optimizado:** Tooltip aumentado a 480px (`w-[480px]`) para mejor distribución del texto largo
+- **Pico mejorado:** El pico del globo apunta correctamente hacia el centro del botón "Requiere Atención"
+- **Estilo refinado:** Padding aumentado (`px-5 py-4`) y espaciado mejorado (`space-y-3`) para mejor legibilidad
+
+#### 🗑️ **Limpieza Automática de Motivo**
+- **Borrado automático:** Cuando se desactiva `requiere_atencion_humana`, el campo `motivo_handoff` se borra automáticamente de la base de datos (`null`)
+- **Sincronización:** El borrado se refleja inmediatamente en el estado local y en la UI
+
+#### 🔄 **Suscripciones Realtime Mejoradas**
+- **Actualización completa:** Las suscripciones de realtime ahora detectan cambios tanto en `requiere_atencion_humana` como en `motivo_handoff`
+- **Sincronización bidireccional:** Los cambios se propagan desde la base de datos hacia la UI y viceversa
+- **Actualización en mensajes nuevos:** Cuando llega un nuevo mensaje, se actualiza también `motivo_handoff` si ha cambiado
+- **Re-render optimizado:** Uso de `startTransition` para actualizaciones no bloqueantes del UI
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Tooltip condicional, borrado automático, suscripciones mejoradas (⭐ 5000+ líneas)
+
+#### ✅ **Beneficios**
+- ✅ Tooltip solo visible cuando es relevante (requiere atención activo)
+- ✅ Mejor legibilidad con tooltip más ancho
+- ✅ Limpieza automática de datos obsoletos
+- ✅ Sincronización completa en tiempo real de todos los estados
+- ✅ Mejor rendimiento con actualizaciones optimizadas
+
+---
+
 ## 🔴 Versión B2.2.9N6.0.0 - Sistema RED FLAG y Llamadas Programadas en Chat (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Sistema de Atención Humana y Llamadas en Chat**

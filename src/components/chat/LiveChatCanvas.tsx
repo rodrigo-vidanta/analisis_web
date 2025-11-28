@@ -218,11 +218,13 @@ const RequiereAtencionListFlag: React.FC<RequiereAtencionListFlagProps> = ({ req
 interface RequiereAtencionFlagProps {
   prospectId: string;
   requiereAtencionHumana: boolean;
+  motivoHandoff?: string | null;
   onResolve: () => Promise<void>;
   onReEnable: () => Promise<void>;
 }
 
-const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId, requiereAtencionHumana, onResolve, onReEnable }) => {
+const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId, requiereAtencionHumana, motivoHandoff, onResolve, onReEnable }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [isReEnabling, setIsReEnabling] = useState(false);
   
@@ -257,60 +259,122 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
   };
 
   return (
-    <AnimatePresence mode="wait">
-      {isDisabled ? (
-        // Estado gris (deshabilitado, puede reactivarse)
-        <motion.button
-          key="gray-flag"
-          initial={false}
-          animate={{ backgroundColor: "#6b7280" }}
-          transition={{ 
-            duration: 0.3,
-            ease: "easeInOut"
-          }}
-          whileHover={{ scale: 1.05, backgroundColor: "#4b5563" }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleClick}
-          disabled={isReEnabling}
-          className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Click para volver a habilitar atención humana"
-        >
-          <motion.div
-            key="gray-icon"
-            animate={{ rotate: [0, -10, 10, -10, 0] }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
+    <div className="relative">
+      <AnimatePresence mode="wait">
+        {isDisabled ? (
+          // Estado gris (deshabilitado, puede reactivarse)
+          <motion.button
+            key="gray-flag"
+            initial={false}
+            animate={{ backgroundColor: "#6b7280" }}
+            transition={{ 
+              duration: 0.3,
+              ease: "easeInOut"
+            }}
+            whileHover={{ scale: 1.05, backgroundColor: "#4b5563" }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleClick}
+            disabled={isReEnabling}
+            onMouseEnter={() => motivoHandoff && setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Click para volver a habilitar atención humana"
           >
-            <Flag className="w-4 h-4 fill-white" />
-          </motion.div>
-          <span>Requiere Atención</span>
-        </motion.button>
-      ) : (
-        // Estado rojo (activo, requiere atención)
-        <motion.button
-          key="red-flag"
-          initial={false}
-          animate={{ backgroundColor: "#ef4444" }}
-          transition={{ 
-            duration: 0.3,
-            ease: "easeInOut"
-          }}
-          whileHover={{ scale: 1.05, backgroundColor: "#dc2626" }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleClick}
-          disabled={isResolving}
-          className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Requiere atención humana - Click para resolver"
-        >
-          <motion.div
-            animate={{ rotate: [0, -10, 10, -10, 0] }}
-            transition={{ duration: 0.3 }}
+            <motion.div
+              key="gray-icon"
+              animate={{ rotate: [0, -10, 10, -10, 0] }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+              <Flag className="w-4 h-4 fill-white" />
+            </motion.div>
+            <span>Requiere Atención</span>
+          </motion.button>
+        ) : (
+          // Estado rojo (activo, requiere atención)
+          <motion.button
+            key="red-flag"
+            initial={false}
+            animate={{ backgroundColor: "#ef4444" }}
+            transition={{ 
+              duration: 0.3,
+              ease: "easeInOut"
+            }}
+            whileHover={{ scale: 1.05, backgroundColor: "#dc2626" }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleClick}
+            disabled={isResolving}
+            onMouseEnter={() => motivoHandoff && setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Requiere atención humana - Click para resolver"
           >
-            <Flag className="w-4 h-4 fill-white" />
+            <motion.div
+              animate={{ rotate: [0, -10, 10, -10, 0] }}
+              transition={{ duration: 0.3 }}
+            >
+              <Flag className="w-4 h-4 fill-white" />
+            </motion.div>
+            <span>Requiere Atención</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+      
+      {/* Tooltip con motivo_handoff - Estilo globo de chat con urgencia */}
+      <AnimatePresence>
+        {showTooltip && motivoHandoff && requiereAtencionHumana && (
+          <motion.div
+            initial={{ opacity: 0, x: 8, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 8, scale: 0.96 }}
+            transition={{ 
+              duration: 0.2, 
+              ease: [0.16, 1, 0.3, 1] // Curva de animación moderna y suave
+            }}
+            className="absolute right-full mr-2 top-1/2 -translate-y-1/2 z-50 shadow-2xl w-[480px] pointer-events-none whitespace-normal"
+            style={{ 
+              filter: 'drop-shadow(0 10px 25px rgba(239, 68, 68, 0.4))'
+            }}
+          >
+            {/* Contenedor del globo con pico */}
+            <div className="relative bg-gradient-to-br from-red-600 to-orange-600 dark:from-red-700 dark:to-orange-700 text-white rounded-2xl">
+              {/* Contenido del globo */}
+              <div className="px-5 py-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-white flex-shrink-0" />
+                  <span className="font-semibold text-white text-sm">Motivo de Atención</span>
+                </div>
+                <div className="text-white/95 leading-relaxed break-words text-xs pl-6">
+                  {motivoHandoff}
+                </div>
+              </div>
+              
+              {/* Pico del globo apuntando hacia el botón (centro vertical, estilo WhatsApp) */}
+              <div className="absolute left-full top-1/2 -translate-y-1/2 -ml-1">
+                <svg
+                  width="8"
+                  height="13"
+                  viewBox="0 0 8 13"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M5.188 1H0v11.114l5.188-5.188v-5.926z"
+                    fill="currentColor"
+                    className="text-red-600 dark:text-red-700"
+                  />
+                  <path
+                    d="M5.188 6.926L1.074 11.04H0v-1.074l4.114-4.114h1.074z"
+                    fill="currentColor"
+                    className="text-red-600 dark:text-red-700"
+                    opacity="0.1"
+                  />
+                </svg>
+              </div>
+            </div>
           </motion.div>
-          <span>Requiere Atención</span>
-        </motion.button>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
@@ -442,6 +506,7 @@ const LiveChatCanvas: React.FC = () => {
     email?: string | null;
     whatsapp?: string | null;
     requiere_atencion_humana?: boolean;
+    motivo_handoff?: string | null;
   }>>(new Map());
 
   const [metrics, setMetrics] = useState({
@@ -730,13 +795,13 @@ const LiveChatCanvas: React.FC = () => {
             return;
           }
 
-          // ✅ ACTUALIZAR: Cargar requiere_atencion_humana cuando llega un mensaje nuevo
+          // ✅ ACTUALIZAR: Cargar requiere_atencion_humana y motivo_handoff cuando llega un mensaje nuevo
           // Esto asegura que siempre tengamos el valor más reciente
           (async () => {
             try {
               const { data: prospectoData } = await analysisSupabase
                 .from('prospectos')
-                .select('requiere_atencion_humana')
+                .select('requiere_atencion_humana, motivo_handoff')
                 .eq('id', targetProspectoId)
                 .single();
               
@@ -744,10 +809,13 @@ const LiveChatCanvas: React.FC = () => {
                 const prospectoDataRef = prospectosDataRef.current.get(targetProspectoId);
                 if (prospectoDataRef) {
                   const requiereAtencionChanged = prospectoDataRef.requiere_atencion_humana !== prospectoData.requiere_atencion_humana;
-                  if (requiereAtencionChanged) {
+                  const motivoHandoffChanged = prospectoDataRef.motivo_handoff !== prospectoData.motivo_handoff;
+                  
+                  if (requiereAtencionChanged || motivoHandoffChanged) {
                     prospectosDataRef.current.set(targetProspectoId, {
                       ...prospectoDataRef,
-                      requiere_atencion_humana: prospectoData.requiere_atencion_humana || false
+                      requiere_atencion_humana: prospectoData.requiere_atencion_humana || false,
+                      motivo_handoff: prospectoData.motivo_handoff || null
                     });
                     
                     // Forzar re-render si es necesario
@@ -992,14 +1060,17 @@ const LiveChatCanvas: React.FC = () => {
           const oldProspecto = payload.old as any;
           const prospectoId = updatedProspecto.id;
           
-          // ✅ ACTUALIZAR: requiere_atencion_humana en el ref local
+          // ✅ ACTUALIZAR: requiere_atencion_humana y motivo_handoff en el ref local
           const requiereAtencionChanged = oldProspecto?.requiere_atencion_humana !== updatedProspecto.requiere_atencion_humana;
-          if (requiereAtencionChanged) {
+          const motivoHandoffChanged = oldProspecto?.motivo_handoff !== updatedProspecto.motivo_handoff;
+          
+          if (requiereAtencionChanged || motivoHandoffChanged) {
             const prospectoData = prospectosDataRef.current.get(prospectoId);
             if (prospectoData) {
               prospectosDataRef.current.set(prospectoId, {
                 ...prospectoData,
-                requiere_atencion_humana: updatedProspecto.requiere_atencion_humana || false
+                requiere_atencion_humana: updatedProspecto.requiere_atencion_humana || false,
+                motivo_handoff: updatedProspecto.motivo_handoff || null
               });
             }
             
@@ -2161,7 +2232,7 @@ const LiveChatCanvas: React.FC = () => {
         prospectoIds.size > 0
           ? analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, email, whatsapp, requiere_atencion_humana')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, email, whatsapp, requiere_atencion_humana, motivo_handoff')
               .in('id', Array.from(prospectoIds))
               .then(({ data }) => {
                 const map = new Map<string, { 
@@ -2173,6 +2244,7 @@ const LiveChatCanvas: React.FC = () => {
                   email?: string | null;
                   whatsapp?: string | null;
                   requiere_atencion_humana?: boolean;
+                  motivo_handoff?: string | null;
                 }>();
                 (data || []).forEach(p => {
                   map.set(p.id, { 
@@ -2184,6 +2256,7 @@ const LiveChatCanvas: React.FC = () => {
                     email: p.email,
                     whatsapp: p.whatsapp,
                     requiere_atencion_humana: p.requiere_atencion_humana || false,
+                    motivo_handoff: p.motivo_handoff || null,
                   });
                   if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
                   if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
@@ -3347,9 +3420,18 @@ const LiveChatCanvas: React.FC = () => {
   // Función para actualizar requiere_atencion_humana
   const updateRequiereAtencionHumana = async (prospectoId: string, value: boolean): Promise<boolean> => {
     try {
+      // Si se desactiva, también borrar el motivo_handoff
+      const updateData: { requiere_atencion_humana: boolean; motivo_handoff?: null } = {
+        requiere_atencion_humana: value
+      };
+      
+      if (!value) {
+        updateData.motivo_handoff = null;
+      }
+
       const { error } = await analysisSupabase
         .from('prospectos')
-        .update({ requiere_atencion_humana: value })
+        .update(updateData)
         .eq('id', prospectoId);
 
       if (error) {
@@ -3363,17 +3445,27 @@ const LiveChatCanvas: React.FC = () => {
       if (prospectoData) {
         prospectosDataRef.current.set(prospectoId, {
           ...prospectoData,
-          requiere_atencion_humana: value
+          requiere_atencion_humana: value,
+          motivo_handoff: value ? prospectoData.motivo_handoff : null
         });
       }
 
-      // Actualizar las conversaciones en el estado
-      setConversations(prev => prev.map(conv => {
-        if (conv.prospecto_id === prospectoId) {
-          return { ...conv };
+      // Actualizar las conversaciones en el estado y forzar re-render
+      startTransition(() => {
+        setConversations(prev => prev.map(conv => {
+          if (conv.prospecto_id === prospectoId) {
+            return { ...conv };
+          }
+          return conv;
+        }));
+        
+        // ✅ CRÍTICO: Si la conversación seleccionada es la que cambió, forzar re-render
+        // Esto asegura que el indicador RequiereAtencionFlag se actualice inmediatamente
+        if (selectedConversation && 
+            (selectedConversation.prospecto_id === prospectoId || selectedConversation.id === prospectoId)) {
+          setSelectedConversation(prev => prev ? { ...prev } : null);
         }
-        return conv;
-      }));
+      });
 
       return true;
     } catch (error) {
@@ -4410,6 +4502,7 @@ const LiveChatCanvas: React.FC = () => {
                     <RequiereAtencionFlag
                       prospectId={prospectId}
                       requiereAtencionHumana={requiereAtencion}
+                      motivoHandoff={prospectoData?.motivo_handoff || null}
                       onResolve={async () => {
                         const success = await updateRequiereAtencionHumana(prospectId, false);
                         if (success) {
