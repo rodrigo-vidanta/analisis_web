@@ -1,5 +1,33 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.2.6N6.0.0 (Enero 2025) - Mejoras en Control de Bot y Multimedia
+
+### 🤖 RELEASE BETA - Optimización de Experiencia de Chat
+
+#### Sistema de Pausa del Bot Mejorado
+- **Indicador visual:** Avatar muestra icono de pausa cuando el bot está pausado
+- **Manejo de errores:** Notificaciones toast para errores de webhook (código 400, timeout)
+- **Timeout:** Webhook con timeout de 6 segundos
+- **Tiempo restante:** Muestra tiempo restante del mes para pausas indefinidas
+- **Formato mejorado:** Días, horas y minutos de forma legible
+
+#### Mejoras en Multimedia
+- **Descripción oculta:** Imágenes del prospecto no muestran descripción
+- **Stickers optimizados:** Tamaño 120px, sin descripción, no descargables
+- **Detección mejorada:** Lógica mejorada para distinguir stickers de imágenes
+
+#### Mejoras en UI/UX
+- **Indicadores visuales:** Avatar ámbar/naranja con icono de pausa
+- **Prioridad visual:** Llamada activa > Bot pausado > Avatar normal
+- **Notificaciones:** Mensajes claros para errores de pausa/reactivación
+
+#### Archivos Principales
+- `src/components/chat/LiveChatCanvas.tsx` - Sistema de pausa mejorado
+- `src/components/chat/MultimediaMessage.tsx` - Mejoras en multimedia
+- `src/services/botPauseService.ts` - Persistencia en BD
+
+---
+
 ## Versión B2.2.5N6.0.0 (Enero 2025) - Homologación de Sidebars de Prospectos
 
 ### 🎨 RELEASE BETA - Unificación de Interfaz de Usuario

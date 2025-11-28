@@ -1,5 +1,44 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🤖 Versión B2.2.6N6.0.0 - Mejoras en Control de Bot y Multimedia (Enero 2025)
+
+### 🎯 **RELEASE BETA - Optimización de Experiencia de Chat**
+
+#### ⏸️ **Sistema de Pausa del Bot Mejorado**
+- **Indicador visual en conversaciones:** Avatar de conversaciones muestra icono de pausa (ámbar/naranja) cuando el bot está pausado
+- **Manejo de errores:** Notificaciones toast cuando el webhook de pausa falla (código 400) o hay timeout
+- **Timeout de 6 segundos:** Webhook de pausa tiene timeout máximo de 6 segundos con manejo de errores
+- **Tiempo restante mejorado:** Cuando el bot está pausado indefinidamente, muestra el tiempo restante del mes completo (ej: "29d 12h")
+- **Formato de tiempo:** Mejorado para mostrar días, horas y minutos de forma más legible
+- **Persistencia:** Estado de pausa se guarda en base de datos y localStorage para persistencia entre sesiones
+
+#### 🖼️ **Mejoras en Multimedia**
+- **Descripción oculta para imágenes del prospecto:** Las imágenes enviadas por el prospecto no muestran descripción (solo las del bot/agente)
+- **Stickers optimizados:** 
+  - Tamaño reducido a 120px (antes 150px) para mejor integración visual
+  - Sin descripción (oculta automáticamente)
+  - No descargables (sin botón de descarga)
+- **Detección mejorada:** Lógica mejorada para distinguir stickers de imágenes basada en patrón de filename
+
+#### 🎨 **Mejoras en UI/UX**
+- **Indicadores visuales:** Avatar de conversación cambia a color ámbar/naranja con icono de pausa cuando el bot está pausado
+- **Prioridad visual:** Llamada activa > Bot pausado > Avatar normal
+- **Notificaciones:** Mensajes claros cuando falla la pausa/reactivación del bot
+
+#### 📝 **Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Sistema de pausa mejorado con manejo de errores y timeout (⭐ 4365 líneas)
+- `src/components/chat/MultimediaMessage.tsx` - Mejoras en detección de stickers y ocultación de descripciones (⭐ 567 líneas)
+- `src/services/botPauseService.ts` - Servicio de gestión de pausa con persistencia en BD
+
+#### ✅ **Beneficios**
+- ✅ Mejor visibilidad del estado de pausa del bot en la lista de conversaciones
+- ✅ Experiencia más limpia sin descripciones redundantes en imágenes del prospecto
+- ✅ Stickers más integrados visualmente con tamaño optimizado
+- ✅ Manejo robusto de errores con feedback claro al usuario
+- ✅ Tiempo restante más informativo para pausas indefinidas
+
+---
+
 ## 🎨 Versión B2.2.5N6.0.0 - Homologación de Sidebars de Prospectos (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Unificación de Interfaz de Usuario**
