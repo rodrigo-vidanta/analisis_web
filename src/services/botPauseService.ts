@@ -15,7 +15,10 @@
  * Usa HTTP requests directos para evitar problemas con RLS y cache de PostgREST
  */
 
-import { SUPABASE_URL, SUPABASE_SERVICE_KEY } from '../config/supabaseSystemUI';
+// Importar las constantes directamente desde el archivo de configuración
+// Usar import.meta.env directamente para evitar problemas de resolución en build
+const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || 'https://zbylezfyagwrxoecioup.supabase.co';
+const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTMzNjI3MSwiZXhwIjoyMDc0OTEyMjcxfQ.2Btqq8cGSmr4OMKUae8zsHLxQMfs2JJ1ZFgmZYQPFQY';
 
 export interface BotPauseStatus {
   id?: string;
