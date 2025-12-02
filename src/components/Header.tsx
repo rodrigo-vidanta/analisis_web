@@ -13,10 +13,10 @@ interface HeaderProps {
   progress?: number;
   progressText?: string;
   darkMode: boolean;
-  appMode?: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls';
+  appMode?: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard';
   onToggleDarkMode: () => void;
   onReset?: () => void;
-  onModeChange?: (mode: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls') => void;
+  onModeChange?: (mode: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard') => void;
   simplified?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -61,16 +61,32 @@ const Header = ({
       const interval = setInterval(loadUnreadCount, 30000);
 
       // Suscribirse a nuevos mensajes en tiempo real
-      const unsubscribe = adminMessagesService.subscribeToMessages(
-        user.role_name,
-        () => {
-          loadUnreadCount();
+      // Usar setTimeout para evitar problemas con React StrictMode double-invoke
+      let unsubscribe: (() => void) | null = null;
+      const subscribeTimeout = setTimeout(() => {
+        try {
+          unsubscribe = adminMessagesService.subscribeToMessages(
+            user.role_name,
+            () => {
+              loadUnreadCount();
+            }
+          );
+        } catch (error) {
+          console.warn('⚠️ Error suscribiéndose a mensajes (no crítico):', error);
         }
-      );
+      }, 100);
 
       return () => {
         clearInterval(interval);
-        unsubscribe();
+        clearTimeout(subscribeTimeout);
+        if (unsubscribe) {
+          try {
+            unsubscribe();
+          } catch (error) {
+            // Ignorar errores al desconectar
+            console.debug('Error al desconectar suscripción (no crítico)');
+          }
+        }
       };
     }
   }, [isAdmin, isAdminOperativo, user?.role_name]);
@@ -106,6 +122,7 @@ const Header = ({
                  appMode === 'log-server' ? 'Log Server' :
                  appMode === 'prospectos' ? 'Prospectos' :
                  appMode === 'scheduled-calls' ? 'Llamadas Programadas' :
+                 appMode === 'operative-dashboard' ? 'Dashboard Operativo' :
                  appMode === 'direccion' ? 'Mis Tareas' : 'PQNC AI Platform'}
               </h1>
             </div>

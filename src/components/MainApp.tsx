@@ -34,6 +34,9 @@ import ProspectosManager from './prospectos/ProspectosManager';
 // Scheduled Calls Manager
 import ScheduledCallsManager from './scheduled-calls/ScheduledCallsManager';
 
+// Operative Dashboard
+import { OperativeDashboard } from './dashboard/OperativeDashboard';
+
 // Analysis IA Complete
 import AnalysisIAComplete from './analysis/AnalysisIAComplete';
 // Change Password Modal
@@ -481,6 +484,24 @@ function MainApp() {
       case 'direccion':
         // Módulo completamente desacoplado - diseño independiente
         return <Timeline />;
+
+      case 'operative-dashboard':
+        return (
+          canAccessModule('prospectos') || canAccessModule('live-chat') || canAccessModule('live-monitor') ? (
+            <OperativeDashboard />
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Acceso Denegado
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  No tienes permisos para acceder al Dashboard Operativo
+                </p>
+              </div>
+            </div>
+          )
+        );
 
       default:
         return (

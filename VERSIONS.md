@@ -1,5 +1,65 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B2.3.1N6.0.0 (Enero 2025) - Dashboard Operativo con Altura Fija
+
+### 🎯 RELEASE BETA - Dashboard Operativo con Layout Optimizado
+
+#### Dashboard Operativo Completo
+- **4 widgets principales:** Prospectos Nuevos, Últimas Conversaciones, Llamadas Activas, Llamadas Programadas
+- **Altura fija sin scroll:** Área de trabajo con altura fija (`calc(100vh - 128px)`) sin scroll en página completa
+- **Scroll interno individual:** Cada widget con scroll propio sin barras visibles (`scrollbar-hide`)
+- **Grid responsivo:** Cuadrícula adaptativa con `gridAutoRows: 'minmax(0, 1fr)'` para distribución uniforme
+- **Sistema de configuración:** Modal para mostrar/ocultar y cambiar tamaño de widgets
+- **Persistencia:** Preferencias guardadas en `localStorage`
+
+#### Suscripciones Realtime
+- **Prospectos:** Actualización automática cuando cambia `requiere_atencion_humana`
+- **Conversaciones:** Suscripciones a `uchat_conversations`, `uchat_messages` y `mensajes_whatsapp`
+- **Llamadas Activas:** Suscripción a `llamadas_ventas` para INSERT y UPDATE
+- **Llamadas Programadas:** Suscripción a `llamadas_programadas` para cambios en tiempo real
+- **Sin re-renders innecesarios:** Actualizaciones optimizadas con `useCallback` y `useMemo`
+
+#### Filtros por Permisos
+- **Admin:** Ve todos los prospectos, conversaciones y llamadas
+- **Coordinador:** Ve solo lo asignado a su coordinación
+- **Ejecutivo:** Ve solo lo asignado a su usuario
+- **Integración:** Usa `permissionsService` para filtrado consistente
+
+#### Widget de Prospectos
+- **Filtro:** Solo muestra prospectos con `requiere_atencion_humana = true`
+- **Vista expandible:** Detalles inline con historial de llamadas y highlights
+- **Truncado inteligente:** `motivo_handoff` truncado a 8 palabras con expansión al hacer clic
+
+#### Widget de Conversaciones
+- **Dual source:** Combina `uchatService.getConversations` y `get_conversations_ordered` (WhatsApp)
+- **Indicador de no leídos:** Borde verde izquierdo para conversaciones con mensajes no leídos
+- **Badges de asignación:** Muestra coordinación y ejecutivo según rol del usuario
+- **Alineación de mensajes:** Cliente a la izquierda, bot/agente a la derecha
+- **Imágenes pequeñas:** Máximo 150x150px, no clickeables
+
+#### Widget de Llamadas Activas
+- **Filtro de estado:** Solo muestra llamadas con `call_status = 'active'`
+- **Actualización automática:** Se elimina automáticamente cuando la llamada ya no está activa
+
+#### Widget de Llamadas Programadas
+- **Filtro de fecha:** Solo muestra llamadas del día actual con `estatus = 'programada'`
+- **Ordenamiento:** Ordenadas por `fecha_programada` ascendente
+
+#### Archivos Principales
+- `src/components/dashboard/OperativeDashboard.tsx` (nuevo)
+- `src/components/dashboard/DashboardConfigModal.tsx` (nuevo)
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` (nuevo)
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` (nuevo)
+- `src/components/dashboard/widgets/LlamadasActivasWidget.tsx` (nuevo)
+- `src/components/dashboard/widgets/LlamadasProgramadasWidget.tsx` (nuevo)
+- `src/components/MainApp.tsx` - Agregado caso `operative-dashboard`
+- `src/components/Sidebar.tsx` - Agregado item de menú
+- `src/components/Header.tsx` - Actualizado título
+- `src/stores/appStore.ts` - Agregado `operative-dashboard` a `AppMode`
+- `src/index.css` - Clase `scrollbar-hide`
+
+---
+
 ## Versión B2.3.0N6.0.0 (Enero 2025) - Live Chat: Mejoras en Tooltip y Realtime
 
 ### 🔴 RELEASE BETA - Optimización de Tooltip y Sincronización Realtime
