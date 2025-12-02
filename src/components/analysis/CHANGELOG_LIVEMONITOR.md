@@ -17,6 +17,37 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.6.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🚀 Optimización de Rendimiento**
+- **Throttling de handlers de audio:** Handler `onTimeUpdate` optimizado con throttling de 100ms
+- **Throttling de Realtime:** Subscripciones de Supabase Realtime con throttling de 200ms
+- **Memoización:** Uso de `useCallback` para handlers de audio
+- **Búsqueda optimizada:** Búsqueda de segmentos empezando desde el último conocido
+- **Scroll diferido:** Uso de `requestAnimationFrame` para operaciones de scroll
+- **Limpieza de recursos:** Limpieza adecuada de refs y cancelación de `requestAnimationFrame`
+
+#### **🎵 Sincronización de Audio Mejorada**
+- **Fórmula optimizada:** Velocidad base aumentada a 17.5 chars/seg
+- **Factores ajustados:** Puntuación, palabras largas, números con penalizaciones mínimas
+- **Cálculo preciso:** Basado en análisis de datos reales de mensajes medidos
+- **Desfase corregido:** Compensación de ~4 segundos de desfase anterior
+
+#### **📊 Mejoras en Modal de Detalle**
+- **Header mejorado:** Muestra ejecutivo asignado y coordinación
+- **Formato de asignación:** Tags sin placeholders, solo iconos y nombres
+- **Navegación:** Nombre del prospecto clickeable para abrir sidebar
+
+#### **🔧 Correcciones**
+- **Ejecutivo asignado:** Corrección usando `full_name` como campo principal
+- **Violaciones de rendimiento:** Reducción significativa de violaciones en consola
+
+#### **📁 Archivos Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Optimizaciones de rendimiento y sincronización
+
+---
+
 ### **v5.5.0** - Noviembre 26, 2025
 **Estado:** ✅ Producción
 

@@ -1,5 +1,37 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B3.0.0N6.0.0 (Enero 2025) - Live Monitor: Optimización de Rendimiento y Sincronización de Audio
+
+### 🎯 RELEASE BETA - Optimización de Rendimiento y Mejoras en Live Monitor
+
+#### Optimización de Rendimiento
+- **Throttling de handlers:** Handler `onTimeUpdate` optimizado con throttling de 100ms
+- **Throttling de Realtime:** Subscripciones con throttling de 200ms
+- **Memoización:** Uso de `useCallback` para evitar recrear handlers
+- **Búsqueda optimizada:** Búsqueda de segmentos empezando desde el último conocido
+- **Scroll diferido:** Uso de `requestAnimationFrame` para operaciones pesadas
+- **Limpieza de recursos:** Limpieza adecuada de refs y cancelación de `requestAnimationFrame`
+
+#### Sincronización de Audio Mejorada
+- **Fórmula optimizada:** Velocidad base aumentada a 17.5 chars/seg
+- **Factores ajustados:** Puntuación, palabras largas, números con penalizaciones mínimas
+- **Cálculo preciso:** Basado en análisis de datos reales
+- **Desfase corregido:** Compensación de ~4 segundos
+
+#### Mejoras en Modal de Detalle
+- **Header mejorado:** Muestra ejecutivo asignado y coordinación
+- **Formato de asignación:** Tags sin placeholders
+- **Navegación:** Nombre del prospecto clickeable
+
+#### Correcciones
+- **Ejecutivo asignado:** Corrección usando `full_name`
+- **Violaciones de rendimiento:** Reducción significativa
+
+#### Archivos Principales
+- `src/components/analysis/LiveMonitorKanban.tsx` - Optimizaciones de rendimiento
+
+---
+
 ## Versión B2.3.1N6.0.0 (Enero 2025) - Dashboard Operativo con Altura Fija
 
 ### 🎯 RELEASE BETA - Dashboard Operativo con Layout Optimizado

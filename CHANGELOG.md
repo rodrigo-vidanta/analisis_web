@@ -1,5 +1,39 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B3.0.0N6.0.0 - Live Monitor: Optimización de Rendimiento y Sincronización de Audio (Enero 2025)
+
+### 🎯 **RELEASE BETA - Optimización de Rendimiento y Mejoras en Live Monitor**
+
+#### 🚀 **Optimización de Rendimiento**
+- **Throttling de handlers de audio:** Handler `onTimeUpdate` optimizado con throttling de 100ms para reducir violaciones de rendimiento
+- **Throttling de Realtime:** Subscripciones de Supabase Realtime con throttling de 200ms para evitar procesar demasiados eventos
+- **Memoización de handlers:** Uso de `useCallback` para evitar recrear handlers en cada render
+- **Optimización de búsqueda de segmentos:** Búsqueda optimizada empezando desde el último segmento conocido
+- **Scroll diferido:** Uso de `requestAnimationFrame` para operaciones de scroll pesadas
+- **Limpieza de recursos:** Limpieza adecuada de refs y cancelación de `requestAnimationFrame` al cerrar modales
+
+#### 🎵 **Sincronización de Audio Mejorada**
+- **Fórmula de cálculo optimizada:** Velocidad base aumentada a 17.5 chars/seg para compensar desfase de ~4 segundos
+- **Factores de pausa ajustados:** Puntuación, palabras largas, números y preguntas con penalizaciones mínimas
+- **Cálculo más preciso:** Basado en análisis de datos reales de mensajes medidos
+- **Sincronización mejorada:** Audio y texto sincronizados con precisión mejorada
+
+#### 📊 **Mejoras en Modal de Detalle**
+- **Header mejorado:** Muestra ejecutivo asignado y coordinación junto al nombre del prospecto
+- **Formato de asignación:** Tags sin placeholders ("Ejec:" o "Coord:"), solo iconos y nombres
+- **Navegación mejorada:** Nombre del prospecto clickeable para abrir sidebar
+- **Tabs optimizados:** Separación clara entre "Detalles de la Llamada" y "Análisis y Métricas"
+
+#### 🔧 **Correcciones**
+- **Ejecutivo asignado:** Corrección en detección de nombre del ejecutivo usando `full_name` como campo principal
+- **Violaciones de rendimiento:** Reducción significativa de violaciones de 'click' y 'message' handlers
+- **Memory leaks:** Prevención de memory leaks con limpieza adecuada de recursos
+
+#### 📁 **Archivos Principales**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Optimizaciones de rendimiento y sincronización de audio
+
+---
+
 ## 🎯 Versión B2.3.1N6.0.0 - Dashboard Operativo con Altura Fija (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Dashboard Operativo con Layout Optimizado**

@@ -15,9 +15,10 @@
  *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Phone, MapPin, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Wand2, Mail } from 'lucide-react';
+import { X, User, Phone, MapPin, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Wand2, Mail, Search, Filter, Calendar, BarChart3, TrendingUp, Play, Pause, Download, AlertTriangle, ChevronRight } from 'lucide-react';
+import Chart from 'chart.js/auto';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { liveMonitorKanbanOptimized } from '../../services/liveMonitorKanbanOptimized';
@@ -722,11 +723,9 @@ const LiveMonitorKanban: React.FC = () => {
   }, [viewMode]);
 
   const [activeCalls, setActiveCalls] = useState<KanbanCall[]>([]);
-  const [transferredCalls, setTransferredCalls] = useState<KanbanCall[]>([]);
-  const [attendedCalls, setAttendedCalls] = useState<KanbanCall[]>([]);  // Nueva: Atendida / no Transferida
-  const [failedCalls, setFailedCalls] = useState<KanbanCall[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'active' | 'transferred' | 'attended' | 'failed' | 'all'>('active');
+  const [selectedTab, setSelectedTab] = useState<'active' | 'all'>('active');
   const [allCalls, setAllCalls] = useState<KanbanCall[]>([]);
+  const [allCallsWithAnalysis, setAllCallsWithAnalysis] = useState<any[]>([]); // Llamadas combinadas con análisis IA
   const [selectedCall, setSelectedCall] = useState<KanbanCall | null>(null);
   const [viewedCalls, setViewedCalls] = useState<Set<string>>(new Set()); // Track de llamadas vistas en modal
   const [loading, setLoading] = useState(true);
@@ -737,6 +736,402 @@ const LiveMonitorKanban: React.FC = () => {
   
   // Estados para sorting
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  
+  // Estados para filtros de Historial (AnalysisIAComplete)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [interestFilter, setInterestFilter] = useState('');
+  const [filteredHistoryCalls, setFilteredHistoryCalls] = useState<any[]>([]);
+  const [uniqueCategories, setUniqueCategories] = useState<string[]>([]);
+  const [uniqueInterests, setUniqueInterests] = useState<string[]>([]);
+  
+  // Estados para agrupamiento de llamadas - solo un grupo expandido a la vez
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [groupedCalls, setGroupedCalls] = useState<Record<string, any[]>>({});
+  
+  // Estados para sorting
+  const [historySortField, setHistorySortField] = useState<string>('created_at');
+  const [historySortDirection, setHistorySortDirection] = useState<'asc' | 'desc'>('desc');
+  
+  // Estados para modal de detalle de análisis IA
+  const [showAnalysisDetailModal, setShowAnalysisDetailModal] = useState(false);
+  const [selectedCallForAnalysis, setSelectedCallForAnalysis] = useState<any | null>(null);
+  const [transcript, setTranscript] = useState<any[]>([]);
+  const radarChartRef = useRef<Chart | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const transcriptContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [currentAudioTime, setCurrentAudioTime] = useState(0);
+  const [highlightedSegment, setHighlightedSegment] = useState<number | null>(null);
+  const [selectedProspectoData, setSelectedProspectoData] = useState<any | null>(null);
+  
+  // Refs para optimización de rendimiento del audio
+  const lastUpdateTimeRef = useRef<number>(0);
+  const lastSegmentRef = useRef<number | null>(null);
+  const scrollTimeoutRef = useRef<number | null>(null);
+  const [ejecutivosMap, setEjecutivosMap] = useState<Record<string, any>>({});
+  const [coordinacionesMap, setCoordinacionesMap] = useState<Record<string, any>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isCoordinador, setIsCoordinador] = useState(false);
+  const [isEjecutivo, setIsEjecutivo] = useState(false);
+  const [modalTab, setModalTab] = useState<'details' | 'analysis'>('details');
+  
+  // Función para cargar transcripción
+  const loadTranscript = async (callId: string, voiceSpeed: number = 1.04) => {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select('conversacion_completa')
+        .eq('call_id', callId)
+        .single();
+
+      if (error) throw error;
+
+      // Parsear conversación a segmentos con cálculo de tiempo basado en velocidad de voz
+      const segments = parseConversationToSegments(data?.conversacion_completa, callId, voiceSpeed);
+      setTranscript(segments);
+      // Reset refs cuando se carga nueva transcripción
+      lastSegmentRef.current = null;
+      lastUpdateTimeRef.current = 0;
+    } catch (err) {
+      console.error('Error loading transcript:', err);
+      setTranscript([]);
+    }
+  };
+
+  // Handler optimizado para onTimeUpdate con throttling y optimizaciones
+  const handleAudioTimeUpdate = useCallback(() => {
+    if (!audioRef.current || transcript.length === 0) return;
+    
+    const now = performance.now();
+    // Throttling: solo procesar cada ~100ms (en lugar de cada frame)
+    if (now - lastUpdateTimeRef.current < 100) return;
+    lastUpdateTimeRef.current = now;
+    
+    const currentTime = audioRef.current.currentTime;
+    setCurrentAudioTime(audioRef.current.volume * 100);
+    
+    // Optimización: empezar búsqueda desde el último segmento conocido
+    let currentSegment = -1;
+    const startIndex = lastSegmentRef.current !== null ? Math.max(0, lastSegmentRef.current - 1) : 0;
+    
+    // Buscar segmento actual (empezar desde el último conocido para optimizar)
+    for (let i = startIndex; i < transcript.length; i++) {
+      const segment = transcript[i];
+      if (segment.startTime !== undefined && segment.endTime !== undefined) {
+        if (currentTime >= segment.startTime && currentTime <= segment.endTime) {
+          currentSegment = i;
+          break;
+        }
+        // Si ya pasamos el tiempo de este segmento, podemos continuar
+        if (currentTime < segment.startTime) {
+          // Si el tiempo actual es menor que el startTime, el segmento anterior podría ser el correcto
+          if (i > 0) {
+            const prevSegment = transcript[i - 1];
+            if (prevSegment.endTime !== undefined && currentTime <= prevSegment.endTime) {
+              currentSegment = i - 1;
+            }
+          }
+          break;
+        }
+      }
+    }
+    
+    // Fallback: cálculo proporcional solo si no se encontró
+    if (currentSegment === -1 && transcript.length > 0) {
+      const lastSegment = transcript[transcript.length - 1];
+      const totalDuration = lastSegment.endTime || selectedCallForAnalysis?.duracion_segundos || 1;
+      currentSegment = Math.floor((currentTime / totalDuration) * transcript.length);
+      currentSegment = Math.min(Math.max(0, currentSegment), transcript.length - 1);
+    }
+    
+    // Solo actualizar si cambió el segmento
+    if (currentSegment >= 0 && currentSegment !== lastSegmentRef.current) {
+      lastSegmentRef.current = currentSegment;
+      setHighlightedSegment(currentSegment);
+      
+      // Scroll optimizado: usar requestAnimationFrame y evitar múltiples scrolls
+      if (scrollTimeoutRef.current !== null) {
+        cancelAnimationFrame(scrollTimeoutRef.current);
+      }
+      
+      scrollTimeoutRef.current = requestAnimationFrame(() => {
+        if (transcriptContainerRef.current && currentSegment < transcript.length) {
+          const segmentElement = transcriptContainerRef.current.children[currentSegment] as HTMLElement;
+          if (segmentElement) {
+            segmentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+        scrollTimeoutRef.current = null;
+      });
+    }
+  }, [transcript, selectedCallForAnalysis]);
+
+  // Función para crear gráfica radar
+  const createRadarChart = (callId: string, calificaciones: Record<string, string>) => {
+    // Esperar un poco más para asegurar que el canvas esté en el DOM
+    setTimeout(() => {
+      const canvas = document.getElementById(`radar-chart-${callId}`) as HTMLCanvasElement;
+      if (!canvas) {
+        console.warn(`Canvas not found for radar chart: radar-chart-${callId}`);
+        return;
+      }
+
+      // Destruir gráfica anterior si existe
+      if (radarChartRef.current) {
+        radarChartRef.current.destroy();
+        radarChartRef.current = null;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Convertir calificaciones a scores numéricos
+      const labelMap: Record<string, string> = {
+        'continuidad_whatsapp': 'Continuidad WhatsApp',
+        'tratamiento_formal': 'Tratamiento Formal',
+        'control_narrativo': 'Control Narrativo',
+        'discovery_familiar': 'Discovery Familiar',
+        'deteccion_interes': 'Detección Interés',
+        'manejo_objeciones': 'Manejo Objeciones',
+        'cumplimiento_reglas': 'Cumplimiento Reglas'
+      };
+      
+      const filteredEntries = Object.entries(calificaciones).filter(([key]) => key !== 'calidad_cierre');
+      const labels = filteredEntries.map(([key]) => 
+        labelMap[key] || key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
+      );
+      
+      const data = filteredEntries.map(([, value]) => {
+        switch (value) {
+          case 'PERFECTO': return 100;
+          case 'BUENO': case 'BUENA': return 80;
+          case 'DEFICIENTE': return 25;
+          case 'NO_APLICABLE': return 50;
+          case 'REGULAR': return 60;
+          case 'CONTROLADO': return 90;
+          case 'PARCIAL': return 60;
+          case 'DESCONTROLADO': return 20;
+          case 'COMPLETO': return 100;
+          case 'INCOMPLETO': return 40;
+          case 'NO_REALIZADO': return 10;
+          case 'PRECISA': return 95;
+          case 'TARDÍA': return 70;
+          case 'TEMPRANA': return 80;
+          case 'IMPRECISA': return 30;
+          case 'EXCELENTE': return 100;
+          case 'BÁSICO': return 50;
+          case 'NO_HUBO': return 75;
+          case 'MALO': return 20;
+          default: return 50;
+        }
+      });
+
+      radarChartRef.current = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Evaluación de Continuidad y Discovery',
+            data,
+            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+            borderColor: 'rgba(16, 185, 129, 0.8)',
+            borderWidth: 3,
+            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 7,
+            pointHoverRadius: 10,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            r: {
+              beginAtZero: true,
+              max: 100,
+              min: 0,
+              ticks: {
+                stepSize: 25,
+                color: 'rgba(148, 163, 184, 0.8)',
+                font: {
+                  size: 10
+                }
+              },
+              grid: {
+                color: 'rgba(148, 163, 184, 0.2)'
+              },
+              angleLines: {
+                color: 'rgba(148, 163, 184, 0.2)'
+              },
+              pointLabels: {
+                color: 'rgba(71, 85, 105, 1)',
+                font: {
+                  size: 11,
+                  weight: 500
+                }
+              }
+            }
+          },
+          elements: {
+            point: {
+              hoverRadius: 8
+            }
+          }
+        }
+      });
+    }, 100); // Pequeño delay para asegurar que el canvas esté renderizado
+  };
+
+  // Efecto para crear gráfica radar cuando se abre el modal o se cambia a la pestaña de análisis
+  useEffect(() => {
+    if (showAnalysisDetailModal && selectedCallForAnalysis?.calificaciones && modalTab === 'analysis') {
+      // Destruir gráfica anterior si existe
+      if (radarChartRef.current) {
+        radarChartRef.current.destroy();
+        radarChartRef.current = null;
+      }
+      
+      const timer = setTimeout(() => {
+        createRadarChart(selectedCallForAnalysis.call_id, selectedCallForAnalysis.calificaciones);
+      }, 300);
+      
+      return () => {
+        clearTimeout(timer);
+        if (radarChartRef.current) {
+          radarChartRef.current.destroy();
+          radarChartRef.current = null;
+        }
+      };
+    }
+    
+    // Limpiar gráfica cuando se cierra el modal o se cambia de pestaña
+    if ((!showAnalysisDetailModal || modalTab !== 'analysis') && radarChartRef.current) {
+      radarChartRef.current.destroy();
+      radarChartRef.current = null;
+    }
+  }, [showAnalysisDetailModal, selectedCallForAnalysis, modalTab]);
+
+  // Limpiar audio cuando se cierra el modal
+  useEffect(() => {
+    if (!showAnalysisDetailModal) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      setIsAudioPlaying(false);
+      setCurrentAudioTime(0);
+      setHighlightedSegment(null);
+      // Limpiar refs de optimización
+      lastSegmentRef.current = null;
+      lastUpdateTimeRef.current = 0;
+      if (scrollTimeoutRef.current !== null) {
+        cancelAnimationFrame(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+    }
+  }, [showAnalysisDetailModal]);
+
+  // Función optimizada para calcular tiempo de habla basado en análisis de datos reales
+  // Análisis de datos reales (tiempos medidos):
+  // - Mensaje 1 (150 chars): 9.44s → ~15.9 chars/seg
+  // - Mensaje 2 (130 chars): 8.80s → ~14.8 chars/seg  
+  // - Mensaje 3 (200 chars): 14.0s → ~14.3 chars/seg
+  // Promedio real: ~15.0 chars/segundo (con speed 1.04)
+  // 
+  // AJUSTE CRÍTICO: Si el audio se queda atrás ~4 segundos, significa que estamos
+  // sobreestimando el tiempo. Necesitamos aumentar la velocidad base significativamente.
+  // Usar velocidad más alta (~17-18 chars/seg) para compensar el desfase.
+  const calculateSpeechTime = (text: string, voiceSpeed: number = 1.04): number => {
+    if (!text || text.length === 0) return 0;
+    
+    const charCount = text.length;
+    
+    // Velocidad base aumentada para compensar desfase de ~4 segundos
+    // Usar ~17.5 chars/seg (más alto que el promedio para compensar sobreestimación)
+    // speed 1.04 significa que habla 1.04x más rápido
+    const baseCharsPerSecond = 17.5 / voiceSpeed; // ~16.8 chars/seg efectivos
+    
+    // Factor 1: Puntuación (pausas mínimas para evitar sobreestimación)
+    const punctuationPause = (text.match(/[.!?]/g) || []).length * 0.1; // Muy reducido
+    const commaPause = (text.match(/[,;]/g) || []).length * 0.05; // Muy reducido
+    
+    // Factor 2: Palabras largas (penalización mínima)
+    const longWords = text.split(/\s+/).filter(w => w.length > 6).length;
+    const longWordPenalty = longWords * 0.03; // Mínimo
+    
+    // Factor 3: Números (penalización mínima)
+    const numberMatches = text.match(/\d+/g) || [];
+    const numberCount = numberMatches.length;
+    const numberPenalty = numberCount * 0.05; // Mínimo
+    
+    // Factor 4: Preguntas (pausa mínima)
+    const isQuestion = text.includes('?');
+    const questionPause = isQuestion ? 0.05 : 0; // Mínimo
+    
+    // Cálculo final: tiempo base + pausas mínimas
+    const baseTime = charCount / baseCharsPerSecond;
+    const totalTime = baseTime + punctuationPause + commaPause + longWordPenalty + numberPenalty + questionPause;
+    
+    return Math.max(totalTime, 0.2); // Mínimo 0.2 segundos por mensaje
+  };
+
+  const parseConversationToSegments = (conversacionData: any, callId: string, voiceSpeed: number = 1.04): any[] => {
+    try {
+      let conversationText = '';
+      
+      if (typeof conversacionData === 'string') {
+        const parsed = JSON.parse(conversacionData);
+        conversationText = parsed.conversacion || '';
+      } else if (conversacionData?.conversacion) {
+        conversationText = conversacionData.conversacion;
+      }
+      
+      if (!conversationText) return [];
+      
+      const lines = conversationText.split('\n').filter((line: string) => line.trim());
+      const segments: any[] = [];
+      let accumulatedTime = 0; // Tiempo acumulado desde el inicio
+      
+      lines.forEach((line: string, index: number) => {
+        const match = line.match(/^\[(.+?)\]\s+(\w+):\s+(.+)$/);
+        if (match) {
+          const [, timestamp, speaker, content] = match;
+          const speechTime = calculateSpeechTime(content.trim(), voiceSpeed);
+          const segmentStartTime = accumulatedTime;
+          accumulatedTime += speechTime;
+          
+          segments.push({
+            id: `${callId}-${index}`,
+            call_id: callId,
+            segment_index: index,
+            speaker: speaker.toLowerCase(),
+            content: content.trim(),
+            timestamp: timestamp.trim(),
+            confidence: 1.0,
+            startTime: segmentStartTime,
+            endTime: accumulatedTime,
+            duration: speechTime
+          });
+        }
+      });
+      
+      return segments;
+    } catch (error) {
+      console.error('Error parsing conversation:', error);
+      return [];
+    }
+  };
   
   // Hook de tema para aplicar estilos
   const { getThemeClasses, isLinearTheme } = useTheme();
@@ -781,6 +1176,457 @@ const LiveMonitorKanban: React.FC = () => {
         </div>
       </th>
     );
+  };
+
+  // Función para cargar historial de llamadas desde la misma fuente que AnalysisIAComplete
+  const loadHistoryCalls = async () => {
+    try {
+      setLoading(true);
+      
+      // Determinar permisos del usuario
+      if (user?.id) {
+        const permissionsServiceModule = await import('../../services/permissionsService');
+        const adminCheck = await permissionsServiceModule.permissionsService.isAdmin(user.id);
+        setIsAdmin(adminCheck);
+        
+        if (!adminCheck) {
+          const ejecutivoFilter = await permissionsServiceModule.permissionsService.getEjecutivoFilter(user.id);
+          const coordinacionesFilter = await permissionsServiceModule.permissionsService.getCoordinacionesFilter(user.id);
+          setIsEjecutivo(!!ejecutivoFilter);
+          setIsCoordinador(!!coordinacionesFilter && coordinacionesFilter.length > 0);
+        }
+      }
+      
+      // Cargar análisis básicos desde call_analysis_summary (misma fuente que AnalysisIAComplete)
+      const { data: analysisData, error: analysisError } = await analysisSupabase
+        .from('call_analysis_summary')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (analysisError) throw analysisError;
+
+      // Cargar datos complementarios de llamadas_ventas
+      const callIds = analysisData?.map(a => a.call_id) || [];
+      let enrichedData = analysisData || [];
+      
+      if (callIds.length > 0) {
+        const { data: llamadasData, error: llamadasError } = await analysisSupabase
+          .from('llamadas_ventas')
+          .select('*')
+          .in('call_id', callIds);
+
+        if (!llamadasError && llamadasData) {
+          // Obtener IDs de prospectos únicos
+          const prospectoIds = llamadasData.map(l => l.prospecto).filter(Boolean);
+          
+          // Cargar datos de prospectos con filtros de permisos
+          let prospectosData: any[] = [];
+          if (prospectoIds.length > 0) {
+            // Aplicar filtros de permisos según rol del usuario (igual que AnalysisIAComplete)
+            // Cargar TODOS los campos del prospecto para el modal de detalle
+            let prospectosQuery = analysisSupabase
+              .from('prospectos')
+              .select('*')
+              .in('id', prospectoIds);
+            
+            // Obtener filtros de permisos
+            if (user?.id) {
+              const permissionsServiceModule = await import('../../services/permissionsService');
+              const ejecutivoFilter = await permissionsServiceModule.permissionsService.getEjecutivoFilter(user.id);
+              const coordinacionesFilter = await permissionsServiceModule.permissionsService.getCoordinacionesFilter(user.id);
+              const isAdmin = await permissionsServiceModule.permissionsService.isAdmin(user.id);
+              
+              if (!isAdmin) {
+                if (ejecutivoFilter) {
+                  // Ejecutivo: solo prospectos asignados a él
+                  prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter);
+                } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                  // Coordinador: solo prospectos de sus coordinaciones
+                  prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+                }
+              }
+            }
+            
+            const { data: prospectosResult, error: prospectosError } = await prospectosQuery;
+            
+            if (!prospectosError && prospectosResult) {
+              prospectosData = prospectosResult;
+              
+              // Cargar datos de ejecutivos y coordinaciones únicos
+              const ejecutivoIds = [...new Set(prospectosResult.map(p => p.ejecutivo_id).filter(Boolean))];
+              const coordinacionIds = [...new Set(prospectosResult.map(p => p.coordinacion_id).filter(Boolean))];
+              
+              // Cargar ejecutivos
+              if (ejecutivoIds.length > 0) {
+                const ejecutivosData: Record<string, any> = {};
+                for (const ejecId of ejecutivoIds) {
+                  try {
+                    const ejecutivo = await coordinacionService.getEjecutivoById(ejecId);
+                    if (ejecutivo) ejecutivosData[ejecId] = ejecutivo;
+                  } catch (err) {
+                    console.error(`Error loading ejecutivo ${ejecId}:`, err);
+                  }
+                }
+                setEjecutivosMap(ejecutivosData);
+              }
+              
+              // Cargar coordinaciones
+              if (coordinacionIds.length > 0) {
+                const coordinacionesData: Record<string, any> = {};
+                for (const coordId of coordinacionIds) {
+                  try {
+                    const coordinacion = await coordinacionService.getCoordinacionById(coordId);
+                    if (coordinacion) coordinacionesData[coordId] = coordinacion;
+                  } catch (err) {
+                    console.error(`Error loading coordinacion ${coordId}:`, err);
+                  }
+                }
+                setCoordinacionesMap(coordinacionesData);
+              }
+            }
+          }
+          
+          // Filtrar análisis para incluir solo los que tienen prospectos permitidos
+          const allowedProspectoIds = new Set(prospectosData.map(p => p.id));
+          
+          enrichedData = (analysisData || []).map(analysis => {
+            const llamada = llamadasData.find(l => l.call_id === analysis.call_id);
+            const prospecto = prospectosData.find(p => p.id === llamada?.prospecto);
+            
+            // Si el prospecto no está en la lista permitida, excluir este análisis
+            if (llamada?.prospecto && !allowedProspectoIds.has(llamada.prospecto)) {
+              return null;
+            }
+            
+            // Parsear datos_proceso y datos_llamada
+            let datosProceso = null;
+            let datosLlamada = null;
+            
+            try {
+              if (llamada?.datos_proceso) {
+                datosProceso = typeof llamada.datos_proceso === 'string' 
+                  ? JSON.parse(llamada.datos_proceso) 
+                  : llamada.datos_proceso;
+              }
+              if (llamada?.datos_llamada) {
+                datosLlamada = typeof llamada.datos_llamada === 'string' 
+                  ? JSON.parse(llamada.datos_llamada) 
+                  : llamada.datos_llamada;
+              }
+            } catch (e) {
+              console.error('Error parsing datos_proceso/datos_llamada:', e);
+            }
+            
+            // Determinar estado correcto de la llamada según la lógica anterior
+            let callStatus = llamada?.call_status || 'finalizada';
+            const razonFinalizacion = datosLlamada?.razon_finalizacion;
+            const hasRecording = !!(llamada?.audio_ruta_bucket && llamada.audio_ruta_bucket.length > 0);
+            const duration = llamada?.duracion_segundos || 0;
+            
+            // Razones de transferencia
+            const TRANSFER_REASONS = [
+              'assistant-forwarded-call',
+              'call.ringing.hook-executed-transfer',
+              'transfer'
+            ];
+            
+            // Razones de pérdida/no contestada
+            const FAILED_REASONS = [
+              'customer-did-not-answer',
+              'customer-busy',
+              'no-answer',
+              'busy',
+              'assistant-not-found',
+              'assistant-not-valid',
+              'assistant-not-provided',
+              'assistant-join-timed-out',
+              'twilio-failed-to-connect-call',
+              'vonage-failed-to-connect-call',
+              'vonage-rejected',
+              'voicemail'
+            ];
+            
+            if (razonFinalizacion) {
+              // Transferida a ejecutivo
+              if (TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+                callStatus = 'transferida';
+              }
+              // Perdida
+              else if (FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+                callStatus = 'perdida';
+              }
+              // Contestada no transferida (tiene grabación y duración >= 30 seg)
+              else if (hasRecording && duration >= 30) {
+                callStatus = 'contestada_no_transferida';
+              }
+            } else if (hasRecording && duration >= 30) {
+              // Si tiene grabación y duración pero no razón específica → contestada no transferida
+              callStatus = 'contestada_no_transferida';
+            } else if (hasRecording && duration < 30) {
+              // Grabación pero muy corta → perdida
+              callStatus = 'perdida';
+            }
+            
+            return {
+              ...analysis,
+              ...llamada,
+              // Datos del prospecto
+              nombre_completo: prospecto?.nombre_completo || 
+                               `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
+                               analysis.customer_name ||
+                               'Prospecto sin nombre',
+              nombre_whatsapp: prospecto?.nombre_completo || prospecto?.nombre || analysis.customer_name,
+              whatsapp: prospecto?.whatsapp || llamada?.whatsapp,
+              prospecto_nombre: prospecto?.nombre_completo || 
+                               `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
+                               'Prospecto sin nombre',
+              prospecto_whatsapp: prospecto?.whatsapp,
+              prospecto_ciudad: prospecto?.ciudad_residencia,
+              prospecto_id: llamada?.prospecto || prospecto?.id,
+              // Campos combinados para fácil acceso
+              score_general: analysis.score_general || null,
+              categoria_desempeno: analysis.categoria_desempeno || null,
+              checkpoint_alcanzado: analysis.checkpoint_alcanzado || parseInt(llamada?.checkpoint_venta_actual?.replace('checkpoint #', '') || '1'),
+              nivel_interes_detectado: analysis.nivel_interes_detectado || llamada?.nivel_interes,
+              calificaciones: analysis.calificaciones || null,
+              discovery_familiar: analysis.calificaciones?.discovery_familiar || null,
+              continuidad_whatsapp: analysis.calificaciones?.continuidad_whatsapp || null,
+              // Datos de discovery combinados (prioridad: datos_proceso > prospecto)
+              datos_proceso: datosProceso,
+              datos_llamada: datosLlamada,
+              // Discovery familiar: de calificaciones (análisis IA) o datos_proceso
+              composicion_familiar_numero: datosProceso?.numero_personas || prospecto?.tamano_grupo || null,
+              // Destino preferencia: de datos_proceso o prospecto
+              destino_preferencia: datosProceso?.destino_preferencia || prospecto?.destino_preferencia || null,
+              // Estado civil: de datos_proceso o prospecto
+              estado_civil: datosProceso?.estado_civil || prospecto?.estado_civil || null,
+              // Mes preferencia: de datos_proceso
+              mes_preferencia: datosProceso?.mes_preferencia || null,
+              // Tipo de vacaciones: de datos_proceso (descanso, entretenimiento, mixto)
+              tipo_vacaciones: datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones || null,
+              // Tamaño grupo y otros del prospecto
+              tamano_grupo: prospecto?.tamano_grupo || null,
+              cantidad_menores: prospecto?.cantidad_menores || null,
+              viaja_con: prospecto?.viaja_con || null,
+              // Todos los datos del prospecto para el modal
+              prospecto_completo: prospecto,
+              // Requiere atención humana del prospecto
+              requiere_atencion_humana: prospecto?.requiere_atencion_humana || false,
+              // IDs de asignación del prospecto
+              ejecutivo_id: prospecto?.ejecutivo_id || null,
+              coordinacion_id: prospecto?.coordinacion_id || null,
+              // Estado de llamada corregido
+              call_status: callStatus,
+              // Análisis completo para el modal
+              analysis: analysis,
+            };
+          }).filter((item): item is NonNullable<typeof item> => item !== null);
+        }
+      }
+
+      // Ordenar por defecto: más reciente primero
+      enrichedData.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.fecha_llamada || 0);
+        const dateB = new Date(b.created_at || b.fecha_llamada || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      setAllCallsWithAnalysis(enrichedData);
+      setAllCalls(enrichedData); // También actualizar allCalls para mantener compatibilidad
+      
+      // Extraer valores únicos para filtros
+      const categories = [...new Set(enrichedData.map(c => c.categoria_desempeno).filter(Boolean))];
+      const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
+      
+      setUniqueCategories(categories);
+      setUniqueInterests(interests);
+      
+      // Inicializar grupos cuando cambien las llamadas
+      const groups = groupCallsByProspect(enrichedData);
+      setGroupedCalls(groups);
+      
+    } catch (error: any) {
+      console.error('Error loading history calls:', error);
+      setAllCallsWithAnalysis([]);
+      setAllCalls([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para aplicar filtros al historial
+  // Función para agrupar llamadas por prospecto
+  const groupCallsByProspect = (callsToGroup: any[]) => {
+    const groups: Record<string, any[]> = {};
+    
+    callsToGroup.forEach(call => {
+      const prospectKey = call.prospecto_nombre || call.nombre_completo || call.prospecto_id || 'Sin prospecto';
+      
+      if (!groups[prospectKey]) {
+        groups[prospectKey] = [];
+      }
+      groups[prospectKey].push(call);
+    });
+    
+    // Ordenar llamadas dentro de cada grupo (más reciente primero)
+    Object.keys(groups).forEach(prospectKey => {
+      groups[prospectKey].sort((a, b) => {
+        const dateA = new Date(a.created_at || a.fecha_llamada || 0);
+        const dateB = new Date(b.created_at || b.fecha_llamada || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+    });
+    
+    setGroupedCalls(groups);
+    return groups;
+  };
+
+  // Función para obtener llamadas expandidas para mostrar en el grid
+  const getExpandedCalls = (groups: Record<string, any[]>) => {
+    const expandedCalls: any[] = [];
+    
+    Object.entries(groups).forEach(([prospectKey, callsInGroup]) => {
+      if (callsInGroup.length === 0) return;
+      
+      // Siempre mostrar la llamada más reciente (primera en el array ordenado)
+      const mainCall = { ...callsInGroup[0], isGroupMain: true, groupSize: callsInGroup.length, prospectKey };
+      expandedCalls.push(mainCall);
+      
+      // Si el grupo está expandido, mostrar el resto de llamadas
+      if (expandedGroup === prospectKey) {
+        callsInGroup.slice(1).forEach(call => {
+          const subCall = { ...call, isGroupSub: true, groupSize: callsInGroup.length, prospectKey };
+          expandedCalls.push(subCall);
+        });
+      }
+    });
+    
+    return expandedCalls;
+  };
+
+  // Función para toggle de grupos - solo un grupo expandido a la vez
+  const toggleGroup = (prospectKey: string) => {
+    setExpandedGroup(prev => {
+      // Si el grupo ya está expandido, colapsarlo
+      if (prev === prospectKey) {
+        return null;
+      }
+      // Si hay otro grupo expandido, colapsarlo y expandir el nuevo
+      return prospectKey;
+    });
+  };
+
+  const applyHistoryFilters = useCallback(() => {
+    let filtered = [...allCallsWithAnalysis];
+
+    // Búsqueda por texto
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(call =>
+        call.call_id?.toLowerCase().includes(query) ||
+        call.nombre_completo?.toLowerCase().includes(query) ||
+        call.nombre_whatsapp?.toLowerCase().includes(query) ||
+        call.whatsapp?.toLowerCase().includes(query) ||
+        call.prospecto_nombre?.toLowerCase().includes(query)
+      );
+    }
+
+    // Filtros de fecha
+    if (dateFrom) {
+      filtered = filtered.filter(call => 
+        (call.fecha_llamada || call.created_at) && new Date(call.fecha_llamada || call.created_at) >= new Date(dateFrom)
+      );
+    }
+    if (dateTo) {
+      filtered = filtered.filter(call => 
+        (call.fecha_llamada || call.created_at) && new Date(call.fecha_llamada || call.created_at) <= new Date(dateTo)
+      );
+    }
+
+    // Filtro por categoría
+    if (categoryFilter) {
+      filtered = filtered.filter(call => 
+        call.categoria_desempeno === categoryFilter
+      );
+    }
+
+    // Filtro por interés
+    if (interestFilter) {
+      filtered = filtered.filter(call => 
+        (call.nivel_interes_detectado || call.nivel_interes) === interestFilter
+      );
+    }
+
+    // Aplicar ordenamiento
+    filtered.sort((a, b) => {
+      const aValue = a[historySortField as keyof typeof a];
+      const bValue = b[historySortField as keyof typeof b];
+      
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
+      
+      if (historySortField === 'created_at' || historySortField === 'fecha_llamada') {
+        const dateA = new Date(aValue as string);
+        const dateB = new Date(bValue as string);
+        return historySortDirection === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+      }
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return historySortDirection === 'asc' ? 
+          aValue.localeCompare(bValue) : 
+          bValue.localeCompare(aValue);
+      }
+      
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return historySortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      
+      return 0;
+    });
+
+    // Agrupar por prospecto y obtener lista expandida
+    const groups = groupCallsByProspect(filtered);
+    const expandedCalls = getExpandedCalls(groups);
+    
+    setFilteredHistoryCalls(expandedCalls);
+  }, [allCallsWithAnalysis, searchQuery, dateFrom, dateTo, categoryFilter, interestFilter, historySortField, historySortDirection, expandedGroup]);
+
+  // Cargar historial al inicio para mostrar contador
+  useEffect(() => {
+    loadHistoryCalls();
+  }, []);
+
+  // Aplicar filtros cuando se selecciona la pestaña 'all'
+  useEffect(() => {
+    if (selectedTab === 'all' && allCallsWithAnalysis.length > 0) {
+      applyHistoryFilters();
+    }
+  }, [selectedTab, allCallsWithAnalysis.length]);
+
+  // Aplicar filtros cuando cambien los valores
+  useEffect(() => {
+    if (selectedTab === 'all') {
+      applyHistoryFilters();
+    }
+  }, [selectedTab, applyHistoryFilters]);
+
+  // Extraer valores únicos para filtros cuando cambie allCallsWithAnalysis
+  useEffect(() => {
+    if (allCallsWithAnalysis.length > 0) {
+      const interests = [...new Set(allCallsWithAnalysis.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
+      const categories = [...new Set(allCallsWithAnalysis.map(c => c.categoria_desempeno).filter(Boolean))];
+      setUniqueInterests(interests as string[]);
+      setUniqueCategories(categories as string[]);
+    }
+  }, [allCallsWithAnalysis]);
+
+  // Función para limpiar filtros
+  const clearHistoryFilters = () => {
+    setSearchQuery('');
+    setDateFrom('');
+    setDateTo('');
+    setCategoryFilter('');
+    setInterestFilter('');
   };
 
   // Función para ordenar datos
@@ -962,8 +1808,6 @@ const LiveMonitorKanban: React.FC = () => {
       
       // Removerla de las listas activas
       setActiveCalls(prev => prev.filter(c => c.id !== callToFinalize.id));
-      setTransferredCalls(prev => prev.filter(c => c.id !== callToFinalize.id));
-      setFailedCalls(prev => prev.filter(c => c.id !== callToFinalize.id));
 
       // Cerrar el modal
       setShowFinalizationModal(false);
@@ -1402,7 +2246,7 @@ const LiveMonitorKanban: React.FC = () => {
         
         // Detectar cambios de checkpoint antes de actualizar (solo en refresh)
         if (isRefresh) {
-          const allCallsToCheck = [...classifiedCalls.active, ...classifiedCalls.transferred, ...classifiedCalls.attended || [], ...classifiedCalls.failed];
+          const allCallsToCheck = [...classifiedCalls.active];
           allCallsToCheck.forEach(call => {
             if (call.checkpoint_venta_actual) {
               const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
@@ -1422,7 +2266,7 @@ const LiveMonitorKanban: React.FC = () => {
           });
         } else {
           // En carga inicial, solo inicializar checkpoints sin disparar sonido
-          const allCallsToCheck = [...classifiedCalls.active, ...classifiedCalls.transferred, ...classifiedCalls.attended || [], ...classifiedCalls.failed];
+          const allCallsToCheck = [...classifiedCalls.active];
           allCallsToCheck.forEach(call => {
             if (call.checkpoint_venta_actual) {
               previousCheckpointsRef.current.set(call.call_id, call.checkpoint_venta_actual);
@@ -1432,9 +2276,6 @@ const LiveMonitorKanban: React.FC = () => {
         
         // Actualizar estados directamente desde la clasificación automática
         setActiveCalls(classifiedCalls.active);
-        setTransferredCalls(classifiedCalls.transferred);
-        setAttendedCalls(classifiedCalls.attended || []);
-        setFailedCalls(classifiedCalls.failed);
         
         if (!isRefresh) {
           setLoading(false);
@@ -1455,7 +2296,7 @@ const LiveMonitorKanban: React.FC = () => {
       if (preserveRealtimeData) {
         // Crear mapa de llamadas existentes con datos de Realtime
         const existingCallsMap = new Map<string, KanbanCall>();
-        [...activeCalls, ...transferredCalls, ...attendedCalls, ...failedCalls].forEach(call => {
+        [...activeCalls].forEach(call => {
           existingCallsMap.set(call.call_id, call);
         });
         
@@ -1522,9 +2363,6 @@ const LiveMonitorKanban: React.FC = () => {
 
       // Clasificar llamadas por estado con nueva lógica mejorada
       const active: KanbanCall[] = [];
-      const transferred: KanbanCall[] = [];
-      const attended: KanbanCall[] = [];  // Nueva categoría: Atendida / no Transferida
-      const failed: KanbanCall[] = [];
       
       finalCalls.forEach(call => {
         const hasFeedback = call.tiene_feedback === true;
@@ -1536,46 +2374,11 @@ const LiveMonitorKanban: React.FC = () => {
         // REGLA 1: Si tiene grabación, la llamada YA TERMINÓ
         // Si tiene grabación, clasificar según duración y razón
         if (hasRecordingValue) {
-          // REGLA 1.1: Transferidas - razon_finalizacion indica transferencia
-          if (razonFinalizacion && TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+          // REGLA 1.1-1.3: Llamadas finalizadas (ya no se clasifican en transferred/attended/failed)
+          // Estas llamadas se moverán a allCalls cuando tengan feedback
             if (!hasFeedback) {
-              transferred.push(call);
-            }
-            return; // Salir temprano
-          }
-          
-          // REGLA 1.2: Duración < 30 segundos → Fallida
-          if (duration < 30) {
-            if (!hasFeedback) {
-              failed.push(call);
-            }
+            // Las llamadas finalizadas sin feedback se mantienen en allCalls para el historial
             return;
-          }
-          
-          // REGLA 1.3: Duración >= 30 segundos pero NO transferida → Atendida / no Transferida
-          // Esto incluye customer-ended-call con duración > 30 seg
-          if (duration >= 30) {
-            // Si es customer-ended-call con duración > 30 seg → atendida pero no transferida
-            if (razonFinalizacion === 'customer-ended-call' || 
-                razonFinalizacion === 'assistant-ended-call' ||
-                razonFinalizacion === 'assistant-ended-call-after-message-spoken' ||
-                razonFinalizacion === 'assistant-ended-call-with-hangup-task' ||
-                razonFinalizacion === 'assistant-said-end-call-phrase' ||
-                !razonFinalizacion) {
-              if (!hasFeedback) {
-                attended.push(call);
-              }
-              return;
-            }
-            
-            // Si tiene otra razón que no es transferencia ni fallida → atendida
-            if (!TRANSFER_REASONS.some(r => razonFinalizacion.includes(r)) &&
-                !FAILED_REASONS.some(r => razonFinalizacion.includes(r))) {
-              if (!hasFeedback) {
-                attended.push(call);
-              }
-              return;
-            }
           }
         }
         
@@ -1588,11 +2391,9 @@ const LiveMonitorKanban: React.FC = () => {
           if (callDate) {
             const minutesAgo = Math.floor((Date.now() - callDate.getTime()) / (1000 * 60));
             
-            // Si la llamada tiene más de 15 minutos sin grabación ni duración → perdida
+            // Si la llamada tiene más de 15 minutos sin grabación ni duración → considerar perdida
             if (minutesAgo > 15) {
-              if (!hasFeedback) {
-                failed.push(call);
-              }
+              // Las llamadas perdidas se moverán a allCalls cuando tengan feedback
               return;
             }
           }
@@ -1602,85 +2403,16 @@ const LiveMonitorKanban: React.FC = () => {
           return;
         }
         
-        // REGLA 3: Llamadas que parecen activas pero ya terminaron (detección automática)
-        if (call.call_status === 'activa' && (hasEndReason || hasRecordingValue || duration > 0)) {
-          // Si tiene razón de transferencia
-          if (razonFinalizacion && TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
-            if (!hasFeedback) {
-              transferred.push(call);
-            }
-            return;
-          }
-          
-          // Si tiene razón de pérdida
-          if (razonFinalizacion && FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) {
-            if (!hasFeedback) {
-              failed.push(call);
-            }
-            return;
-          }
-          
-          // Si tiene grabación y duración >= 30 seg → atendida
-          if (hasRecordingValue && duration >= 30) {
-            if (!hasFeedback) {
-              attended.push(call);
-            }
-            return;
-          }
-          
-          // Si tiene grabación pero duración < 30 seg → fallida
-          if (hasRecordingValue && duration < 30) {
-            if (!hasFeedback) {
-              failed.push(call);
-            }
-            return;
-          }
-        }
-        
-        // REGLA 4: Llamadas con call_status = 'transferida' o razón de transferencia
-        if (call.call_status === 'transferida' || 
-            (razonFinalizacion && TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason)))) {
-          if (!hasFeedback) {
-            transferred.push(call);
-          }
-          return;
-        }
-        
-        // REGLA 5: Llamadas fallidas/perdidas
-        if (call.call_status === 'perdida' || 
-            call.call_status === 'colgada' ||
-            (razonFinalizacion && FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) ||
-            (razonFinalizacion === 'customer-did-not-answer')) {
-          if (!hasFeedback) {
-            failed.push(call);
-          }
-          return;
-        }
-        
-        // REGLA 6: Llamadas con call_status = 'finalizada' o 'exitosa'
-        // Si tienen grabación y duración >= 30 seg → atendida
-        if ((call.call_status === 'finalizada' || call.call_status === 'exitosa') && 
-            hasRecordingValue && duration >= 30) {
-          // Verificar si NO es transferida
-          if (!razonFinalizacion || !TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
-            if (!hasFeedback) {
-              attended.push(call);
-            }
-            return;
-          }
-        }
-        
-        // REGLA 7: Fallback - si tiene grabación pero no cumple otras condiciones → atendida
-        if (hasRecordingValue && duration >= 30 && !hasFeedback) {
-          attended.push(call);
-        }
+        // REGLA 3-7: Llamadas finalizadas (ya no se clasifican en transferred/attended/failed)
+        // Estas llamadas se moverán a allCalls cuando tengan feedback
+        // Solo mantener activas las llamadas realmente en curso
       });
       
       // Actualización inteligente que detecta cambios sin re-render innecesario
       if (isRefresh) {
         // Crear mapas completos de todas las llamadas (activas, transferidas, atendidas, fallidas)
         const currentAllCalls = new Map();
-        [...activeCalls, ...transferredCalls, ...attendedCalls, ...failedCalls].forEach(call => {
+        [...activeCalls].forEach(call => {
           currentAllCalls.set(call.call_id, {
             status: call.call_status,
             checkpoint: call.checkpoint_venta_actual,
@@ -1690,7 +2422,7 @@ const LiveMonitorKanban: React.FC = () => {
         });
         
         const newAllCalls = new Map();
-        [...active, ...transferred, ...attended, ...failed].forEach(call => {
+        [...active].forEach(call => {
           newAllCalls.set(call.call_id, {
             status: call.call_status,
             checkpoint: call.checkpoint_venta_actual,
@@ -1751,7 +2483,7 @@ const LiveMonitorKanban: React.FC = () => {
         // Solo actualizar si hay cambios detectados
         if (hasChanges) {
           // Detectar cambios de checkpoint antes de actualizar
-          const allCallsToCheck = [...active, ...transferred, ...attended, ...failed];
+          const allCallsToCheck = [...active];
           allCallsToCheck.forEach(call => {
             if (call.checkpoint_venta_actual) {
               const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
@@ -1771,53 +2503,15 @@ const LiveMonitorKanban: React.FC = () => {
           });
           
           setActiveCalls(active);
-          setTransferredCalls(transferred);
-          setAttendedCalls(attended);
-          setFailedCalls(failed);
         }
         
-        // Filtrar llamadas COMPLETAMENTE procesadas para pestaña "Historial"
-        const completedCalls = allCalls.filter(call => {
-          const hasFeedback = call.tiene_feedback === true;
-          const isCompleted = call.call_status === 'finalizada' || 
-                             call.call_status === 'transferida' || 
-                             call.call_status === 'colgada' ||
-                             call.call_status === 'exitosa' ||
-                             call.call_status === 'perdida';
-          
-          return hasFeedback && isCompleted;
-        });
-        
-        setAllCalls(completedCalls);
-      } else {
-        // Detectar cambios de checkpoint en carga inicial
-        const allCallsToCheck = [...active, ...transferred, ...attended, ...failed];
-        allCallsToCheck.forEach(call => {
-          if (call.checkpoint_venta_actual) {
-            // Solo inicializar, no disparar sonido en carga inicial
-            previousCheckpointsRef.current.set(call.call_id, call.checkpoint_venta_actual);
-          }
-        });
-        
         setActiveCalls(active);
-        setTransferredCalls(transferred);
-        setAttendedCalls(attended);
-        setFailedCalls(failed);
       }
       
-      // Filtrar llamadas COMPLETAMENTE procesadas para pestaña "Historial"
-      const completedCalls = allCalls.filter(call => {
-        const hasFeedback = call.tiene_feedback === true; // Solo feedback completo, no pendiente
-        const isCompleted = call.call_status === 'finalizada' || 
-                           call.call_status === 'transferida' || 
-                           call.call_status === 'colgada' ||
-                           call.call_status === 'exitosa' ||
-                           call.call_status === 'perdida';
-        
-        return hasFeedback && isCompleted;
-      });
+      // Actualizar solo llamadas activas
+        setActiveCalls(active);
       
-      setAllCalls(completedCalls);
+      // El historial se carga desde call_analysis_summary cuando se selecciona la pestaña 'all'
       
       
     } catch (error) {
@@ -1859,58 +2553,70 @@ const LiveMonitorKanban: React.FC = () => {
       // MODO OPTIMIZADO: Intentar suscripción Realtime, pero no es crítico si falla
       // El polling cada 3 segundos se encargará de detectar cambios
       
+      // Throttling para la subscripción de Realtime (evitar procesar demasiados eventos seguidos)
+      let lastRealtimeUpdate = 0;
+      const REALTIME_THROTTLE_MS = 200; // Procesar máximo cada 200ms
+      
       liveMonitorKanbanOptimized.subscribeToChanges((classifiedCalls, payloadData) => {
-        // Detectar cambios de checkpoint antes de actualizar las listas
-        if (payloadData && payloadData.event === 'UPDATE') {
-          const newCall = payloadData.new as any;
-          const oldCall = payloadData.old as any;
-          
-          if (newCall) {
-            const newCheckpoint = newCall.checkpoint_venta_actual;
-            const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
-            
-            // Detectar cambio a checkpoint #5
-            if (newCheckpoint && 
-                (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
-                oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
-              // Emitir notificación global para el sidebar (con animación de ringing y sonido)
-              triggerCallNotification(newCall.call_id, newCheckpoint);
-            }
-            
-            // Actualizar mapa de checkpoints anteriores
-            if (newCheckpoint) {
-              previousCheckpointsRef.current.set(newCall.call_id, newCheckpoint);
-            }
-          }
-        }
+        const now = performance.now();
         
-        // También detectar cambios comparando con checkpoints anteriores después de actualizar
-        // Esto cubre casos donde el payload no tiene oldRec
-        const allCalls = [...classifiedCalls.active, ...classifiedCalls.transferred, ...classifiedCalls.attended || [], ...classifiedCalls.failed];
-        allCalls.forEach(call => {
-          if (call.checkpoint_venta_actual) {
-            const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
-            const currentCheckpoint = call.checkpoint_venta_actual;
+        // Throttling: solo procesar si han pasado suficientes ms desde la última actualización
+        if (now - lastRealtimeUpdate < REALTIME_THROTTLE_MS) {
+          return; // Saltar este evento para evitar sobrecarga
+        }
+        lastRealtimeUpdate = now;
+        
+        // Usar requestAnimationFrame para diferir trabajo pesado
+        requestAnimationFrame(() => {
+          // Detectar cambios de checkpoint antes de actualizar las listas
+          if (payloadData && payloadData.event === 'UPDATE') {
+            const newCall = payloadData.new as any;
+            const oldCall = payloadData.old as any;
             
-            if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
-              if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
-                // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
-                triggerCallNotification(call.call_id, currentCheckpoint);
+            if (newCall) {
+              const newCheckpoint = newCall.checkpoint_venta_actual;
+              const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
+              
+              // Detectar cambio a checkpoint #5
+              if (newCheckpoint && 
+                  (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
+                  oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
+                // Emitir notificación global para el sidebar (con animación de ringing y sonido)
+                triggerCallNotification(newCall.call_id, newCheckpoint);
+              }
+              
+              // Actualizar mapa de checkpoints anteriores
+              if (newCheckpoint) {
+                previousCheckpointsRef.current.set(newCall.call_id, newCheckpoint);
               }
             }
-            
-            // Actualizar referencia
-            previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
           }
+          
+          // También detectar cambios comparando con checkpoints anteriores después de actualizar
+          // Esto cubre casos donde el payload no tiene oldRec
+          const allCallsArray = [...classifiedCalls.active];
+          allCallsArray.forEach(call => {
+            if (call.checkpoint_venta_actual) {
+              const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
+              const currentCheckpoint = call.checkpoint_venta_actual;
+              
+              if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
+                if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
+                  // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
+                  triggerCallNotification(call.call_id, currentCheckpoint);
+                }
+              }
+              
+              // Actualizar referencia
+              previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
+            }
+          });
+          
+          // Actualizar estados directamente desde la clasificación automática
+          setActiveCalls(classifiedCalls.active);
+          setLastUpdateTime(new Date());
+          setHasRecentChanges(true);
         });
-        
-        // Actualizar estados directamente desde la clasificación automática
-        setActiveCalls(classifiedCalls.active);
-        setTransferredCalls(classifiedCalls.transferred);
-        setAttendedCalls(classifiedCalls.attended || []);
-        setFailedCalls(classifiedCalls.failed);
-        setLastUpdateTime(new Date());
-        setHasRecentChanges(true);
       }).then((channel) => {
         realtimeChannel = channel;
         if (channel && channel.state === 'joined') {
@@ -2026,8 +2732,6 @@ const LiveMonitorKanban: React.FC = () => {
           };
           
           setActiveCalls(updateCallData);
-          setTransferredCalls(updateCallData);
-          setFailedCalls(updateCallData);
         }
         
           // Modo legacy: actualización local inteligente
@@ -2688,7 +3392,7 @@ const LiveMonitorKanban: React.FC = () => {
 
         {/* Tabs */}
         <div className="corp-card corp-glow overflow-hidden">
-          <div className="grid grid-cols-5 border-b border-slate-200 dark:border-slate-700">
+          <div className="grid grid-cols-2 border-b border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setSelectedTab('active')}
               className={`px-6 py-4 text-sm font-medium transition-colors ${
@@ -2709,63 +3413,6 @@ const LiveMonitorKanban: React.FC = () => {
             </button>
             
             <button
-              onClick={() => setSelectedTab('transferred')}
-              className={`px-6 py-4 text-sm font-medium transition-colors ${
-                selectedTab === 'transferred'
-                  ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-b-2 border-green-500'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Transferidas</span>
-                <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {transferredCalls.length}
-                </span>
-              </div>
-            </button>
-            
-            <button
-              onClick={() => setSelectedTab('attended')}
-              className={`px-6 py-4 text-sm font-medium transition-colors ${
-                selectedTab === 'attended'
-                  ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-b-2 border-amber-500'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Atendida / No transferida</span>
-                <span className="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {attendedCalls.length}
-                </span>
-              </div>
-            </button>
-            
-            <button
-              onClick={() => setSelectedTab('failed')}
-              className={`px-6 py-4 text-sm font-medium transition-colors ${
-                selectedTab === 'failed'
-                  ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-b-2 border-red-500'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Fallidas</span>
-                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {failedCalls.length}
-                </span>
-              </div>
-            </button>
-            
-            <button
               onClick={() => setSelectedTab('all')}
               className={`px-6 py-4 text-sm font-medium transition-colors ${
                 selectedTab === 'all'
@@ -2779,7 +3426,7 @@ const LiveMonitorKanban: React.FC = () => {
                 </svg>
                 <span>Historial</span>
                 <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {allCalls.length}
+                  {allCallsWithAnalysis.length}
                 </span>
               </div>
             </button>
@@ -2868,399 +3515,723 @@ const LiveMonitorKanban: React.FC = () => {
               </div>
             )}
 
-            {selectedTab === 'transferred' && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                  <thead className="bg-slate-50 dark:bg-slate-900">
-                    <tr>
-                      <SortableHeader field="cliente" className="w-64">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <span>Cliente</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="agente" className="w-48">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                          </svg>
-                          <span>Agente</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="telefono" className="w-32">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                          </svg>
-                          <span>Teléfono</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="duracion" className="w-24">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>Duración</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="checkpoint" className="w-40">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>Checkpoint</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="fecha" className="w-32">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span>Fecha</span>
-                        </div>
-                      </SortableHeader>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-20">
-                        Estado
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                    {sortData(transferredCalls).map((call) => (
-                      <tr 
-                        key={call.call_id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
-                        onClick={() => handleCallSelect(call)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <ProspectAvatar
-                              nombreCompleto={call.nombre_completo}
-                              nombreWhatsapp={call.nombre_whatsapp}
-                              size="md"
-                            />
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-slate-900 dark:text-white">
-                          {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
-                      </div>
-                    </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900 dark:text-white">
-                            {call.agent_name || 'No asignado'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900 dark:text-white">
-                            {call.whatsapp || 'N/A'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900 dark:text-white">
-                            {Math.floor((call.duracion_segundos || 0) / 60)}:{String((call.duracion_segundos || 0) % 60).padStart(2, '0')}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                            {call.checkpoint_venta_actual || 'No definido'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900 dark:text-white">
-                            {call.created_at ? new Date(call.created_at).toLocaleDateString() : 'N/A'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {call.es_venta_exitosa !== null ? (
-                            call.es_venta_exitosa ? (
-                              <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                                Exitosa
-                              </span>
-                        ) : (
-                              <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                                No cerrada
-                              </span>
-                            )
-                          ) : (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                              Pendiente
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {transferredCalls.length === 0 && (
-                  <div className="text-center py-12">
-                    <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-slate-500 dark:text-slate-400">No hay llamadas transferidas</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {selectedTab === 'failed' && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                  <thead className="bg-slate-50 dark:bg-slate-900">
-                    <tr>
-                      <SortableHeader field="cliente" className="w-64">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <span>Cliente</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="agente" className="w-48">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                          </svg>
-                          <span>Agente</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="telefono" className="w-32">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                          </svg>
-                          <span>Teléfono</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="estado" className="w-32">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>Estado</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="fecha" className="w-32">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span>Fecha</span>
-                        </div>
-                      </SortableHeader>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-20">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                    {sortData(failedCalls).map((call) => (
-                      <tr 
-                    key={call.call_id} 
-                        className="hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
-                    onClick={() => {
-                      handleCallSelect(call);
-                      handleFeedbackRequest('perdida');
-                    }}
-                  >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                      <ProspectAvatar
-                        nombreCompleto={call.nombre_completo}
-                        nombreWhatsapp={call.nombre_whatsapp}
-                        size="md"
-                      />
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-slate-900 dark:text-white">
-                          {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
-                      </div>
-                    </div>
-                    </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900 dark:text-white">
-                            {call.agent_name || 'No asignado'}
-                  </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900 dark:text-white">
-                            {call.whatsapp || 'N/A'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                            {call.call_status || 'Fallida'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900 dark:text-white">
-                            {call.created_at ? new Date(call.created_at).toLocaleDateString() : 'N/A'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Marcar perdida
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {failedCalls.length === 0 && (
-                  <div className="text-center py-12">
-                    <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-slate-500 dark:text-slate-400">No hay llamadas fallidas</p>
-                  </div>
-                )}
-              </div>
-            )}
 
             {selectedTab === 'all' && (
+              <div className="space-y-6">
+                {/* Búsqueda y Filtros estilo AnalysisIAComplete */}
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700"
+                >
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                        Búsqueda y Filtros
+                      </h2>
+                      <button
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+                      >
+                        {showAdvancedFilters ? 'Ocultar' : 'Mostrar'} filtros avanzados
+                      </button>
+                        </div>
+
+                    {/* Búsqueda principal */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                      <div className="md:col-span-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Buscar por Call ID, nombre, WhatsApp..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200"
+                          />
+                        </div>
+                        </div>
+                      
+                      <button
+                        onClick={clearHistoryFilters}
+                        className="px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
+                      >
+                        Limpiar
+                      </button>
+                        </div>
+
+                    {/* Filtros Avanzados */}
+                    <AnimatePresence>
+                      {showAdvancedFilters && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                          className="overflow-hidden"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-slate-200 dark:border-slate-700">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Fecha Desde
+                              </label>
+                              <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              />
+                      </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Fecha Hasta
+                              </label>
+                              <input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              />
+                    </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Categoría
+                              </label>
+                              <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Todas las categorías</option>
+                                {uniqueCategories.map(cat => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Nivel Interés
+                              </label>
+                              <select
+                                value={interestFilter}
+                                onChange={(e) => setInterestFilter(e.target.value)}
+                                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Todos los niveles</option>
+                                {uniqueInterests.map(interest => (
+                                  <option key={interest} value={interest}>{interest}</option>
+                                ))}
+                              </select>
+                  </div>
+              </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+
+                {/* Tabla Principal estilo AnalysisIAComplete */}
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden"
+                >
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                  <thead className="bg-slate-50 dark:bg-slate-900">
-                    <tr>
-                      <SortableHeader field="cliente" className="w-64">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <span>Cliente</span>
+                      <thead className="bg-slate-50 dark:bg-slate-700">
+                        <tr>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            onClick={() => {
+                              if (historySortField === 'prospecto_nombre') {
+                                setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setHistorySortField('prospecto_nombre');
+                                setHistorySortDirection('asc');
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              Prospecto
+                              {historySortField === 'prospecto_nombre' && (
+                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
                         </div>
-                      </SortableHeader>
-                      <SortableHeader field="estado" className="w-32">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>Estado</span>
+                          </th>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            onClick={() => {
+                              if (historySortField === 'fecha_llamada') {
+                                setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setHistorySortField('fecha_llamada');
+                                setHistorySortDirection('desc');
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              Fecha
+                              {historySortField === 'fecha_llamada' && (
+                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
                         </div>
-                      </SortableHeader>
-                      <SortableHeader field="checkpoint" className="w-40">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>Checkpoint</span>
+                          </th>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            onClick={() => {
+                              if (historySortField === 'duracion_segundos') {
+                                setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setHistorySortField('duracion_segundos');
+                                setHistorySortDirection('desc');
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              Duración
+                              {historySortField === 'duracion_segundos' && (
+                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
                         </div>
-                      </SortableHeader>
-                      <SortableHeader field="duracion" className="w-24">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>Duración</span>
+                          </th>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            onClick={() => {
+                              if (historySortField === 'call_status') {
+                                setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setHistorySortField('call_status');
+                                setHistorySortDirection('asc');
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              Estado
+                              {historySortField === 'call_status' && (
+                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
                         </div>
-                      </SortableHeader>
-                      <SortableHeader field="precio" className="w-24">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                          </svg>
-                          <span>Precio</span>
-                        </div>
-                      </SortableHeader>
-                      <SortableHeader field="fecha" className="w-32">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span>Fecha</span>
-                        </div>
-                      </SortableHeader>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-20">
-                        Feedback
-                      </th>
+                          </th>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            onClick={() => {
+                              if (historySortField === 'nivel_interes_detectado') {
+                                setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setHistorySortField('nivel_interes_detectado');
+                                setHistorySortDirection('desc');
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              Nivel Interés
+                              {historySortField === 'nivel_interes_detectado' && (
+                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            Asignación
+                          </th>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            onClick={() => {
+                              if (historySortField === 'resumen_llamada') {
+                                setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setHistorySortField('resumen_llamada');
+                                setHistorySortDirection('asc');
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              Resumen
+                              {historySortField === 'resumen_llamada' && (
+                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            Acciones
+                          </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                    {sortData(allCalls).map((call) => (
-                      <tr 
-                        key={call.call_id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
-                        onClick={() => handleCallSelect(call)}
-                      >
+                        {filteredHistoryCalls.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-6 py-12 text-center">
+                              <div className="text-slate-500 dark:text-slate-400">
+                                {allCallsWithAnalysis.length === 0 ? 'No hay llamadas registradas' : 'No hay resultados que coincidan con los filtros'}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredHistoryCalls.map((call, index) => {
+                            const prospectKey = call.prospecto_nombre || call.nombre_completo || 'Sin prospecto';
+                            const isGroupMain = call.isGroupMain;
+                            const isGroupSub = call.isGroupSub;
+                            const groupSize = call.groupSize || 1;
+                            
+                            // Determinar si esta fila pertenece al grupo expandido
+                            const belongsToExpandedGroup = expandedGroup && (prospectKey === expandedGroup);
+                            const isOtherGroup = expandedGroup && prospectKey !== expandedGroup;
+                            
+                            return (
+                              <tr 
+                                key={`${call.call_id}-${index}`}
+                                onClick={async () => {
+                                  // Si se hace clic en una llamada de otro grupo (con blur), solo colapsar el grupo expandido
+                                  if (expandedGroup && prospectKey !== expandedGroup) {
+                                    setExpandedGroup(null);
+                                    return; // No abrir el modal, solo colapsar
+                                  }
+                                  setSelectedCallForAnalysis(call);
+                                  setShowAnalysisDetailModal(true);
+                                  if (call.call_id) {
+                                    await loadTranscript(call.call_id, 1.04);
+                                    // Usar prospecto_completo si está disponible, sino cargar desde BD
+                                    if (call.prospecto_completo) {
+                                      setSelectedProspectoData(call.prospecto_completo);
+                                    } else if (call.prospecto_id || call.prospecto) {
+                                      try {
+                                        const { data } = await analysisSupabase
+                                          .from('prospectos')
+                                          .select('*')
+                                          .eq('id', call.prospecto_id || call.prospecto)
+                                          .single();
+                                        setSelectedProspectoData(data);
+                                      } catch (err) {
+                                        console.error('Error loading prospecto data:', err);
+                                      }
+                                    }
+                                  }
+                                }}
+                                className={`cursor-pointer transition-all duration-200 ${
+                                  belongsToExpandedGroup
+                                    ? isGroupMain || isGroupSub
+                                      ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 shadow-sm' 
+                                      : 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 shadow-sm'
+                                    : isOtherGroup
+                                      ? 'opacity-40 blur-sm'
+                                      : isGroupMain
+                                        ? 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-l-4 border-blue-500' 
+                                        : isGroupSub 
+                                          ? 'hover:bg-slate-25 dark:hover:bg-slate-800/30 bg-slate-25 dark:bg-slate-800/20 border-l-4 border-slate-300 relative' 
+                                          : 'hover:bg-slate-50 dark:hover:bg-slate-700'
+                                }`}
+                                style={isGroupSub ? {
+                                  borderLeft: '4px solid rgb(148 163 184)',
+                                  paddingLeft: 'calc(1.5rem + 8px)',
+                                  position: 'relative'
+                                } : {}}
+                  >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <ProspectAvatar
-                              nombreCompleto={call.nombre_completo}
-                              nombreWhatsapp={call.nombre_whatsapp}
-                              size="md"
-                            />
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-slate-900 dark:text-white">
-                                {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
-                              </div>
-                              <div className="text-sm text-slate-500 dark:text-slate-400">
-                                {call.whatsapp}
-                              </div>
+                                  <div className="flex items-center gap-3">
+                                    {/* Botón de expansión/colapso para grupos */}
+                                    {isGroupMain && groupSize > 1 && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleGroup(prospectKey);
+                                        }}
+                                        className={`relative p-1.5 rounded-md transition-all duration-200 border-2 ${
+                                          expandedGroup === prospectKey
+                                            ? 'bg-blue-500 dark:bg-blue-600 border-blue-600 dark:border-blue-700 hover:bg-blue-600 dark:hover:bg-blue-700'
+                                            : 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:border-blue-400 dark:hover:border-blue-600'
+                                        }`}
+                                        title={expandedGroup === prospectKey ? `Colapsar grupo` : `Expandir ${groupSize - 1} llamadas más`}
+                                      >
+                                        <svg 
+                                          className={`w-4 h-4 transition-transform duration-200 ${
+                                            expandedGroup === prospectKey 
+                                              ? 'text-white dark:text-white rotate-90' 
+                                              : 'text-blue-600 dark:text-blue-400 rotate-0'
+                                          }`} 
+                                          fill="none" 
+                                          stroke="currentColor" 
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                    
+                                    {isGroupSub && (
+                                      <div className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center">
+                                        {/* Línea jerárquica vertical */}
+                                        <div className="w-0.5 h-full bg-slate-300 dark:bg-slate-600"></div>
+                                        {/* Punto de conexión */}
+                                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full border-2 border-white dark:border-slate-800"></div>
+                                      </div>
+                                    )}
+                                    
+                                    {!isGroupMain && !isGroupSub && (
+                                      <div className="w-4"></div>
+                                    )}
+                                    
+                                    {/* Avatar estilo AnalysisIAComplete con punto rojo si requiere atención humana */}
+                                    <div className={`relative p-2 rounded-full flex-shrink-0 ${
+                                      isGroupMain 
+                                        ? 'bg-blue-50 dark:bg-blue-900/20' 
+                                        : 'bg-slate-50 dark:bg-slate-800/50'
+                                    }`}>
+                                      <User size={16} className={
+                                        isGroupMain 
+                                          ? 'text-blue-600 dark:text-blue-400' 
+                                          : 'text-slate-500 dark:text-slate-400'
+                                      } />
+                                      {/* Punto rojo solo en agrupador principal si requiere atención humana */}
+                                      {isGroupMain && (() => {
+                                        const prospecto = call.prospecto_completo || {};
+                                        return prospecto.requiere_atencion_humana || call.requiere_atencion_humana;
+                                      })() && (
+                                        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 shadow-sm"></div>
+                                      )}
+                        </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <div className={`text-sm font-medium ${
+                                          isGroupMain 
+                                            ? 'text-slate-900 dark:text-white' 
+                                            : 'text-slate-600 dark:text-slate-300'
+                                        }`}>
+                          {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
+                        </div>
+                                        {isGroupMain && groupSize > 1 && (
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                                            {groupSize} llamadas
+                          </span>
+                                        )}
+                        </div>
+                                      {/* Tags de discovery correctos */}
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {(() => {
+                                          const prospecto = call.prospecto_completo || {};
+                                          const datosProceso = call.datos_proceso || {};
+                                          
+                                          return (
+                                            <>
+                                              {/* Ciudad con icono de pin */}
+                                              {prospecto.ciudad_residencia && (
+                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-400">
+                                                  <MapPin className="w-3 h-3" />
+                                                  {prospecto.ciudad_residencia}
+                                                </span>
+                                              )}
+                                              
+                                              {/* Edad (número + A) con icono */}
+                                              {prospecto.edad && (
+                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-violet-100 text-violet-800 dark:bg-violet-900/20 dark:text-violet-400">
+                                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                  </svg>
+                                                  {prospecto.edad}A
+                                                </span>
+                                              )}
+                                              
+                                              {/* Cumpleaños (ej: 28ENE) con icono */}
+                                              {prospecto.cumpleanos && (() => {
+                                                try {
+                                                  const fecha = new Date(prospecto.cumpleanos);
+                                                  const dia = fecha.getDate();
+                                                  const meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+                                                  const mes = meses[fecha.getMonth()];
+                                                  return (
+                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-400">
+                                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                      </svg>
+                                                      {dia}{mes}
+                                                    </span>
+                                                  );
+                                                } catch (e) {
+                                                  return null;
+                                                }
+                                              })()}
+                                              
+                                              {/* Estado Civil con icono */}
+                                              {(datosProceso?.estado_civil || prospecto.estado_civil) && (() => {
+                                                const estadoCivil = datosProceso?.estado_civil || prospecto.estado_civil;
+                                                if (estadoCivil && estadoCivil !== 'no_especificado') {
+                                                  return (
+                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
+                                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                      </svg>
+                                                      {estadoCivil}
+                                                    </span>
+                                                  );
+                                                }
+                                                return null;
+                                              })()}
+                                              
+                                              {/* Composición Familiar (ej: 2A 1M) con icono */}
+                                              {(() => {
+                                                const adultos = datosProceso?.numero_personas || prospecto.tamano_grupo;
+                                                const menores = prospecto.cantidad_menores;
+                                                if (adultos || menores) {
+                                                  const partes = [];
+                                                  if (adultos) partes.push(`${adultos}A`);
+                                                  if (menores && menores > 0) partes.push(`${menores}M`);
+                                                  if (partes.length > 0) {
+                                                    return (
+                                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400">
+                                                        <Users className="w-3 h-3" />
+                                                        {partes.join(' ')}
+                                                      </span>
+                                                    );
+                                                  }
+                                                }
+                                                return null;
+                                              })()}
+                                              
+                                              {/* Destino Preferencia con icono de barco */}
+                                              {(datosProceso?.destino_preferencia || prospecto.destino_preferencia) && (() => {
+                                                const destino = datosProceso?.destino_preferencia || prospecto.destino_preferencia;
+                                                const destinoStr = Array.isArray(destino) ? destino[0] : destino;
+                                                return (
+                                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
+                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                      {/* Barco simple */}
+                                                      <path d="M3 18h18l-1-4H4l-1 4zm1-2h16M5 14l2-6h10l2 6"/>
+                                                      <circle cx="8" cy="12" r="1"/>
+                                                      <circle cx="16" cy="12" r="1"/>
+                                                    </svg>
+                                                    {destinoStr}
+                                                  </span>
+                                                );
+                                              })()}
+                                              
+                                              {/* Ingresos (ej: >50k) con icono */}
+                                              {prospecto.ingresos && (() => {
+                                                // Formatear ingresos si es un número o string con formato
+                                                let ingresosStr = prospecto.ingresos;
+                                                if (typeof prospecto.ingresos === 'string') {
+                                                  // Si ya tiene formato como ">50k" o similar, usarlo tal cual
+                                                  // Si no tiene el símbolo >, agregarlo
+                                                  if (!ingresosStr.includes('>') && !ingresosStr.includes('<')) {
+                                                    ingresosStr = `>${ingresosStr}`;
+                                                  } else {
+                                                    ingresosStr = prospecto.ingresos;
+                                                  }
+                                                } else if (typeof prospecto.ingresos === 'number') {
+                                                  // Si es número, formatearlo
+                                                  if (prospecto.ingresos >= 1000) {
+                                                    ingresosStr = `>${Math.floor(prospecto.ingresos / 1000)}k`;
+                                                  } else {
+                                                    ingresosStr = `>${prospecto.ingresos}`;
+                                                  }
+                                                }
+                                                return (
+                                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+                                                    <DollarSign className="w-3 h-3" />
+                                                    {ingresosStr}
+                                                  </span>
+                                                );
+                                              })()}
+                                            </>
+                                          );
+                                        })()}
+                    </div>
+                        </div>
+                        </div>
+                        </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                                <div>
+                                  {call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleDateString('es-MX') : 'N/A'}
+                                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                                    {call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleTimeString('es-MX', { 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                    }) : ''}
                             </div>
                           </div>
                         </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                                {call.duracion_segundos ? 
+                                  `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 
+                                  'N/A'
+                                }
+                        </td>
+                              
+                                {/* Estado mejorado */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            call.call_status === 'activa' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                            call.call_status === 'transferida' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                            call.call_status === 'finalizada' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300' :
-                            call.call_status === 'perdida' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                          }`}>
-                            {call.call_status}
+                                  {(() => {
+                                    const status = call.call_status || 'finalizada';
+                                    const razonFinalizacion = call.datos_llamada?.razon_finalizacion || 
+                                                              (typeof call.datos_llamada === 'string' ? JSON.parse(call.datos_llamada || '{}')?.razon_finalizacion : null);
+                                    
+                                    // Determinar estado específico usando call_status ya corregido
+                                    let displayStatus = call.call_status || status;
+                                    let statusColor = 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+                                    
+                                    if (displayStatus === 'transferida') {
+                                      displayStatus = 'Transferida a Ejecutivo';
+                                      statusColor = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+                                    } else if (displayStatus === 'contestada_no_transferida') {
+                                      displayStatus = 'Contestada No Transferida';
+                                      statusColor = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+                                    } else if (displayStatus === 'perdida' || razonFinalizacion?.includes('no-answer') || razonFinalizacion?.includes('busy')) {
+                                      displayStatus = 'Perdida';
+                                      statusColor = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+                                    } else if (displayStatus === 'finalizada') {
+                                      displayStatus = 'Finalizada';
+                                      statusColor = 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+                                    } else if (displayStatus === 'activa') {
+                                      displayStatus = 'Activa';
+                                      statusColor = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+                                    }
+                                    
+                                    return (
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+                                        {displayStatus}
                           </span>
+                                    );
+                                  })()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
-                          {call.checkpoint_venta_actual || 'checkpoint #1'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
-                          {call.duracion_segundos ? `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                          {new Date(call.fecha_llamada).toLocaleString()}
-                        </td>
+                                
+                                {/* Nivel Interés */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {call.tiene_feedback ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              Completado
+                                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                    (call.nivel_interes_detectado || call.nivel_interes) === 'Alto' || (call.nivel_interes_detectado || call.nivel_interes) === 'MUY_ALTO' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                    (call.nivel_interes_detectado || call.nivel_interes) === 'Medio' || (call.nivel_interes_detectado || call.nivel_interes) === 'MEDIO' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                    'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                  }`}>
+                                    {call.nivel_interes_detectado || call.nivel_interes || 'N/A'}
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Pendiente
-                            </span>
-                          )}
+                        </td>
+                                
+                                {/* Asignación según permisos */}
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {(() => {
+                                    const prospecto = call.prospecto_completo || {};
+                                    const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
+                                    const coordinacionId = prospecto.coordinacion_id || call.coordinacion_id;
+                                    
+                                    if (isAdmin) {
+                                      // Admin: mostrar ejecutivo y coordinación como tags
+                                      const ejecutivo = ejecutivoId ? ejecutivosMap[ejecutivoId] : null;
+                                      const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
+                                      return (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {ejecutivo && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                                              <User className="w-3 h-3" />
+                                              {ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}
+                                            </span>
+                                          )}
+                                          {coordinacion && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
+                                              <Users className="w-3 h-3" />
+                                              {coordinacion.nombre || coordinacion.codigo || 'N/A'}
+                                            </span>
+                                          )}
+                                          {!ejecutivo && !coordinacion && (
+                                            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                                              Sin asignar
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    } else if (isCoordinador) {
+                                      // Coordinador: mostrar ejecutivo asignado como tag
+                                      const ejecutivo = ejecutivoId ? ejecutivosMap[ejecutivoId] : null;
+                                      return ejecutivo ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                                          <User className="w-3 h-3" />
+                                          {ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                                          Sin ejecutivo
+                                        </span>
+                                      );
+                                    } else if (isEjecutivo) {
+                                      // Ejecutivo: mostrar coordinación asignada como tag
+                                      const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
+                                      return coordinacion ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
+                                          <Users className="w-3 h-3" />
+                                          {coordinacion.nombre || coordinacion.codigo || 'N/A'}
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                                          Sin coordinación
+                                        </span>
+                                      );
+                                    }
+                                    return <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">-</span>;
+                                  })()}
+                                </td>
+                                
+                                {/* Resumen de Conversación */}
+                                <td className="px-6 py-4 text-sm text-slate-900 dark:text-white">
+                                  <div className="max-w-xs">
+                                    <p className="line-clamp-2 text-xs">
+                                      {call.resumen_llamada || call.datos_llamada?.resumen || 'Sin resumen disponible'}
+                                    </p>
+                                  </div>
+                                </td>
+                                
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <div className="flex items-center justify-end gap-2">
+                                    {call.audio_ruta_bucket && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // Reproducir audio
+                                        }}
+                                        className="p-2 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                                        title="Reproducir audio"
+                                      >
+                                        <Play className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        setSelectedCallForAnalysis(call);
+                                        setShowAnalysisDetailModal(true);
+                                      if (call.call_id) {
+                                        await loadTranscript(call.call_id, 1.04);
+                                        // Usar prospecto_completo si está disponible, sino cargar desde BD
+                                        if (call.prospecto_completo) {
+                                          setSelectedProspectoData(call.prospecto_completo);
+                                        } else if (call.prospecto_id || call.prospecto) {
+                                          try {
+                                            const { data } = await analysisSupabase
+                                              .from('prospectos')
+                                              .select('*')
+                                              .eq('id', call.prospecto_id || call.prospecto)
+                                              .single();
+                                            setSelectedProspectoData(data);
+                                          } catch (err) {
+                                            console.error('Error loading prospecto data:', err);
+                                          }
+                                        }
+                                      }
+                                      }}
+                                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                      title="Ver detalles"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </button>
+                                  </div>
                         </td>
                       </tr>
-                    ))}
+                            );
+                          })
+                        )}
                   </tbody>
                 </table>
-                
-                {allCalls.length === 0 && (
-                  <div className="text-center py-12">
-                    <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    <p className="text-slate-500 dark:text-slate-400">No hay llamadas registradas</p>
                   </div>
-                )}
+                </motion.div>
               </div>
             )}
           </div>
@@ -4005,17 +4976,6 @@ const LiveMonitorKanban: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* Tab Atendida / no Transferida */}
-        {selectedTab === 'attended' && (
-          <div className="overflow-x-auto">
-            <LiveMonitorDataGrid
-              calls={attendedCalls}
-              title="📞 Llamadas Atendidas / No transferidas"
-              onCallClick={(call) => setSelectedCall(call)}
-              onFinalize={openFinalizationModal}
-            />
-          </div>
-        )}
 
         {/* Modal de Feedback Global */}
         <AnimatePresence>
@@ -4182,6 +5142,831 @@ const LiveMonitorKanban: React.FC = () => {
             // No limpiar customTransferText para que el usuario pueda intentar de nuevo
           }}
         />
+
+        {/* Modal Combinado de Análisis IA + Información de Llamada */}
+        <AnimatePresence>
+          {showAnalysisDetailModal && selectedCallForAnalysis && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-black/50 backdrop-blur-md z-50"
+                          onClick={() => {
+                            setShowAnalysisDetailModal(false);
+                            setSelectedCallForAnalysis(null);
+                            setTranscript([]);
+                            setModalTab('details'); // Resetear pestaña al cerrar
+                          }}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-0 flex items-center justify-center z-50 p-4 lg:p-6 pointer-events-none"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl lg:max-w-[85rem] xl:max-w-[90rem] h-[92vh] max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden pointer-events-auto"
+                >
+                  <div className="flex flex-col h-full overflow-hidden">
+                    {/* Header */}
+                    <div className="relative px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-4 flex-1 min-w-0">
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                            className="relative flex-shrink-0"
+                          >
+                            <button
+                              onClick={() => {
+                                if (selectedCallForAnalysis.prospecto_id || selectedCallForAnalysis.prospecto) {
+                                  handleProspectoClick(selectedCallForAnalysis);
+                                }
+                              }}
+                              className={`relative w-16 h-16 rounded-2xl bg-gradient-to-br ${
+                                selectedCallForAnalysis.call_status === 'activa' 
+                                  ? 'from-green-500 via-blue-500 to-purple-500' 
+                                  : 'from-gray-400 via-gray-500 to-gray-600'
+                              } p-0.5 shadow-lg flex-shrink-0 group cursor-pointer`}
+                              title="Ver información del prospecto"
+                            >
+                              <div className="w-full h-full rounded-2xl bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                                <ProspectAvatar
+                                  nombreCompleto={selectedCallForAnalysis.nombre_completo}
+                                  nombreWhatsapp={selectedCallForAnalysis.nombre_whatsapp}
+                                  size="xl"
+                                  className="w-full h-full rounded-2xl"
+                                />
+                              </div>
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                                className="absolute -bottom-1 -right-1 p-1 bg-white dark:bg-gray-900 rounded-full shadow-lg border-2 border-blue-500"
+                              >
+                                <Eye size={12} className="text-blue-600 dark:text-blue-400" />
+                              </motion.div>
+                            </button>
+                          </motion.div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <motion.h2
+                                  initial={{ opacity: 0, y: -10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: 0.15 }}
+                                  className="text-2xl font-bold text-gray-900 dark:text-white mb-1 flex items-center flex-wrap gap-2"
+                                >
+                                  <BarChart3 className="w-6 h-6 mr-3 text-emerald-500" />
+                                  <button
+                                    onClick={() => {
+                                      if (selectedCallForAnalysis.prospecto_id || selectedCallForAnalysis.prospecto) {
+                                        handleProspectoClick(selectedCallForAnalysis);
+                                      }
+                                    }}
+                                    className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                  >
+                                    {selectedCallForAnalysis.nombre_completo || selectedCallForAnalysis.nombre_whatsapp || 'Análisis de Llamada'}
+                                  </button>
+                                  {(() => {
+                                    const prospecto = selectedCallForAnalysis.prospecto_completo || {};
+                                    const ejecutivoId = prospecto.ejecutivo_id || selectedCallForAnalysis.ejecutivo_id;
+                                    const coordinacionId = prospecto.coordinacion_id || selectedCallForAnalysis.coordinacion_id;
+                                    const ejecutivo = ejecutivoId ? ejecutivosMap[ejecutivoId] : null;
+                                    const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
+                                    
+                                    if (ejecutivo || coordinacion) {
+                                      return (
+                                        <>
+                                          <span className="text-gray-400 dark:text-gray-500">-</span>
+                                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400 flex items-center gap-2 flex-wrap">
+                                            {ejecutivo && (
+                                              <span className="flex items-center gap-1">
+                                                <User className="w-4 h-4" />
+                                                <span className="font-medium">Ejecutivo:</span>
+                                                {ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}
+                                              </span>
+                                            )}
+                                            {coordinacion && (
+                                              <>
+                                                {ejecutivo && <span className="text-gray-400 dark:text-gray-500">/</span>}
+                                                <span className="flex items-center gap-1">
+                                                  {coordinacion.nombre || coordinacion.codigo || 'N/A'}
+                                                </span>
+                                              </>
+                                            )}
+                                          </span>
+                                        </>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </motion.h2>
+                                <motion.p
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  transition={{ delay: 0.2 }}
+                                  className="text-sm text-gray-500 dark:text-gray-400"
+                                >
+                                  {selectedCallForAnalysis.call_id} • {selectedCallForAnalysis.fecha_llamada ? new Date(selectedCallForAnalysis.fecha_llamada).toLocaleDateString('es-MX') : 'N/A'}
+                                </motion.p>
+                                {/* Resumen de la llamada en el header */}
+                                {selectedCallForAnalysis.resumen_llamada && (
+                                  <motion.p
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.25 }}
+                                    className="text-sm text-gray-700 dark:text-gray-300 mt-2 leading-relaxed"
+                                  >
+                                    {selectedCallForAnalysis.resumen_llamada}
+                                  </motion.p>
+                                )}
+                              </div>
+                              {/* Botón de cambio de pestaña */}
+                              <motion.button
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+                                onClick={() => setModalTab(modalTab === 'details' ? 'analysis' : 'details')}
+                                className="flex-shrink-0 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500 rounded-lg flex items-center gap-2 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                              >
+                                <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase">
+                                  {modalTab === 'details' ? 'Análisis y Métricas' : 'Detalles de la Llamada'}
+                                </span>
+                              </motion.button>
+                            </div>
+                          </div>
+                        </div>
+                        <motion.button
+                          initial={{ opacity: 0, rotate: -90 }}
+                          animate={{ opacity: 1, rotate: 0 }}
+                          transition={{ delay: 0.25 }}
+                          onClick={() => {
+                            setShowAnalysisDetailModal(false);
+                            setSelectedCallForAnalysis(null);
+                            setTranscript([]);
+                            setModalTab('details'); // Resetear pestaña al cerrar
+                          }}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 group ml-4 flex-shrink-0"
+                        >
+                          <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                        </motion.button>
+                      </div>
+                    </div>
+                    
+                    {/* Content - Scroll invisible */}
+                    <div className="flex-1 overflow-y-auto px-8 py-6 min-h-0 scrollbar-hide">
+                      {modalTab === 'details' ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          {/* Panel Izquierdo - Información de Llamada + Detalles Prospecto + Historial */}
+                          <div className="space-y-6">
+                          {/* Información de Llamada */}
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                          >
+                            <div className="flex items-center space-x-2 mb-4">
+                              <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                                <Phone className="w-4 h-4 mr-2 text-emerald-500" />
+                                Detalles de Llamada
+                              </h3>
+                            </div>
+                            <div className="grid grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Estado</label>
+                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  selectedCallForAnalysis.call_status === 'activa' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                  selectedCallForAnalysis.call_status === 'transferida' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                  selectedCallForAnalysis.call_status === 'finalizada' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300' :
+                                  selectedCallForAnalysis.call_status === 'perdida' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                  'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                }`}>
+                                  {selectedCallForAnalysis.call_status === 'transferida' ? 'Transferida a Ejecutivo' :
+                                   selectedCallForAnalysis.call_status === 'contestada_no_transferida' ? 'Contestada No Transferida' :
+                                   selectedCallForAnalysis.call_status === 'perdida' ? 'Perdida' :
+                                   selectedCallForAnalysis.call_status}
+                                </span>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Duración</label>
+                                <div className="text-gray-900 dark:text-white font-medium">
+                                  {selectedCallForAnalysis.duracion_segundos ? 
+                                    `${Math.floor(selectedCallForAnalysis.duracion_segundos / 60)}:${(selectedCallForAnalysis.duracion_segundos % 60).toString().padStart(2, '0')}` : 
+                                    'En curso'}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Checkpoint</label>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                    (selectedCallForAnalysis.checkpoint_alcanzado || parseInt(selectedCallForAnalysis.checkpoint_venta_actual?.replace('checkpoint #', '') || '1')) >= 4 ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                    (selectedCallForAnalysis.checkpoint_alcanzado || parseInt(selectedCallForAnalysis.checkpoint_venta_actual?.replace('checkpoint #', '') || '1')) >= 3 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                    'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                  }`}>
+                                    {selectedCallForAnalysis.checkpoint_alcanzado || selectedCallForAnalysis.checkpoint_venta_actual?.replace('checkpoint #', '') || '1'}/5
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Nivel Interés</label>
+                                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                  (selectedCallForAnalysis.nivel_interes_detectado || selectedCallForAnalysis.nivel_interes) === 'Alto' || (selectedCallForAnalysis.nivel_interes_detectado || selectedCallForAnalysis.nivel_interes) === 'MUY_ALTO' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                  (selectedCallForAnalysis.nivel_interes_detectado || selectedCallForAnalysis.nivel_interes) === 'Medio' || (selectedCallForAnalysis.nivel_interes_detectado || selectedCallForAnalysis.nivel_interes) === 'MEDIO' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                  'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                }`}>
+                                  {selectedCallForAnalysis.nivel_interes_detectado || selectedCallForAnalysis.nivel_interes || 'N/A'}
+                                </span>
+                              </div>
+                            </div>
+                          </motion.div>
+
+                          {/* Detalles del Prospecto - Movido después de detalles de llamada */}
+                          {(selectedProspectoData || selectedCallForAnalysis.datos_proceso) && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.2 }}
+                              className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                            >
+                              <div className="flex items-center space-x-2 mb-4">
+                                <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center">
+                                  <User className="w-4 h-4 mr-2 text-emerald-500" />
+                                  Detalles del Prospecto
+                                </h3>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                {(() => {
+                                  const datosProceso = selectedCallForAnalysis.datos_proceso || 
+                                                       (typeof selectedCallForAnalysis.datos_proceso === 'string' ? 
+                                                        JSON.parse(selectedCallForAnalysis.datos_proceso || '{}') : {});
+                                  const prospecto = selectedProspectoData || selectedCallForAnalysis.prospecto_completo || {};
+                                  
+                                  return (
+                                    <>
+                                      {/* Información Básica */}
+                                      {prospecto.nombre_completo && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Nombre Completo</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.nombre_completo}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.whatsapp && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">WhatsApp</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.whatsapp}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.telefono_principal && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Teléfono Principal</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.telefono_principal}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.email && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Email</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.email}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.ciudad_residencia && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ciudad</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.ciudad_residencia}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.edad && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Edad</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.edad} años
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.cumpleanos && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Cumpleaños</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.cumpleanos}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.estado_civil && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Estado Civil</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.estado_civil}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.nombre_conyuge && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Cónyuge</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.nombre_conyuge}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Información de Viaje - Prioridad datos_proceso */}
+                                      {(datosProceso?.numero_personas || prospecto.tamano_grupo) && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Composición Familiar</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {datosProceso?.numero_personas || prospecto.tamano_grupo} {datosProceso?.numero_personas === 1 || prospecto.tamano_grupo === 1 ? 'persona' : 'personas'}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {(datosProceso?.destino_preferencia || prospecto.destino_preferencia) && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Destino Preferencia</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {Array.isArray(datosProceso?.destino_preferencia || prospecto.destino_preferencia) 
+                                              ? (datosProceso?.destino_preferencia || prospecto.destino_preferencia).join(', ')
+                                              : (datosProceso?.destino_preferencia || prospecto.destino_preferencia)}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {datosProceso?.mes_preferencia && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Mes Preferencia</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {datosProceso.mes_preferencia}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {(datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones) && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Tipo de Vacaciones</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {Array.isArray(datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones)
+                                              ? (datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones).join(', ')
+                                              : (datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones)}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {datosProceso?.duracion_estancia_noches && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Duración Estancia</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {datosProceso.duracion_estancia_noches} noches
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.cantidad_menores !== null && prospecto.cantidad_menores !== undefined && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Menores</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.cantidad_menores} menores
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.viaja_con && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Viaja Con</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.viaja_con}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.ingresos && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ingresos</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.ingresos}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.campana_origen && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Campaña Origen</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.campana_origen}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.interes_principal && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Interés Principal</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.interes_principal}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.etapa && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.etapa}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.temperatura_prospecto && (
+                                        <div>
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Temperatura</label>
+                                          <div className="text-gray-900 dark:text-white font-medium">
+                                            {prospecto.temperatura_prospecto}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {prospecto.observaciones && (
+                                        <div className="col-span-2">
+                                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Observaciones</label>
+                                          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                                            <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-900 dark:text-white leading-relaxed">
+                                              <ReactMarkdown>
+                                                {prospecto.observaciones?.replace(/\\n/g, '\n') || ''}
+                                              </ReactMarkdown>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </motion.div>
+                          )}
+
+                          {/* Historial de Llamadas del Prospecto - Movido debajo de detalles del prospecto */}
+                          {selectedCallForAnalysis && (() => {
+                            const prospectId = selectedCallForAnalysis.prospecto_completo?.id || 
+                                              selectedCallForAnalysis.prospect_id ||
+                                              selectedCallForAnalysis.prospecto_id;
+                            
+                            if (!prospectId) return null;
+                            
+                            // Filtrar llamadas del mismo prospecto, excluyendo la actual
+                            const prospectCalls = allCallsWithAnalysis.filter((call: any) => {
+                              const callProspectId = call.prospecto_completo?.id || 
+                                                     call.prospect_id || 
+                                                     call.prospecto_id;
+                              return callProspectId === prospectId && 
+                                     call.call_id !== selectedCallForAnalysis.call_id;
+                            }).sort((a: any, b: any) => {
+                              // Ordenar por fecha más reciente primero
+                              const dateA = new Date(a.fecha_llamada || a.created_at || 0).getTime();
+                              const dateB = new Date(b.fecha_llamada || b.created_at || 0).getTime();
+                              return dateB - dateA;
+                            });
+                            
+                            if (prospectCalls.length === 0) return null;
+                            
+                            return (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                                className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                              >
+                                <div className="flex items-center space-x-2 mb-4">
+                                  <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full"></div>
+                                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                    Historial de Llamadas del Prospecto
+                                  </h3>
+                                  <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+                                    {prospectCalls.length} {prospectCalls.length === 1 ? 'llamada' : 'llamadas'}
+                                  </span>
+                                </div>
+                                <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-hide">
+                                  {prospectCalls.map((call: any, index: number) => (
+                                    <button
+                                      key={call.call_id || index}
+                                      onClick={async () => {
+                                        // Cargar datos de la llamada seleccionada
+                                        setSelectedCallForAnalysis(call);
+                                        if (call.call_id) {
+                                          await loadTranscript(call.call_id, 1.04);
+                                        }
+                                        // Cargar datos del prospecto si no están disponibles
+                                        if (!call.prospecto_completo && call.prospect_id) {
+                                          try {
+                                            const { data: prospectoData } = await analysisSupabase
+                                              .from('prospectos')
+                                              .select('*')
+                                              .eq('id', call.prospect_id)
+                                              .single();
+                                            setSelectedProspectoData(prospectoData);
+                                          } catch (err) {
+                                            console.error('Error loading prospecto:', err);
+                                          }
+                                        }
+                                        // Resetear audio
+                                        if (audioRef.current) {
+                                          audioRef.current.pause();
+                                          audioRef.current.currentTime = 0;
+                                        }
+                                        setIsAudioPlaying(false);
+                                        setHighlightedSegment(null);
+                                      }}
+                                      className={`w-full text-left p-3 rounded-lg border-2 transition-all duration-200 ${
+                                        call.call_id === selectedCallForAnalysis.call_id
+                                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                                          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-medium text-gray-900 dark:text-white">
+                                              {call.fecha_llamada 
+                                                ? new Date(call.fecha_llamada).toLocaleDateString('es-MX', { 
+                                                    day: '2-digit', 
+                                                    month: 'short', 
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })
+                                                : 'Fecha no disponible'}
+                                            </span>
+                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                                              call.call_status === 'transferida' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                              call.call_status === 'contestada_no_transferida' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                                              call.call_status === 'perdida' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                              'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+                                            }`}>
+                                              {call.call_status === 'transferida' ? 'Transferida' :
+                                               call.call_status === 'contestada_no_transferida' ? 'Contestada' :
+                                               call.call_status === 'perdida' ? 'Perdida' :
+                                               call.call_status || 'Finalizada'}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+                                            {call.duracion_segundos && (
+                                              <span>
+                                                {Math.floor(call.duracion_segundos / 60)}:{(call.duracion_segundos % 60).toString().padStart(2, '0')}
+                                              </span>
+                                            )}
+                                            {call.checkpoint_alcanzado && (
+                                              <span>
+                                                Checkpoint: {call.checkpoint_alcanzado}/5
+                                              </span>
+                                            )}
+                                            {call.nivel_interes_detectado && (
+                                              <span className={`px-2 py-0.5 rounded-full ${
+                                                call.nivel_interes_detectado === 'MUY_ALTO' || call.nivel_interes_detectado === 'Alto' 
+                                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                                                  call.nivel_interes_detectado === 'MEDIO' || call.nivel_interes_detectado === 'Medio'
+                                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                                  'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                              }`}>
+                                                {call.nivel_interes_detectado}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-2" />
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Panel Derecho - Transcripción Ampliada */}
+                        <div className="space-y-6">
+                          {/* Transcripción con Audio Player Integrado */}
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                          >
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></div>
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                  Transcripción de Conversación
+                                </h3>
+                              </div>
+                              {selectedCallForAnalysis.audio_ruta_bucket && (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      if (audioRef.current) {
+                                        if (isAudioPlaying) {
+                                          audioRef.current.pause();
+                                          setIsAudioPlaying(false);
+                                        } else {
+                                          audioRef.current.play();
+                                          setIsAudioPlaying(true);
+                                        }
+                                      }
+                                    }}
+                                    className="w-8 h-8 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-full flex items-center justify-center text-white transition-all duration-200 shadow-md hover:shadow-lg"
+                                  >
+                                    {isAudioPlaying ? (
+                                      <Pause className="w-4 h-4" />
+                                    ) : (
+                                      <Play className="w-4 h-4 ml-0.5" />
+                                    )}
+                                  </button>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={currentAudioTime}
+                                    onChange={(e) => {
+                                      const volume = parseFloat(e.target.value) / 100;
+                                      if (audioRef.current) {
+                                        audioRef.current.volume = volume;
+                                      }
+                                    }}
+                                    className="w-20 h-1 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            <div 
+                              ref={transcriptContainerRef}
+                              className="h-[calc(92vh-300px)] overflow-y-auto scrollbar-hide space-y-3"
+                            >
+                              {transcript.length > 0 ? (
+                                transcript.map((segment, index) => (
+                                  <div
+                                    key={index}
+                                    className={`p-3 rounded-lg transition-all duration-300 ${
+                                      highlightedSegment === index
+                                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/40'
+                                        : segment.speaker === 'cliente' 
+                                          ? 'bg-blue-100 dark:bg-blue-900/30 ml-8' 
+                                          : 'bg-gray-100 dark:bg-slate-700 mr-8'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className={`text-xs font-medium ${
+                                        segment.speaker === 'cliente' ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'
+                                      }`}>
+                                        {segment.speaker === 'cliente' ? 'Cliente' : 'Agente'}
+                                      </span>
+                                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                                        {segment.timestamp}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-slate-900 dark:text-white leading-relaxed">
+                                      {segment.content}
+                                    </p>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                                  <MessageSquare size={48} className="mx-auto mb-4 opacity-50" />
+                                  <p>No hay transcripción disponible</p>
+                                </div>
+                              )}
+                            </div>
+                            {selectedCallForAnalysis.audio_ruta_bucket && (
+                              <audio
+                                ref={audioRef}
+                                src={selectedCallForAnalysis.audio_ruta_bucket}
+                                onTimeUpdate={handleAudioTimeUpdate}
+                                onEnded={() => {
+                                  setIsAudioPlaying(false);
+                                  setHighlightedSegment(null);
+                                  lastSegmentRef.current = null;
+                                  if (scrollTimeoutRef.current !== null) {
+                                    cancelAnimationFrame(scrollTimeoutRef.current);
+                                    scrollTimeoutRef.current = null;
+                                  }
+                                }}
+                                onPlay={() => setIsAudioPlaying(true)}
+                                onPause={() => setIsAudioPlaying(false)}
+                              />
+                            )}
+                          </motion.div>
+                        </div>
+                      </div>
+                      ) : (
+                        /* Pestaña de Análisis y Métricas */
+                        <div className="space-y-6">
+                          {/* Retroalimentación IA */}
+                          {(selectedCallForAnalysis.analysis?.feedback_positivo?.length > 0 || selectedCallForAnalysis.analysis?.feedback_constructivo?.length > 0) && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.1 }}
+                              className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                            >
+                              <div className="flex items-center space-x-2 mb-4">
+                                <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                  Retroalimentación IA
+                                </h3>
+                              </div>
+                              
+                              {selectedCallForAnalysis.analysis?.feedback_positivo?.length > 0 && (
+                                <div className="mb-4">
+                                  <h4 className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">
+                                    Aspectos Positivos
+                                  </h4>
+                                  <ul className="space-y-1">
+                                    {selectedCallForAnalysis.analysis.feedback_positivo.map((item: string, index: number) => (
+                                      <li key={index} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                                        <CheckCircle size={16} className="text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                                        {item}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {selectedCallForAnalysis.analysis?.feedback_constructivo?.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-medium text-orange-700 dark:text-orange-400 mb-2">
+                                    Áreas de Mejora
+                                  </h4>
+                                  <ul className="space-y-1">
+                                    {selectedCallForAnalysis.analysis.feedback_constructivo.map((item: any, index: number) => (
+                                      <li key={index} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                                        <AlertTriangle size={16} className="text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                                        {typeof item === 'string' ? item : 
+                                         typeof item === 'object' ? (item.problema || item.descripcion || JSON.stringify(item)) : 
+                                         String(item)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </motion.div>
+                          )}
+
+                          {/* Gráfica Radar de Evaluación */}
+                          {selectedCallForAnalysis.calificaciones && Object.keys(selectedCallForAnalysis.calificaciones).length > 0 && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.2 }}
+                              className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+                            >
+                              <div className="flex items-center space-x-2 mb-4">
+                                <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                  Evaluación de Continuidad y Discovery
+                                </h3>
+                              </div>
+                              <div className="h-96 relative">
+                                <canvas
+                                  key={`radar-chart-${selectedCallForAnalysis.call_id}-${modalTab}`}
+                                  id={`radar-chart-${selectedCallForAnalysis.call_id}`}
+                                  className="max-w-full max-h-full"
+                                />
+                              </div>
+                            </motion.div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
