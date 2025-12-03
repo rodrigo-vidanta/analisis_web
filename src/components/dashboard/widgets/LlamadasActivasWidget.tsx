@@ -52,7 +52,6 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
 
       setLlamadas(sorted.slice(0, 5)); // Solo mostrar 5
     } catch (error) {
-      console.error('Error cargando llamadas activas:', error);
       setLlamadas([]);
     } finally {
       setLoading(false);

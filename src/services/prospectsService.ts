@@ -1,16 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
 import { permissionsService } from './permissionsService';
 import { automationService } from './automationService';
-
-// Configuración para la base de datos de análisis (donde están los prospectos)
-const ANALYSIS_SUPABASE_URL = 'https://glsmifhkoaifvaegsozd.supabase.co';
-const ANALYSIS_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrbzFpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ2NzI2NzQsImV4cCI6MjA1MDI0ODY3NH0.Qs8Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7Ej7E';
-
-// Cliente de Supabase para la base de análisis
-export const analysisSupabase = createClient(
-  ANALYSIS_SUPABASE_URL,
-  ANALYSIS_SUPABASE_ANON_KEY
-);
+import { analysisSupabase } from '../config/analysisSupabase';
 
 /**
  * ============================================

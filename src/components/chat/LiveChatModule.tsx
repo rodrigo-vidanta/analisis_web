@@ -164,7 +164,6 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
               <div className="w-8 h-8 bg-slate-900 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                 <MessageCircle className="w-4 h-4 text-white" />
               </div>
-              <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Live Chat</h1>
             </div>
             
             <nav className="flex space-x-1">

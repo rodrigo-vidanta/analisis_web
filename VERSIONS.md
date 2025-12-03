@@ -1,5 +1,27 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.0N6.0.0 (Enero 2025) - Dashboard: Limpieza de Logs y Mejoras de UI
+
+### 🎯 RELEASE BETA - Dashboard: Optimización y Correcciones
+
+#### Limpieza de Logs
+- **Eliminación completa:** Removidos todos los logs de consola del módulo de dashboard
+- **Consola limpia:** Sin violaciones de rendimiento ni mensajes de depuración
+
+#### Correcciones de Funcionalidad
+- **Botón de WhatsApp:** Implementada funcionalidad completa en sidebar de prospectos
+- **Navegación a Live Chat:** Integración fluida con módulo de chat
+
+#### Mejoras de UI
+- **Color de mensajes de agentes:** Lila discreto para mejor visibilidad
+- **Visualización mejorada:** Corrección en mensajes de agentes con globo y fondo
+
+#### Archivos Principales
+- Widgets del dashboard - Limpieza de logs
+- ProspectoSidebar - Correcciones y navegación
+
+---
+
 ## Versión B3.0.0N6.0.0 (Enero 2025) - Live Monitor: Optimización de Rendimiento y Sincronización de Audio
 
 ### 🎯 RELEASE BETA - Optimización de Rendimiento y Mejoras en Live Monitor

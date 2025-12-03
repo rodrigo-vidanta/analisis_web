@@ -178,16 +178,13 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
           className="flex items-center justify-between mb-4"
         >
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Llamadas Programadas
-            </h1>
-            <p className="text-sm font-light tracking-wide text-gray-600 dark:text-gray-400 mt-1">
-              <span className="font-semibold text-gray-900 dark:text-white">Total: <span className="font-bold">{statistics.total}</span></span>
-              <span className="ml-4 font-semibold text-gray-900 dark:text-white">Programadas: <span className="font-bold">{statistics.programadas}</span></span>
-              <span className="ml-4 font-semibold text-gray-900 dark:text-white">Ejecutadas: <span className="font-bold">{statistics.ejecutadas}</span></span>
-              <span className="ml-4 font-semibold text-gray-900 dark:text-white">Canceladas: <span className="font-bold">{statistics.canceladas}</span></span>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Total: <span className="font-bold">{statistics.total}</span></span>
+              <span className="ml-3 font-semibold text-slate-700 dark:text-slate-300">Programadas: <span className="font-bold">{statistics.programadas}</span></span>
+              <span className="ml-3 font-semibold text-slate-700 dark:text-slate-300">Ejecutadas: <span className="font-bold">{statistics.ejecutadas}</span></span>
+              <span className="ml-3 font-semibold text-slate-700 dark:text-slate-300">Canceladas: <span className="font-bold">{statistics.canceladas}</span></span>
               {statistics.proximas > 0 && (
-                <span className="ml-4 font-semibold text-gray-900 dark:text-white">Próximas 24h: <span className="font-bold">{statistics.proximas}</span></span>
+                <span className="ml-3 font-semibold text-slate-700 dark:text-slate-300">Próximas 24h: <span className="font-bold">{statistics.proximas}</span></span>
               )}
             </p>
           </div>

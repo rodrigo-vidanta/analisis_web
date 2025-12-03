@@ -3,8 +3,8 @@
  * Basado en LiveChatCanvas - muestra conversaciones asignadas según permisos
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Send, ChevronRight, Loader2, X, Flag } from 'lucide-react';
 import { supabaseSystemUI } from '../../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../../config/analysisSupabase';
@@ -14,7 +14,8 @@ import { coordinacionService } from '../../../services/coordinacionService';
 import { useAppStore } from '../../../stores/appStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AssignmentBadge } from '../../analysis/AssignmentBadge';
-import { MultimediaMessage } from '../../chat/MultimediaMessage';
+import { MultimediaMessage, needsBubble } from '../../chat/MultimediaMessage';
+import { ProspectoSidebar } from '../../scheduled-calls/ProspectoSidebar';
 
 interface Message {
   id: string;
@@ -22,6 +23,8 @@ interface Message {
   conversation_id: string;
   sender_type: 'customer' | 'bot' | 'agent';
   sender_name?: string;
+  id_sender?: string; // ID del usuario que envió el mensaje
+  sender_user_name?: string; // Nombre completo del usuario que envió el mensaje
   content?: string;
   is_read: boolean;
   created_at: string;
@@ -44,12 +47,30 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   const [ejecutivosMap, setEjecutivosMap] = useState<Map<string, any>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const realtimeChannelRef = useRef<any>(null);
+  const conversationsRef = useRef<UChatConversation[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedProspectoIdForSidebar, setSelectedProspectoIdForSidebar] = useState<string | null>(null);
+  const isOpeningSidebarRef = useRef(false);
+
+  const handleSidebarClose = useCallback(() => {
+    setSidebarOpen(false);
+    // Limpiar después de que la animación termine
+    setTimeout(() => {
+      setSelectedProspectoIdForSidebar(null);
+    }, 300);
+  }, []);
+
+  const getInitials = (name: string | undefined | null): string => {
+    if (!name) return '?';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
 
   useEffect(() => {
-    console.log('🔄 [ConversacionesWidget] useEffect ejecutado, userId:', userId);
-    
     if (!userId) {
-      console.log('⚠️ [ConversacionesWidget] No hay userId, no se cargan conversaciones');
       setLoading(false);
       return;
     }
@@ -72,6 +93,39 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       }
     };
   }, [userId]);
+
+  useEffect(() => {
+    // Escuchar evento para abrir conversación desde ProspectosNuevosWidget
+    const handleOpenProspectConversation = async (event: CustomEvent) => {
+      const { prospectId } = event.detail;
+      if (!prospectId) return;
+
+      // Usar un pequeño delay para asegurar que el ref esté actualizado
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Buscar si la conversación está en el top 15 usando el ref actualizado
+      const conversation = conversationsRef.current.find(
+        c => c.prospect_id === prospectId || c.prospecto_id === prospectId
+      );
+
+      if (conversation) {
+        // Está en el top 15, abrirla en el widget
+        setSelectedConversation(conversation);
+        // NO disparar evento de redirección
+      } else {
+        // No está en el top 15, disparar evento para redirigir
+        window.dispatchEvent(new CustomEvent('conversation-not-in-top', { 
+          detail: { prospectId } 
+        }));
+      }
+    };
+
+    window.addEventListener('open-prospect-conversation', handleOpenProspectConversation as EventListener);
+
+    return () => {
+      window.removeEventListener('open-prospect-conversation', handleOpenProspectConversation as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     if (selectedConversation) {
@@ -122,7 +176,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                              b.updated_at ? new Date(b.updated_at).getTime() : 0;
                 return dateB - dateA;
               });
-              return updated.slice(0, 10);
+              return updated.slice(0, 15);
             } else {
               const updated = [...prev, updatedConv as UChatConversation]
                 .sort((a, b) => {
@@ -132,7 +186,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                                b.updated_at ? new Date(b.updated_at).getTime() : 0;
                   return dateB - dateA;
                 });
-              return updated.slice(0, 10);
+              return updated.slice(0, 15);
             }
           });
         }
@@ -197,7 +251,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                              b.updated_at ? new Date(b.updated_at).getTime() : 0;
                 return dateB - dateA;
               });
-              return updated.slice(0, 10);
+              return updated.slice(0, 15);
             });
           }
         }
@@ -261,7 +315,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
   const loadConversations = async () => {
     if (!userId) {
-      console.log('⚠️ [ConversacionesWidget] No hay userId, no se cargan conversaciones');
       setLoading(false);
       setConversations([]);
       return;
@@ -269,7 +322,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
     try {
       setLoading(true);
-      console.log('🔄 [ConversacionesWidget] Cargando conversaciones para userId:', userId);
       
       // OPTIMIZACIÓN: Cargar ambas fuentes en paralelo (igual que LiveChatCanvas)
       const [uchatConversationsRaw, rpcDataResult] = await Promise.all([
@@ -281,9 +333,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           .then(({ data, error }) => ({ data, error }))
           .catch(() => ({ data: null, error: null }))
       ]);
-
-      console.log('✅ [ConversacionesWidget] UChat conversaciones:', uchatConversationsRaw?.length || 0);
-      console.log('✅ [ConversacionesWidget] WhatsApp conversaciones (RPC):', rpcDataResult.data?.length || 0);
 
       // Obtener filtros de permisos
       const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
@@ -446,15 +495,14 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         return dateB - dateA;
       });
       
-      // Tomar las 10 más recientes
-      const top10 = sorted.slice(0, 10);
-      console.log('📊 [ConversacionesWidget] Top 10 conversaciones seleccionadas:', top10.length);
-      setConversations(top10 as UChatConversation[]);
+      // Tomar las 15 más recientes
+      const top15 = sorted.slice(0, 15);
+      conversationsRef.current = top15 as UChatConversation[];
+      setConversations(top15 as UChatConversation[]);
 
     } catch (error: any) {
-      console.error('❌ [ConversacionesWidget] Error cargando conversaciones:', error);
       if (error?.status === 401 || error?.code === 'PGRST301') {
-        console.warn('⚠️ [ConversacionesWidget] Error de permisos al cargar conversaciones');
+        // Error de permisos - silenciar
       }
       setConversations([]);
       setProspectosData(new Map());
@@ -475,12 +523,36 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
         if (error) throw error;
 
+        // Obtener nombres de usuarios para mensajes con id_sender (igual que LiveChatCanvas)
+        const senderIds = (messagesData || [])
+          .filter((msg: any) => msg.id_sender)
+          .map((msg: any) => msg.id_sender);
+        
+        const senderNamesMap: Record<string, string> = {};
+        if (senderIds.length > 0) {
+          try {
+            const { data: usersData } = await supabaseSystemUI
+              .from('auth_users')
+              .select('id, full_name, first_name, last_name')
+              .in('id', senderIds);
+            
+            if (usersData) {
+              usersData.forEach(user => {
+                senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
+              });
+            }
+          } catch (error) {
+          }
+        }
+
         const adaptedMessages: Message[] = (messagesData || []).map((msg: any) => ({
           id: msg.id,
           message_id: `real_${msg.id}`,
           conversation_id: conversation.id,
           sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
           sender_name: msg.rol || 'Desconocido',
+          id_sender: msg.id_sender || undefined,
+          sender_user_name: msg.id_sender ? senderNamesMap[msg.id_sender] : undefined,
           content: msg.mensaje,
           is_read: msg.leido ?? true,
           created_at: msg.fecha_hora,
@@ -500,7 +572,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         setMessages(data || []);
       }
     } catch (error) {
-      console.error('Error cargando mensajes:', error);
     }
   };
 
@@ -553,7 +624,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           </div>
 
           {/* Lista de conversaciones */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
+          <div className="flex-1 overflow-y-auto p-3 scrollbar-hide">
+            <div className="space-y-2">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
@@ -566,19 +638,26 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                 </p>
               </div>
             ) : (
-              conversations.map((conv, index) => {
-                const prospectData = conv.prospect_id ? prospectosData.get(conv.prospect_id) : null;
-                const requiereAtencion = prospectData?.requiere_atencion_humana || false;
-                const unreadCount = Number(conv.unread_count ?? conv.mensajes_no_leidos ?? 0);
-                const hasUnread = unreadCount > 0;
-                
-                return (
-                  <motion.div
-                    key={conv.id || conv.prospecto_id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    onClick={async () => {
+              <AnimatePresence initial={false}>
+                {conversations.map((conv, index) => {
+                  const prospectData = conv.prospect_id ? prospectosData.get(conv.prospect_id) : null;
+                  const requiereAtencion = prospectData?.requiere_atencion_humana || false;
+                  const unreadCount = Number(conv.unread_count ?? conv.mensajes_no_leidos ?? 0);
+                  const hasUnread = unreadCount > 0;
+                  
+                  return (
+                    <motion.div
+                      key={conv.id || conv.prospecto_id || `conv-${index}`}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10, height: 0 }}
+                      transition={{ 
+                        layout: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
+                        opacity: { duration: 0.2 },
+                        y: { duration: 0.2 }
+                      }}
+                      onClick={async () => {
                       // Marcar como leído al hacer clic
                       if (conv.prospect_id) {
                         // Marcar mensajes de WhatsApp como leídos
@@ -603,12 +682,17 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {conv.customer_name || conv.customer_phone || 'Sin nombre'}
-                          </p>
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        {/* Avatar con iniciales */}
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white">
+                          {getInitials(conv.customer_name || conv.customer_phone)}
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {conv.customer_name || conv.customer_phone || 'Sin nombre'}
+                            </p>
+                          </div>
                         {conv.last_message_at && (
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             {formatTimeAgo(conv.last_message_at)}
@@ -634,6 +718,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                             />
                           </div>
                         )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                         {/* Flag de requiere atención - Alineado a la derecha */}
@@ -649,10 +734,12 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                         <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       </div>
                     </div>
-                  </motion.div>
-                );
-              })
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             )}
+            </div>
           </div>
         </>
       ) : (
@@ -666,7 +753,66 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
               >
                 <ChevronRight className="w-4 h-4 text-gray-400 rotate-180" />
               </button>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {/* Avatar con iniciales - clickeable para abrir sidebar */}
+              <div 
+                className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={(e) => {
+                  const prospectId = selectedConversation.prospect_id || selectedConversation.prospecto_id;
+                  
+                  e.stopPropagation();
+                  if (!prospectId) return;
+                  
+                  // Prevenir múltiples ejecuciones simultáneas
+                  if (isOpeningSidebarRef.current) {
+                    return;
+                  }
+                  
+                  // Si ya está abierto con el mismo prospecto, no hacer nada
+                  if (sidebarOpen && selectedProspectoIdForSidebar === prospectId) {
+                    return;
+                  }
+                  
+                  isOpeningSidebarRef.current = true;
+                  
+                  // Establecer el prospecto primero, luego abrir (igual que ProspectosManager)
+                  setSelectedProspectoIdForSidebar(prospectId);
+                  requestAnimationFrame(() => {
+                    setSidebarOpen(true);
+                    isOpeningSidebarRef.current = false;
+                  });
+                }}
+              >
+                {getInitials(selectedConversation.customer_name || selectedConversation.customer_phone)}
+              </div>
+              {/* Nombre clickeable */}
+              <h3 
+                className="text-sm font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                onClick={(e) => {
+                  const prospectId = selectedConversation.prospect_id || selectedConversation.prospecto_id;
+                  
+                  e.stopPropagation();
+                  if (!prospectId) return;
+                  
+                  // Prevenir múltiples ejecuciones simultáneas
+                  if (isOpeningSidebarRef.current) {
+                    return;
+                  }
+                  
+                  // Si ya está abierto con el mismo prospecto, no hacer nada
+                  if (sidebarOpen && selectedProspectoIdForSidebar === prospectId) {
+                    return;
+                  }
+                  
+                  isOpeningSidebarRef.current = true;
+                  
+                  // Establecer el prospecto primero, luego abrir (igual que ProspectosManager)
+                  setSelectedProspectoIdForSidebar(prospectId);
+                  requestAnimationFrame(() => {
+                    setSidebarOpen(true);
+                    isOpeningSidebarRef.current = false;
+                  });
+                }}
+              >
                 {selectedConversation.customer_name || selectedConversation.customer_phone}
               </h3>
             </div>
@@ -697,58 +843,124 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                 }
               }
 
+              // Determinar si necesita globo (false para stickers y audios)
+              const hasContent = msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0;
+              const hasAdjuntos = adjuntos && Array.isArray(adjuntos) && adjuntos.length > 0;
+              // Mostrar globo si hay contenido O si no hay adjuntos O si los adjuntos necesitan globo
+              // Si hay contenido, SIEMPRE mostrar globo
+              const shouldHaveBubble = hasContent || !hasAdjuntos || (hasAdjuntos && needsBubble(adjuntos));
+              
+
               return (
                 <div
                   key={msg.id}
-                  className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}
+                  className={`flex ${isCustomer ? 'justify-start' : 'justify-end'} mb-4`}
                 >
-                  <div className={`max-w-[80%] ${isCustomer ? 'order-2 ml-2' : 'order-1 mr-2'}`}>
-                    <div
-                      className={`px-3 py-2 rounded-lg text-sm ${
-                        isCustomer
-                          ? 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'
-                          : isBot
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-900 dark:bg-gray-800 text-white'
-                      }`}
-                    >
-                      {msg.content && (
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                          {msg.content}
+                  {/* Mensaje */}
+                  <div className={`max-w-[80%] ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
+                    {/* Nombre del remitente */}
+                    <div className={`text-xs text-gray-500 dark:text-gray-400 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                      {isCustomer 
+                        ? 'Cliente'
+                        : isBot 
+                          ? 'Bot Vidanta'
+                          : (msg.sender_user_name || msg.sender_name || 'Agente')
+                      }
+                    </div>
+                    
+                    {/* Burbuja del mensaje - SIEMPRE mostrar globo cuando hay contenido o es agente */}
+                    {(shouldHaveBubble || isAgent) ? (
+                      <div
+                        className={`relative px-4 py-3 rounded-2xl shadow-sm ${
+                          isCustomer
+                            ? 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'
+                            : isBot
+                              ? 'bg-blue-500 dark:bg-blue-600 text-white'
+                              : 'bg-purple-700 dark:bg-purple-800 text-white'
+                        }`}
+                      >
+                        {hasContent && (
+                          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                            {msg.content.replace(/\\n/g, '\n')}
+                          </div>
+                        )}
+                        
+                        {/* Si es agente y no hay contenido, mostrar algo para que el globo sea visible */}
+                        {isAgent && !hasContent && !hasAdjuntos && (
+                          <div className="text-sm leading-relaxed whitespace-pre-wrap opacity-50">
+                            {' '}
+                          </div>
+                        )}
+                        
+                        {/* Multimedia con globo */}
+                        {hasAdjuntos && (
+                          <div className={hasContent ? 'mt-2' : ''}>
+                            <MultimediaMessage 
+                              adjuntos={adjuntos}
+                              hasTextContent={hasContent}
+                              isFromCustomer={isCustomer}
+                              isVisible={true}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Timestamp - siempre visible */}
+                        <div className={`text-xs opacity-75 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
-                      )}
-                      
-                      {/* Multimedia - imágenes pequeñas sin click */}
-                      {adjuntos && Array.isArray(adjuntos) && adjuntos.length > 0 && (
-                        <div className="mt-2 [&_img]:max-w-[150px] [&_img]:max-h-[150px] [&_img]:cursor-default [&_img]:pointer-events-none [&_img]:hover:opacity-100 [&_img]:hover:scale-100 [&_p]:hidden [&_span]:hidden">
+                      </div>
+                    ) : (
+                      /* SIN GLOBO: Stickers y audios solamente (estilo WhatsApp) */
+                      <div className="flex flex-col">
+                        {hasAdjuntos && (
                           <MultimediaMessage 
                             adjuntos={adjuntos}
-                            hasTextContent={!!msg.content}
+                            hasTextContent={false}
                             isFromCustomer={isCustomer}
                             isVisible={true}
                           />
+                        )}
+                        {/* Timestamp pequeño debajo */}
+                        <div className={`text-xs text-gray-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
-                      )}
-                      
-                      <div className={`text-xs opacity-75 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                    </div>
+                    )}
                   </div>
                   
-                  {/* Avatar */}
+                  {/* Avatar - solo uno, después del mensaje */}
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white ${
-                      isCustomer ? 'order-1 bg-gradient-to-br from-gray-400 to-gray-600' : 
-                      isBot ? 'order-2 bg-gradient-to-br from-blue-500 to-blue-700' : 
-                      'order-2 bg-gradient-to-br from-gray-800 to-gray-900'
+                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white shadow-sm ${
+                      isCustomer 
+                        ? 'order-1 bg-gradient-to-br from-gray-400 to-gray-600' 
+                        : isBot 
+                          ? 'order-2 bg-gradient-to-br from-blue-500 to-blue-700' 
+                          : 'order-2 bg-gradient-to-br from-gray-800 to-gray-900'
                     }`}
+                    title={isCustomer 
+                      ? (selectedConversation?.customer_name || 'Cliente')
+                      : isBot 
+                        ? 'Bot Vidanta'
+                        : (msg.sender_user_name || msg.sender_name || 'Agente')
+                    }
                   >
                     {isCustomer 
-                      ? (selectedConversation?.customer_name?.charAt(0).toUpperCase() || 'C')
+                      ? (selectedConversation?.customer_name?.charAt(0).toUpperCase() || 
+                         selectedConversation?.customer_phone?.charAt(0).toUpperCase() || 
+                         'C')
                       : isBot 
                         ? 'B'
-                        : 'A'
+                        : (() => {
+                            // Si hay sender_user_name, usar ese nombre para las iniciales
+                            if (msg.sender_user_name) {
+                              const parts = msg.sender_user_name.trim().split(' ');
+                              if (parts.length >= 2) {
+                                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                              }
+                              return msg.sender_user_name.substring(0, 2).toUpperCase();
+                            }
+                            return (msg.sender_name?.charAt(0).toUpperCase() || 'A');
+                          })()
                     }
                   </div>
                 </div>
@@ -768,6 +980,21 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             </button>
           </div>
         </>
+      )}
+
+      {/* Sidebar de Prospecto - Solo renderizar si hay prospecto seleccionado */}
+      {selectedProspectoIdForSidebar && (
+        <ProspectoSidebar
+          key={`conversaciones-widget-${selectedProspectoIdForSidebar}`}
+          prospectoId={selectedProspectoIdForSidebar}
+          isOpen={sidebarOpen}
+          onClose={handleSidebarClose}
+          onNavigateToLiveChat={(prospectoId) => {
+            setSidebarOpen(false);
+            setAppMode('live-chat');
+            localStorage.setItem('livechat-prospect-id', prospectoId);
+          }}
+        />
       )}
     </div>
   );

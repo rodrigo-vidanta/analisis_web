@@ -3,11 +3,15 @@
  * Muestra prospectos que requieren atención con expansión inline
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, ChevronRight, Loader2, Flag, Phone, MessageSquare, ChevronDown, ChevronUp, Star } from 'lucide-react';
 import { prospectsService, type Prospect } from '../../../services/prospectsService';
+import { coordinacionService } from '../../../services/coordinacionService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
+import { useAppStore } from '../../../stores/appStore';
+import { ProspectoSidebar } from '../../scheduled-calls/ProspectoSidebar';
+import ReactMarkdown from 'react-markdown';
 
 interface ProspectosNuevosWidgetProps {
   userId?: string;
@@ -20,10 +24,14 @@ interface ExpandedProspectData {
 }
 
 export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ userId }) => {
+  const { setAppMode } = useAppStore();
   const [prospectos, setProspectos] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<Map<string, ExpandedProspectData>>(new Map());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedProspecto, setSelectedProspecto] = useState<Prospect | null>(null);
+  const isOpeningSidebarRef = useRef(false);
 
   useEffect(() => {
     if (!userId) {
@@ -70,6 +78,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     try {
       setLoading(true);
       // Obtener TODOS los prospectos asignados al usuario (sin límite)
+      // Incluir el campo observaciones
       const data = await prospectsService.searchProspects(
         { limit: 1000 }, // Obtener muchos para filtrar
         userId
@@ -85,9 +94,8 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
 
       setProspectos(requierenAtencion); // Mostrar TODOS
     } catch (error: any) {
-      console.error('Error cargando prospectos que requieren atención:', error);
       if (error?.status === 401 || error?.code === 'PGRST301') {
-        console.warn('⚠️ Error de autenticación al cargar prospectos. Verificar políticas RLS.');
+        // Error de permisos - silenciar
       }
       setProspectos([]);
     } finally {
@@ -108,33 +116,23 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     });
 
     try {
-      // Cargar historial de llamadas
-      const { data: callsData } = await analysisSupabase
-        .from('llamadas_ventas')
-        .select('call_id, fecha_llamada, duracion_segundos, es_venta_exitosa, call_status, tipo_llamada, nivel_interes, probabilidad_cierre, resumen_llamada')
-        .eq('prospecto', prospectoId)
-        .order('fecha_llamada', { ascending: false })
-        .limit(5);
-
-      // Cargar highlights (resumen de conversaciones o análisis)
+      // Cargar resumen completo de conversaciones (sin límite para mostrar todo)
       const { data: highlightsData } = await analysisSupabase
         .from('conversaciones_whatsapp')
         .select('id, summary, resultado, fecha_inicio')
         .eq('prospecto_id', prospectoId)
-        .order('fecha_inicio', { ascending: false })
-        .limit(3);
+        .order('fecha_inicio', { ascending: false });
 
       setExpandedData(prev => {
         const newMap = new Map(prev);
         newMap.set(prospectoId, {
-          callHistory: callsData || [],
+          callHistory: [],
           highlights: highlightsData || [],
           loading: false
         });
         return newMap;
       });
     } catch (error) {
-      console.error('Error cargando datos expandidos:', error);
       setExpandedData(prev => {
         const newMap = new Map(prev);
         newMap.set(prospectoId, { callHistory: [], highlights: [], loading: false });
@@ -143,12 +141,113 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     }
   };
 
-  const handleProspectoClick = (prospecto: Prospect) => {
+  const handleProspectoClick = (prospecto: Prospect, isExpandClick: boolean = false) => {
+    if (isExpandClick) {
+      // Solo expandir/colapsar (botón de chevron)
+      if (expandedId === prospecto.id) {
+        setExpandedId(null);
+      } else {
+        setExpandedId(prospecto.id);
+      }
+      return;
+    }
+
+    // Si no es clic de expandir, hacer toggle (expandir/colapsar) Y intentar abrir la conversación
+    if (!prospecto.id) return;
+
+    // Toggle: si está expandido, colapsar; si no, expandir
     if (expandedId === prospecto.id) {
       setExpandedId(null);
     } else {
       setExpandedId(prospecto.id);
     }
+
+    // Handler que solo se ejecuta si la conversación NO está en el top 15
+    const notInTopHandler = (event: CustomEvent) => {
+      // Verificar que el prospectId coincida antes de redirigir
+      const eventProspectId = event.detail?.prospectId;
+      if (eventProspectId && eventProspectId !== prospecto.id) {
+        return; // Este evento no es para este prospecto
+      }
+      
+      setAppMode('live-chat');
+      if (prospecto.id) {
+        localStorage.setItem('livechat-prospect-id', prospecto.id);
+      }
+    };
+    
+    // Escuchar el evento que indica que NO está en el top 15
+    // Usar { once: true } para que solo se ejecute una vez
+    window.addEventListener('conversation-not-in-top', notInTopHandler as EventListener, { once: true });
+    
+    // Disparar evento para que ConversacionesWidget verifique y abra si está en el top
+    // Si está en el top, se abrirá en el widget (NO se disparará 'conversation-not-in-top')
+    // Si NO está en el top, ConversacionesWidget disparará 'conversation-not-in-top' y se redirigirá
+    const event = new CustomEvent('open-prospect-conversation', {
+      detail: { prospectId: prospecto.id }
+    });
+    window.dispatchEvent(event);
+  };
+
+  const handleSidebarClose = useCallback(() => {
+    setSidebarOpen(false);
+    // Limpiar después de que la animación termine
+    setTimeout(() => {
+      setSelectedProspecto(null);
+    }, 300);
+  }, []);
+
+  const handleProspectoNameClick = (e: React.MouseEvent, prospectoId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Prevenir múltiples ejecuciones simultáneas
+    if (isOpeningSidebarRef.current) {
+      return;
+    }
+    
+    // Si ya está abierto con el mismo prospecto, no hacer nada
+    if (sidebarOpen && selectedProspecto?.id === prospectoId) {
+      return;
+    }
+    
+    isOpeningSidebarRef.current = true;
+    
+    // Buscar el prospecto en la lista actual (más rápido que cargar desde BD)
+    const prospectoFromList = prospectos.find(p => p.id === prospectoId);
+    if (prospectoFromList) {
+      // Establecer AMBOS estados en el mismo batch de React (usando función de callback)
+      setSelectedProspecto(prospectoFromList);
+      // Usar setTimeout con 0 para asegurar que se ejecuta después del batch de React
+      setTimeout(() => {
+        setSidebarOpen(true);
+        isOpeningSidebarRef.current = false;
+      }, 0);
+    } else {
+      // Si no está en la lista, cargar desde BD
+      prospectsService.getProspectById(prospectoId, userId).then(prospecto => {
+        if (prospecto) {
+          setSelectedProspecto(prospecto);
+          setTimeout(() => {
+            setSidebarOpen(true);
+            isOpeningSidebarRef.current = false;
+          }, 0);
+        } else {
+          isOpeningSidebarRef.current = false;
+        }
+      }).catch(() => {
+        isOpeningSidebarRef.current = false;
+      });
+    }
+  };
+
+  const getInitials = (name: string | undefined | null): string => {
+    if (!name) return '?';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   const formatTime = (dateString: string) => {
@@ -182,7 +281,8 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
       </div>
 
       {/* Contenido */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-3 scrollbar-hide">
+        <div className="space-y-2">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
@@ -195,146 +295,125 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
             </p>
           </div>
         ) : (
-          prospectos.map((prospecto, index) => {
-            const isExpanded = expandedId === prospecto.id;
-            const data = expandedData.get(prospecto.id);
-            
-            return (
-              <div key={prospecto.id}>
+          <AnimatePresence initial={false}>
+            {prospectos.map((prospecto, index) => {
+              const isExpanded = expandedId === prospecto.id;
+              const data = expandedData.get(prospecto.id);
+              
+              return (
                 <motion.div
+                  key={prospecto.id}
+                  layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  onClick={() => handleProspectoClick(prospecto)}
-                  className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-gray-200 dark:border-gray-600"
+                  exit={{ opacity: 0, y: -10, height: 0 }}
+                  transition={{ 
+                    layout: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
+                    opacity: { duration: 0.2 },
+                    y: { duration: 0.2 }
+                  }}
+                  className="space-y-0"
                 >
+                  <motion.div
+                    layout
+                    className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-600"
+                  >
                   <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
-                        </p>
-                        {prospecto.requiere_atencion_humana && (
-                          <Flag className="w-3 h-3 text-red-500 fill-red-500 flex-shrink-0" />
-                        )}
-                      </div>
-                      {prospecto.whatsapp && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          {prospecto.whatsapp}
-                        </p>
-                      )}
-                      {prospecto.motivo_handoff && (
-                        <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
-                          {prospecto.motivo_handoff.split(' ').slice(0, 8).join(' ')}
-                          {prospecto.motivo_handoff.split(' ').length > 8 && '...'}
-                        </p>
-                      )}
-                      {prospecto.etapa && (
-                        <span className="inline-block mt-1.5 px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                          {prospecto.etapa}
-                        </span>
-                      )}
-                    </div>
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
-                    )}
-                  </div>
-                </motion.div>
-
-                {/* Contenido expandido */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
+                    <div 
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => handleProspectoClick(prospecto, false)}
                     >
-                      <div className="px-3 pb-3 pt-2 space-y-3 bg-gray-50 dark:bg-gray-800/50 border-x border-b border-gray-200 dark:border-gray-600 rounded-b-lg">
-                        {/* Razón de atención */}
-                        {prospecto.motivo_handoff && (
-                          <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                            <p className="text-xs font-semibold text-red-800 dark:text-red-300 mb-1">
-                              Razón de Atención:
+                      <div className="flex items-center gap-2">
+                        {/* Avatar con iniciales - al lado izquierdo del nombre */}
+                        <div 
+                          className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProspectoNameClick(e, prospecto.id);
+                          }}
+                        >
+                          {getInitials(prospecto.nombre_completo || prospecto.nombre_whatsapp)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p 
+                              className="text-sm font-medium text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleProspectoNameClick(e, prospecto.id);
+                              }}
+                            >
+                              {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
                             </p>
-                            <p className="text-xs text-red-700 dark:text-red-400">
+                            {prospecto.requiere_atencion_humana && (
+                              <Flag className="w-3 h-3 text-red-500 fill-red-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          {prospecto.whatsapp && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              {prospecto.whatsapp}
+                            </p>
+                          )}
+                          {prospecto.motivo_handoff && (
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium leading-relaxed">
                               {prospecto.motivo_handoff}
                             </p>
-                          </div>
-                        )}
+                          )}
+                          {prospecto.etapa && (
+                            <span className="inline-block mt-1.5 px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                              {prospecto.etapa}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleProspectoClick(prospecto, true);
+                      }}
+                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex-shrink-0 ml-2"
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                  </motion.div>
 
-                        {/* Resumen de conversación */}
-                        {data?.highlights && data.highlights.length > 0 && (
+                  {/* Contenido expandido */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        layout
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
+                      >
+                      <div className="px-3 pb-3 pt-2 space-y-3 bg-gray-50 dark:bg-gray-800/50 border-x border-b border-gray-200 dark:border-gray-600 rounded-b-lg">
+                        {/* Observaciones */}
+                        {prospecto.observaciones ? (
                           <div>
                             <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1">
                               <MessageSquare className="w-3 h-3" />
-                              Resumen de Conversación
+                              Observaciones
                             </p>
-                            <div className="space-y-2">
-                              {data.highlights.map((highlight: any) => (
-                                <div key={highlight.id} className="p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
-                                  {highlight.summary && (
-                                    <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2">
-                                      {highlight.summary}
-                                    </p>
-                                  )}
-                                  {highlight.fecha_inicio && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                      {formatTime(highlight.fecha_inicio)}
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Historial de llamadas */}
-                        {data?.loading ? (
-                          <div className="flex items-center justify-center py-4">
-                            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                          </div>
-                        ) : data?.callHistory && data.callHistory.length > 0 ? (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1">
-                              <Phone className="w-3 h-3" />
-                              Historial de Llamadas ({data.callHistory.length})
-                            </p>
-                            <div className="space-y-2">
-                              {data.callHistory.map((call: any) => (
-                                <div key={call.call_id} className="p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-medium text-gray-900 dark:text-white">
-                                      {formatTime(call.fecha_llamada)}
-                                    </span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                                      {formatDuration(call.duracion_segundos)}
-                                    </span>
-                                  </div>
-                                  {call.nivel_interes && (
-                                    <div className="flex items-center gap-1 mt-1">
-                                      <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                                      <span className="text-xs text-gray-600 dark:text-gray-400">
-                                        {call.nivel_interes}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {call.resumen_llamada && (
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                                      {call.resumen_llamada}
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
+                            <div className="p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                              <div className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                                <ReactMarkdown>
+                                  {prospecto.observaciones}
+                                </ReactMarkdown>
+                              </div>
                             </div>
                           </div>
                         ) : (
                           <div className="text-center py-2">
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              No hay historial de llamadas
+                              No hay observaciones disponibles
                             </p>
                           </div>
                         )}
@@ -355,14 +434,31 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
                           </div>
                         )}
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
+        </div>
       </div>
+
+      {/* Sidebar de Prospecto - Solo renderizar si hay prospecto seleccionado */}
+      {selectedProspecto && (
+        <ProspectoSidebar
+          key={`prospectos-widget-${selectedProspecto.id}`}
+          prospectoId={selectedProspecto.id}
+          isOpen={sidebarOpen}
+          onClose={handleSidebarClose}
+          onNavigateToLiveChat={(prospectoId) => {
+            setSidebarOpen(false);
+            setAppMode('live-chat');
+            localStorage.setItem('livechat-prospect-id', prospectoId);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -23,7 +23,6 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { liveMonitorKanbanOptimized } from '../../services/liveMonitorKanbanOptimized';
 import { useTheme } from '../../hooks/useTheme';
-import { LiveMonitorDataGrid } from './LiveMonitorDataGrid';
 import { FinalizationModal } from './FinalizationModal';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { ParaphraseModal } from '../chat/ParaphraseModal';
@@ -711,16 +710,6 @@ const LiveMonitorKanban: React.FC = () => {
   // Marcar notificaciones de Live Monitor como leídas al entrar al módulo
   useNotifications({ currentModule: 'live-monitor' });
   
-  // Estado para el tipo de vista (Kanban o DataGrid)
-  const [viewMode, setViewMode] = useState<'kanban' | 'datagrid'>(() => {
-    const saved = localStorage.getItem('liveMonitor-viewMode');
-    return (saved as 'kanban' | 'datagrid') || 'kanban';
-  });
-
-  // Guardar preferencia de vista en localStorage
-  useEffect(() => {
-    localStorage.setItem('liveMonitor-viewMode', viewMode);
-  }, [viewMode]);
 
   const [activeCalls, setActiveCalls] = useState<KanbanCall[]>([]);
   const [selectedTab, setSelectedTab] = useState<'active' | 'all'>('active');
@@ -739,14 +728,28 @@ const LiveMonitorKanban: React.FC = () => {
   
   // Estados para filtros de Historial (AnalysisIAComplete)
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
   const [interestFilter, setInterestFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [ejecutivoFilter, setEjecutivoFilter] = useState('');
   const [filteredHistoryCalls, setFilteredHistoryCalls] = useState<any[]>([]);
-  const [uniqueCategories, setUniqueCategories] = useState<string[]>([]);
+  const [paginatedCalls, setPaginatedCalls] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [uniqueInterests, setUniqueInterests] = useState<string[]>([]);
+  const [uniqueEjecutivos, setUniqueEjecutivos] = useState<Array<{id: string, name: string}>>([]);
+  const [quickFilters, setQuickFilters] = useState<{
+    destino?: string;
+    estadoCivil?: string;
+    interes?: string;
+    perdida?: boolean;
+    noTransferida?: boolean;
+    transferida?: boolean;
+  }>({});
   
   // Estados para agrupamiento de llamadas - solo un grupo expandido a la vez
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
@@ -1435,10 +1438,8 @@ const LiveMonitorKanban: React.FC = () => {
       setAllCalls(enrichedData); // También actualizar allCalls para mantener compatibilidad
       
       // Extraer valores únicos para filtros
-      const categories = [...new Set(enrichedData.map(c => c.categoria_desempeno).filter(Boolean))];
       const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
       
-      setUniqueCategories(categories);
       setUniqueInterests(interests);
       
       // Inicializar grupos cuando cambien las llamadas
@@ -1516,19 +1517,48 @@ const LiveMonitorKanban: React.FC = () => {
     });
   };
 
+  // Debounce para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const applyHistoryFilters = useCallback(() => {
     let filtered = [...allCallsWithAnalysis];
 
-    // Búsqueda por texto
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(call =>
-        call.call_id?.toLowerCase().includes(query) ||
-        call.nombre_completo?.toLowerCase().includes(query) ||
-        call.nombre_whatsapp?.toLowerCase().includes(query) ||
-        call.whatsapp?.toLowerCase().includes(query) ||
-        call.prospecto_nombre?.toLowerCase().includes(query)
-      );
+    // Búsqueda mejorada por texto (ejecutivo, coordinación, nombre, estado, interés, fecha)
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
+      filtered = filtered.filter(call => {
+        const prospecto = call.prospecto_completo || {};
+        const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
+        const coordinacionId = prospecto.coordinacion_id || call.coordinacion_id;
+        const ejecutivo = ejecutivoId ? ejecutivosMap[ejecutivoId] : null;
+        const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
+        const ejecutivoNombre = ejecutivo?.full_name || ejecutivo?.nombre_completo || ejecutivo?.nombre || '';
+        const coordinacionNombre = coordinacion?.nombre || coordinacion?.codigo || '';
+        const nombreCompleto = call.nombre_completo || call.nombre_whatsapp || call.prospecto_nombre || '';
+        const estado = call.call_status || '';
+        const interes = call.nivel_interes_detectado || call.nivel_interes || '';
+        const fecha = call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleDateString('es-MX') : '';
+        const fechaFormato2 = call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+        const fechaFormato3 = call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        
+        return (
+          call.call_id?.toLowerCase().includes(query) ||
+          nombreCompleto.toLowerCase().includes(query) ||
+          call.whatsapp?.toLowerCase().includes(query) ||
+          ejecutivoNombre.toLowerCase().includes(query) ||
+          coordinacionNombre.toLowerCase().includes(query) ||
+          estado.toLowerCase().includes(query) ||
+          interes.toLowerCase().includes(query) ||
+          fecha.toLowerCase().includes(query) ||
+          fechaFormato2.toLowerCase().includes(query) ||
+          fechaFormato3.toLowerCase().includes(query)
+        );
+      });
     }
 
     // Filtros de fecha
@@ -1543,11 +1573,13 @@ const LiveMonitorKanban: React.FC = () => {
       );
     }
 
-    // Filtro por categoría
-    if (categoryFilter) {
-      filtered = filtered.filter(call => 
-        call.categoria_desempeno === categoryFilter
-      );
+    // Filtro por ejecutivo asignado
+    if (ejecutivoFilter) {
+      filtered = filtered.filter(call => {
+        const prospecto = call.prospecto_completo || {};
+        const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
+        return ejecutivoId === ejecutivoFilter;
+      });
     }
 
     // Filtro por interés
@@ -1555,6 +1587,59 @@ const LiveMonitorKanban: React.FC = () => {
       filtered = filtered.filter(call => 
         (call.nivel_interes_detectado || call.nivel_interes) === interestFilter
       );
+    }
+
+    // Filtro por estado
+    if (statusFilter) {
+      filtered = filtered.filter(call => {
+        const status = call.call_status || 'finalizada';
+        if (statusFilter === 'transferida') {
+          return status === 'transferida';
+        } else if (statusFilter === 'contestada_no_transferida') {
+          return status === 'contestada_no_transferida';
+        } else if (statusFilter === 'perdida') {
+          return status === 'perdida';
+        }
+        return status === statusFilter;
+      });
+    }
+
+    // Filtros rápidos por tags
+    if (quickFilters.destino && quickFilters.destino.length > 0) {
+      filtered = filtered.filter(call => {
+        const prospecto = call.prospecto_completo || {};
+        const datosProceso = call.datos_proceso || {};
+        const destino = datosProceso?.destino_preferencia || prospecto.destino_preferencia;
+        const destinoStr = Array.isArray(destino) ? destino[0] : destino;
+        return destinoStr?.toLowerCase().includes(quickFilters.destino!.toLowerCase());
+      });
+    }
+
+    if (quickFilters.estadoCivil) {
+      filtered = filtered.filter(call => {
+        const prospecto = call.prospecto_completo || {};
+        const datosProceso = call.datos_proceso || {};
+        const estadoCivil = datosProceso?.estado_civil || prospecto.estado_civil;
+        return estadoCivil === quickFilters.estadoCivil;
+      });
+    }
+
+    if (quickFilters.interes) {
+      filtered = filtered.filter(call => 
+        (call.nivel_interes_detectado || call.nivel_interes) === quickFilters.interes
+      );
+    }
+
+    if (quickFilters.perdida) {
+      filtered = filtered.filter(call => call.call_status === 'perdida');
+    }
+
+    if (quickFilters.noTransferida) {
+      filtered = filtered.filter(call => call.call_status === 'contestada_no_transferida');
+    }
+
+    if (quickFilters.transferida) {
+      filtered = filtered.filter(call => call.call_status === 'transferida');
     }
 
     // Aplicar ordenamiento
@@ -1589,7 +1674,17 @@ const LiveMonitorKanban: React.FC = () => {
     const expandedCalls = getExpandedCalls(groups);
     
     setFilteredHistoryCalls(expandedCalls);
-  }, [allCallsWithAnalysis, searchQuery, dateFrom, dateTo, categoryFilter, interestFilter, historySortField, historySortDirection, expandedGroup]);
+    
+    // Resetear a página 1 cuando cambian los filtros
+    setCurrentPage(1);
+  }, [allCallsWithAnalysis, debouncedSearchQuery, dateFrom, dateTo, interestFilter, statusFilter, ejecutivoFilter, quickFilters, historySortField, historySortDirection, expandedGroup, ejecutivosMap, coordinacionesMap]);
+
+  // Paginación
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedCalls(filteredHistoryCalls.slice(startIndex, endIndex));
+  }, [filteredHistoryCalls, currentPage, itemsPerPage]);
 
   // Cargar historial al inicio para mostrar contador
   useEffect(() => {
@@ -1614,19 +1709,90 @@ const LiveMonitorKanban: React.FC = () => {
   useEffect(() => {
     if (allCallsWithAnalysis.length > 0) {
       const interests = [...new Set(allCallsWithAnalysis.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
-      const categories = [...new Set(allCallsWithAnalysis.map(c => c.categoria_desempeno).filter(Boolean))];
       setUniqueInterests(interests as string[]);
-      setUniqueCategories(categories as string[]);
+      
+      // Extraer ejecutivos únicos
+      const ejecutivosSet = new Set<string>();
+      allCallsWithAnalysis.forEach(call => {
+        const prospecto = call.prospecto_completo || {};
+        const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
+        if (ejecutivoId) {
+          ejecutivosSet.add(ejecutivoId);
+        }
+      });
+      
+      // Cargar nombres de ejecutivos
+      const ejecutivosList: Array<{id: string, name: string}> = [];
+      ejecutivosSet.forEach((ejecId) => {
+        if (ejecutivosMap[ejecId]) {
+          const ejecutivo = ejecutivosMap[ejecId];
+          ejecutivosList.push({
+            id: ejecId,
+            name: ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'Sin nombre'
+          });
+        }
+      });
+      
+      // Ordenar por nombre
+      ejecutivosList.sort((a, b) => a.name.localeCompare(b.name));
+      setUniqueEjecutivos(ejecutivosList);
     }
-  }, [allCallsWithAnalysis]);
+  }, [allCallsWithAnalysis, ejecutivosMap]);
+
+  // Cerrar date picker al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+        setShowDatePicker(false);
+      }
+    };
+
+    if (showDatePicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDatePicker]);
 
   // Función para limpiar filtros
   const clearHistoryFilters = () => {
     setSearchQuery('');
+    setDebouncedSearchQuery('');
     setDateFrom('');
     setDateTo('');
-    setCategoryFilter('');
     setInterestFilter('');
+    setStatusFilter('');
+    setEjecutivoFilter('');
+    setQuickFilters({});
+    setCurrentPage(1);
+    setShowDatePicker(false);
+  };
+
+  const toggleQuickFilter = (type: 'destino' | 'estadoCivil' | 'interes' | 'perdida' | 'noTransferida' | 'transferida', value?: string) => {
+    setQuickFilters(prev => {
+      const newFilters = { ...prev };
+      if (type === 'perdida' || type === 'noTransferida' || type === 'transferida') {
+        if (newFilters[type]) {
+          delete newFilters[type];
+        } else {
+          // Desactivar otros filtros de estado
+          delete newFilters.perdida;
+          delete newFilters.noTransferida;
+          delete newFilters.transferida;
+          newFilters[type] = true;
+        }
+      } else {
+        if (newFilters[type] === value) {
+          delete newFilters[type];
+        } else {
+          newFilters[type] = value;
+        }
+      }
+      return newFilters;
+    });
+    setCurrentPage(1);
   };
 
   // Función para ordenar datos
@@ -1712,8 +1878,6 @@ const LiveMonitorKanban: React.FC = () => {
   
   // Estado para mostrar indicador de actualización
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
-  const [hasRecentChanges, setHasRecentChanges] = useState(false);
-  
   // Estado para conversación en tiempo real
   const [currentConversation, setCurrentConversation] = useState<Array<{speaker: string, message: string, timestamp: string}>>([]);
   const conversationScrollRef = useRef<HTMLDivElement>(null);
@@ -2475,9 +2639,6 @@ const LiveMonitorKanban: React.FC = () => {
         // Log de cambios si los hay
         if (hasChanges && changes.length > 0) {
           setLastUpdateTime(new Date());
-          setHasRecentChanges(true);
-          // Reset indicador después de 2 segundos
-          setTimeout(() => setHasRecentChanges(false), 2000);
         }
         
         // Solo actualizar si hay cambios detectados
@@ -2568,54 +2729,53 @@ const LiveMonitorKanban: React.FC = () => {
         
         // Usar requestAnimationFrame para diferir trabajo pesado
         requestAnimationFrame(() => {
-          // Detectar cambios de checkpoint antes de actualizar las listas
-          if (payloadData && payloadData.event === 'UPDATE') {
-            const newCall = payloadData.new as any;
-            const oldCall = payloadData.old as any;
+        // Detectar cambios de checkpoint antes de actualizar las listas
+        if (payloadData && payloadData.event === 'UPDATE') {
+          const newCall = payloadData.new as any;
+          const oldCall = payloadData.old as any;
+          
+          if (newCall) {
+            const newCheckpoint = newCall.checkpoint_venta_actual;
+            const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
             
-            if (newCall) {
-              const newCheckpoint = newCall.checkpoint_venta_actual;
-              const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
-              
-              // Detectar cambio a checkpoint #5
-              if (newCheckpoint && 
-                  (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
-                  oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
-                // Emitir notificación global para el sidebar (con animación de ringing y sonido)
-                triggerCallNotification(newCall.call_id, newCheckpoint);
-              }
-              
-              // Actualizar mapa de checkpoints anteriores
-              if (newCheckpoint) {
-                previousCheckpointsRef.current.set(newCall.call_id, newCheckpoint);
-              }
+            // Detectar cambio a checkpoint #5
+            if (newCheckpoint && 
+                (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
+                oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
+              // Emitir notificación global para el sidebar (con animación de ringing y sonido)
+              triggerCallNotification(newCall.call_id, newCheckpoint);
+            }
+            
+            // Actualizar mapa de checkpoints anteriores
+            if (newCheckpoint) {
+              previousCheckpointsRef.current.set(newCall.call_id, newCheckpoint);
             }
           }
-          
-          // También detectar cambios comparando con checkpoints anteriores después de actualizar
-          // Esto cubre casos donde el payload no tiene oldRec
+        }
+        
+        // También detectar cambios comparando con checkpoints anteriores después de actualizar
+        // Esto cubre casos donde el payload no tiene oldRec
           const allCallsArray = [...classifiedCalls.active];
           allCallsArray.forEach(call => {
-            if (call.checkpoint_venta_actual) {
-              const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
-              const currentCheckpoint = call.checkpoint_venta_actual;
-              
-              if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
-                if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
-                  // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
-                  triggerCallNotification(call.call_id, currentCheckpoint);
-                }
+          if (call.checkpoint_venta_actual) {
+            const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
+            const currentCheckpoint = call.checkpoint_venta_actual;
+            
+            if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
+              if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
+                // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
+                triggerCallNotification(call.call_id, currentCheckpoint);
               }
-              
-              // Actualizar referencia
-              previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
             }
-          });
-          
-          // Actualizar estados directamente desde la clasificación automática
-          setActiveCalls(classifiedCalls.active);
-          setLastUpdateTime(new Date());
-          setHasRecentChanges(true);
+            
+            // Actualizar referencia
+            previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
+          }
+        });
+        
+        // Actualizar estados directamente desde la clasificación automática
+        setActiveCalls(classifiedCalls.active);
+        setLastUpdateTime(new Date());
         });
       }).then((channel) => {
         realtimeChannel = channel;
@@ -3337,58 +3497,7 @@ const LiveMonitorKanban: React.FC = () => {
       
       <div className="max-w-[95vw] mx-auto space-y-4">
         
-        {/* Header */}
-        <div className="text-center relative">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Live Monitor - Vista Kanban
-          </h1>
-          <div className="text-slate-600 dark:text-slate-400 flex items-center justify-center space-x-2">
-            <span>Gestión visual del proceso de ventas por checkpoints</span>
-            {hasRecentChanges && (
-              <span className="inline-flex items-center text-xs text-green-600 dark:text-green-400">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
-                Actualizado
-              </span>
-            )}
-          </div>
-        </div>
 
-        {/* Selector de Vista: Kanban vs DataGrid */}
-        <div className="mb-4 flex items-center justify-end gap-2">
-          <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Vista:</span>
-          <div className="inline-flex rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-1">
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                viewMode === 'kanban'
-                  ? 'bg-blue-500 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-                </svg>
-                Kanban
-              </div>
-            </button>
-            <button
-              onClick={() => setViewMode('datagrid')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                viewMode === 'datagrid'
-                  ? 'bg-blue-500 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                DataGrid
-              </div>
-            </button>
-          </div>
-        </div>
 
         {/* Tabs */}
         <div className="corp-card corp-glow overflow-hidden">
@@ -3434,7 +3543,7 @@ const LiveMonitorKanban: React.FC = () => {
 
           {/* Contenido de tabs */}
           <div className="p-6">
-            {selectedTab === 'active' && viewMode === 'kanban' && (
+            {selectedTab === 'active' && (
               <div className="rounded-lg overflow-hidden" style={{ minHeight: 'calc(100vh - 280px)' }}>
                 {/* Headers de columnas */}
                 <div className="grid grid-cols-5 gap-0">
@@ -3494,144 +3603,218 @@ const LiveMonitorKanban: React.FC = () => {
               </div>
             )}
 
-            {/* Vista DataGrid para Llamadas Activas */}
-            {selectedTab === 'active' && viewMode === 'datagrid' && (
-              <div className="space-y-6">
-                {/* DataGrid Superior: Etapa 5 (Presentación e Oportunidad) */}
-                <LiveMonitorDataGrid
-                  calls={getStage5Calls(activeCalls)}
-                  title="🎯 Presentación e Oportunidad (Etapa 5)"
-                  onCallClick={(call) => setSelectedCall(call)}
-                  onFinalize={openFinalizationModal}
-                />
-
-                {/* DataGrid Inferior: Etapas 1-4 */}
-                <LiveMonitorDataGrid
-                  calls={getStages1to4Calls(activeCalls)}
-                  title="📋 Llamadas en Proceso (Etapas 1-4)"
-                  onCallClick={(call) => setSelectedCall(call)}
-                  onFinalize={openFinalizationModal}
-                />
-              </div>
-            )}
 
 
             {selectedTab === 'all' && (
-              <div className="space-y-6">
-                {/* Búsqueda y Filtros estilo AnalysisIAComplete */}
+              <div className="space-y-4">
+                {/* Filtros Minimalistas - Siempre Visibles */}
                 <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700"
+                  className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-4"
                 >
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                        Búsqueda y Filtros
-                      </h2>
-                      <button
-                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+                  {/* Primera fila: Búsqueda y filtros principales */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 mb-3">
+                    {/* Búsqueda ampliada */}
+                    <div className="md:col-span-5">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Buscar ejecutivo, coordinación, nombre, estado, interés, fecha..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Rango de fechas - Calendario con rango */}
+                    <div className="md:col-span-3 relative" ref={datePickerRef}>
+                      <div 
+                        className="relative cursor-pointer"
+                        onClick={() => setShowDatePicker(!showDatePicker)}
                       >
-                        {showAdvancedFilters ? 'Ocultar' : 'Mostrar'} filtros avanzados
-                      </button>
+                        <Calendar className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        <div className="flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                          <span className={`flex-1 ${!dateFrom && !dateTo ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                            {dateFrom && dateTo 
+                              ? `${new Date(dateFrom).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })} - ${new Date(dateTo).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })}`
+                              : dateFrom
+                                ? `${new Date(dateFrom).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })} - ...`
+                                : 'Seleccionar rango'
+                            }
+                          </span>
+                          <ChevronRight className={`w-3 h-3 text-slate-400 transition-transform ${showDatePicker ? 'rotate-90' : ''}`} />
                         </div>
-
-                    {/* Búsqueda principal */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                      <div className="md:col-span-2">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                          <input
-                            type="text"
-                            placeholder="Buscar por Call ID, nombre, WhatsApp..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200"
-                          />
-                        </div>
-                        </div>
+                      </div>
                       
+                      {/* Calendario desplegable */}
+                      {showDatePicker && (
+                        <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg p-4 min-w-[320px]">
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Rango de fechas</span>
+                              <button
+                                onClick={() => {
+                                  setDateFrom('');
+                                  setDateTo('');
+                                  setShowDatePicker(false);
+                                }}
+                                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                              >
+                                Limpiar
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Desde</label>
+                                <input
+                                  type="date"
+                                  value={dateFrom}
+                                  onChange={(e) => {
+                                    setDateFrom(e.target.value);
+                                    if (dateTo && e.target.value > dateTo) {
+                                      setDateTo('');
+                                    }
+                                  }}
+                                  max={dateTo || undefined}
+                                  className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Hasta</label>
+                                <input
+                                  type="date"
+                                  value={dateTo}
+                                  onChange={(e) => {
+                                    setDateTo(e.target.value);
+                                    if (dateFrom && e.target.value < dateFrom) {
+                                      setDateFrom('');
+                                    }
+                                  }}
+                                  min={dateFrom || undefined}
+                                  className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setShowDatePicker(false)}
+                              className="mt-2 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                            >
+                              Aplicar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Ejecutivo asignado */}
+                    <div className="md:col-span-2">
+                      <select
+                        value={ejecutivoFilter}
+                        onChange={(e) => setEjecutivoFilter(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">Todos los ejecutivos</option>
+                        {uniqueEjecutivos.map(ejecutivo => (
+                          <option key={ejecutivo.id} value={ejecutivo.id}>{ejecutivo.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Nivel de interés */}
+                    <div className="md:col-span-1">
+                      <select
+                        value={interestFilter}
+                        onChange={(e) => setInterestFilter(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">Interés</option>
+                        {uniqueInterests.map(interest => (
+                          <option key={interest} value={interest}>{interest}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Estado */}
+                    <div className="md:col-span-1">
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">Estado</option>
+                        <option value="transferida">Transferida</option>
+                        <option value="contestada_no_transferida">No Transferida</option>
+                        <option value="perdida">Perdida</option>
+                        <option value="activa">Activa</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {/* Segunda fila: Filtros rápidos por tags */}
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Filtros rápidos:</span>
+                    
+                    {/* Estados rápidos */}
+                    <button
+                      onClick={() => toggleQuickFilter('perdida')}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                        quickFilters.perdida 
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-300 dark:border-red-700' 
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      Perdida
+                    </button>
+                    <button
+                      onClick={() => toggleQuickFilter('noTransferida')}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                        quickFilters.noTransferida 
+                          ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700' 
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      No Transferida
+                    </button>
+                    <button
+                      onClick={() => toggleQuickFilter('transferida')}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                        quickFilters.transferida 
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-300 dark:border-green-700' 
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      Transferida
+                    </button>
+                    
+                    {/* Intereses rápidos */}
+                    {uniqueInterests.slice(0, 3).map(interest => (
+                      <button
+                        key={interest}
+                        onClick={() => toggleQuickFilter('interes', interest)}
+                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                          quickFilters.interes === interest 
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-300 dark:border-blue-700' 
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        {interest}
+                      </button>
+                    ))}
+                    
+                    {/* Botón limpiar */}
+                    {(searchQuery || dateFrom || dateTo || interestFilter || statusFilter || ejecutivoFilter || Object.keys(quickFilters).length > 0) && (
                       <button
                         onClick={clearHistoryFilters}
-                        className="px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
+                        className="ml-auto px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                       >
-                        Limpiar
+                        Limpiar filtros
                       </button>
-                        </div>
-
-                    {/* Filtros Avanzados */}
-                    <AnimatePresence>
-                      {showAdvancedFilters && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.3, ease: "easeInOut" }}
-                          className="overflow-hidden"
-                        >
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-slate-200 dark:border-slate-700">
-                            <div>
-                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Fecha Desde
-                              </label>
-                              <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              />
-                      </div>
-                            
-                            <div>
-                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Fecha Hasta
-                              </label>
-                              <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              />
-                    </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Categoría
-                              </label>
-                              <select
-                                value={categoryFilter}
-                                onChange={(e) => setCategoryFilter(e.target.value)}
-                                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="">Todas las categorías</option>
-                                {uniqueCategories.map(cat => (
-                                  <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Nivel Interés
-                              </label>
-                              <select
-                                value={interestFilter}
-                                onChange={(e) => setInterestFilter(e.target.value)}
-                                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="">Todos los niveles</option>
-                                {uniqueInterests.map(interest => (
-                                  <option key={interest} value={interest}>{interest}</option>
-                                ))}
-                              </select>
-                  </div>
+                    )}
               </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
                 </motion.div>
 
                 {/* Tabla Principal estilo AnalysisIAComplete */}
@@ -3733,45 +3916,24 @@ const LiveMonitorKanban: React.FC = () => {
                               {historySortField === 'nivel_interes_detectado' && (
                                 <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
                               )}
-                            </div>
+                        </div>
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             Asignación
-                          </th>
-                          <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
-                            onClick={() => {
-                              if (historySortField === 'resumen_llamada') {
-                                setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
-                              } else {
-                                setHistorySortField('resumen_llamada');
-                                setHistorySortDirection('asc');
-                              }
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              Resumen
-                              {historySortField === 'resumen_llamada' && (
-                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
-                              )}
-                            </div>
-                          </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            Acciones
-                          </th>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                        {filteredHistoryCalls.length === 0 ? (
+                        {paginatedCalls.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="px-6 py-12 text-center">
+                            <td colSpan={6} className="px-6 py-12 text-center">
                               <div className="text-slate-500 dark:text-slate-400">
                                 {allCallsWithAnalysis.length === 0 ? 'No hay llamadas registradas' : 'No hay resultados que coincidan con los filtros'}
                               </div>
                             </td>
                           </tr>
                         ) : (
-                          filteredHistoryCalls.map((call, index) => {
+                          paginatedCalls.map((call, index) => {
                             const prospectKey = call.prospecto_nombre || call.nombre_completo || 'Sin prospecto';
                             const isGroupMain = call.isGroupMain;
                             const isGroupSub = call.isGroupSub;
@@ -3832,32 +3994,27 @@ const LiveMonitorKanban: React.FC = () => {
                   >
                         <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex items-center gap-3">
-                                    {/* Botón de expansión/colapso para grupos */}
+                                    {/* Botón de expansión/colapso para grupos con contador */}
                                     {isGroupMain && groupSize > 1 && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           toggleGroup(prospectKey);
                                         }}
-                                        className={`relative p-1.5 rounded-md transition-all duration-200 border-2 ${
+                                        className={`relative px-2.5 py-1.5 rounded-md transition-all duration-200 border-2 ${
                                           expandedGroup === prospectKey
                                             ? 'bg-blue-500 dark:bg-blue-600 border-blue-600 dark:border-blue-700 hover:bg-blue-600 dark:hover:bg-blue-700'
                                             : 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:border-blue-400 dark:hover:border-blue-600'
                                         }`}
                                         title={expandedGroup === prospectKey ? `Colapsar grupo` : `Expandir ${groupSize - 1} llamadas más`}
                                       >
-                                        <svg 
-                                          className={`w-4 h-4 transition-transform duration-200 ${
-                                            expandedGroup === prospectKey 
-                                              ? 'text-white dark:text-white rotate-90' 
-                                              : 'text-blue-600 dark:text-blue-400 rotate-0'
-                                          }`} 
-                                          fill="none" 
-                                          stroke="currentColor" 
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                                        </svg>
+                                        <span className={`text-xs font-semibold ${
+                                          expandedGroup === prospectKey 
+                                            ? 'text-white dark:text-white' 
+                                            : 'text-blue-600 dark:text-blue-400'
+                                        }`}>
+                                          {groupSize}
+                          </span>
                                       </button>
                                     )}
                                     
@@ -3867,8 +4024,8 @@ const LiveMonitorKanban: React.FC = () => {
                                         <div className="w-0.5 h-full bg-slate-300 dark:bg-slate-600"></div>
                                         {/* Punto de conexión */}
                                         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full border-2 border-white dark:border-slate-800"></div>
-                                      </div>
-                                    )}
+                  </div>
+                )}
                                     
                                     {!isGroupMain && !isGroupSub && (
                                       <div className="w-4"></div>
@@ -3909,136 +4066,91 @@ const LiveMonitorKanban: React.FC = () => {
                           </span>
                                         )}
                         </div>
-                                      {/* Tags de discovery correctos */}
-                                      <div className="flex flex-wrap gap-1 mt-1">
-                                        {(() => {
-                                          const prospecto = call.prospecto_completo || {};
-                                          const datosProceso = call.datos_proceso || {};
-                                          
-                                          return (
-                                            <>
-                                              {/* Ciudad con icono de pin */}
-                                              {prospecto.ciudad_residencia && (
-                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-400">
-                                                  <MapPin className="w-3 h-3" />
-                                                  {prospecto.ciudad_residencia}
-                                                </span>
-                                              )}
-                                              
-                                              {/* Edad (número + A) con icono */}
-                                              {prospecto.edad && (
-                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-violet-100 text-violet-800 dark:bg-violet-900/20 dark:text-violet-400">
-                                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                  </svg>
-                                                  {prospecto.edad}A
-                                                </span>
-                                              )}
-                                              
-                                              {/* Cumpleaños (ej: 28ENE) con icono */}
-                                              {prospecto.cumpleanos && (() => {
-                                                try {
-                                                  const fecha = new Date(prospecto.cumpleanos);
-                                                  const dia = fecha.getDate();
-                                                  const meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-                                                  const mes = meses[fecha.getMonth()];
-                                                  return (
-                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-400">
-                                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                      </svg>
-                                                      {dia}{mes}
-                                                    </span>
-                                                  );
-                                                } catch (e) {
-                                                  return null;
-                                                }
-                                              })()}
-                                              
-                                              {/* Estado Civil con icono */}
-                                              {(datosProceso?.estado_civil || prospecto.estado_civil) && (() => {
-                                                const estadoCivil = datosProceso?.estado_civil || prospecto.estado_civil;
-                                                if (estadoCivil && estadoCivil !== 'no_especificado') {
-                                                  return (
-                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
-                                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                      </svg>
-                                                      {estadoCivil}
-                                                    </span>
-                                                  );
-                                                }
-                                                return null;
-                                              })()}
-                                              
-                                              {/* Composición Familiar (ej: 2A 1M) con icono */}
-                                              {(() => {
-                                                const adultos = datosProceso?.numero_personas || prospecto.tamano_grupo;
-                                                const menores = prospecto.cantidad_menores;
-                                                if (adultos || menores) {
-                                                  const partes = [];
-                                                  if (adultos) partes.push(`${adultos}A`);
-                                                  if (menores && menores > 0) partes.push(`${menores}M`);
-                                                  if (partes.length > 0) {
+                                      {/* Tags de discovery - un solo color discreto, sin edad ni ingresos */}
+                                      {!isGroupSub && (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {(() => {
+                                            const prospecto = call.prospecto_completo || {};
+                                            const datosProceso = call.datos_proceso || {};
+                                            
+                                            return (
+                                              <>
+                                                {/* Ciudad con icono de pin */}
+                                                {prospecto.ciudad_residencia && (
+                                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                                    <MapPin className="w-3 h-3" />
+                                                    {prospecto.ciudad_residencia}
+                                                  </span>
+                                                )}
+                                                
+                                                {/* Cumpleaños (ej: 28ENE) */}
+                                                {prospecto.cumpleanos && (() => {
+                                                  try {
+                                                    const fecha = new Date(prospecto.cumpleanos);
+                                                    const dia = fecha.getDate();
+                                                    const meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+                                                    const mes = meses[fecha.getMonth()];
                                                     return (
-                                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400">
-                                                        <Users className="w-3 h-3" />
-                                                        {partes.join(' ')}
+                                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                                        {dia}{mes}
+                                                      </span>
+                                                    );
+                                                  } catch (e) {
+                                                    return null;
+                                                  }
+                                                })()}
+                                                
+                                                {/* Estado Civil */}
+                                                {(datosProceso?.estado_civil || prospecto.estado_civil) && (() => {
+                                                  const estadoCivil = datosProceso?.estado_civil || prospecto.estado_civil;
+                                                  if (estadoCivil && estadoCivil !== 'no_especificado') {
+                                                    return (
+                                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                                        {estadoCivil}
                                                       </span>
                                                     );
                                                   }
-                                                }
-                                                return null;
-                                              })()}
-                                              
-                                              {/* Destino Preferencia con icono de barco */}
-                                              {(datosProceso?.destino_preferencia || prospecto.destino_preferencia) && (() => {
-                                                const destino = datosProceso?.destino_preferencia || prospecto.destino_preferencia;
-                                                const destinoStr = Array.isArray(destino) ? destino[0] : destino;
-                                                return (
-                                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
-                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                                      {/* Barco simple */}
-                                                      <path d="M3 18h18l-1-4H4l-1 4zm1-2h16M5 14l2-6h10l2 6"/>
-                                                      <circle cx="8" cy="12" r="1"/>
-                                                      <circle cx="16" cy="12" r="1"/>
-                                                    </svg>
-                                                    {destinoStr}
-                                                  </span>
-                                                );
-                                              })()}
-                                              
-                                              {/* Ingresos (ej: >50k) con icono */}
-                                              {prospecto.ingresos && (() => {
-                                                // Formatear ingresos si es un número o string con formato
-                                                let ingresosStr = prospecto.ingresos;
-                                                if (typeof prospecto.ingresos === 'string') {
-                                                  // Si ya tiene formato como ">50k" o similar, usarlo tal cual
-                                                  // Si no tiene el símbolo >, agregarlo
-                                                  if (!ingresosStr.includes('>') && !ingresosStr.includes('<')) {
-                                                    ingresosStr = `>${ingresosStr}`;
-                                                  } else {
-                                                    ingresosStr = prospecto.ingresos;
+                                                  return null;
+                                                })()}
+                                                
+                                                {/* Composición Familiar (ej: 4ADU 2MEN) */}
+                                                {(() => {
+                                                  const adultos = datosProceso?.numero_personas || prospecto.tamano_grupo;
+                                                  const menores = prospecto.cantidad_menores;
+                                                  if (adultos || menores) {
+                                                    const partes = [];
+                                                    if (adultos) partes.push(`${adultos}ADU`);
+                                                    if (menores && menores > 0) partes.push(`${menores}MEN`);
+                                                    if (partes.length > 0) {
+                                                      return (
+                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                                          {partes.join(' ')}
+                                                        </span>
+                                                      );
+                                                    }
                                                   }
-                                                } else if (typeof prospecto.ingresos === 'number') {
-                                                  // Si es número, formatearlo
-                                                  if (prospecto.ingresos >= 1000) {
-                                                    ingresosStr = `>${Math.floor(prospecto.ingresos / 1000)}k`;
-                                                  } else {
-                                                    ingresosStr = `>${prospecto.ingresos}`;
-                                                  }
-                                                }
-                                                return (
-                                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
-                                                    <DollarSign className="w-3 h-3" />
-                                                    {ingresosStr}
-                                                  </span>
-                                                );
-                                              })()}
-                                            </>
-                                          );
-                                        })()}
-                    </div>
+                                                  return null;
+                                                })()}
+                                                
+                                                {/* Destino Preferencia con icono de sol */}
+                                                {(datosProceso?.destino_preferencia || prospecto.destino_preferencia) && (() => {
+                                                  const destino = datosProceso?.destino_preferencia || prospecto.destino_preferencia;
+                                                  const destinoStr = Array.isArray(destino) ? destino[0] : destino;
+                                                  return (
+                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                        <circle cx="12" cy="12" r="5" />
+                                                        <path d="M12 1v4M12 19v4M23 12h-4M5 12H1M19.07 4.93l-2.83 2.83M7.76 16.24l-2.83 2.83M19.07 19.07l-2.83-2.83M7.76 7.76L4.93 4.93" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                                                      {destinoStr}
+                                                    </span>
+                                                  );
+                                                })()}
+                                              </>
+                                            );
+                                          })()}
+                        </div>
+                                      )}
                         </div>
                         </div>
                         </td>
@@ -4104,11 +4216,11 @@ const LiveMonitorKanban: React.FC = () => {
                                     'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
                                   }`}>
                                     {call.nivel_interes_detectado || call.nivel_interes || 'N/A'}
-                            </span>
+                          </span>
                         </td>
                                 
                                 {/* Asignación según permisos */}
-                                <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap">
                                   {(() => {
                                     const prospecto = call.prospecto_completo || {};
                                     const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
@@ -4124,14 +4236,14 @@ const LiveMonitorKanban: React.FC = () => {
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
                                               <User className="w-3 h-3" />
                                               {ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}
-                                            </span>
+                            </span>
                                           )}
                                           {coordinacion && (
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
                                               <Users className="w-3 h-3" />
                                               {coordinacion.nombre || coordinacion.codigo || 'N/A'}
-                                            </span>
-                                          )}
+                            </span>
+                          )}
                                           {!ejecutivo && !coordinacion && (
                                             <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                                               Sin asignar
@@ -4168,61 +4280,6 @@ const LiveMonitorKanban: React.FC = () => {
                                     }
                                     return <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">-</span>;
                                   })()}
-                                </td>
-                                
-                                {/* Resumen de Conversación */}
-                                <td className="px-6 py-4 text-sm text-slate-900 dark:text-white">
-                                  <div className="max-w-xs">
-                                    <p className="line-clamp-2 text-xs">
-                                      {call.resumen_llamada || call.datos_llamada?.resumen || 'Sin resumen disponible'}
-                                    </p>
-                                  </div>
-                                </td>
-                                
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <div className="flex items-center justify-end gap-2">
-                                    {call.audio_ruta_bucket && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // Reproducir audio
-                                        }}
-                                        className="p-2 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
-                                        title="Reproducir audio"
-                                      >
-                                        <Play className="w-4 h-4" />
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setSelectedCallForAnalysis(call);
-                                        setShowAnalysisDetailModal(true);
-                                      if (call.call_id) {
-                                        await loadTranscript(call.call_id, 1.04);
-                                        // Usar prospecto_completo si está disponible, sino cargar desde BD
-                                        if (call.prospecto_completo) {
-                                          setSelectedProspectoData(call.prospecto_completo);
-                                        } else if (call.prospecto_id || call.prospecto) {
-                                          try {
-                                            const { data } = await analysisSupabase
-                                              .from('prospectos')
-                                              .select('*')
-                                              .eq('id', call.prospecto_id || call.prospecto)
-                                              .single();
-                                            setSelectedProspectoData(data);
-                                          } catch (err) {
-                                            console.error('Error loading prospecto data:', err);
-                                          }
-                                        }
-                                      }
-                                      }}
-                                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                                      title="Ver detalles"
-                                    >
-                                      <Eye className="w-4 h-4" />
-                                    </button>
-                                  </div>
                         </td>
                       </tr>
                             );
@@ -4231,6 +4288,50 @@ const LiveMonitorKanban: React.FC = () => {
                   </tbody>
                 </table>
                   </div>
+                  
+                  {/* Paginación */}
+                  {filteredHistoryCalls.length > 0 && (
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">
+                          Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredHistoryCalls.length)} de {filteredHistoryCalls.length}
+                        </span>
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value={50}>50 por página</option>
+                          <option value={100}>100 por página</option>
+                          <option value={300}>300 por página</option>
+                          <option value={500}>500 por página</option>
+                        </select>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700"
+                        >
+                          Anterior
+                        </button>
+                        <span className="text-xs text-slate-600 dark:text-slate-400">
+                          Página {currentPage} de {Math.ceil(filteredHistoryCalls.length / itemsPerPage) || 1}
+                        </span>
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredHistoryCalls.length / itemsPerPage), prev + 1))}
+                          disabled={currentPage >= Math.ceil(filteredHistoryCalls.length / itemsPerPage)}
+                          className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                  </div>
+                )}
                 </motion.div>
               </div>
             )}
@@ -5205,8 +5306,8 @@ const LiveMonitorKanban: React.FC = () => {
                                   nombreWhatsapp={selectedCallForAnalysis.nombre_whatsapp}
                                   size="xl"
                                   className="w-full h-full rounded-2xl"
-                                />
-                              </div>
+        />
+      </div>
                               <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}

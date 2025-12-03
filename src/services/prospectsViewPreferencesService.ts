@@ -23,8 +23,8 @@ class ProspectsViewPreferencesService {
    */
   getUserPreferences(userId: string | null): ProspectsViewPreferences {
     const defaultPreferences: ProspectsViewPreferences = {
-      viewType: 'datagrid',
-      collapsedColumns: [],
+      viewType: 'kanban',
+      collapsedColumns: ['checkpoint #es-miembro', 'checkpoint #activo-pqnc'], // Colapsar "Es miembro" y "Activo PQNC" por defecto
       lastUpdated: new Date().toISOString()
     };
 

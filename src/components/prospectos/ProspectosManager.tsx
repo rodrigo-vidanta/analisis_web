@@ -51,6 +51,7 @@ interface Prospecto {
   nombre_conyuge?: string;
   ciudad_residencia?: string;
   requiere_atencion_humana?: boolean;
+  motivo_handoff?: string | null;
   contactado_por_vendedor?: boolean;
   etapa?: string;
   ingresos?: string;
@@ -799,7 +800,34 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
   if (!prospecto) return null;
 
   const getStatusColor = (etapa: string) => {
-    switch (etapa?.toLowerCase()) {
+    if (!etapa) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    
+    const etapaLower = etapa.toLowerCase().trim();
+    
+    // Nuevos estados al principio (mismos colores que kanban)
+    if (etapaLower === 'es miembro' || etapaLower === 'es miembro activo') {
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400';
+    }
+    if (etapaLower === 'activo pqnc' || etapaLower === 'activo en pqnc') {
+      return 'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-400';
+    }
+    
+    // Estados existentes (mismos colores que kanban)
+    if (etapaLower === 'validando membresia' || etapaLower === 'validando membresía') {
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+    }
+    if (etapaLower === 'en seguimiento' || etapaLower === 'seguimiento') {
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+    }
+    if (etapaLower === 'interesado' || etapaLower === 'interesada') {
+      return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+    }
+    if (etapaLower === 'atendió llamada' || etapaLower === 'atendio llamada' || etapaLower === 'atendio la llamada') {
+      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+    }
+    
+    // Estados legacy
+    switch (etapaLower) {
       case 'nuevo': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'contactado': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
       case 'calificado': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
@@ -908,14 +936,14 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                   transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
                   className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-800"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
-                      <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
-                        {prospecto.etapa || 'Sin etapa'}
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
+                        <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
+                          {prospecto.etapa || 'Sin etapa'}
+                        </h3>
+                      </div>
                       {prospecto.score && (
                         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                           <Star className="text-yellow-500 dark:text-yellow-400" size={16} />
@@ -924,15 +952,24 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                           </span>
                         </div>
                       )}
-                      {prospecto.requiere_atencion_humana && (
-                        <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800">
-                          <AlertTriangle className="text-orange-600 dark:text-orange-400" size={16} />
-                          <span className="text-sm font-semibold text-orange-700 dark:text-orange-300">
-                            Requiere atención
-                          </span>
-                        </div>
-                      )}
                     </div>
+                    {prospecto.requiere_atencion_humana && (
+                      <div className="bg-orange-50 dark:bg-orange-900/20 px-4 py-3 rounded-lg border border-orange-200 dark:border-orange-800 w-full">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" size={16} />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-orange-700 dark:text-orange-300 block mb-1">
+                              Requiere atención
+                            </span>
+                            {prospecto.motivo_handoff && (
+                              <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed break-words">
+                                {prospecto.motivo_handoff}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
 
@@ -1248,7 +1285,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   
   // Estado para vista (Kanban/Datagrid)
-  const [viewType, setViewType] = useState<ViewType>('datagrid');
+  const [viewType, setViewType] = useState<ViewType>('kanban');
   const [collapsedColumns, setCollapsedColumns] = useState<string[]>([]);
   
   const [filters, setFilters] = useState<FilterState>({
@@ -1417,6 +1454,16 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     return filtered;
   }, [prospectos, filters, sort]);
 
+  // Emitir evento para actualizar contador en el header
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('prospect-count-update', {
+      detail: {
+        filtered: filteredAndSortedProspectos.length,
+        total: prospectos.length
+      }
+    }));
+  }, [filteredAndSortedProspectos.length, prospectos.length]);
+
   const handleSort = (field: keyof Prospecto) => {
     setSort(prev => ({
       field,
@@ -1451,7 +1498,34 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   };
 
   const getStatusColor = (etapa: string) => {
-    switch (etapa?.toLowerCase()) {
+    if (!etapa) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    
+    const etapaLower = etapa.toLowerCase().trim();
+    
+    // Nuevos estados al principio (mismos colores que kanban)
+    if (etapaLower === 'es miembro' || etapaLower === 'es miembro activo') {
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400';
+    }
+    if (etapaLower === 'activo pqnc' || etapaLower === 'activo en pqnc') {
+      return 'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-400';
+    }
+    
+    // Estados existentes (mismos colores que kanban)
+    if (etapaLower === 'validando membresia' || etapaLower === 'validando membresía') {
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+    }
+    if (etapaLower === 'en seguimiento' || etapaLower === 'seguimiento') {
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+    }
+    if (etapaLower === 'interesado' || etapaLower === 'interesada') {
+      return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+    }
+    if (etapaLower === 'atendió llamada' || etapaLower === 'atendio llamada' || etapaLower === 'atendio la llamada') {
+      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+    }
+    
+    // Estados legacy
+    switch (etapaLower) {
       case 'nuevo': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'contactado': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
       case 'calificado': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
@@ -1484,110 +1558,97 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-        className="flex items-center justify-between"
-      >
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Gestión de Prospectos
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {filteredAndSortedProspectos.length} de {prospectos.length} prospectos
-          </p>
-        </div>
-        
-        {/* Toggle de Vista */}
-        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-1">
-          <button
-            onClick={() => handleViewTypeChange('datagrid')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 ${
-              viewType === 'datagrid'
-                ? 'bg-blue-500 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-            title="Vista de tabla"
-          >
-            <Table2 size={18} />
-            <span className="text-sm font-medium">Tabla</span>
-          </button>
-          <button
-            onClick={() => handleViewTypeChange('kanban')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 ${
-              viewType === 'kanban'
-                ? 'bg-blue-500 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-            title="Vista Kanban"
-          >
-            <LayoutGrid size={18} />
-            <span className="text-sm font-medium">Kanban</span>
-          </button>
-        </div>
-      </motion.div>
-
-      {/* Filtros */}
+      {/* Filtros con Toggle de Vista */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
+        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 md:p-4"
       >
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="relative">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-2 items-stretch md:items-center">
+          {/* Búsqueda - Ocupa más espacio */}
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
               placeholder="Buscar prospectos..."
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full h-9 pl-10 pr-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
           </div>
           
-          <select
-            value={filters.etapa}
-            onChange={(e) => setFilters(prev => ({ ...prev, etapa: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Todas las etapas</option>
-            {getUniqueValues('etapa').map(etapa => (
-              <option key={etapa} value={etapa}>{etapa}</option>
-            ))}
-          </select>
-          
-          <select
-            value={filters.score}
-            onChange={(e) => setFilters(prev => ({ ...prev, score: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Todos los scores</option>
-            <option value="Q Reto">Q Reto</option>
-            <option value="Q Premium">Q Premium</option>
-            <option value="Q Elite">Q Elite</option>
-          </select>
-          
-          <select
-            value={filters.campana_origen}
-            onChange={(e) => setFilters(prev => ({ ...prev, campana_origen: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Todas las campañas</option>
-            {getUniqueValues('campana_origen').map(campana => (
-              <option key={campana} value={campana}>{campana}</option>
-            ))}
-          </select>
-          
-          <button 
-            onClick={() => setFilters({ search: '', etapa: '', score: '', campana_origen: '', dateRange: '' })}
-            className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-          >
-            <Filter size={16} />
-            Limpiar
-          </button>
+          {/* Filtros compactos */}
+          <div className="flex flex-wrap md:flex-nowrap gap-2 items-center">
+            <select
+              value={filters.etapa}
+              onChange={(e) => setFilters(prev => ({ ...prev, etapa: e.target.value }))}
+              className="h-9 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs md:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
+            >
+              <option value="">Todas las etapas</option>
+              {getUniqueValues('etapa').map(etapa => (
+                <option key={etapa} value={etapa}>{etapa}</option>
+              ))}
+            </select>
+            
+            <select
+              value={filters.score}
+              onChange={(e) => setFilters(prev => ({ ...prev, score: e.target.value }))}
+              className="h-9 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs md:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
+            >
+              <option value="">Todos los scores</option>
+              <option value="Q Reto">Q Reto</option>
+              <option value="Q Premium">Q Premium</option>
+              <option value="Q Elite">Q Elite</option>
+            </select>
+            
+            <select
+              value={filters.campana_origen}
+              onChange={(e) => setFilters(prev => ({ ...prev, campana_origen: e.target.value }))}
+              className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[100px]"
+            >
+              <option value="">Todas las campañas</option>
+              {getUniqueValues('campana_origen').map(campana => (
+                <option key={campana} value={campana}>{campana}</option>
+              ))}
+            </select>
+            
+            <button 
+              onClick={() => setFilters({ search: '', etapa: '', score: '', campana_origen: '', dateRange: '' })}
+              className="h-9 flex items-center justify-center gap-1.5 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-xs whitespace-nowrap"
+            >
+              <Filter size={14} />
+              <span className="hidden sm:inline">Limpiar</span>
+            </button>
+            
+            {/* Toggle de Vista al final */}
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 h-9">
+              <button
+                onClick={() => handleViewTypeChange('datagrid')}
+                className={`h-full flex items-center gap-1.5 px-2 rounded-md transition-all duration-200 ${
+                  viewType === 'datagrid'
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                title="Vista de tabla"
+              >
+                <Table2 size={16} />
+                <span className="text-xs font-medium hidden sm:inline">Tabla</span>
+              </button>
+              <button
+                onClick={() => handleViewTypeChange('kanban')}
+                className={`h-full flex items-center gap-1.5 px-2 rounded-md transition-all duration-200 ${
+                  viewType === 'kanban'
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                title="Vista Kanban"
+              >
+                <LayoutGrid size={16} />
+                <span className="text-xs font-medium hidden sm:inline">Kanban</span>
+              </button>
+            </div>
+          </div>
         </div>
       </motion.div>
 

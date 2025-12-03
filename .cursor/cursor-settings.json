@@ -24,6 +24,17 @@
           "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaGVqYnV1YnBibm9qYWxsanNvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Njg3NDM1OSwiZXhwIjoyMDcyNDUwMzU5fQ.9f0eu5qyAxAWW8BDSb1xOagkPwG3dLlaLRcgtSuycWE",
           "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaGVqYnV1YnBibm9qYWxsanNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzQzNTksImV4cCI6MjA3MjQ1MDM1OX0.MsTwi2IAHXk_kphl_QYDwOujJhNFbYrZPOx_a40v_YI"
         }
+      },
+      "N8N": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "supergateway",
+          "--streamableHttp",
+          "https://primary-dev-d75a.up.railway.app/mcp-server/http",
+          "--header",
+          "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMmE1MDZkMS1hZDM4LTQ3MGYtOTEzOS02MzAwM2NiMjQzZGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjQ0OTk5M2U1LTFjZTUtNDFmZS04YTY2LTVjZjgwOWE2ODc1NiIsImlhdCI6MTc2NDY5MTU3Mn0.akqsmM_akDSgDpbmBSUVIeMolOMshXnR29TswdKPwBs"
+        ]
       }
     }
   },

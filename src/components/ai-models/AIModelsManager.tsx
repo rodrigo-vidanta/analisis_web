@@ -69,22 +69,6 @@ const AIModelsManager: React.FC = () => {
               <Sparkles className="w-6 h-6 text-white" />
             </motion.div>
             <div>
-              <motion.h1
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.15 }}
-                className="text-3xl font-bold text-gray-900 dark:text-white"
-              >
-                AI Models Manager
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-sm text-gray-600 dark:text-gray-400 mt-1"
-              >
-                Gestión avanzada de modelos de IA para voz e imágenes
-              </motion.p>
             </div>
           </div>
         </motion.div>

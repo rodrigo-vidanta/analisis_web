@@ -395,14 +395,14 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                   transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
                   className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-800"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
-                      <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
-                        {prospecto.etapa || 'Sin etapa'}
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
+                        <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
+                          {prospecto.etapa || 'Sin etapa'}
+                        </h3>
+                      </div>
                       {prospecto.score && (
                         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                           <Star className="text-yellow-500 dark:text-yellow-400" size={16} />
@@ -411,15 +411,24 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                           </span>
                         </div>
                       )}
-                      {prospecto.requiere_atencion_humana && (
-                        <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800">
-                          <AlertTriangle className="text-orange-600 dark:text-orange-400" size={16} />
-                          <span className="text-sm font-semibold text-orange-700 dark:text-orange-300">
-                            Requiere atención
-                          </span>
-                        </div>
-                      )}
                     </div>
+                    {prospecto.requiere_atencion_humana && (
+                      <div className="bg-orange-50 dark:bg-orange-900/20 px-4 py-3 rounded-lg border border-orange-200 dark:border-orange-800 w-full">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" size={16} />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-orange-700 dark:text-orange-300 block mb-1">
+                              Requiere atención
+                            </span>
+                            {prospecto.motivo_handoff && (
+                              <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed break-words">
+                                {prospecto.motivo_handoff}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
 

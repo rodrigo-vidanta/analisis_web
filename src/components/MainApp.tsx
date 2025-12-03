@@ -343,11 +343,13 @@ function MainApp() {
   const renderContent = () => {
     switch (appMode) {
       case 'natalia':
+        // Módulo oculto pero código preservado
         return (
           <ProtectedRoute requireModule="analisis" requireSubModule="natalia">
             <AnalysisIAComplete />
           </ProtectedRoute>
         );
+        // return null; // Oculto temporalmente
       case 'pqnc':
         return (
           <ProtectedRoute requireModule="analisis" requireSubModule="pqnc">

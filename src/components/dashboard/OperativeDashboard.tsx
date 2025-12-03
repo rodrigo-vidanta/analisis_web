@@ -43,10 +43,10 @@ export interface WidgetConfig {
 export type { WidgetConfig };
 
 const DEFAULT_WIDGETS: WidgetConfig[] = [
-  { id: 'prospectos', title: 'Prospectos Nuevos', visible: true, size: 'normal', order: 0 },
-  { id: 'conversaciones', title: 'Últimas Conversaciones', visible: true, size: 'normal', order: 1 },
-  { id: 'llamadas-activas', title: 'Llamadas Activas', visible: true, size: 'normal', order: 2 },
-  { id: 'llamadas-programadas', title: 'Llamadas Programadas', visible: true, size: 'normal', order: 3 },
+  { id: 'prospectos', title: 'Prospectos Nuevos', visible: true, size: 'double-vertical', order: 0 },
+  { id: 'conversaciones', title: 'Últimas Conversaciones', visible: true, size: 'double-vertical', order: 1 },
+  { id: 'llamadas-activas', title: 'Llamadas Activas', visible: true, size: 'double-horizontal', order: 2 },
+  { id: 'llamadas-programadas', title: 'Llamadas Programadas', visible: true, size: 'double-horizontal', order: 3 },
 ];
 
 // ============================================
@@ -55,26 +55,38 @@ const DEFAULT_WIDGETS: WidgetConfig[] = [
 
 export const OperativeDashboard: React.FC = () => {
   const { user } = useAuth();
+  // Configuración fija - siempre usar DEFAULT_WIDGETS
   const [widgets, setWidgets] = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
   const [showConfigModal, setShowConfigModal] = useState(false);
 
-  // Cargar preferencias desde localStorage
+  // Escuchar evento para abrir modal de configuración desde el header
   useEffect(() => {
-    const saved = localStorage.getItem('operative-dashboard-config');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setWidgets(parsed);
-      } catch (error) {
-        console.error('Error cargando configuración del dashboard:', error);
-      }
-    }
+    const handleOpenConfig = () => {
+      setShowConfigModal(true);
+    };
+    window.addEventListener('open-dashboard-config', handleOpenConfig);
+    return () => {
+      window.removeEventListener('open-dashboard-config', handleOpenConfig);
+    };
   }, []);
 
-  // Guardar preferencias en localStorage
-  useEffect(() => {
-    localStorage.setItem('operative-dashboard-config', JSON.stringify(widgets));
-  }, [widgets]);
+  // Configuración fija - No cargar desde localStorage
+  // useEffect(() => {
+  //   const saved = localStorage.getItem('operative-dashboard-config');
+  //   if (saved) {
+  //     try {
+  //       const parsed = JSON.parse(saved);
+  //       setWidgets(parsed);
+  //     } catch (error) {
+  //       console.error('Error cargando configuración del dashboard:', error);
+  //     }
+  //   }
+  // }, []);
+
+  // Configuración fija - No guardar en localStorage
+  // useEffect(() => {
+  //   localStorage.setItem('operative-dashboard-config', JSON.stringify(widgets));
+  // }, [widgets]);
 
   // Widgets visibles ordenados
   const visibleWidgets = useMemo(() => {
@@ -83,10 +95,15 @@ export const OperativeDashboard: React.FC = () => {
       .sort((a, b) => a.order - b.order);
   }, [widgets]);
 
-  // Actualizar configuración de widget
+  // Actualizar configuración de widget (solo visibilidad, tamaño es fijo)
   const updateWidgetConfig = (widgetId: WidgetType, updates: Partial<WidgetConfig>) => {
+    // No permitir cambios de tamaño, solo visibilidad y orden
+    const allowedUpdates = { ...updates };
+    if ('size' in allowedUpdates) {
+      delete allowedUpdates.size; // Ignorar cambios de tamaño
+    }
     setWidgets(prev => prev.map(w => 
-      w.id === widgetId ? { ...w, ...updates } : w
+      w.id === widgetId ? { ...w, ...allowedUpdates } : w
     ));
   };
 
@@ -97,11 +114,9 @@ export const OperativeDashboard: React.FC = () => {
     ));
   };
 
-  // Cambiar tamaño de widget
+  // Cambiar tamaño de widget (deshabilitado - configuración fija)
   const changeWidgetSize = (widgetId: WidgetType, newSize: WidgetConfig['size']) => {
-    setWidgets(prev => prev.map(w => 
-      w.id === widgetId ? { ...w, size: newSize } : w
-    ));
+    // No hacer nada - configuración fija
   };
 
   // Calcular clases de grid según tamaño
@@ -118,28 +133,16 @@ export const OperativeDashboard: React.FC = () => {
 
   return (
     <div className="w-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden" style={{ height: 'calc(100vh - 128px)', maxHeight: 'calc(100vh - 128px)' }}>
-      {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard Operativo</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Vista centralizada de prospectos, conversaciones y llamadas
-          </p>
-        </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowConfigModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
-        >
-          <Settings className="w-4 h-4" />
-          <span className="text-sm font-medium">Configurar</span>
-        </motion.button>
-      </div>
+      {/* Header - Botón movido al Header global */}
 
       {/* Contenido - Cuadrícula responsiva */}
       <div className="flex-1 p-4 md:p-6 min-h-0 overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full" style={{ gridAutoRows: 'minmax(0, 1fr)' }}>
+        <div 
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full lg:grid-cols-[1.625fr_1.625fr_0.75fr_0.75fr]" 
+          style={{ 
+            gridAutoRows: 'minmax(0, 1fr)'
+          }}
+        >
           <AnimatePresence mode="popLayout">
             {visibleWidgets.map((widget, index) => (
               <motion.div

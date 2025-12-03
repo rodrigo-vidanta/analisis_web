@@ -393,18 +393,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 
   const menuItems: MenuItemProps[] = [
 
-
-    // 2. Análisis IA (SEGUNDO)
-    ...(canAccessModule('analisis') && natalia ? [{
+    // 1. Dashboard Operativo (PRIMERO - Movido arriba)
+    ...((canAccessModule('prospectos') || canAccessModule('live-chat') || canAccessModule('live-monitor')) ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
-      label: 'Análisis IA',
-      active: appMode === 'natalia',
-      onClick: () => setAppMode('natalia')
+      label: 'Dashboard',
+      active: appMode === 'operative-dashboard',
+      onClick: () => setAppMode('operative-dashboard')
     }] : []),
+
+    // 2. Análisis IA (OCULTO - No visible pero código preservado)
+    // ...(canAccessModule('analisis') && natalia ? [{
+    //   icon: (
+    //     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+    //     </svg>
+    //   ),
+    //   label: 'Análisis IA',
+    //   active: appMode === 'natalia',
+    //   onClick: () => setAppMode('natalia')
+    // }] : []),
 
     // 3. PQNC Humans (TERCERO)
     ...(canAccessModule('analisis') && pqnc ? [{
@@ -418,7 +429,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('pqnc')
     }] : []),
 
-    // 4. Live Monitor (CUARTO)
+    // 4. AI Call Monitor (CUARTO)
     ...(canAccessLiveMonitor() ? [{
       icon: (
         <div className="relative">
@@ -428,12 +439,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
         </div>
       ),
-      label: 'Live Monitor',
+      label: 'AI Call Monitor',
       active: appMode === 'live-monitor',
       onClick: () => setAppMode('live-monitor')
     }] : []),
 
-    // 5. Live Chat - Chat Monitor (QUINTO)
+    // 5. AI Chat Monitor (QUINTO)
     ...(canAccessModule('live-chat') ? [{
       icon: (
         <div className="relative">
@@ -443,22 +454,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
         </div>
       ),
-      label: 'Live Chat',
+      label: 'AI Chat Monitor',
       active: appMode === 'live-chat',
       onClick: () => setAppMode('live-chat')
     }] : []),
 
-    // 5.5. Dashboard Operativo
-    ...((canAccessModule('prospectos') || canAccessModule('live-chat') || canAccessModule('live-monitor')) ? [{
-      icon: (
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-      label: 'Dashboard',
-      active: appMode === 'operative-dashboard',
-      onClick: () => setAppMode('operative-dashboard')
-    }] : []),
 
     // 6. Prospectos (SEXTO)
     ...(canAccessModule('prospectos') ? [{
@@ -572,7 +572,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           {isCollapsed ? (
             // Modo colapsado: favicon/logo + botón de expansión
             <div className="flex flex-col items-center gap-2 w-full">
-              <div className="w-8 h-8 flex items-center justify-center sidebar-logo-container">
+              <button
+                onClick={() => setAppMode('operative-dashboard')}
+                className="w-8 h-8 flex items-center justify-center sidebar-logo-container hover:opacity-80 transition-opacity cursor-pointer"
+                title="Ir al Dashboard"
+              >
                 {faviconUrl ? (
                   <img 
                     src={faviconUrl} 
@@ -597,7 +601,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 )}
-              </div>
+              </button>
               <button
                 onClick={onToggle}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -611,7 +615,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           ) : (
             // Modo expandido: logo + texto + botón
             <>
-              <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setAppMode('operative-dashboard')}
+                className="flex items-center space-x-2 hover:opacity-80 transition-opacity cursor-pointer"
+                title="Ir al Dashboard"
+              >
                 <div className="w-8 h-8 flex items-center justify-center sidebar-logo-container">
                   {faviconUrl ? (
                     <img 
@@ -639,7 +647,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                   )}
                 </div>
                 <span className="font-semibold text-slate-900 dark:text-white">PQNC AI</span>
-              </div>
+              </button>
               
               <button
                 onClick={onToggle}

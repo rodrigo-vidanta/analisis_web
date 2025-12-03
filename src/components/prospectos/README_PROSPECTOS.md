@@ -5,7 +5,7 @@
 **Módulo:** Sistema de gestión de prospectos con data grid avanzado
 **Propósito:** Gestión completa de prospectos con filtros inteligentes, navegación integrada y conexión con otros módulos
 **Base de datos:** `glsmifhkoaifvaegsozd.supabase.co` (Base Natalia - Análisis) + `hmmfuhqgvsehkizlfzga.supabase.co` (PQNC Principal) + `zbylezfyagwrxoecioup.supabase.co` (SystemUI)
-**Versión:** 5.7.0 (Octubre 2025)
+**Versión:** 5.15.0 (Enero 2025)
 **Estado:** ✅ Producción estable
 
 ---

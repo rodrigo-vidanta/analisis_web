@@ -107,6 +107,20 @@ class N8nService {
     }
   }
 
+  // Crear un nuevo workflow
+  async createWorkflow(workflowData: any): Promise<{ success: boolean; workflow?: any; error?: string }> {
+    try {
+      const workflow = await this.makeRequest('/workflows', {
+        method: 'POST',
+        body: JSON.stringify(workflowData)
+      });
+      return { success: true, workflow };
+    } catch (error) {
+      console.error('Error creando workflow:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' };
+    }
+  }
+
   // Actualizar un workflow
   async updateWorkflow(workflowId: string, workflowData: any): Promise<{ success: boolean; workflow?: any; error?: string }> {
     try {

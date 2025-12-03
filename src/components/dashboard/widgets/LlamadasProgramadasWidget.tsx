@@ -63,7 +63,6 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
       });
 
       if (!allData || allData.length === 0) {
-        console.log('📅 [LlamadasProgramadasWidget] No hay datos del servicio');
         setLlamadas([]);
         return;
       }
@@ -78,10 +77,6 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
         return callDate === dateString;
       });
 
-      console.log('📅 [LlamadasProgramadasWidget] Total llamadas:', allData.length);
-      console.log('📅 [LlamadasProgramadasWidget] Llamadas del día:', delDiaActual.length);
-      console.log('📅 [LlamadasProgramadasWidget] Fecha buscada:', dateString);
-
       // Ordenar por hora (más tempranas primero) - igual que DailyView
       const sorted = delDiaActual.sort((a, b) => {
         const timeA = new Date(a.fecha_programada).getTime();
@@ -91,11 +86,7 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
 
       setLlamadas(sorted.slice(0, 5)); // Solo mostrar 5
     } catch (error: any) {
-      console.error('Error cargando llamadas programadas:', error);
       // Si es un error de permisos, mostrar array vacío
-      if (error?.status === 401 || error?.code === 'PGRST301') {
-        console.warn('⚠️ Error de permisos al cargar llamadas programadas');
-      }
       setLlamadas([]);
     } finally {
       setLoading(false);

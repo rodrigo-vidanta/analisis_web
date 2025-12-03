@@ -50,8 +50,20 @@ interface ProspectosKanbanProps {
   getScoreColor: (score: string) => string;
 }
 
-// Checkpoints fijos - ORDEN CORRECTO: Validando membresia, En seguimiento, Interesado, Atendió llamada
+// Checkpoints fijos - ORDEN CORRECTO: Es miembro, Activo PQNC, Validando membresia, En seguimiento, Interesado, Atendió llamada
 const CHECKPOINTS = {
+  'checkpoint #es-miembro': {
+    title: 'Es miembro',
+    description: 'Prospecto es miembro activo',
+    color: 'bg-emerald-500',
+    bgColor: 'bg-emerald-50 dark:bg-emerald-900/20'
+  },
+  'checkpoint #activo-pqnc': {
+    title: 'Activo PQNC',
+    description: 'Prospecto activo en PQNC',
+    color: 'bg-teal-500',
+    bgColor: 'bg-teal-50 dark:bg-teal-900/20'
+  },
   'checkpoint #1': {
     title: 'Validando membresia',
     description: 'Prospecto en validación inicial',
@@ -85,6 +97,10 @@ const getCheckpointForEtapa = (etapa?: string): CheckpointKey => {
   if (!etapa) return 'checkpoint #1';
   
   const etapaLower = etapa.toLowerCase().trim();
+  
+  // Nuevos estados al principio: Es miembro → Activo PQNC
+  if (etapaLower === 'es miembro' || etapaLower === 'es miembro activo') return 'checkpoint #es-miembro';
+  if (etapaLower === 'activo pqnc' || etapaLower === 'activo pqnc' || etapaLower === 'activo en pqnc') return 'checkpoint #activo-pqnc';
   
   // Orden: Validando membresia → En seguimiento → Interesado → Atendió llamada
   if (etapaLower === 'validando membresia' || etapaLower === 'validando membresía') return 'checkpoint #1';
@@ -161,6 +177,8 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   // Agrupar prospectos por checkpoint
   const prospectosPorCheckpoint = useMemo(() => {
     const grouped: Record<CheckpointKey, typeof prospectosConMensajes> = {
+      'checkpoint #es-miembro': [],
+      'checkpoint #activo-pqnc': [],
       'checkpoint #1': [],
       'checkpoint #2': [],
       'checkpoint #3': [],
@@ -191,6 +209,8 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
 
   // Definir checkpoint keys en el orden correcto
   const checkpointKeys: CheckpointKey[] = [
+    'checkpoint #es-miembro', // Es miembro (al principio, colapsado)
+    'checkpoint #activo-pqnc', // Activo PQNC (al principio, colapsado)
     'checkpoint #1', // Validando membresia
     'checkpoint #2', // En seguimiento
     'checkpoint #3', // Interesado
@@ -300,10 +320,10 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   // Calcular ancho de cada columna
   const getColumnWidth = (isCollapsed: boolean, totalExpanded: number) => {
     if (isCollapsed) {
-      return '80px';
+      return '60px'; // Columna más delgada cuando está colapsada
     }
     // Calcular el ancho disponible para columnas expandidas
-    const totalCollapsedWidth = collapsedColumns.length * 80;
+    const totalCollapsedWidth = collapsedColumns.length * 60; // Usar 60px para cálculo
     const availableWidth = `calc((100% - ${totalCollapsedWidth}px) / ${totalExpanded})`;
     return availableWidth;
   };
@@ -326,7 +346,7 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                 className="flex flex-col border-r border-slate-200 dark:border-slate-700 last:border-r-0"
                 style={{
                   width: getColumnWidth(isCollapsed, totalExpanded),
-                  minWidth: isCollapsed ? '80px' : '200px',
+                  minWidth: isCollapsed ? '60px' : '200px', // Columna más delgada cuando está colapsada
                   flexShrink: 0,
                   flexGrow: isCollapsed ? 0 : 1
                 }}

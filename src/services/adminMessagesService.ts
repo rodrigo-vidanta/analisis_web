@@ -418,29 +418,52 @@ class AdminMessagesService {
 
   /**
    * Suscribirse a nuevos mensajes (Realtime)
+   * 
+   * ⚠️ NOTA DE SEGURIDAD: Usa el cliente admin con service key.
+   * En producción, considerar mover esto a un backend o usar funciones RPC.
    */
   subscribeToMessages(
     recipientRole: string,
     callback: (message: AdminMessage) => void
   ) {
-    const channel = supabaseSystemUIAdmin
-      .channel('admin_messages_channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'admin_messages',
-          filter: `recipient_role=eq.${recipientRole}`
-        },
-        (payload) => {
-          callback(payload.new as AdminMessage);
-        }
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabaseSystemUIAdmin.channel> | null = null;
+    let isSubscribed = false;
+
+    try {
+      channel = supabaseSystemUIAdmin
+        .channel(`admin_messages_${recipientRole}_${Date.now()}`) // Canal único para evitar conflictos
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'admin_messages',
+            filter: `recipient_role=eq.${recipientRole}`
+          },
+          (payload) => {
+            callback(payload.new as AdminMessage);
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            isSubscribed = true;
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            isSubscribed = false;
+          }
+        });
+    } catch (error) {
+      console.warn('⚠️ Error suscribiéndose a mensajes de admin (no crítico):', error);
+    }
 
     return () => {
-      supabaseSystemUIAdmin.removeChannel(channel);
+      if (channel && isSubscribed) {
+        try {
+          supabaseSystemUIAdmin.removeChannel(channel);
+        } catch (error) {
+          // Ignorar errores al desconectar (puede ser que ya se cerró)
+          console.debug('WebSocket ya cerrado o en proceso de cierre');
+        }
+      }
     };
   }
 }

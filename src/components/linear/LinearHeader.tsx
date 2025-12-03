@@ -25,7 +25,8 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
       case 'plantillas': return 'Plantillas';
       case 'natalia': return 'Natalia IA';
       case 'pqnc': return 'PQNC Humans';
-      case 'live-monitor': return 'Live Monitor';
+      case 'live-monitor': return 'AI Call Monitor';
+      case 'live-chat': return 'AI Chat Monitor';
       case 'admin': return 'Administración';
       default: return 'PQNC AI Platform';
     }

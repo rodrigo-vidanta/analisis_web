@@ -1,5 +1,53 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.0N6.0.0 - Dashboard: Limpieza de Logs y Mejoras de UI (Enero 2025)
+
+### 🎯 **RELEASE BETA - Dashboard: Optimización y Correcciones**
+
+#### 🧹 **Limpieza de Logs**
+- **Eliminación completa de logs:** Removidos todos los `console.log`, `console.warn` y `console.error` del módulo de dashboard
+- **Archivos limpiados:**
+  - `ConversacionesWidget.tsx` - Eliminados todos los logs de depuración
+  - `ProspectosNuevosWidget.tsx` - Eliminados todos los logs de depuración
+  - `LlamadasProgramadasWidget.tsx` - Eliminados todos los logs de depuración
+  - `LlamadasActivasWidget.tsx` - Eliminado `console.error`
+  - `OperativeDashboard.tsx` - Eliminado `console.log`
+  - `ProspectoSidebar.tsx` - Eliminados todos los logs de depuración y renderizado
+- **Consola limpia:** Sin violaciones de rendimiento ni mensajes de depuración en producción
+
+#### 🔧 **Correcciones de Funcionalidad**
+- **Botón de WhatsApp en Sidebar:** Implementada funcionalidad completa del botón de WhatsApp en el sidebar de prospectos
+  - Funciona desde "Prospectos - Requieren Atención"
+  - Funciona desde "Últimas Conversaciones"
+  - Navega correctamente a "AI Chat Monitor" con el prospecto seleccionado
+  - Guarda `prospectoId` en `localStorage` para búsqueda automática
+- **Integración con Live Chat:** Navegación fluida entre dashboard y módulo de chat
+
+#### 🎨 **Mejoras de UI**
+- **Color de mensajes de agentes:** Cambiado a lila discreto (`bg-purple-700 dark:bg-purple-800`) para mejor visibilidad en modo oscuro
+- **Contraste mejorado:** Los mensajes de agentes ahora son claramente visibles contra el fondo oscuro
+- **Consistencia visual:** Color lila suave que diferencia agentes de bot y cliente
+
+#### 📊 **Mejoras en Widget de Conversaciones**
+- **Visualización de mensajes:** Corrección en la visualización de mensajes de agentes con globo y fondo
+- **Avatar único:** Eliminado avatar duplicado en mensajes
+- **Burbuja siempre visible:** Los mensajes de agentes siempre muestran globo con fondo, incluso sin contenido
+
+#### 🔧 **Correcciones Técnicas**
+- **Código duplicado:** Eliminado código duplicado en `ProspectoSidebar.tsx` (React.memo comparison)
+- **Props faltantes:** Agregada prop `onNavigateToLiveChat` en widgets del dashboard
+- **Navegación mejorada:** Cierre automático del sidebar al navegar a Live Chat
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Limpieza de logs y corrección de visualización de mensajes
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Limpieza de logs y agregada navegación a Live Chat
+- `src/components/dashboard/widgets/LlamadasProgramadasWidget.tsx` - Limpieza de logs
+- `src/components/dashboard/widgets/LlamadasActivasWidget.tsx` - Limpieza de logs
+- `src/components/dashboard/OperativeDashboard.tsx` - Limpieza de logs
+- `src/components/scheduled-calls/ProspectoSidebar.tsx` - Limpieza de logs y corrección de código duplicado
+
+---
+
 ## 🎯 Versión B3.0.0N6.0.0 - Live Monitor: Optimización de Rendimiento y Sincronización de Audio (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Optimización de Rendimiento y Mejoras en Live Monitor**

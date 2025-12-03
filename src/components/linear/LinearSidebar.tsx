@@ -67,7 +67,7 @@ const LinearSidebar: React.FC<LinearSidebarProps> = ({ isCollapsed, onToggle }) 
       onClick: () => setAppMode('pqnc')
     }] : []),
 
-    // Live Monitor
+    // AI Call Monitor
     ...(liveMonitor ? [{
       icon: (
         <div className="relative">
@@ -77,7 +77,7 @@ const LinearSidebar: React.FC<LinearSidebarProps> = ({ isCollapsed, onToggle }) 
           <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
         </div>
       ),
-      label: 'Live Monitor',
+      label: 'AI Call Monitor',
       active: appMode === 'live-monitor',
       onClick: () => setAppMode('live-monitor')
     }] : []),

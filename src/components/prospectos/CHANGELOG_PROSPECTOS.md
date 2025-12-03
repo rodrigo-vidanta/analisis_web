@@ -17,6 +17,36 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.15.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🎨 Vista Kanban Mejorada con Nuevos Estados**
+- **Vista Kanban por defecto**: Cambiada la vista predeterminada de DataGrid a Kanban
+- **Nuevos estados añadidos**: "Es miembro" y "Activo PQNC" agregados al principio del kanban
+- **Estados colapsados por defecto**: Los dos nuevos estados aparecen colapsados automáticamente
+- **Columnas más delgadas**: Ancho de columnas colapsadas reducido de 80px a 60px para mejor uso del espacio
+- **Colores consistentes**: Mismos colores de etapas en Kanban y DataGrid para consistencia visual
+
+#### **🎨 Colores de Estados**
+- **Es miembro**: Color esmeralda (emerald) - `bg-emerald-100 text-emerald-800`
+- **Activo PQNC**: Color teal (verde azulado) - `bg-teal-100 text-teal-800`
+- **Validando membresia**: Color azul - `bg-blue-100 text-blue-800`
+- **En seguimiento**: Color amarillo - `bg-yellow-100 text-yellow-800`
+- **Interesado**: Color verde - `bg-green-100 text-green-800`
+- **Atendió llamada**: Color morado - `bg-purple-100 text-purple-800`
+
+#### **🔧 Funcionalidades Implementadas**
+- **Mapeo de etapas mejorado**: Sistema actualizado para reconocer los nuevos estados desde la base de datos
+- **Preferencias persistentes**: Los estados colapsados se guardan en localStorage por usuario
+- **Vista por defecto**: Kanban ahora es la vista inicial al entrar al módulo
+
+#### **📝 Archivos Modificados**
+- `src/components/prospectos/ProspectosKanban.tsx` - Añadidos nuevos estados y ajustado ancho de columnas
+- `src/components/prospectos/ProspectosManager.tsx` - Vista por defecto cambiada a Kanban, función getStatusColor actualizada
+- `src/services/prospectsViewPreferencesService.ts` - Preferencias por defecto actualizadas
+
+---
+
 ### **v5.14.0** - Diciembre 2025
 **Estado:** ✅ Producción
 
@@ -165,6 +195,6 @@ Cada entrada del changelog debe incluir:
 
 ---
 
-**Última actualización:** Octubre 2025
-**Versión actual:** v5.7.0
+**Última actualización:** Enero 2025
+**Versión actual:** v5.15.0
 **Estado:** ✅ Producción estable

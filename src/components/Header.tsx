@@ -6,7 +6,7 @@ import { AssignmentBadge } from './analysis/AssignmentBadge';
 import UserProfileModal from './shared/UserProfileModal';
 import AdminMessagesModal from './admin/AdminMessagesModal';
 import { adminMessagesService } from '../services/adminMessagesService';
-import { Mail } from 'lucide-react';
+import { Mail, Wrench } from 'lucide-react';
 
 interface HeaderProps {
   currentStep?: number;
@@ -39,6 +39,18 @@ const Header = ({
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [prospectCount, setProspectCount] = useState<{filtered: number, total: number} | null>(null);
+
+  // Escuchar eventos para actualizar contador de prospectos
+  useEffect(() => {
+    const handleProspectCountUpdate = (event: CustomEvent<{filtered: number, total: number}>) => {
+      setProspectCount(event.detail);
+    };
+    window.addEventListener('prospect-count-update', handleProspectCountUpdate as EventListener);
+    return () => {
+      window.removeEventListener('prospect-count-update', handleProspectCountUpdate as EventListener);
+    };
+  }, []);
   
   const isAdmin = user?.role_name === 'admin';
   const isAdminOperativo = user?.role_name === 'administrador_operativo';
@@ -111,20 +123,100 @@ const Header = ({
                 </svg>
               </button>
 
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-white capitalize">
-                {appMode === 'natalia' ? 'Análisis Natalia IA' :
-                 appMode === 'pqnc' ? 'Análisis PQNC Humans' :
-                 appMode === 'live-monitor' ? 'Monitor en Vivo' :
-                 appMode === 'admin' ? 'Administración' :
-                 appMode === 'live-chat' ? 'Live Chat' :
-                 appMode === 'ai-models' ? 'AI Models' :
-                 appMode === 'aws-manager' ? 'AWS Manager' :
-                 appMode === 'log-server' ? 'Log Server' :
-                 appMode === 'prospectos' ? 'Prospectos' :
-                 appMode === 'scheduled-calls' ? 'Llamadas Programadas' :
-                 appMode === 'operative-dashboard' ? 'Dashboard Operativo' :
-                 appMode === 'direccion' ? 'Mis Tareas' : 'PQNC AI Platform'}
-              </h1>
+              <div className="flex items-center gap-3">
+                <div>
+                  <h1 className="text-lg font-medium text-slate-900 dark:text-white capitalize">
+                    {appMode === 'natalia' ? 'Análisis Natalia IA' :
+                     appMode === 'pqnc' ? 'Análisis PQNC Humans' :
+                     appMode === 'live-monitor' ? 'AI Call Monitor' :
+                     appMode === 'admin' ? 'Administración' :
+                     appMode === 'live-chat' ? 'AI Chat Monitor' :
+                     appMode === 'ai-models' ? 'AI Models' :
+                     appMode === 'aws-manager' ? 'AWS Manager' :
+                     appMode === 'log-server' ? 'Log Server' :
+                     appMode === 'prospectos' ? 'Prospectos' :
+                     appMode === 'scheduled-calls' ? 'Llamadas Programadas' :
+                     appMode === 'operative-dashboard' ? 'Dashboard Operativo' :
+                     appMode === 'direccion' ? 'Mis Tareas' : 'PQNC AI Platform'}
+                  </h1>
+                  {appMode === 'live-monitor' && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Gestión visual del proceso de ventas por checkpoints
+                    </p>
+                  )}
+                  {appMode === 'operative-dashboard' && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Vista centralizada de prospectos, conversaciones y llamadas
+                    </p>
+                  )}
+                </div>
+                {appMode === 'operative-dashboard' && (
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-dashboard-config'))}
+                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                    title="Configurar Dashboard"
+                  >
+                    <Wrench className="w-4 h-4" />
+                  </button>
+                )}
+                {appMode === 'live-chat' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Monitoreo y gestión de conversaciones en tiempo real
+                  </p>
+                )}
+                {appMode === 'prospectos' && (
+                  <>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Gestión completa de prospectos y asignaciones
+                    </p>
+                    {prospectCount && (
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
+                        {prospectCount.filtered} de {prospectCount.total} prospectos
+                      </p>
+                    )}
+                  </>
+                )}
+                {appMode === 'scheduled-calls' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Programación y seguimiento de llamadas agendadas
+                  </p>
+                )}
+                {appMode === 'ai-models' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Gestión avanzada de modelos de IA para voz e imágenes
+                  </p>
+                )}
+                {appMode === 'aws-manager' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Gestión y monitoreo de infraestructura AWS
+                  </p>
+                )}
+                {appMode === 'log-server' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Configuración del sistema de logging de errores críticos
+                  </p>
+                )}
+                {appMode === 'admin' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Administración de plantillas y configuración del sistema
+                  </p>
+                )}
+                {appMode === 'direccion' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Gestión de tareas y asignaciones
+                  </p>
+                )}
+                {appMode === 'natalia' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Análisis detallado de llamadas con IA Natalia
+                  </p>
+                )}
+                {appMode === 'pqnc' && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Análisis de llamadas con evaluación humana PQNC
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Controles de usuario */}
