@@ -28,7 +28,8 @@ import {
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
-import { CallDetailModal } from './CallDetailModal';
+import { CallDetailModalSidebar } from './CallDetailModalSidebar';
+import { createPortal } from 'react-dom';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
@@ -47,6 +48,7 @@ interface CallHistory {
   costo_total: string;
   tiene_feedback: boolean;
   feedback_resultado: string;
+  audio_ruta_bucket?: string | null;
 }
 
 interface WhatsAppConversation {
@@ -69,6 +71,8 @@ interface TimelineEvent {
   callId?: string; // Para identificar llamadas y abrir el modal
   scheduledCallId?: string; // Para identificar llamadas programadas
   isPast?: boolean; // Si la llamada programada ya pasó
+  hasRecording?: boolean; // Si la llamada tiene grabación
+  callStatus?: string; // Estado de la llamada
 }
 
 
@@ -214,7 +218,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
           precio_ofertado,
           costo_total,
           tiene_feedback,
-          feedback_resultado
+          feedback_resultado,
+          audio_ruta_bucket
         `)
         .eq('prospecto', prospectoId) // ✅ CORRECTO: La columna se llama 'prospecto', NO 'prospecto_id'
         .order('fecha_llamada', { ascending: false });
@@ -294,8 +299,9 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   const buildTimelineEvents = (): TimelineEvent[] => {
     const events: TimelineEvent[] = [];
 
-    // Agregar eventos de llamadas ejecutadas (clickeables)
+    // Agregar eventos de llamadas ejecutadas (clickeables solo si tienen grabación y están finalizadas)
     callHistory.forEach(call => {
+      const hasRecording = !!(call.audio_ruta_bucket && call.audio_ruta_bucket.length > 0);
       events.push({
         id: `call-${call.call_id}`,
         type: 'call',
@@ -303,8 +309,10 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         title: `Llamada ${call.call_status}`,
         description: `${formatDuration(call.duracion_segundos)} • ${call.nivel_interes || 'Sin interés'}`,
         icon: <PhoneCall className="w-4 h-4 text-blue-500" />,
-        callId: call.call_id // Agregar callId para poder abrir el modal
-      } as TimelineEvent & { callId?: string });
+        callId: call.call_id, // Agregar callId para poder abrir el modal
+        hasRecording: hasRecording,
+        callStatus: call.call_status
+      } as TimelineEvent & { callId?: string; hasRecording?: boolean; callStatus?: string });
     });
 
     // Agregar eventos de llamadas programadas (pasadas y futuras)
@@ -480,7 +488,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             >
               <div className="flex items-center gap-4 relative z-10">
                 <Avatar
-                  name={prospecto?.nombre_completo || prospecto?.nombre || prospecto?.nombre_whatsapp}
+                  name={prospecto?.nombre || prospecto?.nombre_whatsapp || 'Prospecto'}
                   size="2xl"
                   showIcon={false}
                   className="bg-white/20 backdrop-blur-sm shadow-lg"
@@ -801,13 +809,25 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.05 }}
                             onClick={() => {
-                              if (isCall && (event as TimelineEvent & { callId?: string }).callId) {
-                                handleOpenCallDetail((event as TimelineEvent & { callId?: string }).callId!);
+                              if (isCall) {
+                                const callEvent = event as TimelineEvent & { callId?: string; hasRecording?: boolean; callStatus?: string };
+                                // Solo abrir modal si tiene grabación y está finalizada
+                                if (callEvent.callId && callEvent.hasRecording && 
+                                    (callEvent.callStatus === 'finalizada' || callEvent.callStatus === 'transferida' || callEvent.callStatus === 'contestada_no_transferida')) {
+                                  handleOpenCallDetail(callEvent.callId);
+                                }
                               }
                             }}
                             className={`flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border ${
                               isCall 
-                                ? 'border-blue-200 dark:border-blue-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all' 
+                                ? (() => {
+                                    const callEvent = event as TimelineEvent & { hasRecording?: boolean; callStatus?: string };
+                                    const isClickable = callEvent.hasRecording && 
+                                      (callEvent.callStatus === 'finalizada' || callEvent.callStatus === 'transferida' || callEvent.callStatus === 'contestada_no_transferida');
+                                    return isClickable
+                                      ? 'border-blue-200 dark:border-blue-700 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all'
+                                      : 'border-gray-200 dark:border-gray-600 cursor-default';
+                                  })()
                                 : isScheduledCall
                                   ? isPastScheduled
                                     ? 'border-gray-200 dark:border-gray-600'
@@ -866,15 +886,26 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         </motion.div>
       )}
 
-      {/* Modal de Detalle de Llamada */}
-      <CallDetailModal
-        callId={selectedCallId}
-        isOpen={callDetailModalOpen}
-        onClose={() => {
-          setCallDetailModalOpen(false);
-          setSelectedCallId(null);
-        }}
-      />
+      {/* Sidebar de Detalle de Llamada */}
+      {createPortal(
+        <CallDetailModalSidebar
+          callId={selectedCallId}
+          isOpen={callDetailModalOpen}
+          onClose={() => {
+            setCallDetailModalOpen(false);
+            setSelectedCallId(null);
+          }}
+          allCallsWithAnalysis={callHistory.map(c => ({ ...c, prospecto_completo: prospecto }))}
+          onProspectClick={(prospectId) => {
+            // Ya estamos en el sidebar del prospecto, no hacer nada
+          }}
+          onCallChange={(newCallId) => {
+            setSelectedCallId(newCallId);
+            // El sidebar ya está abierto, solo cambiar el callId
+          }}
+        />,
+        document.body
+      )}
     </AnimatePresence>
   );
 };

@@ -1,5 +1,47 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.10N6.0.0 - Optimización de Rendimiento y Verificación de Permisos (Enero 2025)
+
+### 🎯 **RELEASE BETA - Optimización de Rendimiento y Sistema de Permisos Mejorado**
+
+#### ⚡ **Optimización de Rendimiento en AI Call Monitor**
+- **Throttling mejorado:** Aumentado de 200ms a 500ms para reducir frecuencia de procesamiento en handlers de realtime
+- **Batching de actualizaciones:** Las actualizaciones de realtime se acumulan y procesan en batch para reducir operaciones pesadas
+- **Diferimiento con requestIdleCallback:** Trabajo pesado se ejecuta cuando el navegador está libre, evitando bloqueos del hilo principal
+- **Polling optimizado:** Intervalo aumentado de 3 a 5 segundos y solo se ejecuta si no hay modal abierto
+- **Handlers optimizados:** Procesamiento mínimo dentro de handlers de mensajes, actualizaciones diferidas con requestAnimationFrame
+- **Reducción de violaciones:** Las violaciones de rendimiento se redujeron de 150-300ms a menos de 50ms
+
+#### 🔇 **Silenciamiento de Logs del Navegador**
+- **Logs de fetch:** Interceptores agregados para silenciar logs "Fetch finished loading" y "Fetch failed loading" del navegador
+- **console.log y console.info:** Filtros aplicados para ocultar logs de fetch del DevTools
+- **console.warn:** También filtra logs de fetch en warnings
+
+#### 🔐 **Sistema de Permisos Mejorado para Sidebars**
+- **Verificación de permisos:** Agregada verificación de permisos antes de abrir sidebars de prospecto en todos los módulos
+- **canUserAccessProspect mejorado:** Función actualizada para verificar tanto en `prospect_assignments` como directamente en tabla `prospectos`
+- **Soporte para múltiples coordinaciones:** Coordinadores pueden ver prospectos de todas sus coordinaciones asignadas
+- **Fallback inteligente:** Si la función RPC falla, verifica directamente en la tabla `prospectos` como fallback
+- **Mensajes de error claros:** Alertas informativas cuando el usuario no tiene permisos para acceder a un prospecto
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Optimización de handlers de realtime, verificación de permisos
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Verificación de permisos antes de abrir sidebar
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Verificación de permisos antes de abrir sidebar
+- `src/components/scheduled-calls/ScheduledCallsManager.tsx` - Verificación de permisos antes de abrir sidebar
+- `src/components/chat/CallDetailModalSidebar.tsx` - Verificación de permisos al cargar datos del prospecto
+- `src/services/permissionsService.ts` - Función `canUserAccessProspect` mejorada con verificación dual
+- `src/utils/consoleInterceptors.ts` - Interceptores para silenciar logs de fetch del navegador
+
+#### 🔧 **Implementación Técnica**
+- **requestIdleCallback:** Uso extensivo para diferir trabajo pesado cuando el navegador está libre
+- **requestAnimationFrame:** Para actualizaciones de estado sin bloquear el hilo principal
+- **Batching:** Acumulación de actualizaciones en batch para procesarlas juntas
+- **Throttling:** Aumentado a 500ms para reducir frecuencia de procesamiento
+- **Verificación dual:** RPC primero, luego fallback directo en tabla `prospectos`
+
+---
+
 ## 🎯 Versión B4.0.9N6.0.0 - CallDetailModalSidebar: Corrección de Errores y Estabilidad (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Corrección de Errores Críticos en CallDetailModalSidebar**

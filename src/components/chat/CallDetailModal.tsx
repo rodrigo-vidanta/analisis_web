@@ -130,7 +130,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
               color: 'rgba(71, 85, 105, 1)',
               font: {
                 size: 11,
-                weight: '500'
+                weight: 500
               }
             }
           }
@@ -220,49 +220,44 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          key="call-detail-wrapper"
-          initial={false}
-          animate={false}
-          exit={false}
-          className="fixed inset-0 z-[200] pointer-events-none"
-        >
+        <>
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 pointer-events-auto"
+            className="fixed inset-0 bg-black bg-opacity-50 z-[110]"
             onClick={onClose}
           />
           
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-8 md:inset-16 lg:inset-24 xl:inset-32 bg-white dark:bg-gray-900 rounded-xl shadow-2xl z-[200] overflow-hidden"
+          <motion.div 
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[110] overflow-hidden"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg">
-                    <Phone className="text-blue-600 dark:text-blue-400" size={24} />
+              <div className="flex items-center justify-between p-6 border-b border-white/10 plasma-gradient-header relative">
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="p-3 bg-white/20 backdrop-blur-sm rounded-full shadow-lg">
+                    <Phone className="text-white" size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    <h2 className="text-xl font-bold text-white">
                       Detalle de Llamada
                     </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-white/80">
                       {callDetail.call_id} • {new Date(callDetail.fecha_llamada || callDetail.created_at).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
                 <button 
                   onClick={onClose}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  className="p-2 rounded-full transition-all duration-200 bg-white/35 hover:bg-white/45 text-white hover:scale-110 active:scale-95 shadow-md backdrop-blur-md border border-white/25 relative z-10"
+                  title="Cerrar"
                 >
-                  <X size={24} className="text-gray-400" />
+                  <X size={24} className="text-white drop-shadow-md" strokeWidth={2.5} />
                 </button>
               </div>
               
@@ -431,7 +426,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
               </div>
             </div>
           </motion.div>
-        </motion.div>
+        </>
       )}
     </AnimatePresence>
   );

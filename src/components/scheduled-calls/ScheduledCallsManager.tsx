@@ -7,6 +7,8 @@ import { CalendarSidebar } from './CalendarSidebar';
 import { DailyView } from './views/DailyView';
 import { WeeklyView } from './views/WeeklyView';
 import { ProspectoSidebar } from '../prospectos/ProspectosManager';
+import { CallDetailModalSidebar } from '../chat/CallDetailModalSidebar';
+import { createPortal } from 'react-dom';
 import { ManualCallModal } from '../shared/ManualCallModal';
 import { analysisSupabase } from '../../config/analysisSupabase';
 
@@ -29,6 +31,9 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   const [selectedCallForSchedule, setSelectedCallForSchedule] = useState<ScheduledCall | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Estados para el modal de detalle de llamada
+  const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -149,7 +154,25 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   };
 
   const handleNavigateToProspect = async (prospectoId: string) => {
+    if (!user?.id) {
+      alert('Debes estar autenticado para ver los detalles del prospecto');
+      return;
+    }
+
     try {
+      // Verificar permisos antes de cargar el prospecto
+      const permissionsServiceModule = await import('../../services/permissionsService');
+      const permissionCheck = await permissionsServiceModule.permissionsService.canUserAccessProspect(
+        user.id,
+        prospectoId
+      );
+
+      if (!permissionCheck.canAccess) {
+        alert(permissionCheck.reason || 'No tienes permiso para acceder a este prospecto');
+        return;
+      }
+
+      // Si tiene permisos, cargar el prospecto
       const { data, error } = await analysisSupabase
         .from('prospectos')
         .select('*')
@@ -158,6 +181,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
       
       if (error) {
         console.error('Error cargando prospecto:', error);
+        alert('Error al cargar los datos del prospecto');
         return;
       }
       
@@ -165,6 +189,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
       setProspectoSidebarOpen(true);
     } catch (error) {
       console.error('Error cargando prospecto:', error);
+      alert('Error al verificar permisos o cargar el prospecto');
     }
   };
 
@@ -348,7 +373,31 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
           setSelectedProspecto(null);
         }}
         onNavigateToLiveChat={onNavigateToLiveChat}
+        onOpenCallDetail={(callId: string) => {
+          setSelectedCallId(callId);
+          setCallDetailModalOpen(true);
+        }}
       />
+
+      {/* Sidebar de Detalle de Llamada */}
+      {createPortal(
+        <CallDetailModalSidebar
+          callId={selectedCallId}
+          isOpen={callDetailModalOpen}
+          onClose={() => {
+            setCallDetailModalOpen(false);
+            setSelectedCallId(null);
+          }}
+          allCallsWithAnalysis={[]}
+          onProspectClick={(prospectId) => {
+            // Abrir sidebar del prospecto si está disponible
+            if (selectedProspecto?.id === prospectId) {
+              // Ya está abierto
+            }
+          }}
+        />,
+        document.body
+      )}
     </div>
   );
 };

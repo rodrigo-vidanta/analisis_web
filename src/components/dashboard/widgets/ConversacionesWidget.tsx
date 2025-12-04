@@ -17,6 +17,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { AssignmentBadge } from '../../analysis/AssignmentBadge';
 import { MultimediaMessage, needsBubble } from '../../chat/MultimediaMessage';
 import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
+import { CallDetailModalSidebar } from '../../chat/CallDetailModalSidebar';
+import { createPortal } from 'react-dom';
 import { notificationSoundService } from '../../../services/notificationSoundService';
 import { systemNotificationService } from '../../../services/systemNotificationService';
 import { botPauseService } from '../../../services/botPauseService';
@@ -59,6 +61,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   const [selectedProspectoIdForSidebar, setSelectedProspectoIdForSidebar] = useState<string | null>(null);
   const [selectedProspectoForSidebar, setSelectedProspectoForSidebar] = useState<any | null>(null);
   const isOpeningSidebarRef = useRef(false);
+  // Estados para el modal de detalle de llamada
+  const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [selectedImageModal, setSelectedImageModal] = useState<{ url: string; alt: string } | null>(null);
   const [botPauseStatus, setBotPauseStatus] = useState<{[uchatId: string]: {
     isPaused: boolean;
@@ -1182,19 +1187,37 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   
                   isOpeningSidebarRef.current = true;
                   
-                  // Cargar el prospecto completo antes de abrir el sidebar
-                  prospectsService.getProspectById(prospectId, user?.id).then((prospecto) => {
-                    if (prospecto) {
-                      setSelectedProspectoForSidebar(prospecto);
-                      setSelectedProspectoIdForSidebar(prospectId);
-                      requestAnimationFrame(() => {
-                        setSidebarOpen(true);
-                        isOpeningSidebarRef.current = false;
-                      });
-                    } else {
+                  // Verificar permisos antes de cargar el prospecto
+                  if (!user?.id) {
+                    alert('Debes estar autenticado para ver los detalles del prospecto');
+                    isOpeningSidebarRef.current = false;
+                    return;
+                  }
+                  
+                  permissionsService.canUserAccessProspect(user.id, prospectId).then((permissionCheck) => {
+                    if (!permissionCheck.canAccess) {
+                      alert(permissionCheck.reason || 'No tienes permiso para acceder a este prospecto');
                       isOpeningSidebarRef.current = false;
+                      return;
                     }
+                    
+                    // Si tiene permisos, cargar el prospecto completo antes de abrir el sidebar
+                    prospectsService.getProspectById(prospectId, user.id).then((prospecto) => {
+                      if (prospecto) {
+                        setSelectedProspectoForSidebar(prospecto);
+                        setSelectedProspectoIdForSidebar(prospectId);
+                        requestAnimationFrame(() => {
+                          setSidebarOpen(true);
+                          isOpeningSidebarRef.current = false;
+                        });
+                      } else {
+                        isOpeningSidebarRef.current = false;
+                      }
+                    }).catch(() => {
+                      isOpeningSidebarRef.current = false;
+                    });
                   }).catch(() => {
+                    alert('Error al verificar permisos');
                     isOpeningSidebarRef.current = false;
                   });
                 };
@@ -1243,19 +1266,37 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   
                   isOpeningSidebarRef.current = true;
                   
-                  // Cargar el prospecto completo antes de abrir el sidebar
-                  prospectsService.getProspectById(prospectId, user?.id).then((prospecto) => {
-                    if (prospecto) {
-                      setSelectedProspectoForSidebar(prospecto);
-                      setSelectedProspectoIdForSidebar(prospectId);
-                      requestAnimationFrame(() => {
-                        setSidebarOpen(true);
-                        isOpeningSidebarRef.current = false;
-                      });
-                    } else {
+                  // Verificar permisos antes de cargar el prospecto
+                  if (!user?.id) {
+                    alert('Debes estar autenticado para ver los detalles del prospecto');
+                    isOpeningSidebarRef.current = false;
+                    return;
+                  }
+                  
+                  permissionsService.canUserAccessProspect(user.id, prospectId).then((permissionCheck) => {
+                    if (!permissionCheck.canAccess) {
+                      alert(permissionCheck.reason || 'No tienes permiso para acceder a este prospecto');
                       isOpeningSidebarRef.current = false;
+                      return;
                     }
+                    
+                    // Si tiene permisos, cargar el prospecto completo antes de abrir el sidebar
+                    prospectsService.getProspectById(prospectId, user.id).then((prospecto) => {
+                      if (prospecto) {
+                        setSelectedProspectoForSidebar(prospecto);
+                        setSelectedProspectoIdForSidebar(prospectId);
+                        requestAnimationFrame(() => {
+                          setSidebarOpen(true);
+                          isOpeningSidebarRef.current = false;
+                        });
+                      } else {
+                        isOpeningSidebarRef.current = false;
+                      }
+                    }).catch(() => {
+                      isOpeningSidebarRef.current = false;
+                    });
                   }).catch(() => {
+                    alert('Error al verificar permisos');
                     isOpeningSidebarRef.current = false;
                   });
                 }}
@@ -1607,7 +1648,29 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             setAppMode('live-chat');
             localStorage.setItem('livechat-prospect-id', prospectoId);
           }}
+          onOpenCallDetail={(callId: string) => {
+            setSelectedCallId(callId);
+            setCallDetailModalOpen(true);
+          }}
         />
+      )}
+
+      {/* Sidebar de Detalle de Llamada */}
+      {createPortal(
+        <CallDetailModalSidebar
+          callId={selectedCallId}
+          isOpen={callDetailModalOpen}
+          onClose={() => {
+            setCallDetailModalOpen(false);
+            setSelectedCallId(null);
+          }}
+          allCallsWithAnalysis={[]}
+          onProspectClick={(prospectId) => {
+            // Abrir sidebar del prospecto si está disponible
+            // El sidebar se maneja en otro lugar del componente
+          }}
+        />,
+        document.body
       )}
 
       {/* Modal simple para imágenes */}

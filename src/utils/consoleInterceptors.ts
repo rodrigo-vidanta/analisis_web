@@ -3,6 +3,36 @@
  * Este archivo debe ser importado ANTES de cualquier módulo que use Supabase
  */
 
+// Silenciar logs de fetch del navegador (DevTools)
+const originalLog = console.log;
+console.log = (...args: any[]) => {
+  const fullMessage = args.map(arg => arg?.toString() || '').join(' ');
+  
+  // Silenciar logs de fetch del navegador
+  if (fullMessage.includes('Fetch finished loading') || 
+      fullMessage.includes('Fetch failed loading') ||
+      fullMessage.includes('window.fetch')) {
+    return;
+  }
+  
+  originalLog.apply(console, args);
+};
+
+// También interceptar console.info por si los logs aparecen ahí
+const originalInfo = console.info;
+console.info = (...args: any[]) => {
+  const fullMessage = args.map(arg => arg?.toString() || '').join(' ');
+  
+  // Silenciar logs de fetch del navegador
+  if (fullMessage.includes('Fetch finished loading') || 
+      fullMessage.includes('Fetch failed loading') ||
+      fullMessage.includes('window.fetch')) {
+    return;
+  }
+  
+  originalInfo.apply(console, args);
+};
+
 // Silenciar warnings de múltiples instancias de GoTrueClient (esperado cuando hay múltiples proyectos Supabase)
 const originalWarn = console.warn;
 console.warn = (...args: any[]) => {
@@ -17,6 +47,13 @@ console.warn = (...args: any[]) => {
   // Silenciar warnings de canvas con dimensiones cero (se manejan con retornos tempranos)
   if (fullMessage.includes('Canvas tiene dimensiones cero') || 
       fullMessage.includes('PERFORMANCE CHART')) {
+    return;
+  }
+  
+  // Silenciar logs de fetch del navegador en warnings también
+  if (fullMessage.includes('Fetch finished loading') || 
+      fullMessage.includes('Fetch failed loading') ||
+      fullMessage.includes('window.fetch')) {
     return;
   }
   

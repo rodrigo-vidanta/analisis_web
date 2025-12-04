@@ -21,6 +21,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import Chart from 'chart.js/auto';
 import { ProspectAvatar } from '../analysis/ProspectAvatar';
 import ReactMarkdown from 'react-markdown';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CallDetailModalSidebarProps {
   callId: string | null;
@@ -39,6 +40,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   onProspectClick,
   onCallChange
 }) => {
+  const { user } = useAuth();
   const [callDetail, setCallDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [transcript, setTranscript] = useState<any[]>([]);
@@ -201,10 +203,25 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
 
       setCallDetail(combinedData);
 
-      // Cargar datos del prospecto si están disponibles
+      // Cargar datos del prospecto si están disponibles (con verificación de permisos)
       const prospectId = combinedData.prospecto || combinedData.prospecto_id;
-      if (prospectId) {
+      if (prospectId && user?.id) {
         try {
+          // Verificar permisos antes de cargar el prospecto
+          const permissionsServiceModule = await import('../../services/permissionsService');
+          const permissionCheck = await permissionsServiceModule.permissionsService.canUserAccessProspect(
+            user.id,
+            prospectId
+          );
+
+          if (!permissionCheck.canAccess) {
+            // No tiene permisos - no cargar datos del prospecto pero permitir ver la llamada
+            console.warn('Usuario no tiene permisos para ver este prospecto:', permissionCheck.reason);
+            setSelectedProspectoData(null);
+            return;
+          }
+
+          // Si tiene permisos, cargar el prospecto
           const { data: prospectoData } = await analysisSupabase
             .from('prospectos')
             .select('*')
@@ -213,7 +230,12 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
           setSelectedProspectoData(prospectoData);
         } catch (err) {
           console.error('Error loading prospecto:', err);
+          // Si hay error, no mostrar datos del prospecto pero permitir ver la llamada
+          setSelectedProspectoData(null);
         }
+      } else if (prospectId && !user?.id) {
+        // No hay usuario autenticado - no cargar datos del prospecto
+        setSelectedProspectoData(null);
       }
     } catch (error) {
       console.error('Error loading call detail:', error);

@@ -662,10 +662,10 @@ const LiveMonitorKanban: React.FC = () => {
       
       if (callIds.length > 0) {
         const result = await analysisSupabase
-          .from('call_analysis_summary')
-          .select('*')
+        .from('call_analysis_summary')
+        .select('*')
           .in('call_id', callIds)
-          .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false });
         analysisData = result.data || [];
         analysisError = result.error;
       }
@@ -706,13 +706,13 @@ const LiveMonitorKanban: React.FC = () => {
       if (allLlamadasData && allLlamadasData.length > 0) {
         const llamadasData = allLlamadasData;
         
-        // Obtener IDs de prospectos únicos
-        const prospectoIds = llamadasData.map(l => l.prospecto).filter(Boolean);
+          // Obtener IDs de prospectos únicos
+          const prospectoIds = llamadasData.map(l => l.prospecto).filter(Boolean);
+          
+          // Cargar datos de prospectos con filtros de permisos
+          let prospectosData: any[] = [];
         
-        // Cargar datos de prospectos con filtros de permisos
-        let prospectosData: any[] = [];
-        
-        if (prospectoIds.length > 0) {
+          if (prospectoIds.length > 0) {
             // Aplicar filtros de permisos según rol del usuario (igual que AnalysisIAComplete)
             // Cargar TODOS los campos del prospecto para el modal de detalle
             let prospectosQuery = analysisSupabase
@@ -751,22 +751,22 @@ const LiveMonitorKanban: React.FC = () => {
               const [ejecutivosData, coordinacionesData] = await Promise.all([
                 ejecutivoIds.length > 0 ? Promise.all(
                   ejecutivoIds.map(async (ejecId) => {
-                    try {
-                      const ejecutivo = await coordinacionService.getEjecutivoById(ejecId);
+                  try {
+                    const ejecutivo = await coordinacionService.getEjecutivoById(ejecId);
                       return ejecutivo ? [ejecId, ejecutivo] : null;
-                    } catch (err) {
-                      console.error(`Error loading ejecutivo ${ejecId}:`, err);
+                  } catch (err) {
+                    console.error(`Error loading ejecutivo ${ejecId}:`, err);
                       return null;
                     }
                   })
                 ).then(results => Object.fromEntries(results.filter(Boolean) as [string, any][])) : {},
                 coordinacionIds.length > 0 ? Promise.all(
                   coordinacionIds.map(async (coordId) => {
-                    try {
-                      const coordinacion = await coordinacionService.getCoordinacionById(coordId);
+                  try {
+                    const coordinacion = await coordinacionService.getCoordinacionById(coordId);
                       return coordinacion ? [coordId, coordinacion] : null;
-                    } catch (err) {
-                      console.error(`Error loading coordinacion ${coordId}:`, err);
+                  } catch (err) {
+                    console.error(`Error loading coordinacion ${coordId}:`, err);
                       return null;
                     }
                   })
@@ -774,11 +774,11 @@ const LiveMonitorKanban: React.FC = () => {
               ]);
               
               setEjecutivosMap(ejecutivosData);
-              setCoordinacionesMap(coordinacionesData);
+                setCoordinacionesMap(coordinacionesData);
             }
           }
-        
-        // Filtrar análisis para incluir solo los que tienen prospectos permitidos
+          
+          // Filtrar análisis para incluir solo los que tienen prospectos permitidos
         // Este bloque debe estar fuera del if (prospectoIds.length > 0) pero dentro del if (allLlamadasData...)
         if (prospectosData.length > 0) {
           const allowedProspectoIds = new Set(prospectosData.map(p => p.id));
@@ -790,17 +790,17 @@ const LiveMonitorKanban: React.FC = () => {
                 return null; // Si no hay datos de llamada, excluir
               }
               const prospecto = prospectosData.find(p => p.id === finalLlamada?.prospecto);
-              
-              // Si el prospecto no está en la lista permitida, excluir este análisis
+            
+            // Si el prospecto no está en la lista permitida, excluir este análisis
               if (finalLlamada?.prospecto && !allowedProspectoIds.has(finalLlamada.prospecto)) {
-                return null;
-              }
-              
-              // Parsear datos_proceso y datos_llamada
-              let datosProceso = null;
-              let datosLlamada = null;
-              
-              try {
+              return null;
+            }
+            
+            // Parsear datos_proceso y datos_llamada
+            let datosProceso = null;
+            let datosLlamada = null;
+            
+            try {
                 if (finalLlamada?.datos_proceso) {
                   datosProceso = typeof finalLlamada.datos_proceso === 'string' 
                     ? JSON.parse(finalLlamada.datos_proceso) 
@@ -810,114 +810,114 @@ const LiveMonitorKanban: React.FC = () => {
                   datosLlamada = typeof finalLlamada.datos_llamada === 'string' 
                     ? JSON.parse(finalLlamada.datos_llamada) 
                     : finalLlamada.datos_llamada;
-                }
-              } catch (e) {
-                console.error('Error parsing datos_proceso/datos_llamada:', e);
               }
-              
-              // Determinar estado correcto de la llamada según la lógica anterior
+            } catch (e) {
+              console.error('Error parsing datos_proceso/datos_llamada:', e);
+            }
+            
+            // Determinar estado correcto de la llamada según la lógica anterior
               let callStatus = finalLlamada?.call_status || 'finalizada';
-              const razonFinalizacion = datosLlamada?.razon_finalizacion;
+            const razonFinalizacion = datosLlamada?.razon_finalizacion;
               const hasRecording = !!(finalLlamada?.audio_ruta_bucket && finalLlamada.audio_ruta_bucket.length > 0);
               const duration = finalLlamada?.duracion_segundos || 0;
-              
-              // Razones de transferencia
-              const TRANSFER_REASONS = [
-                'assistant-forwarded-call',
-                'call.ringing.hook-executed-transfer',
-                'transfer'
-              ];
-              
-              // Razones de pérdida/no contestada
-              const FAILED_REASONS = [
-                'customer-did-not-answer',
-                'customer-busy',
-                'no-answer',
-                'busy',
-                'assistant-not-found',
-                'assistant-not-valid',
-                'assistant-not-provided',
-                'assistant-join-timed-out',
-                'twilio-failed-to-connect-call',
-                'vonage-failed-to-connect-call',
-                'vonage-rejected',
-                'voicemail'
-              ];
-              
-              if (razonFinalizacion) {
-                // Transferida a ejecutivo
-                if (TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
-                  callStatus = 'transferida';
-                }
-                // Perdida
-                else if (FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) {
-                  callStatus = 'perdida';
-                }
-                // Contestada no transferida (tiene grabación y duración >= 30 seg)
-                else if (hasRecording && duration >= 30) {
-                  callStatus = 'contestada_no_transferida';
-                }
-              } else if (hasRecording && duration >= 30) {
-                // Si tiene grabación y duración pero no razón específica → contestada no transferida
-                callStatus = 'contestada_no_transferida';
-              } else if (hasRecording && duration < 30) {
-                // Grabación pero muy corta → perdida
+            
+            // Razones de transferencia
+            const TRANSFER_REASONS = [
+              'assistant-forwarded-call',
+              'call.ringing.hook-executed-transfer',
+              'transfer'
+            ];
+            
+            // Razones de pérdida/no contestada
+            const FAILED_REASONS = [
+              'customer-did-not-answer',
+              'customer-busy',
+              'no-answer',
+              'busy',
+              'assistant-not-found',
+              'assistant-not-valid',
+              'assistant-not-provided',
+              'assistant-join-timed-out',
+              'twilio-failed-to-connect-call',
+              'vonage-failed-to-connect-call',
+              'vonage-rejected',
+              'voicemail'
+            ];
+            
+            if (razonFinalizacion) {
+              // Transferida a ejecutivo
+              if (TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+                callStatus = 'transferida';
+              }
+              // Perdida
+              else if (FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) {
                 callStatus = 'perdida';
               }
-              
-              return {
-                ...analysis,
+              // Contestada no transferida (tiene grabación y duración >= 30 seg)
+              else if (hasRecording && duration >= 30) {
+                callStatus = 'contestada_no_transferida';
+              }
+            } else if (hasRecording && duration >= 30) {
+              // Si tiene grabación y duración pero no razón específica → contestada no transferida
+              callStatus = 'contestada_no_transferida';
+            } else if (hasRecording && duration < 30) {
+              // Grabación pero muy corta → perdida
+              callStatus = 'perdida';
+            }
+            
+            return {
+              ...analysis,
                 ...finalLlamada,
-                // Datos del prospecto
-                nombre_completo: prospecto?.nombre_completo || 
-                                 `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
-                                 analysis.customer_name ||
-                                 'Prospecto sin nombre',
-                nombre_whatsapp: prospecto?.nombre_completo || prospecto?.nombre || analysis.customer_name,
+              // Datos del prospecto
+              nombre_completo: prospecto?.nombre_completo || 
+                               `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
+                               analysis.customer_name ||
+                               'Prospecto sin nombre',
+              nombre_whatsapp: prospecto?.nombre_completo || prospecto?.nombre || analysis.customer_name,
                 whatsapp: prospecto?.whatsapp,
-                prospecto_nombre: prospecto?.nombre_completo || 
-                                 `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
-                                 'Prospecto sin nombre',
-                prospecto_whatsapp: prospecto?.whatsapp,
-                prospecto_ciudad: prospecto?.ciudad_residencia,
+              prospecto_nombre: prospecto?.nombre_completo || 
+                               `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
+                               'Prospecto sin nombre',
+              prospecto_whatsapp: prospecto?.whatsapp,
+              prospecto_ciudad: prospecto?.ciudad_residencia,
                 prospecto_id: finalLlamada?.prospecto || prospecto?.id,
-                // Campos combinados para fácil acceso
-                score_general: analysis.score_general || null,
-                categoria_desempeno: analysis.categoria_desempeno || null,
+              // Campos combinados para fácil acceso
+              score_general: analysis.score_general || null,
+              categoria_desempeno: analysis.categoria_desempeno || null,
                 checkpoint_alcanzado: analysis.checkpoint_alcanzado || parseInt((finalLlamada as any)?.checkpoint_venta_actual?.replace('checkpoint #', '') || '1'),
                 nivel_interes_detectado: analysis.nivel_interes_detectado || (finalLlamada as any)?.nivel_interes,
-                calificaciones: analysis.calificaciones || null,
-                discovery_familiar: analysis.calificaciones?.discovery_familiar || null,
-                continuidad_whatsapp: analysis.calificaciones?.continuidad_whatsapp || null,
-                // Datos de discovery combinados (prioridad: datos_proceso > prospecto)
-                datos_proceso: datosProceso,
-                datos_llamada: datosLlamada,
-                // Discovery familiar: de calificaciones (análisis IA) o datos_proceso
-                composicion_familiar_numero: datosProceso?.numero_personas || prospecto?.tamano_grupo || null,
-                // Destino preferencia: de datos_proceso o prospecto
-                destino_preferencia: datosProceso?.destino_preferencia || prospecto?.destino_preferencia || null,
-                // Estado civil: de datos_proceso o prospecto
-                estado_civil: datosProceso?.estado_civil || prospecto?.estado_civil || null,
-                // Mes preferencia: de datos_proceso
-                mes_preferencia: datosProceso?.mes_preferencia || null,
-                // Tipo de vacaciones: de datos_proceso (descanso, entretenimiento, mixto)
-                tipo_vacaciones: datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones || null,
-                // Tamaño grupo y otros del prospecto
-                tamano_grupo: prospecto?.tamano_grupo || null,
-                cantidad_menores: prospecto?.cantidad_menores || null,
-                viaja_con: prospecto?.viaja_con || null,
-                // Todos los datos del prospecto para el modal
-                prospecto_completo: prospecto,
-                // Requiere atención humana del prospecto
-                requiere_atencion_humana: prospecto?.requiere_atencion_humana || false,
-                // IDs de asignación del prospecto
-                ejecutivo_id: prospecto?.ejecutivo_id || null,
-                coordinacion_id: prospecto?.coordinacion_id || null,
-                // Estado de llamada corregido
-                call_status: callStatus,
-                // Análisis completo para el modal
-                analysis: analysis,
-              };
+              calificaciones: analysis.calificaciones || null,
+              discovery_familiar: analysis.calificaciones?.discovery_familiar || null,
+              continuidad_whatsapp: analysis.calificaciones?.continuidad_whatsapp || null,
+              // Datos de discovery combinados (prioridad: datos_proceso > prospecto)
+              datos_proceso: datosProceso,
+              datos_llamada: datosLlamada,
+              // Discovery familiar: de calificaciones (análisis IA) o datos_proceso
+              composicion_familiar_numero: datosProceso?.numero_personas || prospecto?.tamano_grupo || null,
+              // Destino preferencia: de datos_proceso o prospecto
+              destino_preferencia: datosProceso?.destino_preferencia || prospecto?.destino_preferencia || null,
+              // Estado civil: de datos_proceso o prospecto
+              estado_civil: datosProceso?.estado_civil || prospecto?.estado_civil || null,
+              // Mes preferencia: de datos_proceso
+              mes_preferencia: datosProceso?.mes_preferencia || null,
+              // Tipo de vacaciones: de datos_proceso (descanso, entretenimiento, mixto)
+              tipo_vacaciones: datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones || null,
+              // Tamaño grupo y otros del prospecto
+              tamano_grupo: prospecto?.tamano_grupo || null,
+              cantidad_menores: prospecto?.cantidad_menores || null,
+              viaja_con: prospecto?.viaja_con || null,
+              // Todos los datos del prospecto para el modal
+              prospecto_completo: prospecto,
+              // Requiere atención humana del prospecto
+              requiere_atencion_humana: prospecto?.requiere_atencion_humana || false,
+              // IDs de asignación del prospecto
+              ejecutivo_id: prospecto?.ejecutivo_id || null,
+              coordinacion_id: prospecto?.coordinacion_id || null,
+              // Estado de llamada corregido
+              call_status: callStatus,
+              // Análisis completo para el modal
+              analysis: analysis,
+            };
           }).filter((item): item is NonNullable<typeof item> => item !== null);
         } else {
           // Si no hay prospectos permitidos, usar solo los análisis disponibles
@@ -937,17 +937,33 @@ const LiveMonitorKanban: React.FC = () => {
 
       // Solo actualizar estado si no hay modal abierto para evitar interrumpir reproducción de audio
       if (!isModalOpenRef.current) {
-        setAllCallsWithAnalysis(enrichedData);
-        setAllCalls(enrichedData); // También actualizar allCalls para mantener compatibilidad
-        
-        // Extraer valores únicos para filtros
-        const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
-        
-        setUniqueInterests(interests);
-        
-        // Inicializar grupos cuando cambien las llamadas
-        const groups = groupCallsByProspect(enrichedData);
-        setGroupedCalls(groups);
+        // Usar requestAnimationFrame para diferir actualizaciones de estado pesadas
+        requestAnimationFrame(() => {
+      setAllCallsWithAnalysis(enrichedData);
+      setAllCalls(enrichedData); // También actualizar allCalls para mantener compatibilidad
+      
+          // Diferir procesamiento de valores únicos usando requestIdleCallback
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+      // Extraer valores únicos para filtros
+      const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
+      
+      setUniqueInterests(interests);
+      
+      // Inicializar grupos cuando cambien las llamadas
+      const groups = groupCallsByProspect(enrichedData);
+      setGroupedCalls(groups);
+            }, { timeout: 1000 });
+          } else {
+            // Fallback: procesar inmediatamente pero en el siguiente frame
+            setTimeout(() => {
+              const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
+              setUniqueInterests(interests);
+              const groups = groupCallsByProspect(enrichedData);
+              setGroupedCalls(groups);
+            }, 0);
+          }
+        });
       }
       
     } catch (error: any) {
@@ -1030,6 +1046,8 @@ const LiveMonitorKanban: React.FC = () => {
   }, [searchQuery]);
 
   const applyHistoryFilters = useCallback(() => {
+    // Usar requestAnimationFrame para diferir trabajo pesado y evitar bloqueos
+    requestAnimationFrame(() => {
     let filtered = [...allCallsWithAnalysis];
 
     // Búsqueda mejorada por texto (ejecutivo, coordinación, nombre, estado, interés, fecha)
@@ -1177,10 +1195,14 @@ const LiveMonitorKanban: React.FC = () => {
     const groups = groupCallsByProspect(filtered);
     const expandedCalls = getExpandedCalls(groups);
     
+      // Usar requestAnimationFrame para actualizar estado sin bloquear
+      requestAnimationFrame(() => {
     setFilteredHistoryCalls(expandedCalls);
     
     // Resetear a página 1 cuando cambian los filtros
     setCurrentPage(1);
+      });
+    });
   }, [allCallsWithAnalysis, debouncedSearchQuery, dateFrom, dateTo, interestFilter, statusFilter, ejecutivoFilter, quickFilters, historySortField, historySortDirection, expandedGroup, ejecutivosMap, coordinacionesMap]);
 
   // Paginación
@@ -1197,14 +1219,31 @@ const LiveMonitorKanban: React.FC = () => {
 
   // Cargar historial al inicio y actualizar periódicamente cada 60 segundos
   useEffect(() => {
-    // Cargar inmediatamente
+    // Cargar inmediatamente usando requestIdleCallback para diferir trabajo pesado
+    const loadInitial = () => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
     loadHistoryCalls();
+        }, { timeout: 1000 });
+      } else {
+        // Fallback para navegadores sin requestIdleCallback
+        setTimeout(() => loadHistoryCalls(), 100);
+      }
+    };
+    loadInitial();
     
     // Configurar actualización periódica cada 60 segundos
     const intervalId = setInterval(() => {
       // Solo actualizar si no hay modal abierto para evitar interrumpir reproducción de audio
       if (!isModalOpenRef.current) {
-        loadHistoryCalls();
+        // Diferir carga usando requestIdleCallback
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(() => {
+            loadHistoryCalls();
+          }, { timeout: 2000 });
+        } else {
+          setTimeout(() => loadHistoryCalls(), 200);
+        }
       }
     }, 60000); // 60 segundos
     
@@ -1217,27 +1256,54 @@ const LiveMonitorKanban: React.FC = () => {
   // También recargar cuando se cambia a la pestaña de historial
   useEffect(() => {
     if (selectedTab === 'all') {
-      loadHistoryCalls();
+      // Diferir carga cuando se cambia de pestaña
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+          loadHistoryCalls();
+        }, { timeout: 500 });
+      } else {
+        setTimeout(() => loadHistoryCalls(), 100);
+      }
     }
   }, [selectedTab]);
 
   // Aplicar filtros cuando se selecciona la pestaña 'all'
   useEffect(() => {
     if (selectedTab === 'all' && allCallsWithAnalysis.length > 0) {
+      // Diferir aplicación de filtros para evitar bloqueos
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
       applyHistoryFilters();
+        }, { timeout: 500 });
+      } else {
+        setTimeout(() => applyHistoryFilters(), 50);
+      }
     }
   }, [selectedTab, allCallsWithAnalysis.length]);
 
-  // Aplicar filtros cuando cambien los valores
+  // Aplicar filtros cuando cambien los valores (con debounce adicional)
   useEffect(() => {
     if (selectedTab === 'all') {
+      // Diferir aplicación de filtros para evitar múltiples ejecuciones rápidas
+      const timeoutId = setTimeout(() => {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(() => {
+            applyHistoryFilters();
+          }, { timeout: 300 });
+        } else {
       applyHistoryFilters();
+        }
+      }, 100); // Debounce de 100ms
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [selectedTab, applyHistoryFilters]);
 
-  // Extraer valores únicos para filtros cuando cambie allCallsWithAnalysis
+  // Extraer valores únicos para filtros cuando cambie allCallsWithAnalysis (con diferimiento)
   useEffect(() => {
     if (allCallsWithAnalysis.length > 0) {
+      // Diferir procesamiento pesado usando requestIdleCallback
+      const processUniqueValues = () => {
       const interests = [...new Set(allCallsWithAnalysis.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
       setUniqueInterests(interests as string[]);
       
@@ -1266,6 +1332,13 @@ const LiveMonitorKanban: React.FC = () => {
       // Ordenar por nombre
       ejecutivosList.sort((a, b) => a.name.localeCompare(b.name));
       setUniqueEjecutivos(ejecutivosList);
+      };
+      
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(processUniqueValues, { timeout: 1000 });
+      } else {
+        setTimeout(processUniqueValues, 0);
+      }
     }
   }, [allCallsWithAnalysis, ejecutivosMap]);
 
@@ -2316,22 +2389,23 @@ const LiveMonitorKanban: React.FC = () => {
       // MODO OPTIMIZADO: Intentar suscripción Realtime, pero no es crítico si falla
       // El polling cada 3 segundos se encargará de detectar cambios
       
-      // Throttling para la subscripción de Realtime (evitar procesar demasiados eventos seguidos)
+      // Throttling mejorado y batching para la subscripción de Realtime
       let lastRealtimeUpdate = 0;
-      const REALTIME_THROTTLE_MS = 200; // Procesar máximo cada 200ms
+      const REALTIME_THROTTLE_MS = 500; // Aumentado a 500ms para reducir frecuencia
+      let pendingUpdate: { classifiedCalls: any; payloadData: any } | null = null;
+      let batchTimeout: number | null = null;
       
-      liveMonitorKanbanOptimized.subscribeToChanges((classifiedCalls, payloadData) => {
-        const now = performance.now();
+      const processPendingUpdate = () => {
+        if (!pendingUpdate) return;
         
-        // Throttling: solo procesar si han pasado suficientes ms desde la última actualización
-        if (now - lastRealtimeUpdate < REALTIME_THROTTLE_MS) {
-          return; // Saltar este evento para evitar sobrecarga
-        }
-        lastRealtimeUpdate = now;
+        const { classifiedCalls, payloadData } = pendingUpdate;
+        pendingUpdate = null;
+        batchTimeout = null;
         
-        // Usar requestAnimationFrame para diferir trabajo pesado
-        requestAnimationFrame(() => {
-        // Detectar cambios de checkpoint antes de actualizar las listas
+        // Usar requestIdleCallback para diferir trabajo pesado cuando el navegador esté libre
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(() => {
+            // Detectar cambios de checkpoint solo para el payload específico (más eficiente)
         if (payloadData && payloadData.event === 'UPDATE') {
           const newCall = payloadData.new as any;
           const oldCall = payloadData.old as any;
@@ -2340,7 +2414,7 @@ const LiveMonitorKanban: React.FC = () => {
             const newCheckpoint = newCall.checkpoint_venta_actual;
             const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
             
-            // Detectar cambio a checkpoint #5
+                // Detectar cambio a checkpoint #5 (solo para este call específico)
             if (newCheckpoint && 
                 (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
                 oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
@@ -2355,30 +2429,63 @@ const LiveMonitorKanban: React.FC = () => {
           }
         }
         
-        // También detectar cambios comparando con checkpoints anteriores después de actualizar
-        // Esto cubre casos donde el payload no tiene oldRec
-          const allCallsArray = [...classifiedCalls.active];
-          allCallsArray.forEach(call => {
-          if (call.checkpoint_venta_actual) {
-            const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
-            const currentCheckpoint = call.checkpoint_venta_actual;
-            
-            if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
-              if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
-                // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
-                triggerCallNotification(call.call_id, currentCheckpoint);
+            // Actualizar estados usando requestAnimationFrame para evitar bloqueos
+            requestAnimationFrame(() => {
+              setActiveCalls(classifiedCalls.active);
+              setLastUpdateTime(new Date());
+            });
+          }, { timeout: 1000 });
+        } else {
+          // Fallback: usar setTimeout con delay más largo
+          setTimeout(() => {
+            if (payloadData && payloadData.event === 'UPDATE') {
+              const newCall = payloadData.new as any;
+              const oldCall = payloadData.old as any;
+              
+              if (newCall) {
+                const newCheckpoint = newCall.checkpoint_venta_actual;
+                const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
+                
+                if (newCheckpoint && 
+                    (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
+                    oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
+                  triggerCallNotification(newCall.call_id, newCheckpoint);
+                }
+                
+                if (newCheckpoint) {
+                  previousCheckpointsRef.current.set(newCall.call_id, newCheckpoint);
+                }
               }
             }
             
-            // Actualizar referencia
-            previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
-          }
-        });
-        
-        // Actualizar estados directamente desde la clasificación automática
+            requestAnimationFrame(() => {
         setActiveCalls(classifiedCalls.active);
         setLastUpdateTime(new Date());
         });
+          }, 100);
+        }
+      };
+      
+      liveMonitorKanbanOptimized.subscribeToChanges((classifiedCalls, payloadData) => {
+        const now = performance.now();
+        
+        // Acumular actualizaciones en batch
+        pendingUpdate = { classifiedCalls, payloadData };
+        
+        // Throttling: solo procesar si han pasado suficientes ms desde la última actualización
+        if (now - lastRealtimeUpdate < REALTIME_THROTTLE_MS) {
+          // Cancelar timeout anterior y crear uno nuevo para batch
+          if (batchTimeout !== null) {
+            clearTimeout(batchTimeout);
+          }
+          batchTimeout = window.setTimeout(processPendingUpdate, REALTIME_THROTTLE_MS);
+          return; // Salir temprano, el batch se procesará después
+        }
+        
+        lastRealtimeUpdate = now;
+        
+        // Procesar inmediatamente si no hay throttling
+        processPendingUpdate();
       }).then((channel) => {
         realtimeChannel = channel;
         if (channel && channel.state === 'joined') {
@@ -2392,75 +2499,107 @@ const LiveMonitorKanban: React.FC = () => {
       });
     } else {
       // MODO LEGACY: Suscripción directa a la tabla
-      realtimeChannel = analysisSupabase
-      .channel('live-monitor-calls')
-      // INSERT: nuevas llamadas deben aparecer inmediatamente
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'llamadas_ventas'
-      }, async (payload) => {
-        try {
-            // Recargar llamadas inmediatamente cuando se inserta una nueva
-          await loadCalls(true, true); // preserveRealtimeData=true para no sobrescribir
-        } catch (e) {
-          // Error refreshing calls on realtime
-        }
-      })
-      // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'llamadas_ventas'
-      }, async (payload) => {
-        const rec = payload.new as any;
-        const oldRec = payload.old as any;
+      // Variables para throttling y batching (declaradas fuera del handler)
+      let lastLegacyUpdate = 0;
+      const LEGACY_THROTTLE_MS = 500;
+      let pendingLegacyUpdate: { rec: any; oldRec: any } | null = null;
+      let legacyBatchTimeout: number | null = null;
+      
+      const processLegacyUpdate = () => {
+        if (!pendingLegacyUpdate) return;
         
+        const { rec, oldRec } = pendingLegacyUpdate;
+        pendingLegacyUpdate = null;
+        legacyBatchTimeout = null;
+        
+        // Diferir procesamiento pesado usando requestIdleCallback
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(() => {
         if (rec) {
-          // Log específico para cambios de checkpoint
+              // Detectar cambio de checkpoint (solo procesar si realmente cambió)
           const newCheckpoint = rec.checkpoint_venta_actual;
           const oldCheckpoint = oldRec?.checkpoint_venta_actual;
           
-          // Detectar cambio de checkpoint (manejar casos donde oldRec puede ser null)
           if (newCheckpoint && newCheckpoint !== oldCheckpoint) {
-            // Notificación cuando llega al último checkpoint
-            // Disparar si el nuevo checkpoint es #5 (sin importar el anterior, para asegurar que funcione)
             if (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) {
-              // Solo disparar si realmente cambió (no si ya estaba en #5)
               if (!oldCheckpoint || oldCheckpoint !== 'checkpoint #5') {
-                // Emitir notificación global para el sidebar (con animación de ringing y sonido)
                 triggerCallNotification(rec.call_id, newCheckpoint);
               }
             }
           }
           
-          // Log para cambios de call_status
-          if (rec.call_status !== oldRec.call_status) {
-            // RECLASIFICACIÓN AUTOMÁTICA cuando llamada cambia de activa → finalizada
-            if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
-              // Extraer razon_finalizacion para clasificar correctamente
-              let razonFinalizacion = null;
-              try {
-                const datosLlamada = typeof rec.datos_llamada === 'string' 
-                  ? JSON.parse(rec.datos_llamada) 
-                  : rec.datos_llamada;
-                razonFinalizacion = datosLlamada?.razon_finalizacion;
+              // Actualización inteligente de datos usando requestAnimationFrame
+              requestAnimationFrame(() => {
+                const updateCallData = (calls: KanbanCall[]) => {
+                  return calls.map(call => {
+                    if (call.call_id === rec.call_id) {
+                      // Parsear datos solo si es necesario (evitar parsing innecesario)
+                      let datosProcesoActualizados = rec.datos_proceso;
+                      if (typeof rec.datos_proceso === 'string') {
+                        try {
+                          datosProcesoActualizados = JSON.parse(rec.datos_proceso);
               } catch (e) {
-                // Error parsing datos_llamada
+                          datosProcesoActualizados = call.datos_proceso;
+                        }
+                      }
+                      
+                      let datosLlamadaActualizados = rec.datos_llamada;
+                      if (typeof rec.datos_llamada === 'string') {
+                        try {
+                          datosLlamadaActualizados = JSON.parse(rec.datos_llamada);
+                        } catch (e) {
+                          datosLlamadaActualizados = call.datos_llamada;
+                        }
+                      }
+                      
+                      return { 
+                        ...call, 
+                        ...rec,
+                        datos_proceso: datosProcesoActualizados,
+                        datos_llamada: datosLlamadaActualizados
+                      };
+                    }
+                    return call;
+                  });
+                };
+                
+                setActiveCalls(updateCallData);
+              });
+            }
+            
+            // Solo hacer loadCalls si hay cambio crítico de estado
+            if (rec && oldRec && rec.call_status !== oldRec.call_status) {
+              if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
+                // Diferir loadCalls usando requestIdleCallback
+                if ('requestIdleCallback' in window) {
+                  requestIdleCallback(() => {
+                    loadCalls(true, true).catch(() => {});
+                  }, { timeout: 1000 });
+                } else {
+                  setTimeout(() => loadCalls(true, true).catch(() => {}), 500);
+                }
+              }
+            }
+          }, { timeout: 1000 });
+        } else {
+          // Fallback para navegadores sin requestIdleCallback
+              setTimeout(() => {
+            if (rec) {
+              const newCheckpoint = rec.checkpoint_venta_actual;
+              const oldCheckpoint = oldRec?.checkpoint_venta_actual;
+              
+              if (newCheckpoint && newCheckpoint !== oldCheckpoint) {
+                if (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) {
+                  if (!oldCheckpoint || oldCheckpoint !== 'checkpoint #5') {
+                    triggerCallNotification(rec.call_id, newCheckpoint);
+                  }
+                }
               }
               
-              // Forzar reclasificación inmediata después de actualizar datos locales
-              setTimeout(() => {
-                loadCalls(true, true); // preserveRealtimeData=true
-              }, 500);
-            }
-          }
-          
-          // Actualización inteligente de datos en todas las listas
+              requestAnimationFrame(() => {
           const updateCallData = (calls: KanbanCall[]) => {
             return calls.map(call => {
               if (call.call_id === rec.call_id) {
-                // Parsear datos_proceso para obtener datos familiares actualizados
                 let datosProcesoActualizados = rec.datos_proceso;
                 if (typeof rec.datos_proceso === 'string') {
                   try {
@@ -2470,7 +2609,6 @@ const LiveMonitorKanban: React.FC = () => {
                   }
                 }
                 
-                // Parsear datos_llamada también
                 let datosLlamadaActualizados = rec.datos_llamada;
                 if (typeof rec.datos_llamada === 'string') {
                   try {
@@ -2480,33 +2618,76 @@ const LiveMonitorKanban: React.FC = () => {
                   }
                 }
                 
-                const updatedCall = { 
+                      return { 
                   ...call, 
                   ...rec,
                   datos_proceso: datosProcesoActualizados,
                   datos_llamada: datosLlamadaActualizados
                 };
-                
-                return updatedCall;
               }
               return call;
             });
           };
           
           setActiveCalls(updateCallData);
+              });
         }
         
-          // Modo legacy: actualización local inteligente
-        // NO hacer loadCalls para evitar sobrescribir datos actualizados con datos viejos del prospecto
-        // La actualización local ya maneja todos los cambios necesarios
-        // Solo hacer loadCalls si hay cambios de estado que requieren reclasificación
         if (rec && oldRec && rec.call_status !== oldRec.call_status) {
-          try {
-            await loadCalls(true, true); // preserveRealtimeData=true
+              if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
+                setTimeout(() => loadCalls(true, true).catch(() => {}), 500);
+              }
+            }
+          }, 100);
+        }
+      };
+      
+      realtimeChannel = analysisSupabase
+      .channel('live-monitor-calls')
+      // INSERT: nuevas llamadas deben aparecer inmediatamente
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'llamadas_ventas'
+      }, async (payload) => {
+        try {
+          // Diferir carga usando requestIdleCallback
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+              loadCalls(true, true).catch(() => {}); // preserveRealtimeData=true para no sobrescribir
+            }, { timeout: 500 });
+          } else {
+            setTimeout(() => loadCalls(true, true).catch(() => {}), 200);
+          }
           } catch (e) {
             // Error refreshing calls on realtime
           }
+      })
+      // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'llamadas_ventas'
+      }, (payload) => {
+        const rec = payload.new as any;
+        const oldRec = payload.old as any;
+        
+        const now = performance.now();
+        
+        // Acumular actualizaciones en batch
+        pendingLegacyUpdate = { rec, oldRec };
+        
+        // Throttling mejorado
+        if (now - lastLegacyUpdate < LEGACY_THROTTLE_MS) {
+          if (legacyBatchTimeout !== null) {
+            clearTimeout(legacyBatchTimeout);
+          }
+          legacyBatchTimeout = window.setTimeout(processLegacyUpdate, LEGACY_THROTTLE_MS);
+          return;
         }
+        
+        lastLegacyUpdate = now;
+        processLegacyUpdate();
       })
       .subscribe((status) => {
         // Suscripción Realtime activa (silencioso)
@@ -2514,11 +2695,20 @@ const LiveMonitorKanban: React.FC = () => {
     }
 
     // Polling para detectar llamadas nuevas que no lleguen por Realtime
-    // Reducido a 3 segundos para mejor detección de nuevas llamadas activas
+    // Aumentado a 5 segundos para reducir carga y violaciones de rendimiento
     // Esto asegura que incluso si Realtime falla, las llamadas aparecerán rápidamente
     const interval = setInterval(() => {
+      // Solo hacer polling si no hay modal abierto y usar requestIdleCallback
+      if (!isModalOpenRef.current) {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(() => {
       loadCalls(true, true); // isRefresh=true, preserveRealtimeData=true
-    }, 3000); // Cada 3 segundos para detección rápida de nuevas llamadas activas
+          }, { timeout: 2000 });
+        } else {
+          setTimeout(() => loadCalls(true, true), 200);
+        }
+      }
+    }, 5000); // Aumentado a 5 segundos para reducir carga
     
     return () => {
       clearInterval(interval);
@@ -2543,6 +2733,11 @@ const LiveMonitorKanban: React.FC = () => {
 
   // Función para abrir el sidebar del prospecto
   const handleProspectoClick = async (call: KanbanCall) => {
+    if (!user?.id) {
+      alert('Debes estar autenticado para ver los detalles del prospecto');
+      return;
+    }
+
     // Intentar obtener el prospecto_id desde diferentes campos
     let prospectoId = null;
     
@@ -2564,6 +2759,19 @@ const LiveMonitorKanban: React.FC = () => {
     }
     
     try {
+      // Verificar permisos antes de cargar el prospecto
+      const permissionsServiceModule = await import('../../services/permissionsService');
+      const permissionCheck = await permissionsServiceModule.permissionsService.canUserAccessProspect(
+        user.id,
+        prospectoId
+      );
+
+      if (!permissionCheck.canAccess) {
+        alert(permissionCheck.reason || 'No tienes permiso para acceder a este prospecto');
+        return;
+      }
+
+      // Si tiene permisos, cargar el prospecto
       const { data, error } = await analysisSupabase
         .from('prospectos')
         .select('*')
@@ -2571,6 +2779,8 @@ const LiveMonitorKanban: React.FC = () => {
         .single();
 
       if (error) {
+        console.error('Error loading prospecto:', error);
+        alert('Error al cargar los datos del prospecto');
         return;
       }
 
@@ -2578,6 +2788,7 @@ const LiveMonitorKanban: React.FC = () => {
       setShowProspectoSidebar(true);
     } catch (error) {
       console.error('Error loading prospecto:', error);
+      alert('Error al verificar permisos o cargar el prospecto');
     }
   };
   
@@ -3313,12 +3524,12 @@ const LiveMonitorKanban: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setShowDatePicker(false)}
-                                className="mt-2 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                              >
-                                Aplicar
-                              </button>
+                            <button
+                              onClick={() => setShowDatePicker(false)}
+                              className="mt-2 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                            >
+                              Aplicar
+                            </button>
                             </div>
                           </div>
                         </div>
@@ -4837,10 +5048,10 @@ const LiveMonitorKanban: React.FC = () => {
 
         {/* Sidebar del Prospecto - Usando componente actualizado */}
         {createPortal(
-          <ProspectoSidebar
-            prospecto={selectedProspecto}
-            isOpen={showProspectoSidebar}
-            onClose={() => setShowProspectoSidebar(false)}
+        <ProspectoSidebar
+          prospecto={selectedProspecto}
+          isOpen={showProspectoSidebar}
+          onClose={() => setShowProspectoSidebar(false)}
             onOpenCallDetail={handleOpenCallDetail}
           />,
           document.body
@@ -4892,9 +5103,9 @@ const LiveMonitorKanban: React.FC = () => {
             callId={selectedCallForAnalysis?.call_id || null}
             isOpen={showAnalysisDetailModal}
             onClose={() => {
-              setShowAnalysisDetailModal(false);
-              setSelectedCallForAnalysis(null);
-              setTranscript([]);
+                            setShowAnalysisDetailModal(false);
+                            setSelectedCallForAnalysis(null);
+                            setTranscript([]);
               setModalTab('details');
             }}
             allCallsWithAnalysis={allCallsWithAnalysis}
@@ -4910,8 +5121,8 @@ const LiveMonitorKanban: React.FC = () => {
             }}
           />,
           document.body
-        )}
-      </div>
+                                )}
+                              </div>
     </div>
   );
 };

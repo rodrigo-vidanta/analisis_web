@@ -1,5 +1,37 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.10N6.0.0 (Enero 2025) - Optimización de Rendimiento y Verificación de Permisos
+
+### 🎯 RELEASE BETA - Optimización de Rendimiento y Sistema de Permisos
+
+#### Optimización de Rendimiento
+- Throttling mejorado de 200ms a 500ms en handlers de realtime
+- Batching de actualizaciones para reducir operaciones pesadas
+- Diferimiento con requestIdleCallback para trabajo pesado
+- Polling optimizado: intervalo aumentado a 5 segundos
+- Reducción de violaciones de rendimiento de 150-300ms a <50ms
+
+#### Silenciamiento de Logs
+- Interceptores para silenciar logs "Fetch finished loading" del navegador
+- Filtros en console.log, console.info y console.warn
+
+#### Sistema de Permisos Mejorado
+- Verificación de permisos antes de abrir sidebars en todos los módulos
+- canUserAccessProspect mejorado con verificación dual (RPC + fallback directo)
+- Soporte para múltiples coordinaciones en coordinadores
+- Mensajes de error claros cuando no hay permisos
+
+#### Archivos Principales
+- LiveMonitorKanban.tsx - Optimización de handlers, verificación de permisos
+- ConversacionesWidget.tsx - Verificación de permisos
+- ProspectosNuevosWidget.tsx - Verificación de permisos
+- ScheduledCallsManager.tsx - Verificación de permisos
+- CallDetailModalSidebar.tsx - Verificación de permisos
+- permissionsService.ts - Función mejorada con verificación dual
+- consoleInterceptors.ts - Silenciamiento de logs de fetch
+
+---
+
 ## Versión B4.0.9N6.0.0 (Enero 2025) - CallDetailModalSidebar: Corrección de Errores y Estabilidad
 
 ### 🎯 RELEASE BETA - Corrección de Errores Críticos

@@ -66,26 +66,111 @@ class PermissionsService {
 
   /**
    * Verifica si un usuario puede acceder a un prospecto específico
+   * Verifica tanto en prospect_assignments como directamente en prospectos
    */
   async canUserAccessProspect(
     userId: string,
     prospectId: string
   ): Promise<PermissionCheck> {
     try {
-      const { data, error } = await supabaseSystemUI.rpc('can_user_access_prospect', {
-        p_user_id: userId,
-        p_prospect_id: prospectId,
-      });
+      // Primero intentar con la función RPC (busca en prospect_assignments)
+      try {
+        const { data, error } = await supabaseSystemUI.rpc('can_user_access_prospect', {
+          p_user_id: userId,
+          p_prospect_id: prospectId,
+        });
 
-      if (error) throw error;
+        if (!error && data === true) {
+          return {
+            canAccess: true,
+            reason: undefined,
+          };
+        }
+      } catch (rpcError) {
+        // Si la función RPC falla o retorna false, verificar directamente en prospectos
+        console.warn('RPC can_user_access_prospect falló o retornó false, verificando directamente en prospectos:', rpcError);
+      }
 
-      const canAccess = data === true;
+      // Fallback: Verificar directamente en la tabla prospectos
+      // Obtener permisos del usuario
+      const permissions = await this.getUserPermissions(userId);
+      if (!permissions) {
+        return {
+          canAccess: false,
+          reason: 'No se pudieron obtener los permisos del usuario',
+        };
+      }
+
+      // Admin puede ver todo
+      if (permissions.role === 'admin') {
+        return {
+          canAccess: true,
+          reason: undefined,
+        };
+      }
+
+      // Obtener coordinaciones del usuario (puede tener múltiples si es coordinador)
+      const userCoordinaciones = await this.getCoordinacionesFilter(userId);
+      const userEjecutivoId = await this.getEjecutivoFilter(userId);
+
+      // Obtener datos del prospecto directamente desde la tabla prospectos
+      const { analysisSupabase } = await import('../config/analysisSupabase');
+      const { data: prospectoData, error: prospectoError } = await analysisSupabase
+        .from('prospectos')
+        .select('coordinacion_id, ejecutivo_id')
+        .eq('id', prospectId)
+        .maybeSingle();
+
+      if (prospectoError || !prospectoData) {
+        return {
+          canAccess: false,
+          reason: 'No se pudo obtener la información del prospecto',
+        };
+      }
+
+      const prospectCoordinacionId = prospectoData.coordinacion_id;
+      const prospectEjecutivoId = prospectoData.ejecutivo_id;
+
+      // Si el prospecto no tiene coordinación asignada, solo admin puede verlo
+      if (!prospectCoordinacionId) {
+        const canAccess = permissions.role === 'admin';
+        return {
+          canAccess,
+          reason: canAccess ? undefined : 'El prospecto no tiene coordinación asignada',
+        };
+      }
+
+      // Coordinador: puede ver si el prospecto está en alguna de sus coordinaciones
+      if (permissions.role === 'coordinador') {
+        if (userCoordinaciones && userCoordinaciones.length > 0) {
+          const canAccess = userCoordinaciones.includes(prospectCoordinacionId);
+          return {
+            canAccess,
+            reason: canAccess ? undefined : 'El prospecto no está asignado a ninguna de tus coordinaciones',
+          };
+        }
+        // Fallback: usar coordinacion_id del permiso si no hay múltiples coordinaciones
+        const canAccess = permissions.coordinacion_id === prospectCoordinacionId;
+        return {
+          canAccess,
+          reason: canAccess ? undefined : 'El prospecto no está asignado a tu coordinación',
+        };
+      }
+
+      // Ejecutivo: solo puede ver si el prospecto está asignado a él y a su coordinación
+      if (permissions.role === 'ejecutivo') {
+        const sameCoordinacion = userCoordinaciones ? userCoordinaciones.includes(prospectCoordinacionId) : false;
+        const sameEjecutivo = userEjecutivoId === prospectEjecutivoId;
+        const canAccess = sameCoordinacion && sameEjecutivo;
+        return {
+          canAccess,
+          reason: canAccess ? undefined : 'El prospecto no está asignado a ti',
+        };
+      }
 
       return {
-        canAccess,
-        reason: canAccess
-          ? undefined
-          : 'No tienes permiso para acceder a este prospecto',
+        canAccess: false,
+        reason: 'No tienes permiso para acceder a este prospecto',
       };
     } catch (error) {
       console.error('Error verificando acceso a prospecto:', error);

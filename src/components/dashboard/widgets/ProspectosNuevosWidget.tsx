@@ -11,6 +11,8 @@ import { coordinacionService } from '../../../services/coordinacionService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { useAppStore } from '../../../stores/appStore';
 import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
+import { CallDetailModalSidebar } from '../../chat/CallDetailModalSidebar';
+import { createPortal } from 'react-dom';
 import { getAvatarGradient } from '../../../utils/avatarGradient';
 import { systemNotificationService } from '../../../services/systemNotificationService';
 
@@ -26,6 +28,9 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
   const [selectedProspecto, setSelectedProspecto] = useState<Prospect | null>(null);
   const isOpeningSidebarRef = useRef(false);
   const processedProspectsRef = useRef<Set<string>>(new Set());
+  // Estados para el modal de detalle de llamada
+  const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) {
@@ -166,32 +171,56 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     
     isOpeningSidebarRef.current = true;
     
-    // Buscar el prospecto en la lista actual (más rápido que cargar desde BD)
-    const prospectoFromList = prospectos.find(p => p.id === prospectoId);
-    if (prospectoFromList) {
-      // Establecer AMBOS estados en el mismo batch de React (usando función de callback)
-      setSelectedProspecto(prospectoFromList);
-      // Usar setTimeout con 0 para asegurar que se ejecuta después del batch de React
-      setTimeout(() => {
-        setSidebarOpen(true);
-        isOpeningSidebarRef.current = false;
-      }, 0);
-    } else {
-      // Si no está en la lista, cargar desde BD
-      prospectsService.getProspectById(prospectoId, userId).then(prospecto => {
-        if (prospecto) {
-          setSelectedProspecto(prospecto);
+    // Verificar permisos antes de abrir el sidebar
+    if (!userId) {
+      alert('Debes estar autenticado para ver los detalles del prospecto');
+      isOpeningSidebarRef.current = false;
+      return;
+    }
+    
+    // Verificar permisos primero
+    import('../../../services/permissionsService').then(({ permissionsService }) => {
+      permissionsService.canUserAccessProspect(userId, prospectoId).then((permissionCheck) => {
+        if (!permissionCheck.canAccess) {
+          alert(permissionCheck.reason || 'No tienes permiso para acceder a este prospecto');
+          isOpeningSidebarRef.current = false;
+          return;
+        }
+        
+        // Si tiene permisos, buscar el prospecto en la lista actual (más rápido que cargar desde BD)
+        const prospectoFromList = prospectos.find(p => p.id === prospectoId);
+        if (prospectoFromList) {
+          // Establecer AMBOS estados en el mismo batch de React (usando función de callback)
+          setSelectedProspecto(prospectoFromList);
+          // Usar setTimeout con 0 para asegurar que se ejecuta después del batch de React
           setTimeout(() => {
             setSidebarOpen(true);
             isOpeningSidebarRef.current = false;
           }, 0);
         } else {
-          isOpeningSidebarRef.current = false;
+          // Si no está en la lista, cargar desde BD (ya verificamos permisos arriba)
+          prospectsService.getProspectById(prospectoId, userId).then(prospecto => {
+            if (prospecto) {
+              setSelectedProspecto(prospecto);
+              setTimeout(() => {
+                setSidebarOpen(true);
+                isOpeningSidebarRef.current = false;
+              }, 0);
+            } else {
+              isOpeningSidebarRef.current = false;
+            }
+          }).catch(() => {
+            isOpeningSidebarRef.current = false;
+          });
         }
       }).catch(() => {
+        alert('Error al verificar permisos');
         isOpeningSidebarRef.current = false;
       });
-    }
+    }).catch(() => {
+      alert('Error al cargar el servicio de permisos');
+      isOpeningSidebarRef.current = false;
+    });
   };
 
   const getInitials = (name: string | undefined | null): string => {
@@ -348,7 +377,31 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
             setAppMode('live-chat');
             localStorage.setItem('livechat-prospect-id', prospectoId);
           }}
+          onOpenCallDetail={(callId: string) => {
+            setSelectedCallId(callId);
+            setCallDetailModalOpen(true);
+          }}
         />
+      )}
+
+      {/* Sidebar de Detalle de Llamada */}
+      {createPortal(
+        <CallDetailModalSidebar
+          callId={selectedCallId}
+          isOpen={callDetailModalOpen}
+          onClose={() => {
+            setCallDetailModalOpen(false);
+            setSelectedCallId(null);
+          }}
+          allCallsWithAnalysis={[]}
+          onProspectClick={(prospectId) => {
+            // Abrir sidebar del prospecto si está disponible
+            if (selectedProspecto?.id === prospectId) {
+              // Ya está abierto
+            }
+          }}
+        />,
+        document.body
       )}
     </div>
   );
