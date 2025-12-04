@@ -7,6 +7,7 @@ import UserProfileModal from './shared/UserProfileModal';
 import AdminMessagesModal from './admin/AdminMessagesModal';
 import { adminMessagesService } from '../services/adminMessagesService';
 import { Mail, Wrench } from 'lucide-react';
+import { NotificationControl } from './dashboard/NotificationControl';
 
 interface HeaderProps {
   currentStep?: number;
@@ -151,13 +152,16 @@ const Header = ({
                   )}
                 </div>
                 {appMode === 'operative-dashboard' && (
-                  <button
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-dashboard-config'))}
-                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
-                    title="Configurar Dashboard"
-                  >
-                    <Wrench className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <NotificationControl />
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent('open-dashboard-config'))}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                      title="Configurar Dashboard"
+                    >
+                      <Wrench className="w-4 h-4" />
+                    </button>
+                  </div>
                 )}
                 {appMode === 'live-chat' && (
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

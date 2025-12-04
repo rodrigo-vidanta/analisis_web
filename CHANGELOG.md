@@ -1,5 +1,48 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.1N6.0.0 - Dashboard: Sistema de Notificaciones de Sonido y Optimización de Widgets (Enero 2025)
+
+### 🎯 **RELEASE BETA - Sistema de Notificaciones y Mejoras de UI**
+
+#### 🔊 **Sistema de Notificaciones de Sonido**
+- **Notificaciones personalizables:** Implementado sistema completo de notificaciones de sonido para el dashboard
+- **Sonidos personalizados:** 
+  - Sonido digital para llamadas nuevas (`notification-call.mp3`)
+  - Sonido UI Alert para mensajes nuevos (`notification-message.mp3`)
+- **Control de notificaciones:** Componente `NotificationControl` con menú desplegable en el header del dashboard
+- **Opciones de control:**
+  - Toggle global para activar/desactivar todas las notificaciones
+  - Toggle independiente para mensajes nuevos
+  - Toggle independiente para llamadas activas
+  - Botones de prueba de sonido para cada tipo
+- **Persistencia:** Preferencias guardadas en `localStorage`
+- **Volumen ajustable:** Control de volumen integrado (0.0 a 1.0)
+
+#### 🎵 **Integración de Sonidos en Widgets**
+- **ConversacionesWidget:** Reproduce sonido cuando llega un mensaje nuevo del cliente/prospecto
+- **LlamadasActivasWidget:** Reproduce sonido cuando aparece una nueva llamada activa o cambia a estado "activa"
+- **Prevención de duplicados:** Sistema de refs para evitar reproducir sonidos en carga inicial o mensajes duplicados
+- **Detección inteligente:** Solo reproduce sonidos para eventos nuevos en tiempo real
+
+#### 🎨 **Mejoras en Widget de Prospectos**
+- **Simplificación:** Eliminada funcionalidad de expansión/colapso
+- **Layout optimizado:** Tags de destinos preferidos movidos junto al tag de estado en la misma línea
+- **Eliminación de observaciones:** Removida sección de observaciones del contenido expandido
+- **Interacción simplificada:** Click en tarjeta solo abre conversación, sin expandir contenido
+
+#### 📁 **Archivos Principales Modificados**
+- `src/services/notificationSoundService.ts` - Nuevo servicio para manejo de sonidos de notificación
+- `src/components/dashboard/NotificationControl.tsx` - Nuevo componente de control de notificaciones
+- `src/components/Header.tsx` - Integración del componente de notificaciones
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Integración de sonidos para mensajes
+- `src/components/dashboard/widgets/LlamadasActivasWidget.tsx` - Integración de sonidos para llamadas
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Simplificación y reorganización de layout
+- `docs/NOTIFICATION_SOUND_GUIDE.md` - Nueva guía para crear sonidos personalizados
+- `public/sounds/notification-call.mp3` - Sonido para llamadas
+- `public/sounds/notification-message.mp3` - Sonido para mensajes
+
+---
+
 ## 🎯 Versión B4.0.0N6.0.0 - Dashboard: Limpieza de Logs y Mejoras de UI (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Dashboard: Optimización y Correcciones**

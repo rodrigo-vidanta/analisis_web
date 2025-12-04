@@ -1,5 +1,32 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.1N6.0.0 (Enero 2025) - Dashboard: Sistema de Notificaciones de Sonido y Optimización de Widgets
+
+### 🎯 RELEASE BETA - Sistema de Notificaciones y Mejoras de UI
+
+#### Sistema de Notificaciones de Sonido
+- **Notificaciones personalizables:** Sistema completo con sonidos personalizados
+- **Control independiente:** Toggle para mensajes y llamadas por separado
+- **Sonidos personalizados:** Archivos MP3 específicos para cada tipo de notificación
+
+#### Integración de Sonidos
+- **Mensajes nuevos:** Sonido cuando llega mensaje del cliente
+- **Llamadas activas:** Sonido cuando aparece nueva llamada activa
+- **Prevención de duplicados:** Sistema inteligente para evitar sonidos en carga inicial
+
+#### Mejoras en Widget de Prospectos
+- **Simplificación:** Eliminada funcionalidad de expansión
+- **Layout optimizado:** Tags reorganizados en línea horizontal
+- **Interacción mejorada:** Click directo para abrir conversación
+
+#### Archivos Principales
+- Nuevo servicio de notificaciones
+- Componente de control en header
+- Integración en widgets del dashboard
+- Guía para sonidos personalizados
+
+---
+
 ## Versión B4.0.0N6.0.0 (Enero 2025) - Dashboard: Limpieza de Logs y Mejoras de UI
 
 ### 🎯 RELEASE BETA - Dashboard: Optimización y Correcciones

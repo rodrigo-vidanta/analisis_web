@@ -9,6 +9,7 @@ import { Phone, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
 import { liveMonitorService, type LiveCallData } from '../../../services/liveMonitorService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { RedirectToLiveMonitor } from './RedirectToLiveMonitor';
+import { notificationSoundService } from '../../../services/notificationSoundService';
 
 interface LlamadasActivasWidgetProps {
   userId?: string;
@@ -29,6 +30,8 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
   const [selectedCall, setSelectedCall] = useState<LiveCallData | null>(null);
   const [showModal, setShowModal] = useState(false);
   const channelRef = useRef<any>(null);
+  const processedCallsRef = useRef<Set<string>>(new Set());
+  const isInitialLoadRef = useRef(true);
 
   const loadLlamadas = useCallback(async () => {
     if (!userId) {
@@ -50,7 +53,17 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
         return checkpointB - checkpointA; // Mayor checkpoint primero
       });
 
-      setLlamadas(sorted.slice(0, 5)); // Solo mostrar 5
+      const top5 = sorted.slice(0, 5);
+      
+      // Marcar todas las llamadas iniciales como procesadas para evitar sonidos en carga inicial
+      if (isInitialLoadRef.current) {
+        top5.forEach(call => {
+          if (call.call_id) processedCallsRef.current.add(call.call_id);
+        });
+        isInitialLoadRef.current = false;
+      }
+      
+      setLlamadas(top5);
     } catch (error) {
       setLlamadas([]);
     } finally {
@@ -78,8 +91,11 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
         },
         (payload) => {
           const newCall = payload.new as any;
-          // Solo recargar si la nueva llamada es activa
-          if (newCall?.call_status === 'activa') {
+          // Solo recargar si la nueva llamada es activa y no ha sido procesada antes
+          if (newCall?.call_status === 'activa' && newCall?.call_id && !processedCallsRef.current.has(newCall.call_id)) {
+            processedCallsRef.current.add(newCall.call_id);
+            // Reproducir sonido de notificación
+            notificationSoundService.playNotification('call');
             loadLlamadas();
           }
         }
@@ -98,6 +114,12 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
           // Si cambió el estado de activa a otra cosa, o viceversa, recargar
           if ((oldCall?.call_status === 'activa' && newCall?.call_status !== 'activa') ||
               (oldCall?.call_status !== 'activa' && newCall?.call_status === 'activa')) {
+            // Reproducir sonido solo si se convirtió en activa (nueva llamada activa) y no ha sido procesada antes
+            if (oldCall?.call_status !== 'activa' && newCall?.call_status === 'activa' && 
+                newCall?.call_id && !processedCallsRef.current.has(newCall.call_id)) {
+              processedCallsRef.current.add(newCall.call_id);
+              notificationSoundService.playNotification('call');
+            }
             loadLlamadas();
           }
           // Si sigue siendo activa pero cambió checkpoint u otros datos importantes, actualizar sin recargar todo

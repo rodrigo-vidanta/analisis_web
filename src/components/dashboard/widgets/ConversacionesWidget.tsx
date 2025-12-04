@@ -16,6 +16,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { AssignmentBadge } from '../../analysis/AssignmentBadge';
 import { MultimediaMessage, needsBubble } from '../../chat/MultimediaMessage';
 import { ProspectoSidebar } from '../../scheduled-calls/ProspectoSidebar';
+import { notificationSoundService } from '../../../services/notificationSoundService';
 
 interface Message {
   id: string;
@@ -48,6 +49,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const realtimeChannelRef = useRef<any>(null);
   const conversationsRef = useRef<UChatConversation[]>([]);
+  const processedMessagesRef = useRef<Set<string>>(new Set());
+  const isInitialLoadRef = useRef(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProspectoIdForSidebar, setSelectedProspectoIdForSidebar] = useState<string | null>(null);
   const isOpeningSidebarRef = useRef(false);
@@ -223,6 +226,12 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         (payload) => {
           const newMessage = payload.new as any;
           
+          // Reproducir sonido solo si el mensaje es del cliente y no ha sido procesado antes
+          if (newMessage.sender_type === 'customer' && newMessage.id && !processedMessagesRef.current.has(newMessage.id)) {
+            processedMessagesRef.current.add(newMessage.id);
+            notificationSoundService.playNotification('message');
+          }
+          
           if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
             loadMessages(selectedConversation);
           }
@@ -271,6 +280,13 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         (payload) => {
           const newMessage = payload.new as any;
           const messageTimestamp = newMessage.fecha_hora || new Date().toISOString();
+          const messageId = newMessage.id || `${newMessage.prospecto_id}-${messageTimestamp}`;
+          
+          // Reproducir sonido solo si el mensaje es del cliente/prospecto y no ha sido procesado antes
+          if (newMessage.rol === 'Prospecto' && !processedMessagesRef.current.has(messageId)) {
+            processedMessagesRef.current.add(messageId);
+            notificationSoundService.playNotification('message');
+          }
           
           if (selectedConversation && selectedConversation.prospect_id === newMessage.prospecto_id) {
             loadMessages(selectedConversation);
@@ -498,6 +514,15 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       // Tomar las 15 más recientes
       const top15 = sorted.slice(0, 15);
       conversationsRef.current = top15 as UChatConversation[];
+      
+      // Marcar todos los mensajes iniciales como procesados para evitar sonidos en carga inicial
+      if (isInitialLoadRef.current) {
+        top15.forEach(conv => {
+          if (conv.id) processedMessagesRef.current.add(conv.id);
+        });
+        isInitialLoadRef.current = false;
+      }
+      
       setConversations(top15 as UChatConversation[]);
 
     } catch (error: any) {

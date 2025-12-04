@@ -5,30 +5,21 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, ChevronRight, Loader2, Flag, Phone, MessageSquare, ChevronDown, ChevronUp, Star } from 'lucide-react';
+import { Loader2, Flag } from 'lucide-react';
 import { prospectsService, type Prospect } from '../../../services/prospectsService';
 import { coordinacionService } from '../../../services/coordinacionService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { useAppStore } from '../../../stores/appStore';
 import { ProspectoSidebar } from '../../scheduled-calls/ProspectoSidebar';
-import ReactMarkdown from 'react-markdown';
 
 interface ProspectosNuevosWidgetProps {
   userId?: string;
-}
-
-interface ExpandedProspectData {
-  callHistory: any[];
-  highlights: any[];
-  loading: boolean;
 }
 
 export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ userId }) => {
   const { setAppMode } = useAppStore();
   const [prospectos, setProspectos] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [expandedData, setExpandedData] = useState<Map<string, ExpandedProspectData>>(new Map());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProspecto, setSelectedProspecto] = useState<Prospect | null>(null);
   const isOpeningSidebarRef = useRef(false);
@@ -61,12 +52,6 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
       channel.unsubscribe();
     };
   }, [userId]);
-
-  useEffect(() => {
-    if (expandedId) {
-      loadExpandedData(expandedId);
-    }
-  }, [expandedId]);
 
   const loadProspectos = async () => {
     if (!userId) {
@@ -103,64 +88,8 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     }
   };
 
-  const loadExpandedData = async (prospectoId: string) => {
-    // Si ya está cargado, no recargar
-    if (expandedData.has(prospectoId) && !expandedData.get(prospectoId)?.loading) {
-      return;
-    }
-
-    setExpandedData(prev => {
-      const newMap = new Map(prev);
-      newMap.set(prospectoId, { callHistory: [], highlights: [], loading: true });
-      return newMap;
-    });
-
-    try {
-      // Cargar resumen completo de conversaciones (sin límite para mostrar todo)
-      const { data: highlightsData } = await analysisSupabase
-        .from('conversaciones_whatsapp')
-        .select('id, summary, resultado, fecha_inicio')
-        .eq('prospecto_id', prospectoId)
-        .order('fecha_inicio', { ascending: false });
-
-      setExpandedData(prev => {
-        const newMap = new Map(prev);
-        newMap.set(prospectoId, {
-          callHistory: [],
-          highlights: highlightsData || [],
-          loading: false
-        });
-        return newMap;
-      });
-    } catch (error) {
-      setExpandedData(prev => {
-        const newMap = new Map(prev);
-        newMap.set(prospectoId, { callHistory: [], highlights: [], loading: false });
-        return newMap;
-      });
-    }
-  };
-
-  const handleProspectoClick = (prospecto: Prospect, isExpandClick: boolean = false) => {
-    if (isExpandClick) {
-      // Solo expandir/colapsar (botón de chevron)
-      if (expandedId === prospecto.id) {
-        setExpandedId(null);
-      } else {
-        setExpandedId(prospecto.id);
-      }
-      return;
-    }
-
-    // Si no es clic de expandir, hacer toggle (expandir/colapsar) Y intentar abrir la conversación
+  const handleProspectoClick = (prospecto: Prospect) => {
     if (!prospecto.id) return;
-
-    // Toggle: si está expandido, colapsar; si no, expandir
-    if (expandedId === prospecto.id) {
-      setExpandedId(null);
-    } else {
-      setExpandedId(prospecto.id);
-    }
 
     // Handler que solo se ejecuta si la conversación NO está en el top 15
     const notInTopHandler = (event: CustomEvent) => {
@@ -297,146 +226,79 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
         ) : (
           <AnimatePresence initial={false}>
             {prospectos.map((prospecto, index) => {
-              const isExpanded = expandedId === prospecto.id;
-              const data = expandedData.get(prospecto.id);
-              
               return (
                 <motion.div
                   key={prospecto.id}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10, height: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
                   transition={{ 
                     layout: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
                     opacity: { duration: 0.2 },
                     y: { duration: 0.2 }
                   }}
-                  className="space-y-0"
                 >
                   <motion.div
                     layout
-                    className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-600"
+                    className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-600 cursor-pointer"
+                    onClick={() => handleProspectoClick(prospecto)}
                   >
-                  <div className="flex items-center justify-between">
-                    <div 
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => handleProspectoClick(prospecto, false)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {/* Avatar con iniciales - al lado izquierdo del nombre */}
-                        <div 
-                          className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleProspectoNameClick(e, prospecto.id);
-                          }}
-                        >
-                          {getInitials(prospecto.nombre_completo || prospecto.nombre_whatsapp)}
+                    <div className="flex items-center gap-2">
+                      {/* Avatar con iniciales - al lado izquierdo del nombre */}
+                      <div 
+                        className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleProspectoNameClick(e, prospecto.id);
+                        }}
+                      >
+                        {getInitials(prospecto.nombre_completo || prospecto.nombre_whatsapp)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p 
+                            className="text-sm font-medium text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleProspectoNameClick(e, prospecto.id);
+                            }}
+                          >
+                            {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
+                          </p>
+                          {prospecto.requiere_atencion_humana && (
+                            <Flag className="w-3 h-3 text-red-500 fill-red-500 flex-shrink-0" />
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p 
-                              className="text-sm font-medium text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleProspectoNameClick(e, prospecto.id);
-                              }}
-                            >
-                              {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
-                            </p>
-                            {prospecto.requiere_atencion_humana && (
-                              <Flag className="w-3 h-3 text-red-500 fill-red-500 flex-shrink-0" />
-                            )}
-                          </div>
-                          {prospecto.whatsapp && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                              {prospecto.whatsapp}
-                            </p>
-                          )}
-                          {prospecto.motivo_handoff && (
-                            <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium leading-relaxed">
-                              {prospecto.motivo_handoff}
-                            </p>
-                          )}
+                        {prospecto.whatsapp && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {prospecto.whatsapp}
+                          </p>
+                        )}
+                        {prospecto.motivo_handoff && (
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium leading-relaxed">
+                            {prospecto.motivo_handoff}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           {prospecto.etapa && (
-                            <span className="inline-block mt-1.5 px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                            <span className="inline-block px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                               {prospecto.etapa}
                             </span>
                           )}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleProspectoClick(prospecto, true);
-                      }}
-                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex-shrink-0 ml-2"
-                    >
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-400" />
-                      )}
-                    </button>
-                  </div>
-                  </motion.div>
-
-                  {/* Contenido expandido */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        layout
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className="overflow-hidden"
-                      >
-                      <div className="px-3 pb-3 pt-2 space-y-3 bg-gray-50 dark:bg-gray-800/50 border-x border-b border-gray-200 dark:border-gray-600 rounded-b-lg">
-                        {/* Observaciones */}
-                        {prospecto.observaciones ? (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1">
-                              <MessageSquare className="w-3 h-3" />
-                              Observaciones
-                            </p>
-                            <div className="p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
-                              <div className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                                <ReactMarkdown>
-                                  {prospecto.observaciones}
-                                </ReactMarkdown>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-center py-2">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              No hay observaciones disponibles
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Highlights */}
-                        {prospecto.destino_preferencia && prospecto.destino_preferencia.length > 0 && (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                              Destinos Preferidos
-                            </p>
+                          {prospecto.destino_preferencia && prospecto.destino_preferencia.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                               {prospecto.destino_preferencia.map((destino, idx) => (
-                                <span key={idx} className="px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                <span key={idx} className="px-2 py-0.5 text-xs rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
                                   {destino}
                                 </span>
                               ))}
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                    </div>
+                  </motion.div>
                 </motion.div>
               );
             })}
