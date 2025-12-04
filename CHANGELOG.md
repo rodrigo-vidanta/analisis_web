@@ -1,5 +1,47 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.6N6.0.0 - Dashboard: Botón de Transferencia y Mejoras en Realtime (Enero 2025)
+
+### 🎯 **RELEASE BETA - Mejoras en Dashboard y Chat**
+
+#### ✨ **Botón de Solicitar Transferencia en Dashboard**
+- **Modal de llamadas activas:** Botón de "Solicitar Transferencia" agregado al modal de detalle de llamada activa
+- **Funcionalidad completa:** Mismo comportamiento que en AI Call Monitor con modal de razones predefinidas y mensaje personalizado
+- **Diseño accesible:** Botón con gradiente azul-púrpura, iconos claros y estados de carga
+- **Integración VAPI:** Envío de transferencia al webhook de Railway con contexto completo de la llamada
+- **Razones predefinidas:** 6 opciones rápidas para transferencia (mejor precio, caso especial, beneficios adicionales, etc.)
+- **Mensaje personalizado:** Opción para escribir y usar mensaje personalizado
+
+#### 🔄 **Mejoras en Suscripción Realtime de Llamadas Programadas**
+- **Manejo eficiente de INSERT:** Agregado directo de nuevos registros sin recargar toda la lista
+- **Filtro de usuario:** Verificación de asignación al usuario actual antes de mostrar llamadas
+- **Actualización optimizada:** Manejo local de UPDATE sin recargas innecesarias
+- **Ordenamiento automático:** Mantenimiento del orden por hora automáticamente
+- **Logging mejorado:** Diagnóstico del estado de suscripción realtime
+
+#### 🖼️ **Mejoras en Visualización de Imágenes del Bot**
+- **Agrupación en grid:** Hasta 4 imágenes del bot agrupadas en grid 2x2 dentro de globo de conversación
+- **Sin descripciones:** Descripciones ocultas para imágenes enviadas por el bot
+- **Texto separado:** Texto enviado junto con imágenes mostrado en globo separado después del bloque de imágenes
+- **Modal de imagen:** Click en imagen abre modal con vista completa y fondo oscuro semitransparente
+- **Alineación consistente:** Imágenes del bot alineadas a la derecha como mensajes del bot
+- **Carga optimizada:** Sistema de cache de URLs de imágenes para mejor rendimiento
+- **Aplicado en:** Dashboard "Últimas Conversaciones" y AI Chat Monitor
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/dashboard/widgets/ActiveCallDetailModal.tsx` - Botón de transferencia y modal
+- `src/components/dashboard/widgets/LlamadasProgramadasWidget.tsx` - Mejoras en realtime
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Visualización de imágenes del bot
+- `src/components/chat/LiveChatCanvas.tsx` - Visualización de imágenes del bot en chat
+
+#### 🔧 **Implementación Técnica**
+- **Suscripciones realtime:** Mejoras en manejo de eventos INSERT/UPDATE/DELETE
+- **Estado local optimizado:** Actualizaciones sin recargas completas cuando es posible
+- **Framer Motion:** Animaciones suaves en modales y botones
+- **Cache de URLs:** Sistema de localStorage para URLs de imágenes temporales
+
+---
+
 ## 🎯 Versión B4.0.5N6.0.0 - UI/UX: Animación de Fondo en Pantalla de Login y Mejoras Visuales (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Animaciones Avanzadas en Pantalla de Login**

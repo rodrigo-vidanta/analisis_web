@@ -1,5 +1,33 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.6N6.0.0 (Enero 2025) - Dashboard: Botón de Transferencia y Mejoras en Realtime
+
+### 🎯 RELEASE BETA - Mejoras en Dashboard y Chat
+
+#### Botón de Solicitar Transferencia en Dashboard
+- Botón agregado al modal de detalle de llamada activa
+- Modal con razones predefinidas y mensaje personalizado
+- Integración completa con VAPI para transferencias
+
+#### Mejoras en Suscripción Realtime
+- Manejo eficiente de INSERT sin recargas completas
+- Filtro de usuario para llamadas programadas
+- Actualización optimizada de estado local
+
+#### Visualización de Imágenes del Bot
+- Agrupación en grid 2x2 dentro de globo de conversación
+- Sin descripciones para imágenes del bot
+- Texto separado en globo independiente
+- Modal para vista completa de imágenes
+
+#### Archivos Principales
+- ActiveCallDetailModal.tsx - Botón de transferencia
+- LlamadasProgramadasWidget.tsx - Mejoras realtime
+- ConversacionesWidget.tsx - Visualización de imágenes
+- LiveChatCanvas.tsx - Visualización de imágenes en chat
+
+---
+
 ## Versión B4.0.5N6.0.0 (Enero 2025) - UI/UX: Animación de Fondo en Pantalla de Login y Mejoras Visuales
 
 ### 🎯 RELEASE BETA - Animaciones Avanzadas en Pantalla de Login

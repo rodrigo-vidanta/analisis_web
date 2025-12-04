@@ -1,10 +1,10 @@
 /**
  * Widget de Llamadas Programadas
  * Muestra llamadas programadas del día actual asignadas al usuario
- * Basado en ScheduledCallsManager
+ * Con suscripciones realtime para actualizaciones en tiempo real
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Loader2 } from 'lucide-react';
 import { scheduledCallsService } from '../../../services/scheduledCallsService';
@@ -17,37 +17,9 @@ interface LlamadasProgramadasWidgetProps {
 export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps> = ({ userId }) => {
   const [llamadas, setLlamadas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelRef = useRef<any>(null);
 
-  useEffect(() => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
-    loadLlamadas();
-    
-    // Suscripción realtime
-    const channel = analysisSupabase
-      .channel(`llamadas-programadas-dashboard-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'llamadas_programadas'
-        },
-        () => {
-          loadLlamadas();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [userId]);
-
-  const loadLlamadas = async () => {
+  const loadLlamadas = useCallback(async () => {
     if (!userId) {
       setLoading(false);
       setLlamadas([]);
@@ -55,7 +27,10 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
     }
 
     try {
-      setLoading(true);
+      // No mostrar loading en recargas por realtime para evitar parpadeos
+      if (llamadas.length === 0) {
+        setLoading(true);
+      }
       
       // Usar el servicio igual que ScheduledCallsManager - obtener todas y filtrar después
       const allData = await scheduledCallsService.getScheduledCalls(userId, {
@@ -91,7 +66,161 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, llamadas.length]);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    loadLlamadas();
+    
+    // Suscripción realtime mejorada
+    const channel = analysisSupabase
+      .channel(`llamadas-programadas-dashboard-${Date.now()}`)
+      // Escuchar INSERT de nuevas llamadas programadas
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'llamadas_programadas'
+        },
+        (payload) => {
+          const newCall = payload.new as any;
+          
+          // Verificar si es del día actual y está programada
+          const hoy = new Date().toISOString().split('T')[0];
+          const callDate = new Date(newCall.fecha_programada).toISOString().split('T')[0];
+          
+          // Verificar si está asignada al usuario actual (si hay userId)
+          const isAssignedToUser = !userId || 
+            newCall.programada_por === userId || 
+            newCall.ejecutivo_id === userId ||
+            newCall.coordinacion_id === userId;
+          
+          if (callDate === hoy && newCall.estatus === 'programada' && isAssignedToUser) {
+            // Agregar directamente sin recargar toda la lista
+            setLlamadas(prev => {
+              // Verificar si ya existe (evitar duplicados)
+              if (prev.find(c => c.id === newCall.id)) {
+                return prev;
+              }
+              
+              // Agregar y ordenar por hora
+              const updated = [...prev, newCall].sort((a, b) => {
+                const timeA = new Date(a.fecha_programada).getTime();
+                const timeB = new Date(b.fecha_programada).getTime();
+                return timeA - timeB;
+              });
+              
+              // Mantener solo las 5 más tempranas
+              return updated.slice(0, 5);
+            });
+          }
+        }
+      )
+      // Escuchar UPDATE de cambios de estatus
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'llamadas_programadas'
+        },
+        (payload) => {
+          const updatedCall = payload.new as any;
+          const oldCall = payload.old as any;
+          
+          // Verificar si es del día actual
+          const hoy = new Date().toISOString().split('T')[0];
+          const callDate = new Date(updatedCall.fecha_programada).toISOString().split('T')[0];
+          const isToday = callDate === hoy;
+          
+          // Verificar si está asignada al usuario actual
+          const isAssignedToUser = !userId || 
+            updatedCall.programada_por === userId || 
+            updatedCall.ejecutivo_id === userId ||
+            updatedCall.coordinacion_id === userId;
+          
+          // Si cambió el estatus o la fecha
+          if (updatedCall.estatus !== oldCall.estatus || 
+              updatedCall.fecha_programada !== oldCall.fecha_programada) {
+            
+            setLlamadas(prev => {
+              const exists = prev.find(c => c.id === updatedCall.id);
+              
+              if (exists) {
+                // Si ya no está programada o no es de hoy, removerla
+                if (updatedCall.estatus !== 'programada' || !isToday || !isAssignedToUser) {
+                  return prev.filter(c => c.id !== updatedCall.id);
+                }
+                // Actualizar la llamada y reordenar
+                const updated = prev.map(c => c.id === updatedCall.id ? { ...c, ...updatedCall } : c);
+                return updated.sort((a, b) => {
+                  const timeA = new Date(a.fecha_programada).getTime();
+                  const timeB = new Date(b.fecha_programada).getTime();
+                  return timeA - timeB;
+                }).slice(0, 5);
+              }
+              
+              // Si no existe y ahora está programada para hoy y asignada al usuario, agregarla
+              if (isToday && updatedCall.estatus === 'programada' && isAssignedToUser) {
+                const updated = [...prev, updatedCall].sort((a, b) => {
+                  const timeA = new Date(a.fecha_programada).getTime();
+                  const timeB = new Date(b.fecha_programada).getTime();
+                  return timeA - timeB;
+                });
+                return updated.slice(0, 5);
+              }
+              
+              return prev;
+            });
+          } else {
+            // Si solo cambió otro campo (no estatus ni fecha), actualizar sin reordenar
+            setLlamadas(prev => {
+              const exists = prev.find(c => c.id === updatedCall.id);
+              if (exists) {
+                return prev.map(c => c.id === updatedCall.id ? { ...c, ...updatedCall } : c);
+              }
+              return prev;
+            });
+          }
+        }
+      )
+      // Escuchar DELETE
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'llamadas_programadas'
+        },
+        (payload) => {
+          const deletedCall = payload.old as any;
+          // Remover de la lista si existe
+          setLlamadas(prev => prev.filter(c => c.id !== deletedCall.id));
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Suscripción realtime activa para llamadas_programadas');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error en suscripción realtime de llamadas_programadas');
+        } else if (status === 'TIMED_OUT') {
+          console.warn('⚠️ Timeout en suscripción realtime de llamadas_programadas');
+        }
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
+    };
+  }, [userId, loadLlamadas]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);

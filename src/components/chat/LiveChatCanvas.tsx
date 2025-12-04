@@ -38,7 +38,8 @@ import {
   ChevronRight,
   GripVertical,
   Paperclip,
-  Flag
+  Flag,
+  Loader2
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
@@ -66,6 +67,7 @@ import { coordinacionService } from '../../services/coordinacionService';
 import { useAppStore } from '../../stores/appStore';
 import { ManualCallModal } from '../shared/ManualCallModal';
 import BotPauseButton from './BotPauseButton';
+import { Avatar } from '../shared/Avatar';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -473,6 +475,68 @@ const LiveChatCanvas: React.FC = () => {
     };
     position: { x: number; y: number };
   } | null>(null);
+
+  // Estados para modal de imágenes y cache de URLs
+  const [selectedImageModal, setSelectedImageModal] = useState<{ url: string; alt: string } | null>(null);
+  const [imageUrlsCache, setImageUrlsCache] = useState<Record<string, string>>({});
+  const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({});
+  
+  // Función helper para generar URL de imagen (reutiliza lógica de MultimediaMessage)
+  const generateImageUrl = async (adjunto: any): Promise<string | null> => {
+    const filename = adjunto.filename || adjunto.archivo;
+    const bucket = adjunto.bucket || 'whatsapp-media';
+    
+    if (!filename) return null;
+    
+    const cacheKey = `${bucket}/${filename}`;
+    
+    // Verificar cache local primero
+    const cached = localStorage.getItem(`media_${cacheKey}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        const now = Date.now();
+        if (parsed.url && parsed.timestamp && (now - parsed.timestamp) < 25 * 60 * 1000) {
+          return parsed.url;
+        }
+      } catch (e) {
+        localStorage.removeItem(`media_${cacheKey}`);
+      }
+    }
+    
+    // Generar nueva URL
+    try {
+      const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-token': '93fbcfc4-ccc9-4023-b820-86ef98f10122'
+        },
+        body: JSON.stringify({
+          filename: filename,
+          bucket: bucket,
+          expirationMinutes: 30
+        })
+      });
+      
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      const url = data[0]?.url || data.url;
+      
+      if (url) {
+        localStorage.setItem(`media_${cacheKey}`, JSON.stringify({
+          url,
+          timestamp: Date.now()
+        }));
+      }
+      
+      return url || null;
+    } catch (error) {
+      console.error('Error generando URL:', error);
+      return null;
+    }
+  };
 
   // Estado del sidebar (para ajustar posición)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -2659,7 +2723,7 @@ const LiveChatCanvas: React.FC = () => {
     const blocks: { [date: string]: Message[] } = {};
     
     messages.forEach(message => {
-      const date = new Date(message.created_at || message.fecha_hora).toISOString().split('T')[0];
+      const date = new Date(message.created_at).toISOString().split('T')[0];
       if (!blocks[date]) {
         blocks[date] = [];
       }
@@ -2676,6 +2740,58 @@ const LiveChatCanvas: React.FC = () => {
       }))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
+
+  // Cargar URLs de imágenes del bot cuando cambian los mensajes
+  useEffect(() => {
+    const loadBotImageUrls = async () => {
+      const allMessages = Object.values(messagesByConversation).flat();
+      const botMessages = allMessages.filter(msg => msg.sender_type === 'bot' && (msg as any).adjuntos);
+      
+      for (const msg of botMessages) {
+        let adjuntos = null;
+        if ((msg as any).adjuntos) {
+          try {
+            adjuntos = typeof (msg as any).adjuntos === 'string' 
+              ? JSON.parse((msg as any).adjuntos) 
+              : (msg as any).adjuntos;
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (!adjuntos || !Array.isArray(adjuntos)) continue;
+        
+        const imageAdjuntos = adjuntos.filter((adj: any) => {
+          const filename = adj.filename || adj.archivo || '';
+          const tipo = (adj.tipo || '').toLowerCase();
+          return tipo.includes('imagen') || tipo.includes('image') || 
+                 filename.match(/\.(jpg|jpeg|png|bmp|svg|webp|gif)$/i);
+        });
+        
+        for (const adjunto of imageAdjuntos) {
+          const filename = adjunto.filename || adjunto.archivo;
+          const bucket = adjunto.bucket || 'whatsapp-media';
+          const cacheKey = `${bucket}/${filename}`;
+          
+          // Solo cargar si no está en cache y no está cargando
+          if (!imageUrlsCache[cacheKey] && !imageLoadingStates[cacheKey] && filename) {
+            setImageLoadingStates(prev => ({ ...prev, [cacheKey]: true }));
+            generateImageUrl(adjunto).then(url => {
+              if (url) {
+                setImageUrlsCache(prev => ({ ...prev, [cacheKey]: url }));
+              }
+              setImageLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
+            }).catch(() => {
+              setImageLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
+            });
+          }
+        }
+      }
+    };
+    
+    loadBotImageUrls();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesByConversation]);
 
   const markMessagesAsRead = async (conversationId: string) => {
     try {
@@ -4256,13 +4372,13 @@ const LiveChatCanvas: React.FC = () => {
                     );
                   }
                   
-                  // Avatar normal con iniciales
+                  // Avatar normal con iniciales (usando componente Avatar unificado)
                   return (
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                      <span className="text-sm font-semibold text-white">
-                        {conversation.customer_name?.charAt(0).toUpperCase() || 'C'}
-                      </span>
-                    </div>
+                    <Avatar
+                      name={conversation.customer_name}
+                      size="md"
+                      showIcon={false}
+                    />
                   );
                 })()}
                 
@@ -4462,11 +4578,11 @@ const LiveChatCanvas: React.FC = () => {
                 onClick={() => setShowProspectSidebar(true)}
                 title="Click para ver detalles del prospecto"
               >
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm">
-                  <span className="text-sm font-semibold text-white">
-                    {selectedConversation.customer_name?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+                <Avatar
+                  name={selectedConversation.customer_name}
+                  size="lg"
+                  showIcon={false}
+                />
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                     {selectedConversation.customer_name}
@@ -4691,14 +4807,12 @@ const LiveChatCanvas: React.FC = () => {
                         <div className={`flex items-end gap-2 ${isCustomer ? 'justify-start' : 'justify-end'}`}>
                           {/* Avatar - Cliente a la izquierda */}
                           {isCustomer && (
-                            <div 
-                              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm bg-gradient-to-br from-slate-400 to-slate-600"
-                              title={selectedConversation?.customer_name || 'Cliente'}
-                            >
-                              <span className="text-xs font-semibold text-white">
-                                {selectedConversation?.customer_name?.charAt(0).toUpperCase() || 'C'}
-                              </span>
-                            </div>
+                            <Avatar
+                              name={selectedConversation?.customer_name}
+                              size="sm"
+                              showIcon={false}
+                              className="shadow-sm"
+                            />
                           )}
 
                           {/* Globo del mensaje */}
@@ -4713,8 +4827,131 @@ const LiveChatCanvas: React.FC = () => {
                                   )
                                 : null;
 
+                              // Para el bot: separar imágenes de otros adjuntos
+                              const imageAdjuntos = isBot && adjuntos && Array.isArray(adjuntos)
+                                ? adjuntos.filter((adj: any) => {
+                                    const filename = adj.filename || adj.archivo || '';
+                                    const tipo = (adj.tipo || '').toLowerCase();
+                                    return tipo.includes('imagen') || tipo.includes('image') || 
+                                           filename.match(/\.(jpg|jpeg|png|bmp|svg|webp|gif)$/i);
+                                  })
+                                : [];
+                              const nonImageAdjuntos = isBot && adjuntos && Array.isArray(adjuntos)
+                                ? adjuntos.filter((adj: any) => {
+                                    const filename = adj.filename || adj.archivo || '';
+                                    const tipo = (adj.tipo || '').toLowerCase();
+                                    return !(tipo.includes('imagen') || tipo.includes('image') || 
+                                           filename.match(/\.(jpg|jpeg|png|bmp|svg|webp|gif)$/i));
+                                  })
+                                : adjuntos;
+                              
+                              const hasImages = imageAdjuntos.length > 0;
+                              const hasContent = message.content && typeof message.content === 'string' && message.content.trim().length > 0;
+                              const hasNonImageAdjuntos = nonImageAdjuntos && Array.isArray(nonImageAdjuntos) && nonImageAdjuntos.length > 0;
+
                               // Determinar si necesita globo (false para stickers y audios)
-                              const shouldHaveBubble = !adjuntos || needsBubble(adjuntos) || message.content;
+                              const shouldHaveBubble = isBot && hasImages
+                                ? hasContent // Solo texto necesita globo para bot con imágenes
+                                : !adjuntos || needsBubble(adjuntos) || message.content;
+
+                              // CASO ESPECIAL: Bot con imágenes agrupadas
+                              if (isBot && hasImages) {
+                                return (
+                                  <div className="space-y-2">
+                                    {/* Globo con imágenes en grid */}
+                                    <div className="relative">
+                                      {/* Pico del globo - Bot (derecha) */}
+                                      <div className="absolute -right-2 bottom-2 w-3 h-3 overflow-hidden">
+                                        <div className="absolute transform rotate-45 bg-cyan-600 w-3 h-3" 
+                                             style={{ right: '4px', top: '-2px' }} />
+                                      </div>
+                                      
+                                      {/* Globo principal con imágenes */}
+                                      <div className="relative px-2 py-2 shadow-sm backdrop-blur-sm bg-gradient-to-br from-blue-600/95 to-cyan-600/95 rounded-2xl rounded-br-md shadow-md">
+                                        {/* Grid de imágenes - usa ancho completo del globo */}
+                                        <div className="grid grid-cols-2 gap-1.5 w-full">
+                                          {imageAdjuntos.map((adjunto: any, imgIndex: number) => {
+                                            const filename = adjunto.filename || adjunto.archivo;
+                                            const bucket = adjunto.bucket || 'whatsapp-media';
+                                            const cacheKey = `${bucket}/${filename}`;
+                                            const imageUrl = imageUrlsCache[cacheKey];
+                                            const isLoading = imageLoadingStates[cacheKey];
+                                            
+                                            return (
+                                              <div 
+                                                key={imgIndex} 
+                                                className="relative group aspect-square overflow-hidden rounded-lg bg-white/10 cursor-pointer hover:opacity-90 transition-opacity"
+                                                onClick={() => {
+                                                  if (imageUrl) {
+                                                    setSelectedImageModal({
+                                                      url: imageUrl,
+                                                      alt: adjunto.descripcion || `Imagen ${imgIndex + 1}`
+                                                    });
+                                                  }
+                                                }}
+                                              >
+                                                {isLoading ? (
+                                                  <div className="w-full h-full flex items-center justify-center">
+                                                    <Loader2 className="w-5 h-5 text-white/50 animate-spin" />
+                                                  </div>
+                                                ) : imageUrl ? (
+                                                  <img
+                                                    src={imageUrl}
+                                                    alt={adjunto.descripcion || `Imagen ${imgIndex + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                    loading="lazy"
+                                                  />
+                                                ) : (
+                                                  <div className="w-full h-full flex items-center justify-center text-white/50 text-xs">
+                                                    Error
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                        
+                                        {/* Timestamp */}
+                                        <div className="text-[10px] mt-2 text-white/70 text-right">
+                                          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Texto en globo separado (si existe) */}
+                                    {hasContent && message.content && (
+                                      <div className="relative">
+                                        {/* Pico del globo - Bot (derecha) */}
+                                        <div className="absolute -right-2 bottom-2 w-3 h-3 overflow-hidden">
+                                          <div className="absolute transform rotate-45 bg-cyan-600 w-3 h-3" 
+                                               style={{ right: '4px', top: '-2px' }} />
+                                        </div>
+                                        
+                                        {/* Globo de texto */}
+                                        <div className="relative px-3 py-2 shadow-sm backdrop-blur-sm bg-gradient-to-br from-blue-600/95 to-cyan-600/95 text-white rounded-2xl rounded-br-md shadow-md">
+                                          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                                            {message.content.replace(/\\n/g, '\n')}
+                                          </div>
+                                          
+                                          {/* Timestamp */}
+                                          <div className="text-[10px] mt-1 text-white/70 text-right">
+                                            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Otros adjuntos no-imagen (si existen) */}
+                                    {hasNonImageAdjuntos && (
+                                      <MultimediaMessage 
+                                        adjuntos={nonImageAdjuntos}
+                                        hasTextContent={false}
+                                        isFromCustomer={false}
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              }
 
                               if (shouldHaveBubble) {
                                 // CON GLOBO: Texto, imágenes, videos, documentos
@@ -5123,6 +5360,39 @@ const LiveChatCanvas: React.FC = () => {
         />,
         document.body
       )}
+
+      {/* Modal simple para imágenes */}
+      <AnimatePresence>
+        {selectedImageModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedImageModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-4xl max-h-[90vh] w-full"
+            >
+              <button
+                onClick={() => setSelectedImageModal(null)}
+                className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors z-10"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <img
+                src={selectedImageModal.url}
+                alt={selectedImageModal.alt}
+                className="w-full h-auto max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
