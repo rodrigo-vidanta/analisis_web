@@ -43,12 +43,20 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   onSuccess
 }) => {
   const { user } = useAuth();
-  const [justificacion, setJustificacion] = useState('');
+  const [justificacion, setJustificacion] = useState('Mejor momento de llamada');
   const [scheduleType, setScheduleType] = useState<ScheduleType>('now');
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ justificacion?: string; fecha?: string; hora?: string }>({});
+
+  // Justificaciones predefinidas
+  const justificacionesPredefinidas = [
+    'Mejor momento de llamada',
+    'Requerido por el ejecutivo',
+    'Requerido por el cliente',
+    'Seguimiento de venta'
+  ];
   
   // Estados para manejar INSERT vs UPDATE
   const [action, setAction] = useState<'INSERT' | 'UPDATE'>('INSERT');
@@ -65,7 +73,7 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   // Resetear formulario al abrir/cerrar
   useEffect(() => {
     if (!isOpen) {
-      setJustificacion('');
+      setJustificacion('Mejor momento de llamada');
       setScheduleType('now');
       setScheduledDate('');
       setScheduledTime('');
@@ -79,8 +87,6 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   const checkExistingScheduledCall = async () => {
     setCheckingExistingCall(true);
     try {
-      console.log('🔍 Verificando llamadas programadas para prospecto:', prospectoId);
-      
       // Consultar TODAS las llamadas programadas (sin filtrar por fecha)
       // para asegurarnos de encontrar cualquier llamada con estatus 'programada'
       const { data, error } = await analysisSupabase
@@ -98,8 +104,6 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
         return;
       }
 
-      console.log('📋 Llamadas programadas encontradas:', data?.length || 0);
-
       // Filtrar solo las que están en el futuro o son "ahora"
       const now = new Date();
       const futureCalls = (data || []).filter(call => {
@@ -108,18 +112,21 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
         return callDate >= now;
       });
 
-      console.log('📅 Llamadas futuras o actuales:', futureCalls.length);
-
       if (futureCalls.length > 0) {
         // Hay una llamada programada existente → modo UPDATE
         const existingCallData = futureCalls[0]; // Tomar la primera
-        console.log('✅ Llamada existente encontrada:', existingCallData.id);
         
         setAction('UPDATE');
         setExistingCall(existingCallData);
         
         // Cargar datos de la llamada existente en el formulario
-        setJustificacion(existingCallData.motivo || '');
+        // Si la justificación existe en las predefinidas, usarla; si no, usar la primera por defecto
+        const existingJustificacion = existingCallData.motivo || existingCallData.justificacion_llamada || '';
+        setJustificacion(
+          justificacionesPredefinidas.includes(existingJustificacion) 
+            ? existingJustificacion 
+            : 'Mejor momento de llamada'
+        );
         
         // Si tiene fecha programada, cargarla
         if (existingCallData.fecha_programada) {
@@ -135,7 +142,6 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
         }
       } else {
         // No hay llamada programada → modo INSERT
-        console.log('➕ No hay llamadas programadas, modo INSERT');
         setAction('INSERT');
         setExistingCall(null);
       }
@@ -223,14 +229,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   const handleSubmit = async () => {
     // Validar justificación (obligatoria)
     if (!justificacion.trim()) {
-      setErrors({ justificacion: 'La justificación es obligatoria' });
-      toast.error('Debes proporcionar una justificación para la llamada');
-      return;
-    }
-
-    if (justificacion.trim().length > 300) {
-      setErrors({ justificacion: 'La justificación no puede exceder 300 caracteres' });
-      toast.error('La justificación no puede exceder 300 caracteres');
+      setErrors({ justificacion: 'Debes seleccionar una justificación' });
+      toast.error('Debes seleccionar una justificación para la llamada');
       return;
     }
 
@@ -314,8 +314,7 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       }
 
       // Éxito
-      const result = await response.json().catch(() => ({}));
-      console.log('✅ Llamada programada exitosamente:', result);
+      await response.json().catch(() => ({}));
 
       toast.success(
         action === 'UPDATE'
@@ -326,7 +325,7 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       );
 
       // Resetear y cerrar
-      setJustificacion('');
+      setJustificacion('Mejor momento de llamada');
       setScheduleType('now');
       setScheduledDate('');
       setScheduledTime('');
@@ -497,50 +496,58 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
                     </h4>
                   </div>
 
-                  <div className="group">
+                  <div className="space-y-2">
                     <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                      <MessageSquare className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                      <span>Contexto o Justificación *</span>
+                      <MessageSquare className="w-4 h-4 text-gray-400" />
+                      <span>Selecciona una justificación *</span>
                     </label>
-                    <textarea
-                      value={justificacion}
-                      onChange={(e) => {
-                        if (e.target.value.length <= 300) {
-                          setJustificacion(e.target.value);
+                    {justificacionesPredefinidas.map((justif, index) => (
+                      <motion.button
+                        key={justif}
+                        type="button"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 + index * 0.05 }}
+                        onClick={() => {
+                          setJustificacion(justif);
                           if (errors.justificacion) {
                             setErrors(prev => ({ ...prev, justificacion: undefined }));
                           }
-                        }
-                      }}
-                      placeholder="Describe el motivo o contexto de la llamada..."
-                      rows={4}
-                      maxLength={300}
-                      disabled={loading}
-                      required
-                      className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 resize-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                        errors.justificacion 
-                          ? 'border-red-300 dark:border-red-700' 
-                          : 'border-gray-200 dark:border-gray-700'
-                      }`}
-                    />
-                    <div className="flex justify-between items-center mt-1">
-                      <span className={`text-xs ${
-                        errors.justificacion 
-                          ? 'text-red-500 dark:text-red-400' 
-                          : 'text-gray-400 dark:text-gray-500'
-                      }`}>
-                        {errors.justificacion || 'Obligatorio - Máximo 300 caracteres'}
-                      </span>
-                      <span className={`text-xs font-medium ${
-                        justificacion.length > 280 
-                          ? 'text-orange-500' 
-                          : justificacion.length > 250 
-                            ? 'text-yellow-500' 
-                            : 'text-gray-400 dark:text-gray-500'
-                      }`}>
-                        {justificacion.length}/300
-                      </span>
-                    </div>
+                        }}
+                        disabled={loading}
+                        className={`w-full p-4 rounded-xl border-2 transition-all duration-200 text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+                          justificacion === justif
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800/50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm font-medium ${
+                            justificacion === justif
+                              ? 'text-blue-700 dark:text-blue-300'
+                              : 'text-gray-700 dark:text-gray-300'
+                          }`}>
+                            {justif}
+                          </span>
+                          {justificacion === justif && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center"
+                            >
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </motion.div>
+                          )}
+                        </div>
+                      </motion.button>
+                    ))}
+                    {errors.justificacion && (
+                      <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                        {errors.justificacion}
+                      </p>
+                    )}
                   </div>
                 </motion.div>
 

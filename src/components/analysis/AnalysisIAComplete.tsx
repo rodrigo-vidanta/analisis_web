@@ -371,8 +371,8 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                     disabled={!hasActiveChat}
                     className={`p-2 rounded-full transition-colors shadow-lg ${
                       hasActiveChat 
-                        ? 'bg-white/20 hover:bg-white/30 text-white cursor-pointer' 
-                        : 'bg-white/10 text-white/50 cursor-not-allowed'
+                        ? 'bg-white/40 hover:bg-white/50 text-white cursor-pointer hover:scale-110 active:scale-95 backdrop-blur-md border border-white/30' 
+                        : 'bg-white/25 text-white/60 cursor-not-allowed opacity-60 backdrop-blur-md border border-white/20'
                     }`}
                     title={hasActiveChat ? "Ir a conversación activa" : "No hay conversación activa"}
                   >

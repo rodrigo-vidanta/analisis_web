@@ -10,7 +10,9 @@ import { prospectsService, type Prospect } from '../../../services/prospectsServ
 import { coordinacionService } from '../../../services/coordinacionService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { useAppStore } from '../../../stores/appStore';
-import { ProspectoSidebar } from '../../scheduled-calls/ProspectoSidebar';
+import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
+import { getAvatarGradient } from '../../../utils/avatarGradient';
+import { systemNotificationService } from '../../../services/systemNotificationService';
 
 interface ProspectosNuevosWidgetProps {
   userId?: string;
@@ -23,6 +25,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProspecto, setSelectedProspecto] = useState<Prospect | null>(null);
   const isOpeningSidebarRef = useRef(false);
+  const processedProspectsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!userId) {
@@ -38,7 +41,28 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'prospectos'
+        },
+        (payload) => {
+          const newProspect = payload.new as any;
+          // Mostrar notificación del sistema si es un prospecto nuevo
+          if (newProspect.id && !processedProspectsRef.current.has(newProspect.id)) {
+            processedProspectsRef.current.add(newProspect.id);
+            const prospectName = newProspect.nombre_completo || newProspect.nombre_whatsapp || 'Nuevo Prospecto';
+            systemNotificationService.showNewProspectNotification({
+              prospectName,
+              prospectId: newProspect.id
+            });
+          }
+          loadProspectos();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
           schema: 'public',
           table: 'prospectos'
         },
@@ -246,15 +270,20 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
                   >
                     <div className="flex items-center gap-2">
                       {/* Avatar con iniciales - al lado izquierdo del nombre */}
-                      <div 
-                        className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleProspectoNameClick(e, prospecto.id);
-                        }}
-                      >
-                        {getInitials(prospecto.nombre_completo || prospecto.nombre_whatsapp)}
-                      </div>
+                      {(() => {
+                        const { gradientClass, initials } = getAvatarGradient(prospecto.nombre_completo || prospecto.nombre_whatsapp);
+                        return (
+                          <div 
+                            className={`w-8 h-8 rounded-full ${gradientClass} flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleProspectoNameClick(e, prospecto.id);
+                            }}
+                          >
+                            {initials}
+                          </div>
+                        );
+                      })()}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p 
@@ -311,7 +340,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
       {selectedProspecto && (
         <ProspectoSidebar
           key={`prospectos-widget-${selectedProspecto.id}`}
-          prospectoId={selectedProspecto.id}
+          prospecto={selectedProspecto}
           isOpen={sidebarOpen}
           onClose={handleSidebarClose}
           onNavigateToLiveChat={(prospectoId) => {

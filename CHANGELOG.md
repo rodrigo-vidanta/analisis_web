@@ -1,5 +1,53 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.7N6.0.0 - Dashboard: Notificaciones del Sistema y Sidebar Actualizado (Enero 2025)
+
+### 🎯 **RELEASE BETA - Notificaciones del Sistema Operativo y Mejoras en Sidebar**
+
+#### 🔔 **Notificaciones del Sistema Operativo**
+- **Solicitud automática de permisos:** Solicitud automática de permisos del navegador al entrar al dashboard (después de 2 segundos)
+- **Notificaciones persistentes:** Funcionan incluso cuando el navegador está minimizado o en otra pestaña
+- **Tipos de notificaciones:**
+  - Mensajes nuevos: Muestra nombre del cliente y preview del mensaje
+  - Llamadas activas: Muestra nombre del prospecto y estado de la llamada
+  - Llamadas programadas: Muestra nombre del prospecto y hora programada
+  - Nuevos prospectos: Muestra nombre del nuevo prospecto agregado
+- **Control granular:** Panel de control con toggles individuales para cada tipo de notificación
+- **Click en notificaciones:** Al hacer click, abre el navegador y navega al módulo correspondiente
+- **Cierre automático:** Las notificaciones se cierran automáticamente después de 5 segundos
+- **Preferencias persistentes:** Configuración guardada en localStorage
+- **Integración completa:** Integrado en todos los widgets del dashboard (Conversaciones, Llamadas Activas, Llamadas Programadas, Prospectos Nuevos)
+
+#### 🔧 **Sidebar de Prospecto Actualizado en Dashboard**
+- **Sidebar unificado:** Todos los widgets del dashboard ahora usan el sidebar actualizado del módulo de "Prospectos"
+- **Funcionalidad completa:** Acceso a todas las características del sidebar actualizado (llamadas, conversaciones, programación, etc.)
+- **Carga optimizada:** Carga del prospecto completo antes de abrir el sidebar para mejor rendimiento
+- **Aplicado en:**
+  - Widget "Prospectos Nuevos": Click en avatar/nombre abre sidebar actualizado
+  - Widget "Últimas Conversaciones": Click en avatar/nombre abre sidebar actualizado
+
+#### 🐛 **Corrección de Bug de Hooks**
+- **Fix crítico:** Corregido error de "Invalid hook call" en ProspectosNuevosWidget
+- **Causa:** `useRef` estaba siendo llamado dentro de `useEffect` (violación de reglas de hooks)
+- **Solución:** Movido `processedProspectsRef` al nivel superior del componente
+
+#### 📁 **Archivos Principales Modificados**
+- `src/services/systemNotificationService.ts` - Nuevo servicio para notificaciones del sistema
+- `src/components/dashboard/NotificationControl.tsx` - Panel de control actualizado con notificaciones del sistema
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Integración de notificaciones y sidebar actualizado
+- `src/components/dashboard/widgets/LlamadasActivasWidget.tsx` - Integración de notificaciones del sistema
+- `src/components/dashboard/widgets/LlamadasProgramadasWidget.tsx` - Integración de notificaciones del sistema
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Integración de notificaciones, sidebar actualizado y fix de hooks
+
+#### 🔧 **Implementación Técnica**
+- **API de Notifications:** Uso de la API nativa del navegador para notificaciones del sistema
+- **Gestión de permisos:** Manejo de estados de permisos (default, granted, denied)
+- **Servicio singleton:** Patrón singleton para gestión centralizada de notificaciones
+- **Integración realtime:** Notificaciones disparadas por eventos realtime de Supabase
+- **Prevención de duplicados:** Sistema de tracking para evitar notificaciones duplicadas
+
+---
+
 ## 🎯 Versión B4.0.6N6.0.0 - Dashboard: Botón de Transferencia y Mejoras en Realtime (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras en Dashboard y Chat**

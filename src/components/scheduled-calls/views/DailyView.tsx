@@ -8,6 +8,7 @@ interface DailyViewProps {
   calls: ScheduledCall[];
   selectedDate: Date;
   onCallClick: (call: ScheduledCall) => void;
+  onProspectClick?: (prospectoId: string) => void;
   onDateChange?: (date: Date) => void;
   showNavigation?: boolean;
 }
@@ -16,6 +17,7 @@ export const DailyView: React.FC<DailyViewProps> = ({
   calls,
   selectedDate,
   onCallClick,
+  onProspectClick,
   showNavigation = true
 }) => {
   // Filtrar llamadas del día seleccionado
@@ -162,17 +164,35 @@ export const DailyView: React.FC<DailyViewProps> = ({
                             )}
                             <div className="p-4 relative z-0">
                               <div className="flex items-start gap-4">
-                                {/* Avatar */}
-                                <ProspectAvatar
-                                  nombreCompleto={call.prospecto_nombre}
-                                  nombreWhatsapp={call.prospecto_nombre}
-                                  size="md"
-                                />
+                                {/* Avatar - Clickable para abrir sidebar */}
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (onProspectClick) {
+                                      onProspectClick(call.prospecto);
+                                    }
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  <ProspectAvatar
+                                    nombreCompleto={call.prospecto_nombre}
+                                    nombreWhatsapp={call.prospecto_nombre}
+                                    size="md"
+                                  />
+                                </div>
 
                                 {/* Información */}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                                    <h3
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onProspectClick) {
+                                          onProspectClick(call.prospecto);
+                                        }
+                                      }}
+                                      className="text-base font-semibold text-gray-900 dark:text-white truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                    >
                                       {call.prospecto_nombre}
                                     </h3>
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium relative z-30 ${getStatusColor(call.estatus)}`}>

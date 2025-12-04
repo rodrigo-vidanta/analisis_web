@@ -7,12 +7,14 @@ interface WeeklyViewProps {
   calls: ScheduledCall[];
   selectedDate: Date;
   onCallClick: (call: ScheduledCall) => void;
+  onProspectClick?: (prospectoId: string) => void;
 }
 
 export const WeeklyView: React.FC<WeeklyViewProps> = ({
   calls,
   selectedDate,
-  onCallClick
+  onCallClick,
+  onProspectClick
 }) => {
   const weekDays = useMemo(() => {
     const startOfWeek = new Date(selectedDate);
@@ -167,8 +169,16 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
                           </span>
                         </div>
 
-                        {/* Nombre del prospecto - ultra compacto */}
-                        <h4 className="text-[8px] sm:text-[9px] md:text-[10px] font-semibold text-gray-900 dark:text-white truncate leading-tight">
+                        {/* Nombre del prospecto - ultra compacto - Clickable */}
+                        <h4
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onProspectClick) {
+                              onProspectClick(call.prospecto);
+                            }
+                          }}
+                          className="text-[8px] sm:text-[9px] md:text-[10px] font-semibold text-gray-900 dark:text-white truncate leading-tight cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
                           {call.prospecto_nombre}
                         </h4>
                       </div>

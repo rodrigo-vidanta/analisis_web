@@ -1,84 +1,150 @@
 /**
  * Widget de Llamadas Programadas
- * Muestra llamadas programadas del día actual asignadas al usuario
+ * Muestra TODAS las llamadas programadas del día actual
+ * Independientemente de quién las agendó (bot o ejecutivo)
  * Con suscripciones realtime para actualizaciones en tiempo real
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Loader2 } from 'lucide-react';
-import { scheduledCallsService } from '../../../services/scheduledCallsService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
+import { ManualCallModal } from '../../shared/ManualCallModal';
+import { systemNotificationService } from '../../../services/systemNotificationService';
 
 interface LlamadasProgramadasWidgetProps {
-  userId?: string;
+  userId?: string; // Mantenido para compatibilidad pero ya no se usa para filtrar
 }
 
 export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps> = ({ userId }) => {
   const [llamadas, setLlamadas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<any>(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedCall, setSelectedCall] = useState<any>(null);
 
   const loadLlamadas = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      setLlamadas([]);
-      return;
-    }
-
     try {
       // No mostrar loading en recargas por realtime para evitar parpadeos
       if (llamadas.length === 0) {
         setLoading(true);
       }
       
-      // Usar el servicio igual que ScheduledCallsManager - obtener todas y filtrar después
-      const allData = await scheduledCallsService.getScheduledCalls(userId, {
-        estatus: 'all' // Obtener todas y filtrar después (igual que ScheduledCallsManager)
-      });
+      // Consultar directamente TODAS las llamadas programadas del día actual
+      // Sin filtros de usuario - mostrar todas independientemente de quién las agendó
+      // Usar comparación por fecha (solo día) para evitar problemas de zona horaria
+      const hoy = new Date();
+      const fechaHoy = hoy.toISOString().split('T')[0]; // Formato: YYYY-MM-DD
+      
+      // Obtener todas las llamadas programadas y filtrar por fecha después
+      // Esto evita problemas de zona horaria al comparar timestamps
+      const { data: callsData, error } = await analysisSupabase
+        .from('llamadas_programadas')
+        .select(`
+          id,
+          fecha_programada,
+          prospecto,
+          estatus,
+          justificacion_llamada,
+          creada,
+          llamada_ejecutada,
+          id_llamada_dynamics,
+          programada_por_id,
+          programada_por_nombre
+        `)
+        .eq('estatus', 'programada')
+        .order('fecha_programada', { ascending: true });
 
-      if (!allData || allData.length === 0) {
+      if (error) {
+        console.error('❌ Error obteniendo llamadas programadas:', error);
         setLlamadas([]);
         return;
       }
 
-      // Filtrar solo las del día actual con estatus 'programada' - igual que DailyView
-      const hoy = new Date();
-      const dateString = hoy.toISOString().split('T')[0]; // Solo fecha sin hora
+      if (!callsData || callsData.length === 0) {
+        setLlamadas([]);
+        return;
+      }
+
+      // Filtrar por fecha del día actual (comparar solo la fecha, no la hora)
+      // Esto maneja correctamente las zonas horarias
+      const llamadasDelDia = callsData.filter(call => {
+        if (!call.fecha_programada) {
+          return false;
+        }
+        const callDate = new Date(call.fecha_programada);
+        const callDateString = callDate.toISOString().split('T')[0];
+        const matches = callDateString === fechaHoy;
+        
+        if (!matches) {
+          console.log(`📅 [Widget] Llamada ${call.id} filtrada: fecha ${callDateString} !== hoy ${fechaHoy}`);
+        }
+        
+        return matches;
+      });
       
-      const delDiaActual = allData.filter(call => {
-        if (call.estatus !== 'programada') return false;
-        const callDate = new Date(call.fecha_programada).toISOString().split('T')[0];
-        return callDate === dateString;
+      console.log('📊 [Widget] Llamadas del día después de filtrar:', {
+        totalObtenidas: callsData.length,
+        delDia: llamadasDelDia.length,
+        fechaHoy
       });
 
-      // Ordenar por hora (más tempranas primero) - igual que DailyView
-      const sorted = delDiaActual.sort((a, b) => {
-        const timeA = new Date(a.fecha_programada).getTime();
-        const timeB = new Date(b.fecha_programada).getTime();
-        return timeA - timeB;
-      });
+      if (llamadasDelDia.length === 0) {
+        setLlamadas([]);
+        return;
+      }
 
-      setLlamadas(sorted.slice(0, 5)); // Solo mostrar 5
+      // Enriquecer con datos de prospectos
+      const prospectoIds = [...new Set(llamadasDelDia.map(call => call.prospecto).filter(Boolean))];
+      
+      let prospectosMap = new Map();
+      
+      if (prospectoIds.length > 0) {
+        const { data: prospectosData, error: prospectosError } = await analysisSupabase
+          .from('prospectos')
+          .select('id, nombre_completo, nombre_whatsapp, whatsapp')
+          .in('id', prospectoIds);
+        
+        if (!prospectosError && prospectosData) {
+          prospectosMap = new Map(
+            prospectosData.map(p => [p.id, p])
+          );
+        }
+      }
+
+      // Mapear y enriquecer datos
+      const enrichedCalls = llamadasDelDia.map(call => {
+        const prospecto = prospectosMap.get(call.prospecto);
+        return {
+          ...call,
+          prospecto_nombre: prospecto?.nombre_completo || prospecto?.nombre_whatsapp || null,
+          prospecto_whatsapp: prospecto?.whatsapp || null
+        };
+      });
+      setLlamadas(enrichedCalls.slice(0, 5)); // Solo mostrar 5
     } catch (error: any) {
-      // Si es un error de permisos, mostrar array vacío
+      console.error('Error cargando llamadas programadas:', error);
       setLlamadas([]);
     } finally {
       setLoading(false);
     }
-  }, [userId, llamadas.length]);
+  }, [llamadas.length]);
 
   useEffect(() => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
     loadLlamadas();
     
-    // Suscripción realtime mejorada
+    // Recarga automática cada 30 segundos como fallback si realtime no funciona
+    const reloadInterval = setInterval(() => {
+      console.log('🔄 [Widget] Recarga automática de llamadas programadas');
+      loadLlamadas();
+    }, 30000);
+    
+    // Suscripción realtime - mostrar TODAS las llamadas programadas sin filtros de usuario
+    const channelName = `llamadas-programadas-dashboard-${Date.now()}`;
+    console.log('🔌 [Widget] Creando canal realtime:', channelName);
+    
     const channel = analysisSupabase
-      .channel(`llamadas-programadas-dashboard-${Date.now()}`)
+      .channel(channelName)
       // Escuchar INSERT de nuevas llamadas programadas
       .on(
         'postgres_changes',
@@ -87,37 +153,93 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
           schema: 'public',
           table: 'llamadas_programadas'
         },
-        (payload) => {
+        async (payload) => {
           const newCall = payload.new as any;
+          console.log('🔔 [Widget] INSERT recibido:', {
+            id: newCall.id,
+            fecha_programada: newCall.fecha_programada,
+            estatus: newCall.estatus,
+            prospecto: newCall.prospecto
+          });
           
-          // Verificar si es del día actual y está programada
-          const hoy = new Date().toISOString().split('T')[0];
-          const callDate = new Date(newCall.fecha_programada).toISOString().split('T')[0];
+          // Verificar si es del día actual y está programada (SIN filtros de usuario)
+          // Usar comparación por fecha (solo día) para evitar problemas de zona horaria
+          const hoy = new Date();
+          const fechaHoy = hoy.toISOString().split('T')[0];
           
-          // Verificar si está asignada al usuario actual (si hay userId)
-          const isAssignedToUser = !userId || 
-            newCall.programada_por === userId || 
-            newCall.ejecutivo_id === userId ||
-            newCall.coordinacion_id === userId;
+          if (!newCall.fecha_programada) {
+            console.log('⚠️ [Widget] Llamada sin fecha_programada, ignorando');
+            return;
+          }
           
-          if (callDate === hoy && newCall.estatus === 'programada' && isAssignedToUser) {
+          const callDate = new Date(newCall.fecha_programada);
+          const callDateString = callDate.toISOString().split('T')[0];
+          const isToday = callDateString === fechaHoy;
+          
+          console.log('📅 [Widget] Comparación de fechas:', {
+            fechaHoy,
+            callDateString,
+            isToday,
+            estatus: newCall.estatus,
+            cumpleCondiciones: isToday && newCall.estatus === 'programada'
+          });
+          
+          if (isToday && newCall.estatus === 'programada') {
+            // Enriquecer con datos de prospecto si es necesario
+            let enrichedCall = newCall;
+            if (newCall.prospecto) {
+              try {
+                const { data: prospectoData } = await analysisSupabase
+                  .from('prospectos')
+                  .select('id, nombre_completo, nombre_whatsapp, whatsapp')
+                  .eq('id', newCall.prospecto)
+                  .single();
+                
+                if (prospectoData) {
+                  enrichedCall = {
+                    ...newCall,
+                    prospecto_nombre: prospectoData.nombre_completo || prospectoData.nombre_whatsapp || null,
+                    prospecto_whatsapp: prospectoData.whatsapp || null
+                  };
+                }
+              } catch (e) {
+                // Si falla, usar el call sin enriquecer
+              }
+            }
+            
             // Agregar directamente sin recargar toda la lista
             setLlamadas(prev => {
               // Verificar si ya existe (evitar duplicados)
-              if (prev.find(c => c.id === newCall.id)) {
+              if (prev.find(c => c.id === enrichedCall.id)) {
+                console.log('⚠️ [Widget] Llamada ya existe en la lista, ignorando duplicado');
                 return prev;
               }
               
+              console.log('✅ [Widget] Agregando llamada a la lista:', enrichedCall.id);
+              
+              // Mostrar notificación del sistema
+              const prospectName = enrichedCall.prospecto_nombre || enrichedCall.prospecto_whatsapp || 'Prospecto';
+              systemNotificationService.showScheduledCallNotification({
+                prospectName,
+                scheduledTime: enrichedCall.fecha_programada,
+                callId: enrichedCall.id,
+                prospectId: enrichedCall.prospecto
+              });
+              
               // Agregar y ordenar por hora
-              const updated = [...prev, newCall].sort((a, b) => {
+              const updated = [...prev, enrichedCall].sort((a, b) => {
                 const timeA = new Date(a.fecha_programada).getTime();
                 const timeB = new Date(b.fecha_programada).getTime();
                 return timeA - timeB;
               });
               
               // Mantener solo las 5 más tempranas
-              return updated.slice(0, 5);
+              const result = updated.slice(0, 5);
+              console.log('📋 [Widget] Total llamadas después de agregar:', result.length);
+              return result;
             });
+          } else {
+            console.log('❌ [Widget] Llamada no cumple condiciones (no es hoy o no está programada)');
           }
         }
       )
@@ -133,16 +255,15 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
           const updatedCall = payload.new as any;
           const oldCall = payload.old as any;
           
-          // Verificar si es del día actual
-          const hoy = new Date().toISOString().split('T')[0];
-          const callDate = new Date(updatedCall.fecha_programada).toISOString().split('T')[0];
-          const isToday = callDate === hoy;
+          // Verificar si es del día actual (SIN filtros de usuario)
+          // Usar comparación por fecha (solo día) para evitar problemas de zona horaria
+          const hoy = new Date();
+          const fechaHoy = hoy.toISOString().split('T')[0];
           
-          // Verificar si está asignada al usuario actual
-          const isAssignedToUser = !userId || 
-            updatedCall.programada_por === userId || 
-            updatedCall.ejecutivo_id === userId ||
-            updatedCall.coordinacion_id === userId;
+          if (!updatedCall.fecha_programada) return;
+          const callDate = new Date(updatedCall.fecha_programada);
+          const callDateString = callDate.toISOString().split('T')[0];
+          const isToday = callDateString === fechaHoy;
           
           // Si cambió el estatus o la fecha
           if (updatedCall.estatus !== oldCall.estatus || 
@@ -153,7 +274,7 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
               
               if (exists) {
                 // Si ya no está programada o no es de hoy, removerla
-                if (updatedCall.estatus !== 'programada' || !isToday || !isAssignedToUser) {
+                if (updatedCall.estatus !== 'programada' || !isToday) {
                   return prev.filter(c => c.id !== updatedCall.id);
                 }
                 // Actualizar la llamada y reordenar
@@ -165,8 +286,8 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
                 }).slice(0, 5);
               }
               
-              // Si no existe y ahora está programada para hoy y asignada al usuario, agregarla
-              if (isToday && updatedCall.estatus === 'programada' && isAssignedToUser) {
+              // Si no existe y ahora está programada para hoy, agregarla (SIN filtros de usuario)
+              if (isToday && updatedCall.estatus === 'programada') {
                 const updated = [...prev, updatedCall].sort((a, b) => {
                   const timeA = new Date(a.fecha_programada).getTime();
                   const timeB = new Date(b.fecha_programada).getTime();
@@ -199,28 +320,30 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
         },
         (payload) => {
           const deletedCall = payload.old as any;
-          // Remover de la lista si existe
+          // Remover de la lista si existe (SIN filtros de usuario)
           setLlamadas(prev => prev.filter(c => c.id !== deletedCall.id));
         }
       )
       .subscribe((status) => {
+        console.log('📡 [Widget] Estado de suscripción realtime:', status);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Suscripción realtime activa para llamadas_programadas');
+          console.log('✅ [Widget] Suscripción realtime activa para llamadas_programadas');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Error en suscripción realtime de llamadas_programadas');
+          console.error('❌ [Widget] Error en suscripción realtime de llamadas_programadas');
         } else if (status === 'TIMED_OUT') {
-          console.warn('⚠️ Timeout en suscripción realtime de llamadas_programadas');
+          console.warn('⚠️ [Widget] Timeout en suscripción realtime de llamadas_programadas');
         }
       });
 
     channelRef.current = channel;
 
     return () => {
+      clearInterval(reloadInterval);
       if (channelRef.current) {
         channelRef.current.unsubscribe();
       }
     };
-  }, [userId, loadLlamadas]);
+  }, [loadLlamadas]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -265,7 +388,11 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600"
+              onClick={() => {
+                setSelectedCall(llamada);
+                setShowScheduleModal(true);
+              }}
+              className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
@@ -289,6 +416,24 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
           ))
         )}
       </div>
+
+      {/* Modal de Programar Llamada */}
+      {selectedCall && (
+        <ManualCallModal
+          isOpen={showScheduleModal}
+          onClose={() => {
+            setShowScheduleModal(false);
+            setSelectedCall(null);
+          }}
+          prospectoId={selectedCall.prospecto}
+          prospectoNombre={selectedCall.prospecto_nombre || selectedCall.prospecto_whatsapp}
+          onSuccess={() => {
+            loadLlamadas();
+            setShowScheduleModal(false);
+            setSelectedCall(null);
+          }}
+        />
+      )}
     </div>
   );
 };

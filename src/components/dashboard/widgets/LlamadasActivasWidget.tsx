@@ -1,15 +1,27 @@
 /**
  * Widget de Llamadas Activas
  * Muestra llamadas activas ordenadas por checkpoint (más avanzadas primero)
+ * Con modal de detalle y suscripciones realtime
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
+import { Phone, ChevronRight, Loader2, TrendingUp, Users, MapPin, Sparkles, Heart, Plane } from 'lucide-react';
 import { liveMonitorService, type LiveCallData } from '../../../services/liveMonitorService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
-import { RedirectToLiveMonitor } from './RedirectToLiveMonitor';
+import { ActiveCallDetailModal } from './ActiveCallDetailModal';
 import { notificationSoundService } from '../../../services/notificationSoundService';
+import { systemNotificationService } from '../../../services/systemNotificationService';
+
+// Helper para parsear datos_proceso
+const parseDatosProceso = (datos: any): any => {
+  if (!datos) return {};
+  try {
+    return typeof datos === 'string' ? JSON.parse(datos) : datos;
+  } catch {
+    return {};
+  }
+};
 
 interface LlamadasActivasWidgetProps {
   userId?: string;
@@ -96,6 +108,16 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
             processedCallsRef.current.add(newCall.call_id);
             // Reproducir sonido de notificación
             notificationSoundService.playNotification('call');
+            
+            // Mostrar notificación del sistema
+            const prospectName = newCall.prospecto_nombre || newCall.customer_name || 'Prospecto';
+            systemNotificationService.showCallNotification({
+              prospectName,
+              callStatus: newCall.call_status || 'En curso',
+              callId: newCall.call_id,
+              prospectId: newCall.prospecto
+            });
+            
             loadLlamadas();
           }
         }
@@ -119,6 +141,15 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
                 newCall?.call_id && !processedCallsRef.current.has(newCall.call_id)) {
               processedCallsRef.current.add(newCall.call_id);
               notificationSoundService.playNotification('call');
+              
+              // Mostrar notificación del sistema
+              const prospectName = newCall.prospecto_nombre || newCall.customer_name || 'Prospecto';
+              systemNotificationService.showCallNotification({
+                prospectName,
+                callStatus: newCall.call_status || 'En curso',
+                callId: newCall.call_id,
+                prospectId: newCall.prospecto
+              });
             }
             loadLlamadas();
           }
@@ -126,11 +157,59 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
           else if (newCall?.call_status === 'activa') {
             setLlamadas(prev => {
               const exists = prev.find(c => c.call_id === newCall.call_id);
+              
+              // Parsear datos_proceso con manejo de errores
+              let datosProcesoActualizados = newCall.datos_proceso;
+              if (typeof newCall.datos_proceso === 'string') {
+                try {
+                  datosProcesoActualizados = JSON.parse(newCall.datos_proceso);
+                } catch (e) {
+                  datosProcesoActualizados = exists?.datos_proceso || null;
+                }
+              }
+              
+              // Parsear datos_llamada con manejo de errores
+              let datosLlamadaActualizados = newCall.datos_llamada;
+              if (typeof newCall.datos_llamada === 'string') {
+                try {
+                  datosLlamadaActualizados = JSON.parse(newCall.datos_llamada);
+                } catch (e) {
+                  datosLlamadaActualizados = exists?.datos_llamada || null;
+                }
+              }
+              
+              // Extraer campos específicos de datos_proceso para actualización en tiempo real
+              // (igual que LiveMonitorKanban - líneas 1401-1409)
+              const composicionFamiliarNumero = datosProcesoActualizados?.numero_personas || 
+                newCall.composicion_familiar_numero || 
+                exists?.composicion_familiar_numero;
+              
+              const destinoPreferido = newCall.destino_preferido || 
+                datosProcesoActualizados?.destino_preferencia || 
+                exists?.destino_preferido;
+              
+              const tipoActividades = datosProcesoActualizados?.tipo_actividades || 
+                exists?.tipo_actividades;
+              
+              const parsedCall = {
+                ...newCall,
+                datos_proceso: datosProcesoActualizados,
+                datos_llamada: datosLlamadaActualizados,
+                // Actualizar campos específicos de preferencias desde datos_proceso
+                composicion_familiar_numero: composicionFamiliarNumero,
+                destino_preferido: destinoPreferido,
+                // Mantener otros campos existentes si no vienen en la actualización
+                tamano_grupo: newCall.tamano_grupo || exists?.tamano_grupo,
+                ciudad_residencia: newCall.ciudad_residencia || exists?.ciudad_residencia,
+                nivel_interes: newCall.nivel_interes || exists?.nivel_interes,
+                nivel_interes_detectado: newCall.nivel_interes_detectado || exists?.nivel_interes_detectado
+              };
+              
               if (exists) {
                 // Actualizar llamada existente sin recargar todo
                 const updated = prev.map(c => 
                   c.call_id === newCall.call_id 
-                    ? { ...c, ...newCall, checkpoint_venta_actual: newCall.checkpoint_venta_actual }
+                    ? { ...c, ...parsedCall }
                     : c
                 ).filter(c => c.call_status === 'activa')
                 .sort((a, b) => {
@@ -141,7 +220,7 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
                 return updated.slice(0, 5);
               } else {
                 // Agregar nueva llamada activa sin recargar todo
-                const updated = [...prev, newCall as LiveCallData]
+                const updated = [...prev, parsedCall as LiveCallData]
                   .filter(c => c.call_status === 'activa')
                   .sort((a, b) => {
                     const checkpointA = getCheckpointNumber(a.checkpoint_venta_actual);
@@ -210,53 +289,119 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
               </p>
             </div>
           ) : (
-            llamadas.map((llamada, index) => (
-              <motion.div
-                key={llamada.call_id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                onClick={() => handleCallClick(llamada)}
-                className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-gray-200 dark:border-gray-600"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {llamada.nombre_completo || llamada.nombre_whatsapp || 'Sin nombre'}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
-                        <TrendingUp className="w-3 h-3" />
-                        {formatCheckpoint(llamada.checkpoint_venta_actual)}
-                      </span>
+            llamadas.map((llamada, index) => {
+              // Parsear datos dinámicos de datos_proceso (igual que LiveMonitorKanban)
+              const datosProceso = parseDatosProceso(llamada.datos_proceso);
+              // Prioridad: datos_proceso.numero_personas > composicion_familiar_numero > tamano_grupo
+              const numeroPersonas = datosProceso.numero_personas || 
+                llamada.composicion_familiar_numero || 
+                llamada.tamano_grupo;
+              const actividades = datosProceso.tipo_actividades;
+              // Prioridad: destino_preferido > datos_proceso.destino_preferencia > destino_preferencia
+              const destino = llamada.destino_preferido || 
+                datosProceso.destino_preferencia ||
+                (Array.isArray(llamada.destino_preferencia) ? llamada.destino_preferencia[0] : llamada.destino_preferencia);
+              const ciudad = llamada.ciudad_residencia;
+              const nivelInteres = llamada.nivel_interes || llamada.nivel_interes_detectado;
+              
+              return (
+                <motion.div
+                  key={llamada.call_id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => handleCallClick(llamada)}
+                  className="p-3 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800/50 hover:from-emerald-50 hover:to-white dark:hover:from-emerald-900/20 dark:hover:to-gray-800/50 cursor-pointer transition-all border border-gray-200 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-700 group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      {/* Nombre y checkpoint */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                          {llamada.nombre_completo || llamada.nombre_whatsapp || 'Sin nombre'}
+                        </p>
+                        {/* Indicador pulsante de llamada activa */}
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse flex-shrink-0"></div>
+                      </div>
+                      
+                      {/* Tags principales */}
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {/* Checkpoint */}
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                          <TrendingUp className="w-3 h-3" />
+                          {formatCheckpoint(llamada.checkpoint_venta_actual)}
+                        </span>
+                        
+                        {/* Nivel de Interés */}
+                        {nivelInteres && (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${
+                            nivelInteres === 'Alto' || nivelInteres === 'MUY_ALTO'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                              : nivelInteres === 'Medio' || nivelInteres === 'MEDIO'
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                          }`}>
+                            <Heart className="w-3 h-3" />
+                            {nivelInteres}
+                          </span>
+                        )}
+                        
+                        {/* Composición familiar */}
+                        {numeroPersonas && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                            <Users className="w-3 h-3" />
+                            {numeroPersonas}p
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Información secundaria */}
+                      <div className="space-y-1">
+                        {/* Ciudad origen */}
+                        {ciudad && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{ciudad}</span>
+                          </div>
+                        )}
+                        
+                        {/* Destino preferido */}
+                        {destino && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <Plane className="w-3 h-3 flex-shrink-0 text-purple-500" />
+                            <span className="truncate">{destino.replace('_', ' ')}</span>
+                          </div>
+                        )}
+                        
+                        {/* Actividades preferidas */}
+                        {actividades && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <Sparkles className="w-3 h-3 flex-shrink-0 text-amber-500" />
+                            <span className="truncate">{actividades}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    {llamada.destino_preferido && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Destino: {Array.isArray(llamada.destino_preferido) 
-                          ? llamada.destino_preferido.join(', ')
-                          : llamada.destino_preferido}
-                      </p>
-                    )}
-                    {llamada.tamano_grupo && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Grupo: {llamada.tamano_grupo} personas
-                      </p>
-                    )}
+                    
+                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-emerald-500 flex-shrink-0 ml-2 transition-colors" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
-                </div>
-              </motion.div>
-            ))
+                </motion.div>
+              );
+            })
           )}
         </div>
       </div>
 
-      {/* Redirigir a LiveMonitor al hacer clic */}
-      {selectedCall && showModal && (
-        <RedirectToLiveMonitor callId={selectedCall.call_id} onClose={() => {
-          setShowModal(false);
-          setSelectedCall(null);
-        }} />
+      {/* Modal de detalle de llamada activa */}
+      {selectedCall && (
+        <ActiveCallDetailModal 
+          call={selectedCall}
+          isOpen={showModal}
+          onClose={() => {
+            setShowModal(false);
+            setSelectedCall(null);
+          }}
+        />
       )}
     </>
   );

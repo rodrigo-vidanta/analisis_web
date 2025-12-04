@@ -11,12 +11,14 @@ import { analysisSupabase } from '../../../config/analysisSupabase';
 import { uchatService, type UChatConversation } from '../../../services/uchatService';
 import { permissionsService } from '../../../services/permissionsService';
 import { coordinacionService } from '../../../services/coordinacionService';
+import { prospectsService } from '../../../services/prospectsService';
 import { useAppStore } from '../../../stores/appStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AssignmentBadge } from '../../analysis/AssignmentBadge';
 import { MultimediaMessage, needsBubble } from '../../chat/MultimediaMessage';
-import { ProspectoSidebar } from '../../scheduled-calls/ProspectoSidebar';
+import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
 import { notificationSoundService } from '../../../services/notificationSoundService';
+import { systemNotificationService } from '../../../services/systemNotificationService';
 import { botPauseService } from '../../../services/botPauseService';
 import { getAvatarGradient } from '../../../utils/avatarGradient';
 
@@ -55,6 +57,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   const isInitialLoadRef = useRef(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProspectoIdForSidebar, setSelectedProspectoIdForSidebar] = useState<string | null>(null);
+  const [selectedProspectoForSidebar, setSelectedProspectoForSidebar] = useState<any | null>(null);
   const isOpeningSidebarRef = useRef(false);
   const [selectedImageModal, setSelectedImageModal] = useState<{ url: string; alt: string } | null>(null);
   const [botPauseStatus, setBotPauseStatus] = useState<{[uchatId: string]: {
@@ -128,6 +131,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     // Limpiar después de que la animación termine
     setTimeout(() => {
       setSelectedProspectoIdForSidebar(null);
+      setSelectedProspectoForSidebar(null);
     }, 300);
   }, []);
 
@@ -297,9 +301,117 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     };
   }, []);
 
+  // Ref para canal de mensajes de la conversación seleccionada
+  const messagesChannelRef = useRef<any>(null);
+
   useEffect(() => {
     if (selectedConversation) {
       loadMessages(selectedConversation);
+      
+      // Limpiar canal anterior si existe
+      if (messagesChannelRef.current) {
+        try {
+          messagesChannelRef.current.unsubscribe();
+        } catch (e) {}
+        messagesChannelRef.current = null;
+      }
+
+      // Suscripción realtime específica para mensajes de esta conversación
+      const conversationId = selectedConversation.id;
+      const prospectId = selectedConversation.prospect_id || selectedConversation.prospecto_id;
+      
+      if (prospectId) {
+        // Suscripción para mensajes_whatsapp
+        const whatsappMessagesChannel = analysisSupabase
+          .channel(`mensajes-whatsapp-conversation-${prospectId}-${Date.now()}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'mensajes_whatsapp',
+              filter: `prospecto_id=eq.${prospectId}`
+            },
+            (payload) => {
+              const newMessage = payload.new as any;
+              // Recargar mensajes cuando llega uno nuevo
+              loadMessages(selectedConversation);
+              
+              // Reproducir sonido si es del cliente
+              if (newMessage.rol === 'Prospecto' && newMessage.id && !processedMessagesRef.current.has(newMessage.id)) {
+                processedMessagesRef.current.add(newMessage.id);
+                notificationSoundService.playNotification('message');
+                
+                // Mostrar notificación del sistema
+                const customerName = newMessage.nombre_contacto || newMessage.customer_name || 'Cliente';
+                const messagePreview = newMessage.mensaje || newMessage.message || '';
+                systemNotificationService.showMessageNotification({
+                  customerName,
+                  messagePreview,
+                  conversationId: selectedConversation?.id,
+                  prospectId: selectedConversation?.prospect_id
+                });
+              }
+            }
+          )
+          .subscribe();
+        
+        messagesChannelRef.current = whatsappMessagesChannel;
+      } else if (conversationId) {
+        // Suscripción para uchat_messages
+        const uchatMessagesChannel = supabaseSystemUI
+          .channel(`uchat-messages-conversation-${conversationId}-${Date.now()}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'uchat_messages',
+              filter: `conversation_id=eq.${conversationId}`
+            },
+            (payload) => {
+              const newMessage = payload.new as any;
+              // Recargar mensajes cuando llega uno nuevo
+              loadMessages(selectedConversation);
+              
+              // Reproducir sonido si es del cliente
+              if (newMessage.sender_type === 'customer' && newMessage.id && !processedMessagesRef.current.has(newMessage.id)) {
+                processedMessagesRef.current.add(newMessage.id);
+                notificationSoundService.playNotification('message');
+                
+                // Mostrar notificación del sistema
+                const customerName = newMessage.sender_name || 'Cliente';
+                const messagePreview = newMessage.content || newMessage.text || '';
+                systemNotificationService.showMessageNotification({
+                  customerName,
+                  messagePreview,
+                  conversationId: newMessage.conversation_id,
+                  prospectId: selectedConversation?.prospect_id
+                });
+              }
+            }
+          )
+          .subscribe();
+        
+        messagesChannelRef.current = uchatMessagesChannel;
+      }
+
+      return () => {
+        if (messagesChannelRef.current) {
+          try {
+            messagesChannelRef.current.unsubscribe();
+          } catch (e) {}
+          messagesChannelRef.current = null;
+        }
+      };
+    } else {
+      // Limpiar canal cuando no hay conversación seleccionada
+      if (messagesChannelRef.current) {
+        try {
+          messagesChannelRef.current.unsubscribe();
+        } catch (e) {}
+        messagesChannelRef.current = null;
+      }
     }
   }, [selectedConversation]);
 
@@ -425,7 +537,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                              b.updated_at ? new Date(b.updated_at).getTime() : 0;
                 return dateB - dateA;
               });
-            return updated.slice(0, 10);
+            return updated.slice(0, 15);
           });
         }
       )
@@ -443,6 +555,15 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           if (newMessage.sender_type === 'customer' && newMessage.id && !processedMessagesRef.current.has(newMessage.id)) {
             processedMessagesRef.current.add(newMessage.id);
             notificationSoundService.playNotification('message');
+            
+            // Mostrar notificación del sistema
+            const customerName = newMessage.sender_name || 'Cliente';
+            const messagePreview = newMessage.content || newMessage.text || '';
+            systemNotificationService.showMessageNotification({
+              customerName,
+              messagePreview,
+              conversationId: newMessage.conversation_id
+            });
           }
           
           if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
@@ -499,6 +620,15 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           if (newMessage.rol === 'Prospecto' && !processedMessagesRef.current.has(messageId)) {
             processedMessagesRef.current.add(messageId);
             notificationSoundService.playNotification('message');
+            
+            // Mostrar notificación del sistema
+            const customerName = newMessage.nombre_contacto || newMessage.customer_name || 'Cliente';
+            const messagePreview = newMessage.mensaje || newMessage.message || '';
+            systemNotificationService.showMessageNotification({
+              customerName,
+              messagePreview,
+              prospectId: newMessage.prospecto_id
+            });
           }
           
           if (selectedConversation && selectedConversation.prospect_id === newMessage.prospecto_id) {
@@ -533,7 +663,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                            b.updated_at ? new Date(b.updated_at).getTime() : 0;
               return dateB - dateA;
             });
-            return updated.slice(0, 10);
+              return updated.slice(0, 15);
           });
         }
       )
@@ -556,7 +686,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const [uchatConversationsRaw, rpcDataResult] = await Promise.all([
         uchatService.getConversations({
           userId: userId,
-          limit: 50
+          limit: 15
         }),
         analysisSupabase.rpc('get_conversations_ordered')
           .then(({ data, error }) => ({ data, error }))
@@ -1052,10 +1182,19 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   
                   isOpeningSidebarRef.current = true;
                   
-                  // Establecer el prospecto primero, luego abrir (igual que ProspectosManager)
-                  setSelectedProspectoIdForSidebar(prospectId);
-                  requestAnimationFrame(() => {
-                    setSidebarOpen(true);
+                  // Cargar el prospecto completo antes de abrir el sidebar
+                  prospectsService.getProspectById(prospectId, user?.id).then((prospecto) => {
+                    if (prospecto) {
+                      setSelectedProspectoForSidebar(prospecto);
+                      setSelectedProspectoIdForSidebar(prospectId);
+                      requestAnimationFrame(() => {
+                        setSidebarOpen(true);
+                        isOpeningSidebarRef.current = false;
+                      });
+                    } else {
+                      isOpeningSidebarRef.current = false;
+                    }
+                  }).catch(() => {
                     isOpeningSidebarRef.current = false;
                   });
                 };
@@ -1104,10 +1243,19 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   
                   isOpeningSidebarRef.current = true;
                   
-                  // Establecer el prospecto primero, luego abrir (igual que ProspectosManager)
-                  setSelectedProspectoIdForSidebar(prospectId);
-                  requestAnimationFrame(() => {
-                    setSidebarOpen(true);
+                  // Cargar el prospecto completo antes de abrir el sidebar
+                  prospectsService.getProspectById(prospectId, user?.id).then((prospecto) => {
+                    if (prospecto) {
+                      setSelectedProspectoForSidebar(prospecto);
+                      setSelectedProspectoIdForSidebar(prospectId);
+                      requestAnimationFrame(() => {
+                        setSidebarOpen(true);
+                        isOpeningSidebarRef.current = false;
+                      });
+                    } else {
+                      isOpeningSidebarRef.current = false;
+                    }
+                  }).catch(() => {
                     isOpeningSidebarRef.current = false;
                   });
                 }}
@@ -1448,10 +1596,10 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       )}
 
       {/* Sidebar de Prospecto - Solo renderizar si hay prospecto seleccionado */}
-      {selectedProspectoIdForSidebar && (
+      {selectedProspectoForSidebar && (
         <ProspectoSidebar
           key={`conversaciones-widget-${selectedProspectoIdForSidebar}`}
-          prospectoId={selectedProspectoIdForSidebar}
+          prospecto={selectedProspectoForSidebar}
           isOpen={sidebarOpen}
           onClose={handleSidebarClose}
           onNavigateToLiveChat={(prospectoId) => {

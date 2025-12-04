@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Calendar, Clock, Eye, X, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Search, Calendar, Clock, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { scheduledCallsService, type ScheduledCall } from '../../services/scheduledCallsService';
 import { CalendarSidebar } from './CalendarSidebar';
 import { DailyView } from './views/DailyView';
 import { WeeklyView } from './views/WeeklyView';
-import { ProspectoSidebar } from './ProspectoSidebar';
+import { ProspectoSidebar } from '../prospectos/ProspectosManager';
+import { ManualCallModal } from '../shared/ManualCallModal';
+import { analysisSupabase } from '../../config/analysisSupabase';
 
 type ViewMode = 'daily' | 'weekly';
 
@@ -21,10 +23,10 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCall, setSelectedCall] = useState<ScheduledCall | null>(null);
   const [prospectoSidebarOpen, setProspectoSidebarOpen] = useState(false);
-  const [selectedProspectoIdForSidebar, setSelectedProspectoIdForSidebar] = useState<string>('');
-  const [calendarWidth, setCalendarWidth] = useState(320);
+  const [selectedProspecto, setSelectedProspecto] = useState<any>(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedCallForSchedule, setSelectedCallForSchedule] = useState<ScheduledCall | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -51,22 +53,6 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
     return () => clearInterval(interval);
   }, [user?.id, searchTerm]);
 
-  // Observer para el ancho del calendario
-  useEffect(() => {
-    if (!calendarRef.current) return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setCalendarWidth(entry.contentRect.width);
-      }
-    });
-
-    observer.observe(calendarRef.current);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
 
   const loadCalls = async () => {
     if (!user?.id) return;
@@ -162,9 +148,29 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
     setSelectedDate(new Date());
   };
 
-  const handleNavigateToProspect = (prospectoId: string) => {
-    setSelectedProspectoIdForSidebar(prospectoId);
-    setProspectoSidebarOpen(true);
+  const handleNavigateToProspect = async (prospectoId: string) => {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('prospectos')
+        .select('*')
+        .eq('id', prospectoId)
+        .single();
+      
+      if (error) {
+        console.error('Error cargando prospecto:', error);
+        return;
+      }
+      
+      setSelectedProspecto(data);
+      setProspectoSidebarOpen(true);
+    } catch (error) {
+      console.error('Error cargando prospecto:', error);
+    }
+  };
+
+  const handleOpenScheduleModal = (call: ScheduledCall) => {
+    setSelectedCallForSchedule(call);
+    setShowScheduleModal(true);
   };
 
   return (
@@ -272,7 +278,8 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
               <DailyView
                 calls={calls}
                 selectedDate={selectedDate}
-                onCallClick={setSelectedCall}
+                onCallClick={handleOpenScheduleModal}
+                onProspectClick={handleNavigateToProspect}
                 onDateChange={setSelectedDate}
                 showNavigation={false}
               />
@@ -280,7 +287,8 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
               <WeeklyView
                 calls={calls}
                 selectedDate={selectedDate}
-                onCallClick={setSelectedCall}
+                onCallClick={handleOpenScheduleModal}
+                onProspectClick={handleNavigateToProspect}
               />
             )}
           </div>
@@ -313,144 +321,32 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
         </div>
       </div>
 
-      {/* Call Detail Modal */}
-      <AnimatePresence>
-        {selectedCall && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md"
-            onClick={() => setSelectedCall(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 10 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
-            >
-              {/* Header */}
-              <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                      Detalle de Llamada Programada
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {selectedCall.prospecto_nombre}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedCall(null)}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                      Fecha Programada
-                    </label>
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {new Date(selectedCall.fecha_programada).toLocaleString('es-MX', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                      Estatus
-                    </label>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      selectedCall.estatus === 'programada' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                      selectedCall.estatus === 'ejecutada' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                      selectedCall.estatus === 'cancelada' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
-                      'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400'
-                    }`}>
-                      {selectedCall.estatus}
-                    </span>
-                  </div>
-
-                  {selectedCall.justificacion_llamada && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        Justificación
-                      </label>
-                      <div className="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg">
-                        {selectedCall.justificacion_llamada}
-                      </div>
-                    </div>
-                  )}
-
-                  {(selectedCall.coordinacion_nombre || selectedCall.ejecutivo_nombre) && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        Asignación
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedCall.coordinacion_nombre && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-lg bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 text-sm">
-                            {selectedCall.coordinacion_nombre}
-                          </span>
-                        )}
-                        {selectedCall.ejecutivo_nombre && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm">
-                            {selectedCall.ejecutivo_nombre}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedCall.prospecto_whatsapp && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        WhatsApp
-                      </label>
-                      <div className="text-sm text-gray-900 dark:text-white font-mono">
-                        {selectedCall.prospecto_whatsapp}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    handleNavigateToProspect(selectedCall.prospecto);
-                    setSelectedCall(null);
-                  }}
-                  className="px-5 py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-colors flex items-center gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  Ver Prospecto
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Modal de Programar/Reprogramar Llamada */}
+      {selectedCallForSchedule && (
+        <ManualCallModal
+          isOpen={showScheduleModal}
+          onClose={() => {
+            setShowScheduleModal(false);
+            setSelectedCallForSchedule(null);
+          }}
+          prospectoId={selectedCallForSchedule.prospecto}
+          prospectoNombre={selectedCallForSchedule.prospecto_nombre}
+          onSuccess={() => {
+            loadCalls();
+            setShowScheduleModal(false);
+            setSelectedCallForSchedule(null);
+          }}
+        />
+      )}
 
       {/* Prospect Sidebar */}
       <ProspectoSidebar
-        prospectoId={selectedProspectoIdForSidebar}
+        prospecto={selectedProspecto}
         isOpen={prospectoSidebarOpen}
-        onClose={() => setProspectoSidebarOpen(false)}
+        onClose={() => {
+          setProspectoSidebarOpen(false);
+          setSelectedProspecto(null);
+        }}
         onNavigateToLiveChat={onNavigateToLiveChat}
       />
     </div>

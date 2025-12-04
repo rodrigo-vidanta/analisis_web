@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
 import { uchatService, type UChatConversation } from '../../services/uchatService';
+import { Avatar } from '../shared/Avatar';
 
 interface Agent {
   id: string;
@@ -295,9 +296,11 @@ const AgentAssignmentModal: React.FC<AgentAssignmentModalProps> = ({
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-3 flex-1">
                         {/* Avatar */}
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                          {agent.full_name.charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar
+                          name={agent.full_name}
+                          size="md"
+                          showIcon={false}
+                        />
 
                         {/* Información del agente */}
                         <div className="flex-1 min-w-0">

@@ -1,5 +1,35 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.7N6.0.0 (Enero 2025) - Dashboard: Notificaciones del Sistema y Sidebar Actualizado
+
+### 🎯 RELEASE BETA - Notificaciones del Sistema Operativo y Mejoras en Sidebar
+
+#### Notificaciones del Sistema Operativo
+- Solicitud automática de permisos del navegador
+- Notificaciones persistentes (funcionan con navegador minimizado)
+- Tipos: Mensajes nuevos, Llamadas activas, Llamadas programadas, Nuevos prospectos
+- Control granular con toggles individuales
+- Click en notificaciones navega al módulo correspondiente
+- Integrado en todos los widgets del dashboard
+
+#### Sidebar de Prospecto Actualizado
+- Sidebar unificado del módulo de "Prospectos" en todos los widgets
+- Funcionalidad completa del sidebar actualizado
+- Carga optimizada del prospecto completo
+
+#### Corrección de Bug
+- Fix de error "Invalid hook call" en ProspectosNuevosWidget
+
+#### Archivos Principales
+- systemNotificationService.ts - Nuevo servicio de notificaciones
+- NotificationControl.tsx - Panel de control actualizado
+- ConversacionesWidget.tsx - Notificaciones y sidebar actualizado
+- LlamadasActivasWidget.tsx - Notificaciones del sistema
+- LlamadasProgramadasWidget.tsx - Notificaciones del sistema
+- ProspectosNuevosWidget.tsx - Notificaciones, sidebar y fix de hooks
+
+---
+
 ## Versión B4.0.6N6.0.0 (Enero 2025) - Dashboard: Botón de Transferencia y Mejoras en Realtime
 
 ### 🎯 RELEASE BETA - Mejoras en Dashboard y Chat

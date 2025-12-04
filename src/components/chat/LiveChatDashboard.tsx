@@ -31,6 +31,7 @@ import {
   Tag
 } from 'lucide-react';
 import { uchatService, type UChatConversation } from '../../services/uchatService';
+import { Avatar } from '../shared/Avatar';
 
 interface LiveChatDashboardProps {
   className?: string;
@@ -301,12 +302,11 @@ const LiveChatDashboard: React.FC<LiveChatDashboardProps> = ({
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-4 flex-1">
                   {/* Avatar */}
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                    {conversation.customer_name 
-                      ? conversation.customer_name.charAt(0).toUpperCase()
-                      : <User className="w-6 h-6" />
-                    }
-                  </div>
+                  <Avatar
+                    name={conversation.customer_name}
+                    size="lg"
+                    showIcon={true}
+                  />
 
                   {/* Información principal */}
                   <div className="flex-1 min-w-0">

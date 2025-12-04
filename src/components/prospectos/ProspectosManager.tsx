@@ -2103,4 +2103,5 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   );
 };
 
+export { ProspectoSidebar };
 export default ProspectosManager;

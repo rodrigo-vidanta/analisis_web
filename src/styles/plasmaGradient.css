@@ -1,0 +1,85 @@
+/**
+ * Animación tipo plasma para headers de sidebars de prospecto
+ * Gradiente oscuro en azules con movimiento suave tipo plasma
+ */
+
+@keyframes plasma-move-x {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes plasma-move-y {
+  0%, 100% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 50% 100%;
+  }
+}
+
+@keyframes plasma-rotate {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+}
+
+.plasma-gradient-header {
+  background: linear-gradient(
+    135deg,
+    #1e3a8a 0%,
+    #1e40af 25%,
+    #1e3a8a 50%,
+    #1e40af 75%,
+    #1e3a8a 100%
+  ) !important;
+  background-size: 200% 200% !important;
+  animation: plasma-move-x 8s ease infinite !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.plasma-gradient-header::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: linear-gradient(
+    45deg,
+    rgba(30, 58, 138, 0.7) 0%,
+    rgba(30, 64, 175, 0.5) 50%,
+    rgba(30, 58, 138, 0.7) 100%
+  ) !important;
+  background-size: 200% 200% !important;
+  animation: plasma-move-x 12s ease infinite reverse !important;
+  opacity: 0.6 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+.plasma-gradient-header::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: radial-gradient(
+    circle at 30% 50%,
+    rgba(59, 130, 246, 0.35) 0%,
+    rgba(30, 64, 175, 0.15) 40%,
+    transparent 70%
+  ) !important;
+  animation: plasma-move-x 15s ease infinite !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
