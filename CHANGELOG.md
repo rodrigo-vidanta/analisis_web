@@ -1,5 +1,57 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.4N6.0.0 - UI/UX: Animaciones de Tema, Mensajes y Mejoras de Responsividad (Diciembre 2025)
+
+### 🎯 **RELEASE BETA - Mejoras de Interfaz y Experiencia de Usuario**
+
+#### ✨ **Animaciones de Toggle de Tema (Dark/Light Mode)**
+- **Iconos animados:** Sol y luna con animaciones suaves usando framer-motion
+- **Partículas decorativas:** Estrellas sutiles que aparecen durante la transición
+- **Rayos del sol:** Diseño SVG refinado con animación de rotación
+- **Transición global:** Cambio de colores suave en toda la aplicación
+- **Diseño discreto:** Colores y efectos refinados para no distraer al usuario
+
+#### 💬 **Rediseño de Burbujas de Mensajes**
+- **Estilo WhatsApp:** Burbujas con "pico" apuntando hacia el avatar del remitente
+- **Gradientes diferenciados:**
+  - Cliente: Fondo claro/oscuro según tema
+  - Bot: Gradiente azul-cyan
+  - Agente: Gradiente violeta-púrpura
+- **Sombras sutiles:** Mejor profundidad visual en cada mensaje
+- **Botón animado:** "Ir a conversación" con animaciones hover y tap
+
+#### ⏸️ **Nuevo Botón de Pausa del Bot (AI Chat Monitor)**
+- **Diseño unificado:** Un solo botón reemplaza múltiples controles de pausa
+- **Menú desplegable:** Opciones de duración (5min, 15min, 30min, 1h, Indefinido)
+- **Contador circular:** Visualización animada del tiempo restante de pausa
+- **Estados claros:** Animaciones distintas para activo, pausado y cargando
+- **Reactivación intuitiva:** Click directo para reactivar sin tooltip redundante
+- **Sin animaciones persistentes:** Corrección de animaciones que no se detenían
+
+#### 📊 **Responsividad del Historial (AI Call Monitor)**
+- **Tabla adaptativa:** Se ajusta al ancho disponible sin scroll horizontal
+- **Texto truncado:** Nombres largos con puntos suspensivos y tooltips
+- **Columnas proporcionales:**
+  - Prospecto: 28%
+  - Fecha: 12%
+  - Duración: 8%
+  - Estado: 14%
+  - Interés: 10%
+  - Asignación: 18%
+- **Compatible con sidebar:** Se adapta correctamente cuando el sidebar está abierto/cerrado
+- **table-fixed:** Layout de tabla fija para respetar anchos definidos
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/Header.tsx` - Animaciones de tema
+- `src/components/linear/LinearHeader.tsx` - Animaciones de tema (linear layout)
+- `src/components/linear/LinearLayout.tsx` - Transición de colores
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Burbujas rediseñadas
+- `src/components/chat/LiveChatCanvas.tsx` - Mensajes y botón de pausa
+- `src/components/chat/BotPauseButton.tsx` (nuevo) - Componente de pausa del bot
+- `src/components/analysis/LiveMonitorKanban.tsx` - Tabla responsiva del historial
+
+---
+
 ## 🎯 Versión B4.0.3N6.0.0 - Prospectos: Filtros en Memoria y Mejoras de UX (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Filtros Optimizados y Mejoras de Experiencia**

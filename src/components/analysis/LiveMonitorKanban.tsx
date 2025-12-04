@@ -3414,7 +3414,7 @@ const LiveMonitorKanban: React.FC = () => {
   const themeClasses = getThemeClasses();
 
   return (
-    <div className={`min-h-screen ${themeClasses.background} p-4 transition-colors duration-300`}>
+    <div className={`min-h-screen ${themeClasses.background} p-2 sm:p-4 transition-colors duration-300 w-full`}>
       {/* Estilos CSS personalizados para animaciones de checkpoint y chat */}
       <style>{`
         .checkpoint-pulse-blue {
@@ -3495,12 +3495,12 @@ const LiveMonitorKanban: React.FC = () => {
         }
       `}</style>
       
-      <div className="max-w-[95vw] mx-auto space-y-4">
+      <div className="w-full space-y-3 sm:space-y-4">
         
 
 
         {/* Tabs */}
-        <div className="corp-card corp-glow overflow-hidden">
+        <div className="corp-card corp-glow w-full">
           <div className="grid grid-cols-2 border-b border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setSelectedTab('active')}
@@ -3542,11 +3542,11 @@ const LiveMonitorKanban: React.FC = () => {
           </div>
 
           {/* Contenido de tabs */}
-          <div className="p-6">
+          <div className="p-3 sm:p-4 lg:p-6">
             {selectedTab === 'active' && (
               <div className="rounded-lg overflow-hidden" style={{ minHeight: 'calc(100vh - 280px)' }}>
                 {/* Headers de columnas */}
-                <div className="grid grid-cols-5 gap-0">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0">
                   {Object.entries(CHECKPOINTS).map(([checkpointKey, checkpoint]) => (
                     <div key={checkpointKey} className={`${checkpoint.bgColor} p-3 border-b border-slate-200 dark:border-slate-700`}>
                       <div className="flex items-center justify-between">
@@ -3585,7 +3585,7 @@ const LiveMonitorKanban: React.FC = () => {
                     return (
                       <div 
                         key={rowIndex} 
-                        className={`grid grid-cols-5 gap-0 min-h-[80px] ${rowBgColors[maxCheckpoint as keyof typeof rowBgColors] || rowBgColors[1]} transition-all duration-500`}
+                        className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0 min-h-[80px] ${rowBgColors[maxCheckpoint as keyof typeof rowBgColors] || rowBgColors[1]} transition-all duration-500`}
                       >
                         {row.map((call, colIndex) => (
                           <div key={`${rowIndex}-${colIndex}`} className="p-2 border-r border-slate-100/50 dark:border-slate-700/30 last:border-r-0">
@@ -3606,32 +3606,32 @@ const LiveMonitorKanban: React.FC = () => {
 
 
             {selectedTab === 'all' && (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {/* Filtros Minimalistas - Siempre Visibles */}
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-4"
+                  className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-3 sm:p-4"
                 >
                   {/* Primera fila: Búsqueda y filtros principales */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 mb-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2 mb-3">
                     {/* Búsqueda ampliada */}
-                    <div className="md:col-span-5">
+                    <div className="col-span-2 sm:col-span-4 lg:col-span-5">
                       <div className="relative">
                         <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                           type="text"
-                          placeholder="Buscar ejecutivo, coordinación, nombre, estado, interés, fecha..."
+                          placeholder="Buscar..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200"
+                          className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm border border-slate-300 dark:border-slate-600 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200"
                         />
                       </div>
                     </div>
                     
                     {/* Rango de fechas - Calendario con rango */}
-                    <div className="md:col-span-3 relative" ref={datePickerRef}>
+                    <div className="col-span-2 sm:col-span-2 lg:col-span-3 relative" ref={datePickerRef}>
                       <div 
                         className="relative cursor-pointer"
                         onClick={() => setShowDatePicker(!showDatePicker)}
@@ -3711,13 +3711,13 @@ const LiveMonitorKanban: React.FC = () => {
                     </div>
                     
                     {/* Ejecutivo asignado */}
-                    <div className="md:col-span-2">
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-2 hidden sm:block">
                       <select
                         value={ejecutivoFilter}
                         onChange={(e) => setEjecutivoFilter(e.target.value)}
                         className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
                       >
-                        <option value="">Todos los ejecutivos</option>
+                        <option value="">Ejecutivo</option>
                         {uniqueEjecutivos.map(ejecutivo => (
                           <option key={ejecutivo.id} value={ejecutivo.id}>{ejecutivo.name}</option>
                         ))}
@@ -3725,7 +3725,7 @@ const LiveMonitorKanban: React.FC = () => {
                     </div>
                     
                     {/* Nivel de interés */}
-                    <div className="md:col-span-1">
+                    <div className="col-span-1 lg:col-span-1 hidden lg:block">
                       <select
                         value={interestFilter}
                         onChange={(e) => setInterestFilter(e.target.value)}
@@ -3739,7 +3739,7 @@ const LiveMonitorKanban: React.FC = () => {
                     </div>
                     
                     {/* Estado */}
-                    <div className="md:col-span-1">
+                    <div className="col-span-1 lg:col-span-1 hidden lg:block">
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
@@ -3755,8 +3755,8 @@ const LiveMonitorKanban: React.FC = () => {
                   </div>
                   
                   {/* Segunda fila: Filtros rápidos por tags */}
-                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Filtros rápidos:</span>
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 border-t border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide">
+                    <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Filtros:</span>
                     
                     {/* Estados rápidos */}
                     <button
@@ -3824,12 +3824,12 @@ const LiveMonitorKanban: React.FC = () => {
                   transition={{ delay: 0.2 }}
                   className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden"
                 >
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <div className="w-full">
+                <table className="w-full divide-y divide-slate-200 dark:divide-slate-700 table-fixed">
                       <thead className="bg-slate-50 dark:bg-slate-700">
                         <tr>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[28%] px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'prospecto_nombre') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -3839,15 +3839,15 @@ const LiveMonitorKanban: React.FC = () => {
                               }
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              Prospecto
+                            <div className="flex items-center gap-1">
+                              <span className="truncate">Prospecto</span>
                               {historySortField === 'prospecto_nombre' && (
-                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                                <span className="flex-shrink-0">{historySortDirection === 'asc' ? '↑' : '↓'}</span>
                               )}
                         </div>
                           </th>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[12%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'fecha_llamada') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -3857,15 +3857,15 @@ const LiveMonitorKanban: React.FC = () => {
                               }
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              Fecha
+                            <div className="flex items-center gap-1">
+                              <span className="truncate">Fecha</span>
                               {historySortField === 'fecha_llamada' && (
-                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                                <span className="flex-shrink-0">{historySortDirection === 'asc' ? '↑' : '↓'}</span>
                               )}
                         </div>
                           </th>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[8%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'duracion_segundos') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -3875,15 +3875,15 @@ const LiveMonitorKanban: React.FC = () => {
                               }
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              Duración
+                            <div className="flex items-center gap-1">
+                              <span className="truncate">Dur.</span>
                               {historySortField === 'duracion_segundos' && (
-                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                                <span className="flex-shrink-0">{historySortDirection === 'asc' ? '↑' : '↓'}</span>
                               )}
                         </div>
                           </th>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[14%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'call_status') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -3893,15 +3893,15 @@ const LiveMonitorKanban: React.FC = () => {
                               }
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              Estado
+                            <div className="flex items-center gap-1">
+                              <span className="truncate">Estado</span>
                               {historySortField === 'call_status' && (
-                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                                <span className="flex-shrink-0">{historySortDirection === 'asc' ? '↑' : '↓'}</span>
                               )}
                         </div>
                           </th>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[10%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'nivel_interes_detectado') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -3911,15 +3911,15 @@ const LiveMonitorKanban: React.FC = () => {
                               }
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              Nivel Interés
+                            <div className="flex items-center gap-1">
+                              <span className="truncate">Interés</span>
                               {historySortField === 'nivel_interes_detectado' && (
-                                <span>{historySortDirection === 'asc' ? '↑' : '↓'}</span>
+                                <span className="flex-shrink-0">{historySortDirection === 'asc' ? '↑' : '↓'}</span>
                               )}
                         </div>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            Asignación
+                          <th className="w-[18%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            <span className="truncate">Asignación</span>
                       </th>
                     </tr>
                   </thead>
@@ -3992,8 +3992,8 @@ const LiveMonitorKanban: React.FC = () => {
                                   position: 'relative'
                                 } : {}}
                   >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center gap-3">
+                        <td className="px-3 py-3 whitespace-nowrap">
+                                  <div className="flex items-center gap-2 min-w-0">
                                     {/* Botón de expansión/colapso para grupos con contador */}
                                     {isGroupMain && groupSize > 1 && (
                                       <button
@@ -4051,13 +4051,13 @@ const LiveMonitorKanban: React.FC = () => {
                                       )}
                         </div>
                                     
-                                    <div className="flex-1 min-w-0">
+                                    <div className="flex-1 min-w-0 overflow-hidden">
                                       <div className="flex items-center gap-2">
-                                        <div className={`text-sm font-medium ${
+                                        <div className={`text-sm font-medium truncate ${
                                           isGroupMain 
                                             ? 'text-slate-900 dark:text-white' 
                                             : 'text-slate-600 dark:text-slate-300'
-                                        }`}>
+                                        }`} title={call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}>
                           {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
                         </div>
                                         {isGroupMain && groupSize > 1 && (
@@ -4154,10 +4154,10 @@ const LiveMonitorKanban: React.FC = () => {
                         </div>
                         </div>
                         </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
-                                <div>
+                              <td className="px-2 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                                <div className="truncate">
                                   {call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleDateString('es-MX') : 'N/A'}
-                                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                     {call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleTimeString('es-MX', { 
                                       hour: '2-digit', 
                                       minute: '2-digit' 
@@ -4165,15 +4165,17 @@ const LiveMonitorKanban: React.FC = () => {
                             </div>
                           </div>
                         </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
-                                {call.duracion_segundos ? 
-                                  `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 
-                                  'N/A'
-                                }
+                              <td className="px-2 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                                <span className="truncate">
+                                  {call.duracion_segundos ? 
+                                    `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 
+                                    'N/A'
+                                  }
+                                </span>
                         </td>
                               
                                 {/* Estado mejorado */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap overflow-hidden">
                                   {(() => {
                                     const status = call.call_status || 'finalizada';
                                     const razonFinalizacion = call.datos_llamada?.razon_finalizacion || 
@@ -4209,7 +4211,7 @@ const LiveMonitorKanban: React.FC = () => {
                         </td>
                                 
                                 {/* Nivel Interés */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap overflow-hidden">
                                   <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                                     (call.nivel_interes_detectado || call.nivel_interes) === 'Alto' || (call.nivel_interes_detectado || call.nivel_interes) === 'MUY_ALTO' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
                                     (call.nivel_interes_detectado || call.nivel_interes) === 'Medio' || (call.nivel_interes_detectado || call.nivel_interes) === 'MEDIO' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
@@ -4220,7 +4222,7 @@ const LiveMonitorKanban: React.FC = () => {
                         </td>
                                 
                                 {/* Asignación según permisos */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap overflow-hidden">
                                   {(() => {
                                     const prospecto = call.prospecto_completo || {};
                                     const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
@@ -4231,17 +4233,17 @@ const LiveMonitorKanban: React.FC = () => {
                                       const ejecutivo = ejecutivoId ? ejecutivosMap[ejecutivoId] : null;
                                       const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
                                       return (
-                                        <div className="flex flex-wrap gap-1.5">
+                                        <div className="flex flex-col gap-1 min-w-0">
                                           {ejecutivo && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
-                                              <User className="w-3 h-3" />
-                                              {ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 max-w-full" title={ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}>
+                                              <User className="w-3 h-3 flex-shrink-0" />
+                                              <span className="truncate">{ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}</span>
                             </span>
                                           )}
                                           {coordinacion && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
-                                              <Users className="w-3 h-3" />
-                                              {coordinacion.nombre || coordinacion.codigo || 'N/A'}
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400 max-w-full" title={coordinacion.nombre || coordinacion.codigo || 'N/A'}>
+                                              <Users className="w-3 h-3 flex-shrink-0" />
+                                              <span className="truncate">{coordinacion.nombre || coordinacion.codigo || 'N/A'}</span>
                             </span>
                           )}
                                           {!ejecutivo && !coordinacion && (
@@ -4255,9 +4257,9 @@ const LiveMonitorKanban: React.FC = () => {
                                       // Coordinador: mostrar ejecutivo asignado como tag
                                       const ejecutivo = ejecutivoId ? ejecutivosMap[ejecutivoId] : null;
                                       return ejecutivo ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
-                                          <User className="w-3 h-3" />
-                                          {ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 max-w-full" title={ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}>
+                                          <User className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">{ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}</span>
                                         </span>
                                       ) : (
                                         <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
@@ -4268,9 +4270,9 @@ const LiveMonitorKanban: React.FC = () => {
                                       // Ejecutivo: mostrar coordinación asignada como tag
                                       const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
                                       return coordinacion ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
-                                          <Users className="w-3 h-3" />
-                                          {coordinacion.nombre || coordinacion.codigo || 'N/A'}
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400 max-w-full" title={coordinacion.nombre || coordinacion.codigo || 'N/A'}>
+                                          <Users className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">{coordinacion.nombre || coordinacion.codigo || 'N/A'}</span>
                                         </span>
                                       ) : (
                                         <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">

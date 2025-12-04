@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useUserProfile } from '../hooks/useUserProfile';
@@ -8,6 +9,201 @@ import AdminMessagesModal from './admin/AdminMessagesModal';
 import { adminMessagesService } from '../services/adminMessagesService';
 import { Mail, Wrench } from 'lucide-react';
 import { NotificationControl } from './dashboard/NotificationControl';
+
+// ============================================
+// COMPONENTES DE ANIMACIÓN PARA THEME TOGGLE
+// ============================================
+
+// Partículas sutiles al cambiar tema
+const ThemeParticles: React.FC<{ isDark: boolean }> = ({ isDark }) => {
+  const particles = Array.from({ length: 6 }, (_, i) => ({
+    id: i,
+    angle: (i * 60) * (Math.PI / 180),
+  }));
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-visible">
+      {particles.map((particle) => (
+        <motion.div
+          key={particle.id}
+          initial={{ scale: 0, x: 0, y: 0, opacity: 0.6 }}
+          animate={{ 
+            scale: [0, 1, 0],
+            x: Math.cos(particle.angle) * 20,
+            y: Math.sin(particle.angle) * 20,
+            opacity: [0.6, 0.3, 0]
+          }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className={`absolute left-1/2 top-1/2 w-1 h-1 rounded-full ${
+            isDark ? 'bg-amber-400/70' : 'bg-slate-400/70'
+          }`}
+          style={{ marginLeft: -2, marginTop: -2 }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Sol animado discreto
+const AnimatedSunIcon: React.FC = () => (
+  <motion.div className="relative w-5 h-5 flex items-center justify-center">
+    {/* Rayos sutiles girando lentamente */}
+    <motion.div
+      className="absolute inset-0"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+    >
+      <svg className="w-full h-full" viewBox="0 0 20 20" fill="none">
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+          <motion.line
+            key={i}
+            x1="10"
+            y1="10"
+            x2={10 + Math.cos((angle * Math.PI) / 180) * 8}
+            y2={10 + Math.sin((angle * Math.PI) / 180) * 8}
+            stroke="#D4A854"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            animate={{ opacity: [0.4, 0.7, 0.4] }}
+            transition={{ duration: 3, repeat: Infinity, delay: i * 0.15 }}
+          />
+        ))}
+      </svg>
+    </motion.div>
+    
+    {/* Centro del sol - más sutil */}
+    <motion.div
+      className="relative w-2.5 h-2.5 rounded-full bg-amber-400/90 z-10"
+      animate={{ 
+        scale: [1, 1.08, 1],
+        boxShadow: [
+          '0 0 4px rgba(217, 168, 84, 0.3)',
+          '0 0 8px rgba(217, 168, 84, 0.5)',
+          '0 0 4px rgba(217, 168, 84, 0.3)'
+        ]
+      }}
+      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+    />
+  </motion.div>
+);
+
+// Luna con estrellas titilantes
+const AnimatedMoonIcon: React.FC = () => (
+  <motion.div className="relative w-5 h-5">
+    {/* Estrellas titilantes alrededor - mismo tono que la luna */}
+    {[
+      { x: -9, y: -5, size: 2, delay: 0 },
+      { x: 8, y: -7, size: 1.5, delay: 0.3 },
+      { x: 7, y: 6, size: 2, delay: 0.6 },
+      { x: -7, y: 5, size: 1.5, delay: 0.9 },
+      { x: 0, y: -9, size: 1.5, delay: 0.2 },
+    ].map((star, i) => (
+      <motion.div
+        key={i}
+        className="absolute bg-slate-500 dark:bg-slate-400 rounded-full"
+        style={{ 
+          left: `calc(50% + ${star.x}px)`,
+          top: `calc(50% + ${star.y}px)`,
+          width: star.size,
+          height: star.size
+        }}
+        animate={{ 
+          opacity: [0.3, 1, 0.3],
+          scale: [0.8, 1.2, 0.8]
+        }}
+        transition={{ duration: 1.5, repeat: Infinity, delay: star.delay }}
+      />
+    ))}
+    
+    {/* Luna */}
+    <motion.svg 
+      className="w-5 h-5 text-slate-500 dark:text-slate-400" 
+      fill="currentColor" 
+      viewBox="0 0 20 20"
+      animate={{ rotate: [0, 3, -3, 0] }}
+      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+    >
+      <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+    </motion.svg>
+  </motion.div>
+);
+
+// Componente del botón de toggle de tema con todas las animaciones
+interface ThemeToggleButtonProps {
+  darkMode: boolean;
+  onToggle: () => void;
+  variant?: 'default' | 'large';
+}
+
+const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({ 
+  darkMode, 
+  onToggle, 
+  variant = 'default' 
+}) => {
+  const [showParticles, setShowParticles] = useState(false);
+  const [particleKey, setParticleKey] = useState(0);
+
+  const handleClick = () => {
+    setShowParticles(true);
+    setParticleKey(prev => prev + 1);
+    onToggle();
+    setTimeout(() => setShowParticles(false), 600);
+  };
+
+  const isLarge = variant === 'large';
+
+  return (
+    <motion.button
+      onClick={handleClick}
+      className={`relative ${isLarge ? 'p-2.5' : 'p-2'} rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-200 overflow-visible`}
+      title={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+    >
+      {/* Partículas sutiles */}
+      {showParticles && (
+        <ThemeParticles key={particleKey} isDark={darkMode} />
+      )}
+      
+      {/* Iconos con transición suave */}
+      <AnimatePresence mode="wait">
+        {darkMode ? (
+          <motion.div
+            key="sun-icon"
+            initial={{ scale: 0.8, rotate: -90, opacity: 0 }}
+            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            exit={{ scale: 0.8, rotate: 90, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          >
+            <AnimatedSunIcon />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="moon-icon"
+            initial={{ scale: 0.8, rotate: 90, opacity: 0 }}
+            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            exit={{ scale: 0.8, rotate: -90, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          >
+            <AnimatedMoonIcon />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Resplandor muy sutil */}
+      <motion.div
+        className={`absolute inset-0 rounded-lg pointer-events-none ${
+          darkMode 
+            ? 'bg-amber-400/5' 
+            : 'bg-indigo-400/5'
+        }`}
+        animate={{ opacity: [0, 0.3, 0] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </motion.button>
+  );
+};
 
 interface HeaderProps {
   currentStep?: number;
@@ -286,22 +482,11 @@ const Header = ({
                 </div>
               )}
               
-              {/* Toggle tema */}
-              <button
-                onClick={onToggleDarkMode}
-                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
-                title={darkMode ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-              >
-                {darkMode ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
+              {/* Toggle tema con animación divertida */}
+              <ThemeToggleButton 
+                darkMode={darkMode} 
+                onToggle={onToggleDarkMode} 
+              />
 
               {/* Usuario y logout */}
               {user && (
@@ -676,24 +861,12 @@ const Header = ({
               </div>
             )}
 
-            {/* Toggle dark mode moderno */}
-            <button
-              onClick={onToggleDarkMode}
-              className="relative p-3 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 group"
-              title={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-            >
-              <div className="relative w-5 h-5">
-                {darkMode ? (
-                  <svg className="w-5 h-5 text-yellow-500 transform transition-transform group-hover:rotate-12" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-gray-700 transform transition-transform group-hover:-rotate-12" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                  </svg>
-                )}
-              </div>
-            </button>
+            {/* Toggle dark mode con animación divertida */}
+            <ThemeToggleButton 
+              darkMode={darkMode} 
+              onToggle={onToggleDarkMode}
+              variant="large"
+            />
 
             {/* Reset button minimalista */}
             {currentStep >= 2 && (

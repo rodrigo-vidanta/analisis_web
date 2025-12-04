@@ -850,8 +850,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           </div>
 
           {/* Mensajes */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
-            {messages.map((msg) => {
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-hide">
+            {messages.map((msg, index) => {
               const isCustomer = msg.sender_type === 'customer';
               const isBot = msg.sender_type === 'bot';
               const isAgent = msg.sender_type === 'agent';
@@ -868,23 +868,34 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                 }
               }
 
-              // Determinar si necesita globo (false para stickers y audios)
+              // Determinar si necesita globo
               const hasContent = msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0;
               const hasAdjuntos = adjuntos && Array.isArray(adjuntos) && adjuntos.length > 0;
-              // Mostrar globo si hay contenido O si no hay adjuntos O si los adjuntos necesitan globo
-              // Si hay contenido, SIEMPRE mostrar globo
               const shouldHaveBubble = hasContent || !hasAdjuntos || (hasAdjuntos && needsBubble(adjuntos));
-              
 
               return (
-                <div
+                <motion.div
                   key={msg.id}
-                  className={`flex ${isCustomer ? 'justify-start' : 'justify-end'} mb-4`}
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.2, delay: index * 0.02 }}
+                  className={`flex items-end gap-2 ${isCustomer ? 'justify-start' : 'justify-end'}`}
                 >
-                  {/* Mensaje */}
-                  <div className={`max-w-[80%] ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
+                  {/* Avatar izquierda - Cliente */}
+                  {isCustomer && (
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium text-white shadow-md bg-gradient-to-br from-slate-400 to-slate-500"
+                      title={selectedConversation?.customer_name || 'Cliente'}
+                    >
+                      {selectedConversation?.customer_name?.charAt(0).toUpperCase() || 
+                       selectedConversation?.customer_phone?.charAt(0).toUpperCase() || 'C'}
+                    </div>
+                  )}
+                  
+                  {/* Contenedor del mensaje */}
+                  <div className={`max-w-[75%] ${isCustomer ? '' : ''}`}>
                     {/* Nombre del remitente */}
-                    <div className={`text-xs text-gray-500 dark:text-gray-400 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                    <div className={`text-[10px] text-gray-400 dark:text-gray-500 mb-0.5 px-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
                       {isCustomer 
                         ? 'Cliente'
                         : isBot 
@@ -893,49 +904,72 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                       }
                     </div>
                     
-                    {/* Burbuja del mensaje - SIEMPRE mostrar globo cuando hay contenido o es agente */}
+                    {/* Burbuja del mensaje con pico */}
                     {(shouldHaveBubble || isAgent) ? (
-                      <div
-                        className={`relative px-4 py-3 rounded-2xl shadow-sm ${
-                          isCustomer
-                            ? 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'
-                            : isBot
-                              ? 'bg-blue-500 dark:bg-blue-600 text-white'
-                              : 'bg-purple-700 dark:bg-purple-800 text-white'
-                        }`}
-                      >
-                        {hasContent && (
-                          <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                            {msg.content.replace(/\\n/g, '\n')}
+                      <div className="relative">
+                        {/* Pico del globo - Cliente (izquierda) */}
+                        {isCustomer && (
+                          <div className="absolute -left-2 bottom-2 w-3 h-3 overflow-hidden">
+                            <div className="absolute transform rotate-45 bg-white dark:bg-slate-600 w-3 h-3 border-l border-b border-gray-200/50 dark:border-slate-500/50" 
+                                 style={{ left: '4px', top: '-2px' }} />
                           </div>
                         )}
                         
-                        {/* Si es agente y no hay contenido, mostrar algo para que el globo sea visible */}
-                        {isAgent && !hasContent && !hasAdjuntos && (
-                          <div className="text-sm leading-relaxed whitespace-pre-wrap opacity-50">
-                            {' '}
+                        {/* Pico del globo - Bot/Agente (derecha) */}
+                        {!isCustomer && (
+                          <div className="absolute -right-2 bottom-2 w-3 h-3 overflow-hidden">
+                            <div className={`absolute transform rotate-45 w-3 h-3 ${
+                              isBot 
+                                ? 'bg-cyan-600' 
+                                : 'bg-purple-600'
+                            }`} 
+                                 style={{ right: '4px', top: '-2px' }} />
                           </div>
                         )}
                         
-                        {/* Multimedia con globo */}
-                        {hasAdjuntos && (
-                          <div className={hasContent ? 'mt-2' : ''}>
-                            <MultimediaMessage 
-                              adjuntos={adjuntos}
-                              hasTextContent={hasContent}
-                              isFromCustomer={isCustomer}
-                              isVisible={true}
-                            />
+                        {/* Globo principal */}
+                        <div
+                          className={`relative px-3 py-2 shadow-sm backdrop-blur-sm ${
+                            isCustomer
+                              ? 'bg-white/95 dark:bg-slate-600/95 border border-gray-200/50 dark:border-slate-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md'
+                              : isBot
+                                ? 'bg-gradient-to-br from-blue-600/95 to-cyan-600/95 text-white rounded-2xl rounded-br-md shadow-md'
+                                : 'bg-gradient-to-br from-violet-600/95 to-purple-600/95 text-white rounded-2xl rounded-br-md shadow-md'
+                          }`}
+                        >
+                          {hasContent && (
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                              {msg.content.replace(/\\n/g, '\n')}
+                            </div>
+                          )}
+                          
+                          {isAgent && !hasContent && !hasAdjuntos && (
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap opacity-50">{' '}</div>
+                          )}
+                          
+                          {hasAdjuntos && (
+                            <div className={hasContent ? 'mt-2' : ''}>
+                              <MultimediaMessage 
+                                adjuntos={adjuntos}
+                                hasTextContent={hasContent}
+                                isFromCustomer={isCustomer}
+                                isVisible={true}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Timestamp */}
+                          <div className={`text-[10px] mt-1 ${
+                            isCustomer 
+                              ? 'text-gray-400 dark:text-gray-500' 
+                              : 'text-white/70'
+                          } ${isCustomer ? 'text-left' : 'text-right'}`}>
+                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
-                        )}
-                        
-                        {/* Timestamp - siempre visible */}
-                        <div className={`text-xs opacity-75 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
-                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
                     ) : (
-                      /* SIN GLOBO: Stickers y audios solamente (estilo WhatsApp) */
+                      /* SIN GLOBO: Stickers y audios */
                       <div className="flex flex-col">
                         {hasAdjuntos && (
                           <MultimediaMessage 
@@ -945,38 +979,26 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                             isVisible={true}
                           />
                         )}
-                        {/* Timestamp pequeño debajo */}
-                        <div className={`text-xs text-gray-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                        <div className={`text-[10px] text-gray-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
                           {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
                     )}
                   </div>
                   
-                  {/* Avatar - solo uno, después del mensaje */}
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white shadow-sm ${
-                      isCustomer 
-                        ? 'order-1 bg-gradient-to-br from-gray-400 to-gray-600' 
-                        : isBot 
-                          ? 'order-2 bg-gradient-to-br from-blue-500 to-blue-700' 
-                          : 'order-2 bg-gradient-to-br from-gray-800 to-gray-900'
-                    }`}
-                    title={isCustomer 
-                      ? (selectedConversation?.customer_name || 'Cliente')
-                      : isBot 
-                        ? 'Bot Vidanta'
-                        : (msg.sender_user_name || msg.sender_name || 'Agente')
-                    }
-                  >
-                    {isCustomer 
-                      ? (selectedConversation?.customer_name?.charAt(0).toUpperCase() || 
-                         selectedConversation?.customer_phone?.charAt(0).toUpperCase() || 
-                         'C')
-                      : isBot 
+                  {/* Avatar derecha - Bot/Agente */}
+                  {!isCustomer && (
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium text-white shadow-md ${
+                        isBot 
+                          ? 'bg-gradient-to-br from-blue-500 to-cyan-600' 
+                          : 'bg-gradient-to-br from-violet-500 to-purple-600'
+                      }`}
+                      title={isBot ? 'Bot Vidanta' : (msg.sender_user_name || msg.sender_name || 'Agente')}
+                    >
+                      {isBot 
                         ? 'B'
                         : (() => {
-                            // Si hay sender_user_name, usar ese nombre para las iniciales
                             if (msg.sender_user_name) {
                               const parts = msg.sender_user_name.trim().split(' ');
                               if (parts.length >= 2) {
@@ -986,23 +1008,39 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                             }
                             return (msg.sender_name?.charAt(0).toUpperCase() || 'A');
                           })()
-                    }
-                  </div>
-                </div>
+                      }
+                    </div>
+                  )}
+                </motion.div>
               );
             })}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Botón para ir a la conversación */}
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-            <button
+          {/* Botón para ir a la conversación - con animación */}
+          <div className="px-4 py-3 border-t border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
+            <motion.button
               onClick={handleNavigateToConversation}
-              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 flex items-center justify-center gap-2 group"
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
             >
-              <Send className="w-4 h-4" />
+              <motion.div
+                animate={{ x: [0, 3, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Send className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </motion.div>
               <span className="text-sm font-medium">Ir a la conversación</span>
-            </button>
+              <motion.div
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                animate={{ x: [0, 4, 0] }}
+                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </motion.div>
+            </motion.button>
           </div>
         </>
       )}

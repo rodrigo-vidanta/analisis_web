@@ -65,6 +65,7 @@ import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { useAppStore } from '../../stores/appStore';
 import { ManualCallModal } from '../shared/ManualCallModal';
+import BotPauseButton from './BotPauseButton';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -4525,58 +4526,17 @@ const LiveChatCanvas: React.FC = () => {
                   const uchatId = selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat || selectedConversation.id;
                   const status = botPauseStatus[uchatId];
                   const timeRemaining = getBotPauseTimeRemaining(uchatId);
+                  const isPaused = status?.isPaused && (timeRemaining === null || timeRemaining > 0);
                   
-                  if (status?.isPaused && (timeRemaining === null || timeRemaining > 0)) {
-                    return (
-                      <div className="flex items-center space-x-3">
-                        <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium">
-                          Bot pausado: {formatTimeRemaining(timeRemaining)}
-                        </span>
-                        <button
-                          onClick={() => resumeBot(uchatId)}
-                          className="px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-600 dark:hover:bg-green-700 transition-all duration-200 animate-pulse shadow-lg"
-                        >
-                          Reactivar IA
-                        </button>
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div className="flex items-center space-x-1 flex-wrap gap-1">
-                        <button
-                          onClick={() => pauseBot(uchatId, 5, true)}
-                          className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full text-xs font-medium hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors"
-                        >
-                          5m
-                        </button>
-                        <button
-                          onClick={() => pauseBot(uchatId, 15, true)}
-                          className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
-                        >
-                          15m
-                        </button>
-                        <button
-                          onClick={() => pauseBot(uchatId, 30, true)}
-                          className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-                        >
-                          30m
-                        </button>
-                        <button
-                          onClick={() => pauseBot(uchatId, 60, true)}
-                          className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
-                        >
-                          1h
-                        </button>
-                        <button
-                          onClick={() => pauseBot(uchatId, null, true)}
-                          className="px-2 py-1 bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-900/50 transition-colors border border-gray-300 dark:border-gray-600"
-                          title="Pausar indefinidamente (1 mes)"
-                        >
-                          ∞
-                        </button>
-                      </div>
-                    );
-                  }
+                  return (
+                    <BotPauseButton
+                      uchatId={uchatId}
+                      isPaused={isPaused}
+                      timeRemaining={timeRemaining}
+                      onPause={pauseBot}
+                      onResume={resumeBot}
+                    />
+                  );
                 })()}
 
                 <button
@@ -4597,7 +4557,7 @@ const LiveChatCanvas: React.FC = () => {
           {/* Área de mensajes - SCROLL INDIVIDUAL (hacia arriba desde abajo) */}
           <div 
             ref={messagesScrollRef}
-            className="flex-1 overflow-y-auto scrollbar-ultra-thin p-6 bg-gradient-to-b from-slate-25 to-white dark:from-gray-800 dark:to-gray-900"
+            className="flex-1 overflow-y-auto scrollbar-ultra-thin p-6 bg-gradient-to-b from-slate-50 to-white dark:from-gray-800 dark:to-gray-900"
             style={{ 
               overscrollBehavior: 'contain',
               display: 'flex',
@@ -4654,23 +4614,29 @@ const LiveChatCanvas: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Renderizar llamada si es tipo call */}
+                      {/* Renderizar llamada si es tipo call - ANCHO COMPLETO */}
                       {isCall && message.call_data ? (
-                        <div className="flex justify-end">
-                          <div className="max-w-md order-1 mr-3">
-                            <div className="relative px-4 py-3 rounded-2xl shadow-sm bg-slate-900 dark:bg-gray-800 text-white border border-slate-700 dark:border-gray-600">
-                              <div className="flex items-center gap-3">
+                        <div className="flex justify-center px-4">
+                          <div className="w-full max-w-2xl">
+                            <div className={`relative px-5 py-4 rounded-2xl shadow-md border ${
+                              message.call_data.estatus === 'ejecutada' 
+                                ? 'bg-gradient-to-r from-emerald-500/10 to-green-500/10 dark:from-emerald-900/40 dark:to-green-900/40 border-emerald-300/50 dark:border-emerald-700/50' 
+                                : message.call_data.estatus === 'no contesto'
+                                ? 'bg-gradient-to-r from-red-500/10 to-rose-500/10 dark:from-red-900/40 dark:to-rose-900/40 border-red-300/50 dark:border-red-700/50'
+                                : 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10 dark:from-blue-900/40 dark:to-cyan-900/40 border-blue-300/50 dark:border-blue-700/50'
+                            }`}>
+                              <div className="flex items-center gap-4">
                                 {/* Icono de llamada */}
-                                <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                                <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
                                   message.call_data.estatus === 'ejecutada' 
-                                    ? 'bg-green-100 dark:bg-green-900/30' 
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/50' 
                                     : message.call_data.estatus === 'no contesto'
-                                    ? 'bg-red-100 dark:bg-red-900/30'
-                                    : 'bg-blue-100 dark:bg-blue-900/30'
+                                    ? 'bg-red-100 dark:bg-red-900/50'
+                                    : 'bg-blue-100 dark:bg-blue-900/50'
                                 }`}>
-                                  <Phone className={`w-5 h-5 ${
+                                  <Phone className={`w-6 h-6 ${
                                     message.call_data.estatus === 'ejecutada'
-                                      ? 'text-green-600 dark:text-green-400'
+                                      ? 'text-emerald-600 dark:text-emerald-400'
                                       : message.call_data.estatus === 'no contesto'
                                       ? 'text-red-600 dark:text-red-400'
                                       : 'text-blue-600 dark:text-blue-400'
@@ -4680,7 +4646,13 @@ const LiveChatCanvas: React.FC = () => {
                                 {/* Información de la llamada */}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-semibold text-white">
+                                    <span className={`text-sm font-bold ${
+                                      message.call_data.estatus === 'ejecutada'
+                                        ? 'text-emerald-800 dark:text-emerald-200'
+                                        : message.call_data.estatus === 'no contesto'
+                                        ? 'text-red-800 dark:text-red-200'
+                                        : 'text-blue-800 dark:text-blue-200'
+                                    }`}>
                                       {message.call_data.estatus === 'ejecutada' 
                                         ? 'Llamada realizada' 
                                         : message.call_data.estatus === 'no contesto'
@@ -4691,22 +4663,22 @@ const LiveChatCanvas: React.FC = () => {
                                   
                                   {/* Duración si está disponible */}
                                   {message.call_data.duracion_segundos && message.call_data.duracion_segundos > 0 && (
-                                    <div className="text-xs text-slate-300 dark:text-gray-300 mb-1">
-                                      Duración: {Math.floor(message.call_data.duracion_segundos / 60)}:{(message.call_data.duracion_segundos % 60).toString().padStart(2, '0')}
+                                    <div className="text-sm text-slate-600 dark:text-gray-300 mb-1 flex items-center gap-1">
+                                      <span className="font-medium">Duración:</span> {Math.floor(message.call_data.duracion_segundos / 60)}:{(message.call_data.duracion_segundos % 60).toString().padStart(2, '0')}
                                     </div>
                                   )}
                                   
                                   {/* Programada por */}
                                   {message.call_data.programada_por_nombre && (
-                                    <div className="text-xs text-slate-300 dark:text-gray-400">
+                                    <div className="text-xs text-slate-500 dark:text-gray-400">
                                       Por: {message.call_data.programada_por_nombre}
                                     </div>
                                   )}
-                                  
-                                  {/* Timestamp */}
-                                  <div className="text-right text-xs text-slate-300 dark:text-gray-400 mt-1">
-                                    {formatTime(message.created_at)}
-                                  </div>
+                                </div>
+
+                                {/* Timestamp a la derecha */}
+                                <div className="text-xs text-slate-400 dark:text-gray-500 self-end">
+                                  {formatTime(message.created_at)}
                                 </div>
                               </div>
                             </div>
@@ -4716,9 +4688,21 @@ const LiveChatCanvas: React.FC = () => {
 
                       {/* Mensajes regulares (no llamadas) */}
                       {!isCall && (
-                        <div className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
-                          <div className={`max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
-                            
+                        <div className={`flex items-end gap-2 ${isCustomer ? 'justify-start' : 'justify-end'}`}>
+                          {/* Avatar - Cliente a la izquierda */}
+                          {isCustomer && (
+                            <div 
+                              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm bg-gradient-to-br from-slate-400 to-slate-600"
+                              title={selectedConversation?.customer_name || 'Cliente'}
+                            >
+                              <span className="text-xs font-semibold text-white">
+                                {selectedConversation?.customer_name?.charAt(0).toUpperCase() || 'C'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Globo del mensaje */}
+                          <div className="max-w-md">
                             {(() => {
                               // Parsear adjuntos si existen
                               const adjuntos = (message as any).adjuntos 
@@ -4735,123 +4719,131 @@ const LiveChatCanvas: React.FC = () => {
                               if (shouldHaveBubble) {
                                 // CON GLOBO: Texto, imágenes, videos, documentos
                                 return (
-                          <div className={`relative px-4 py-3 rounded-2xl shadow-sm ${
-                            isCustomer 
-                              ? 'bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-slate-900 dark:text-white' 
-                              : isBot
-                                ? 'bg-blue-500 dark:bg-blue-600 text-white'
-                                : message.message_id.startsWith('cache_')
-                                  ? 'bg-slate-700 dark:bg-gray-700 text-white border-2 border-dashed border-slate-400 dark:border-gray-500'
-                                  : 'bg-slate-900 dark:bg-gray-800 text-white'
-                          }`}>
-                            {message.content && (
-                              <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                                {message.content.replace(/\\n/g, '\n')}
-                              </div>
-                            )}
-
-                                  {/* Multimedia con globo */}
-                                  {adjuntos && adjuntos.length > 0 && (
-                                    <MultimediaMessage 
-                                      adjuntos={adjuntos}
-                                      hasTextContent={!!message.content}
-                                      isFromCustomer={isCustomer}
-                                    />
-                                  )}
-                                  
-                                  <div className="text-right text-xs opacity-75 mt-1 flex items-center justify-end space-x-2">
-                                    {message.id.startsWith('temp_') && (
-                                      <span className="italic">
-                                        {message.sender_name === 'Error' ? 'Error al enviar' : 'Enviando...'}
-                                      </span>
+                                  <div className="relative">
+                                    {/* Pico del globo - Cliente (izquierda) */}
+                                    {isCustomer && (
+                                      <div className="absolute -left-2 bottom-2 w-3 h-3 overflow-hidden">
+                                        <div className="absolute transform rotate-45 bg-white dark:bg-slate-600 w-3 h-3 border-l border-b border-gray-200/50 dark:border-slate-500/50" 
+                                             style={{ left: '4px', top: '-2px' }} />
+                                      </div>
                                     )}
-                                    <span>
-                                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                            </div>
-                          </div>
-                              );
-                            } else {
-                              // SIN GLOBO: Stickers y audios solamente (estilo WhatsApp)
-                              return (
-                                <div className="flex flex-col">
-                                  {adjuntos && adjuntos.length > 0 && (
-                                    <MultimediaMessage 
-                                      adjuntos={adjuntos}
-                                      hasTextContent={false}
-                                      isFromCustomer={isCustomer}
-                                    />
-                                  )}
-                                  {/* Timestamp pequeño debajo */}
-                                  <div className={`text-xs text-slate-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
-                                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </div>
-                                </div>
-                              );
-                            }
-                          })()}
-                        </div>
+                                    
+                                    {/* Pico del globo - Bot/Agente (derecha) */}
+                                    {!isCustomer && (
+                                      <div className="absolute -right-2 bottom-2 w-3 h-3 overflow-hidden">
+                                        <div className={`absolute transform rotate-45 w-3 h-3 ${
+                                          isBot 
+                                            ? 'bg-cyan-600' 
+                                            : message.message_id.startsWith('cache_')
+                                              ? 'bg-slate-500'
+                                              : 'bg-purple-600'
+                                        }`} 
+                                             style={{ right: '4px', top: '-2px' }} />
+                                      </div>
+                                    )}
 
-                        {/* Avatar solo para mensajes que no son llamadas */}
-                        {!isCall && (
-                          <div 
-                            className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
-                              isCustomer ? 'order-1' : 'order-2'
-                            } ${
-                              isCustomer 
-                                ? 'bg-gradient-to-br from-slate-400 to-slate-600' 
-                                : isBot
-                                  ? 'bg-gradient-to-br from-blue-500 to-blue-700'
-                                  : 'bg-gradient-to-br from-slate-800 to-slate-900'
-                            }`}
-                            title={(() => {
-                              if (isCustomer) {
-                                return selectedConversation?.customer_name || 'Cliente';
-                              } else if (isBot) {
-                                return 'Bot Vidanta';
+                                    <div className={`relative px-3 py-2 shadow-sm backdrop-blur-sm ${
+                                      isCustomer 
+                                        ? 'bg-white/95 dark:bg-slate-600/95 border border-gray-200/50 dark:border-slate-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md' 
+                                        : isBot
+                                          ? 'bg-gradient-to-br from-blue-600/95 to-cyan-600/95 text-white rounded-2xl rounded-br-md shadow-md'
+                                          : message.message_id.startsWith('cache_')
+                                            ? 'bg-slate-500/90 text-white border-2 border-dashed border-slate-400 dark:border-slate-400 rounded-2xl rounded-br-md'
+                                            : 'bg-gradient-to-br from-violet-600/95 to-purple-600/95 text-white rounded-2xl rounded-br-md shadow-md'
+                                    }`}>
+                                      {message.content && (
+                                        <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                                          {message.content.replace(/\\n/g, '\n')}
+                                        </div>
+                                      )}
+
+                                      {/* Multimedia con globo */}
+                                      {adjuntos && adjuntos.length > 0 && (
+                                        <MultimediaMessage 
+                                          adjuntos={adjuntos}
+                                          hasTextContent={!!message.content}
+                                          isFromCustomer={isCustomer}
+                                        />
+                                      )}
+                                      
+                                      <div className={`text-right text-xs mt-1 flex items-center justify-end space-x-2 ${
+                                        isCustomer ? 'text-gray-500 dark:text-gray-400' : 'text-white/75'
+                                      }`}>
+                                        {message.id.startsWith('temp_') && (
+                                          <span className="italic">
+                                            {message.sender_name === 'Error' ? 'Error al enviar' : 'Enviando...'}
+                                          </span>
+                                        )}
+                                        <span>
+                                          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
                               } else {
-                                // Mostrar nombre del usuario que envió el mensaje si está disponible
-                                return message.sender_user_name || message.sender_name || 'Agente';
+                                // SIN GLOBO: Stickers y audios solamente (estilo WhatsApp)
+                                return (
+                                  <div className="flex flex-col">
+                                    {adjuntos && adjuntos.length > 0 && (
+                                      <MultimediaMessage 
+                                        adjuntos={adjuntos}
+                                        hasTextContent={false}
+                                        isFromCustomer={isCustomer}
+                                      />
+                                    )}
+                                    {/* Timestamp pequeño debajo */}
+                                    <div className={`text-xs text-slate-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                  </div>
+                                );
                               }
                             })()}
-                          >
-                            <span className="text-xs font-semibold text-white">
-                              {isCustomer 
-                                ? (selectedConversation?.customer_name?.charAt(0).toUpperCase() || 'C')
-                                : isBot 
+                          </div>
+
+                          {/* Avatar - Bot/Agente a la derecha */}
+                          {!isCustomer && (
+                            <div 
+                              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
+                                isBot
+                                  ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
+                                  : 'bg-gradient-to-br from-violet-500 to-purple-600'
+                              }`}
+                              title={(() => {
+                                if (isBot) {
+                                  return 'Bot Vidanta';
+                                } else {
+                                  return message.sender_user_name || message.sender_name || 'Agente';
+                                }
+                              })()}
+                            >
+                              <span className="text-xs font-semibold text-white">
+                                {isBot 
                                   ? 'B'
                                   : (() => {
-                                      // Si hay sender_user_name, usar ese nombre para las iniciales
                                       if (message.sender_user_name) {
                                         return getInitials(message.sender_user_name);
                                       }
-                                      
-                                      // Obtener iniciales del agente asignado
                                       const conversationId = selectedConversation?.id || '';
                                       const prospectId = selectedConversation?.prospecto_id || '';
-                                      
-                                      // Buscar en caché por conversationId o prospectId
                                       const agentName = agentNamesById[conversationId] 
                                         || agentNamesById[prospectId]
                                         || selectedConversation?.metadata?.ejecutivo_nombre
-                                        || user?.full_name; // Fallback al usuario actual si no hay agente asignado
-                                      
+                                        || user?.full_name;
                                       if (agentName) {
                                         return getInitials(agentName);
                                       }
-                                      
-                                      // Si aún no tenemos el nombre, intentar cargarlo
                                       if (conversationId && !agentNamesById[conversationId] && !agentNamesById[prospectId]) {
                                         getAssignedAgentName(conversationId).catch(() => {});
                                       }
-                                      
                                       return 'A';
                                     })()
-                              }
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                                }
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   );

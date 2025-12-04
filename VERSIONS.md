@@ -1,5 +1,42 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.4N6.0.0 (Diciembre 2025) - UI/UX: Animaciones de Tema, Mensajes y Mejoras de Responsividad
+
+### 🎯 RELEASE BETA - Mejoras de Interfaz y Experiencia de Usuario
+
+#### Animaciones de Toggle de Tema (Dark/Light Mode)
+- **Animación de sol y luna:** Iconos animados con framer-motion
+- **Partículas decorativas:** Estrellas sutiles en el toggle de tema
+- **Transiciones suaves:** Animación global de colores al cambiar tema
+- **Discretos y elegantes:** Colores y efectos refinados para no distraer
+
+#### Rediseño de Burbujas de Mensajes
+- **Estilo WhatsApp:** Burbujas con "pico" apuntando al avatar del remitente
+- **Gradientes sutiles:** Colores diferenciados por tipo de remitente
+- **Sombras suaves:** Mejor profundidad visual en mensajes
+- **Botón animado:** "Ir a conversación" con animaciones hover/tap
+
+#### Nuevo Botón de Pausa del Bot (AI Chat Monitor)
+- **Diseño unificado:** Un solo botón con opciones desplegables
+- **Contador circular:** Visualización del tiempo restante de pausa
+- **Animaciones elegantes:** Transiciones en cada estado (activo, pausado, cargando)
+- **Reactivación intuitiva:** Click para reactivar sin tooltip redundante
+
+#### Responsividad del Historial (AI Call Monitor)
+- **Tabla adaptativa:** Se ajusta al ancho disponible sin scroll horizontal
+- **Texto truncado:** Nombres largos con puntos suspensivos y tooltips
+- **Columnas proporcionales:** Anchos optimizados por contenido
+- **Compatible con sidebar:** Se adapta cuando el sidebar está abierto/cerrado
+
+#### Archivos Principales
+- Header.tsx, LinearHeader.tsx - Animaciones de tema
+- ConversacionesWidget.tsx - Burbujas de mensajes rediseñadas
+- LiveChatCanvas.tsx - Mensajes y botón de pausa
+- BotPauseButton.tsx (nuevo) - Componente de pausa del bot
+- LiveMonitorKanban.tsx - Tabla responsiva del historial
+
+---
+
 ## Versión B4.0.3N6.0.0 (Enero 2025) - Prospectos: Filtros en Memoria y Mejoras de UX
 
 ### 🎯 RELEASE BETA - Filtros Optimizados y Mejoras de Experiencia
