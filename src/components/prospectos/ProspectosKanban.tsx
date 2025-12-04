@@ -7,9 +7,9 @@
  * Cada columna tiene su propio header y contenido, sin afectar a las demás
  */
 
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
 import {
-  User, Phone, MessageSquare, MapPin
+  User, Phone, MessageSquare, MapPin, Loader2
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
@@ -48,6 +48,8 @@ interface ProspectosKanbanProps {
   onToggleColumnCollapse: (columnId: string) => void;
   getStatusColor: (etapa: string) => string;
   getScoreColor: (score: string) => string;
+  onLoadMoreForColumn?: (etapa: string) => void;
+  columnLoadingStates?: Record<string, { loading: boolean; page: number; hasMore: boolean }>;
 }
 
 // Checkpoints fijos - ORDEN CORRECTO: Es miembro, Activo PQNC, Validando membresia, En seguimiento, Interesado, Atendió llamada
@@ -124,9 +126,13 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   onProspectoContextMenu,
   collapsedColumns = [],
   onToggleColumnCollapse,
-  getScoreColor
+  getScoreColor,
+  onLoadMoreForColumn,
+  columnLoadingStates = {}
 }) => {
   const [ultimosMensajes, setUltimosMensajes] = useState<Record<string, string>>({});
+  const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const observerRefs = useRef<Record<string, IntersectionObserver>>({});
 
   // Cargar fechas de último mensaje
   useEffect(() => {
@@ -174,6 +180,26 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     }));
   }, [prospectos, ultimosMensajes]);
 
+  // Mapeo inverso: checkpoint → etapas posibles
+  const getEtapasForCheckpoint = (checkpoint: CheckpointKey): string[] => {
+    switch (checkpoint) {
+      case 'checkpoint #es-miembro':
+        return ['Es miembro', 'Es miembro activo'];
+      case 'checkpoint #activo-pqnc':
+        return ['Activo PQNC', 'Activo en PQNC'];
+      case 'checkpoint #1':
+        return ['Validando membresia', 'Validando membresía'];
+      case 'checkpoint #2':
+        return ['En seguimiento', 'Seguimiento'];
+      case 'checkpoint #3':
+        return ['Interesado', 'Interesada'];
+      case 'checkpoint #4':
+        return ['Atendió llamada', 'Atendio llamada', 'Atendio la llamada'];
+      default:
+        return [];
+    }
+  };
+
   // Agrupar prospectos por checkpoint
   const prospectosPorCheckpoint = useMemo(() => {
     const grouped: Record<CheckpointKey, typeof prospectosConMensajes> = {
@@ -206,6 +232,53 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     
     return grouped;
   }, [prospectosConMensajes]);
+
+  // Configurar Intersection Observer para cada columna
+  useEffect(() => {
+    if (!onLoadMoreForColumn) return;
+
+    checkpointKeys.forEach((checkpointKey) => {
+      const etapas = getEtapasForCheckpoint(checkpointKey);
+      const etapa = etapas[0]; // Usar la primera etapa como identificador
+      const columnElement = columnRefs.current[checkpointKey];
+      const columnState = columnLoadingStates[etapa];
+
+      if (!columnElement) return;
+
+      // Limpiar observer anterior si existe
+      if (observerRefs.current[checkpointKey]) {
+        observerRefs.current[checkpointKey].disconnect();
+      }
+
+      // Solo crear observer si hay más datos para cargar
+      if (columnState?.hasMore) {
+        // Crear nuevo observer
+        const observer = new IntersectionObserver(
+          (entries) => {
+            if (entries[0].isIntersecting && columnState.hasMore && !columnState.loading) {
+              onLoadMoreForColumn(etapa);
+            }
+          },
+          {
+            root: columnElement,
+            rootMargin: '200px',
+            threshold: 0.1
+          }
+        );
+
+        // Buscar el elemento sentinela (último elemento con data-sentinel)
+        const sentinel = columnElement.querySelector('[data-sentinel]');
+        if (sentinel) {
+          observer.observe(sentinel);
+          observerRefs.current[checkpointKey] = observer;
+        }
+      }
+    });
+
+    return () => {
+      Object.values(observerRefs.current).forEach(observer => observer.disconnect());
+    };
+  }, [prospectosPorCheckpoint, columnLoadingStates, onLoadMoreForColumn]);
 
   // Definir checkpoint keys en el orden correcto
   const checkpointKeys: CheckpointKey[] = [
@@ -331,10 +404,10 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   const totalExpanded = checkpointKeys.filter(key => !collapsedColumns.includes(key)).length;
 
   return (
-    <div className="p-6">
-      <div className="rounded-lg overflow-hidden" style={{ minHeight: 'calc(100vh - 280px)' }}>
+    <div className="h-full flex flex-col">
+      <div className="rounded-lg overflow-hidden flex-1 flex flex-col" style={{ height: '100%', maxHeight: '100%' }}>
         {/* Contenedor principal con flexbox horizontal */}
-        <div className="flex gap-0 h-full" style={{ minHeight: 'calc(100vh - 280px)' }}>
+        <div className="flex gap-0 flex-1" style={{ height: '100%', maxHeight: '100%', minHeight: 0 }}>
           {checkpointKeys.map((checkpointKey) => {
             const checkpoint = CHECKPOINTS[checkpointKey];
             const prospectosCheckpoint = prospectosPorCheckpoint[checkpointKey];
@@ -348,7 +421,10 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                   width: getColumnWidth(isCollapsed, totalExpanded),
                   minWidth: isCollapsed ? '60px' : '200px', // Columna más delgada cuando está colapsada
                   flexShrink: 0,
-                  flexGrow: isCollapsed ? 0 : 1
+                  flexGrow: isCollapsed ? 0 : 1,
+                  height: '100%',
+                  maxHeight: '100%',
+                  minHeight: 0 // Necesario para que el scroll funcione en flexbox
                 }}
               >
                 {/* Header de la columna */}
@@ -358,7 +434,7 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                   }`}
                   onClick={() => onToggleColumnCollapse(checkpointKey)}
                   style={isCollapsed ? {
-                    height: 'calc(100vh - 280px)',
+                    height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -404,7 +480,16 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                 
                 {/* Contenido de la columna - Solo visible si no está colapsada */}
                 {!isCollapsed && (
-                  <div className="flex-1 overflow-y-auto bg-transparent p-2">
+                  <div 
+                    ref={(el) => {
+                      columnRefs.current[checkpointKey] = el;
+                    }}
+                    className="flex-1 overflow-y-auto bg-transparent p-2 scrollbar-hide"
+                    style={{
+                      height: 0, // Necesario para que flex-1 funcione con overflow
+                      minHeight: 0 // Necesario para que el scroll funcione
+                    }}
+                  >
                     {prospectosCheckpoint.length > 0 ? (
                       <div>
                         {prospectosCheckpoint.map((prospecto) => (
@@ -412,6 +497,21 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                             {renderProspectoCard(prospecto)}
                           </div>
                         ))}
+                        {/* Elemento sentinela para infinite scroll */}
+                        {(() => {
+                          const etapas = getEtapasForCheckpoint(checkpointKey);
+                          const etapa = etapas[0];
+                          const columnState = columnLoadingStates[etapa];
+                          return (
+                            <div data-sentinel className="h-1 w-full">
+                              {columnState?.loading && (
+                                <div className="flex items-center justify-center py-4">
+                                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-600 text-sm">

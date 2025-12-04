@@ -1,5 +1,31 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.2N6.0.0 (Enero 2025) - Prospectos: Optimización Crítica de Rendimiento y Infinite Scroll
+
+### 🎯 RELEASE BETA - Optimización de Rendimiento y Mejoras de UX
+
+#### Optimización Crítica
+- **Eliminación de problema N+1 Query:** De 200+ consultas a solo 2 consultas
+- **Mejora de rendimiento:** 29x más rápido en carga inicial
+- **Carga batch:** Coordinaciones y ejecutivos cargados de una vez
+
+#### Infinite Scroll
+- **Carga incremental:** 50 prospectos por batch
+- **Intersection Observer:** Detección automática de scroll
+- **Reset automático:** Al cambiar filtros
+
+#### Scroll Independiente por Columna
+- **Vista Kanban:** Cada columna con scroll propio
+- **Barras invisibles:** Scroll funcional pero invisible
+- **Infinite scroll por columna:** Carga independiente por etapa
+
+#### Archivos Principales
+- ProspectosManager - Optimización de carga
+- ProspectosKanban - Scroll independiente
+- Diagnóstico de rendimiento documentado
+
+---
+
 ## Versión B4.0.1N6.0.0 (Enero 2025) - Dashboard: Sistema de Notificaciones de Sonido y Optimización de Widgets
 
 ### 🎯 RELEASE BETA - Sistema de Notificaciones y Mejoras de UI

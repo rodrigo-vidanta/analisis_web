@@ -22,7 +22,7 @@ import {
   Calendar, MapPin, Building, DollarSign, Clock, Tag,
   ChevronRight, Eye, Edit, Star, TrendingUp, Activity,
   FileText, MessageSquare, CheckCircle, AlertTriangle, Network,
-  LayoutGrid, Table2, PhoneCall, Heart
+  LayoutGrid, Table2, PhoneCall, Heart, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analysisSupabase } from '../../config/analysisSupabase';
@@ -1276,7 +1276,15 @@ interface ProspectosManagerProps {
 const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveChat, onNavigateToNatalia }) => {
   const { user } = useAuth();
   const [prospectos, setProspectos] = useState<Prospecto[]>([]);
+  const [allProspectos, setAllProspectos] = useState<Prospecto[]>([]); // Todos los prospectos cargados
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const BATCH_SIZE = 50; // Prospectos por carga
+  const scrollObserverRef = useRef<HTMLDivElement>(null);
+  
   const [selectedProspecto, setSelectedProspecto] = useState<Prospecto | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
@@ -1323,20 +1331,135 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     setCollapsedColumns(preferences.collapsedColumns || []);
   }, [user?.id]);
 
-  // Cargar prospectos
+  // Cargar prospectos iniciales para todas las columnas (Kanban)
+  useEffect(() => {
+    if (user?.id && viewType === 'kanban') {
+      // Inicializar estados de columnas
+      const etapasIniciales = [
+        'Es miembro',
+        'Activo PQNC',
+        'Validando membresia',
+        'En seguimiento',
+        'Interesado',
+        'Atendió llamada'
+      ];
+      
+      const initialStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
+      etapasIniciales.forEach(etapa => {
+        initialStates[etapa] = { loading: false, page: -1, hasMore: true };
+      });
+      setColumnLoadingStates(initialStates);
+      
+      // Cargar prospectos iniciales (sin filtro de etapa para cargar todos)
+      loadProspectos(0, true);
+    } else if (user?.id && viewType === 'datagrid') {
+      // Para datagrid, carga normal
+      loadProspectos(0, true);
+    }
+  }, [user?.id, viewType]);
+
+  // Resetear carga cuando cambian los filtros
   useEffect(() => {
     if (user?.id) {
-      loadProspectos();
-    }
-  }, [user?.id]);
-
-  const loadProspectos = async () => {
-    try {
-      setLoading(true);
+      // Resetear estados de columnas también
+      const etapasIniciales = [
+        'Es miembro',
+        'Activo PQNC',
+        'Validando membresia',
+        'En seguimiento',
+        'Interesado',
+        'Atendió llamada'
+      ];
       
+      const initialStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
+      etapasIniciales.forEach(etapa => {
+        initialStates[etapa] = { loading: false, page: -1, hasMore: true };
+      });
+      setColumnLoadingStates(initialStates);
+      
+      loadProspectos(0, true);
+    }
+  }, [filters.search, filters.etapa, filters.score, filters.campana_origen, filters.dateRange]);
+
+  // Infinite Scroll: Observar cuando el usuario hace scroll cerca del final
+  useEffect(() => {
+    if (!scrollObserverRef.current || !hasMore || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMoreProspectos();
+        }
+      },
+      {
+        rootMargin: '200px', // Cargar cuando esté a 200px del final
+        threshold: 0.1
+      }
+    );
+
+    observer.observe(scrollObserverRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, loadingMore, currentPage]);
+
+  // OPTIMIZACIÓN: Cargar todas las coordinaciones y ejecutivos de una vez
+  const loadCoordinacionesAndEjecutivos = async () => {
+    try {
+      const [coordinaciones, ejecutivos] = await Promise.all([
+        coordinacionService.getCoordinaciones(),
+        coordinacionService.getAllEjecutivos()
+      ]);
+
+      // Crear mapas para búsqueda O(1)
+      const coordinacionesMap = new Map(coordinaciones.map(c => [c.id, c]));
+      const ejecutivosMap = new Map(ejecutivos.map(e => [e.id, e]));
+
+      return { coordinacionesMap, ejecutivosMap };
+    } catch (error) {
+      console.error('❌ Error loading coordinaciones/ejecutivos:', error);
+      return { coordinacionesMap: new Map(), ejecutivosMap: new Map() };
+    }
+  };
+
+  // Enriquecer prospectos usando mapas (mucho más rápido)
+  const enrichProspectos = (prospectosData: Prospecto[], coordinacionesMap: Map<string, any>, ejecutivosMap: Map<string, any>) => {
+    return prospectosData.map((prospecto: Prospecto) => {
+      const coordinacionInfo = prospecto.coordinacion_id ? coordinacionesMap.get(prospecto.coordinacion_id) : null;
+      const ejecutivoInfo = prospecto.ejecutivo_id ? ejecutivosMap.get(prospecto.ejecutivo_id) : null;
+
+      return {
+        ...prospecto,
+        coordinacion_codigo: coordinacionInfo?.codigo,
+        coordinacion_nombre: coordinacionInfo?.nombre,
+        ejecutivo_nombre: ejecutivoInfo?.full_name,
+        ejecutivo_email: ejecutivoInfo?.email
+      };
+    });
+  };
+
+  // Estados para infinite scroll por columna (Kanban)
+  const [columnLoadingStates, setColumnLoadingStates] = useState<Record<string, { loading: boolean; page: number; hasMore: boolean }>>({});
+  const [columnPages, setColumnPages] = useState<Record<string, number>>({});
+
+  const loadProspectos = async (page: number = 0, reset: boolean = false, etapaFilter?: string) => {
+    try {
+      if (reset) {
+        setLoading(true);
+        setCurrentPage(0);
+        setAllProspectos([]);
+        setHasMore(true);
+        setColumnPages({});
+        setColumnLoadingStates({});
+      } else {
+        setLoadingMore(true);
+      }
+
+      // Construir query base
       let query = analysisSupabase
         .from('prospectos')
-        .select('*');
+        .select('*', { count: 'exact' });
 
       // Aplicar filtros de permisos si hay usuario
       if (user?.id) {
@@ -1344,66 +1467,100 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
 
         if (ejecutivoFilter) {
-          // Ejecutivo: solo sus prospectos asignados
           query = query.eq('ejecutivo_id', ejecutivoFilter);
         } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-          // Coordinador: todos los prospectos de sus coordinaciones (múltiples)
-          // Excluir prospectos sin coordinación asignada
           query = query.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
         }
-        // Admin: sin filtros
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      // Aplicar filtro por etapa si se especifica (para infinite scroll por columna)
+      if (etapaFilter) {
+        query = query.eq('etapa', etapaFilter);
+      }
+
+      // Aplicar paginación
+      const from = page * BATCH_SIZE;
+      const to = from + BATCH_SIZE - 1;
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) {
         console.error('❌ Error loading prospectos:', error);
         return;
       }
 
-      // Enriquecer prospectos con datos de coordinación y ejecutivo
-      const enrichedProspectos = await Promise.all(
-        (data || []).map(async (prospecto: Prospecto) => {
-          let coordinacionInfo = null;
-          let ejecutivoInfo = null;
+      // Actualizar contador total (solo si no hay filtro de etapa)
+      if (count !== null && !etapaFilter) {
+        setTotalCount(count);
+      }
 
-          if (prospecto.coordinacion_id) {
-            try {
-              coordinacionInfo = await coordinacionService.getCoordinacionById(prospecto.coordinacion_id);
-            } catch (error) {
-              console.warn('Error obteniendo coordinación:', error);
-            }
+      // Cargar coordinaciones y ejecutivos una sola vez (optimización crítica)
+      const { coordinacionesMap, ejecutivosMap } = await loadCoordinacionesAndEjecutivos();
+
+      // Enriquecer prospectos usando mapas (instantáneo)
+      const enrichedProspectos = enrichProspectos(data || [], coordinacionesMap, ejecutivosMap);
+
+      if (reset) {
+        setAllProspectos(enrichedProspectos);
+        setProspectos(enrichedProspectos);
+      } else {
+        setAllProspectos(prev => [...prev, ...enrichedProspectos]);
+        setProspectos(prev => [...prev, ...enrichedProspectos]);
+      }
+
+      // Verificar si hay más datos
+      const totalLoaded = (page + 1) * BATCH_SIZE;
+      const hasMoreData = totalLoaded < (count || 0);
+      
+      if (!etapaFilter) {
+        setHasMore(hasMoreData);
+        setCurrentPage(page);
+      } else {
+        // Actualizar estado de la columna específica
+        setColumnLoadingStates(prev => ({
+          ...prev,
+          [etapaFilter]: {
+            loading: false,
+            page: page,
+            hasMore: hasMoreData
           }
-
-          if (prospecto.ejecutivo_id) {
-            try {
-              ejecutivoInfo = await coordinacionService.getEjecutivoById(prospecto.ejecutivo_id);
-            } catch (error) {
-              console.warn('Error obteniendo ejecutivo:', error);
-            }
-          }
-
-          return {
-            ...prospecto,
-            coordinacion_codigo: coordinacionInfo?.codigo,
-            coordinacion_nombre: coordinacionInfo?.nombre,
-            ejecutivo_nombre: ejecutivoInfo?.full_name,
-            ejecutivo_email: ejecutivoInfo?.email
-          };
-        })
-      );
-
-      setProspectos(enrichedProspectos);
+        }));
+      }
     } catch (error) {
       console.error('❌ Error loading prospectos:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
-  // Filtrar y ordenar prospectos
+  // Función para cargar más prospectos de una columna específica (Kanban)
+  const loadMoreProspectosForColumn = async (etapa: string) => {
+    const columnState = columnLoadingStates[etapa] || { loading: false, page: -1, hasMore: true };
+    
+    if (columnState.loading || !columnState.hasMore) return;
+
+    setColumnLoadingStates(prev => ({
+      ...prev,
+      [etapa]: { ...prev[etapa], loading: true }
+    }));
+
+    await loadProspectos(columnState.page + 1, false, etapa);
+  };
+
+  // Cargar más prospectos cuando se hace scroll
+  const loadMoreProspectos = () => {
+    if (!loadingMore && hasMore) {
+      loadProspectos(currentPage + 1, false);
+    }
+  };
+
+  // Filtrar y ordenar prospectos (usar allProspectos para filtros)
   const filteredAndSortedProspectos = useMemo(() => {
-    let filtered = prospectos;
+    // Aplicar filtros sobre todos los prospectos cargados
+    let filtered = allProspectos;
 
     // Aplicar filtros
     if (filters.search) {
@@ -1452,17 +1609,17 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     });
 
     return filtered;
-  }, [prospectos, filters, sort]);
+  }, [allProspectos, filters, sort]);
 
   // Emitir evento para actualizar contador en el header
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('prospect-count-update', {
       detail: {
         filtered: filteredAndSortedProspectos.length,
-        total: prospectos.length
+        total: totalCount > 0 ? totalCount : allProspectos.length
       }
     }));
-  }, [filteredAndSortedProspectos.length, prospectos.length]);
+  }, [filteredAndSortedProspectos.length, totalCount, allProspectos.length]);
 
   const handleSort = (field: keyof Prospecto) => {
     setSort(prev => ({
@@ -1659,7 +1816,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6"
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col p-6"
+          style={{ height: 'calc(100vh - 280px)', maxHeight: 'calc(100vh - 280px)' }}
         >
           <ProspectosKanban
             prospectos={filteredAndSortedProspectos}
@@ -1685,7 +1843,21 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             onToggleColumnCollapse={handleToggleColumnCollapse}
             getStatusColor={getStatusColor}
             getScoreColor={getScoreColor}
+            onLoadMoreForColumn={loadMoreProspectosForColumn}
+            columnLoadingStates={columnLoadingStates}
           />
+          
+          {/* Infinite Scroll Observer para Kanban */}
+          {hasMore && (
+            <div ref={scrollObserverRef} className="h-10 flex items-center justify-center py-4">
+              {loadingMore && (
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-xs">Cargando más prospectos...</span>
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
       ) : (
         /* Data Grid */
@@ -1904,6 +2076,18 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 </p>
               </motion.div>
             </>
+          )}
+          
+          {/* Infinite Scroll Observer para DataGrid */}
+          {hasMore && (
+            <div ref={scrollObserverRef} className="h-10 flex items-center justify-center py-4">
+              {loadingMore && (
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-xs">Cargando más prospectos...</span>
+                </div>
+              )}
+            </div>
           )}
         </motion.div>
       )}

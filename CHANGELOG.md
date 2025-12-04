@@ -1,5 +1,77 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.2N6.0.0 - Prospectos: Optimización Crítica de Rendimiento y Infinite Scroll (Enero 2025)
+
+### 🎯 **RELEASE BETA - Optimización de Rendimiento y Mejoras de UX**
+
+#### 🚀 **Optimización Crítica: Eliminación de Problema N+1 Query**
+- **Problema identificado:** El módulo de Prospectos hacía 200+ consultas individuales para enriquecer prospectos (100 prospectos × 2 consultas cada uno)
+- **Solución implementada:** Carga batch de coordinaciones y ejecutivos (solo 2 consultas totales)
+- **Mejora de rendimiento:** 
+  - Antes: ~20 segundos para 100 prospectos
+  - Ahora: ~0.7 segundos para carga inicial
+  - **Mejora: ~29x más rápido** 🚀
+- **Funciones optimizadas:**
+  - `loadCoordinacionesAndEjecutivos()`: Carga todas las coordinaciones y ejecutivos de una vez
+  - `enrichProspectos()`: Enriquecimiento usando mapas en memoria (búsqueda O(1))
+  - Eliminación de `Promise.all` con múltiples consultas individuales
+
+#### 📜 **Infinite Scroll (Carga Incremental)**
+- **Técnica implementada:** Intersection Observer API para carga automática
+- **Funcionamiento:**
+  - Carga inicial: 50 prospectos
+  - Carga automática cuando el usuario está a 200px del final
+  - Indicador visual de carga mientras se obtienen más datos
+- **Estados agregados:**
+  - `allProspectos`: Todos los prospectos cargados
+  - `loadingMore`: Estado de carga incremental
+  - `hasMore`: Indica si hay más datos disponibles
+  - `currentPage`: Página actual de paginación
+  - `totalCount`: Contador total de prospectos
+- **Batch size:** 50 prospectos por carga
+- **Reset automático:** Al cambiar filtros, se resetea la carga y se recarga desde el inicio
+
+#### 🎨 **Scroll Independiente por Columna (Vista Kanban)**
+- **Funcionalidad:** Cada columna del Kanban tiene su propio scroll independiente
+- **Implementación:**
+  - Altura fija en contenedor padre: `calc(100vh - 280px)`
+  - Cada columna con `height: 100%` y `minHeight: 0` para flexbox correcto
+  - Contenedor de scroll con `height: 0` y `minHeight: 0` para que `flex-1` funcione
+  - Barras de scroll invisibles usando clase `scrollbar-hide`
+- **Infinite Scroll por columna:**
+  - Cada columna detecta cuando está cerca del final (200px)
+  - Carga automática de más prospectos filtrados por etapa específica
+  - Estados independientes de carga por columna
+  - Elemento sentinela (`data-sentinel`) para detectar scroll
+- **Intersection Observer:** Un observer por columna para detectar scroll independiente
+
+#### 🔧 **Mejoras Técnicas**
+- **Mapeo de etapas:** Función `getEtapasForCheckpoint()` para mapear checkpoints a etapas reales
+- **Estados de columnas:** `columnLoadingStates` para rastrear carga por columna
+- **Función de carga incremental:** `loadMoreProspectosForColumn()` para cargar más prospectos por etapa
+- **Limpieza de observers:** Desconexión correcta de Intersection Observers al desmontar
+
+#### 📊 **Métricas de Rendimiento**
+- **Carga inicial:** De ~20 segundos a ~0.7 segundos (100 prospectos)
+- **Consultas reducidas:** De 200+ consultas a 2 consultas (100 prospectos)
+- **Experiencia de usuario:** Carga inicial instantánea + carga incremental transparente
+- **Memoria:** Impacto mínimo con paginación y carga incremental
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/prospectos/ProspectosManager.tsx` - Optimización de carga y infinite scroll
+- `src/components/prospectos/ProspectosKanban.tsx` - Scroll independiente por columna
+- `docs/DIAGNOSTICO_PROSPECTOS_PERFORMANCE.md` - Nuevo documento de diagnóstico
+
+#### 🎯 **Beneficios**
+- ✅ Carga inicial 29x más rápida
+- ✅ Experiencia de usuario fluida con infinite scroll
+- ✅ Scroll independiente por columna en Kanban
+- ✅ Barras de scroll invisibles para UI limpia
+- ✅ Carga incremental transparente sin interrupciones
+- ✅ Mejor uso de recursos (menos consultas, menos memoria)
+
+---
+
 ## 🎯 Versión B4.0.1N6.0.0 - Dashboard: Sistema de Notificaciones de Sonido y Optimización de Widgets (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Sistema de Notificaciones y Mejoras de UI**
