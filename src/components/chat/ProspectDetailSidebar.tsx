@@ -32,6 +32,7 @@ import { CallDetailModal } from './CallDetailModal';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
+import { Avatar } from '../shared/Avatar';
 
 interface CallHistory {
   call_id: string;
@@ -467,23 +468,23 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full w-[540px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col pointer-events-auto"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col pointer-events-auto"
+            style={{ top: 0, margin: 0, padding: 0, height: '100vh' }}
           >
             {/* Header */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
-              className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600"
+              className="flex items-center justify-between p-6 border-b border-white/10 plasma-gradient-header relative"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg">
-                  <span className="text-2xl font-bold text-white">
-                    {prospecto?.nombre?.charAt(0).toUpperCase() || 
-                     prospecto?.nombre_whatsapp?.charAt(0).toUpperCase() || 
-                     'P'}
-                  </span>
-                </div>
+              <div className="flex items-center gap-4 relative z-10">
+                <Avatar
+                  name={prospecto?.nombre_completo || prospecto?.nombre || prospecto?.nombre_whatsapp}
+                  size="2xl"
+                  showIcon={false}
+                  className="bg-white/20 backdrop-blur-sm shadow-lg"
+                />
                 <div>
                   <h2 className="text-xl font-bold text-white">
                     {prospecto?.nombre || prospecto?.nombre_whatsapp || 'Cargando...'}
@@ -493,12 +494,15 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   </p>
                 </div>
               </div>
-              <button 
-                onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors"
-              >
-                <X size={24} className="text-white" />
-              </button>
+              <div className="flex items-center gap-2 relative z-10">
+                <button 
+                  onClick={onClose}
+                  className="p-2.5 rounded-full transition-all duration-200 bg-white/55 hover:bg-white/65 text-white hover:scale-110 active:scale-95 shadow-xl backdrop-blur-lg border-2 border-white/35"
+                  title="Cerrar"
+                >
+                  <X size={24} className="text-white drop-shadow-lg" strokeWidth={3} />
+                </button>
+              </div>
             </motion.div>
 
             {/* Content */}

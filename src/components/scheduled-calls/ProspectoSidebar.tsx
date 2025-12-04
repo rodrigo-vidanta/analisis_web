@@ -10,6 +10,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
+import { Avatar } from '../shared/Avatar';
 
 interface CallHistory {
   call_id: string;
@@ -251,7 +252,8 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[70] overflow-hidden"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[70] overflow-hidden"
+            style={{ top: 0, margin: 0, padding: 0, height: '100vh' }}
           >
             {loading || !prospecto ? (
               <div className="flex items-center justify-center h-full">
@@ -267,38 +269,44 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-                  className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20"
+                  className="flex items-center justify-between p-6 border-b border-white/10 plasma-gradient-header relative"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg">
-                      <User className="text-blue-600 dark:text-blue-400" size={24} />
-                    </div>
+                  <div className="flex items-center gap-4 relative z-10">
+                    <Avatar
+                      name={prospecto.nombre_completo || prospecto.nombre_whatsapp}
+                      size="2xl"
+                      showIcon={false}
+                      className="bg-white/20 backdrop-blur-sm shadow-lg"
+                    />
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      <h2 className="text-xl font-bold text-white">
                         {prospecto.nombre_completo}
                       </h2>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <p className="text-sm text-white/80">
                         {prospecto.ciudad_residencia} • {prospecto.interes_principal}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => {
-                        if (prospecto?.id) {
-                          onNavigateToLiveChat?.(prospecto.id);
-                        }
-                      }}
-                      className="p-2 rounded-full transition-colors shadow-lg bg-green-600 hover:bg-green-700 text-white cursor-pointer"
-                      title="Ir a Live Chat (buscar o crear conversación)"
-                    >
-                      <MessageSquare size={20} />
-                    </button>
+                  <div className="flex items-center gap-2 relative z-10">
+                    {onNavigateToLiveChat && (
+                      <button 
+                        onClick={() => {
+                          if (prospecto?.id) {
+                            onNavigateToLiveChat(prospecto.id);
+                          }
+                        }}
+                        className="p-2.5 rounded-full transition-all duration-200 shadow-xl bg-white/60 hover:bg-white/70 text-white cursor-pointer hover:scale-110 active:scale-95 backdrop-blur-lg border-2 border-white/40"
+                        title="Ir a Live Chat (buscar o crear conversación)"
+                      >
+                        <MessageSquare size={20} className="text-white drop-shadow-lg" strokeWidth={2.5} />
+                      </button>
+                    )}
                     <button 
                       onClick={onClose}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                      className="p-2.5 rounded-full transition-all duration-200 bg-white/55 hover:bg-white/65 text-white hover:scale-110 active:scale-95 shadow-xl backdrop-blur-lg border-2 border-white/35"
+                      title="Cerrar"
                     >
-                      <X size={24} className="text-gray-400" />
+                      <X size={24} className="text-white drop-shadow-lg" strokeWidth={3} />
                     </button>
                   </div>
                 </motion.div>

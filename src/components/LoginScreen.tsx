@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import PasswordResetModal from './auth/PasswordResetModal';
 import AccountUnlockModal from './auth/AccountUnlockModal';
+import { AnimatedGradientBackground } from './AnimatedGradientBackground';
+import { RotatingBackground } from './RotatingBackground';
 // Componentes de transición eliminados - se usa LightSpeedTunnel en AuthContext
 
 const LoginScreen: React.FC = () => {
@@ -42,7 +44,9 @@ const LoginScreen: React.FC = () => {
   return (
     <>
       
-      <div className="min-h-screen tech-gradient flex items-center justify-center px-4">
+      <div className="min-h-screen tech-gradient flex items-center justify-center px-4 relative overflow-hidden" id="login-background">
+      <RotatingBackground />
+      <AnimatedGradientBackground />
       {/* SVG Definitions for gradients */}
       <svg width="0" height="0" className="absolute">
         <defs>
@@ -53,7 +57,7 @@ const LoginScreen: React.FC = () => {
         </defs>
       </svg>
 
-      <div className="max-w-md w-full">
+      <div className="max-w-md w-full relative z-20">
         {/* Logo y branding moderno */}
         <div className="text-center mb-12 animate-fade-in-up">
           {/* Logo principal más grande en lugar del título */}

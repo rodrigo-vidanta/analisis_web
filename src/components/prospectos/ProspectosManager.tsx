@@ -37,6 +37,7 @@ import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
+import { Avatar } from '../shared/Avatar';
 
 interface Prospecto {
   id: string;
@@ -315,33 +316,34 @@ const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen, onClo
           />
           
           <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-8 md:inset-16 lg:inset-24 xl:inset-32 bg-white dark:bg-gray-900 rounded-xl shadow-2xl z-[110] overflow-hidden"
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[110] overflow-hidden"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg">
-                    <Phone className="text-blue-600 dark:text-blue-400" size={24} />
+              <div className="flex items-center justify-between p-6 border-b border-white/10 plasma-gradient-header relative">
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="p-3 bg-white/20 backdrop-blur-sm rounded-full shadow-lg">
+                    <Phone className="text-white" size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    <h2 className="text-xl font-bold text-white">
                       Detalle de Llamada
                     </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-white/80">
                       {callDetail.call_id} • {new Date(callDetail.fecha_llamada || callDetail.created_at).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
                 <button 
                   onClick={onClose}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  className="p-2 rounded-full transition-all duration-200 bg-white/35 hover:bg-white/45 text-white hover:scale-110 active:scale-95 shadow-md backdrop-blur-md border border-white/25 relative z-10"
+                  title="Cerrar"
                 >
-                  <X size={24} className="text-gray-400" />
+                  <X size={24} className="text-white drop-shadow-md" strokeWidth={2.5} />
                 </button>
               </div>
               
@@ -876,25 +878,24 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-[540px] bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden"
+            style={{ top: 0, margin: 0, padding: 0 }}
           >
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full" style={{ height: '100vh' }}>
               {/* Header */}
               <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
-                className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600"
+                className="flex items-center justify-between p-6 border-b border-white/10 plasma-gradient-header relative"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-2xl font-bold text-white">
-                      {prospecto.nombre_completo?.charAt(0).toUpperCase() || 
-                       prospecto.nombre?.charAt(0).toUpperCase() || 
-                       prospecto.nombre_whatsapp?.charAt(0).toUpperCase() || 
-                       'P'}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-4 relative z-10">
+                  <Avatar
+                    name={prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim() || prospecto.nombre_whatsapp}
+                    size="2xl"
+                    showIcon={false}
+                    className="bg-white/20 backdrop-blur-sm shadow-lg"
+                  />
                   <div>
                     <h2 className="text-xl font-bold text-white">
                       {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim() || prospecto.nombre_whatsapp || 'Cargando...'}
@@ -906,23 +907,24 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 relative z-10">
                   {onNavigateToLiveChat && (
                     <button 
                       onClick={() => {
                         onNavigateToLiveChat(prospecto.id);
                       }}
-                      className="p-2 rounded-full transition-colors shadow-lg bg-white/20 hover:bg-white/30 text-white cursor-pointer"
+                      className="p-2.5 rounded-full transition-all duration-200 shadow-xl bg-white/60 hover:bg-white/70 text-white cursor-pointer hover:scale-110 active:scale-95 backdrop-blur-lg border-2 border-white/40"
                       title="Ir a Live Chat (buscar o crear conversación)"
                     >
-                      <MessageSquare size={20} />
+                      <MessageSquare size={20} className="text-white drop-shadow-lg" strokeWidth={2.5} />
                     </button>
                   )}
                   <button 
                     onClick={onClose}
-                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                    className="p-2.5 rounded-full transition-all duration-200 bg-white/55 hover:bg-white/65 text-white hover:scale-110 active:scale-95 shadow-xl backdrop-blur-lg border-2 border-white/35"
+                    title="Cerrar"
                   >
-                    <X size={24} className="text-white" />
+                    <X size={24} className="text-white drop-shadow-lg" strokeWidth={3} />
                   </button>
                 </div>
               </motion.div>

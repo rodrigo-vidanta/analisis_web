@@ -1,5 +1,51 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.5N6.0.0 - UI/UX: Animación de Fondo en Pantalla de Login y Mejoras Visuales (Enero 2025)
+
+### 🎯 **RELEASE BETA - Animaciones Avanzadas en Pantalla de Login**
+
+#### ✨ **Fondo Rotatorio con Aceleración GPU**
+- **Rotación suave y continua:** Fondo con rotación lenta y sutil (0.0064 grados por frame)
+- **Aceleración GPU:** Uso de `transform3d` y `will-change` para rendimiento óptimo
+- **Cobertura completa:** Fondo extendido (200% x 200%) para evitar áreas negras durante la rotación
+- **Aislamiento de contenido:** Solo el fondo gira, el contenido permanece estático
+- **Optimización de rendimiento:** Sin afectar el rendimiento del navegador
+
+#### 🌟 **Gradientes Radiales Animados (Estilo Yin-Yang)**
+- **Movimiento circular:** Tres gradientes radiales moviéndose en patrones circulares tipo yin-yang
+- **Velocidades diferenciadas:** Cada gradiente con velocidad única para efecto orgánico
+- **Colores sutiles:** Tonos azul-violeta-cyan con opacidades bajas para efecto discreto
+- **Transiciones suaves:** Movimiento continuo sin saltos ni cortes visibles
+
+#### ✨ **Partículas Elevándose**
+- **Efecto ascendente:** Partículas que se elevan desde la parte inferior de la pantalla
+- **Desvanecimiento progresivo:** Fade out suave al llegar a la mitad de la pantalla
+- **Glow sutil:** Efecto de brillo radial alrededor de cada partícula
+- **Tamaño optimizado:** Partículas pequeñas (0.6-2.1px) para efecto discreto
+- **Velocidad controlada:** Movimiento lento y suave (0.2-0.6px por frame)
+- **Densidad equilibrada:** Máximo 20 partículas simultáneas para mantener rendimiento
+
+#### 🎨 **Mejoras Visuales**
+- **Contraste mejorado:** Partículas con opacidad ajustada (0.3-0.8) para mejor visibilidad
+- **Canvas optimizado:** Opacidad del canvas ajustada a 0.7 para equilibrio visual
+- **Gradientes refinados:** Colores y opacidades ajustados para mezcla perfecta
+- **Sin bordes visibles:** Fondo extendido y difuminado para transiciones suaves
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/LoginScreen.tsx` - Integración de componentes de animación
+- `src/components/RotatingBackground.tsx` (nuevo) - Componente de rotación GPU del fondo
+- `src/components/AnimatedGradientBackground.tsx` (nuevo) - Gradientes y partículas animadas
+- `src/index.css` - Estilos de fondo tecnológico y gradientes
+
+#### 🔧 **Implementación Técnica**
+- **React Hooks:** `useRef`, `useEffect` para gestión de animaciones
+- **Canvas API:** Renderizado de partículas con optimización de rendimiento
+- **RequestAnimationFrame:** Animaciones fluidas sincronizadas con el navegador
+- **CSS Custom Properties:** Variables CSS para rotación dinámica
+- **GPU Acceleration:** Transformaciones 3D y `will-change` para aceleración hardware
+
+---
+
 ## 🎯 Versión B4.0.4N6.0.0 - UI/UX: Animaciones de Tema, Mensajes y Mejoras de Responsividad (Diciembre 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras de Interfaz y Experiencia de Usuario**

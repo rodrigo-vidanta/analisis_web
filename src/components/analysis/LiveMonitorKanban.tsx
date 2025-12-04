@@ -30,6 +30,7 @@ import { AssignmentBadge } from './AssignmentBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProspectAvatar } from './ProspectAvatar';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
+import { Avatar } from '../shared/Avatar';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { coordinacionService } from '../../services/coordinacionService';
@@ -328,24 +329,23 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-[540px] bg-white dark:bg-slate-900 shadow-2xl z-[100] overflow-hidden"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-slate-900 shadow-2xl z-[100] overflow-hidden"
+            style={{ top: 0, margin: 0, padding: 0, height: '100vh' }}
           >
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full" style={{ height: '100vh' }}>
               <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
-                className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600"
+                className="flex items-center justify-between p-6 border-b border-white/10 plasma-gradient-header relative"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-2xl font-bold text-white">
-                      {prospecto.nombre_completo?.charAt(0).toUpperCase() || 
-                       prospecto.nombre?.charAt(0).toUpperCase() || 
-                       prospecto.nombre_whatsapp?.charAt(0).toUpperCase() || 
-                       'P'}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-4 relative z-10">
+                  <Avatar
+                    name={prospecto.nombre_completo || prospecto.nombre || prospecto.nombre_whatsapp}
+                    size="2xl"
+                    showIcon={false}
+                    className="bg-white/20 backdrop-blur-sm shadow-lg"
+                  />
                   <div>
                     <h2 className="text-xl font-bold text-white">
                       {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim() || prospecto.nombre_whatsapp || 'Cargando...'}
@@ -357,7 +357,7 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 relative z-10">
                   <button 
                     onClick={() => {
                       if (hasActiveChat) {
@@ -365,20 +365,21 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                       }
                     }}
                     disabled={!hasActiveChat}
-                    className={`p-2 rounded-full transition-colors shadow-lg ${
+                    className={`p-2.5 rounded-full transition-all duration-200 shadow-xl backdrop-blur-lg border-2 ${
                       hasActiveChat 
-                        ? 'bg-white/20 hover:bg-white/30 text-white cursor-pointer' 
-                        : 'bg-white/10 text-white/50 cursor-not-allowed'
+                        ? 'bg-white/60 hover:bg-white/70 text-white cursor-pointer hover:scale-110 active:scale-95 border-white/40' 
+                        : 'bg-white/40 text-white/70 cursor-not-allowed opacity-70 border-white/30'
                     }`}
                     title={hasActiveChat ? "Ir a conversación activa" : "No hay conversación activa"}
                   >
-                    <MessageSquare size={20} />
+                    <MessageSquare size={20} className="text-white drop-shadow-lg" strokeWidth={2.5} />
                   </button>
                   <button 
                     onClick={onClose}
-                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                    className="p-2.5 rounded-full transition-all duration-200 bg-white/55 hover:bg-white/65 text-white hover:scale-110 active:scale-95 shadow-xl backdrop-blur-lg border-2 border-white/35"
+                    title="Cerrar"
                   >
-                    <X size={24} className="text-white" />
+                    <X size={24} className="text-white drop-shadow-lg" strokeWidth={3} />
                   </button>
                 </div>
               </motion.div>
@@ -3699,12 +3700,14 @@ const LiveMonitorKanban: React.FC = () => {
                                 />
                               </div>
                             </div>
-                            <button
-                              onClick={() => setShowDatePicker(false)}
-                              className="mt-2 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                            >
-                              Aplicar
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setShowDatePicker(false)}
+                                className="mt-2 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                              >
+                                Aplicar
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}

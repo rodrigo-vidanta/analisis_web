@@ -1,5 +1,35 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.5N6.0.0 (Enero 2025) - UI/UX: Animación de Fondo en Pantalla de Login y Mejoras Visuales
+
+### 🎯 RELEASE BETA - Animaciones Avanzadas en Pantalla de Login
+
+#### Fondo Rotatorio con Aceleración GPU
+- **Rotación suave:** Fondo con rotación lenta y continua (0.0064 grados por frame)
+- **Aceleración GPU:** Optimización con `transform3d` y `will-change` para máximo rendimiento
+- **Cobertura completa:** Fondo extendido para evitar áreas negras durante rotación
+- **Contenido estático:** Solo el fondo gira, el contenido permanece fijo
+
+#### Gradientes Radiales Animados (Estilo Yin-Yang)
+- **Movimiento circular:** Tres gradientes moviéndose en patrones tipo yin-yang
+- **Velocidades diferenciadas:** Cada gradiente con velocidad única para efecto orgánico
+- **Colores sutiles:** Tonos azul-violeta-cyan con opacidades bajas
+
+#### Partículas Elevándose
+- **Efecto ascendente:** Partículas que se elevan desde abajo
+- **Desvanecimiento progresivo:** Fade out suave al llegar a la mitad de pantalla
+- **Glow sutil:** Efecto de brillo radial alrededor de cada partícula
+- **Tamaño optimizado:** Partículas pequeñas (0.6-2.1px) para efecto discreto
+- **Velocidad controlada:** Movimiento lento y suave
+
+#### Archivos Principales
+- LoginScreen.tsx - Integración de animaciones
+- RotatingBackground.tsx (nuevo) - Rotación GPU del fondo
+- AnimatedGradientBackground.tsx (nuevo) - Gradientes y partículas
+- index.css - Estilos de fondo tecnológico
+
+---
+
 ## Versión B4.0.4N6.0.0 (Diciembre 2025) - UI/UX: Animaciones de Tema, Mensajes y Mejoras de Responsividad
 
 ### 🎯 RELEASE BETA - Mejoras de Interfaz y Experiencia de Usuario

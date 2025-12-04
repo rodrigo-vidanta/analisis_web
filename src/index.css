@@ -4,6 +4,150 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Estilos de gradiente plasma para headers de sidebars */
+@keyframes plasma-move-x {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes plasma-move-x-fast {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes plasma-move-y {
+  0% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 50% 100%;
+  }
+  100% {
+    background-position: 50% 0%;
+  }
+}
+
+@keyframes plasma-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes plasma-move-x-slow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes plasma-move-y-slow {
+  0% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 50% 100%;
+  }
+  100% {
+    background-position: 50% 0%;
+  }
+}
+
+@keyframes plasma-rotate-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.plasma-gradient-header {
+  background: linear-gradient(
+    135deg,
+    #1e293b 0%,
+    #1e3a8a 20%,
+    #1e293b 40%,
+    #1e3a8a 60%,
+    #1e293b 80%,
+    #1e3a8a 100%
+  ) !important;
+  background-size: 200% 200% !important;
+  animation: plasma-move-x-fast 1.5s ease-in-out infinite !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.plasma-gradient-header::before {
+  content: '' !important;
+  position: absolute !important;
+  top: -50% !important;
+  left: -50% !important;
+  width: 200% !important;
+  height: 200% !important;
+  background: linear-gradient(
+    45deg,
+    rgba(30, 41, 59, 0.6) 0%,
+    rgba(30, 58, 138, 0.4) 25%,
+    rgba(30, 41, 59, 0.6) 50%,
+    rgba(30, 58, 138, 0.4) 75%,
+    rgba(30, 41, 59, 0.6) 100%
+  ) !important;
+  background-size: 200% 200% !important;
+  animation: plasma-move-x-fast 2s ease-in-out infinite reverse, plasma-rotate 8s linear infinite !important;
+  opacity: 0.7 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  filter: blur(15px) !important;
+}
+
+.plasma-gradient-header::after {
+  content: '' !important;
+  position: absolute !important;
+  top: -50% !important;
+  right: -50% !important;
+  width: 200% !important;
+  height: 200% !important;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(59, 130, 246, 0.4) 0%,
+    rgba(30, 58, 138, 0.2) 30%,
+    transparent 60%
+  ) !important;
+  background-size: 150% 150% !important;
+  animation: plasma-move-y 2.5s ease-in-out infinite, plasma-rotate 10s linear infinite reverse !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  filter: blur(25px) !important;
+}
+
 /* Scrollbar personalizada discreta */
 .custom-scrollbar {
   scrollbar-width: thin;
@@ -272,16 +416,36 @@ body {
 
 .tech-gradient::before {
   content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
   background: 
     radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
     radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.15) 0%, transparent 50%),
     radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.1) 0%, transparent 50%);
   pointer-events: none;
+  will-change: transform;
+  transform-origin: center center;
+  z-index: 0;
+}
+
+/* Contenedor para gradientes animados */
+.animated-gradient-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.animated-dots-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
 }
 
 .gradient-bg {
