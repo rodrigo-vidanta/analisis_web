@@ -1,5 +1,23 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.3N6.0.0 (Enero 2025) - Prospectos: Filtros en Memoria y Mejoras de UX
+
+### 🎯 RELEASE BETA - Filtros Optimizados y Mejoras de Experiencia
+
+#### Filtros en Memoria
+- **Todos los filtros funcionan en memoria:** Sin recargas desde la base de datos
+- **Experiencia fluida:** Filtrado instantáneo sin interrupciones
+- **Búsqueda optimizada:** Sin re-renders al escribir
+
+#### Eliminación de Filtro de Score
+- **Removido del UI:** Select de score eliminado
+- **UI simplificada:** Menos complejidad en la interfaz
+
+#### Archivos Principales
+- ProspectosManager - Filtros optimizados
+
+---
+
 ## Versión B4.0.2N6.0.0 (Enero 2025) - Prospectos: Optimización Crítica de Rendimiento y Infinite Scroll
 
 ### 🎯 RELEASE BETA - Optimización de Rendimiento y Mejoras de UX

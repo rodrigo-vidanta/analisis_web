@@ -1,5 +1,41 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.3N6.0.0 - Prospectos: Filtros en Memoria y Mejoras de UX (Enero 2025)
+
+### 🎯 **RELEASE BETA - Filtros Optimizados y Mejoras de Experiencia**
+
+#### ⚡ **Filtros en Memoria (Sin Recargas)**
+- **Problema resuelto:** Los filtros causaban re-renders y recargas desde la base de datos en cada cambio
+- **Solución implementada:** Todos los filtros ahora funcionan en memoria sobre los datos ya cargados
+- **Filtros optimizados:**
+  - Búsqueda por texto: Filtrado instantáneo sin interrupciones
+  - Filtro por etapa: Filtrado instantáneo en memoria
+  - Filtro por campaña: Filtrado instantáneo en memoria
+- **Mejora de UX:** Experiencia fluida sin delays ni interrupciones al escribir o cambiar filtros
+- **Rendimiento:** Sin consultas innecesarias a la base de datos al filtrar
+
+#### 🗑️ **Eliminación de Filtro de Score**
+- **Removido:** Select de filtro por "Score" del UI
+- **Razón:** Simplificación de la interfaz y reducción de complejidad
+- **Estado interno:** El campo `score` se mantiene en el estado pero no se muestra en la UI
+
+#### 🔧 **Optimizaciones Técnicas**
+- **Eliminado `useEffect` de recarga:** Los filtros ya no disparan recargas desde la base de datos
+- **Filtrado con `useMemo`:** Todos los filtros usan `useMemo` para filtrado eficiente en memoria
+- **Sin re-renders pesados:** El filtrado es instantáneo y no causa interrupciones en la escritura
+
+#### 📊 **Beneficios**
+- ✅ Experiencia de usuario fluida sin interrupciones
+- ✅ Filtrado instantáneo en todos los filtros
+- ✅ Sin consultas innecesarias a la base de datos
+- ✅ Mejor rendimiento al filtrar
+- ✅ UI más limpia sin filtro de score
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/prospectos/ProspectosManager.tsx` - Filtros optimizados en memoria
+
+---
+
 ## 🎯 Versión B4.0.2N6.0.0 - Prospectos: Optimización Crítica de Rendimiento y Infinite Scroll (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Optimización de Rendimiento y Mejoras de UX**

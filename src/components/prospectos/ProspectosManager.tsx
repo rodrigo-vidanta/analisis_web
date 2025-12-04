@@ -1299,7 +1299,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     etapa: '',
-    score: '',
+    score: '', // Mantener en estado pero no mostrar en UI
     campana_origen: '',
     dateRange: ''
   });
@@ -1358,28 +1358,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     }
   }, [user?.id, viewType]);
 
-  // Resetear carga cuando cambian los filtros
-  useEffect(() => {
-    if (user?.id) {
-      // Resetear estados de columnas también
-      const etapasIniciales = [
-        'Es miembro',
-        'Activo PQNC',
-        'Validando membresia',
-        'En seguimiento',
-        'Interesado',
-        'Atendió llamada'
-      ];
-      
-      const initialStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
-      etapasIniciales.forEach(etapa => {
-        initialStates[etapa] = { loading: false, page: -1, hasMore: true };
-      });
-      setColumnLoadingStates(initialStates);
-      
-      loadProspectos(0, true);
-    }
-  }, [filters.search, filters.etapa, filters.score, filters.campana_origen, filters.dateRange]);
+  // Los filtros ahora se aplican solo en memoria, no recargan desde la base de datos
+  // Solo recargar cuando cambia el usuario o la vista
 
   // Infinite Scroll: Observar cuando el usuario hace scroll cerca del final
   useEffect(() => {
@@ -1746,17 +1726,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               {getUniqueValues('etapa').map(etapa => (
                 <option key={etapa} value={etapa}>{etapa}</option>
               ))}
-            </select>
-            
-            <select
-              value={filters.score}
-              onChange={(e) => setFilters(prev => ({ ...prev, score: e.target.value }))}
-              className="h-9 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs md:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
-            >
-              <option value="">Todos los scores</option>
-              <option value="Q Reto">Q Reto</option>
-              <option value="Q Premium">Q Premium</option>
-              <option value="Q Elite">Q Elite</option>
             </select>
             
             <select
