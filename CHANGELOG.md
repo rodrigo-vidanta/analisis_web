@@ -1,5 +1,37 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.8N6.0.0 - AI Call Monitor: Optimización de Historial y Correcciones (Enero 2025)
+
+### 🎯 **RELEASE BETA - Optimización de Rendimiento y Correcciones en Historial**
+
+#### ⚡ **Optimización de Carga del Historial**
+- **Reducción de límite inicial:** De 1000 a 300 llamadas para mejor rendimiento inicial
+- **Carga paralela:** Ejecutivos y coordinaciones se cargan en paralelo con `Promise.all` para reducir tiempo de carga
+- **Actualización periódica:** Historial se actualiza automáticamente cada 60 segundos sin recargar toda la página
+- **Carga inteligente:** Carga desde `llamadas_ventas` primero, luego enriquecimiento con datos de `call_analysis_summary`
+- **Paginación eficiente:** Paginación frontend (50 por página) aplicada después de filtrado para mejor UX
+
+#### 🐛 **Correcciones de Columnas**
+- **Columna `whatsapp`:** Eliminada de consulta a `llamadas_ventas` (no existe en esa tabla, solo en `prospectos`)
+- **Columnas `created_at` y `updated_at`:** Eliminadas de consulta (no existen en `llamadas_ventas`)
+- **Uso correcto de `fecha_llamada`:** Campo usado como fuente de fecha para ordenamiento y visualización
+
+#### 🔄 **Mejoras en Actualización del Historial**
+- **Recarga al cambiar de pestaña:** Historial se recarga automáticamente al cambiar a la pestaña "Historial"
+- **Intervalo de actualización:** Actualización automática cada 60 segundos para mantener datos frescos
+- **Sin re-render completo:** Actualizaciones sin recargar toda la página, solo datos necesarios
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Optimización de `loadHistoryCalls`, corrección de columnas, carga paralela
+
+#### 🔧 **Implementación Técnica**
+- **Consulta optimizada:** Reducción de datos cargados inicialmente (300 vs 1000)
+- **Promise.all:** Carga paralela de ejecutivos y coordinaciones para mejor rendimiento
+- **Manejo de errores:** Mejor manejo de columnas inexistentes y errores de consulta
+- **Paginación frontend:** Paginación aplicada después de filtrado para mejor rendimiento
+
+---
+
 ## 🎯 Versión B4.0.7N6.0.0 - Dashboard: Notificaciones del Sistema y Sidebar Actualizado (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Notificaciones del Sistema Operativo y Mejoras en Sidebar**

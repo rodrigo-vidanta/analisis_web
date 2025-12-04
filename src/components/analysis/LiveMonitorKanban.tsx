@@ -1201,31 +1201,78 @@ const LiveMonitorKanban: React.FC = () => {
         }
       }
       
-      // Cargar análisis básicos desde call_analysis_summary (misma fuente que AnalysisIAComplete)
-      const { data: analysisData, error: analysisError } = await analysisSupabase
-        .from('call_analysis_summary')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (analysisError) throw analysisError;
-
-      // Cargar datos complementarios de llamadas_ventas
-      const callIds = analysisData?.map(a => a.call_id) || [];
-      let enrichedData = analysisData || [];
+      // Cargar llamadas desde llamadas_ventas (fuente principal)
+      // Limitar a 300 llamadas más recientes para mejor rendimiento
+      // La paginación se aplica después de filtrar en el frontend
+      const { data: allLlamadasData, error: allLlamadasError } = await analysisSupabase
+        .from('llamadas_ventas')
+        .select('call_id, fecha_llamada, duracion_segundos, call_status, prospecto, datos_proceso, datos_llamada, audio_ruta_bucket')
+        .order('fecha_llamada', { ascending: false })
+        .limit(300); // Reducido de 1000 a 300 para mejor rendimiento
+      
+      if (allLlamadasError) {
+        console.error('Error loading llamadas_ventas:', allLlamadasError);
+        throw allLlamadasError;
+      }
+      
+      // Cargar análisis desde call_analysis_summary para enriquecer los datos
+      const callIds = allLlamadasData?.map(l => l.call_id).filter(Boolean) || [];
+      let analysisData: any[] = [];
+      let analysisError: any = null;
       
       if (callIds.length > 0) {
-        const { data: llamadasData, error: llamadasError } = await analysisSupabase
-          .from('llamadas_ventas')
+        const result = await analysisSupabase
+          .from('call_analysis_summary')
           .select('*')
-          .in('call_id', callIds);
-
-        if (!llamadasError && llamadasData) {
-          // Obtener IDs de prospectos únicos
-          const prospectoIds = llamadasData.map(l => l.prospecto).filter(Boolean);
-          
-          // Cargar datos de prospectos con filtros de permisos
-          let prospectosData: any[] = [];
-          if (prospectoIds.length > 0) {
+          .in('call_id', callIds)
+          .order('created_at', { ascending: false });
+        analysisData = result.data || [];
+        analysisError = result.error;
+      }
+      
+      if (analysisError) {
+        console.error('Error loading analysis data:', analysisError);
+        // Continuar sin análisis si hay error
+      }
+      
+      // Crear mapa de análisis por call_id para lookup rápido
+      const analysisMap = new Map(analysisData?.map(a => [a.call_id, a]) || []);
+      
+      // Crear datos combinados: todas las llamadas con sus análisis si existen
+      const combinedAnalysisData = (allLlamadasData || []).map(llamada => {
+        const analysis = analysisMap.get(llamada.call_id);
+        if (analysis) {
+          // Si hay análisis, usar sus datos
+          return analysis;
+        } else {
+          // Si no hay análisis, crear entrada básica desde llamadas_ventas
+          return {
+            call_id: llamada.call_id,
+            created_at: llamada.fecha_llamada || new Date().toISOString(),
+            // Campos básicos que pueden no existir
+            score_general: null,
+            categoria_desempeno: null,
+            checkpoint_alcanzado: null,
+            nivel_interes_detectado: null,
+            calificaciones: null,
+          } as any;
+        }
+      });
+      
+      // Inicializar enrichedData fuera del bloque condicional
+      let enrichedData: any[] = [];
+      
+      // Usar directamente allLlamadasData que ya tiene todos los datos necesarios
+      if (allLlamadasData && allLlamadasData.length > 0) {
+        const llamadasData = allLlamadasData;
+        
+        // Obtener IDs de prospectos únicos
+        const prospectoIds = llamadasData.map(l => l.prospecto).filter(Boolean);
+        
+        // Cargar datos de prospectos con filtros de permisos
+        let prospectosData: any[] = [];
+        
+        if (prospectoIds.length > 0) {
             // Aplicar filtros de permisos según rol del usuario (igual que AnalysisIAComplete)
             // Cargar TODOS los campos del prospecto para el modal de detalle
             let prospectosQuery = analysisSupabase
@@ -1260,172 +1307,185 @@ const LiveMonitorKanban: React.FC = () => {
               const ejecutivoIds = [...new Set(prospectosResult.map(p => p.ejecutivo_id).filter(Boolean))];
               const coordinacionIds = [...new Set(prospectosResult.map(p => p.coordinacion_id).filter(Boolean))];
               
-              // Cargar ejecutivos
-              if (ejecutivoIds.length > 0) {
-                const ejecutivosData: Record<string, any> = {};
-                for (const ejecId of ejecutivoIds) {
-                  try {
-                    const ejecutivo = await coordinacionService.getEjecutivoById(ejecId);
-                    if (ejecutivo) ejecutivosData[ejecId] = ejecutivo;
-                  } catch (err) {
-                    console.error(`Error loading ejecutivo ${ejecId}:`, err);
-                  }
-                }
-                setEjecutivosMap(ejecutivosData);
-              }
+              // Cargar ejecutivos y coordinaciones en paralelo para mejor rendimiento
+              const [ejecutivosData, coordinacionesData] = await Promise.all([
+                ejecutivoIds.length > 0 ? Promise.all(
+                  ejecutivoIds.map(async (ejecId) => {
+                    try {
+                      const ejecutivo = await coordinacionService.getEjecutivoById(ejecId);
+                      return ejecutivo ? [ejecId, ejecutivo] : null;
+                    } catch (err) {
+                      console.error(`Error loading ejecutivo ${ejecId}:`, err);
+                      return null;
+                    }
+                  })
+                ).then(results => Object.fromEntries(results.filter(Boolean) as [string, any][])) : {},
+                coordinacionIds.length > 0 ? Promise.all(
+                  coordinacionIds.map(async (coordId) => {
+                    try {
+                      const coordinacion = await coordinacionService.getCoordinacionById(coordId);
+                      return coordinacion ? [coordId, coordinacion] : null;
+                    } catch (err) {
+                      console.error(`Error loading coordinacion ${coordId}:`, err);
+                      return null;
+                    }
+                  })
+                ).then(results => Object.fromEntries(results.filter(Boolean) as [string, any][])) : {}
+              ]);
               
-              // Cargar coordinaciones
-              if (coordinacionIds.length > 0) {
-                const coordinacionesData: Record<string, any> = {};
-                for (const coordId of coordinacionIds) {
-                  try {
-                    const coordinacion = await coordinacionService.getCoordinacionById(coordId);
-                    if (coordinacion) coordinacionesData[coordId] = coordinacion;
-                  } catch (err) {
-                    console.error(`Error loading coordinacion ${coordId}:`, err);
-                  }
-                }
-                setCoordinacionesMap(coordinacionesData);
-              }
+              setEjecutivosMap(ejecutivosData);
+              setCoordinacionesMap(coordinacionesData);
             }
           }
-          
-          // Filtrar análisis para incluir solo los que tienen prospectos permitidos
+        
+        // Filtrar análisis para incluir solo los que tienen prospectos permitidos
+        // Este bloque debe estar fuera del if (prospectoIds.length > 0) pero dentro del if (allLlamadasData...)
+        if (prospectosData.length > 0) {
           const allowedProspectoIds = new Set(prospectosData.map(p => p.id));
           
-          enrichedData = (analysisData || []).map(analysis => {
+          enrichedData = combinedAnalysisData.map((analysis: any) => {
             const llamada = llamadasData.find(l => l.call_id === analysis.call_id);
-            const prospecto = prospectosData.find(p => p.id === llamada?.prospecto);
-            
-            // Si el prospecto no está en la lista permitida, excluir este análisis
-            if (llamada?.prospecto && !allowedProspectoIds.has(llamada.prospecto)) {
-              return null;
-            }
-            
-            // Parsear datos_proceso y datos_llamada
-            let datosProceso = null;
-            let datosLlamada = null;
-            
-            try {
-              if (llamada?.datos_proceso) {
-                datosProceso = typeof llamada.datos_proceso === 'string' 
-                  ? JSON.parse(llamada.datos_proceso) 
-                  : llamada.datos_proceso;
+              const finalLlamada = llamada || allLlamadasData?.find(l => l.call_id === analysis.call_id);
+              if (!finalLlamada) {
+                return null; // Si no hay datos de llamada, excluir
               }
-              if (llamada?.datos_llamada) {
-                datosLlamada = typeof llamada.datos_llamada === 'string' 
-                  ? JSON.parse(llamada.datos_llamada) 
-                  : llamada.datos_llamada;
+              const prospecto = prospectosData.find(p => p.id === finalLlamada?.prospecto);
+              
+              // Si el prospecto no está en la lista permitida, excluir este análisis
+              if (finalLlamada?.prospecto && !allowedProspectoIds.has(finalLlamada.prospecto)) {
+                return null;
               }
-            } catch (e) {
-              console.error('Error parsing datos_proceso/datos_llamada:', e);
-            }
-            
-            // Determinar estado correcto de la llamada según la lógica anterior
-            let callStatus = llamada?.call_status || 'finalizada';
-            const razonFinalizacion = datosLlamada?.razon_finalizacion;
-            const hasRecording = !!(llamada?.audio_ruta_bucket && llamada.audio_ruta_bucket.length > 0);
-            const duration = llamada?.duracion_segundos || 0;
-            
-            // Razones de transferencia
-            const TRANSFER_REASONS = [
-              'assistant-forwarded-call',
-              'call.ringing.hook-executed-transfer',
-              'transfer'
-            ];
-            
-            // Razones de pérdida/no contestada
-            const FAILED_REASONS = [
-              'customer-did-not-answer',
-              'customer-busy',
-              'no-answer',
-              'busy',
-              'assistant-not-found',
-              'assistant-not-valid',
-              'assistant-not-provided',
-              'assistant-join-timed-out',
-              'twilio-failed-to-connect-call',
-              'vonage-failed-to-connect-call',
-              'vonage-rejected',
-              'voicemail'
-            ];
-            
-            if (razonFinalizacion) {
-              // Transferida a ejecutivo
-              if (TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
-                callStatus = 'transferida';
+              
+              // Parsear datos_proceso y datos_llamada
+              let datosProceso = null;
+              let datosLlamada = null;
+              
+              try {
+                if (finalLlamada?.datos_proceso) {
+                  datosProceso = typeof finalLlamada.datos_proceso === 'string' 
+                    ? JSON.parse(finalLlamada.datos_proceso) 
+                    : finalLlamada.datos_proceso;
+                }
+                if (finalLlamada?.datos_llamada) {
+                  datosLlamada = typeof finalLlamada.datos_llamada === 'string' 
+                    ? JSON.parse(finalLlamada.datos_llamada) 
+                    : finalLlamada.datos_llamada;
+                }
+              } catch (e) {
+                console.error('Error parsing datos_proceso/datos_llamada:', e);
               }
-              // Perdida
-              else if (FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+              
+              // Determinar estado correcto de la llamada según la lógica anterior
+              let callStatus = finalLlamada?.call_status || 'finalizada';
+              const razonFinalizacion = datosLlamada?.razon_finalizacion;
+              const hasRecording = !!(finalLlamada?.audio_ruta_bucket && finalLlamada.audio_ruta_bucket.length > 0);
+              const duration = finalLlamada?.duracion_segundos || 0;
+              
+              // Razones de transferencia
+              const TRANSFER_REASONS = [
+                'assistant-forwarded-call',
+                'call.ringing.hook-executed-transfer',
+                'transfer'
+              ];
+              
+              // Razones de pérdida/no contestada
+              const FAILED_REASONS = [
+                'customer-did-not-answer',
+                'customer-busy',
+                'no-answer',
+                'busy',
+                'assistant-not-found',
+                'assistant-not-valid',
+                'assistant-not-provided',
+                'assistant-join-timed-out',
+                'twilio-failed-to-connect-call',
+                'vonage-failed-to-connect-call',
+                'vonage-rejected',
+                'voicemail'
+              ];
+              
+              if (razonFinalizacion) {
+                // Transferida a ejecutivo
+                if (TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+                  callStatus = 'transferida';
+                }
+                // Perdida
+                else if (FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) {
+                  callStatus = 'perdida';
+                }
+                // Contestada no transferida (tiene grabación y duración >= 30 seg)
+                else if (hasRecording && duration >= 30) {
+                  callStatus = 'contestada_no_transferida';
+                }
+              } else if (hasRecording && duration >= 30) {
+                // Si tiene grabación y duración pero no razón específica → contestada no transferida
+                callStatus = 'contestada_no_transferida';
+              } else if (hasRecording && duration < 30) {
+                // Grabación pero muy corta → perdida
                 callStatus = 'perdida';
               }
-              // Contestada no transferida (tiene grabación y duración >= 30 seg)
-              else if (hasRecording && duration >= 30) {
-                callStatus = 'contestada_no_transferida';
-              }
-            } else if (hasRecording && duration >= 30) {
-              // Si tiene grabación y duración pero no razón específica → contestada no transferida
-              callStatus = 'contestada_no_transferida';
-            } else if (hasRecording && duration < 30) {
-              // Grabación pero muy corta → perdida
-              callStatus = 'perdida';
-            }
-            
-            return {
-              ...analysis,
-              ...llamada,
-              // Datos del prospecto
-              nombre_completo: prospecto?.nombre_completo || 
-                               `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
-                               analysis.customer_name ||
-                               'Prospecto sin nombre',
-              nombre_whatsapp: prospecto?.nombre_completo || prospecto?.nombre || analysis.customer_name,
-              whatsapp: prospecto?.whatsapp || llamada?.whatsapp,
-              prospecto_nombre: prospecto?.nombre_completo || 
-                               `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
-                               'Prospecto sin nombre',
-              prospecto_whatsapp: prospecto?.whatsapp,
-              prospecto_ciudad: prospecto?.ciudad_residencia,
-              prospecto_id: llamada?.prospecto || prospecto?.id,
-              // Campos combinados para fácil acceso
-              score_general: analysis.score_general || null,
-              categoria_desempeno: analysis.categoria_desempeno || null,
-              checkpoint_alcanzado: analysis.checkpoint_alcanzado || parseInt(llamada?.checkpoint_venta_actual?.replace('checkpoint #', '') || '1'),
-              nivel_interes_detectado: analysis.nivel_interes_detectado || llamada?.nivel_interes,
-              calificaciones: analysis.calificaciones || null,
-              discovery_familiar: analysis.calificaciones?.discovery_familiar || null,
-              continuidad_whatsapp: analysis.calificaciones?.continuidad_whatsapp || null,
-              // Datos de discovery combinados (prioridad: datos_proceso > prospecto)
-              datos_proceso: datosProceso,
-              datos_llamada: datosLlamada,
-              // Discovery familiar: de calificaciones (análisis IA) o datos_proceso
-              composicion_familiar_numero: datosProceso?.numero_personas || prospecto?.tamano_grupo || null,
-              // Destino preferencia: de datos_proceso o prospecto
-              destino_preferencia: datosProceso?.destino_preferencia || prospecto?.destino_preferencia || null,
-              // Estado civil: de datos_proceso o prospecto
-              estado_civil: datosProceso?.estado_civil || prospecto?.estado_civil || null,
-              // Mes preferencia: de datos_proceso
-              mes_preferencia: datosProceso?.mes_preferencia || null,
-              // Tipo de vacaciones: de datos_proceso (descanso, entretenimiento, mixto)
-              tipo_vacaciones: datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones || null,
-              // Tamaño grupo y otros del prospecto
-              tamano_grupo: prospecto?.tamano_grupo || null,
-              cantidad_menores: prospecto?.cantidad_menores || null,
-              viaja_con: prospecto?.viaja_con || null,
-              // Todos los datos del prospecto para el modal
-              prospecto_completo: prospecto,
-              // Requiere atención humana del prospecto
-              requiere_atencion_humana: prospecto?.requiere_atencion_humana || false,
-              // IDs de asignación del prospecto
-              ejecutivo_id: prospecto?.ejecutivo_id || null,
-              coordinacion_id: prospecto?.coordinacion_id || null,
-              // Estado de llamada corregido
-              call_status: callStatus,
-              // Análisis completo para el modal
-              analysis: analysis,
-            };
+              
+              return {
+                ...analysis,
+                ...finalLlamada,
+                // Datos del prospecto
+                nombre_completo: prospecto?.nombre_completo || 
+                                 `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
+                                 analysis.customer_name ||
+                                 'Prospecto sin nombre',
+                nombre_whatsapp: prospecto?.nombre_completo || prospecto?.nombre || analysis.customer_name,
+                whatsapp: prospecto?.whatsapp,
+                prospecto_nombre: prospecto?.nombre_completo || 
+                                 `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
+                                 'Prospecto sin nombre',
+                prospecto_whatsapp: prospecto?.whatsapp,
+                prospecto_ciudad: prospecto?.ciudad_residencia,
+                prospecto_id: finalLlamada?.prospecto || prospecto?.id,
+                // Campos combinados para fácil acceso
+                score_general: analysis.score_general || null,
+                categoria_desempeno: analysis.categoria_desempeno || null,
+                checkpoint_alcanzado: analysis.checkpoint_alcanzado || parseInt((finalLlamada as any)?.checkpoint_venta_actual?.replace('checkpoint #', '') || '1'),
+                nivel_interes_detectado: analysis.nivel_interes_detectado || (finalLlamada as any)?.nivel_interes,
+                calificaciones: analysis.calificaciones || null,
+                discovery_familiar: analysis.calificaciones?.discovery_familiar || null,
+                continuidad_whatsapp: analysis.calificaciones?.continuidad_whatsapp || null,
+                // Datos de discovery combinados (prioridad: datos_proceso > prospecto)
+                datos_proceso: datosProceso,
+                datos_llamada: datosLlamada,
+                // Discovery familiar: de calificaciones (análisis IA) o datos_proceso
+                composicion_familiar_numero: datosProceso?.numero_personas || prospecto?.tamano_grupo || null,
+                // Destino preferencia: de datos_proceso o prospecto
+                destino_preferencia: datosProceso?.destino_preferencia || prospecto?.destino_preferencia || null,
+                // Estado civil: de datos_proceso o prospecto
+                estado_civil: datosProceso?.estado_civil || prospecto?.estado_civil || null,
+                // Mes preferencia: de datos_proceso
+                mes_preferencia: datosProceso?.mes_preferencia || null,
+                // Tipo de vacaciones: de datos_proceso (descanso, entretenimiento, mixto)
+                tipo_vacaciones: datosProceso?.tipo_vacaciones || datosProceso?.preferencia_vacaciones || null,
+                // Tamaño grupo y otros del prospecto
+                tamano_grupo: prospecto?.tamano_grupo || null,
+                cantidad_menores: prospecto?.cantidad_menores || null,
+                viaja_con: prospecto?.viaja_con || null,
+                // Todos los datos del prospecto para el modal
+                prospecto_completo: prospecto,
+                // Requiere atención humana del prospecto
+                requiere_atencion_humana: prospecto?.requiere_atencion_humana || false,
+                // IDs de asignación del prospecto
+                ejecutivo_id: prospecto?.ejecutivo_id || null,
+                coordinacion_id: prospecto?.coordinacion_id || null,
+                // Estado de llamada corregido
+                call_status: callStatus,
+                // Análisis completo para el modal
+                analysis: analysis,
+              };
           }).filter((item): item is NonNullable<typeof item> => item !== null);
+        } else {
+          // Si no hay prospectos permitidos, usar solo los análisis disponibles
+          enrichedData = combinedAnalysisData.filter((item: any) => item !== null);
         }
+      } else {
+        // Si no hay llamadas, usar solo los análisis disponibles
+        enrichedData = combinedAnalysisData.filter((item: any) => item !== null);
       }
 
       // Ordenar por defecto: más reciente primero
@@ -1687,10 +1747,30 @@ const LiveMonitorKanban: React.FC = () => {
     setPaginatedCalls(filteredHistoryCalls.slice(startIndex, endIndex));
   }, [filteredHistoryCalls, currentPage, itemsPerPage]);
 
-  // Cargar historial al inicio para mostrar contador
+  // Cargar historial al inicio y actualizar periódicamente cada 60 segundos
   useEffect(() => {
+    // Cargar inmediatamente
     loadHistoryCalls();
-  }, []);
+    
+    // Configurar actualización periódica cada 60 segundos
+    const intervalId = setInterval(() => {
+      // Actualizar siempre, sin importar la pestaña activa
+      // Esto asegura que los datos estén frescos cuando el usuario cambie a historial
+      loadHistoryCalls();
+    }, 60000); // 60 segundos
+    
+    // Limpiar intervalo al desmontar
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []); // Sin dependencias para que solo se ejecute una vez al montar
+  
+  // También recargar cuando se cambia a la pestaña de historial
+  useEffect(() => {
+    if (selectedTab === 'all') {
+      loadHistoryCalls();
+    }
+  }, [selectedTab]);
 
   // Aplicar filtros cuando se selecciona la pestaña 'all'
   useEffect(() => {

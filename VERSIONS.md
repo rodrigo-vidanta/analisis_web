@@ -1,5 +1,30 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.8N6.0.0 (Enero 2025) - AI Call Monitor: Optimización de Historial y Correcciones
+
+### 🎯 RELEASE BETA - Optimización de Rendimiento y Correcciones
+
+#### Optimización de Carga del Historial
+- Reducción de límite inicial de 1000 a 300 llamadas
+- Carga paralela de ejecutivos y coordinaciones con Promise.all
+- Actualización periódica cada 60 segundos
+- Carga inteligente desde llamadas_ventas primero, luego enriquecimiento
+
+#### Correcciones de Columnas
+- Eliminada columna `whatsapp` de consulta a `llamadas_ventas`
+- Eliminadas columnas `created_at` y `updated_at` (no existen)
+- Uso correcto de `fecha_llamada` para fechas
+
+#### Mejoras en Actualización
+- Recarga automática al cambiar a pestaña "Historial"
+- Actualización periódica cada 60 segundos
+- Sin re-render completo de la página
+
+#### Archivos Principales
+- LiveMonitorKanban.tsx - Optimización de carga y correcciones
+
+---
+
 ## Versión B4.0.7N6.0.0 (Enero 2025) - Dashboard: Notificaciones del Sistema y Sidebar Actualizado
 
 ### 🎯 RELEASE BETA - Notificaciones del Sistema Operativo y Mejoras en Sidebar
