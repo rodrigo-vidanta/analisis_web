@@ -1,5 +1,30 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.0.9N6.0.0 (Enero 2025) - CallDetailModalSidebar: Corrección de Errores y Estabilidad
+
+### 🎯 RELEASE BETA - Corrección de Errores Críticos
+
+#### Corrección de Error Crítico
+- Fix de TypeError `Cannot read properties of null (reading 'nombre_completo')` en CallDetailModalSidebar
+- Protección con optional chaining en todas las referencias a `callDetail`
+- Estado de carga agregado para mostrar spinner mientras se cargan datos
+
+#### Limpieza de Código
+- Eliminación de código duplicado del ProspectoSidebar local en LiveMonitorKanban.tsx
+- Corrección de errores de sintaxis JSX
+- Limpieza de más de 800 líneas de código comentado
+
+#### Mejoras en Estabilidad
+- Manejo robusto de estados null
+- Carga progresiva de datos sin crashes
+- Prevención de errores cuando datos no están completamente cargados
+
+#### Archivos Principales
+- CallDetailModalSidebar.tsx - Protección con optional chaining, estado de carga
+- LiveMonitorKanban.tsx - Limpieza de código duplicado
+
+---
+
 ## Versión B4.0.8N6.0.0 (Enero 2025) - AI Call Monitor: Optimización de Historial y Correcciones
 
 ### 🎯 RELEASE BETA - Optimización de Rendimiento y Correcciones

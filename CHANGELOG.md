@@ -1,5 +1,36 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.0.9N6.0.0 - CallDetailModalSidebar: Corrección de Errores y Estabilidad (Enero 2025)
+
+### 🎯 **RELEASE BETA - Corrección de Errores Críticos en CallDetailModalSidebar**
+
+#### 🐛 **Corrección de Error Crítico**
+- **TypeError en CallDetailModalSidebar:** Corregido error `Cannot read properties of null (reading 'nombre_completo')` que impedía abrir el sidebar en todos los módulos
+- **Protección con Optional Chaining:** Todas las referencias a `callDetail` ahora usan optional chaining (`?.`) para manejar casos donde los datos aún no están cargados
+- **Estado de carga:** Agregado estado de carga (`loading || !callDetail`) para mostrar spinner mientras se cargan los datos del call detail
+- **Renderizado condicional:** El componente ahora permite renderizar en estado de carga antes de que `callDetail` esté disponible
+
+#### 🧹 **Limpieza de Código**
+- **Eliminación de código duplicado:** Removido código duplicado del `ProspectoSidebar` local que quedó mezclado en `LiveMonitorKanban.tsx`
+- **Corrección de sintaxis:** Corregidos errores de sintaxis JSX causados por código comentado mal formado
+- **Estructura mejorada:** Limpieza de bloques de código comentado que causaban conflictos
+
+#### 🔄 **Mejoras en Estabilidad**
+- **Manejo robusto de estados null:** El componente maneja correctamente estados donde `callDetail` es `null` inicialmente
+- **Carga progresiva:** Los datos se cargan progresivamente sin causar errores si alguna propiedad no está disponible
+- **Prevención de crashes:** Protección contra crashes cuando los datos no están completamente cargados
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/chat/CallDetailModalSidebar.tsx` - Protección con optional chaining, estado de carga
+- `src/components/analysis/LiveMonitorKanban.tsx` - Eliminación de código duplicado, corrección de sintaxis
+
+#### 🔧 **Implementación Técnica**
+- **Optional chaining:** Uso extensivo de `?.` para acceso seguro a propiedades anidadas
+- **Estado de carga:** Spinner mostrado mientras `callDetail` es `null` o `loading` es `true`
+- **Limpieza de código:** Eliminación de más de 800 líneas de código comentado y duplicado
+
+---
+
 ## 🎯 Versión B4.0.8N6.0.0 - AI Call Monitor: Optimización de Historial y Correcciones (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Optimización de Rendimiento y Correcciones en Historial**
