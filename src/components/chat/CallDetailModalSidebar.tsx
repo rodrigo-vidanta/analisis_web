@@ -22,6 +22,7 @@ import Chart from 'chart.js/auto';
 import { ProspectAvatar } from '../analysis/ProspectAvatar';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 interface CallDetailModalSidebarProps {
   callId: string | null;
@@ -41,6 +42,16 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   onCallChange
 }) => {
   const { user } = useAuth();
+  
+  // Verificar roles del usuario para mostrar información condicionalmente
+  const isAdmin = user?.role_name === 'admin';
+  const isAdminOperativo = user?.role_name === 'administrador_operativo';
+  const isCoordinador = user?.role_name === 'coordinador';
+  const isEjecutivo = user?.role_name === 'ejecutivo';
+  
+  // Determinar qué información mostrar según el rol
+  const canSeeEjecutivo = isAdmin || isAdminOperativo || isCoordinador;
+  const canSeeCoordinacion = isAdmin || isAdminOperativo || isEjecutivo;
   const [callDetail, setCallDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [transcript, setTranscript] = useState<any[]>([]);
@@ -96,103 +107,8 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
     }
   }, [isOpen]);
 
-  // Cargar detalle de llamada
-  useEffect(() => {
-    if (callId && isOpen) {
-      loadCallDetail(callId);
-    }
-  }, [callId, isOpen]);
-
-  // Cargar transcripción cuando se carga el detalle
-  useEffect(() => {
-    if (callId && isOpen && callDetail?.call_id) {
-      loadTranscript(callDetail.call_id, 1.04);
-    }
-  }, [callId, callDetail?.call_id, isOpen]);
-  
-  // Asegurar que loadTranscript esté en las dependencias si es necesario
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-
-  // Crear gráfica radar cuando se cambia a pestaña de análisis
-  useEffect(() => {
-    if (isOpen && callDetail?.calificaciones && callDetail?.call_id && modalTab === 'analysis') {
-      if (radarChartRef.current) {
-        radarChartRef.current.destroy();
-        radarChartRef.current = null;
-      }
-      
-      const timer = setTimeout(() => {
-        createRadarChart(callDetail.call_id, callDetail.calificaciones);
-      }, 300);
-      
-      return () => {
-        clearTimeout(timer);
-        if (radarChartRef.current) {
-          radarChartRef.current.destroy();
-          radarChartRef.current = null;
-        }
-      };
-    }
-    
-    if ((!isOpen || modalTab !== 'analysis') && radarChartRef.current) {
-      radarChartRef.current.destroy();
-      radarChartRef.current = null;
-    }
-  }, [isOpen, callDetail, modalTab]);
-
-  // Limpiar audio cuando se cierra
-  useEffect(() => {
-    if (!isOpen) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-      setIsAudioPlaying(false);
-      setCurrentAudioTime(0);
-      setAudioDuration(0);
-      setHighlightedSegment(null);
-      lastSegmentRef.current = null;
-      lastUpdateTimeRef.current = 0;
-      if (scrollTimeoutRef.current !== null) {
-        cancelAnimationFrame(scrollTimeoutRef.current);
-        scrollTimeoutRef.current = null;
-      }
-    }
-  }, [isOpen]);
-
-  // Cargar duración del audio cuando se carga el metadata
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleLoadedMetadata = () => {
-      setAudioDuration(audio.duration || 0);
-    };
-
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    return () => {
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-    };
-  }, [callDetail?.audio_ruta_bucket]);
-
-  // Función para formatear tiempo
-  const formatTime = (seconds: number): string => {
-    if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Función para hacer seek en el audio
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = parseFloat(e.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-      setCurrentAudioTime(newTime);
-    }
-  };
-
-  const loadCallDetail = async (callId: string) => {
+  // Cargar detalle de llamada - mover loadCallDetail antes del useEffect
+  const loadCallDetail = useCallback(async (callId: string) => {
     try {
       setLoading(true);
       
@@ -256,12 +172,29 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
             return;
           }
 
-          // Si tiene permisos, cargar el prospecto
-          const { data: prospectoData } = await analysisSupabase
+          // Si tiene permisos, cargar el prospecto con TODOS los campos incluyendo asesor_asignado
+          const { data: prospectoData, error: prospectoError } = await analysisSupabase
             .from('prospectos')
             .select('*')
             .eq('id', prospectId)
             .single();
+          
+          if (prospectoError) {
+            console.error('Error loading prospecto:', prospectoError);
+            setSelectedProspectoData(null);
+            return;
+          }
+          
+          // Debug: verificar que se cargó correctamente
+          console.log('✅ [CallDetailModalSidebar] Prospecto cargado:', {
+            id: prospectoData?.id,
+            asesor_asignado: prospectoData?.asesor_asignado,
+            ejecutivo_id: prospectoData?.ejecutivo_id,
+            coordinacion_id: prospectoData?.coordinacion_id,
+            hasAsesorAsignado: !!prospectoData?.asesor_asignado,
+            hasEjecutivoId: !!prospectoData?.ejecutivo_id
+          });
+          
           setSelectedProspectoData(prospectoData);
         } catch (err) {
           console.error('Error loading prospecto:', err);
@@ -276,6 +209,123 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
       console.error('Error loading call detail:', error);
     } finally {
       setLoading(false);
+    }
+  }, [user?.id]);
+
+  // Cargar detalle de llamada
+  useEffect(() => {
+    if (callId && isOpen) {
+      console.log('🔄 [CallDetailModalSidebar] Cargando detalle de llamada:', callId);
+      loadCallDetail(callId);
+    }
+  }, [callId, isOpen, loadCallDetail]);
+
+  // Cargar transcripción cuando se carga el detalle
+  useEffect(() => {
+    if (callId && isOpen && callDetail?.call_id) {
+      loadTranscript(callDetail.call_id, 1.04);
+    }
+  }, [callId, callDetail?.call_id, isOpen]);
+  
+  // Asegurar que loadTranscript esté en las dependencias si es necesario
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+
+  // Crear gráfica radar cuando se cambia a pestaña de análisis
+  useEffect(() => {
+    if (isOpen && callDetail?.calificaciones && callDetail?.call_id && modalTab === 'analysis') {
+      if (radarChartRef.current) {
+        radarChartRef.current.destroy();
+        radarChartRef.current = null;
+      }
+      
+      const timer = setTimeout(() => {
+        createRadarChart(callDetail.call_id, callDetail.calificaciones);
+      }, 300);
+      
+      return () => {
+        clearTimeout(timer);
+        if (radarChartRef.current) {
+          radarChartRef.current.destroy();
+          radarChartRef.current = null;
+        }
+      };
+    }
+    
+    if ((!isOpen || modalTab !== 'analysis') && radarChartRef.current) {
+      radarChartRef.current.destroy();
+      radarChartRef.current = null;
+    }
+  }, [isOpen, callDetail, modalTab]);
+
+  // Limpiar audio cuando se cierra
+  useEffect(() => {
+    if (!isOpen) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      setIsAudioPlaying(false);
+      setCurrentAudioTime(0);
+      setAudioDuration(0);
+      setHighlightedSegment(null);
+      lastSegmentRef.current = null;
+      lastUpdateTimeRef.current = 0;
+      if (scrollTimeoutRef.current !== null) {
+        cancelAnimationFrame(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+    }
+  }, [isOpen]);
+
+  // Debug: Log para verificar datos del prospecto (debe estar antes del return condicional)
+  useEffect(() => {
+    if (isOpen) {
+      const prospectoData = selectedProspectoData || callDetail?.prospecto_completo || {};
+      if (prospectoData && Object.keys(prospectoData).length > 0) {
+        console.log('📊 [CallDetailModalSidebar] Prospecto data (useEffect):', {
+          usingSelectedProspectoData: !!selectedProspectoData,
+          asesor_asignado: prospectoData?.asesor_asignado,
+          ejecutivo_id: prospectoData?.ejecutivo_id,
+          coordinacion_id: prospectoData?.coordinacion_id,
+          etapa: prospectoData?.etapa,
+          selectedProspectoDataKeys: selectedProspectoData ? Object.keys(selectedProspectoData) : [],
+          prospectoKeys: Object.keys(prospectoData),
+          ejecutivosMapSize: Object.keys(ejecutivosMap).length,
+          coordinacionesMapSize: Object.keys(coordinacionesMap).length
+        });
+      }
+    }
+  }, [isOpen, selectedProspectoData, callDetail?.prospecto_completo, ejecutivosMap, coordinacionesMap]);
+
+  // Cargar duración del audio cuando se carga el metadata
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleLoadedMetadata = () => {
+      setAudioDuration(audio.duration || 0);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [callDetail?.audio_ruta_bucket]);
+
+  // Función para formatear tiempo
+  const formatTime = (seconds: number): string => {
+    if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Función para hacer seek en el audio
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+      setCurrentAudioTime(newTime);
     }
   };
 
@@ -614,6 +664,9 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   }) : [];
 
   const datosProceso = callDetail?.datos_proceso || {};
+  // SIEMPRE priorizar selectedProspectoData que viene directamente de la BD con select('*')
+  // selectedProspectoData tiene TODOS los campos incluyendo asesor_asignado
+  // Solo usar prospecto_completo como fallback si selectedProspectoData no está disponible
   const prospecto = selectedProspectoData || callDetail?.prospecto_completo || {};
 
   return (
@@ -698,48 +751,35 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                             >
                               {callDetail?.nombre_completo || prospecto?.nombre_completo || callDetail?.nombre_whatsapp || prospecto?.nombre_whatsapp || 'Cargando...'}
                             </button>
-                            {(() => {
-                              if (!callDetail) return null;
-                              const ejecutivoId = prospecto?.ejecutivo_id || callDetail?.ejecutivo_id;
-                              const coordinacionId = prospecto?.coordinacion_id || callDetail?.coordinacion_id;
-                              const ejecutivo = ejecutivoId ? ejecutivosMap[ejecutivoId] : null;
-                              const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
-                              
-                              if (ejecutivo || coordinacion) {
-                                return (
-                                  <>
-                                    <span className="text-gray-400 dark:text-gray-500">-</span>
-                                    <span className="text-lg font-normal text-gray-600 dark:text-gray-400 flex items-center gap-2 flex-wrap">
-                                      {ejecutivo && (
-                                        <span className="flex items-center gap-1">
-                                          <User className="w-4 h-4" />
-                                          <span className="font-medium">Ejecutivo:</span>
-                                          {ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}
-                                        </span>
-                                      )}
-                                      {coordinacion && (
-                                        <>
-                                          {ejecutivo && <span className="text-gray-400 dark:text-gray-500">/</span>}
-                                          <span className="flex items-center gap-1">
-                                            {coordinacion.nombre || coordinacion.codigo || 'N/A'}
-                                          </span>
-                                        </>
-                                      )}
-                                    </span>
-                                  </>
-                                );
-                              }
-                              return null;
-                            })()}
                           </motion.h2>
-                          <motion.p
+                          <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.2 }}
-                            className="text-sm text-gray-500 dark:text-gray-400"
+                            className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap"
                           >
-                            {callDetail?.call_id || callId || 'N/A'} • {callDetail?.fecha_llamada ? new Date(callDetail.fecha_llamada).toLocaleDateString('es-MX') : 'Cargando...'}
-                          </motion.p>
+                            <span>Call ID:</span>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const callIdToCopy = callDetail?.call_id || callId;
+                                if (callIdToCopy) {
+                                  try {
+                                    await navigator.clipboard.writeText(callIdToCopy);
+                                    toast.success('Call ID copiado al portapapeles');
+                                  } catch (error) {
+                                    toast.error('Error al copiar Call ID');
+                                  }
+                                }
+                              }}
+                              className="font-mono hover:text-gray-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer"
+                              title="Click para copiar Call ID"
+                            >
+                              {callDetail?.call_id || callId || 'N/A'}
+                            </button>
+                            <span>•</span>
+                            <span>{callDetail?.fecha_llamada ? new Date(callDetail.fecha_llamada).toLocaleDateString('es-MX') : 'Cargando...'}</span>
+                          </motion.div>
                           {callDetail?.resumen_llamada && (
                             <motion.p
                               initial={{ opacity: 0 }}
@@ -872,6 +912,101 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                           </h3>
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
+                          {/* Fila de Etapa y Ejecutivo/Coordinación */}
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa</label>
+                            <div className="text-gray-900 dark:text-white font-medium">
+                              {prospecto.etapa || 'Sin etapa'}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                              {canSeeEjecutivo && canSeeCoordinacion ? 'Ejecutivo / Coordinación' :
+                               canSeeEjecutivo ? 'Ejecutivo Asignado' :
+                               canSeeCoordinacion ? 'Coordinación' : ''}
+                            </label>
+                            <div className="text-gray-900 dark:text-white font-medium flex items-center gap-2 flex-wrap">
+                              {(() => {
+                                // SIEMPRE priorizar selectedProspectoData que viene directamente de la BD
+                                const prospectoData = selectedProspectoData || prospecto;
+                                
+                                // Obtener ejecutivo: primero asesor_asignado (string directo), luego ejecutivo_id (UUID)
+                                let ejecutivoNombre: string | null = null;
+                                
+                                // 1. Intentar desde asesor_asignado (campo directo)
+                                const asesorAsignado = prospectoData?.asesor_asignado;
+                                if (asesorAsignado && typeof asesorAsignado === 'string' && asesorAsignado.trim() !== '') {
+                                  ejecutivoNombre = asesorAsignado.trim();
+                                } 
+                                // 2. Si no hay asesor_asignado, buscar por ejecutivo_id
+                                else if (prospectoData?.ejecutivo_id) {
+                                  const ejecutivoId = prospectoData.ejecutivo_id;
+                                  const ejecutivo = ejecutivosMap[ejecutivoId];
+                                  if (ejecutivo) {
+                                    ejecutivoNombre = ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || null;
+                                  }
+                                }
+                                
+                                // Obtener coordinación
+                                const coordinacionId = prospectoData?.coordinacion_id || callDetail?.coordinacion_id;
+                                const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
+                                
+                                // Debug siempre - para ver qué está pasando
+                                console.log('🔍 [CallDetailModalSidebar] Render Debug:', {
+                                  isAdmin,
+                                  userRole: user?.role_name,
+                                  canSeeEjecutivo,
+                                  canSeeCoordinacion,
+                                  selectedProspectoDataExists: !!selectedProspectoData,
+                                  prospectoDataExists: !!prospectoData,
+                                  asesor_asignado: prospectoData?.asesor_asignado,
+                                  ejecutivo_id: prospectoData?.ejecutivo_id,
+                                  coordinacion_id: prospectoData?.coordinacion_id,
+                                  ejecutivoNombre,
+                                  coordinacionId,
+                                  coordinacionNombre: coordinacion?.nombre || coordinacion?.codigo,
+                                  ejecutivosMapSize: Object.keys(ejecutivosMap).length,
+                                  coordinacionesMapSize: Object.keys(coordinacionesMap).length
+                                });
+                                
+                                const parts: string[] = [];
+                                
+                                // Mostrar ejecutivo si tiene permiso
+                                if (canSeeEjecutivo) {
+                                  if (ejecutivoNombre) {
+                                    parts.push(ejecutivoNombre);
+                                  } else {
+                                    parts.push('N/A');
+                                  }
+                                }
+                                
+                                // Mostrar coordinación si tiene permiso
+                                if (canSeeCoordinacion) {
+                                  if (coordinacion) {
+                                    parts.push(coordinacion.nombre || coordinacion.codigo || 'N/A');
+                                  } else {
+                                    parts.push('N/A');
+                                  }
+                                }
+                                
+                                if (parts.length === 0) {
+                                  return <span className="text-gray-400 dark:text-gray-500">N/A</span>;
+                                }
+                                
+                                return (
+                                  <span className="flex items-center gap-2">
+                                    {parts.map((part, index) => (
+                                      <span key={index} className="flex items-center gap-1">
+                                        {index > 0 && <span className="text-gray-400 dark:text-gray-500 mx-1">/</span>}
+                                        <span>{part}</span>
+                                      </span>
+                                    ))}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          
                           {prospecto.nombre_completo && (
                             <div>
                               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Nombre Completo</label>

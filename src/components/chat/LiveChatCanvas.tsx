@@ -4588,8 +4588,6 @@ const LiveChatCanvas: React.FC = () => {
                     {selectedConversation.customer_name}
                   </h3>
                   <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-300 flex-wrap gap-2">
-                    <Phone className="w-4 h-4" />
-                    <span>{selectedConversation.customer_phone}</span>
                     <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
                       {selectedConversation.metadata?.etapa}
                     </span>
@@ -4603,6 +4601,49 @@ const LiveChatCanvas: React.FC = () => {
                       } as any}
                       variant="compact"
                     />
+                  </div>
+                  {/* Información secundaria: Teléfono | Prospecto ID (clickeable para copiar) */}
+                  <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-gray-400 mt-1">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const phone = selectedConversation.customer_phone || selectedConversation.numero_telefono;
+                        if (phone) {
+                          try {
+                            await navigator.clipboard.writeText(phone);
+                            toast.success('Teléfono copiado al portapapeles');
+                          } catch (error) {
+                            toast.error('Error al copiar teléfono');
+                          }
+                        }
+                      }}
+                      className="hover:text-slate-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer"
+                      title="Click para copiar teléfono"
+                    >
+                      {selectedConversation.customer_phone || selectedConversation.numero_telefono || 'Sin teléfono'}
+                    </button>
+                    {selectedConversation.prospecto_id && (
+                      <>
+                        <span>|</span>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (selectedConversation.prospecto_id) {
+                              try {
+                                await navigator.clipboard.writeText(selectedConversation.prospecto_id);
+                                toast.success('ID del prospecto copiado al portapapeles');
+                              } catch (error) {
+                                toast.error('Error al copiar ID');
+                              }
+                            }
+                          }}
+                          className="hover:text-slate-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer font-mono"
+                          title="Click para copiar ID del prospecto"
+                        >
+                          {selectedConversation.prospecto_id}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

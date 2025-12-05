@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Phone, MapPin, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Wand2, Mail, Search, Filter, Calendar, BarChart3, TrendingUp, Play, Pause, Download, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
+import { X, User, Phone, MapPin, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Wand2, Mail, Search, Filter, Calendar, BarChart3, TrendingUp, Play, Pause, Download, AlertTriangle, ChevronRight, Loader2, Plane } from 'lucide-react';
 import Chart from 'chart.js/auto';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
@@ -623,7 +623,7 @@ const LiveMonitorKanban: React.FC = () => {
   };
 
   // Función para cargar historial de llamadas desde la misma fuente que AnalysisIAComplete
-  const loadHistoryCalls = async () => {
+  const loadHistoryCalls = useCallback(async () => {
     try {
       // Solo mostrar loading si no hay datos previos (evitar parpadeos en actualizaciones)
       if (allCallsWithAnalysis.length === 0) {
@@ -940,33 +940,59 @@ const LiveMonitorKanban: React.FC = () => {
 
       // Solo actualizar estado si no hay modal abierto para evitar interrumpir reproducción de audio
       if (!isModalOpenRef.current) {
-        // Usar requestAnimationFrame para diferir actualizaciones de estado pesadas
-        requestAnimationFrame(() => {
-      setAllCallsWithAnalysis(enrichedData);
-      setAllCalls(enrichedData); // También actualizar allCalls para mantener compatibilidad
-      
-          // Diferir procesamiento de valores únicos usando requestIdleCallback
-          if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-      // Extraer valores únicos para filtros
-      const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
-      
-      setUniqueInterests(interests);
-      
-      // Inicializar grupos cuando cambien las llamadas
-      const groups = groupCallsByProspect(enrichedData);
-      setGroupedCalls(groups);
-            }, { timeout: 1000 });
-          } else {
-            // Fallback: procesar inmediatamente pero en el siguiente frame
-            setTimeout(() => {
-              const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
-              setUniqueInterests(interests);
-              const groups = groupCallsByProspect(enrichedData);
-              setGroupedCalls(groups);
-            }, 0);
-          }
-        });
+        // Comparar datos antes de actualizar para evitar re-renders innecesarios
+        const currentDataString = JSON.stringify(allCallsWithAnalysis.map(c => c.call_id).sort());
+        const newDataString = JSON.stringify(enrichedData.map(c => c.call_id).sort());
+        
+        // Solo actualizar si realmente cambió el contenido
+        if (currentDataString !== newDataString || allCallsWithAnalysis.length !== enrichedData.length) {
+          // Usar React.startTransition para marcar actualizaciones como no urgentes
+          React.startTransition(() => {
+            setAllCallsWithAnalysis(enrichedData);
+            setAllCalls(enrichedData); // También actualizar allCalls para mantener compatibilidad
+            
+            // Diferir procesamiento de valores únicos usando requestIdleCallback
+            if ('requestIdleCallback' in window) {
+              requestIdleCallback(() => {
+                // Extraer valores únicos para filtros
+                const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
+                
+                // Solo actualizar si realmente cambió
+                setUniqueInterests(prev => {
+                  const prevString = JSON.stringify(prev.sort());
+                  const newString = JSON.stringify(interests.sort());
+                  return prevString !== newString ? interests : prev;
+                });
+                
+                // Inicializar grupos cuando cambien las llamadas
+                const groups = groupCallsByProspect(enrichedData);
+                setGroupedCalls(prev => {
+                  const prevKeys = JSON.stringify(Object.keys(prev).sort());
+                  const newKeys = JSON.stringify(Object.keys(groups).sort());
+                  return prevKeys !== newKeys ? groups : prev;
+                });
+              }, { timeout: 1000 });
+            } else {
+              // Fallback: procesar inmediatamente pero en el siguiente frame
+              setTimeout(() => {
+                const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
+                
+                setUniqueInterests(prev => {
+                  const prevString = JSON.stringify(prev.sort());
+                  const newString = JSON.stringify(interests.sort());
+                  return prevString !== newString ? interests : prev;
+                });
+                
+                const groups = groupCallsByProspect(enrichedData);
+                setGroupedCalls(prev => {
+                  const prevKeys = JSON.stringify(Object.keys(prev).sort());
+                  const newKeys = JSON.stringify(Object.keys(groups).sort());
+                  return prevKeys !== newKeys ? groups : prev;
+                });
+              }, 0);
+            }
+          });
+        }
       }
       
     } catch (error: any) {
@@ -976,7 +1002,7 @@ const LiveMonitorKanban: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]); // Solo depende de user.id para evitar recreaciones innecesarias
 
   // Función para aplicar filtros al historial
   // Función para agrupar llamadas por prospecto
@@ -1222,11 +1248,13 @@ const LiveMonitorKanban: React.FC = () => {
 
   // Cargar historial al inicio y actualizar periódicamente cada 60 segundos
   useEffect(() => {
+    if (!user?.id) return; // No cargar si no hay usuario
+    
     // Cargar inmediatamente usando requestIdleCallback para diferir trabajo pesado
     const loadInitial = () => {
       if ('requestIdleCallback' in window) {
         requestIdleCallback(() => {
-    loadHistoryCalls();
+          loadHistoryCalls();
         }, { timeout: 1000 });
       } else {
         // Fallback para navegadores sin requestIdleCallback
@@ -1238,7 +1266,7 @@ const LiveMonitorKanban: React.FC = () => {
     // Configurar actualización periódica cada 60 segundos
     const intervalId = setInterval(() => {
       // Solo actualizar si no hay modal abierto para evitar interrumpir reproducción de audio
-      if (!isModalOpenRef.current) {
+      if (!isModalOpenRef.current && user?.id) {
         // Diferir carga usando requestIdleCallback
         if ('requestIdleCallback' in window) {
           requestIdleCallback(() => {
@@ -1254,11 +1282,11 @@ const LiveMonitorKanban: React.FC = () => {
     return () => {
       clearInterval(intervalId);
     };
-  }, []); // Sin dependencias para que solo se ejecute una vez al montar
+  }, [user?.id, loadHistoryCalls]); // Incluir loadHistoryCalls en dependencias
   
   // También recargar cuando se cambia a la pestaña de historial
   useEffect(() => {
-    if (selectedTab === 'all') {
+    if (selectedTab === 'all' && user?.id) {
       // Diferir carga cuando se cambia de pestaña
       if ('requestIdleCallback' in window) {
         requestIdleCallback(() => {
@@ -1268,25 +1296,32 @@ const LiveMonitorKanban: React.FC = () => {
         setTimeout(() => loadHistoryCalls(), 100);
       }
     }
-  }, [selectedTab]);
+  }, [selectedTab, user?.id, loadHistoryCalls]);
 
   // Aplicar filtros cuando se selecciona la pestaña 'all'
+  // Usar ref para evitar re-ejecuciones innecesarias cuando solo cambia la longitud
+  const previousLengthRef = useRef(0);
   useEffect(() => {
     if (selectedTab === 'all' && allCallsWithAnalysis.length > 0) {
-      // Diferir aplicación de filtros para evitar bloqueos y parpadeos
-      const timeoutId = setTimeout(() => {
-        if ('requestIdleCallback' in window) {
-          requestIdleCallback(() => {
+      // Solo aplicar filtros si realmente cambió el contenido, no solo la longitud
+      if (previousLengthRef.current !== allCallsWithAnalysis.length) {
+        previousLengthRef.current = allCallsWithAnalysis.length;
+        
+        // Diferir aplicación de filtros para evitar bloqueos y parpadeos
+        const timeoutId = setTimeout(() => {
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+              applyHistoryFilters();
+            }, { timeout: 500 });
+          } else {
             applyHistoryFilters();
-          }, { timeout: 500 });
-        } else {
-          applyHistoryFilters();
-        }
-      }, 150); // Aumentado el delay para evitar parpadeos
-      
-      return () => clearTimeout(timeoutId);
+          }
+        }, 150); // Aumentado el delay para evitar parpadeos
+        
+        return () => clearTimeout(timeoutId);
+      }
     }
-  }, [selectedTab, allCallsWithAnalysis.length]);
+  }, [selectedTab, allCallsWithAnalysis.length, applyHistoryFilters]);
 
   // Aplicar filtros cuando cambien los valores (con debounce adicional)
   useEffect(() => {
@@ -1307,44 +1342,68 @@ const LiveMonitorKanban: React.FC = () => {
   }, [selectedTab, applyHistoryFilters]);
 
   // Extraer valores únicos para filtros cuando cambie allCallsWithAnalysis (con diferimiento)
+  // Usar ref para comparar y evitar procesamiento innecesario
+  const previousCallsRef = useRef<string>('');
   useEffect(() => {
     if (allCallsWithAnalysis.length > 0) {
-      // Diferir procesamiento pesado usando requestIdleCallback
-      const processUniqueValues = () => {
-      const interests = [...new Set(allCallsWithAnalysis.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
-      setUniqueInterests(interests as string[]);
+      // Crear hash de los call_ids para comparar si realmente cambió el contenido
+      const callsHash = JSON.stringify(allCallsWithAnalysis.map(c => c.call_id).sort());
       
-      // Extraer ejecutivos únicos
-      const ejecutivosSet = new Set<string>();
-      allCallsWithAnalysis.forEach(call => {
-        const prospecto = call.prospecto_completo || {};
-        const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
-        if (ejecutivoId) {
-          ejecutivosSet.add(ejecutivoId);
-        }
-      });
-      
-      // Cargar nombres de ejecutivos
-      const ejecutivosList: Array<{id: string, name: string}> = [];
-      ejecutivosSet.forEach((ejecId) => {
-        if (ejecutivosMap[ejecId]) {
-          const ejecutivo = ejecutivosMap[ejecId];
-          ejecutivosList.push({
-            id: ejecId,
-            name: ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'Sin nombre'
+      // Solo procesar si realmente cambió el contenido
+      if (previousCallsRef.current !== callsHash) {
+        previousCallsRef.current = callsHash;
+        
+        // Diferir procesamiento pesado usando requestIdleCallback
+        const processUniqueValues = () => {
+          React.startTransition(() => {
+            const interests = [...new Set(allCallsWithAnalysis.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
+            
+            // Solo actualizar si realmente cambió
+            setUniqueInterests(prev => {
+              const prevString = JSON.stringify(prev.sort());
+              const newString = JSON.stringify(interests.sort());
+              return prevString !== newString ? interests as string[] : prev;
+            });
+            
+            // Extraer ejecutivos únicos
+            const ejecutivosSet = new Set<string>();
+            allCallsWithAnalysis.forEach(call => {
+              const prospecto = call.prospecto_completo || {};
+              const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
+              if (ejecutivoId) {
+                ejecutivosSet.add(ejecutivoId);
+              }
+            });
+            
+            // Cargar nombres de ejecutivos
+            const ejecutivosList: Array<{id: string, name: string}> = [];
+            ejecutivosSet.forEach((ejecId) => {
+              if (ejecutivosMap[ejecId]) {
+                const ejecutivo = ejecutivosMap[ejecId];
+                ejecutivosList.push({
+                  id: ejecId,
+                  name: ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'Sin nombre'
+                });
+              }
+            });
+            
+            // Ordenar por nombre
+            ejecutivosList.sort((a, b) => a.name.localeCompare(b.name));
+            
+            // Solo actualizar si realmente cambió
+            setUniqueEjecutivos(prev => {
+              const prevString = JSON.stringify(prev.map(e => e.id).sort());
+              const newString = JSON.stringify(ejecutivosList.map(e => e.id).sort());
+              return prevString !== newString ? ejecutivosList : prev;
+            });
           });
+        };
+        
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(processUniqueValues, { timeout: 1000 });
+        } else {
+          setTimeout(processUniqueValues, 0);
         }
-      });
-      
-      // Ordenar por nombre
-      ejecutivosList.sort((a, b) => a.name.localeCompare(b.name));
-      setUniqueEjecutivos(ejecutivosList);
-      };
-      
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(processUniqueValues, { timeout: 1000 });
-      } else {
-        setTimeout(processUniqueValues, 0);
       }
     }
   }, [allCallsWithAnalysis, ejecutivosMap]);
@@ -3965,16 +4024,13 @@ const LiveMonitorKanban: React.FC = () => {
                                                   return null;
                                                 })()}
                                                 
-                                                {/* Destino Preferencia con icono de sol */}
+                                                {/* Destino Preferencia con icono de avión */}
                                                 {(datosProceso?.destino_preferencia || prospecto.destino_preferencia) && (() => {
                                                   const destino = datosProceso?.destino_preferencia || prospecto.destino_preferencia;
                                                   const destinoStr = Array.isArray(destino) ? destino[0] : destino;
                                                   return (
                                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                                        <circle cx="12" cy="12" r="5" />
-                                                        <path d="M12 1v4M12 19v4M23 12h-4M5 12H1M19.07 4.93l-2.83 2.83M7.76 16.24l-2.83 2.83M19.07 19.07l-2.83-2.83M7.76 7.76L4.93 4.93" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                          </svg>
+                                                      <Plane className="w-3 h-3" />
                                                       {destinoStr}
                                                     </span>
                                                   );

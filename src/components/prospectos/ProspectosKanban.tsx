@@ -38,6 +38,7 @@ interface Prospecto {
   coordinacion_nombre?: string;
   ejecutivo_nombre?: string;
   ejecutivo_email?: string;
+  asesor_asignado?: string;
 }
 
 interface ProspectosKanbanProps {
@@ -360,13 +361,13 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
         </div>
 
         {/* Información de asignación */}
-        {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+        {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
           <div className="mb-2">
             <AssignmentBadge
               call={{
                 coordinacion_codigo: prospecto.coordinacion_codigo,
                 coordinacion_nombre: prospecto.coordinacion_nombre,
-                ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                ejecutivo_nombre: prospecto.ejecutivo_nombre || prospecto.asesor_asignado,
                 ejecutivo_email: prospecto.ejecutivo_email
               } as any}
               variant="compact"

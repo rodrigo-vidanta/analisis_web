@@ -17,7 +17,7 @@ interface AuthContextType extends AuthState {
   canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | null;
+  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null;
   refreshUser: () => Promise<void>;
 }
 
@@ -313,12 +313,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | null => {
+  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null => {
     if (!authState.user) return null;
 
     // Si el usuario tiene rol direccion, solo puede acceder al módulo direccion
     if (authState.user.role_name === 'direccion') {
       return 'direccion';
+    }
+
+    // Dashboard Operativo como pantalla de inicio para ejecutivo, coordinador y admin operativo
+    if (['ejecutivo', 'coordinador', 'administrador_operativo'].includes(authState.user.role_name)) {
+      // Verificar que el usuario tenga acceso a al menos uno de los módulos del dashboard
+      if (canAccessModule('prospectos') || canAccessModule('live-chat') || canAccessModule('live-monitor')) {
+        return 'operative-dashboard';
+      }
     }
 
     // Orden de prioridad de módulos

@@ -40,6 +40,8 @@ import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
 import { CallDetailModalSidebar } from '../chat/CallDetailModalSidebar';
+import { getCoordinacionColor } from '../../utils/coordinacionColors';
+import toast from 'react-hot-toast';
 
 interface Prospecto {
   id: string;
@@ -465,7 +467,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            className="fixed inset-0 bg-black bg-opacity-50 z-[220]"
             onClick={onClose}
           />
           
@@ -475,7 +477,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[230] overflow-hidden"
             style={{ top: 0, margin: 0, padding: 0 }}
           >
             <div className="flex flex-col h-full" style={{ height: '100vh' }}>
@@ -497,11 +499,41 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                     <h2 className="text-xl font-bold text-white">
                       {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim() || prospecto.nombre_whatsapp || 'Cargando...'}
                     </h2>
-                    <p className="text-sm text-white/80">
-                      {prospecto.ciudad_residencia && prospecto.interes_principal 
-                        ? `${prospecto.ciudad_residencia} • ${prospecto.interes_principal}`
-                        : prospecto.ciudad_residencia || prospecto.interes_principal || 'Información del Prospecto'}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {prospecto.id && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (prospecto.id) {
+                              try {
+                                await navigator.clipboard.writeText(prospecto.id);
+                                toast.success('ID del prospecto copiado al portapapeles');
+                              } catch (error) {
+                                toast.error('Error al copiar ID');
+                              }
+                            }
+                          }}
+                          className="text-xs text-white/70 font-mono hover:text-white hover:underline transition-colors cursor-pointer"
+                          title="Click para copiar ID del prospecto"
+                        >
+                          ID: {prospecto.id}
+                        </button>
+                      )}
+                      {prospecto.ciudad_residencia && (
+                        <>
+                          {prospecto.id && <span className="text-white/50">•</span>}
+                          <p className="text-sm text-white/80">
+                            {prospecto.ciudad_residencia}
+                            {prospecto.interes_principal && ` • ${prospecto.interes_principal}`}
+                          </p>
+                        </>
+                      )}
+                      {!prospecto.id && !prospecto.ciudad_residencia && (
+                        <p className="text-sm text-white/80">
+                          {prospecto.interes_principal || 'Información del Prospecto'}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 relative z-10">
@@ -674,7 +706,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                 </motion.div>
 
                 {/* Información de Asignación */}
-                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -689,7 +721,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
                       call={{
                         coordinacion_codigo: prospecto.coordinacion_codigo,
                         coordinacion_nombre: prospecto.coordinacion_nombre,
-                        ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                        ejecutivo_nombre: prospecto.ejecutivo_nombre || prospecto.asesor_asignado,
                         ejecutivo_email: prospecto.ejecutivo_email
                       } as any}
                       variant="inline"
@@ -1001,12 +1033,17 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     return prospectosData.map((prospecto: Prospecto) => {
       const coordinacionInfo = prospecto.coordinacion_id ? coordinacionesMap.get(prospecto.coordinacion_id) : null;
       const ejecutivoInfo = prospecto.ejecutivo_id ? ejecutivosMap.get(prospecto.ejecutivo_id) : null;
+      
+      // Priorizar asesor_asignado si existe, de lo contrario usar ejecutivoInfo
+      const ejecutivoNombre = prospecto.asesor_asignado && prospecto.asesor_asignado.trim() !== ''
+        ? prospecto.asesor_asignado.trim()
+        : ejecutivoInfo?.full_name || null;
 
       return {
         ...prospecto,
         coordinacion_codigo: coordinacionInfo?.codigo,
         coordinacion_nombre: coordinacionInfo?.nombre,
-        ejecutivo_nombre: ejecutivoInfo?.full_name,
+        ejecutivo_nombre: ejecutivoNombre,
         ejecutivo_email: ejecutivoInfo?.email
       };
     });
@@ -1430,13 +1467,13 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                   </div>
                 </div>
                 
-                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
                   <div className="mt-2">
                     <AssignmentBadge
                       call={{
                         coordinacion_codigo: prospecto.coordinacion_codigo,
                         coordinacion_nombre: prospecto.coordinacion_nombre,
-                        ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                        ejecutivo_nombre: prospecto.ejecutivo_nombre || prospecto.asesor_asignado,
                         ejecutivo_email: prospecto.ejecutivo_email
                       } as any}
                       variant="compact"
@@ -1458,7 +1495,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                     { key: 'email', label: 'Email', sortable: true, responsive: 'md' },
                     { key: 'etapa', label: 'Etapa', sortable: true, responsive: false },
                     { key: 'created_at', label: 'Creado', sortable: true, responsive: 'md' },
-                    { key: 'actions', label: '', sortable: false, responsive: false }
+                    { key: 'asignacion', label: 'Asignación', sortable: false, responsive: false }
                   ].map(column => (
                     <th 
                       key={column.key}
@@ -1521,20 +1558,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                             <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
                               {prospecto.ciudad_residencia}
                             </div>
-                            {/* Información de asignación */}
-                            {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
-                              <div className="mt-1">
-                                <AssignmentBadge
-                                  call={{
-                                    coordinacion_codigo: prospecto.coordinacion_codigo,
-                                    coordinacion_nombre: prospecto.coordinacion_nombre,
-                                    ejecutivo_nombre: prospecto.ejecutivo_nombre,
-                                    ejecutivo_email: prospecto.ejecutivo_email
-                                  } as any}
-                                  variant="compact"
-                                />
-                              </div>
-                            )}
                           </div>
                         </div>
                       </td>
@@ -1552,8 +1575,44 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
                         <div className="min-w-[60px]">{prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' }) : 'N/A'}</div>
                       </td>
-                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-right">
-                        <ChevronRight size={14} className="md:w-4 md:h-4 text-gray-400" />
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
+                        {(() => {
+                          const isAdmin = user?.role_name === 'admin';
+                          const isAdminOperativo = user?.role_name === 'administrador_operativo';
+                          const isCoordinador = user?.role_name === 'coordinador';
+                          const isEjecutivo = user?.role_name === 'ejecutivo';
+                          
+                          const canSeeEjecutivo = isAdmin || isAdminOperativo || isCoordinador;
+                          const canSeeCoordinacion = isAdmin || isAdminOperativo || isEjecutivo;
+                          
+                          const ejecutivoNombre = prospecto.ejecutivo_nombre || prospecto.asesor_asignado;
+                          const coordinacionCodigo = prospecto.coordinacion_codigo;
+                          const coordinacionNombre = prospecto.coordinacion_nombre;
+                          
+                          if (!canSeeEjecutivo && !canSeeCoordinacion) {
+                            return <span className="text-xs text-gray-400 dark:text-gray-500">-</span>;
+                          }
+                          
+                          return (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {canSeeEjecutivo && ejecutivoNombre && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                  <User className="w-3 h-3 mr-1" />
+                                  {ejecutivoNombre.split(' ')[0]}
+                                </span>
+                              )}
+                              {canSeeCoordinacion && coordinacionCodigo && (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getCoordinacionColor(coordinacionCodigo).bg} ${getCoordinacionColor(coordinacionCodigo).text}`}>
+                                  <Users className="w-3 h-3 mr-1" />
+                                  {coordinacionCodigo}
+                                </span>
+                              )}
+                              {(!ejecutivoNombre && !coordinacionCodigo) && (
+                                <span className="text-xs text-gray-400 dark:text-gray-500">Sin asignar</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </motion.tr>
                   ))}

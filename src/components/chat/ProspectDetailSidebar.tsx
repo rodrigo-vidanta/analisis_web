@@ -34,6 +34,7 @@ import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
+import toast from 'react-hot-toast';
 
 interface CallHistory {
   call_id: string;
@@ -188,19 +189,41 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         }
       }
 
-      if (data.ejecutivo_id) {
+      // Obtener ejecutivo: primero desde asesor_asignado (campo directo), luego desde ejecutivo_id
+      let ejecutivoNombre: string | undefined = undefined;
+      
+      // 1. Intentar desde asesor_asignado (campo directo de prospectos)
+      if (data.asesor_asignado && typeof data.asesor_asignado === 'string' && data.asesor_asignado.trim() !== '') {
+        ejecutivoNombre = data.asesor_asignado.trim();
+      }
+      // 2. Si no hay asesor_asignado, intentar desde ejecutivo_id
+      else if (data.ejecutivo_id) {
         try {
           ejecutivoInfo = await coordinacionService.getEjecutivoById(data.ejecutivo_id);
+          if (ejecutivoInfo) {
+            ejecutivoNombre = ejecutivoInfo.full_name || ejecutivoInfo.nombre_completo || ejecutivoInfo.nombre;
+          }
         } catch (error) {
           console.warn('Error obteniendo ejecutivo:', error);
         }
       }
 
+      console.log('✅ [ProspectDetailSidebar] Prospecto cargado:', {
+        id: data.id,
+        nombre_completo: data.nombre_completo,
+        asesor_asignado: data.asesor_asignado,
+        ejecutivo_id: data.ejecutivo_id,
+        coordinacion_id: data.coordinacion_id,
+        ejecutivoNombre,
+        coordinacionCodigo: coordinacionInfo?.codigo,
+        coordinacionNombre: coordinacionInfo?.nombre
+      });
+
       setProspecto({
         ...data,
         coordinacion_codigo: coordinacionInfo?.codigo,
         coordinacion_nombre: coordinacionInfo?.nombre,
-        ejecutivo_nombre: ejecutivoInfo?.full_name,
+        ejecutivo_nombre: ejecutivoNombre,
         ejecutivo_email: ejecutivoInfo?.email
       });
     } catch (error) {
@@ -474,12 +497,12 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
           className="fixed inset-0 z-40 pointer-events-none"
         >
           {/* Overlay */}
-          <motion.div
+          <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto z-[220]"
           />
 
           {/* Sidebar */}
@@ -488,7 +511,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col pointer-events-auto"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[230] flex flex-col pointer-events-auto"
             style={{ top: 0, margin: 0, padding: 0, height: '100vh' }}
           >
             {/* Header */}
@@ -507,11 +530,42 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                 />
                 <div>
                   <h2 className="text-xl font-bold text-white">
-                    {prospecto?.nombre || prospecto?.nombre_whatsapp || 'Cargando...'}
+                    {prospecto?.nombre_completo || prospecto?.nombre || prospecto?.nombre_whatsapp || 'Cargando...'}
                   </h2>
-                  <p className="text-sm text-white/80">
-                    Información del Prospecto
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {prospecto?.id && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (prospecto.id) {
+                            try {
+                              await navigator.clipboard.writeText(prospecto.id);
+                              toast.success('ID del prospecto copiado al portapapeles');
+                            } catch (error) {
+                              toast.error('Error al copiar ID');
+                            }
+                          }
+                        }}
+                        className="text-xs text-white/70 font-mono hover:text-white hover:underline transition-colors cursor-pointer"
+                        title="Click para copiar ID del prospecto"
+                      >
+                        ID: {prospecto.id}
+                      </button>
+                    )}
+                    {prospecto?.ciudad_residencia && (
+                      <>
+                        {prospecto?.id && <span className="text-white/50">•</span>}
+                        <p className="text-sm text-white/80">
+                          {prospecto.ciudad_residencia}
+                        </p>
+                      </>
+                    )}
+                    {!prospecto?.id && !prospecto?.ciudad_residencia && (
+                      <p className="text-sm text-white/80">
+                        Información del Prospecto
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 relative z-10">
@@ -681,7 +735,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                 </motion.div>
 
                 {/* Información de Asignación */}
-                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -696,7 +750,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                       call={{
                         coordinacion_codigo: prospecto.coordinacion_codigo,
                         coordinacion_nombre: prospecto.coordinacion_nombre,
-                        ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                        ejecutivo_nombre: prospecto.ejecutivo_nombre || prospecto.asesor_asignado,
                         ejecutivo_email: prospecto.ejecutivo_email
                       } as any}
                       variant="inline"

@@ -3,7 +3,7 @@
  * Este archivo debe ser importado ANTES de cualquier módulo que use Supabase
  */
 
-// Silenciar logs de fetch del navegador (DevTools)
+// Silenciar logs de fetch del navegador (DevTools) y logs de depuración del Dashboard
 const originalLog = console.log;
 console.log = (...args: any[]) => {
   const fullMessage = args.map(arg => arg?.toString() || '').join(' ');
@@ -12,6 +12,16 @@ console.log = (...args: any[]) => {
   if (fullMessage.includes('Fetch finished loading') || 
       fullMessage.includes('Fetch failed loading') ||
       fullMessage.includes('window.fetch')) {
+    return;
+  }
+  
+  // Silenciar logs de depuración del Dashboard
+  if (fullMessage.includes('[ConversacionesWidget]') ||
+      fullMessage.includes('EVENTO RECIBIDO') ||
+      fullMessage.includes('Cambio en keys') ||
+      fullMessage.includes('Estado actualizado') ||
+      fullMessage.includes('pausas activas') ||
+      fullMessage.includes('Cambio detectado')) {
     return;
   }
   
@@ -27,6 +37,16 @@ console.info = (...args: any[]) => {
   if (fullMessage.includes('Fetch finished loading') || 
       fullMessage.includes('Fetch failed loading') ||
       fullMessage.includes('window.fetch')) {
+    return;
+  }
+  
+  // Silenciar logs de depuración del Dashboard
+  if (fullMessage.includes('[ConversacionesWidget]') ||
+      fullMessage.includes('EVENTO RECIBIDO') ||
+      fullMessage.includes('Cambio en keys') ||
+      fullMessage.includes('Estado actualizado') ||
+      fullMessage.includes('pausas activas') ||
+      fullMessage.includes('Cambio detectado')) {
     return;
   }
   

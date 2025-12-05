@@ -1,5 +1,43 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.1.1N6.0.0 - Mejoras en Dashboard: Realtime y Ordenamiento de Prospectos (Enero 2025)
+
+### 🎯 **RELEASE BETA - Mejoras en Dashboard Operativo**
+
+#### 🔄 **Corrección de Realtime Update para "Prospectos - Requieren Atención"**
+- **Problema resuelto:** El box "Prospectos - Requieren Atención" no se actualizaba automáticamente cuando se marcaba el flag `requiere_atencion_humana`
+- **Solución implementada:**
+  - Suscripción realtime mejorada a la tabla `prospectos` con eventos INSERT y UPDATE
+  - Verificación de permisos usando `permissionsService.canUserAccessProspect` directamente
+  - Manejo correcto de estados anteriores usando `payload.old` y refs para determinar cambios
+  - Actualización automática cuando `requiere_atencion_humana` cambia de `false` a `true` o viceversa
+- **Mejoras adicionales:**
+  - Uso de `startTransition` para actualizaciones no bloqueantes
+  - Ref `prospectosListRef` para rastrear estado actual y evitar duplicados
+  - Manejo robusto de casos edge (prospecto ya existe, sin permisos, etc.)
+- **Archivos modificados:** `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx`
+
+#### 📊 **Ordenamiento por Fecha del Último Mensaje**
+- **Mejora implementada:** Los prospectos en "Prospectos - Requieren Atención" ahora se ordenan por fecha del último mensaje (descendente - más nuevo primero)
+- **Funcionalidades añadidas:**
+  - Función `getLastMessageDate` para obtener la fecha del último mensaje desde `mensajes_whatsapp`
+  - Función `sortProspectosByLastMessage` para ordenar prospectos por fecha descendente
+  - `enrichProspecto` actualizado para incluir `fecha_ultimo_mensaje` en el objeto
+  - `loadProspectos` obtiene fechas del último mensaje para todos los prospectos y los ordena
+- **Realtime para mensajes:**
+  - Suscripción a `mensajes_whatsapp` para actualizar `fecha_ultimo_mensaje` cuando llega un nuevo mensaje
+  - Reordenamiento automático cuando se recibe un nuevo mensaje
+  - Actualización de fecha y reordenamiento cuando se añade o actualiza un prospecto
+- **Archivos modificados:** `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx`
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Realtime update y ordenamiento por fecha de último mensaje
+- `CHANGELOG.md` - Documentación de esta versión
+- `src/components/Footer.tsx` - Actualización de versión
+- `package.json` - Actualización de versión
+
+---
+
 ## 🎯 Versión B4.1.0N6.0.0 - Correcciones de Zona Horaria, Timeline y Mejoras en Prospectos (Diciembre 2025)
 
 ### 🎯 **RELEASE BETA - Correcciones Críticas y Mejoras de UX**

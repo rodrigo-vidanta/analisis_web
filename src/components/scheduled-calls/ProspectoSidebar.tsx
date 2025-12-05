@@ -11,6 +11,7 @@ import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
+import toast from 'react-hot-toast';
 
 interface CallHistory {
   call_id: string;
@@ -114,6 +115,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
 
       let coordinacionInfo = null;
       let ejecutivoInfo = null;
+      let ejecutivoNombre: string | null = null;
 
       if (data.coordinacion_id) {
         try {
@@ -123,9 +125,15 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
         }
       }
 
-      if (data.ejecutivo_id) {
+      // Priorizar asesor_asignado si existe, de lo contrario, buscar por ejecutivo_id
+      if (data.asesor_asignado && data.asesor_asignado.trim() !== '') {
+        ejecutivoNombre = data.asesor_asignado.trim();
+      } else if (data.ejecutivo_id) {
         try {
           ejecutivoInfo = await coordinacionService.getEjecutivoById(data.ejecutivo_id);
+          if (ejecutivoInfo) {
+            ejecutivoNombre = ejecutivoInfo.full_name || ejecutivoInfo.nombre_completo || ejecutivoInfo.nombre || null;
+          }
         } catch (error) {
           // Error silenciado
         }
@@ -136,7 +144,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
         nombre_completo: data.nombre_completo || `${data.nombre || ''} ${data.apellido_paterno || ''} ${data.apellido_materno || ''}`.trim(),
         coordinacion_codigo: coordinacionInfo?.codigo,
         coordinacion_nombre: coordinacionInfo?.nombre,
-        ejecutivo_nombre: ejecutivoInfo?.full_name,
+        ejecutivo_nombre: ejecutivoNombre || ejecutivoInfo?.full_name || null,
         ejecutivo_email: ejecutivoInfo?.email
       });
       isLoadingRef.current = false;
@@ -242,7 +250,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[60]"
+            className="fixed inset-0 bg-black bg-opacity-50 z-[220]"
             onClick={onClose}
           />
           
@@ -252,7 +260,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[70] overflow-hidden"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[230] overflow-hidden"
             style={{ top: 0, margin: 0, padding: 0, height: '100vh' }}
           >
             {loading || !prospecto ? (
@@ -282,9 +290,41 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                       <h2 className="text-xl font-bold text-white">
                         {prospecto.nombre_completo}
                       </h2>
-                      <p className="text-sm text-white/80">
-                        {prospecto.ciudad_residencia} • {prospecto.interes_principal}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {prospecto.id && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (prospecto.id) {
+                                try {
+                                  await navigator.clipboard.writeText(prospecto.id);
+                                  toast.success('ID del prospecto copiado al portapapeles');
+                                } catch (error) {
+                                  toast.error('Error al copiar ID');
+                                }
+                              }
+                            }}
+                            className="text-xs text-white/70 font-mono hover:text-white hover:underline transition-colors cursor-pointer"
+                            title="Click para copiar ID del prospecto"
+                          >
+                            ID: {prospecto.id}
+                          </button>
+                        )}
+                        {prospecto.ciudad_residencia && (
+                          <>
+                            {prospecto.id && <span className="text-white/50">•</span>}
+                            <p className="text-sm text-white/80">
+                              {prospecto.ciudad_residencia}
+                              {prospecto.interes_principal && ` • ${prospecto.interes_principal}`}
+                            </p>
+                          </>
+                        )}
+                        {!prospecto.id && !prospecto.ciudad_residencia && (
+                          <p className="text-sm text-white/80">
+                            {prospecto.interes_principal || 'Información del Prospecto'}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 relative z-10">
@@ -406,7 +446,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                   </motion.div>
 
                   {/* Información de Asignación */}
-                  {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                  {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
                     <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -421,7 +461,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                         call={{
                           coordinacion_codigo: prospecto.coordinacion_codigo,
                           coordinacion_nombre: prospecto.coordinacion_nombre,
-                          ejecutivo_nombre: prospecto.ejecutivo_nombre,
+                          ejecutivo_nombre: prospecto.ejecutivo_nombre || prospecto.asesor_asignado,
                           ejecutivo_email: prospecto.ejecutivo_email
                         } as any}
                         variant="inline"

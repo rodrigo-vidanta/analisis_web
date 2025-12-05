@@ -211,14 +211,14 @@ class BotPauseService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Error obteniendo pausas activas:', errorText);
+        // Silenciar errores
         return [];
       }
 
       const data = await response.json();
       return (data || []) as BotPauseStatus[];
     } catch (error) {
-      console.error('❌ Error obteniendo pausas activas:', error);
+      // Silenciar errores
       return [];
     }
   }

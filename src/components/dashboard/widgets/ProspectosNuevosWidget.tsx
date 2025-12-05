@@ -3,11 +3,12 @@
  * Muestra prospectos que requieren atención con expansión inline
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Flag } from 'lucide-react';
 import { prospectsService, type Prospect } from '../../../services/prospectsService';
 import { coordinacionService } from '../../../services/coordinacionService';
+import { permissionsService } from '../../../services/permissionsService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { useAppStore } from '../../../stores/appStore';
 import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
@@ -28,9 +29,91 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
   const [selectedProspecto, setSelectedProspecto] = useState<Prospect | null>(null);
   const isOpeningSidebarRef = useRef(false);
   const processedProspectsRef = useRef<Set<string>>(new Set());
+  const coordinacionesMapRef = useRef<Map<string, any>>(new Map());
+  const ejecutivosMapRef = useRef<Map<string, any>>(new Map());
+  const prospectosListRef = useRef<Prospect[]>([]);
   // Estados para el modal de detalle de llamada
   const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
+
+  // Cargar coordinaciones y ejecutivos una vez
+  useEffect(() => {
+    const loadCoordinacionesAndEjecutivos = async () => {
+      try {
+        const [coordinaciones, ejecutivos] = await Promise.all([
+          coordinacionService.getAllCoordinaciones(),
+          coordinacionService.getAllEjecutivos()
+        ]);
+        
+        const coordinacionesMap = new Map();
+        coordinaciones.forEach((c: any) => {
+          coordinacionesMap.set(c.id, c);
+        });
+        
+        const ejecutivosMap = new Map();
+        ejecutivos.forEach((e: any) => {
+          ejecutivosMap.set(e.id, e);
+        });
+        
+        coordinacionesMapRef.current = coordinacionesMap;
+        ejecutivosMapRef.current = ejecutivosMap;
+      } catch (error) {
+        // Silenciar errores
+      }
+    };
+    
+    loadCoordinacionesAndEjecutivos();
+  }, []);
+
+  // Obtener fecha del último mensaje para un prospecto
+  const getLastMessageDate = useCallback(async (prospectoId: string): Promise<string | null> => {
+    try {
+      const { data } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('fecha_hora')
+        .eq('prospecto_id', prospectoId)
+        .order('fecha_hora', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      return data?.fecha_hora || null;
+    } catch (error) {
+      return null;
+    }
+  }, []);
+
+  // Enriquecer un prospecto con coordinación y ejecutivo
+  const enrichProspecto = useCallback((prospecto: any, fechaUltimoMensaje?: string): Prospect => {
+    const coordinacionInfo = prospecto.coordinacion_id ? coordinacionesMapRef.current.get(prospecto.coordinacion_id) : null;
+    const ejecutivoInfo = prospecto.ejecutivo_id ? ejecutivosMapRef.current.get(prospecto.ejecutivo_id) : null;
+    
+    // Priorizar asesor_asignado si existe
+    const ejecutivoNombre = prospecto.asesor_asignado && prospecto.asesor_asignado.trim() !== ''
+      ? prospecto.asesor_asignado.trim()
+      : ejecutivoInfo?.full_name || ejecutivoInfo?.nombre_completo || ejecutivoInfo?.nombre || null;
+
+    return {
+      ...prospecto,
+      coordinacion_codigo: coordinacionInfo?.codigo,
+      coordinacion_nombre: coordinacionInfo?.nombre,
+      ejecutivo_nombre: ejecutivoNombre,
+      ejecutivo_email: ejecutivoInfo?.email,
+      fecha_ultimo_mensaje: fechaUltimoMensaje || prospecto.fecha_ultimo_mensaje || prospecto.updated_at || prospecto.created_at
+    } as Prospect & { fecha_ultimo_mensaje: string };
+  }, []);
+
+  // Función helper para ordenar prospectos por fecha_ultimo_mensaje (descendente)
+  const sortProspectosByLastMessage = useCallback((prospectos: Prospect[]): Prospect[] => {
+    return [...prospectos].sort((a, b) => {
+      const dateA = (a as any).fecha_ultimo_mensaje 
+        ? new Date((a as any).fecha_ultimo_mensaje).getTime() 
+        : (a.updated_at ? new Date(a.updated_at).getTime() : new Date(a.created_at).getTime());
+      const dateB = (b as any).fecha_ultimo_mensaje 
+        ? new Date((b as any).fecha_ultimo_mensaje).getTime() 
+        : (b.updated_at ? new Date(b.updated_at).getTime() : new Date(b.created_at).getTime());
+      return dateB - dateA; // Descendente (más nuevo primero)
+    });
+  }, []);
 
   useEffect(() => {
     if (!userId) {
@@ -42,7 +125,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     
     // Suscripción realtime a prospectos
     const channel = analysisSupabase
-      .channel('prospectos-nuevos-dashboard')
+      .channel(`prospectos-nuevos-dashboard-${userId}`)
       .on(
         'postgres_changes',
         {
@@ -50,7 +133,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
           schema: 'public',
           table: 'prospectos'
         },
-        (payload) => {
+        async (payload) => {
           const newProspect = payload.new as any;
           // Mostrar notificación del sistema si es un prospecto nuevo
           if (newProspect.id && !processedProspectsRef.current.has(newProspect.id)) {
@@ -61,7 +144,36 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
               prospectId: newProspect.id
             });
           }
-          loadProspectos();
+          
+          // Si requiere atención, verificar permisos y añadirlo con animación
+          if (newProspect.requiere_atencion_humana === true && userId) {
+            // Verificar permisos directamente
+            permissionsService.canUserAccessProspect(userId, newProspect.id)
+              .then(async (permissionCheck) => {
+                if (permissionCheck.canAccess) {
+                  // Obtener fecha del último mensaje
+                  const fechaUltimoMensaje = await getLastMessageDate(newProspect.id);
+                  
+                  startTransition(() => {
+                    setProspectos(prev => {
+                      // Verificar si ya existe
+                      if (prev.find(p => p.id === newProspect.id)) {
+                        return prev;
+                      }
+                      
+                      // Enriquecer y añadir
+                      const enriched = enrichProspecto(newProspect, fechaUltimoMensaje || undefined);
+                      const updated = sortProspectosByLastMessage([...prev, enriched]);
+                      prospectosListRef.current = updated; // Actualizar ref
+                      return updated;
+                    });
+                  });
+                }
+              })
+              .catch(() => {
+                // Silenciar errores de permisos
+              });
+          }
         }
       )
       .on(
@@ -71,16 +183,157 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
           schema: 'public',
           table: 'prospectos'
         },
-        () => {
-          loadProspectos();
+        async (payload) => {
+          const updatedProspect = payload.new as any;
+          const oldProspect = payload.old as any;
+          
+          // Verificar si requiere_atencion_humana cambió
+          const nowRequiringAttention = updatedProspect?.requiere_atencion_humana === true;
+          
+          // Verificar estado anterior: primero desde payload.old, luego desde el estado actual en el ref
+          let wasRequiringAttention = oldProspect?.requiere_atencion_humana === true;
+          if (oldProspect === null || oldProspect === undefined || oldProspect.requiere_atencion_humana === undefined) {
+            // Si no tenemos old, verificar si ya está en la lista (significa que requería atención antes)
+            const existingInList = prospectosListRef.current.find(p => p.id === updatedProspect.id);
+            wasRequiringAttention = existingInList !== undefined;
+          }
+          
+          // Si ahora requiere atención y antes no, añadirlo
+          if (nowRequiringAttention && !wasRequiringAttention && userId) {
+            // Cambió a requerir atención: verificar permisos y añadir
+            permissionsService.canUserAccessProspect(userId, updatedProspect.id)
+              .then(async (permissionCheck) => {
+                if (permissionCheck.canAccess) {
+                  // Obtener fecha del último mensaje
+                  const fechaUltimoMensaje = await getLastMessageDate(updatedProspect.id);
+                  
+                  startTransition(() => {
+                    setProspectos(prev => {
+                      const existingIndex = prev.findIndex(p => p.id === updatedProspect.id);
+                      let updated: Prospect[];
+                      if (existingIndex === -1) {
+                        // No existe, añadir con animación
+                        const enriched = enrichProspecto(updatedProspect, fechaUltimoMensaje || undefined);
+                        updated = sortProspectosByLastMessage([...prev, enriched]);
+                      } else {
+                        // Ya existe, solo actualizar
+                        const enriched = enrichProspecto(updatedProspect, fechaUltimoMensaje || undefined);
+                        updated = [...prev];
+                        updated[existingIndex] = enriched;
+                        updated = sortProspectosByLastMessage(updated); // Reordenar
+                      }
+                      prospectosListRef.current = updated; // Actualizar ref
+                      return updated;
+                    });
+                  });
+                }
+              })
+              .catch(() => {
+                // Silenciar errores de permisos
+              });
+          } else if (!nowRequiringAttention && wasRequiringAttention) {
+            // Cambió a NO requerir atención: eliminar con animación
+            startTransition(() => {
+              setProspectos(prev => {
+                const existingIndex = prev.findIndex(p => p.id === updatedProspect.id);
+                if (existingIndex !== -1) {
+                  const updated = prev.filter(p => p.id !== updatedProspect.id);
+                  prospectosListRef.current = updated; // Actualizar ref
+                  return updated;
+                }
+                return prev;
+              });
+            });
+          } else if (nowRequiringAttention && wasRequiringAttention && userId) {
+            // Ya requería atención y sigue requiriéndola: verificar permisos y actualizar
+            permissionsService.canUserAccessProspect(userId, updatedProspect.id)
+              .then(async (permissionCheck) => {
+                if (permissionCheck.canAccess) {
+                  // Obtener fecha del último mensaje
+                  const fechaUltimoMensaje = await getLastMessageDate(updatedProspect.id);
+                  
+                  startTransition(() => {
+                    setProspectos(prev => {
+                      const existingIndex = prev.findIndex(p => p.id === updatedProspect.id);
+                      let updated: Prospect[];
+                      if (existingIndex !== -1) {
+                        // Actualizar datos
+                        const enriched = enrichProspecto(updatedProspect, fechaUltimoMensaje || undefined);
+                        updated = [...prev];
+                        updated[existingIndex] = enriched;
+                        updated = sortProspectosByLastMessage(updated); // Reordenar
+                      } else {
+                        // No existe pero tiene permisos, añadirlo
+                        const enriched = enrichProspecto(updatedProspect, fechaUltimoMensaje || undefined);
+                        updated = sortProspectosByLastMessage([...prev, enriched]);
+                      }
+                      prospectosListRef.current = updated; // Actualizar ref
+                      return updated;
+                    });
+                  });
+                } else {
+                  // Ya no tiene permisos, eliminar
+                  startTransition(() => {
+                    setProspectos(prev => {
+                      const filtered = prev.filter(p => p.id !== updatedProspect.id);
+                      prospectosListRef.current = filtered;
+                      return filtered;
+                    });
+                  });
+                }
+              })
+              .catch(() => {
+                // Silenciar errores de permisos
+              });
+          }
+        }
+      )
+      .subscribe();
+
+    // Suscripción realtime a mensajes_whatsapp para actualizar fecha_ultimo_mensaje y reordenar
+    const mensajesChannel = analysisSupabase
+      .channel(`mensajes-prospectos-nuevos-dashboard-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensajes_whatsapp'
+        },
+        async (payload) => {
+          const newMessage = payload.new as any;
+          const prospectoId = newMessage.prospecto_id;
+          
+          if (!prospectoId) return;
+          
+          // Verificar si este prospecto está en la lista
+          setProspectos(prev => {
+            const existingIndex = prev.findIndex(p => p.id === prospectoId);
+            if (existingIndex === -1) {
+              // No está en la lista, no hacer nada
+              return prev;
+            }
+            
+            // Actualizar fecha_ultimo_mensaje y reordenar
+            const updated = [...prev];
+            const prospecto = updated[existingIndex];
+            (prospecto as any).fecha_ultimo_mensaje = newMessage.fecha_hora;
+            updated[existingIndex] = prospecto;
+            
+            // Reordenar por fecha_ultimo_mensaje
+            const sorted = sortProspectosByLastMessage(updated);
+            prospectosListRef.current = sorted;
+            return sorted;
+          });
         }
       )
       .subscribe();
 
     return () => {
       channel.unsubscribe();
+      mensajesChannel.unsubscribe();
     };
-  }, [userId]);
+  }, [userId, enrichProspecto, getLastMessageDate, sortProspectosByLastMessage]);
 
   const loadProspectos = async () => {
     if (!userId) {
@@ -100,13 +353,48 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
       
       if (!data || data.length === 0) {
         setProspectos([]);
+        prospectosListRef.current = [];
         return;
       }
       
       // Filtrar SOLO los que requieren atención humana (sin límite)
       const requierenAtencion = data.filter(p => p.requiere_atencion_humana === true);
 
-      setProspectos(requierenAtencion); // Mostrar TODOS
+      if (requierenAtencion.length === 0) {
+        setProspectos([]);
+        prospectosListRef.current = [];
+        return;
+      }
+      
+      // Obtener fechas del último mensaje para cada prospecto
+      const prospectoIds = requierenAtencion.map(p => p.id);
+      const { data: lastMessagesData } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('prospecto_id, fecha_hora')
+        .in('prospecto_id', prospectoIds)
+        .order('fecha_hora', { ascending: false });
+      
+      // Crear un mapa de fecha_ultimo_mensaje por prospecto
+      const lastMessageMap = new Map<string, string>();
+      if (lastMessagesData) {
+        lastMessagesData.forEach((msg: any) => {
+          if (!lastMessageMap.has(msg.prospecto_id) || 
+              new Date(msg.fecha_hora) > new Date(lastMessageMap.get(msg.prospecto_id) || '')) {
+            lastMessageMap.set(msg.prospecto_id, msg.fecha_hora);
+          }
+        });
+      }
+      
+      // Enriquecer con coordinación y ejecutivo, y añadir fecha_ultimo_mensaje
+      const enriched = requierenAtencion.map(p => 
+        enrichProspecto(p, lastMessageMap.get(p.id) || undefined)
+      );
+
+      // Ordenar por fecha_ultimo_mensaje (descendente - más nuevo primero)
+      const sorted = sortProspectosByLastMessage(enriched);
+
+      setProspectos(sorted); // Mostrar TODOS ordenados
+      prospectosListRef.current = sorted; // Actualizar ref
     } catch (error: any) {
       if (error?.status === 401 || error?.code === 'PGRST301') {
         // Error de permisos - silenciar
