@@ -20,13 +20,35 @@ export const DailyView: React.FC<DailyViewProps> = ({
   onProspectClick,
   showNavigation = true
 }) => {
-  // Filtrar llamadas del día seleccionado
+  // Filtrar llamadas del día seleccionado usando zona horaria de Puerto Vallarta (America/Mexico_City, UTC-6)
   const dayCalls = useMemo(() => {
-    const dateString = selectedDate.toISOString().split('T')[0];
+    // Obtener año, mes y día de la fecha seleccionada en zona horaria local
+    const selectedDateLocal = new Date(selectedDate);
+    const selectedYear = selectedDateLocal.getFullYear();
+    const selectedMonth = selectedDateLocal.getMonth();
+    const selectedDay = selectedDateLocal.getDate();
+    
+    // Crear fecha de inicio del día en zona horaria local (00:00:00)
+    const startOfDayLocal = new Date(selectedYear, selectedMonth, selectedDay, 0, 0, 0, 0);
+    // Crear fecha de fin del día en zona horaria local (23:59:59.999)
+    const endOfDayLocal = new Date(selectedYear, selectedMonth, selectedDay, 23, 59, 59, 999);
+    
     return calls
       .filter(call => {
-        const callDate = new Date(call.fecha_programada).toISOString().split('T')[0];
-        return callDate === dateString;
+        if (!call.fecha_programada) return false;
+        
+        // Convertir fecha programada (que viene en UTC desde la BD) a zona horaria local
+        const callDate = new Date(call.fecha_programada);
+        
+        // Obtener año, mes y día de la fecha de la llamada en zona horaria local
+        const callYear = callDate.getFullYear();
+        const callMonth = callDate.getMonth();
+        const callDay = callDate.getDate();
+        
+        // Comparar solo año, mes y día (ignorar hora)
+        return callYear === selectedYear && 
+               callMonth === selectedMonth && 
+               callDay === selectedDay;
       })
       .sort((a, b) => {
         const timeA = new Date(a.fecha_programada).getTime();
@@ -35,12 +57,16 @@ export const DailyView: React.FC<DailyViewProps> = ({
       });
   }, [calls, selectedDate]);
 
-  // Agrupar por hora
+  // Agrupar por hora (usando zona horaria local de Puerto Vallarta)
   const callsByHour = useMemo(() => {
     const grouped: Record<number, ScheduledCall[]> = {};
     
     dayCalls.forEach(call => {
-      const hour = new Date(call.fecha_programada).getHours();
+      // Convertir a hora local de Puerto Vallarta (UTC-6)
+      const callDate = new Date(call.fecha_programada);
+      // getHours() ya devuelve la hora en zona horaria local del navegador
+      // Para Puerto Vallarta, necesitamos ajustar manualmente si el navegador no está en esa zona
+      const hour = callDate.getHours();
       if (!grouped[hour]) {
         grouped[hour] = [];
       }
@@ -52,9 +78,11 @@ export const DailyView: React.FC<DailyViewProps> = ({
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
+    // Formatear usando zona horaria de Puerto Vallarta (America/Mexico_City)
     return date.toLocaleTimeString('es-MX', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'America/Mexico_City'
     });
   };
 

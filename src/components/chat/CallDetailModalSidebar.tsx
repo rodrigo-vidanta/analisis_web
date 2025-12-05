@@ -47,6 +47,8 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   const [modalTab, setModalTab] = useState<'details' | 'analysis'>('details');
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioVolume, setAudioVolume] = useState(1);
   const [highlightedSegment, setHighlightedSegment] = useState<number | null>(null);
   const [selectedProspectoData, setSelectedProspectoData] = useState<any | null>(null);
   const [ejecutivosMap, setEjecutivosMap] = useState<Record<string, any>>({});
@@ -147,6 +149,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
       }
       setIsAudioPlaying(false);
       setCurrentAudioTime(0);
+      setAudioDuration(0);
       setHighlightedSegment(null);
       lastSegmentRef.current = null;
       lastUpdateTimeRef.current = 0;
@@ -156,6 +159,38 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
       }
     }
   }, [isOpen]);
+
+  // Cargar duración del audio cuando se carga el metadata
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleLoadedMetadata = () => {
+      setAudioDuration(audio.duration || 0);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [callDetail?.audio_ruta_bucket]);
+
+  // Función para formatear tiempo
+  const formatTime = (seconds: number): string => {
+    if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Función para hacer seek en el audio
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+      setCurrentAudioTime(newTime);
+    }
+  };
 
   const loadCallDetail = async (callId: string) => {
     try {
@@ -271,22 +306,69 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
       let conversationText = '';
       
       if (typeof conversacionData === 'string') {
-        const parsed = JSON.parse(conversacionData);
-        conversationText = parsed.conversacion || '';
+        try {
+          const parsed = JSON.parse(conversacionData);
+          conversationText = parsed.conversacion || parsed.conversacion_completa || conversationText;
+        } catch {
+          // Si no es JSON válido, usar el string directamente
+          conversationText = conversacionData;
+        }
       } else if (conversacionData?.conversacion) {
         conversationText = conversacionData.conversacion;
+      } else if (conversacionData?.conversacion_completa) {
+        conversationText = conversacionData.conversacion_completa;
+      } else if (typeof conversacionData === 'object') {
+        // Intentar extraer conversación de diferentes campos
+        conversationText = conversacionData.conversacion || conversacionData.conversacion_completa || '';
       }
       
       if (!conversationText) return [];
       
+      // Dividir por líneas y filtrar vacías
       const lines = conversationText.split('\n').filter((line: string) => line.trim());
       const segments: any[] = [];
       let accumulatedTime = 0;
       
+      // Procesar cada línea y crear segmentos ordenados
       lines.forEach((line: string, index: number) => {
-        const match = line.match(/^\[(.+?)\]\s+(\w+):\s+(.+)$/);
-        if (match) {
-          const [, timestamp, speaker, content] = match;
+        // Patrón más flexible para capturar diferentes formatos
+        const patterns = [
+          /^\[(.+?)\]\s+(\w+):\s+(.+)$/,  // [timestamp] speaker: content
+          /^(\w+):\s+(.+)$/,              // speaker: content (sin timestamp)
+          /^\[(.+?)\]\s+(.+)$/            // [timestamp] content (sin speaker explícito)
+        ];
+        
+        let match = null;
+        let timestamp = '';
+        let speaker = '';
+        let content = '';
+        
+        for (const pattern of patterns) {
+          match = line.match(pattern);
+          if (match) {
+            if (pattern === patterns[0]) {
+              // [timestamp] speaker: content
+              [, timestamp, speaker, content] = match;
+            } else if (pattern === patterns[1]) {
+              // speaker: content
+              [, speaker, content] = match;
+            } else if (pattern === patterns[2]) {
+              // [timestamp] content
+              [, timestamp, content] = match;
+              // Intentar inferir speaker del contenido o usar 'agente' por defecto
+              speaker = 'agente';
+            }
+            break;
+          }
+        }
+        
+        // Si no hay match, intentar procesar la línea completa como contenido
+        if (!match && line.trim()) {
+          content = line.trim();
+          speaker = 'agente';
+        }
+        
+        if (content) {
           const speechTime = calculateSpeechTime(content.trim(), voiceSpeed);
           const segmentStartTime = accumulatedTime;
           accumulatedTime += speechTime;
@@ -297,7 +379,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
             segment_index: index,
             speaker: speaker.toLowerCase(),
             content: content.trim(),
-            timestamp: timestamp.trim(),
+            timestamp: timestamp.trim() || `${Math.floor(segmentStartTime / 60)}:${Math.floor(segmentStartTime % 60).toString().padStart(2, '0')}`,
             confidence: 1.0,
             startTime: segmentStartTime,
             endTime: accumulatedTime,
@@ -306,7 +388,8 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
         }
       });
       
-      return segments;
+      // Ordenar segmentos por índice para mantener el orden correcto
+      return segments.sort((a, b) => a.segment_index - b.segment_index);
     } catch (error) {
       console.error('Error parsing conversation:', error);
       return [];
@@ -334,14 +417,21 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   };
 
   const handleAudioTimeUpdate = useCallback(() => {
-    if (!audioRef.current || transcript.length === 0) return;
+    if (!audioRef.current) return;
+    
+    const currentTime = audioRef.current.currentTime;
+    const duration = audioRef.current.duration || 0;
+    
+    setCurrentAudioTime(currentTime);
+    if (duration && duration !== audioDuration) {
+      setAudioDuration(duration);
+    }
+    
+    if (transcript.length === 0) return;
     
     const now = performance.now();
     if (now - lastUpdateTimeRef.current < 100) return;
     lastUpdateTimeRef.current = now;
-    
-    const currentTime = audioRef.current.currentTime;
-    setCurrentAudioTime(audioRef.current.volume * 100);
     
     let currentSegment = -1;
     const startIndex = lastSegmentRef.current !== null ? Math.max(0, lastSegmentRef.current - 1) : 0;
@@ -722,11 +812,14 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                             callDetail?.call_status === 'transferida' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
                             callDetail?.call_status === 'finalizada' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300' :
                             callDetail?.call_status === 'perdida' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                            callDetail?.call_status === 'contestada_no_transferida' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
                           }`}>
-                            {callDetail?.call_status === 'transferida' ? 'Transferida a Ejecutivo' :
-                             callDetail?.call_status === 'contestada_no_transferida' ? 'Contestada No Transferida' :
+                            {callDetail?.call_status === 'transferida' ? 'Transferida' :
+                             callDetail?.call_status === 'contestada_no_transferida' ? 'No Transferida' :
                              callDetail?.call_status === 'perdida' ? 'Perdida' :
+                             callDetail?.call_status === 'finalizada' ? 'Finalizada' :
+                             callDetail?.call_status === 'activa' ? 'Activa' :
                              callDetail?.call_status || 'N/A'}
                           </span>
                         </div>
@@ -935,40 +1028,67 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                           </h3>
                         </div>
                         {callDetail?.audio_ruta_bucket && (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                if (audioRef.current) {
-                                  if (isAudioPlaying) {
-                                    audioRef.current.pause();
-                                    setIsAudioPlaying(false);
-                                  } else {
-                                    audioRef.current.play();
-                                    setIsAudioPlaying(true);
+                          <div className="flex flex-col gap-3 w-full">
+                            {/* Controles de reproducción */}
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => {
+                                  if (audioRef.current) {
+                                    if (isAudioPlaying) {
+                                      audioRef.current.pause();
+                                      setIsAudioPlaying(false);
+                                    } else {
+                                      audioRef.current.play();
+                                      setIsAudioPlaying(true);
+                                    }
                                   }
-                                }
-                              }}
-                              className="w-8 h-8 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-full flex items-center justify-center text-white transition-all duration-200 shadow-md hover:shadow-lg"
-                            >
-                              {isAudioPlaying ? (
-                                <Pause className="w-4 h-4" />
-                              ) : (
-                                <Play className="w-4 h-4 ml-0.5" />
-                              )}
-                            </button>
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={currentAudioTime}
-                              onChange={(e) => {
-                                const volume = parseFloat(e.target.value) / 100;
-                                if (audioRef.current) {
-                                  audioRef.current.volume = volume;
-                                }
-                              }}
-                              className="w-20 h-1 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer"
-                            />
+                                }}
+                                className="w-10 h-10 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-full flex items-center justify-center text-white transition-all duration-200 shadow-md hover:shadow-lg flex-shrink-0"
+                              >
+                                {isAudioPlaying ? (
+                                  <Pause className="w-5 h-5" />
+                                ) : (
+                                  <Play className="w-5 h-5 ml-0.5" />
+                                )}
+                              </button>
+                              
+                              {/* Barra de progreso */}
+                              <div className="flex-1 flex flex-col gap-1">
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max={audioDuration || 0}
+                                  value={currentAudioTime}
+                                  onChange={handleSeek}
+                                  className="w-full h-2 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer audio-progress"
+                                  style={{
+                                    background: `linear-gradient(to right, rgb(59 130 246) 0%, rgb(59 130 246) ${audioDuration ? (currentAudioTime / audioDuration) * 100 : 0}%, rgb(226 232 240) ${audioDuration ? (currentAudioTime / audioDuration) * 100 : 0}%, rgb(226 232 240) 100%)`
+                                  }}
+                                />
+                                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+                                  <span>{formatTime(currentAudioTime)}</span>
+                                  <span>{formatTime(audioDuration)}</span>
+                                </div>
+                              </div>
+                              
+                              {/* Control de volumen */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  value={audioVolume * 100}
+                                  onChange={(e) => {
+                                    const volume = parseFloat(e.target.value) / 100;
+                                    setAudioVolume(volume);
+                                    if (audioRef.current) {
+                                      audioRef.current.volume = volume;
+                                    }
+                                  }}
+                                  className="w-16 h-1 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer"
+                                />
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1015,8 +1135,14 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                           ref={audioRef}
                           src={callDetail.audio_ruta_bucket}
                           onTimeUpdate={handleAudioTimeUpdate}
+                          onLoadedMetadata={() => {
+                            if (audioRef.current) {
+                              setAudioDuration(audioRef.current.duration || 0);
+                            }
+                          }}
                           onEnded={() => {
                             setIsAudioPlaying(false);
+                            setCurrentAudioTime(0);
                             setHighlightedSegment(null);
                             lastSegmentRef.current = null;
                             if (scrollTimeoutRef.current !== null) {
@@ -1026,6 +1152,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                           }}
                           onPlay={() => setIsAudioPlaying(true)}
                           onPause={() => setIsAudioPlaying(false)}
+                          volume={audioVolume}
                         />
                       )}
                     </motion.div>

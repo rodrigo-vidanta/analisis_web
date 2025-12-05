@@ -17,6 +17,37 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.19.0** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🔗 Corrección de Timeline en ProspectDetailSidebar**
+- **Problema resuelto:** Al hacer clic en llamadas del timeline en el modal de prospecto (desde AI Chat Monitor), no se abría el CallDetailModalSidebar
+- **Solución implementada:**
+  - Simplificada condición de apertura del modal - ahora abre si hay `callId` (sin restricciones adicionales)
+  - Agregado `e.preventDefault()` además de `e.stopPropagation()` para evitar conflictos
+  - CallDetailModalSidebar movido fuera del AnimatePresence del ProspectDetailSidebar para funcionar independientemente
+  - Portal renderizado siempre (no condicionalmente) para evitar problemas de montaje
+- **Logs de depuración:** Agregados console.logs temporales para facilitar troubleshooting
+- **Archivos modificados:** `src/components/chat/ProspectDetailSidebar.tsx`
+
+#### **📝 Mejoras en CallDetailModalSidebar**
+- **Transcripción mejorada:**
+  - Parser mejorado para manejar múltiples formatos de conversación (`[timestamp] speaker: content`, `speaker: content`, `[timestamp] content`)
+  - Ordenamiento correcto de segmentos por índice para mantener orden cronológico
+  - Manejo robusto de diferentes estructuras de datos (string, objeto, JSON)
+- **Status de llamada añadido:**
+  - Muestra status completo: Transferida, No Transferida, Perdida, Finalizada, Activa
+  - Colores diferenciados por tipo de status en la sección de detalles
+- **Reproductor de audio mejorado:**
+  - Barra de progreso interactiva con seek funcional
+  - Muestra tiempo actual y duración total formateados (MM:SS)
+  - Control de volumen separado con slider
+  - Estados separados: `audioDuration`, `audioVolume`, `currentAudioTime`
+  - Sincronización correcta con eventos del elemento audio (`loadedmetadata`, `timeupdate`)
+- **Archivos modificados:** `src/components/chat/CallDetailModalSidebar.tsx`
+
+---
+
 ### **v5.18.0** - Enero 2025
 **Estado:** ✅ Producción
 

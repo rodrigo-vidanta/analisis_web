@@ -17,6 +17,30 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.16.0** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **📊 Eliminación de Paginación - Carga Completa de Prospectos**
+- **Problema resuelto:** Vista limitada a 50 de 57 prospectos sin botón para avanzar de página
+- **Solución implementada:**
+  - Eliminada paginación limitada - ahora carga TODOS los prospectos de una vez
+  - Eliminado `BATCH_SIZE` constante y toda la lógica de paginación
+  - Infinite scroll deshabilitado (ya no es necesario cargar por lotes)
+  - Filtrado y ordenamiento se aplican en memoria después de cargar todos los datos
+  - `totalCount` ahora refleja el total de prospectos filtrados, no solo los cargados
+- **Aplicado en:** Vista Kanban y DataGrid
+- **Archivos modificados:**
+  - `src/components/prospectos/ProspectosManager.tsx` - Eliminada paginación, carga completa
+  - `src/components/prospectos/ProspectosKanban.tsx` - Eliminado IntersectionObserver y sentinel elements
+
+#### **🔧 Cambios Técnicos**
+- **Consulta Supabase:** Eliminado `.range(from, to)` - ahora carga todos los registros
+- **Estados eliminados:** `currentPage`, `hasMore`, `loadingMore`, `BATCH_SIZE`
+- **Funciones eliminadas:** `loadMoreProspectos()`, `loadMoreProspectosForColumn()`
+- **UI limpiada:** Eliminados elementos de "Cargando más prospectos..." en ambas vistas
+
+---
+
 ### **v5.15.0** - Enero 2025
 **Estado:** ✅ Producción
 

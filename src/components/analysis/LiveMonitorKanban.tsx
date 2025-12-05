@@ -625,7 +625,10 @@ const LiveMonitorKanban: React.FC = () => {
   // Función para cargar historial de llamadas desde la misma fuente que AnalysisIAComplete
   const loadHistoryCalls = async () => {
     try {
-      setLoading(true);
+      // Solo mostrar loading si no hay datos previos (evitar parpadeos en actualizaciones)
+      if (allCallsWithAnalysis.length === 0) {
+        setLoading(true);
+      }
       
       // Determinar permisos del usuario
       if (user?.id) {
@@ -1270,14 +1273,18 @@ const LiveMonitorKanban: React.FC = () => {
   // Aplicar filtros cuando se selecciona la pestaña 'all'
   useEffect(() => {
     if (selectedTab === 'all' && allCallsWithAnalysis.length > 0) {
-      // Diferir aplicación de filtros para evitar bloqueos
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => {
-      applyHistoryFilters();
-        }, { timeout: 500 });
-      } else {
-        setTimeout(() => applyHistoryFilters(), 50);
-      }
+      // Diferir aplicación de filtros para evitar bloqueos y parpadeos
+      const timeoutId = setTimeout(() => {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(() => {
+            applyHistoryFilters();
+          }, { timeout: 500 });
+        } else {
+          applyHistoryFilters();
+        }
+      }, 150); // Aumentado el delay para evitar parpadeos
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [selectedTab, allCallsWithAnalysis.length]);
 

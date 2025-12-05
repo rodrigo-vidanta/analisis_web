@@ -893,10 +893,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [allProspectos, setAllProspectos] = useState<Prospecto[]>([]); // Todos los prospectos cargados
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false); // Ya no hay más datos porque cargamos todo
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  const BATCH_SIZE = 50; // Prospectos por carga
   const scrollObserverRef = useRef<HTMLDivElement>(null);
   
   const [selectedProspecto, setSelectedProspecto] = useState<Prospecto | null>(null);
@@ -964,39 +963,19 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       });
       setColumnLoadingStates(initialStates);
       
-      // Cargar prospectos iniciales (sin filtro de etapa para cargar todos)
-      loadProspectos(0, true);
+      // Cargar todos los prospectos de una vez
+      loadProspectos(true);
     } else if (user?.id && viewType === 'datagrid') {
-      // Para datagrid, carga normal
-      loadProspectos(0, true);
+      // Para datagrid, cargar todos los prospectos
+      loadProspectos(true);
     }
   }, [user?.id, viewType]);
 
   // Los filtros ahora se aplican solo en memoria, no recargan desde la base de datos
   // Solo recargar cuando cambia el usuario o la vista
 
-  // Infinite Scroll: Observar cuando el usuario hace scroll cerca del final
-  useEffect(() => {
-    if (!scrollObserverRef.current || !hasMore || loadingMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
-          loadMoreProspectos();
-        }
-      },
-      {
-        rootMargin: '200px', // Cargar cuando esté a 200px del final
-        threshold: 0.1
-      }
-    );
-
-    observer.observe(scrollObserverRef.current);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMore, loadingMore, currentPage]);
+  // Infinite Scroll ya no es necesario - todos los prospectos se cargan de una vez
+  // Se mantiene el useEffect vacío para evitar errores si hay referencias al scrollObserverRef
 
   // OPTIMIZACIÓN: Cargar todas las coordinaciones y ejecutivos de una vez
   const loadCoordinacionesAndEjecutivos = async () => {
@@ -1037,20 +1016,17 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [columnLoadingStates, setColumnLoadingStates] = useState<Record<string, { loading: boolean; page: number; hasMore: boolean }>>({});
   const [columnPages, setColumnPages] = useState<Record<string, number>>({});
 
-  const loadProspectos = async (page: number = 0, reset: boolean = false, etapaFilter?: string) => {
+  const loadProspectos = async (reset: boolean = false) => {
     try {
       if (reset) {
         setLoading(true);
-        setCurrentPage(0);
         setAllProspectos([]);
-        setHasMore(true);
+        setHasMore(false);
         setColumnPages({});
         setColumnLoadingStates({});
-      } else {
-        setLoadingMore(true);
       }
 
-      // Construir query base
+      // Construir query base - CARGAR TODOS LOS PROSPECTOS SIN LÍMITE
       let query = analysisSupabase
         .from('prospectos')
         .select('*', { count: 'exact' });
@@ -1067,26 +1043,17 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         }
       }
 
-      // Aplicar filtro por etapa si se especifica (para infinite scroll por columna)
-      if (etapaFilter) {
-        query = query.eq('etapa', etapaFilter);
-      }
-
-      // Aplicar paginación
-      const from = page * BATCH_SIZE;
-      const to = from + BATCH_SIZE - 1;
-
+      // NO aplicar paginación - cargar todos los prospectos
       const { data, error, count } = await query
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Error loading prospectos:', error);
         return;
       }
 
-      // Actualizar contador total (solo si no hay filtro de etapa)
-      if (count !== null && !etapaFilter) {
+      // Actualizar contador total
+      if (count !== null) {
         setTotalCount(count);
       }
 
@@ -1096,32 +1063,11 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       // Enriquecer prospectos usando mapas (instantáneo)
       const enrichedProspectos = enrichProspectos(data || [], coordinacionesMap, ejecutivosMap);
 
-      if (reset) {
-        setAllProspectos(enrichedProspectos);
-        setProspectos(enrichedProspectos);
-      } else {
-        setAllProspectos(prev => [...prev, ...enrichedProspectos]);
-        setProspectos(prev => [...prev, ...enrichedProspectos]);
-      }
-
-      // Verificar si hay más datos
-      const totalLoaded = (page + 1) * BATCH_SIZE;
-      const hasMoreData = totalLoaded < (count || 0);
+      // Cargar todos los prospectos de una vez
+      setAllProspectos(enrichedProspectos);
+      setProspectos(enrichedProspectos);
+      setHasMore(false); // Ya no hay más datos porque cargamos todo
       
-      if (!etapaFilter) {
-        setHasMore(hasMoreData);
-        setCurrentPage(page);
-      } else {
-        // Actualizar estado de la columna específica
-        setColumnLoadingStates(prev => ({
-          ...prev,
-          [etapaFilter]: {
-            loading: false,
-            page: page,
-            hasMore: hasMoreData
-          }
-        }));
-      }
     } catch (error) {
       console.error('❌ Error loading prospectos:', error);
     } finally {
@@ -1131,24 +1077,17 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   };
 
   // Función para cargar más prospectos de una columna específica (Kanban)
+  // Ya no es necesaria porque cargamos todos los prospectos de una vez
   const loadMoreProspectosForColumn = async (etapa: string) => {
-    const columnState = columnLoadingStates[etapa] || { loading: false, page: -1, hasMore: true };
-    
-    if (columnState.loading || !columnState.hasMore) return;
-
-    setColumnLoadingStates(prev => ({
-      ...prev,
-      [etapa]: { ...prev[etapa], loading: true }
-    }));
-
-    await loadProspectos(columnState.page + 1, false, etapa);
+    // No hacer nada - todos los prospectos ya están cargados
+    return;
   };
 
   // Cargar más prospectos cuando se hace scroll
+  // Ya no es necesaria porque cargamos todos los prospectos de una vez
   const loadMoreProspectos = () => {
-    if (!loadingMore && hasMore) {
-      loadProspectos(currentPage + 1, false);
-    }
+    // No hacer nada - todos los prospectos ya están cargados
+    return;
   };
 
   // Filtrar y ordenar prospectos (usar allProspectos para filtros)
@@ -1430,17 +1369,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             columnLoadingStates={columnLoadingStates}
           />
           
-          {/* Infinite Scroll Observer para Kanban */}
-          {hasMore && (
-            <div ref={scrollObserverRef} className="h-10 flex items-center justify-center py-4">
-              {loadingMore && (
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-xs">Cargando más prospectos...</span>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Infinite Scroll ya no es necesario - todos los prospectos están cargados */}
         </motion.div>
       ) : (
         /* Data Grid */
@@ -1661,17 +1590,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             </>
           )}
           
-          {/* Infinite Scroll Observer para DataGrid */}
-          {hasMore && (
-            <div ref={scrollObserverRef} className="h-10 flex items-center justify-center py-4">
-              {loadingMore && (
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-xs">Cargando más prospectos...</span>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Infinite Scroll ya no es necesario - todos los prospectos están cargados */}
         </motion.div>
       )}
 
@@ -1686,7 +1605,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           position={assignmentContextMenu.position}
           onClose={() => setAssignmentContextMenu(null)}
           onAssignmentComplete={() => {
-            loadProspectos();
+            loadProspectos(true);
             setAssignmentContextMenu(null);
           }}
         />

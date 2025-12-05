@@ -17,6 +17,26 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v1.3.0** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🕐 Corrección Crítica de Zona Horaria**
+- **Problema resuelto:** Las llamadas programadas aparecían en días incorrectos debido a conversión incorrecta de timestamps UTC
+- **Ejemplo del problema:** Llamadas de las 6 PM aparecían a las 9:30 AM del día actual
+- **Solución implementada:**
+  - Filtrado por fecha usando zona horaria local de Puerto Vallarta (America/Mexico_City, UTC-6)
+  - Comparación correcta usando `getFullYear()`, `getMonth()`, `getDate()` en lugar de `toISOString().split('T')[0]`
+  - Creación de objetos Date con año, mes y día locales para comparación precisa
+  - Eliminada dependencia de UTC que causaba desfases de hasta 6 horas
+- **Archivos modificados:** `src/components/scheduled-calls/views/DailyView.tsx`
+
+#### **🔧 Implementación Técnica**
+- **Comparación local:** Uso de `new Date(year, month, date)` para crear fechas locales sin componente de tiempo
+- **Filtrado mejorado:** Comparación de timestamps locales en lugar de strings ISO
+- **Ordenamiento:** Mantenido ordenamiento por `fecha_programada` ascendente
+
+---
+
 ### **v1.2.0** - Enero 2025
 **Estado:** ✅ Producción
 

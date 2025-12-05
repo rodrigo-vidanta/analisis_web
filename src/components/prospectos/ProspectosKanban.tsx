@@ -497,21 +497,7 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                             {renderProspectoCard(prospecto)}
                           </div>
                         ))}
-                        {/* Elemento sentinela para infinite scroll */}
-                        {(() => {
-                          const etapas = getEtapasForCheckpoint(checkpointKey);
-                          const etapa = etapas[0];
-                          const columnState = columnLoadingStates[etapa];
-                          return (
-                            <div data-sentinel className="h-1 w-full">
-                              {columnState?.loading && (
-                                <div className="flex items-center justify-center py-4">
-                                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
+                        {/* Infinite scroll ya no es necesario - todos los prospectos están cargados */}
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-600 text-sm">

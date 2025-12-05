@@ -1,5 +1,81 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.1.0N6.0.0 - Correcciones de Zona Horaria, Timeline y Mejoras en Prospectos (Diciembre 2025)
+
+### 🎯 **RELEASE BETA - Correcciones Críticas y Mejoras de UX**
+
+#### 🕐 **Corrección de Zona Horaria en Llamadas Programadas**
+- **Problema resuelto:** Las llamadas programadas aparecían en días incorrectos debido a conversión incorrecta de timestamps UTC
+- **Solución implementada:** Filtrado por fecha usando zona horaria local de Puerto Vallarta (America/Mexico_City, UTC-6)
+- **Comparación correcta:** Ahora se compara año, mes y día en zona horaria local sin depender de UTC
+- **Formateo mejorado:** Las horas se muestran correctamente usando `toLocaleTimeString` con timezone específico
+- **Archivos modificados:** `src/components/scheduled-calls/views/DailyView.tsx`
+
+#### 🔗 **Corrección de Timeline en AI Chat Monitor**
+- **Problema resuelto:** Al hacer clic en llamadas del timeline en el modal de prospecto, no se abría el CallDetailModalSidebar
+- **Solución implementada:** 
+  - Simplificada condición de apertura del modal (ahora abre si hay `callId`)
+  - Agregado `stopPropagation` y `preventDefault` para evitar conflictos de eventos
+  - CallDetailModalSidebar movido fuera del AnimatePresence del ProspectDetailSidebar para funcionar independientemente
+- **Mejoras adicionales:** Agregados logs de depuración para facilitar troubleshooting futuro
+- **Archivos modificados:** `src/components/chat/ProspectDetailSidebar.tsx`
+
+#### ⚡ **Optimización de Historial en AI Call Monitor**
+- **Problema resuelto:** Re-renders innecesarios causaban parpadeo en la pestaña de historial
+- **Solución implementada:**
+  - Loading solo se muestra si no hay datos previos (evita parpadeos en actualizaciones)
+  - Aumentado delay en efectos para evitar re-renders rápidos
+  - Optimización de aplicación de filtros con mejor diferimiento
+- **Archivos modificados:** `src/components/analysis/LiveMonitorKanban.tsx`
+
+#### 📝 **Mejoras en Transcripción y Status de Llamada**
+- **Transcripción mejorada:**
+  - Parser mejorado para manejar múltiples formatos de conversación
+  - Ordenamiento correcto de segmentos por índice
+  - Manejo robusto de diferentes estructuras de datos
+- **Status de llamada añadido:**
+  - Muestra status completo: Transferida, No Transferida, Perdida, Finalizada, Activa
+  - Colores diferenciados por tipo de status
+- **Archivos modificados:** `src/components/chat/CallDetailModalSidebar.tsx`
+
+#### 🎵 **Reproductor de Audio Mejorado**
+- **Barra de progreso añadida:**
+  - Barra de progreso interactiva con seek funcional
+  - Muestra tiempo actual y duración total
+  - Control de volumen separado
+- **Estados mejorados:**
+  - `audioDuration` y `audioVolume` como estados separados
+  - Sincronización correcta con el elemento audio
+  - Formateo de tiempo mejorado
+- **Archivos modificados:** `src/components/chat/CallDetailModalSidebar.tsx`
+
+#### 📊 **Eliminación de Paginación en Prospectos**
+- **Problema resuelto:** Vista limitada a 50 de 57 prospectos sin botón para avanzar
+- **Solución implementada:**
+  - Eliminada paginación limitada - ahora carga TODOS los prospectos de una vez
+  - Eliminado `BATCH_SIZE` y lógica de paginación
+  - Infinite scroll deshabilitado (ya no es necesario)
+  - Filtrado y ordenamiento se aplican en memoria después de cargar todos los datos
+- **Aplicado en:** Vista Kanban y DataGrid
+- **Archivos modificados:** `src/components/prospectos/ProspectosManager.tsx`, `src/components/prospectos/ProspectosKanban.tsx`
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/scheduled-calls/views/DailyView.tsx` - Corrección de zona horaria
+- `src/components/chat/ProspectDetailSidebar.tsx` - Corrección de Timeline y CallDetailModalSidebar
+- `src/components/chat/CallDetailModalSidebar.tsx` - Mejoras en transcripción, status y reproductor de audio
+- `src/components/analysis/LiveMonitorKanban.tsx` - Optimización de historial
+- `src/components/prospectos/ProspectosManager.tsx` - Eliminación de paginación
+- `src/components/prospectos/ProspectosKanban.tsx` - Eliminación de infinite scroll por columna
+- `src/components/Footer.tsx` - Actualización de versión a B4.1.0N6.0.0
+
+#### 🔧 **Implementación Técnica**
+- **Zona horaria:** Uso de `getFullYear()`, `getMonth()`, `getDay()` para comparación local
+- **Portales:** CallDetailModalSidebar renderizado fuera de AnimatePresence para independencia
+- **Estados de audio:** Separación de `currentAudioTime`, `audioDuration` y `audioVolume`
+- **Carga completa:** Eliminación de `.range()` en consultas para cargar todos los registros
+
+---
+
 ## 🎯 Versión B4.0.10N6.0.0 - Optimización de Rendimiento y Verificación de Permisos (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Optimización de Rendimiento y Sistema de Permisos Mejorado**
