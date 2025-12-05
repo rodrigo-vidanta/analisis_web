@@ -24,6 +24,11 @@ import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
+/**
+ * ============================================
+ * PROPS DEL COMPONENTE - CallDetailModalSidebar
+ * ============================================
+ */
 interface CallDetailModalSidebarProps {
   callId: string | null;
   isOpen: boolean;
@@ -31,15 +36,67 @@ interface CallDetailModalSidebarProps {
   allCallsWithAnalysis?: any[]; // Para historial de llamadas del prospecto
   onProspectClick?: (prospectId: string) => void; // Para abrir sidebar de prospecto
   onCallChange?: (newCallId: string) => void; // Para cambiar la llamada cuando se hace clic en el historial
+  /**
+   * Z-INDEX DEL BACKDROP
+   * - Default: z-[240] (para módulos normales: Prospectos, Scheduled Calls, Chat)
+   * - AI Call Monitor: z-[200] (para que ProspectoSidebar quede encima)
+   */
+  zIndexBackdrop?: string;
+  /**
+   * Z-INDEX DEL SIDEBAR
+   * - Default: z-[250] (para módulos normales: Prospectos, Scheduled Calls, Chat)
+   * - AI Call Monitor: z-[210] (para que ProspectoSidebar quede encima)
+   * 
+   * ORDEN DE Z-INDEX:
+   * - Módulos normales: CallDetailModalSidebar (z-[250]) > ProspectoSidebar (z-[190])
+   * - AI Call Monitor: ProspectoSidebar (z-[230]) > CallDetailModalSidebar (z-[210])
+   */
+  zIndexSidebar?: string;
 }
 
+/**
+ * ============================================
+ * COMPONENTE: CallDetailModalSidebar
+ * ============================================
+ * 
+ * Sidebar para mostrar detalles de una llamada específica.
+ * 
+ * SISTEMA DE Z-INDEX:
+ * ===================
+ * Este componente utiliza props opcionales para controlar su z-index,
+ * permitiendo diferentes comportamientos según el módulo:
+ * 
+ * 1. MÓDULOS NORMALES (Prospectos, Scheduled Calls, Chat):
+ *    - Default: z-[240] (backdrop) / z-[250] (sidebar)
+ *    - Comportamiento: CallDetailModalSidebar aparece ENCIMA de ProspectoSidebar
+ * 
+ * 2. AI CALL MONITOR (comportamiento especial):
+ *    - Configurado: z-[200] (backdrop) / z-[210] (sidebar)
+ *    - Comportamiento: ProspectoSidebar aparece ENCIMA de CallDetailModalSidebar
+ * 
+ * USO:
+ * ====
+ * // Módulo normal (default)
+ * <CallDetailModalSidebar callId={id} isOpen={true} onClose={close} />
+ * 
+ * // AI Call Monitor (z-index más bajo)
+ * <CallDetailModalSidebar 
+ *   callId={id} 
+ *   isOpen={true} 
+ *   onClose={close}
+ *   zIndexBackdrop="z-[200]"
+ *   zIndexSidebar="z-[210]"
+ * />
+ */
 export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({ 
   callId, 
   isOpen, 
   onClose,
   allCallsWithAnalysis = [],
   onProspectClick,
-  onCallChange
+  onCallChange,
+  zIndexBackdrop = 'z-[240]', // Default para módulos normales
+  zIndexSidebar = 'z-[250]'   // Default para módulos normales
 }) => {
   const { user } = useAuth();
   
@@ -678,7 +735,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md z-[200] pointer-events-auto"
+            className={`fixed inset-0 bg-black/50 backdrop-blur-md ${zIndexBackdrop} pointer-events-auto`}
             onClick={onClose}
           />
           <motion.div
@@ -686,7 +743,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[210] overflow-hidden pointer-events-auto"
+            className={`fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl ${zIndexSidebar} overflow-hidden pointer-events-auto`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-col h-full">

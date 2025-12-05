@@ -1,5 +1,48 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.1.2N6.0.0 - Corrección de Z-Index en Sidebars (Enero 2025)
+
+### 🎯 **RELEASE BETA - Corrección de Ordenamiento de Sidebars**
+
+#### 🔧 **Sistema de Z-Index para Sidebars**
+- **Problema resuelto:** Los sidebars de prospecto y detalle de llamada tenían conflictos de z-index en diferentes módulos
+- **Solución implementada:**
+  - Sistema de z-index configurable mediante props opcionales en `CallDetailModalSidebar` y `ProspectoSidebar`
+  - **Módulos normales** (Prospectos, Scheduled Calls, Chat):
+    - `CallDetailModalSidebar`: z-[250] (encima)
+    - `ProspectoSidebar`/`ProspectDetailSidebar`: z-[190] (debajo)
+  - **AI Call Monitor** (comportamiento especial):
+    - `ProspectoSidebar`: z-[230] (encima)
+    - `CallDetailModalSidebar`: z-[210] (debajo)
+- **Props añadidas:**
+  - `CallDetailModalSidebar`: `zIndexBackdrop` y `zIndexSidebar` (default: z-[240]/z-[250])
+  - `ProspectoSidebar`: `zIndexBackdrop` y `zIndexSidebar` (default: z-[180]/z-[190])
+- **Archivos modificados:**
+  - `src/components/chat/CallDetailModalSidebar.tsx` - Props de z-index añadidas
+  - `src/components/prospectos/ProspectosManager.tsx` - Props de z-index añadidas a ProspectoSidebar y CallDetailModalSidebar
+  - `src/components/chat/ProspectDetailSidebar.tsx` - Z-index revertido a z-[180]/z-[190]
+  - `src/components/scheduled-calls/ProspectoSidebar.tsx` - Z-index revertido a z-[180]/z-[190]
+  - `src/components/scheduled-calls/ScheduledCallsManager.tsx` - Props de z-index añadidas
+  - `src/components/analysis/LiveMonitorKanban.tsx` - Z-index configurado para comportamiento especial
+
+#### 📝 **Documentación de Código**
+- Comentarios añadidos en componentes de sidebars explicando el sistema de z-index
+- Índices documentados para facilitar mantenimiento futuro
+- Comentarios sobre el comportamiento especial en AI Call Monitor
+
+#### 📁 **Archivos Principales Modificados**
+- `src/components/chat/CallDetailModalSidebar.tsx` - Sistema de z-index configurable
+- `src/components/prospectos/ProspectosManager.tsx` - Props de z-index y documentación
+- `src/components/chat/ProspectDetailSidebar.tsx` - Z-index corregido
+- `src/components/scheduled-calls/ProspectoSidebar.tsx` - Z-index corregido
+- `src/components/scheduled-calls/ScheduledCallsManager.tsx` - Props de z-index añadidas
+- `src/components/analysis/LiveMonitorKanban.tsx` - Comportamiento especial documentado
+- `CHANGELOG.md` - Documentación de esta versión
+- `src/components/Footer.tsx` - Actualización de versión
+- `package.json` - Actualización de versión
+
+---
+
 ## 🎯 Versión B4.1.1N6.0.0 - Mejoras en Dashboard: Realtime y Ordenamiento de Prospectos (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Mejoras en Dashboard Operativo**

@@ -5109,18 +5109,40 @@ const LiveMonitorKanban: React.FC = () => {
           callName={callToFinalize?.nombre_completo || callToFinalize?.nombre_whatsapp || 'sin nombre'}
         />
 
-        {/* Sidebar del Prospecto - Usando componente actualizado */}
+        {/* 
+          ============================================
+          SIDEBAR DEL PROSPECTO - AI CALL MONITOR
+          ============================================
+          Z-INDEX: z-[220] (backdrop) / z-[230] (sidebar)
+          - Configurado para aparecer ENCIMA del CallDetailModalSidebar (z-[210])
+          - Comportamiento ESPECIAL: ProspectoSidebar > CallDetailModalSidebar
+          - Esto permite que al abrir una llamada desde el sidebar de prospecto,
+            el CallDetailModalSidebar se abra debajo, y luego al hacer clic en el
+            prospecto desde CallDetailModalSidebar, el ProspectoSidebar aparezca encima.
+          ============================================
+        */}
         {createPortal(
         <ProspectoSidebar
           prospecto={selectedProspecto}
           isOpen={showProspectoSidebar}
           onClose={() => setShowProspectoSidebar(false)}
-            onOpenCallDetail={handleOpenCallDetail}
+          onOpenCallDetail={handleOpenCallDetail}
+          zIndexBackdrop="z-[220]"
+          zIndexSidebar="z-[230]"
           />,
           document.body
         )}
         
-        {/* Segundo Sidebar - CallDetailModalSidebar */}
+        {/* 
+          ============================================
+          SIDEBAR DE DETALLE DE LLAMADA - AI CALL MONITOR
+          ============================================
+          Z-INDEX: z-[200] (backdrop) / z-[210] (sidebar)
+          - Configurado para aparecer DEBAJO del ProspectoSidebar (z-[230])
+          - Comportamiento ESPECIAL: ProspectoSidebar > CallDetailModalSidebar
+          - Esto permite el flujo: ProspectoSidebar → CallDetailModalSidebar → ProspectoSidebar
+          ============================================
+        */}
         {createPortal(
           <CallDetailModalSidebar
             callId={selectedCallId}
@@ -5139,6 +5161,8 @@ const LiveMonitorKanban: React.FC = () => {
               handleProspectoClick({ prospecto: prospectId } as any);
             }}
             onCallChange={(newCallId) => setSelectedCallId(newCallId)}
+            zIndexBackdrop="z-[200]"
+            zIndexSidebar="z-[210]"
           />,
           document.body
         )}
@@ -5160,7 +5184,16 @@ const LiveMonitorKanban: React.FC = () => {
           }}
         />
 
-        {/* Modal Combinado de Análisis IA + Información de Llamada - Reemplazado con CallDetailModalSidebar */}
+        {/* 
+          ============================================
+          MODAL DE ANÁLISIS IA - AI CALL MONITOR
+          ============================================
+          Z-INDEX: z-[200] (backdrop) / z-[210] (sidebar)
+          - Configurado para aparecer DEBAJO del ProspectoSidebar (z-[230])
+          - Comportamiento ESPECIAL: ProspectoSidebar > CallDetailModalSidebar
+          - Reemplaza el modal combinado de análisis IA + información de llamada
+          ============================================
+        */}
         {createPortal(
           <CallDetailModalSidebar
             callId={selectedCallForAnalysis?.call_id || null}
@@ -5182,6 +5215,8 @@ const LiveMonitorKanban: React.FC = () => {
                 setSelectedCallForAnalysis(newCall);
               }
             }}
+            zIndexBackdrop="z-[200]"
+            zIndexSidebar="z-[210]"
           />,
           document.body
                                 )}

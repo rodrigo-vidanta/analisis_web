@@ -502,7 +502,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto z-[220]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto z-[180]"
           />
 
           {/* Sidebar */}
@@ -511,7 +511,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[230] flex flex-col pointer-events-auto"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[190] flex flex-col pointer-events-auto"
             style={{ top: 0, margin: 0, padding: 0, height: '100vh' }}
           >
             {/* Header */}
@@ -957,7 +957,16 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
     </AnimatePresence>
 
     {/* Sidebar de Detalle de Llamada - Fuera del AnimatePresence para funcionar independientemente */}
-    {/* Renderizar siempre el portal para evitar problemas de montaje */}
+    {/* 
+      ============================================
+      SIDEBAR DE DETALLE DE LLAMADA
+      ============================================
+      Z-INDEX: z-[240] (backdrop) / z-[250] (sidebar)
+      - Configurado para aparecer ENCIMA del ProspectDetailSidebar (z-[190])
+      - Comportamiento: CallDetailModalSidebar > ProspectDetailSidebar
+      - Renderizado siempre con portal para evitar problemas de montaje
+      ============================================
+    */}
     {createPortal(
       <CallDetailModalSidebar
         callId={selectedCallId}
@@ -976,6 +985,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
           setSelectedCallId(newCallId);
           // El sidebar ya está abierto, solo cambiar el callId
         }}
+        zIndexBackdrop="z-[240]"
+        zIndexSidebar="z-[250]"
       />,
       document.body
     )}

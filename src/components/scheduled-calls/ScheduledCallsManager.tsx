@@ -379,7 +379,15 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
         }}
       />
 
-      {/* Sidebar de Detalle de Llamada */}
+      {/* 
+        ============================================
+        SIDEBAR DE DETALLE DE LLAMADA
+        ============================================
+        Z-INDEX: z-[240] (backdrop) / z-[250] (sidebar)
+        - Configurado para aparecer ENCIMA del ProspectoSidebar (z-[190])
+        - Comportamiento: CallDetailModalSidebar > ProspectoSidebar
+        ============================================
+      */}
       {createPortal(
         <CallDetailModalSidebar
           callId={selectedCallId}
@@ -395,6 +403,8 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
               // Ya está abierto
             }
           }}
+          zIndexBackdrop="z-[240]"
+          zIndexSidebar="z-[250]"
         />,
         document.body
       )}

@@ -250,7 +250,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[220]"
+            className="fixed inset-0 bg-black bg-opacity-50 z-[180]"
             onClick={onClose}
           />
           
@@ -260,7 +260,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[230] overflow-hidden"
+            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[190] overflow-hidden"
             style={{ top: 0, margin: 0, padding: 0, height: '100vh' }}
           >
             {loading || !prospecto ? (

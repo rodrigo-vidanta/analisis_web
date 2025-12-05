@@ -100,6 +100,11 @@ interface SortState {
   direction: 'asc' | 'desc';
 }
 
+/**
+ * ============================================
+ * PROPS DEL COMPONENTE - ProspectoSidebar
+ * ============================================
+ */
 interface SidebarProps {
   prospecto: Prospecto | null;
   isOpen: boolean;
@@ -107,6 +112,22 @@ interface SidebarProps {
   onNavigateToLiveChat?: (prospectoId: string) => void;
   onNavigateToNatalia?: (callId: string) => void;
   onOpenCallDetail?: (callId: string) => void;
+  /**
+   * Z-INDEX DEL BACKDROP
+   * - Default: z-[180] (para módulos normales: Prospectos, Scheduled Calls, Chat)
+   * - AI Call Monitor: z-[220] (para que quede encima de CallDetailModalSidebar)
+   */
+  zIndexBackdrop?: string;
+  /**
+   * Z-INDEX DEL SIDEBAR
+   * - Default: z-[190] (para módulos normales: Prospectos, Scheduled Calls, Chat)
+   * - AI Call Monitor: z-[230] (para que quede encima de CallDetailModalSidebar)
+   * 
+   * ORDEN DE Z-INDEX:
+   * - Módulos normales: CallDetailModalSidebar (z-[250]) > ProspectoSidebar (z-[190])
+   * - AI Call Monitor: ProspectoSidebar (z-[230]) > CallDetailModalSidebar (z-[210])
+   */
+  zIndexSidebar?: string;
 }
 
 // El componente CallDetailModalSidebar se importa desde '../chat/CallDetailModalSidebar'
@@ -148,8 +169,50 @@ interface TimelineEvent {
   callStatus?: string; // Estado de la llamada
 }
 
-// Sidebar con ficha completa del prospecto
-const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, onNavigateToLiveChat, onNavigateToNatalia, onOpenCallDetail }) => {
+/**
+ * ============================================
+ * COMPONENTE: ProspectoSidebar
+ * ============================================
+ * 
+ * Sidebar para mostrar información completa de un prospecto.
+ * 
+ * SISTEMA DE Z-INDEX:
+ * ===================
+ * Este componente utiliza props opcionales para controlar su z-index,
+ * permitiendo diferentes comportamientos según el módulo:
+ * 
+ * 1. MÓDULOS NORMALES (Prospectos, Scheduled Calls, Chat):
+ *    - Default: z-[180] (backdrop) / z-[190] (sidebar)
+ *    - Comportamiento: CallDetailModalSidebar aparece ENCIMA de ProspectoSidebar
+ * 
+ * 2. AI CALL MONITOR (comportamiento especial):
+ *    - Configurado: z-[220] (backdrop) / z-[230] (sidebar)
+ *    - Comportamiento: ProspectoSidebar aparece ENCIMA de CallDetailModalSidebar
+ * 
+ * USO:
+ * ====
+ * // Módulo normal (default)
+ * <ProspectoSidebar prospecto={p} isOpen={true} onClose={close} />
+ * 
+ * // AI Call Monitor (z-index más alto)
+ * <ProspectoSidebar 
+ *   prospecto={p} 
+ *   isOpen={true} 
+ *   onClose={close}
+ *   zIndexBackdrop="z-[220]"
+ *   zIndexSidebar="z-[230]"
+ * />
+ */
+const ProspectoSidebar: React.FC<SidebarProps> = ({ 
+  prospecto, 
+  isOpen, 
+  onClose, 
+  onNavigateToLiveChat, 
+  onNavigateToNatalia, 
+  onOpenCallDetail, 
+  zIndexBackdrop = 'z-[180]', // Default para módulos normales
+  zIndexSidebar = 'z-[190]'   // Default para módulos normales
+}) => {
   const [hasActiveChat, setHasActiveChat] = useState(false);
   const [llamadas, setLlamadas] = useState<LlamadaVenta[]>([]);
   const [whatsappConversations, setWhatsappConversations] = useState<WhatsAppConversation[]>([]);
@@ -467,7 +530,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[220]"
+            className={`fixed inset-0 bg-black bg-opacity-50 ${zIndexBackdrop}`}
             onClick={onClose}
           />
           
@@ -477,7 +540,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({ prospecto, isOpen, onClose, 
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[230] overflow-hidden"
+            className={`fixed right-0 top-0 h-screen w-3/5 bg-white dark:bg-gray-900 shadow-2xl ${zIndexSidebar} overflow-hidden`}
             style={{ top: 0, margin: 0, padding: 0 }}
           >
             <div className="flex flex-col h-full" style={{ height: '100vh' }}>
@@ -1680,7 +1743,15 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         onOpenCallDetail={handleOpenCallDetail}
       />
 
-      {/* Sidebar de Detalle de Llamada */}
+      {/* 
+        ============================================
+        SIDEBAR DE DETALLE DE LLAMADA
+        ============================================
+        Z-INDEX: z-[240] (backdrop) / z-[250] (sidebar)
+        - Configurado para aparecer ENCIMA del ProspectoSidebar (z-[190])
+        - Comportamiento: CallDetailModalSidebar > ProspectoSidebar
+        ============================================
+      */}
       {createPortal(
         <CallDetailModalSidebar
           callId={selectedCallId}
@@ -1693,6 +1764,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           onProspectClick={(prospectId) => {
             // Ya estamos en el sidebar del prospecto, no hacer nada
           }}
+          zIndexBackdrop="z-[240]"
+          zIndexSidebar="z-[250]"
         />,
         document.body
       )}
