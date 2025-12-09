@@ -165,42 +165,58 @@ interface ConversationBlock {
   messages: Message[];
 }
 
-// Componente para el flag de requiere atención en la lista (optimizado con CSS puro)
+// Componente para el flag de requiere atención en la lista (con animación periódica)
 interface RequiereAtencionListFlagProps {
   requiereAtencionHumana: boolean;
   prospectId: string;
 }
 
-// ⚡ OPTIMIZADO V5: CSS animation en lugar de setInterval + useState
-const RequiereAtencionListFlag: React.FC<RequiereAtencionListFlagProps> = React.memo(({ requiereAtencionHumana }) => {
+const RequiereAtencionListFlag: React.FC<RequiereAtencionListFlagProps> = ({ requiereAtencionHumana, prospectId }) => {
+  const [isShaking, setIsShaking] = useState(false);
+  const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Limpiar intervalo anterior si existe
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (!requiereAtencionHumana) {
+      setIsShaking(false);
+      return;
+    }
+
+    // Animación cada 60 segundos
+    intervalRef.current = window.setInterval(() => {
+      setIsShaking(true);
+      // Resetear después de la animación (5 segundos)
+      setTimeout(() => {
+        setIsShaking(false);
+      }, 5000);
+    }, 60000);
+
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [requiereAtencionHumana]);
+
   if (!requiereAtencionHumana) return null;
 
   return (
-    <div 
-      className="flex-shrink-0 attention-flag-shake"
+    <motion.div
+      animate={isShaking ? { rotate: [0, -10, 10, -10, 10, -10, 10, -10, 0] } : { rotate: 0 }}
+      transition={{ duration: 5, ease: "easeInOut" }}
+      className="flex-shrink-0"
       title="Requiere atención humana"
     >
       <Flag className="w-4 h-4 text-red-500 fill-red-500" />
-      <style>{`
-        @keyframes attention-shake {
-          0%, 90%, 100% { transform: rotate(0deg); }
-          91% { transform: rotate(-10deg); }
-          92% { transform: rotate(10deg); }
-          93% { transform: rotate(-10deg); }
-          94% { transform: rotate(10deg); }
-          95% { transform: rotate(-10deg); }
-          96% { transform: rotate(10deg); }
-          97% { transform: rotate(-10deg); }
-          98% { transform: rotate(10deg); }
-          99% { transform: rotate(0deg); }
-        }
-        .attention-flag-shake {
-          animation: attention-shake 60s ease-in-out infinite;
-        }
-      `}</style>
-    </div>
+    </motion.div>
   );
-});
+};
 
 // Componente para el indicador de requiere atención humana
 interface RequiereAtencionFlagProps {
@@ -366,165 +382,6 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
     </div>
   );
 };
-
-// ⚡ CSS Global para animaciones (evita recrear en cada render)
-const GlobalAnimationStyles = React.memo(() => (
-  <style>{`
-    @keyframes heartbeat {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
-    }
-    .heartbeat-animation {
-      animation: heartbeat 1.5s ease-in-out infinite;
-    }
-    .heartbeat-animation:hover {
-      animation: none;
-      transform: scale(1.1);
-    }
-  `}</style>
-));
-
-// ⚡ OPTIMIZADO V5: Componente de Avatar de Conversación memoizado
-interface ConversationAvatarProps {
-  hasActiveCall: boolean;
-  isBotPaused: boolean;
-  customerName: string | undefined;
-  onCallClick: () => void;
-}
-
-const ConversationAvatar = React.memo<ConversationAvatarProps>(({ 
-  hasActiveCall, 
-  isBotPaused, 
-  customerName, 
-  onCallClick 
-}) => {
-  if (hasActiveCall) {
-    return (
-      <div
-        className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm cursor-pointer heartbeat-animation hover:scale-110 transition-transform"
-        onClick={(e) => {
-          e.stopPropagation();
-          onCallClick();
-        }}
-      >
-        <Phone className="w-5 h-5 text-white" />
-      </div>
-    );
-  }
-  
-  if (isBotPaused) {
-    return (
-      <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-        <Pause className="w-5 h-5 text-white" fill="white" />
-      </div>
-    );
-  }
-  
-  return (
-    <Avatar
-      name={customerName}
-      size="md"
-      showIcon={false}
-    />
-  );
-});
-
-// ⚡ OPTIMIZADO V5: Componente de item de conversación memoizado
-interface ConversationItemProps {
-  conversation: Conversation;
-  isSelected: boolean;
-  hasActiveCall: boolean;
-  isBotPaused: boolean;
-  requiereAtencion: boolean;
-  unreadCount: number;
-  userRole: string | undefined;
-  onSelect: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
-  onCallClick: () => void;
-  getStatusIndicator: (status: string) => React.ReactNode;
-  formatTimeAgo: (date: string | undefined) => string;
-}
-
-const ConversationItem = React.memo<ConversationItemProps>(({ 
-  conversation,
-  isSelected,
-  hasActiveCall,
-  isBotPaused,
-  requiereAtencion,
-  unreadCount,
-  userRole,
-  onSelect,
-  onContextMenu,
-  onCallClick,
-  getStatusIndicator,
-  formatTimeAgo
-}) => {
-  return (
-    <div
-      className={`p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer transition-all duration-200 ${
-        isSelected
-          ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500 shadow-sm'
-          : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
-      }`}
-      onClick={onSelect}
-      onContextMenu={onContextMenu}
-    >
-      <div className="flex items-start space-x-3">
-        <ConversationAvatar
-          hasActiveCall={hasActiveCall}
-          isBotPaused={isBotPaused}
-          customerName={conversation.customer_name}
-          onCallClick={onCallClick}
-        />
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                {conversation.customer_name}
-              </h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <RequiereAtencionListFlag 
-                prospectId={conversation.prospecto_id || conversation.id}
-                requiereAtencionHumana={requiereAtencion} 
-              />
-              {unreadCount > 0 && (
-                <div className="bg-green-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                  {Math.min(unreadCount, 99)}
-                </div>
-              )}
-              {getStatusIndicator(conversation.status || '')}
-            </div>
-          </div>
-          
-          <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{conversation.customer_phone}</p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{conversation.metadata?.etapa}</p>
-          
-          {(userRole === 'admin' || userRole === 'coordinador') && (
-            <div className="mb-2">
-              <AssignmentBadge
-                call={{
-                  coordinacion_codigo: conversation.metadata?.coordinacion_codigo,
-                  coordinacion_nombre: conversation.metadata?.coordinacion_nombre,
-                  ejecutivo_id: conversation.metadata?.ejecutivo_id,
-                  ejecutivo_nombre: conversation.metadata?.ejecutivo_nombre,
-                  ejecutivo_email: conversation.metadata?.ejecutivo_email
-                } as any}
-                variant="compact"
-              />
-            </div>
-          )}
-          
-          <div className="flex items-center justify-between text-xs text-slate-400 dark:text-gray-500">
-            <span>{Number(conversation.message_count ?? 0)} mensajes</span>
-            <span>{formatTimeAgo(conversation.last_message_at || conversation.updated_at)}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
 
 // ============================================
 // COMPONENTE PRINCIPAL - LIENZO CON SECCIONES FIJAS
@@ -817,8 +674,7 @@ const LiveChatCanvas: React.FC = () => {
     messagesByConversationRef.current = messagesByConversation;
   }, [messagesByConversation]);
 
-  // ⚡ OPTIMIZADO V5.1: Función simplificada - solo trabajo secundario NO-crítico
-  // Las actualizaciones de estado principales ya se hicieron en el handler INSERT
+  // ⚡ Función que procesa los datos del mensaje (simplificada como en ConversacionesWidget)
   const processMessageData = useCallback((messageData: {
     payload: any;
     targetProspectoId: string;
@@ -826,107 +682,227 @@ const LiveChatCanvas: React.FC = () => {
   }) => {
     const { targetProspectoId, newMessagePayload } = messageData;
     
-    // Capturar refs una sola vez
+    // ⚡ Capturar valores críticos desde refs (no desde closures)
     const currentSelectedConv = selectedConversationStateRef.current;
+    const currentMessages = messagesByConversationRef.current;
     const currentSelectedId = selectedConversationRef.current;
+
+    // ⚡ Crear objeto mensaje
+    const newMessage: Message = {
+      id: newMessagePayload.id,
+      message_id: `real_${newMessagePayload.id}`,
+      conversation_id: targetProspectoId,
+      sender_type: newMessagePayload.rol === 'Prospecto' ? 'customer' : newMessagePayload.rol === 'AI' ? 'bot' : 'agent',
+      sender_name: newMessagePayload.rol || 'Desconocido',
+      id_sender: newMessagePayload.id_sender || undefined,
+      sender_user_name: undefined,
+      content: newMessagePayload.mensaje,
+      is_read: newMessagePayload.leido ?? false,
+      created_at: newMessagePayload.fecha_hora,
+      adjuntos: newMessagePayload.adjuntos,
+    } as any;
+
+    // ⚡ Verificar si es conversación activa usando refs
     const isActiveConversation = currentSelectedConv !== null &&
-      (currentSelectedConv?.id === targetProspectoId || 
-       currentSelectedConv?.prospecto_id === targetProspectoId) &&
-      currentSelectedId === targetProspectoId;
+                               (currentSelectedConv?.id === targetProspectoId || 
+                                currentSelectedConv?.prospecto_id === targetProspectoId) &&
+                               currentSelectedId === targetProspectoId;
 
-    // ⚡ Solo trabajo secundario diferido (NO actualizaciones de estado duplicadas)
-    
-    // 1. Marcar mensaje como leído en BD (solo si es necesario, sin setState)
-    if (isActiveConversation && newMessagePayload.rol === 'Prospecto' && !newMessagePayload.leido) {
-      analysisSupabase
-        .from('mensajes_whatsapp')
-        .update({ leido: true })
-        .eq('id', newMessagePayload.id)
-        .then(() => {})
-        .catch(() => {});
-    }
+    // ⚡ Esta función ahora solo procesa trabajo pesado (queries BD, etc.)
+    // Las actualizaciones de estado ya se hicieron en el handler principal
 
-    // 2. Actualizar ref de requiere_atencion_humana (sin setState, solo ref)
-    // El realtime de prospectos se encarga de disparar el setState cuando cambie
-    const prospectoDataRef = prospectosDataRef.current.get(targetProspectoId);
-    if (prospectoDataRef) {
-      // Solo actualizar el ref, no disparar re-render
-      // La suscripción de prospectos (UPDATE) maneja el setState
-    }
-
-    // 3. Cargar nombre de agente solo si es necesario (diferido y con cache)
-    if (newMessagePayload.id_sender && newMessagePayload.rol !== 'Prospecto') {
-      // Verificar cache primero
-      const cachedName = agentNamesById[newMessagePayload.id_sender];
-      if (!cachedName) {
-        // Cargar de BD solo si no está en cache (muy diferido)
-        setTimeout(() => {
-          supabaseSystemUI
-            .from('auth_users')
-            .select('full_name')
-            .eq('id', newMessagePayload.id_sender)
-            .single()
-            .then(({ data }) => {
-              if (data?.full_name) {
-                // Actualizar cache sin forzar re-render masivo
-                setAgentNamesById(prev => ({ ...prev, [newMessagePayload.id_sender]: data.full_name }));
+    // ⚡ Diferir trabajo pesado adicional con setTimeout adicional
+    setTimeout(() => {
+      // Cargar requiere_atencion_humana y motivo_handoff
+      (async () => {
+        try {
+          const { data: prospectoData } = await analysisSupabase
+            .from('prospectos')
+            .select('requiere_atencion_humana, motivo_handoff')
+            .eq('id', targetProspectoId)
+            .single();
+          
+          if (prospectoData) {
+            const prospectoDataRef = prospectosDataRef.current.get(targetProspectoId);
+            if (prospectoDataRef) {
+              const requiereAtencionChanged = prospectoDataRef.requiere_atencion_humana !== prospectoData.requiere_atencion_humana;
+              const motivoHandoffChanged = prospectoDataRef.motivo_handoff !== prospectoData.motivo_handoff;
+              
+              if (requiereAtencionChanged || motivoHandoffChanged) {
+                prospectosDataRef.current.set(targetProspectoId, {
+                  ...prospectoDataRef,
+                  requiere_atencion_humana: prospectoData.requiere_atencion_humana || false,
+                  motivo_handoff: prospectoData.motivo_handoff || null
+                });
+                
+                startTransition(() => {
+                  setConversations(prev => [...prev]);
+                  const currentSelected = selectedConversationStateRef.current;
+                  if (currentSelected && 
+                      (currentSelected.prospecto_id === targetProspectoId || currentSelected.id === targetProspectoId)) {
+                    setSelectedConversation(prev => prev ? { ...prev } : null);
+                  }
+                });
               }
-            })
-            .catch(() => {});
-        }, 500); // Muy diferido para no competir con UI
-      }
-    }
-  }, [agentNamesById]); // Dependencia mínima
-
-  // ⚡ Función separada para cargar conversación nueva (solo cuando no existe)
-  const loadNewConversationIfNeeded = useCallback((targetProspectoId: string) => {
-    // Verificar si la conversación ya existe antes de cargar
-    const exists = messagesByConversationRef.current[targetProspectoId];
-    if (exists) return; // Ya existe, no cargar
-
-    // Diferir carga de conversación nueva
-    setTimeout(async () => {
-      try {
-        const { data: convData, error } = await analysisSupabase.rpc('get_conversations_ordered');
-        if (error || !convData) return;
-        
-        const newConv = convData.find((c: any) => c.prospecto_id === targetProspectoId);
-        if (!newConv) return;
-        
-        const adaptedConv: Conversation = {
-          id: newConv.prospecto_id,
-          prospecto_id: newConv.prospecto_id,
-          nombre_contacto: newConv.nombre_contacto || newConv.numero_telefono,
-          customer_name: newConv.nombre_contacto,
-          status: newConv.estado_prospecto,
-          last_message_at: newConv.fecha_ultimo_mensaje,
-          message_count: newConv.mensajes_totales,
-          unread_count: newConv.mensajes_no_leidos,
-          ultimo_mensaje_preview: newConv.ultimo_mensaje,
-          numero_telefono: newConv.numero_telefono,
-          updated_at: newConv.fecha_ultimo_mensaje,
-          fecha_inicio: newConv.fecha_creacion_prospecto,
-          tipo: 'whatsapp',
-          metadata: { 
-            prospecto_id: newConv.prospecto_id,
-            id_uchat: newConv.id_uchat
+            }
           }
-        };
-        
+        } catch (error) {
+          // Silenciar errores
+        }
+      })();
+
+      // Obtener nombre del usuario si hay id_sender
+      if (newMessagePayload.id_sender) {
+        (async () => {
+          try {
+            const { data: userData } = await supabaseSystemUI
+              .from('auth_users')
+              .select('full_name, first_name, last_name')
+              .eq('id', newMessagePayload.id_sender)
+              .single();
+            
+            if (userData) {
+              const senderUserName = userData.full_name || `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Usuario';
+              startTransition(() => {
+                setMessagesByConversation(prev => {
+                  const conversationMessages = prev[targetProspectoId] || [];
+                  const updatedMessages = conversationMessages.map(msg => 
+                    msg.id === newMessage.id 
+                      ? { ...msg, sender_user_name: senderUserName }
+                      : msg
+                  );
+                  return { ...prev, [targetProspectoId]: updatedMessages };
+                });
+              });
+            }
+          } catch (error) {
+            // Silenciar errores
+          }
+        })();
+      }
+
+      // Marcar como leído si es necesario
+      if (isActiveConversation && !newMessage.is_read && newMessage.sender_type === 'customer') {
         startTransition(() => {
-          setConversations(prevList => {
-            const alreadyExists = prevList.some(c => c.id === targetProspectoId || c.prospecto_id === targetProspectoId);
-            if (alreadyExists) return prevList;
-            return [adaptedConv, ...prevList];
+          setMessagesByConversation(prev => {
+            const current = prev[targetProspectoId] || [];
+            const updatedMessages = current.map(msg => 
+              msg.id === newMessage.id ? { ...msg, is_read: true } : msg
+            );
+            return { ...prev, [targetProspectoId]: updatedMessages };
           });
         });
-      } catch (error) {
-        // Silenciar errores
+        
+        const markAsRead = () => {
+          analysisSupabase
+            .from('mensajes_whatsapp')
+            .update({ leido: true })
+            .eq('id', newMessage.id)
+            .then(() => {})
+            .catch(() => {});
+        };
+        
+        if (window.requestIdleCallback) {
+          window.requestIdleCallback(markAsRead, { timeout: 1000 });
+        } else {
+          setTimeout(markAsRead, 0);
+        }
       }
-    }, 1000); // Muy diferido
-  }, []);
 
-  // Variable temporal para compatibilidad con código existente (será eliminada)
+      // Actualizar lista de conversaciones
+      const updateConversations = () => {
+        startTransition(() => {
+          setConversations(prev => {
+            const conversationIndex = prev.findIndex(c => 
+              (c.id === targetProspectoId || c.prospecto_id === targetProspectoId)
+            );
+            
+            if (conversationIndex === -1) {
+              // Diferir carga de conversación nueva
+              const loadNewConversation = () => {
+                (async () => {
+                  try {
+                    const { data: convData, error } = await analysisSupabase.rpc('get_conversations_ordered');
+                    if (error || !convData) return;
+                    
+                    const newConv = convData.find((c: any) => c.prospecto_id === targetProspectoId);
+                    if (!newConv) return;
+                    
+                    const adaptedConv: Conversation = {
+                      id: newConv.prospecto_id,
+                      prospecto_id: newConv.prospecto_id,
+                      nombre_contacto: newConv.nombre_contacto || newConv.numero_telefono,
+                      customer_name: newConv.nombre_contacto,
+                      status: newConv.estado_prospecto,
+                      last_message_at: newConv.fecha_ultimo_mensaje,
+                      message_count: newConv.mensajes_totales,
+                      unread_count: newConv.mensajes_no_leidos,
+                      ultimo_mensaje_preview: newConv.ultimo_mensaje,
+                      numero_telefono: newConv.numero_telefono,
+                      updated_at: newConv.fecha_ultimo_mensaje,
+                      fecha_inicio: newConv.fecha_creacion_prospecto,
+                      tipo: 'whatsapp',
+                      metadata: { 
+                        prospecto_id: newConv.prospecto_id,
+                        id_uchat: newConv.id_uchat
+                      }
+                    };
+                    
+                    startTransition(() => {
+                      setConversations(prevList => {
+                        const exists = prevList.some(c => c.id === targetProspectoId || c.prospecto_id === targetProspectoId);
+                        if (exists) return prevList;
+                        return [adaptedConv, ...prevList];
+                      });
+                    });
+                  } catch (error) {
+                    // Silenciar errores
+                  }
+                })();
+              };
+              
+              if (window.requestIdleCallback) {
+                window.requestIdleCallback(loadNewConversation, { timeout: 2000 });
+              } else {
+                setTimeout(loadNewConversation, 100);
+              }
+              
+              return prev;
+            }
+
+            const currentConv = prev[conversationIndex];
+            const isFromAgent = newMessage.sender_type === 'agent';
+
+            const updatedConv: Conversation = { 
+              ...currentConv, 
+              last_message_at: newMessage.created_at, 
+              updated_at: newMessage.created_at,
+              ultimo_mensaje_preview: newMessage.content?.substring(0, 100) || '',
+              message_count: (currentConv.message_count || 0) + 1,
+              unread_count: (!isActiveConversation && !isFromAgent)
+                ? (currentConv.unread_count || 0) + 1
+                : 0,
+              mensajes_no_leidos: (!isActiveConversation && !isFromAgent)
+                ? (currentConv.mensajes_no_leidos || 0) + 1
+                : 0
+            };
+            
+            const reorderedList = [...prev];
+            reorderedList.splice(conversationIndex, 1);
+            reorderedList.unshift(updatedConv);
+            
+            return reorderedList;
+          });
+        });
+      };
+      
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(updateConversations, { timeout: 100 });
+      } else {
+        setTimeout(updateConversations, 0);
+      }
+    }, 0); // Cerrar setTimeout
+  }, []); // Sin dependencias - usa solo refs
 
 
 
@@ -939,71 +915,67 @@ const LiveChatCanvas: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // ⚡ OPTIMIZADO V5.2: Verificar llamadas activas - ref en lugar de dependencia
-  const conversationsRef = useRef<Conversation[]>([]);
-  useEffect(() => {
-    conversationsRef.current = conversations;
-  }, [conversations]);
-
+  // Verificar llamadas activas para prospectos en conversaciones
   useEffect(() => {
     const checkActiveCalls = async () => {
-      const currentConversations = conversationsRef.current;
-      if (currentConversations.length === 0) return;
+      if (conversations.length === 0) return;
       
       try {
-        const prospectIds = currentConversations
+        // Obtener todos los prospecto_id únicos de las conversaciones
+        const prospectIds = conversations
           .map(c => c.prospecto_id)
           .filter((id): id is string => !!id);
         
         if (prospectIds.length === 0) return;
         
+        // Consultar llamadas activas para estos prospectos
         const { data: activeCalls, error } = await analysisSupabase
           .from('llamadas_ventas')
-          .select('prospecto, call_status, fecha_llamada, duracion_segundos, datos_llamada')
+          .select('prospecto, call_status, fecha_llamada, duracion_segundos, audio_ruta_bucket, datos_llamada')
           .in('prospecto', prospectIds)
           .eq('call_status', 'activa');
         
-        if (error) return;
+        if (error) {
+          console.error('Error verificando llamadas activas:', error);
+          return;
+        }
         
+        // Filtrar llamadas realmente activas (sin razón de finalización, sin duración, recientes)
         const reallyActiveCalls = (activeCalls || []).filter(call => {
           const razonFinalizacion = call.datos_llamada?.razon_finalizacion || 
-            (typeof call.datos_llamada === 'string' 
-              ? JSON.parse(call.datos_llamada)?.razon_finalizacion 
-              : null);
+                                   (typeof call.datos_llamada === 'string' 
+                                     ? JSON.parse(call.datos_llamada)?.razon_finalizacion 
+                                     : null);
           
           const fechaLlamada = call.fecha_llamada ? new Date(call.fecha_llamada) : null;
           const minutosAgo = fechaLlamada 
             ? (Date.now() - fechaLlamada.getTime()) / (1000 * 60)
             : 999;
           
+          // Llamada realmente activa si no tiene razón de finalización, no tiene duración, y es reciente (< 15 min)
           return !razonFinalizacion && 
                  (!call.duracion_segundos || call.duracion_segundos === 0) && 
                  minutosAgo < 15;
         });
         
-        const newActiveIds = new Set(
+        // Crear Set de prospectos con llamadas activas
+        const activeProspectIds = new Set(
           reallyActiveCalls.map(call => call.prospecto).filter((id): id is string => !!id)
         );
         
-        // ⚡ Solo actualizar si cambió
-        setProspectsWithActiveCalls(prev => {
-          const prevArray = Array.from(prev).sort();
-          const newArray = Array.from(newActiveIds).sort();
-          if (JSON.stringify(prevArray) === JSON.stringify(newArray)) {
-            return prev; // Sin cambios, sin re-render
-          }
-          return newActiveIds;
-        });
+        setProspectsWithActiveCalls(activeProspectIds);
       } catch (error) {
-        // Silenciar errores
+        console.error('Error en checkActiveCalls:', error);
       }
     };
     
     checkActiveCalls();
-    const interval = setInterval(checkActiveCalls, 15000); // ⚡ Aumentado a 15s
+    
+    // Verificar cada 10 segundos
+    const interval = setInterval(checkActiveCalls, 10000);
     
     return () => clearInterval(interval);
-  }, []); // ⚡ Sin dependencia de conversations - usa ref
+  }, [conversations]);
 
   const cleanupRealtimeChannels = useCallback(() => {
     const channels = [
@@ -1130,80 +1102,89 @@ const LiveChatCanvas: React.FC = () => {
           table: 'mensajes_whatsapp',
         },
         (payload) => {
-          // ⚡ OPTIMIZADO V5: Handler consolidado sin console.logs
+          // 🔍 DEBUG: Medir tiempo total del handler
+          const handlerStartTime = performance.now();
+          
+          // ⚡ CRÍTICO: Patrón EXACTO del Dashboard - trabajo ligero FUERA, solo estado DENTRO
           const newMessage = payload.new as any;
           const targetProspectoId = newMessage.prospecto_id;
           const messageTimestamp = newMessage.fecha_hora || new Date().toISOString();
           
           // Validación mínima - retornar inmediatamente si no es válido
-          if (!targetProspectoId || !newMessage.id) return;
+          if (!targetProspectoId || !newMessage.id) {
+            return;
+          }
 
-          // Capturar refs una sola vez (evita closures)
+          const validationTime = performance.now();
+          console.log(`[PERF] Handler validation: ${(validationTime - handlerStartTime).toFixed(2)}ms`);
+
+          // ⚡ Trabajo ligero FUERA de startTransition (como Dashboard)
           const currentSelectedConv = selectedConversationStateRef.current;
           const currentMessages = messagesByConversationRef.current;
           const currentSelectedId = selectedConversationRef.current;
 
-          // Verificación rápida de duplicados
-          const existingMessages = currentMessages[targetProspectoId];
-          if (existingMessages?.length > 0 && existingMessages[existingMessages.length - 1]?.id === newMessage.id) {
-            return; // Ya existe, no procesar
+          // Verificación rápida de duplicados (ligera, fuera de startTransition)
+          const current = currentMessages[targetProspectoId];
+          const lastMessage = current && current.length > 0 ? current[current.length - 1] : null;
+          if (lastMessage?.id === newMessage.id) {
+            console.log(`[PERF] Handler total (duplicado): ${(performance.now() - handlerStartTime).toFixed(2)}ms`);
+            return; // Ya existe
           }
 
-          // Pre-calcular valores (trabajo ligero síncrono)
+          const duplicateCheckTime = performance.now();
+          console.log(`[PERF] Duplicate check: ${(duplicateCheckTime - validationTime).toFixed(2)}ms`);
+
           const isActiveConversation = currentSelectedConv !== null &&
-            (currentSelectedConv?.id === targetProspectoId || 
-             currentSelectedConv?.prospecto_id === targetProspectoId) &&
-            currentSelectedId === targetProspectoId;
+                                     (currentSelectedConv?.id === targetProspectoId || 
+                                      currentSelectedConv?.prospecto_id === targetProspectoId) &&
+                                     currentSelectedId === targetProspectoId;
           const isFromAgent = newMessage.rol !== 'Prospecto';
 
-          // Adaptar mensaje una sola vez
-          const adaptedMessage: Message = {
-            id: newMessage.id,
-            message_id: `real_${newMessage.id}`,
-            conversation_id: targetProspectoId,
-            sender_type: newMessage.rol === 'Prospecto' ? 'customer' : newMessage.rol === 'AI' ? 'bot' : 'agent',
-            sender_name: newMessage.rol || 'Desconocido',
-            id_sender: newMessage.id_sender || undefined,
-            sender_user_name: undefined,
-            content: newMessage.mensaje,
-            is_read: newMessage.leido ?? false,
-            created_at: newMessage.fecha_hora,
-            adjuntos: newMessage.adjuntos,
-          } as any;
+          const calcTime = performance.now();
+          console.log(`[PERF] Calculations: ${(calcTime - duplicateCheckTime).toFixed(2)}ms`);
 
-          // ⚡ OPTIMIZACIÓN CLAVE: Un solo requestAnimationFrame con batch de actualizaciones
-          requestAnimationFrame(() => {
+          // ⚡ CRÍTICO: Actualizar conversaciones usando requestIdleCallback (no bloquea)
+          // Esto es más agresivo que el Dashboard pero necesario para evitar violations
+          const updateConversations = () => {
+            const updateStartTime = performance.now();
             startTransition(() => {
-              // Batch 1: Actualizar mensajes
-              setMessagesByConversation(prev => {
-                const current = prev[targetProspectoId] || [];
-                // Verificar duplicado dentro del setter
-                if (current.length > 0 && current[current.length - 1]?.id === newMessage.id) {
-                  return prev;
-                }
-                // Filtrar mensajes optimistas si existen
-                const withoutOptimistic = current.some(m => m.id.startsWith('temp_'))
-                  ? current.filter(m => !m.id.startsWith('temp_'))
-                  : current;
-                
-                return {
-                  ...prev,
-                  [targetProspectoId]: [...withoutOptimistic, adaptedMessage],
-                };
-              });
-
-              // Batch 2: Actualizar lista de conversaciones
+              const transitionStartTime = performance.now();
               setConversations(prev => {
+                const setStateStartTime = performance.now();
                 const existingIndex = prev.findIndex(c => 
-                  c.id === targetProspectoId || c.prospecto_id === targetProspectoId
+                  (c.id === targetProspectoId || c.prospecto_id === targetProspectoId)
                 );
                 
+                const findIndexTime = performance.now();
+                console.log(`[PERF] findIndex: ${(findIndexTime - setStateStartTime).toFixed(2)}ms, conversations.length: ${prev.length}`);
+                
                 if (existingIndex === -1) {
-                  // Conversación nueva - cargar de forma diferida
-                  loadNewConversationIfNeeded(targetProspectoId);
-                  return prev;
+                  return prev; // Diferir carga de conversación nueva
                 }
 
+                // ⚡ OPTIMIZACIÓN: Actualizar in-place si está al principio (más común)
+                if (existingIndex === 0) {
+                  const currentConv = prev[0];
+                  const updateTime = performance.now();
+                  const result = [{
+                    ...currentConv, 
+                    last_message_at: messageTimestamp, 
+                    updated_at: messageTimestamp,
+                    ultimo_mensaje_preview: newMessage.mensaje?.substring(0, 100) || '',
+                    message_count: (currentConv.message_count || 0) + 1,
+                    unread_count: (!isActiveConversation && !isFromAgent)
+                      ? (currentConv.unread_count || 0) + 1
+                      : 0,
+                    mensajes_no_leidos: (!isActiveConversation && !isFromAgent)
+                      ? (currentConv.mensajes_no_leidos || 0) + 1
+                      : 0
+                  }, ...prev.slice(1)];
+                  console.log(`[PERF] setConversations (index 0): ${(performance.now() - updateTime).toFixed(2)}ms`);
+                  return result;
+                }
+
+                // Solo reordenar si no está al principio
+                const reorderStartTime = performance.now();
                 const currentConv = prev[existingIndex];
                 const updatedConv: Conversation = { 
                   ...currentConv, 
@@ -1219,26 +1200,84 @@ const LiveChatCanvas: React.FC = () => {
                     : 0
                 };
                 
-                // Si ya está al principio, actualizar in-place
-                if (existingIndex === 0) {
-                  return [updatedConv, ...prev.slice(1)];
-                }
-                // Mover al principio
-                return [updatedConv, ...prev.slice(0, existingIndex), ...prev.slice(existingIndex + 1)];
+                // ⚡ OPTIMIZACIÓN: Usar slice en lugar de splice para mejor performance
+                const result = [updatedConv, ...prev.slice(0, existingIndex), ...prev.slice(existingIndex + 1)];
+                console.log(`[PERF] setConversations (reorder): ${(performance.now() - reorderStartTime).toFixed(2)}ms, index: ${existingIndex}`);
+                return result;
               });
+              console.log(`[PERF] startTransition total: ${(performance.now() - transitionStartTime).toFixed(2)}ms`);
             });
-          });
+            console.log(`[PERF] updateConversations callback: ${(performance.now() - updateStartTime).toFixed(2)}ms`);
+          };
 
-          // ⚡ Trabajo secundario diferido (no crítico para UI)
+          const beforeRequestIdleCallback = performance.now();
           if (window.requestIdleCallback) {
-            window.requestIdleCallback(() => {
-              processMessageData({ payload, targetProspectoId, newMessagePayload: newMessage });
-            }, { timeout: 2000 });
+            window.requestIdleCallback(updateConversations, { timeout: 50 });
           } else {
-            setTimeout(() => {
-              processMessageData({ payload, targetProspectoId, newMessagePayload: newMessage });
-            }, 100);
+            setTimeout(updateConversations, 0);
           }
+          console.log(`[PERF] requestIdleCallback setup: ${(performance.now() - beforeRequestIdleCallback).toFixed(2)}ms`);
+
+          // ⚡ Actualizar mensajes usando requestIdleCallback (no bloquea)
+          // Esto evita hacer dos actualizaciones pesadas dentro del mismo startTransition
+          const updateMessages = () => {
+            const updateMessagesStartTime = performance.now();
+            setMessagesByConversation(prev => {
+              const setMessagesStartTime = performance.now();
+              const current = prev[targetProspectoId] || [];
+              if (current.length > 0 && current[current.length - 1]?.id === newMessage.id) {
+                return prev;
+              }
+              const hasOptimistic = current.some(m => m.id.startsWith('temp_'));
+              const withoutOptimistic = hasOptimistic 
+                ? current.filter(m => !m.id.startsWith('temp_'))
+                : current;
+              
+              const adaptedMessage: Message = {
+                id: newMessage.id,
+                message_id: `real_${newMessage.id}`,
+                conversation_id: targetProspectoId,
+                sender_type: newMessage.rol === 'Prospecto' ? 'customer' : newMessage.rol === 'AI' ? 'bot' : 'agent',
+                sender_name: newMessage.rol || 'Desconocido',
+                id_sender: newMessage.id_sender || undefined,
+                sender_user_name: undefined,
+                content: newMessage.mensaje,
+                is_read: newMessage.leido ?? false,
+                created_at: newMessage.fecha_hora,
+                adjuntos: newMessage.adjuntos,
+              } as any;
+              
+              const result = {
+                ...prev,
+                [targetProspectoId]: [...withoutOptimistic, adaptedMessage],
+              };
+              console.log(`[PERF] setMessagesByConversation: ${(performance.now() - setMessagesStartTime).toFixed(2)}ms, messages.length: ${current.length}`);
+              return result;
+            });
+            console.log(`[PERF] updateMessages callback: ${(performance.now() - updateMessagesStartTime).toFixed(2)}ms`);
+          };
+
+          const beforeMessagesIdleCallback = performance.now();
+          if (window.requestIdleCallback) {
+            window.requestIdleCallback(updateMessages, { timeout: 100 });
+          } else {
+            setTimeout(updateMessages, 0);
+          }
+          console.log(`[PERF] requestIdleCallback messages setup: ${(performance.now() - beforeMessagesIdleCallback).toFixed(2)}ms`);
+
+          // ⚡ Trabajo pesado FUERA de startTransition (diferido completamente)
+          setTimeout(() => {
+            const processStartTime = performance.now();
+            processMessageData({
+              payload,
+              targetProspectoId,
+              newMessagePayload: newMessage
+            });
+            console.log(`[PERF] processMessageData setTimeout: ${(performance.now() - processStartTime).toFixed(2)}ms`);
+          }, 0);
+
+          const handlerEndTime = performance.now();
+          console.log(`[PERF] Handler TOTAL: ${(handlerEndTime - handlerStartTime).toFixed(2)}ms`);
         })
       // ========================================
       // 🔔 SUSCRIPCIÓN 2: Cambios en tabla PROSPECTOS
@@ -2000,24 +2039,10 @@ const LiveChatCanvas: React.FC = () => {
     };
   }, []);
 
-  // ⚡ OPTIMIZADO V5.2: Polling de mensajes reducido - Realtime se encarga de actualizaciones
-  // Solo sincronizar cuando realmente es necesario (cambio de conversación o largo tiempo sin sync)
-  const lastSyncRef = useRef<number>(0);
-  const selectedConversationIdRef = useRef<string | null>(null);
-  
   useEffect(() => {
-    // Actualizar ref cuando cambia la conversación seleccionada
-    selectedConversationIdRef.current = selectedConversation?.id || null;
-  }, [selectedConversation?.id]);
-  
-  useEffect(() => {
-    // ⚡ Polling mucho menos frecuente - Realtime maneja la mayoría de updates
+    // Polling optimizado para mensajes de conversación activa (3 segundos)
     const messagesInterval = setInterval(async () => {
-      const now = Date.now();
-      // Solo sincronizar si han pasado al menos 30 segundos desde la última sync
-      if (now - lastSyncRef.current < 30000) return;
-      
-      if (selectedConversationIdRef.current && !sending) {
+      if (selectedConversation && !sending) {
         const activeElement = document.activeElement;
         const isTyping = activeElement && (
           activeElement.tagName === 'INPUT' || 
@@ -2025,14 +2050,13 @@ const LiveChatCanvas: React.FC = () => {
         );
         
         if (!isTyping) {
-          lastSyncRef.current = now;
           await syncMessagesForOpenConversation();
         }
       }
-    }, 10000); // ⚡ Aumentado de 3s a 10s - verificar cada 10s pero solo sync si pasaron 30s
+    }, 3000);
 
     return () => clearInterval(messagesInterval);
-  }, [sending]); // ⚡ Removida dependencia de selectedConversation
+  }, [selectedConversation, sending]);
 
   // ✅ ELIMINADO: Ya no se marca como leído cuando la pestaña vuelve a foco
   // Los mensajes solo se muestran como leídos visualmente mientras la conversación está abierta
@@ -2315,19 +2339,15 @@ const LiveChatCanvas: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // ⚡ OPTIMIZADO V5.2: Timer con intervalo mayor y sin re-renders innecesarios
+    // Timer para actualizar contador cada segundo
     const timer = setInterval(() => {
       const currentTime = new Date().getTime();
       
       setBotPauseStatus(prev => {
-        // ⚡ CRÍTICO: Verificar si hay algo que procesar ANTES de crear nuevo objeto
-        const entries = Object.entries(prev);
-        if (entries.length === 0) return prev; // Sin pausas activas, no re-render
-        
+        const updated = { ...prev };
         let hasChanges = false;
-        const updated: typeof prev = {};
         
-        entries.forEach(([uchatId, status]) => {
+        Object.entries(updated).forEach(([uchatId, status]) => {
           if (status.isPaused && status.pausedUntil) {
             const pausedUntilTime = status.pausedUntil instanceof Date 
               ? status.pausedUntil.getTime() 
@@ -2335,38 +2355,31 @@ const LiveChatCanvas: React.FC = () => {
             
             // Solo reactivar si realmente ha expirado (con margen de 2 segundos)
             if (currentTime > pausedUntilTime + 2000) {
+              delete updated[uchatId];
               hasChanges = true;
-              // No incluir en updated (eliminar)
-            } else {
-              updated[uchatId] = status; // Mantener
             }
-          } else {
-            updated[uchatId] = status; // Mantener
           }
         });
         
-        // ⚡ CRÍTICO: Solo retornar nuevo objeto si hubo cambios
-        if (!hasChanges) {
-          return prev; // Sin cambios = sin re-render
+        if (hasChanges) {
+          // Actualizar localStorage
+          const storageData = Object.fromEntries(
+            Object.entries(updated).map(([id, status]) => [
+              id, 
+              { 
+                ...status, 
+                pausedUntil: status.pausedUntil instanceof Date 
+                  ? status.pausedUntil.toISOString() 
+                  : status.pausedUntil 
+              }
+            ])
+          );
+          localStorage.setItem('bot-pause-status', JSON.stringify(storageData));
         }
-        
-        // Actualizar localStorage solo si hubo cambios
-        const storageData = Object.fromEntries(
-          Object.entries(updated).map(([id, status]) => [
-            id, 
-            { 
-              ...status, 
-              pausedUntil: status.pausedUntil instanceof Date 
-                ? status.pausedUntil.toISOString() 
-                : status.pausedUntil 
-            }
-          ])
-        );
-        localStorage.setItem('bot-pause-status', JSON.stringify(storageData));
         
         return updated;
       });
-    }, 5000); // ⚡ Reducido de 1s a 5s - suficiente para verificar expiración
+    }, 1000);
 
     return () => clearInterval(timer);
   }, []);
@@ -4330,40 +4343,10 @@ const LiveChatCanvas: React.FC = () => {
     return serverSum > 0 ? serverSum : localSum;
   }, [unreadCounts, conversations, filteredConversations]);
 
-  // ⚡ OPTIMIZADO V5: Métricas calculadas con useMemo (sin useEffect separado)
-  // Esto evita un setState adicional en cada mensaje
-  const calculatedMetrics = useMemo(() => {
-    const filteredConvs = filteredConversations.length > 0 ? filteredConversations : conversations;
-    const totalConversations = filteredConvs.length;
-    const activeConversations = filteredConvs.filter(c => 
-      c.status === 'active' || c.estado === 'activa'
-    ).length;
-    const transferredConversations = filteredConvs.filter(c => 
-      c.status === 'transferred' || c.estado === 'transferida'
-    ).length;
-    const closedConversations = filteredConvs.filter(c => 
-      c.status === 'closed' || c.estado === 'finalizada'
-    ).length;
-    
-    return {
-      totalConversations,
-      activeConversations,
-      transferredConversations,
-      closedConversations,
-      handoffRate: totalConversations > 0 ? (transferredConversations / totalConversations) * 100 : 0
-    };
-  }, [filteredConversations, conversations]);
-  
-  // Sincronizar métricas solo cuando el valor calculado cambie significativamente (throttled)
-  const metricsThrottleRef = useRef<number>(0);
+  // Actualizar métricas cuando cambien las conversaciones filtradas
   useEffect(() => {
-    const now = Date.now();
-    // Solo actualizar métricas si han pasado al menos 2 segundos desde la última actualización
-    if (now - metricsThrottleRef.current > 2000) {
-      metricsThrottleRef.current = now;
-      setMetrics(calculatedMetrics);
-    }
-  }, [calculatedMetrics]);
+    loadMetrics();
+  }, [filteredConversations, conversations]);
 
   // ============================================
   // CÁLCULOS DE LAYOUT - LIENZO CON SECCIONES FIJAS
@@ -4478,61 +4461,161 @@ const LiveChatCanvas: React.FC = () => {
             e.stopPropagation();
           }}
         >
-          {/* ⚡ OPTIMIZADO V5: Estilos CSS globales (una sola vez) */}
-          <GlobalAnimationStyles />
-          
-          {filteredConversations.map((conversation) => {
-            // Pre-calcular valores fuera del componente para memoización efectiva
-            const prospectId = conversation.prospecto_id || conversation.id;
-            const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
-            const uchatId = conversation.metadata?.id_uchat || conversation.id_uchat;
-            const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
-            
-            return (
-              <ConversationItem
-                key={conversation.id}
-                conversation={conversation}
-                isSelected={selectedConversation?.id === conversation.id}
-                hasActiveCall={prospectsWithActiveCalls.has(conversation.prospecto_id)}
-                isBotPaused={!!(pauseStatus?.isPaused && (
-                  pauseStatus.pausedUntil === null || 
-                  pauseStatus.pausedUntil > new Date()
-                ))}
-                requiereAtencion={prospectoData?.requiere_atencion_humana || false}
-                unreadCount={Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0)}
-                userRole={user?.role_name}
-                onSelect={() => {
-                  isManualSelectionRef.current = true;
-                  selectedConversationRef.current = conversation.prospecto_id;
-                  setSelectedConversation(conversation);
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  if (user?.role_name === 'coordinador' || user?.role_name === 'admin') {
-                    const ejecutivoId = conversation.metadata?.ejecutivo_id || prospectoData?.ejecutivo_id;
-                    const coordinacionId = conversation.metadata?.coordinacion_id || prospectoData?.coordinacion_id;
-                    
-                    setAssignmentContextMenu({
-                      prospectId,
-                      coordinacionId,
-                      ejecutivoId,
-                      prospectData: prospectoData ? {
-                        id_dynamics: prospectoData.id_dynamics,
-                        nombre_completo: prospectoData.nombre_completo,
-                        nombre_whatsapp: prospectoData.nombre_whatsapp,
-                        email: prospectoData.email,
-                        whatsapp: prospectoData.whatsapp,
-                      } : undefined,
-                      position: { x: e.clientX, y: e.clientY }
-                    });
+          {filteredConversations.map((conversation) => (
+            <div
+              key={conversation.id}
+              className={`p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer transition-all duration-200 ${
+                selectedConversation?.id === conversation.id
+                  ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500 shadow-sm'
+                  : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
+              }`}
+              onClick={() => {
+                // ✅ Seleccionar nueva conversación
+                // Los mensajes de la conversación anterior ya están marcados como leídos en BD
+                isManualSelectionRef.current = true;
+                selectedConversationRef.current = conversation.prospecto_id;
+                setSelectedConversation(conversation);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (user?.role_name === 'coordinador' || user?.role_name === 'admin') {
+                  const prospectId = conversation.prospecto_id || conversation.id;
+                  // Obtener ejecutivo_id desde metadata o desde el prospecto directamente usando el ref
+                  const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                  const ejecutivoId = conversation.metadata?.ejecutivo_id || prospectoData?.ejecutivo_id;
+                  const coordinacionId = conversation.metadata?.coordinacion_id || prospectoData?.coordinacion_id;
+                  
+                  setAssignmentContextMenu({
+                    prospectId,
+                    coordinacionId,
+                    ejecutivoId,
+                    prospectData: prospectoData ? {
+                      id_dynamics: prospectoData.id_dynamics,
+                      nombre_completo: prospectoData.nombre_completo,
+                      nombre_whatsapp: prospectoData.nombre_whatsapp,
+                      email: prospectoData.email,
+                      whatsapp: prospectoData.whatsapp,
+                    } : undefined,
+                    position: { x: e.clientX, y: e.clientY }
+                  });
+                }
+              }}
+            >
+              <div className="flex items-start space-x-3">
+                {(() => {
+                  // Verificar si hay llamada activa
+                  const hasActiveCall = prospectsWithActiveCalls.has(conversation.prospecto_id);
+                  
+                  // Verificar si el bot está pausado para esta conversación
+                  const uchatId = conversation.metadata?.id_uchat || conversation.id_uchat;
+                  const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
+                  const isBotPaused = pauseStatus?.isPaused && (
+                    pauseStatus.pausedUntil === null || 
+                    pauseStatus.pausedUntil > new Date()
+                  );
+                  
+                  // Prioridad: Llamada activa > Bot pausado > Avatar normal
+                  if (hasActiveCall) {
+                    return (
+                      <div
+                        className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm cursor-pointer animate-pulse hover:animate-none hover:scale-110 transition-transform"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAppMode('live-monitor');
+                        }}
+                        style={{
+                          animation: 'heartbeat 1.5s ease-in-out infinite'
+                        }}
+                      >
+                        <style>{`
+                          @keyframes heartbeat {
+                            0%, 100% { transform: scale(1); }
+                            50% { transform: scale(1.1); }
+                          }
+                        `}</style>
+                        <Phone className="w-5 h-5 text-white" />
+                      </div>
+                    );
                   }
-                }}
-                onCallClick={() => setAppMode('live-monitor')}
-                getStatusIndicator={getStatusIndicator}
-                formatTimeAgo={formatTimeAgo}
-              />
-            );
-          })}
+                  
+                  // Indicador de bot pausado
+                  if (isBotPaused) {
+                    return (
+                      <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <Pause className="w-5 h-5 text-white" fill="white" />
+                      </div>
+                    );
+                  }
+                  
+                  // Avatar normal con iniciales (usando componente Avatar unificado)
+                  return (
+                    <Avatar
+                      name={conversation.customer_name}
+                      size="md"
+                      showIcon={false}
+                    />
+                  );
+                })()}
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        {conversation.customer_name}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* RED FLAG para prospectos que requieren atención - Alineado a la derecha */}
+                      {(() => {
+                        const prospectId = conversation.prospecto_id || conversation.id;
+                        const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                        const requiereAtencion = prospectoData?.requiere_atencion_humana || false;
+                        
+                        return (
+                          <RequiereAtencionListFlag 
+                            key={`flag-${prospectId}`}
+                            prospectId={prospectId}
+                            requiereAtencionHumana={requiereAtencion} 
+                          />
+                        );
+                      })()}
+                      {/* Indicador de mensajes no leídos */}
+                      {(Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0)) > 0 && (
+                        <div className="bg-green-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                          {Math.min(Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0), 99)}
+                        </div>
+                      )}
+                    {getStatusIndicator(conversation.status)}
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{conversation.customer_phone}</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{conversation.metadata?.etapa}</p>
+                  
+                  {/* Información de asignación - Mostrar según rol del usuario */}
+                  {(user?.role_name === 'admin' || user?.role_name === 'coordinador') && (
+                    <div className="mb-2">
+                      <AssignmentBadge
+                        call={{
+                          coordinacion_codigo: conversation.metadata?.coordinacion_codigo,
+                          coordinacion_nombre: conversation.metadata?.coordinacion_nombre,
+                          ejecutivo_id: conversation.metadata?.ejecutivo_id,
+                          ejecutivo_nombre: conversation.metadata?.ejecutivo_nombre,
+                          ejecutivo_email: conversation.metadata?.ejecutivo_email
+                        } as any}
+                        variant="compact"
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between text-xs text-slate-400 dark:text-gray-500">
+                    <span>{Number(conversation.message_count ?? 0)} mensajes</span>
+                    <span>{formatTimeAgo(conversation.last_message_at || conversation.updated_at)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

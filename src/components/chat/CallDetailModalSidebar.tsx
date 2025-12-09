@@ -130,32 +130,43 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   const lastSegmentRef = useRef<number | null>(null);
   const scrollTimeoutRef = useRef<number | null>(null);
 
-  // Cargar datos de ejecutivos y coordinaciones
+  // Cargar datos de ejecutivos y coordinaciones (solo si las tablas existen)
   useEffect(() => {
     const loadEjecutivosAndCoordinaciones = async () => {
       try {
-        const [ejecutivosRes, coordinacionesRes] = await Promise.all([
-          analysisSupabase.from('ejecutivos').select('*'),
-          analysisSupabase.from('coordinaciones').select('*')
+        // Intentar cargar ejecutivos y coordinaciones, pero silenciar errores 404
+        const [ejecutivosRes, coordinacionesRes] = await Promise.allSettled([
+          analysisSupabase.from('ejecutivos').select('*').then(res => {
+            if (res.error && res.error.code === 'PGRST116') {
+              return { data: null, error: null };
+            }
+            return res;
+          }),
+          analysisSupabase.from('coordinaciones').select('*').then(res => {
+            if (res.error && res.error.code === 'PGRST116') {
+              return { data: null, error: null };
+            }
+            return res;
+          })
         ]);
 
-        if (ejecutivosRes.data) {
+        if (ejecutivosRes.status === 'fulfilled' && ejecutivosRes.value.data) {
           const map: Record<string, any> = {};
-          ejecutivosRes.data.forEach((e: any) => {
+          ejecutivosRes.value.data.forEach((e: any) => {
             map[e.id] = e;
           });
           setEjecutivosMap(map);
         }
 
-        if (coordinacionesRes.data) {
+        if (coordinacionesRes.status === 'fulfilled' && coordinacionesRes.value.data) {
           const map: Record<string, any> = {};
-          coordinacionesRes.data.forEach((c: any) => {
+          coordinacionesRes.value.data.forEach((c: any) => {
             map[c.id] = c;
           });
           setCoordinacionesMap(map);
         }
       } catch (error) {
-        console.error('Error loading ejecutivos/coordinaciones:', error);
+        // Silenciar errores - las tablas pueden no existir
       }
     };
 
@@ -242,16 +253,6 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
             return;
           }
           
-          // Debug: verificar que se cargó correctamente
-          console.log('✅ [CallDetailModalSidebar] Prospecto cargado:', {
-            id: prospectoData?.id,
-            asesor_asignado: prospectoData?.asesor_asignado,
-            ejecutivo_id: prospectoData?.ejecutivo_id,
-            coordinacion_id: prospectoData?.coordinacion_id,
-            hasAsesorAsignado: !!prospectoData?.asesor_asignado,
-            hasEjecutivoId: !!prospectoData?.ejecutivo_id
-          });
-          
           setSelectedProspectoData(prospectoData);
         } catch (err) {
           console.error('Error loading prospecto:', err);
@@ -272,7 +273,6 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   // Cargar detalle de llamada
   useEffect(() => {
     if (callId && isOpen) {
-      console.log('🔄 [CallDetailModalSidebar] Cargando detalle de llamada:', callId);
       loadCallDetail(callId);
     }
   }, [callId, isOpen, loadCallDetail]);
@@ -334,25 +334,6 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
     }
   }, [isOpen]);
 
-  // Debug: Log para verificar datos del prospecto (debe estar antes del return condicional)
-  useEffect(() => {
-    if (isOpen) {
-      const prospectoData = selectedProspectoData || callDetail?.prospecto_completo || {};
-      if (prospectoData && Object.keys(prospectoData).length > 0) {
-        console.log('📊 [CallDetailModalSidebar] Prospecto data (useEffect):', {
-          usingSelectedProspectoData: !!selectedProspectoData,
-          asesor_asignado: prospectoData?.asesor_asignado,
-          ejecutivo_id: prospectoData?.ejecutivo_id,
-          coordinacion_id: prospectoData?.coordinacion_id,
-          etapa: prospectoData?.etapa,
-          selectedProspectoDataKeys: selectedProspectoData ? Object.keys(selectedProspectoData) : [],
-          prospectoKeys: Object.keys(prospectoData),
-          ejecutivosMapSize: Object.keys(ejecutivosMap).length,
-          coordinacionesMapSize: Object.keys(coordinacionesMap).length
-        });
-      }
-    }
-  }, [isOpen, selectedProspectoData, callDetail?.prospecto_completo, ejecutivosMap, coordinacionesMap]);
 
   // Cargar duración del audio cuando se carga el metadata
   useEffect(() => {
@@ -1008,24 +989,6 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                                 const coordinacionId = prospectoData?.coordinacion_id || callDetail?.coordinacion_id;
                                 const coordinacion = coordinacionId ? coordinacionesMap[coordinacionId] : null;
                                 
-                                // Debug siempre - para ver qué está pasando
-                                console.log('🔍 [CallDetailModalSidebar] Render Debug:', {
-                                  isAdmin,
-                                  userRole: user?.role_name,
-                                  canSeeEjecutivo,
-                                  canSeeCoordinacion,
-                                  selectedProspectoDataExists: !!selectedProspectoData,
-                                  prospectoDataExists: !!prospectoData,
-                                  asesor_asignado: prospectoData?.asesor_asignado,
-                                  ejecutivo_id: prospectoData?.ejecutivo_id,
-                                  coordinacion_id: prospectoData?.coordinacion_id,
-                                  ejecutivoNombre,
-                                  coordinacionId,
-                                  coordinacionNombre: coordinacion?.nombre || coordinacion?.codigo,
-                                  ejecutivosMapSize: Object.keys(ejecutivosMap).length,
-                                  coordinacionesMapSize: Object.keys(coordinacionesMap).length
-                                });
-                                
                                 const parts: string[] = [];
                                 
                                 // Mostrar ejecutivo si tiene permiso
@@ -1135,21 +1098,27 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                           {prospectCalls.map((call: any, index: number) => (
                             <button
                               key={call.call_id || index}
-                              onClick={async () => {
+                              onClick={() => {
+                                // ⚡ OPTIMIZACIÓN: Diferir trabajo pesado para no bloquear click handler
                                 if (onCallChange && call.call_id) {
+                                  // Callback inmediato (no bloquea)
                                   onCallChange(call.call_id);
                                 } else if (call.call_id) {
-                                  // Si no hay callback, recargar directamente
-                                  await loadCallDetail(call.call_id);
-                                  if (call.call_id) {
-                                    await loadTranscript(call.call_id, 1.04);
-                                  }
+                                  // Limpiar audio inmediatamente (operación ligera)
                                   if (audioRef.current) {
                                     audioRef.current.pause();
                                     audioRef.current.currentTime = 0;
                                   }
                                   setIsAudioPlaying(false);
                                   setHighlightedSegment(null);
+                                  
+                                  // Diferir carga pesada (no bloquea click)
+                                  setTimeout(async () => {
+                                    await loadCallDetail(call.call_id!);
+                                    if (call.call_id) {
+                                      await loadTranscript(call.call_id, 1.04);
+                                    }
+                                  }, 0);
                                 }
                               }}
                               className={`w-full text-left p-3 rounded-lg border-2 transition-all duration-200 ${

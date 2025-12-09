@@ -1,5 +1,27 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.2.0N6.0.0 (Diciembre 2025) - Gestión de Auth Tokens API
+
+### 🎯 RELEASE BETA - Nueva Funcionalidad de Gestión de Tokens
+
+#### Nueva Pestaña Auth Tokens
+- Panel de administración para gestionar tokens de autenticación
+- Visualización segura con enmascaramiento de tokens
+- Edición inline con guardado inmediato
+- Soporte para múltiples módulos (Llamadas, Mensajes, Bot, Media)
+
+#### Correcciones
+- Token de programar llamadas actualizado (Error 403 resuelto)
+- Nuevo servicio centralizado apiTokensService con caché
+
+#### Archivos Principales
+- ApiAuthTokensManager.tsx - Nuevo componente de gestión
+- apiTokensService.ts - Nuevo servicio de tokens
+- AdminDashboardTabs.tsx - Pestaña añadida
+- ManualCallModal.tsx - Token corregido
+
+---
+
 ## Versión B4.0.10N6.0.0 (Enero 2025) - Optimización de Rendimiento y Verificación de Permisos
 
 ### 🎯 RELEASE BETA - Optimización de Rendimiento y Sistema de Permisos

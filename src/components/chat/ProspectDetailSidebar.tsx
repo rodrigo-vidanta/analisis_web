@@ -138,14 +138,6 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
-  // Debug: Verificar cuando cambian los estados del modal
-  useEffect(() => {
-    console.log('🔵 [ProspectDetailSidebar] Estados del modal actualizados:', {
-      callDetailModalOpen,
-      selectedCallId,
-      callHistoryLength: callHistory.length
-    });
-  }, [callDetailModalOpen, selectedCallId, callHistory.length]);
 
   useEffect(() => {
     if (isOpen && prospectoId) {
@@ -208,16 +200,6 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         }
       }
 
-      console.log('✅ [ProspectDetailSidebar] Prospecto cargado:', {
-        id: data.id,
-        nombre_completo: data.nombre_completo,
-        asesor_asignado: data.asesor_asignado,
-        ejecutivo_id: data.ejecutivo_id,
-        coordinacion_id: data.coordinacion_id,
-        ejecutivoNombre,
-        coordinacionCodigo: coordinacionInfo?.codigo,
-        coordinacionNombre: coordinacionInfo?.nombre
-      });
 
       setProspecto({
         ...data,
@@ -416,10 +398,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
 
 
   const handleOpenCallDetail = (callId: string) => {
-    console.log('🔵 [ProspectDetailSidebar] handleOpenCallDetail llamado con callId:', callId);
     setSelectedCallId(callId);
     setCallDetailModalOpen(true);
-    console.log('🔵 [ProspectDetailSidebar] Estados actualizados - selectedCallId:', callId, 'callDetailModalOpen: true');
   };
 
   const getStatusColor = (status: string) => {
@@ -881,7 +861,6 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                                 const callEvent = event as TimelineEvent & { callId?: string; hasRecording?: boolean; callStatus?: string };
                                 // Abrir modal si tiene callId (siempre que sea una llamada ejecutada)
                                 if (callEvent.callId) {
-                                  console.log('🔵 [ProspectDetailSidebar] Abriendo CallDetailModalSidebar con callId:', callEvent.callId);
                                   handleOpenCallDetail(callEvent.callId);
                                 } else {
                                   console.warn('⚠️ [ProspectDetailSidebar] Llamada sin callId:', callEvent);
@@ -972,7 +951,6 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
         callId={selectedCallId}
         isOpen={callDetailModalOpen}
         onClose={() => {
-          console.log('🔴 [ProspectDetailSidebar] Cerrando CallDetailModalSidebar');
           setCallDetailModalOpen(false);
           setSelectedCallId(null);
         }}
@@ -981,7 +959,6 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
           // Ya estamos en el sidebar del prospecto, no hacer nada
         }}
         onCallChange={(newCallId) => {
-          console.log('🔵 [ProspectDetailSidebar] Cambiando llamada a:', newCallId);
           setSelectedCallId(newCallId);
           // El sidebar ya está abierto, solo cambiar el callId
         }}

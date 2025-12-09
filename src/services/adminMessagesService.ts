@@ -421,6 +421,8 @@ class AdminMessagesService {
    * 
    * ⚠️ NOTA DE SEGURIDAD: Usa el cliente admin con service key.
    * En producción, considerar mover esto a un backend o usar funciones RPC.
+   * 
+   * ⚡ OPTIMIZADO: Handler no bloqueante usando setTimeout para diferir trabajo pesado
    */
   subscribeToMessages(
     recipientRole: string,
@@ -441,7 +443,16 @@ class AdminMessagesService {
             filter: `recipient_role=eq.${recipientRole}`
           },
           (payload) => {
-            callback(payload.new as AdminMessage);
+            // ⚡ OPTIMIZACIÓN: Diferir el callback para no bloquear el handler de Realtime
+            // Esto evita violations de performance cuando el callback hace trabajo pesado
+            setTimeout(() => {
+              try {
+                callback(payload.new as AdminMessage);
+              } catch (error) {
+                // Silenciar errores en callback para no bloquear
+                console.debug('Error en callback de mensaje admin:', error);
+              }
+            }, 0);
           }
         )
         .subscribe((status) => {
@@ -452,7 +463,7 @@ class AdminMessagesService {
           }
         });
     } catch (error) {
-      console.warn('⚠️ Error suscribiéndose a mensajes de admin (no crítico):', error);
+      // Silenciar errores - no crítico
     }
 
     return () => {
@@ -461,7 +472,6 @@ class AdminMessagesService {
           supabaseSystemUIAdmin.removeChannel(channel);
         } catch (error) {
           // Ignorar errores al desconectar (puede ser que ya se cerró)
-          console.debug('WebSocket ya cerrado o en proceso de cierre');
         }
       }
     };

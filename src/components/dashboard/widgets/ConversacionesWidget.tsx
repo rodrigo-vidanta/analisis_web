@@ -5,7 +5,9 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, ChevronRight, Loader2, X, Flag, Pause } from 'lucide-react';
+import { MessageSquare, Send, ChevronRight, Loader2, X, Flag, Pause, Play } from 'lucide-react';
+import toast from 'react-hot-toast';
+import BotPauseButton from '../../chat/BotPauseButton';
 import { supabaseSystemUI } from '../../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { uchatService, type UChatConversation } from '../../../services/uchatService';
@@ -1328,6 +1330,230 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     }
   };
 
+  // Función para pausar el bot
+  const pauseBot = async (uchatId: string, durationMinutes: number | null, force: boolean = false): Promise<boolean> => {
+    try {
+      if (!force) {
+        const existingPause = await botPauseService.getPauseStatus(uchatId);
+        if (existingPause && existingPause.is_paused && existingPause.paused_until) {
+          const pausedUntil = new Date(existingPause.paused_until);
+          const now = new Date();
+          if (pausedUntil > now) {
+            return true;
+          }
+        }
+      }
+
+      const ttlSec = durationMinutes === null 
+        ? 30 * 24 * 60 * 60
+        : Math.max(0, Math.floor(durationMinutes * 60));
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      
+      try {
+        const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Accept': 'application/json',
+            'livechat_auth': '2025_livechat_auth'
+          },
+          body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (resp.status === 200) {
+          // Éxito
+        } else if (resp.status === 400) {
+          const errorText = await resp.text().catch(() => 'Error desconocido al pausar el bot');
+          toast.error('No se pudo pausar el bot. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '⏸️'
+          });
+          return false;
+        } else {
+          const errorText = await resp.text().catch(() => 'Error desconocido');
+          toast.error('Error al pausar el bot. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '⏸️'
+          });
+          return false;
+        }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          toast.error('El servidor no respondió a tiempo. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '⏱️'
+          });
+        } else {
+          toast.error('Error de conexión al pausar el bot. Por favor, verifica tu conexión.', {
+            duration: 4000,
+            icon: '🔌'
+          });
+        }
+        return false;
+      }
+
+      const pausedUntil = durationMinutes === null
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        : new Date(Date.now() + ttlSec * 1000);
+      
+      await botPauseService.savePauseStatus(uchatId, durationMinutes, 'agent');
+      
+      const pauseData = {
+        isPaused: true,
+        pausedUntil,
+        pausedBy: 'agent',
+        duration: durationMinutes
+      };
+
+      setBotPauseStatus(prev => ({
+        ...prev,
+        [uchatId]: pauseData
+      }));
+
+      const allPauseStatus = JSON.parse(localStorage.getItem('bot-pause-status') || '{}');
+      allPauseStatus[uchatId] = {
+        ...pauseData,
+        pausedUntil: pausedUntil.toISOString()
+      };
+      localStorage.setItem('bot-pause-status', JSON.stringify(allPauseStatus));
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Función para reactivar el bot
+  const resumeBot = async (uchatId: string): Promise<boolean> => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      
+      try {
+        const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Accept': 'application/json',
+            'livechat_auth': '2025_livechat_auth'
+          },
+          body: JSON.stringify({ uchat_id: uchatId, ttl: 0 }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (resp.status === 200) {
+          // Éxito
+        } else if (resp.status === 400) {
+          const errorText = await resp.text().catch(() => 'Error desconocido al reactivar el bot');
+          toast.error('No se pudo reactivar el bot. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '▶️'
+          });
+          return false;
+        } else {
+          const errorText = await resp.text().catch(() => 'Error desconocido');
+          toast.error('Error al reactivar el bot. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '▶️'
+          });
+          return false;
+        }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          toast.error('El servidor no respondió a tiempo. Por favor, intenta nuevamente.', {
+            duration: 4000,
+            icon: '⏱️'
+          });
+        } else {
+          toast.error('Error de conexión al reactivar el bot. Por favor, verifica tu conexión.', {
+            duration: 4000,
+            icon: '🔌'
+          });
+        }
+        return false;
+      }
+
+      await botPauseService.resumeBot(uchatId);
+
+      setBotPauseStatus(prev => {
+        const updated = { ...prev };
+        updated[uchatId] = {
+          isPaused: false,
+          pausedUntil: null,
+          pausedBy: '',
+          duration: null
+        };
+        return updated;
+      });
+
+      const allPauseStatus = JSON.parse(localStorage.getItem('bot-pause-status') || '{}');
+      allPauseStatus[uchatId] = {
+        isPaused: false,
+        pausedUntil: null,
+        pausedBy: '',
+        duration: null
+      };
+      localStorage.setItem('bot-pause-status', JSON.stringify(allPauseStatus));
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Función para actualizar requiere_atencion_humana
+  const updateRequiereAtencionHumana = async (prospectoId: string, value: boolean): Promise<boolean> => {
+    try {
+      const updateData: { requiere_atencion_humana: boolean; motivo_handoff?: null } = {
+        requiere_atencion_humana: value
+      };
+      
+      if (!value) {
+        updateData.motivo_handoff = null;
+      }
+
+      const { error } = await analysisSupabase
+        .from('prospectos')
+        .update(updateData)
+        .eq('id', prospectoId);
+
+      if (error) {
+        toast.error('Error al actualizar el estado de atención');
+        return false;
+      }
+
+      // Actualizar el Map local
+      setProspectosData(prev => {
+        const updated = new Map(prev);
+        const existing = updated.get(prospectoId);
+        if (existing) {
+          updated.set(prospectoId, {
+            ...existing,
+            requiere_atencion_humana: value,
+            motivo_handoff: value ? existing.motivo_handoff : null
+          });
+        }
+        prospectosDataRef.current = updated;
+        setProspectosDataVersion(prev => prev + 1);
+        return updated;
+      });
+
+      return true;
+    } catch (error) {
+      toast.error('Error al actualizar el estado de atención');
+      return false;
+    }
+  };
+
   const formatTimeAgo = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -1988,30 +2214,81 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Botón para ir a la conversación - con animación */}
+          {/* Botones de acción - divididos en 3 partes */}
           <div className="px-4 py-3 border-t border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
-            <motion.button
-              onClick={handleNavigateToConversation}
-              className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 flex items-center justify-center gap-2 group"
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 400, damping: 20 }}
-            >
-              <motion.div
-                animate={{ x: [0, 3, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            <div className="grid grid-cols-3 gap-2 items-stretch">
+              {/* Botón 1: Ir a la conversación */}
+              <motion.button
+                onClick={handleNavigateToConversation}
+                className="w-full px-3 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 flex items-center justify-center gap-1.5 group"
+                whileHover={{ scale: 1.02, y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                title="Ir a la conversación"
               >
-                <Send className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </motion.div>
-              <span className="text-sm font-medium">Ir a la conversación</span>
-              <motion.div
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                animate={{ x: [0, 4, 0] }}
-                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </motion.div>
-            </motion.button>
+                <Send className="w-4 h-4" />
+                <span className="text-xs font-medium hidden sm:inline">Ir</span>
+              </motion.button>
+
+              {/* Botón 2: Pausar/Reactivar Bot */}
+              {selectedConversation && (() => {
+                const uchatId = selectedConversation.metadata?.id_uchat || 
+                  selectedConversation.id_uchat || 
+                  selectedConversation.conversation_id || 
+                  selectedConversation.id;
+                const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
+                const isBotPaused = pauseStatus?.isPaused && (
+                  pauseStatus.pausedUntil === null || 
+                  pauseStatus.pausedUntil > new Date()
+                );
+                const timeRemaining = pauseStatus?.pausedUntil 
+                  ? Math.max(0, Math.floor((pauseStatus.pausedUntil.getTime() - Date.now()) / 1000))
+                  : null;
+
+                return (
+                  <BotPauseButton
+                    uchatId={uchatId}
+                    isPaused={isBotPaused}
+                    timeRemaining={timeRemaining}
+                    onPause={pauseBot}
+                    onResume={resumeBot}
+                    showUpward={true}
+                    fullWidth={true}
+                  />
+                );
+              })()}
+
+              {/* Botón 3: Toggle Requiere Atención Humana */}
+              {selectedConversation?.prospect_id && (() => {
+                const prospectData = prospectosData.get(selectedConversation.prospect_id);
+                const requiereAtencion = prospectData?.requiere_atencion_humana || false;
+                
+                return (
+                  <motion.button
+                    onClick={async () => {
+                      await updateRequiereAtencionHumana(
+                        selectedConversation.prospect_id!,
+                        !requiereAtencion
+                      );
+                    }}
+                    className={`w-full px-3 py-2.5 rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-1.5 group ${
+                      requiereAtencion
+                        ? 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-red-500/20 hover:shadow-lg hover:shadow-red-500/30'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300'
+                    }`}
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                    title={requiereAtencion ? "Desactivar requiere atención" : "Activar requiere atención"}
+                  >
+                    <Flag className={`w-4 h-4 ${requiereAtencion ? '' : 'opacity-50'}`} />
+                    <span className="text-xs font-medium hidden sm:inline">
+                      {requiereAtencion ? 'At.' : 'At.'}
+                    </span>
+                  </motion.button>
+                );
+              })()}
+            </div>
           </div>
         </>
       )}

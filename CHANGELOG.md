@@ -1,5 +1,46 @@
 # 📋 Control de Cambios - PQNC AI Platform
 
+## 🎯 Versión B4.2.0N6.0.0 - Gestión de Auth Tokens y Corrección de Programar Llamadas (Diciembre 2025)
+
+### 🎯 **RELEASE BETA - Nueva Pestaña de Auth Tokens en Administración**
+
+#### 🔐 **Nueva Pestaña "Auth Tokens" en Administración**
+- **Nuevo módulo:** Panel de gestión de tokens de autenticación para webhooks y APIs externas
+- **Funcionalidades implementadas:**
+  - Vista de tokens encriptados (solo últimos 8 caracteres visibles)
+  - Botón para mostrar/ocultar token completo
+  - Copiar token al portapapeles con un clic
+  - Edición inline con guardado inmediato
+  - Advertencias de seguridad integradas
+- **Tokens configurables:**
+  - `manual_call_auth` - Token para programar llamadas manuales
+  - `send_message_auth` - Token para enviar mensajes WhatsApp
+  - `pause_bot_auth` - Token para pausar/reanudar bot
+  - `media_url_auth` - Token para generar URLs de multimedia
+
+#### 🔧 **Corrección de Token de Programar Llamadas**
+- **Problema resuelto:** Error 403 "Authorization data is wrong!" al programar llamadas
+- **Solución:** Actualización del token de autenticación en `ManualCallModal.tsx`
+- **Token actualizado:** De `4ydoA3Hg...` a `wFRpkQv4...`
+
+#### 🆕 **Nuevo Servicio: apiTokensService**
+- **Funcionalidad:** Gestión centralizada de tokens de autenticación
+- **Características:**
+  - Caché local con TTL de 5 minutos para rendimiento
+  - Fallback a valores por defecto si BD no disponible
+  - Funciones: `getApiToken`, `getAllApiTokens`, `updateTokenCache`, `invalidateTokenCache`
+
+#### 📁 **Archivos Creados/Modificados**
+- `src/components/admin/ApiAuthTokensManager.tsx` - Nuevo componente de gestión de tokens
+- `src/services/apiTokensService.ts` - Nuevo servicio de tokens
+- `src/components/admin/AdminDashboardTabs.tsx` - Nueva pestaña "Auth Tokens" añadida
+- `src/components/shared/ManualCallModal.tsx` - Token de autenticación actualizado
+- `CHANGELOG.md` - Documentación de esta versión
+- `VERSIONS.md` - Control de versiones actualizado
+- `src/components/Footer.tsx` - Versión actualizada
+
+---
+
 ## 🎯 Versión B4.1.2N6.0.0 - Corrección de Z-Index en Sidebars (Enero 2025)
 
 ### 🎯 **RELEASE BETA - Corrección de Ordenamiento de Sidebars**

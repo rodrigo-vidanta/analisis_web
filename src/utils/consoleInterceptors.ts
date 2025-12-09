@@ -17,11 +17,39 @@ console.log = (...args: any[]) => {
   
   // Silenciar logs de depuración del Dashboard
   if (fullMessage.includes('[ConversacionesWidget]') ||
+      fullMessage.includes('[AdminDashboardTabs]') ||
+      fullMessage.includes('[CallDetailModalSidebar]') ||
       fullMessage.includes('EVENTO RECIBIDO') ||
       fullMessage.includes('Cambio en keys') ||
       fullMessage.includes('Estado actualizado') ||
       fullMessage.includes('pausas activas') ||
-      fullMessage.includes('Cambio detectado')) {
+      fullMessage.includes('Cambio detectado') ||
+      fullMessage.includes('Verificando permisos') ||
+      fullMessage.includes('Cargando contador de mensajes') ||
+      fullMessage.includes('Contador de mensajes:') ||
+      fullMessage.includes('Render Debug') ||
+      fullMessage.includes('Prospecto data (useEffect)') ||
+      fullMessage.includes('Cargando detalle de llamada:') ||
+      fullMessage.includes('[ProspectDetailSidebar]') ||
+      fullMessage.includes('Estados del modal actualizados') ||
+      fullMessage.includes('Prospecto cargado:') ||
+      fullMessage.includes('handleOpenCallDetail llamado') ||
+      fullMessage.includes('Estados actualizados - selectedCallId') ||
+      fullMessage.includes('Abriendo CallDetailModalSidebar') ||
+      fullMessage.includes('Cerrando CallDetailModalSidebar') ||
+      fullMessage.includes('Cambiando llamada a:')) {
+    return;
+  }
+  
+  // Silenciar mensaje de React DevTools
+  if (fullMessage.includes('Download the React DevTools') ||
+      fullMessage.includes('react.dev/link/react-devtools')) {
+    return;
+  }
+  
+  // Silenciar mensaje de React DevTools
+  if (fullMessage.includes('Download the React DevTools') ||
+      fullMessage.includes('react.dev/link/react-devtools')) {
     return;
   }
   
@@ -42,11 +70,33 @@ console.info = (...args: any[]) => {
   
   // Silenciar logs de depuración del Dashboard
   if (fullMessage.includes('[ConversacionesWidget]') ||
+      fullMessage.includes('[AdminDashboardTabs]') ||
+      fullMessage.includes('[CallDetailModalSidebar]') ||
       fullMessage.includes('EVENTO RECIBIDO') ||
       fullMessage.includes('Cambio en keys') ||
       fullMessage.includes('Estado actualizado') ||
       fullMessage.includes('pausas activas') ||
-      fullMessage.includes('Cambio detectado')) {
+      fullMessage.includes('Cambio detectado') ||
+      fullMessage.includes('Verificando permisos') ||
+      fullMessage.includes('Cargando contador de mensajes') ||
+      fullMessage.includes('Contador de mensajes:') ||
+      fullMessage.includes('Render Debug') ||
+      fullMessage.includes('Prospecto data (useEffect)') ||
+      fullMessage.includes('Cargando detalle de llamada:') ||
+      fullMessage.includes('[ProspectDetailSidebar]') ||
+      fullMessage.includes('Estados del modal actualizados') ||
+      fullMessage.includes('Prospecto cargado:') ||
+      fullMessage.includes('handleOpenCallDetail llamado') ||
+      fullMessage.includes('Estados actualizados - selectedCallId') ||
+      fullMessage.includes('Abriendo CallDetailModalSidebar') ||
+      fullMessage.includes('Cerrando CallDetailModalSidebar') ||
+      fullMessage.includes('Cambiando llamada a:')) {
+    return;
+  }
+  
+  // Silenciar mensaje de React DevTools
+  if (fullMessage.includes('Download the React DevTools') ||
+      fullMessage.includes('react.dev/link/react-devtools')) {
     return;
   }
   
@@ -87,7 +137,10 @@ window.fetch = async function(...args: any[]) {
   const url = args[0]?.toString() || '';
   
   // Interceptar peticiones a tablas que no existen (se manejan con datos mock)
-  if (url.includes('/rest/v1/tools') || url.includes('/rest/v1/agent_templates')) {
+  if (url.includes('/rest/v1/tools') || 
+      url.includes('/rest/v1/agent_templates') ||
+      url.includes('/rest/v1/coordinaciones') ||
+      url.includes('/rest/v1/ejecutivos')) {
     try {
       const response = await originalFetch.apply(window, args);
       
@@ -128,7 +181,10 @@ if (window.XMLHttpRequest) {
     const url = this._url || '';
     
     // Interceptar peticiones a tablas que no existen
-    if (url.includes('/rest/v1/tools') || url.includes('/rest/v1/agent_templates')) {
+    if (url.includes('/rest/v1/tools') || 
+        url.includes('/rest/v1/agent_templates') ||
+        url.includes('/rest/v1/coordinaciones') ||
+        url.includes('/rest/v1/ejecutivos')) {
       this.addEventListener('error', (event) => {
         // Prevenir que el error se muestre en consola
         event.stopPropagation();
@@ -154,14 +210,20 @@ console.error = (...args: any[]) => {
   
   // Silenciar errores 404 de Supabase para tablas que no existen (se manejan con datos mock)
   if ((message.includes('404') || fullMessage.includes('404')) && 
-      (fullMessage.includes('tools') || fullMessage.includes('agent_templates') || 
+      (fullMessage.includes('tools') || 
+       fullMessage.includes('agent_templates') || 
+       fullMessage.includes('coordinaciones') ||
+       fullMessage.includes('ejecutivos') ||
        fullMessage.includes('Not Found'))) {
     return;
   }
   
   // Silenciar errores de red 404 de Supabase REST API
   if (fullMessage.includes('GET') && fullMessage.includes('404') && 
-      (fullMessage.includes('/rest/v1/tools') || fullMessage.includes('/rest/v1/agent_templates'))) {
+      (fullMessage.includes('/rest/v1/tools') || 
+       fullMessage.includes('/rest/v1/agent_templates') ||
+       fullMessage.includes('/rest/v1/coordinaciones') ||
+       fullMessage.includes('/rest/v1/ejecutivos'))) {
     return;
   }
   

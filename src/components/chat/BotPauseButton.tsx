@@ -7,6 +7,8 @@ interface BotPauseButtonProps {
   timeRemaining: number | null; // segundos restantes
   onPause: (uchatId: string, durationMinutes: number | null, force: boolean) => Promise<boolean>;
   onResume: (uchatId: string) => Promise<boolean>;
+  showUpward?: boolean; // Si true, el dropdown aparece hacia arriba
+  fullWidth?: boolean; // Si true, el botón ocupa todo el ancho disponible
 }
 
 const PAUSE_OPTIONS = [
@@ -23,11 +25,14 @@ const BotPauseButton: React.FC<BotPauseButtonProps> = ({
   timeRemaining,
   onPause,
   onResume,
+  showUpward = false,
+  fullWidth = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [displayTime, setDisplayTime] = useState<string>('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Formatear tiempo para mostrar en el botón
   const formatCompactTime = (seconds: number | null): string => {
@@ -62,6 +67,23 @@ const BotPauseButton: React.FC<BotPauseButtonProps> = ({
     }
   }, [isPaused, timeRemaining]);
 
+  // Detectar si el botón está cerca del borde inferior para mostrar dropdown hacia arriba
+  const [shouldShowUpward, setShouldShowUpward] = useState(showUpward);
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current && !showUpward) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const dropdownHeight = 200; // Altura aproximada del dropdown
+      
+      // Si hay menos de 220px de espacio debajo, mostrar hacia arriba
+      setShouldShowUpward(spaceBelow < dropdownHeight + 20);
+    } else {
+      setShouldShowUpward(showUpward);
+    }
+  }, [isOpen, showUpward]);
+
   // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -94,13 +116,14 @@ const BotPauseButton: React.FC<BotPauseButtonProps> = ({
   };
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className={`relative ${fullWidth ? 'w-full' : ''}`}>
       {/* Botón principal */}
       <motion.button
+        ref={buttonRef}
         key={isPaused ? 'paused' : 'active'}
         onClick={handleMainButtonClick}
         disabled={isLoading}
-        className={`relative w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden ${
+        className={`relative ${fullWidth ? 'w-full' : 'w-10'} ${fullWidth ? 'py-2.5' : 'aspect-square'} rounded-xl flex items-center justify-center overflow-hidden ${
           isPaused
             ? 'bg-gradient-to-br from-orange-500 to-red-500 shadow-lg shadow-orange-500/40'
             : isOpen
@@ -205,11 +228,11 @@ const BotPauseButton: React.FC<BotPauseButtonProps> = ({
       <AnimatePresence>
         {isOpen && !isPaused && (
           <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            initial={{ opacity: 0, y: shouldShowUpward ? 10 : -10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            exit={{ opacity: 0, y: shouldShowUpward ? 10 : -10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute top-full right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-slate-200 dark:border-gray-700 overflow-hidden z-50"
+            className={`absolute ${shouldShowUpward ? 'bottom-full right-0 mb-2' : 'top-full right-0 mt-2'} w-40 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-slate-200 dark:border-gray-700 overflow-hidden z-50`}
           >
             <div className="p-1.5">
               <div className="px-3 py-2 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">
