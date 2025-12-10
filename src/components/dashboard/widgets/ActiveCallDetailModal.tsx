@@ -1,6 +1,9 @@
 /**
  * Modal de Detalle de Llamada Activa para Dashboard
  * Versión optimizada del modal de LiveMonitor con suscripciones realtime
+ * 
+ * ACTUALIZACIÓN: Añadido monitoreo de audio en tiempo real vía WebSocket VAPI
+ * Formato: PCM 16-bit signed little-endian @ 16kHz mono (o μ-law 8kHz)
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -8,11 +11,113 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Phone, User, Globe, MessageSquare, 
   TrendingUp, Calendar,
-  ArrowRightLeft, RotateCcw, CheckCircle, Loader2, Wand2
+  ArrowRightLeft, RotateCcw, CheckCircle, Loader2, Wand2,
+  Headphones, Volume2, VolumeX, Waves
 } from 'lucide-react';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { type LiveCallData } from '../../../services/liveMonitorService';
 import { Avatar } from '../../shared/Avatar';
+
+// ============================================
+// CONSTANTES DE CONFIGURACIÓN DE AUDIO
+// ============================================
+const AUDIO_CONFIG = {
+  // VAPI envía PCM 16-bit estéreo intercalado
+  SAMPLE_RATE: 16000,
+  // Tamaño mínimo de chunk para procesar
+  MIN_CHUNK_SIZE: 320,
+  // Volumen por defecto (master)
+  DEFAULT_VOLUME: 1.0,
+  // Ganancia por defecto por canal
+  DEFAULT_LEFT_GAIN: 1.0,   // Canal izquierdo: Agente IA
+  DEFAULT_RIGHT_GAIN: 6.0,  // Canal derecho: Humano/Cliente
+  // Latency hint para AudioContext
+  LATENCY_HINT: 'interactive' as AudioContextLatencyCategory,
+  // Keys para localStorage
+  STORAGE_KEY_LEFT: 'pqnc_audio_left_gain',
+  STORAGE_KEY_RIGHT: 'pqnc_audio_right_gain',
+};
+
+/**
+ * Obtiene la ganancia guardada en localStorage o el valor por defecto
+ */
+const getStoredGain = (key: string, defaultValue: number): number => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored !== null) {
+      const value = parseFloat(stored);
+      if (!isNaN(value) && value >= 0 && value <= 10) {
+        return value;
+      }
+    }
+  } catch {
+    // localStorage no disponible
+  }
+  return defaultValue;
+};
+
+/**
+ * Guarda la ganancia en localStorage
+ */
+const setStoredGain = (key: string, value: number): void => {
+  try {
+    localStorage.setItem(key, value.toString());
+  } catch {
+    // localStorage no disponible
+  }
+};
+
+// Tabla de conversión μ-law a PCM lineal (si el audio viene en ese formato)
+const MULAW_TO_LINEAR: Int16Array = new Int16Array([
+  -32124, -31100, -30076, -29052, -28028, -27004, -25980, -24956,
+  -23932, -22908, -21884, -20860, -19836, -18812, -17788, -16764,
+  -15996, -15484, -14972, -14460, -13948, -13436, -12924, -12412,
+  -11900, -11388, -10876, -10364, -9852, -9340, -8828, -8316,
+  -7932, -7676, -7420, -7164, -6908, -6652, -6396, -6140,
+  -5884, -5628, -5372, -5116, -4860, -4604, -4348, -4092,
+  -3900, -3772, -3644, -3516, -3388, -3260, -3132, -3004,
+  -2876, -2748, -2620, -2492, -2364, -2236, -2108, -1980,
+  -1884, -1820, -1756, -1692, -1628, -1564, -1500, -1436,
+  -1372, -1308, -1244, -1180, -1116, -1052, -988, -924,
+  -876, -844, -812, -780, -748, -716, -684, -652,
+  -620, -588, -556, -524, -492, -460, -428, -396,
+  -372, -356, -340, -324, -308, -292, -276, -260,
+  -244, -228, -212, -196, -180, -164, -148, -132,
+  -120, -112, -104, -96, -88, -80, -72, -64,
+  -56, -48, -40, -32, -24, -16, -8, 0,
+  32124, 31100, 30076, 29052, 28028, 27004, 25980, 24956,
+  23932, 22908, 21884, 20860, 19836, 18812, 17788, 16764,
+  15996, 15484, 14972, 14460, 13948, 13436, 12924, 12412,
+  11900, 11388, 10876, 10364, 9852, 9340, 8828, 8316,
+  7932, 7676, 7420, 7164, 6908, 6652, 6396, 6140,
+  5884, 5628, 5372, 5116, 4860, 4604, 4348, 4092,
+  3900, 3772, 3644, 3516, 3388, 3260, 3132, 3004,
+  2876, 2748, 2620, 2492, 2364, 2236, 2108, 1980,
+  1884, 1820, 1756, 1692, 1628, 1564, 1500, 1436,
+  1372, 1308, 1244, 1180, 1116, 1052, 988, 924,
+  876, 844, 812, 780, 748, 716, 684, 652,
+  620, 588, 556, 524, 492, 460, 428, 396,
+  372, 356, 340, 324, 308, 292, 276, 260,
+  244, 228, 212, 196, 180, 164, 148, 132,
+  120, 112, 104, 96, 88, 80, 72, 64,
+  56, 48, 40, 32, 24, 16, 8, 0
+]);
+
+/**
+ * Decodifica audio μ-law a PCM lineal 16-bit
+ */
+const decodeMulaw = (mulawData: Uint8Array): Int16Array => {
+  const pcmData = new Int16Array(mulawData.length);
+  for (let i = 0; i < mulawData.length; i++) {
+    pcmData[i] = MULAW_TO_LINEAR[mulawData[i]];
+  }
+  return pcmData;
+};
+
+/**
+ * VAPI/Twilio SIEMPRE envía audio en formato μ-law (G.711 PCMU) a 8kHz
+ * Este es el estándar de telefonía. No necesitamos detectar formato.
+ */
 
 interface ActiveCallDetailModalProps {
   call: LiveCallData;
@@ -36,6 +141,37 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
   const conversationScrollRef = useRef<HTMLDivElement>(null);
   const userScrolledAwayRef = useRef<boolean>(false);
   const realtimeChannelRef = useRef<any>(null);
+  
+  // ============================================
+  // ESTADOS DE MONITOREO DE AUDIO
+  // ============================================
+  const [isListening, setIsListening] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioVolume, setAudioVolume] = useState(AUDIO_CONFIG.DEFAULT_VOLUME);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioStats, setAudioStats] = useState({ chunks: 0 });
+  // Ganancia por canal (persistida en localStorage)
+  const [leftGain, setLeftGain] = useState(() => 
+    getStoredGain(AUDIO_CONFIG.STORAGE_KEY_LEFT, AUDIO_CONFIG.DEFAULT_LEFT_GAIN)
+  );
+  const [rightGain, setRightGain] = useState(() => 
+    getStoredGain(AUDIO_CONFIG.STORAGE_KEY_RIGHT, AUDIO_CONFIG.DEFAULT_RIGHT_GAIN)
+  );
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
+  
+  // Refs para audio
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioWebSocketRef = useRef<WebSocket | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const audioChunkCountRef = useRef(0);
+  // Sistema de buffering para reproducción fluida
+  const nextPlayTimeRef = useRef<number>(0);
+  const isBufferingRef = useRef<boolean>(true);
+  const audioBufferQueueRef = useRef<AudioBuffer[]>([]);
+  const BUFFER_THRESHOLD = 3; // Acumular 3 chunks antes de empezar (~60ms)
+  // Refs para ganancia por canal (para acceso en tiempo real)
+  const leftGainRef = useRef(leftGain);
+  const rightGainRef = useRef(rightGain);
   
   // Estados para transferencia
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -73,6 +209,324 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
       full: 'Mi supervisor estaba escuchando la llamada y quiere darle un beneficio exclusivo inmediatamente'
     }
   ];
+
+  // ============================================
+  // FUNCIONES DE AUDIO EN TIEMPO REAL
+  // ============================================
+  
+  /**
+   * Inicializa el AudioContext con configuración optimizada para VoIP
+   * NO especificamos sample rate - dejamos que el navegador use su nativo (típicamente 48kHz)
+   * El resampling de 8kHz a 48kHz se hace al crear el AudioBuffer
+   */
+  const initAudioContext = useCallback(() => {
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      return audioContextRef.current;
+    }
+    
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      // NO especificamos sampleRate - el navegador usará su nativo (48kHz típicamente)
+      // Esto permite que el resampling sea manejado correctamente
+      const ctx = new AudioContextClass({
+        latencyHint: AUDIO_CONFIG.LATENCY_HINT
+      });
+      
+      console.log(`[AudioMonitor] AudioContext creado @ ${ctx.sampleRate}Hz`);
+      
+      // Crear nodo de ganancia para control de volumen
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = audioVolume;
+      gainNode.connect(ctx.destination);
+      
+      audioContextRef.current = ctx;
+      gainNodeRef.current = gainNode;
+      
+      return ctx;
+    } catch (error) {
+      console.error('[AudioMonitor] Error inicializando AudioContext:', error);
+      setAudioError('No se pudo inicializar el sistema de audio');
+      return null;
+    }
+  }, [audioVolume]);
+
+  /**
+   * Programa la reproducción de un AudioBuffer con timing preciso
+   * Evita gaps entre chunks usando scheduling del AudioContext
+   */
+  const scheduleAudioPlayback = useCallback((audioBuffer: AudioBuffer) => {
+    const ctx = audioContextRef.current;
+    const gainNode = gainNodeRef.current;
+    
+    if (!ctx || !gainNode) return;
+    
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(gainNode);
+    
+    // Calcular el tiempo de inicio preciso
+    const now = ctx.currentTime;
+    const startTime = Math.max(now, nextPlayTimeRef.current);
+    
+    // Programar reproducción
+    source.start(startTime);
+    
+    // Actualizar el próximo tiempo de reproducción
+    nextPlayTimeRef.current = startTime + audioBuffer.duration;
+    
+    // Indicador visual
+    setIsAudioPlaying(true);
+  }, []);
+
+  /**
+   * Procesa la cola de buffers acumulados
+   */
+  const processBufferQueue = useCallback(() => {
+    while (audioBufferQueueRef.current.length > 0) {
+      const buffer = audioBufferQueueRef.current.shift();
+      if (buffer) {
+        scheduleAudioPlayback(buffer);
+      }
+    }
+  }, [scheduleAudioPlayback]);
+
+  /**
+   * Procesa y reproduce un chunk de audio PCM ESTÉREO INTERCALADO
+   * VAPI envía PCM 16-bit signed little-endian estéreo:
+   * - Canal Izquierdo (samples pares): Agente IA
+   * - Canal Derecho (samples impares): Cliente
+   * 
+   * Usa buffering y scheduling preciso para reproducción fluida
+   */
+  const processAudioChunk = useCallback(async (audioData: ArrayBuffer) => {
+    const ctx = audioContextRef.current;
+    const gainNode = gainNodeRef.current;
+    
+    if (!ctx || !gainNode) return;
+    
+    // Asegurarse de que el contexto está activo
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
+    try {
+      const chunkSize = audioData.byteLength;
+      
+      // Ignorar chunks muy pequeños (pueden ser metadata o control)
+      if (chunkSize < AUDIO_CONFIG.MIN_CHUNK_SIZE) {
+        return;
+      }
+      
+      // Actualizar estadísticas (cada 100 chunks para no saturar)
+      audioChunkCountRef.current++;
+      if (audioChunkCountRef.current % 100 === 0) {
+        setAudioStats({ chunks: audioChunkCountRef.current });
+      }
+      
+      // PCM 16-bit signed little-endian ESTÉREO INTERCALADO
+      const pcmSamples = new Int16Array(audioData);
+      const totalSamples = pcmSamples.length;
+      
+      if (totalSamples < 2) return;
+      
+      // Calcular samples por canal (estéreo intercalado: L R L R L R...)
+      const samplesPerChannel = Math.floor(totalSamples / 2);
+      
+      // Crear buffer de audio ESTÉREO (2 canales)
+      const audioBuffer = ctx.createBuffer(2, samplesPerChannel, AUDIO_CONFIG.SAMPLE_RATE);
+      const leftChannel = audioBuffer.getChannelData(0);  // Agente IA
+      const rightChannel = audioBuffer.getChannelData(1); // Cliente
+      
+      // Separar canales intercalados y convertir a float32
+      // Usar refs para obtener valores actualizados en tiempo real
+      const currentLeftGain = leftGainRef.current;
+      const currentRightGain = rightGainRef.current;
+      
+      for (let i = 0; i < samplesPerChannel; i++) {
+        // Canal izquierdo (Agente IA) - samples en posiciones pares
+        let leftSample = (pcmSamples[i * 2] / 32768.0) * currentLeftGain;
+        // Canal derecho (Cliente/Humano) - samples en posiciones impares
+        let rightSample = (pcmSamples[i * 2 + 1] / 32768.0) * currentRightGain;
+        
+        // Soft clipping para evitar distorsión
+        leftSample = Math.max(-0.98, Math.min(0.98, leftSample));
+        rightSample = Math.max(-0.98, Math.min(0.98, rightSample));
+        
+        leftChannel[i] = leftSample;
+        rightChannel[i] = rightSample;
+      }
+      
+      // Sistema de buffering para reproducción fluida
+      if (isBufferingRef.current) {
+        // Acumular en la cola
+        audioBufferQueueRef.current.push(audioBuffer);
+        
+        // Cuando tengamos suficientes chunks, empezar reproducción
+        if (audioBufferQueueRef.current.length >= BUFFER_THRESHOLD) {
+          isBufferingRef.current = false;
+          nextPlayTimeRef.current = ctx.currentTime + 0.05; // Pequeño delay inicial
+          processBufferQueue();
+        }
+      } else {
+        // Reproducción directa con scheduling
+        scheduleAudioPlayback(audioBuffer);
+      }
+      
+    } catch (error) {
+      console.error('[AudioMonitor] Error procesando chunk de audio:', error);
+    }
+  }, [scheduleAudioPlayback, processBufferQueue]);
+
+  /**
+   * Inicia la conexión WebSocket para escuchar el audio de la llamada
+   */
+  const startAudioMonitoring = useCallback(async () => {
+    // Verificar que tenemos monitor_url
+    const monitorUrl = currentCall.monitor_url;
+    
+    if (!monitorUrl) {
+      setAudioError('Esta llamada no tiene URL de monitoreo disponible');
+      return;
+    }
+    
+    // Limpiar error anterior
+    setAudioError(null);
+    
+    // Inicializar AudioContext
+    const ctx = initAudioContext();
+    if (!ctx) return;
+    
+    // Asegurarse de que el contexto está activo (requiere interacción del usuario)
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
+    try {
+      // Crear conexión WebSocket
+      const ws = new WebSocket(monitorUrl);
+      ws.binaryType = 'arraybuffer';
+      
+      ws.onopen = () => {
+        console.log(`[AudioMonitor] ✅ Conexión WebSocket establecida - PCM estéreo @ ${AUDIO_CONFIG.SAMPLE_RATE}Hz con buffering`);
+        setIsListening(true);
+        audioChunkCountRef.current = 0;
+        setAudioStats({ chunks: 0 });
+        // Resetear sistema de buffering
+        isBufferingRef.current = true;
+        audioBufferQueueRef.current = [];
+        nextPlayTimeRef.current = 0;
+      };
+      
+      ws.onmessage = async (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          // Audio binario directo
+          await processAudioChunk(event.data);
+        } else if (event.data instanceof Blob) {
+          // Convertir Blob a ArrayBuffer
+          const arrayBuffer = await event.data.arrayBuffer();
+          await processAudioChunk(arrayBuffer);
+        } else {
+          // Mensaje de control JSON (ignorar silenciosamente)
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'error') {
+              console.warn('[AudioMonitor] Error del servidor:', msg.message);
+            }
+          } catch {
+            // No es JSON, ignorar
+          }
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('[AudioMonitor] ❌ Error WebSocket:', error);
+        setAudioError('Error en la conexión de audio. La llamada puede haber terminado.');
+        setIsListening(false);
+      };
+      
+      ws.onclose = (event) => {
+        console.log('[AudioMonitor] WebSocket cerrado:', event.code, event.reason);
+        setIsListening(false);
+        audioWebSocketRef.current = null;
+        
+        // Si se cerró inesperadamente, mostrar mensaje
+        if (event.code !== 1000 && event.code !== 1001) {
+          setAudioError('La conexión de audio se cerró inesperadamente');
+        }
+      };
+      
+      audioWebSocketRef.current = ws;
+      
+    } catch (error) {
+      console.error('[AudioMonitor] Error iniciando monitoreo:', error);
+      setAudioError('No se pudo iniciar el monitoreo de audio');
+    }
+  }, [currentCall.monitor_url, initAudioContext, processAudioChunk]);
+
+  /**
+   * Detiene el monitoreo de audio y limpia recursos
+   */
+  const stopAudioMonitoring = useCallback(() => {
+    // Cerrar WebSocket
+    if (audioWebSocketRef.current) {
+      audioWebSocketRef.current.close(1000, 'Usuario detuvo el monitoreo');
+      audioWebSocketRef.current = null;
+    }
+    
+    // Cerrar AudioContext
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    
+    gainNodeRef.current = null;
+    setIsListening(false);
+    setIsAudioPlaying(false);
+    setAudioError(null);
+    audioChunkCountRef.current = 0;
+  }, []);
+
+  /**
+   * Toggle del monitoreo de audio
+   */
+  const toggleAudioMonitoring = useCallback(() => {
+    if (isListening) {
+      stopAudioMonitoring();
+    } else {
+      startAudioMonitoring();
+    }
+  }, [isListening, startAudioMonitoring, stopAudioMonitoring]);
+
+  /**
+   * Actualizar volumen master en tiempo real
+   */
+  useEffect(() => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = audioVolume;
+    }
+  }, [audioVolume]);
+
+  /**
+   * Sincronizar refs de ganancia por canal y guardar en localStorage
+   */
+  useEffect(() => {
+    leftGainRef.current = leftGain;
+    setStoredGain(AUDIO_CONFIG.STORAGE_KEY_LEFT, leftGain);
+  }, [leftGain]);
+
+  useEffect(() => {
+    rightGainRef.current = rightGain;
+    setStoredGain(AUDIO_CONFIG.STORAGE_KEY_RIGHT, rightGain);
+  }, [rightGain]);
+
+  /**
+   * Cleanup al cerrar el modal
+   */
+  useEffect(() => {
+    return () => {
+      stopAudioMonitoring();
+    };
+  }, [stopAudioMonitoring]);
 
   // Parsear conversación desde el campo conversacion_completa
   // Formato esperado: { conversacion: "[timestamp] speaker: message\n..." }
@@ -758,8 +1212,133 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
                     Interés: {currentCall.nivel_interes}
                   </span>
                 )}
+                
+                {/* Estadísticas de audio cuando está escuchando */}
+                {isListening && (
+                  <motion.span 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                  >
+                    <Waves className={`w-3 h-3 ${isAudioPlaying ? 'animate-pulse' : ''}`} />
+                    {audioStats.chunks > 0 && `${audioStats.chunks} chunks`}
+                  </motion.span>
+                )}
               </div>
+              
               <div className="flex items-center gap-3">
+                {/* Panel de Control de Audio (solo visible cuando está escuchando) */}
+                {isListening && (
+                  <motion.div 
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    className="flex items-center gap-3"
+                  >
+                    {/* Botón para mostrar/ocultar controles avanzados */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowAudioSettings(!showAudioSettings)}
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        showAudioSettings 
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' 
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500'
+                      }`}
+                      title="Configuración de audio por canal"
+                    >
+                      <Waves className="w-4 h-4" />
+                    </motion.button>
+                    
+                    {/* Controles avanzados por canal */}
+                    <AnimatePresence>
+                      {showAudioSettings && (
+                        <motion.div
+                          initial={{ opacity: 0, width: 0 }}
+                          animate={{ opacity: 1, width: 'auto' }}
+                          exit={{ opacity: 0, width: 0 }}
+                          className="flex items-center gap-4 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-xl"
+                        >
+                          {/* Canal Izquierdo - Agente IA */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400 whitespace-nowrap">🤖 IA</span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="3"
+                              step="0.1"
+                              value={leftGain}
+                              onChange={(e) => setLeftGain(parseFloat(e.target.value))}
+                              className="w-16 h-1.5 bg-blue-200 dark:bg-blue-900 rounded-full appearance-none cursor-pointer accent-blue-500"
+                              title={`Agente IA: ${Math.round(leftGain * 100)}%`}
+                            />
+                            <span className="text-xs text-gray-500 w-8">{Math.round(leftGain * 100)}%</span>
+                          </div>
+                          
+                          {/* Canal Derecho - Cliente/Humano */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap">👤 Humano</span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="10"
+                              step="0.5"
+                              value={rightGain}
+                              onChange={(e) => setRightGain(parseFloat(e.target.value))}
+                              className="w-16 h-1.5 bg-emerald-200 dark:bg-emerald-900 rounded-full appearance-none cursor-pointer accent-emerald-500"
+                              title={`Humano: ${Math.round(rightGain * 100)}%`}
+                            />
+                            <span className="text-xs text-gray-500 w-8">{Math.round(rightGain * 100)}%</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    
+                    {/* Volumen Master */}
+                    <div className="flex items-center gap-1">
+                      <VolumeX className="w-3.5 h-3.5 text-gray-400" />
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value={audioVolume}
+                        onChange={(e) => setAudioVolume(parseFloat(e.target.value))}
+                        className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-pointer accent-gray-500"
+                        title={`Master: ${Math.round(audioVolume * 100)}%`}
+                      />
+                      <Volume2 className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                  </motion.div>
+                )}
+                
+                {/* Botón de Monitoreo de Audio - Solo para llamadas activas con monitor_url */}
+                {currentCall.call_status === 'activa' && currentCall.monitor_url && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={toggleAudioMonitoring}
+                    className={`px-4 py-2 text-sm font-medium rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 ${
+                      isListening
+                        ? 'text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-500/25'
+                        : 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
+                    }`}
+                    title={isListening ? 'Detener escucha' : 'Escuchar llamada en tiempo real'}
+                  >
+                    {isListening ? (
+                      <>
+                        <Headphones className={`w-4 h-4 ${isAudioPlaying ? 'animate-pulse' : ''}`} />
+                        Escuchando...
+                      </>
+                    ) : (
+                      <>
+                        <Headphones className="w-4 h-4" />
+                        Escuchar
+                      </>
+                    )}
+                  </motion.button>
+                )}
+                
                 {/* Botón de Solicitar Transferencia - Solo para llamadas activas */}
                 {currentCall.call_status === 'activa' && (
                   <motion.button
@@ -792,6 +1371,27 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
                 </motion.button>
               </div>
             </div>
+            
+            {/* Mensaje de error de audio */}
+            <AnimatePresence>
+              {audioError && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-3 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 flex items-center gap-2"
+                >
+                  <VolumeX className="w-4 h-4 flex-shrink-0" />
+                  {audioError}
+                  <button
+                    onClick={() => setAudioError(null)}
+                    className="ml-auto text-amber-500 hover:text-amber-700 dark:hover:text-amber-300"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
       </motion.div>
