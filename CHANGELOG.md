@@ -2,6 +2,9 @@
 
 ## Historial de Versiones
 
+### v2.1.4 (2025-12-09 18:34)
+**Descripción**: B4.3.0: Audio monitoring con canales corregidos y escala de volumen ajustada
+
 ### v2.1.3 (2025-12-09 18:09)
 **Descripción**: B4.3.0N6.0.0: Monitoreo de audio en tiempo real para llamadas activas
 
