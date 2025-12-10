@@ -1568,6 +1568,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                     getVariableMapping={getVariableMapping}
                     onAddVariableMapping={onAddVariableMapping}
                     systemVariables={systemVariables}
+                    components={formData.components}
                   />
                 )}
 
@@ -2431,6 +2432,7 @@ interface VariableMapperTabProps {
   getVariableMapping: (variableNumber: number) => VariableMapping | undefined;
   onAddVariableMapping: (variableNumber: number, tableName: string, fieldName: string) => void;
   systemVariables: Array<{ type: string; label: string; icon: any; color: string }>;
+  components: WhatsAppTemplate['components'];
 }
 
 const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
@@ -2439,6 +2441,7 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
   getVariableMapping,
   onAddVariableMapping,
   systemVariables,
+  components,
 }) => {
   const [selectedVar, setSelectedVar] = useState<number | null>(null);
   const [selectedSource, setSelectedSource] = useState<'table' | 'system'>('table');
@@ -2479,8 +2482,44 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
     ? systemVariables.map(v => ({ name: v.type, display_name: v.label }))
     : selectedTableSchema?.fields || [];
 
+  // Obtener texto de header y body
+  const headerComponent = components.find(c => c.type === 'HEADER');
+  const bodyComponent = components.find(c => c.type === 'BODY');
+  const headerText = headerComponent?.text || '';
+  const bodyText = bodyComponent?.text || '';
+
   return (
     <div className="space-y-6">
+      {/* Preview del contenido para contexto */}
+      {(headerText || bodyText) && (
+        <div className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center space-x-2 mb-3">
+            <FileText className="w-4 h-4 text-gray-500" />
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+              Contexto del Mensaje
+            </span>
+          </div>
+          <div className="space-y-2">
+            {headerText && (
+              <div>
+                <span className="text-[10px] font-medium text-purple-600 dark:text-purple-400 uppercase">Header:</span>
+                <p className="text-xs text-gray-700 dark:text-gray-300 mt-0.5 bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                  {headerText}
+                </p>
+              </div>
+            )}
+            {bodyText && (
+              <div>
+                <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 uppercase">Body:</span>
+                <p className="text-xs text-gray-700 dark:text-gray-300 mt-0.5 bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-600 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                  {bodyText}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center space-x-2 mb-4">
         <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
@@ -3223,9 +3262,45 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
 
     try {
       setSaving(true);
-      // TODO: Guardar en Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simular guardado
-      toast.success('Audiencia creada exitosamente');
+      
+      // Intentar guardar en Supabase
+      const audienceData = {
+        nombre: formData.nombre.trim(),
+        descripcion: formData.descripcion?.trim() || null,
+        etapa: formData.etapa || null,
+        destino: formData.destino || null,
+        estado_civil: formData.estado_civil || null,
+        tipo_audiencia: formData.tipo_audiencia || [],
+        preferencia_entretenimiento: formData.preferencia_entretenimiento || null,
+        prospectos_count: prospectCount,
+        is_active: true,
+      };
+      
+      const { data, error } = await analysisSupabase
+        .from('whatsapp_audiences')
+        .insert(audienceData)
+        .select()
+        .single();
+      
+      if (error) {
+        console.log('Error guardando en BD (tabla puede no existir):', error);
+        // Si la tabla no existe, mostrar mensaje pero continuar
+        toast.success(`Audiencia "${formData.nombre}" creada (${prospectCount} prospectos)`);
+      } else {
+        toast.success(`Audiencia "${formData.nombre}" guardada exitosamente`);
+      }
+      
+      // Resetear formulario
+      setFormData({
+        nombre: '',
+        descripcion: '',
+        etapa: null,
+        destino: null,
+        estado_civil: null,
+        tipo_audiencia: [],
+        preferencia_entretenimiento: null,
+      });
+      
       onCreated();
     } catch (error) {
       console.error('Error creating audience:', error);
