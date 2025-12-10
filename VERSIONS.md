@@ -1,5 +1,22 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.3.6N6.0.0 (Diciembre 2025) - Corrección de Filtros de Audiencias
+
+### 🎯 RELEASE BETA - Filtros con Datos Reales de BD
+
+#### Corrección de Filtros
+- `destino_preferido`: Valores en formato BD (nuevo_vallarta, riviera_maya, etc.)
+- `estado_civil`: Se obtiene de tabla `prospectos` (Casado, Soltero, etc.)
+- `preferencia_vacaciones`: Filtro corregido con `contains` en array
+
+#### Lógica de Conteo
+1. Filtrar por `llamadas_ventas` (destino, preferencia)
+2. Obtener prospectos únicos
+3. Filtrar por `prospectos` (etapa, estado_civil)
+4. Contar resultado final
+
+---
+
 ## Versión B4.3.5N6.0.0 (Diciembre 2025) - Optimización de Catálogo y Contadores
 
 ### 🎯 RELEASE BETA - Rendimiento y Datos Reales

@@ -3128,75 +3128,79 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
   const [countingProspects, setCountingProspects] = useState(false);
 
   // Calcular prospectos en tiempo real desde la BD
-  // Los filtros de destino, estado_civil y preferencia se obtienen de llamadas_ventas
+  // - estado_civil → tabla prospectos
+  // - destino_preferido, preferencia_vacaciones → tabla llamadas_ventas
   useEffect(() => {
     const countProspects = async () => {
       setCountingProspects(true);
       try {
-        const hasLlamadasFilters = formData.destino || formData.estado_civil || formData.preferencia_entretenimiento;
+        const hasLlamadasFilters = formData.destino || formData.preferencia_entretenimiento;
+        const hasProspectosFilters = formData.etapa || formData.estado_civil;
         
+        let prospectosIds: string[] | null = null;
+        
+        // 1. Filtrar por llamadas_ventas si hay filtros
         if (hasLlamadasFilters) {
-          // Consultar llamadas_ventas con los filtros y obtener prospectos únicos
           let query = analysisSupabase
             .from('llamadas_ventas')
             .select('prospecto');
           
-          // Filtro de destino
+          // Filtro de destino (valor ya viene en formato de BD: nuevo_vallarta)
           if (formData.destino) {
-            // Normalizar el destino para coincidir con el formato de la BD
-            const destinoNormalizado = formData.destino.toLowerCase().replace(/ /g, '_');
-            query = query.eq('destino_preferido', destinoNormalizado);
+            query = query.eq('destino_preferido', formData.destino);
           }
           
-          // Filtro de estado civil
-          if (formData.estado_civil) {
-            const estadoCivilNormalizado = formData.estado_civil.toLowerCase().replace(/ /g, '_');
-            query = query.eq('estado_civil', estadoCivilNormalizado);
-          }
-          
-          // Filtro de preferencia de entretenimiento (buscar en el array)
+          // Filtro de preferencia de entretenimiento
           if (formData.preferencia_entretenimiento) {
-            const prefNormalizada = formData.preferencia_entretenimiento.toLowerCase();
-            query = query.contains('preferencia_vacaciones', [prefNormalizada]);
+            query = query.contains('preferencia_vacaciones', [formData.preferencia_entretenimiento]);
           }
           
           const { data, error } = await query;
           
           if (error) {
-            console.error('Error counting from llamadas_ventas:', error);
+            console.error('Error querying llamadas_ventas:', error);
             setProspectCount(0);
-          } else if (data) {
-            // Obtener prospectos únicos
-            const prospectosUnicos = new Set(data.map(d => d.prospecto).filter(Boolean));
-            
-            // Si también hay filtro de etapa, filtrar por eso
-            if (formData.etapa && prospectosUnicos.size > 0) {
-              const { count } = await analysisSupabase
-                .from('prospectos')
-                .select('id', { count: 'exact', head: true })
-                .in('id', Array.from(prospectosUnicos))
-                .eq('etapa', formData.etapa);
-              setProspectCount(count || 0);
-            } else {
-              setProspectCount(prospectosUnicos.size);
-            }
+            setCountingProspects(false);
+            return;
           }
+          
+          // Obtener prospectos únicos
+          prospectosIds = [...new Set(data?.map(d => d.prospecto).filter(Boolean) || [])];
+          
+          if (prospectosIds.length === 0) {
+            setProspectCount(0);
+            setCountingProspects(false);
+            return;
+          }
+        }
+        
+        // 2. Filtrar por prospectos
+        let query = analysisSupabase
+          .from('prospectos')
+          .select('id', { count: 'exact', head: true });
+        
+        // Si tenemos IDs de llamadas_ventas, filtrar por ellos
+        if (prospectosIds) {
+          query = query.in('id', prospectosIds);
+        }
+        
+        // Filtro de etapa
+        if (formData.etapa) {
+          query = query.eq('etapa', formData.etapa);
+        }
+        
+        // Filtro de estado civil (valor ya viene en formato de BD: Casado)
+        if (formData.estado_civil) {
+          query = query.eq('estado_civil', formData.estado_civil);
+        }
+        
+        const { count, error } = await query;
+        
+        if (error) {
+          console.error('Error counting prospectos:', error);
+          setProspectCount(0);
         } else {
-          // Sin filtros de llamadas_ventas, solo filtrar por etapa en prospectos
-          let query = analysisSupabase.from('prospectos').select('id', { count: 'exact', head: true });
-          
-          if (formData.etapa) {
-            query = query.eq('etapa', formData.etapa);
-          }
-          
-          const { count, error } = await query;
-          
-          if (error) {
-            console.error('Error counting prospects:', error);
-            setProspectCount(0);
-          } else {
-            setProspectCount(count || 0);
-          }
+          setProspectCount(count || 0);
         }
       } catch (err) {
         console.error('Error in countProspects:', err);

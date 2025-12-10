@@ -35,25 +35,25 @@ export const PROSPECTO_ETAPAS: { value: ProspectoEtapa; label: string }[] = [
 ];
 
 /**
- * Destinos disponibles - sincronizado con tabla destinos
+ * Destinos disponibles - valores exactos de BD llamadas_ventas.destino_preferido
  */
 export type DestinoNombre = 
-  | 'Nuevo Nayarit'
-  | 'Riviera Maya'
-  | 'Los Cabos'
-  | 'Acapulco'
-  | 'Puerto Peñasco'
-  | 'Mazatlán'
-  | 'Puerto Vallarta';
+  | 'nuevo_vallarta'
+  | 'riviera_maya'
+  | 'los_cabos'
+  | 'acapulco'
+  | 'puerto_penasco'
+  | 'mazatlan'
+  | 'puerto_vallarta';
 
 export const DESTINOS: { value: DestinoNombre; label: string }[] = [
-  { value: 'Nuevo Nayarit', label: 'Nuevo Nayarit' },
-  { value: 'Riviera Maya', label: 'Riviera Maya' },
-  { value: 'Los Cabos', label: 'Los Cabos' },
-  { value: 'Acapulco', label: 'Acapulco' },
-  { value: 'Puerto Peñasco', label: 'Puerto Peñasco' },
-  { value: 'Mazatlán', label: 'Mazatlán' },
-  { value: 'Puerto Vallarta', label: 'Puerto Vallarta' },
+  { value: 'nuevo_vallarta', label: 'Nuevo Vallarta' },
+  { value: 'riviera_maya', label: 'Riviera Maya' },
+  { value: 'los_cabos', label: 'Los Cabos' },
+  { value: 'acapulco', label: 'Acapulco' },
+  { value: 'puerto_penasco', label: 'Puerto Peñasco' },
+  { value: 'mazatlan', label: 'Mazatlán' },
+  { value: 'puerto_vallarta', label: 'Puerto Vallarta' },
 ];
 
 /**
@@ -127,21 +127,21 @@ export const TIPOS_AUDIENCIA: { value: TipoAudiencia; label: string; icon: strin
 ];
 
 /**
- * Estados civiles disponibles
+ * Estados civiles disponibles - valores exactos de BD prospectos.estado_civil
  */
 export type EstadoCivil = 
-  | 'soltero'
-  | 'casado'
-  | 'union_libre'
-  | 'divorciado'
-  | 'viudo';
+  | 'Soltero'
+  | 'Casado'
+  | 'Unión Libre'
+  | 'Divorciado'
+  | 'Viudo';
 
 export const ESTADOS_CIVILES: { value: EstadoCivil; label: string }[] = [
-  { value: 'soltero', label: 'Soltero(a)' },
-  { value: 'casado', label: 'Casado(a)' },
-  { value: 'union_libre', label: 'Unión Libre' },
-  { value: 'divorciado', label: 'Divorciado(a)' },
-  { value: 'viudo', label: 'Viudo(a)' },
+  { value: 'Soltero', label: 'Soltero(a)' },
+  { value: 'Casado', label: 'Casado(a)' },
+  { value: 'Unión Libre', label: 'Unión Libre' },
+  { value: 'Divorciado', label: 'Divorciado(a)' },
+  { value: 'Viudo', label: 'Viudo(a)' },
 ];
 
 /**

@@ -2,6 +2,30 @@
 
 ## Historial de Versiones
 
+### v2.1.10 (2025-12-10)
+**Descripción**: B4.3.6N6.0.0: Corrección de filtros de audiencias con datos reales de BD
+
+---
+
+## 🎯 **RELEASE B4.3.6N6.0.0 - Filtros de Audiencias Corregidos**
+
+### 🔧 **Corrección de Filtros**
+- **destino_preferido**: Valores actualizados a formato BD (nuevo_vallarta, riviera_maya, etc.)
+- **estado_civil**: Ahora se obtiene de tabla `prospectos` con valores correctos (Casado, Soltero, etc.)
+- **preferencia_vacaciones**: Filtro corregido usando `contains` en array de llamadas_ventas
+
+### 📊 **Lógica de Conteo Mejorada**
+1. Filtrar primero por `llamadas_ventas` (destino, preferencia_vacaciones)
+2. Obtener prospectos únicos
+3. Filtrar por `prospectos` (etapa, estado_civil)
+4. Contar resultado final
+
+### 📁 **Archivos Modificados**
+- `whatsappTemplates.ts` - Tipos actualizados con valores reales de BD
+- `WhatsAppTemplatesManager.tsx` - Lógica de conteo corregida
+
+---
+
 ### v2.1.9 (2025-12-10)
 **Descripción**: B4.3.5N6.0.0: Mejoras de rendimiento y contadores desde llamadas_ventas
 
