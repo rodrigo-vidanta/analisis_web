@@ -2911,17 +2911,62 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
         if (!error && savedAudiences && savedAudiences.length > 0) {
           // Calcular conteo de prospectos para cada audiencia guardada
           for (const aud of savedAudiences) {
-            let query = analysisSupabase.from('prospectos').select('id', { count: 'exact', head: true });
+            // Usar el conteo guardado o recalcular con todos los filtros
+            let finalCount = aud.prospectos_count || 0;
             
-            if (aud.etapa) {
-              query = query.eq('etapa', aud.etapa);
+            // Si hay filtros de destino o preferencia, recalcular desde llamadas_ventas
+            if (aud.destino || aud.preferencia_entretenimiento) {
+              let llamadasQuery = analysisSupabase
+                .from('llamadas_ventas')
+                .select('prospecto');
+              
+              if (aud.destino) {
+                llamadasQuery = llamadasQuery.eq('destino_preferido', aud.destino);
+              }
+              
+              if (aud.preferencia_entretenimiento) {
+                llamadasQuery = llamadasQuery.contains('preferencia_vacaciones', [aud.preferencia_entretenimiento]);
+              }
+              
+              const { data: llamadasData } = await llamadasQuery;
+              const prospectosIds = [...new Set(llamadasData?.map(d => d.prospecto).filter(Boolean) || [])];
+              
+              if (prospectosIds.length > 0) {
+                let prospectosQuery = analysisSupabase
+                  .from('prospectos')
+                  .select('id', { count: 'exact', head: true })
+                  .in('id', prospectosIds);
+                
+                if (aud.etapa) {
+                  prospectosQuery = prospectosQuery.eq('etapa', aud.etapa);
+                }
+                if (aud.estado_civil) {
+                  prospectosQuery = prospectosQuery.eq('estado_civil', aud.estado_civil);
+                }
+                
+                const { count } = await prospectosQuery;
+                finalCount = count || 0;
+              } else {
+                finalCount = 0;
+              }
+            } else if (aud.etapa || aud.estado_civil) {
+              // Solo filtros de prospectos
+              let query = analysisSupabase.from('prospectos').select('id', { count: 'exact', head: true });
+              
+              if (aud.etapa) {
+                query = query.eq('etapa', aud.etapa);
+              }
+              if (aud.estado_civil) {
+                query = query.eq('estado_civil', aud.estado_civil);
+              }
+              
+              const { count } = await query;
+              finalCount = count || 0;
             }
-            
-            const { count } = await query;
             
             dynamicAudiences.push({
               ...aud,
-              prospectos_count: count || 0,
+              prospectos_count: finalCount,
             });
           }
         }
