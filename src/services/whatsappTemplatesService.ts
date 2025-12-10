@@ -129,6 +129,30 @@ class WhatsAppTemplatesService {
   }
 
   /**
+   * Obtener datos completos de audiencias por sus IDs
+   */
+  private async getAudiencesByIds(audienceIds: string[]): Promise<any[]> {
+    if (!audienceIds || audienceIds.length === 0) return [];
+    
+    try {
+      const { data, error } = await analysisSupabase
+        .from('whatsapp_audiences')
+        .select('*')
+        .in('id', audienceIds);
+      
+      if (error) {
+        console.error('Error obteniendo audiencias:', error);
+        return [];
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error('Error obteniendo audiencias:', error);
+      return [];
+    }
+  }
+
+  /**
    * Llamar al webhook para crear template en uChat
    */
   private async createTemplateInUChat(input: CreateTemplateInput): Promise<any> {
@@ -136,19 +160,36 @@ class WhatsAppTemplatesService {
       // Generar ejemplos dummy para los components
       const componentsWithExamples = this.generateDummyExamples(input.components);
       
+      // Obtener datos completos de las audiencias seleccionadas
+      const audienceIds = input.classification?.audience_ids || [];
+      const audiences = await this.getAudiencesByIds(audienceIds);
+      
       const payload = {
         name: input.name,
         language: input.language,
         category: input.category,
         components: componentsWithExamples,
         description: input.description || undefined,
-        // Clasificación de la plantilla (array separado para el webhook)
-        classification: input.classification || null,
+        // Array de IDs de audiencias para referencia
+        audience_ids: audienceIds,
+        // Array separado con datos completos de las audiencias
+        audiences: audiences.map(aud => ({
+          id: aud.id,
+          nombre: aud.nombre,
+          descripcion: aud.descripcion,
+          etapa: aud.etapa,
+          destino: aud.destino,
+          estado_civil: aud.estado_civil,
+          tipo_audiencia: aud.tipo_audiencia,
+          preferencia_entretenimiento: aud.preferencia_entretenimiento,
+          prospectos_count: aud.prospectos_count,
+        })),
       };
 
-      console.log('📤 Enviando plantilla con clasificación:', {
+      console.log('📤 Enviando plantilla con audiencias:', {
         name: payload.name,
-        classification: payload.classification,
+        audience_ids: payload.audience_ids,
+        audiences_count: payload.audiences.length,
       });
 
       const response = await fetch(`${WEBHOOK_BASE_URL}/webhook/whatsapp-templates`, {
