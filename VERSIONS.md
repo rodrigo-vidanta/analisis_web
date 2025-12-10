@@ -1,5 +1,25 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.3.5N6.0.0 (Diciembre 2025) - Optimización de Catálogo y Contadores
+
+### 🎯 RELEASE BETA - Rendimiento y Datos Reales
+
+#### Catálogo Optimizado
+- Infinite scroll (24 imágenes iniciales, +24 al desplazar)
+- Lazy loading con IntersectionObserver
+- Cache global de URLs, grid compacto 8 columnas
+
+#### Componentes
+- Header siempre antes del body
+- Categoría MARKETING por defecto
+
+#### Contadores desde llamadas_ventas
+- Destino, estado_civil, preferencia_vacaciones desde BD real
+- Normalización automática de valores
+- Conteo de prospectos únicos
+
+---
+
 ## Versión B4.3.4N6.0.0 (Diciembre 2025) - Catálogo Funcional y Contadores Reales
 
 ### 🎯 RELEASE BETA - Catálogo de Imágenes Funcional

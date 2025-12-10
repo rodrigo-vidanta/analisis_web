@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -279,7 +279,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
     setFormData({
       name: '',
       language: 'es_MX',
-      category: 'UTILITY',
+      category: 'MARKETING',
       components: [{ type: 'BODY', text: '' }],
       description: '',
       variable_mappings: [],
@@ -492,15 +492,32 @@ const WhatsAppTemplatesManager: React.FC = () => {
 
   // Agregar componente
   const handleAddComponent = (type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS') => {
-    setFormData({
-      ...formData,
-      components: [
-        ...formData.components,
-        type === 'BUTTONS' 
-          ? { type: 'BUTTONS', buttons: [] }
-          : { type, text: '' }
-      ],
-    });
+    const newComponent = type === 'BUTTONS' 
+      ? { type: 'BUTTONS' as const, buttons: [] }
+      : { type, text: '' };
+    
+    // Header siempre debe ir antes del body
+    if (type === 'HEADER') {
+      const bodyIndex = formData.components.findIndex(c => c.type === 'BODY');
+      if (bodyIndex > 0) {
+        // Insertar header antes del body
+        const newComponents = [...formData.components];
+        newComponents.splice(bodyIndex, 0, newComponent);
+        setFormData({ ...formData, components: newComponents });
+      } else {
+        // Si no hay body o está al inicio, insertar al principio
+        setFormData({
+          ...formData,
+          components: [newComponent, ...formData.components],
+        });
+      }
+    } else {
+      // Otros componentes se agregan al final
+      setFormData({
+        ...formData,
+        components: [...formData.components, newComponent],
+      });
+    }
   };
 
   // Actualizar componente
@@ -1962,7 +1979,7 @@ const ComponentEditor: React.FC<ComponentEditorProps> = ({
   );
 };
 
-// Componente para editor de imagen en header
+// Componente para editor de imagen en header con infinite scroll
 interface HeaderImageEditorProps {
   imageUrl: string;
   onImageSelect: (url: string) => void;
@@ -1976,33 +1993,37 @@ interface CatalogImage {
   destinos: string[];
 }
 
+// Cache global de URLs para evitar regenerar
+const globalImageUrlCache: Record<string, string> = {};
+
 const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImageSelect }) => {
   const [inputUrl, setInputUrl] = useState(imageUrl);
   const [showCatalog, setShowCatalog] = useState(false);
   const [catalogImages, setCatalogImages] = useState<CatalogImage[]>([]);
   const [filteredImages, setFilteredImages] = useState<CatalogImage[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDestino, setSelectedDestino] = useState<string>('all');
   const [destinos, setDestinos] = useState<string[]>([]);
+  const [visibleCount, setVisibleCount] = useState(24); // Infinite scroll - mostrar solo 24 iniciales
+  const [selectingImage, setSelectingImage] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
-  // Cargar imágenes del catálogo (misma lógica que ImageCatalogModal)
+  // Cargar imágenes del catálogo
   const loadCatalogImages = async () => {
     setLoadingCatalog(true);
     try {
       const { data, error } = await analysisSupabase
         .from('content_management')
-        .select('*')
+        .select('id, nombre, bucket, nombre_archivo, destinos')
         .eq('tipo_contenido', 'imagen')
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(500);
       
       if (!error && data) {
         setCatalogImages(data);
         setFilteredImages(data);
         
-        // Extraer destinos únicos
         const allDestinos = new Set<string>();
         data.forEach(img => {
           if (img.destinos && Array.isArray(img.destinos)) {
@@ -2019,7 +2040,7 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
     }
   };
   
-  // Filtrar imágenes
+  // Filtrar imágenes y resetear visibleCount
   useEffect(() => {
     let filtered = [...catalogImages];
     
@@ -2036,23 +2057,37 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
     }
     
     setFilteredImages(filtered);
+    setVisibleCount(24); // Reset al filtrar
   }, [searchTerm, selectedDestino, catalogImages]);
   
-  // Generar URL de imagen con cache
-  const getImageUrl = async (item: CatalogImage): Promise<string> => {
+  // Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    // Cargar más cuando esté a 200px del final
+    if (scrollHeight - scrollTop - clientHeight < 200) {
+      setVisibleCount(prev => Math.min(prev + 24, filteredImages.length));
+    }
+  }, [filteredImages.length]);
+  
+  // Generar URL solo cuando se selecciona la imagen
+  const generateImageUrl = async (item: CatalogImage): Promise<string> => {
     const cacheKey = `img_${item.bucket}/${item.nombre_archivo}`;
     
-    if (imageUrls[cacheKey]) {
-      return imageUrls[cacheKey];
+    // 1. Cache en memoria global
+    if (globalImageUrlCache[cacheKey]) {
+      return globalImageUrlCache[cacheKey];
     }
     
-    // Revisar localStorage
+    // 2. Cache en localStorage
     const cachedData = localStorage.getItem(cacheKey);
     if (cachedData) {
       try {
         const parsed = JSON.parse(cachedData);
         if (parsed.url && parsed.timestamp && (Date.now() - parsed.timestamp) < 25 * 60 * 1000) {
-          setImageUrls(prev => ({ ...prev, [cacheKey]: parsed.url }));
+          globalImageUrlCache[cacheKey] = parsed.url;
           return parsed.url;
         }
       } catch (e) {
@@ -2060,6 +2095,7 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
       }
     }
     
+    // 3. Generar nueva URL
     try {
       const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
         method: 'POST',
@@ -2077,7 +2113,7 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
       const data = await response.json();
       const url = data[0]?.url || data.url;
       
-      setImageUrls(prev => ({ ...prev, [cacheKey]: url }));
+      globalImageUrlCache[cacheKey] = url;
       localStorage.setItem(cacheKey, JSON.stringify({ url, timestamp: Date.now() }));
       
       return url;
@@ -2089,22 +2125,30 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
   
   const handleOpenCatalog = () => {
     setShowCatalog(true);
+    setVisibleCount(24);
     if (catalogImages.length === 0) {
       loadCatalogImages();
     }
   };
   
   const handleSelectImage = async (item: CatalogImage) => {
-    const url = await getImageUrl(item);
-    if (url) {
-      setInputUrl(url);
-      onImageSelect(url);
-      setShowCatalog(false);
-      toast.success('Imagen seleccionada');
-    } else {
-      toast.error('Error al obtener URL de imagen');
+    setSelectingImage(true);
+    try {
+      const url = await generateImageUrl(item);
+      if (url) {
+        setInputUrl(url);
+        onImageSelect(url);
+        setShowCatalog(false);
+        toast.success('Imagen seleccionada');
+      } else {
+        toast.error('Error al obtener URL de imagen');
+      }
+    } finally {
+      setSelectingImage(false);
     }
   };
+  
+  const visibleImages = filteredImages.slice(0, visibleCount);
   
   return (
     <div className="space-y-3">
@@ -2126,7 +2170,6 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
         </button>
       </div>
       
-      {/* Preview de imagen */}
       {inputUrl && (
         <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
           <img 
@@ -2153,7 +2196,6 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
         Ingresa la URL de la imagen o selecciónala del catálogo.
       </p>
       
-      {/* Modal de Catálogo */}
       <AnimatePresence>
         {showCatalog && (
           <motion.div
@@ -2170,7 +2212,6 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
               onClick={(e) => e.stopPropagation()}
               className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col"
             >
-              {/* Header */}
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -2184,7 +2225,6 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
                   </button>
                 </div>
                 
-                {/* Filtros */}
                 <div className="flex gap-3">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -2209,8 +2249,11 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
                 </div>
               </div>
               
-              {/* Grid de imágenes */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div 
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-6"
+              >
                 {loadingCatalog ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -2222,22 +2265,38 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
                     <p className="text-gray-500 dark:text-gray-400">No hay imágenes que coincidan</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-                    {filteredImages.map((img) => (
-                      <ImageThumbnail
-                        key={img.id}
-                        item={img}
-                        getImageUrl={getImageUrl}
-                        onSelect={() => handleSelectImage(img)}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                      {visibleImages.map((img) => (
+                        <LazyImageThumbnail
+                          key={img.id}
+                          item={img}
+                          onSelect={() => handleSelectImage(img)}
+                          disabled={selectingImage}
+                        />
+                      ))}
+                    </div>
+                    {visibleCount < filteredImages.length && (
+                      <div className="flex justify-center py-4">
+                        <div className="text-sm text-gray-500">
+                          Mostrando {visibleCount} de {filteredImages.length} - Desplázate para ver más
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               
-              {/* Footer */}
-              <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm text-gray-500">
-                {filteredImages.length} imágenes disponibles
+              <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+                <span className="text-sm text-gray-500">
+                  {filteredImages.length} imágenes • Mostrando {Math.min(visibleCount, filteredImages.length)}
+                </span>
+                {selectingImage && (
+                  <span className="text-sm text-blue-500 flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                    Obteniendo imagen...
+                  </span>
+                )}
               </div>
             </motion.div>
           </motion.div>
@@ -2247,39 +2306,101 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
   );
 };
 
-// Componente para thumbnail de imagen con carga lazy
-interface ImageThumbnailProps {
+// Componente thumbnail con lazy loading real usando IntersectionObserver
+interface LazyImageThumbnailProps {
   item: CatalogImage;
-  getImageUrl: (item: CatalogImage) => Promise<string>;
   onSelect: () => void;
+  disabled?: boolean;
 }
 
-const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ item, getImageUrl, onSelect }) => {
+const LazyImageThumbnail: React.FC<LazyImageThumbnailProps> = ({ item, onSelect, disabled }) => {
+  const [isVisible, setIsVisible] = useState(false);
   const [url, setUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const ref = useRef<HTMLDivElement>(null);
   
+  // IntersectionObserver para lazy loading
   useEffect(() => {
-    let mounted = true;
-    getImageUrl(item).then(loadedUrl => {
-      if (mounted) {
-        setUrl(loadedUrl);
-        setLoading(false);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' } // Pre-cargar 100px antes de ser visible
+    );
+    
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+    
+    return () => observer.disconnect();
+  }, []);
+  
+  // Cargar URL solo cuando es visible
+  useEffect(() => {
+    if (!isVisible) return;
+    
+    const cacheKey = `img_${item.bucket}/${item.nombre_archivo}`;
+    
+    // Verificar cache primero
+    if (globalImageUrlCache[cacheKey]) {
+      setUrl(globalImageUrlCache[cacheKey]);
+      setLoading(false);
+      return;
+    }
+    
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        if (parsed.url && parsed.timestamp && (Date.now() - parsed.timestamp) < 25 * 60 * 1000) {
+          globalImageUrlCache[cacheKey] = parsed.url;
+          setUrl(parsed.url);
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        localStorage.removeItem(cacheKey);
       }
-    });
-    return () => { mounted = false; };
-  }, [item]);
+    }
+    
+    // Generar URL
+    fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-token': '93fbcfc4-ccc9-4023-b820-86ef98f10122'
+      },
+      body: JSON.stringify({
+        filename: item.nombre_archivo,
+        bucket: item.bucket,
+        expirationMinutes: 30
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        const generatedUrl = data[0]?.url || data.url;
+        globalImageUrlCache[cacheKey] = generatedUrl;
+        localStorage.setItem(cacheKey, JSON.stringify({ url: generatedUrl, timestamp: Date.now() }));
+        setUrl(generatedUrl);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [isVisible, item]);
   
   return (
-    <motion.div
-      whileHover={{ scale: 1.03 }}
-      onClick={onSelect}
-      className="cursor-pointer group relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all bg-gray-100 dark:bg-gray-800"
+    <div
+      ref={ref}
+      onClick={disabled ? undefined : onSelect}
+      className={`cursor-pointer group relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all bg-gray-100 dark:bg-gray-800 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
     >
-      {loading ? (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      {!isVisible || loading ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+          <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      ) : (
+      ) : url ? (
         <>
           <img
             src={url}
@@ -2288,14 +2409,18 @@ const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ item, getImageUrl, onSe
             loading="lazy"
           />
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <Check className="w-8 h-8 text-white" />
+            <Check className="w-6 h-6 text-white" />
           </div>
-          <div className="absolute bottom-0 left-0 right-0 p-1 bg-gradient-to-t from-black/70 to-transparent">
-            <p className="text-white text-[10px] truncate">{item.nombre}</p>
+          <div className="absolute bottom-0 left-0 right-0 p-0.5 bg-gradient-to-t from-black/70 to-transparent">
+            <p className="text-white text-[8px] truncate px-1">{item.nombre}</p>
           </div>
         </>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+          <Image className="w-6 h-6" />
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
@@ -3003,33 +3128,72 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
   const [countingProspects, setCountingProspects] = useState(false);
 
   // Calcular prospectos en tiempo real desde la BD
+  // Los filtros de destino, estado_civil y preferencia se obtienen de llamadas_ventas
   useEffect(() => {
     const countProspects = async () => {
       setCountingProspects(true);
       try {
-        // Construir query base
-        let query = analysisSupabase.from('prospectos').select('id', { count: 'exact', head: true });
+        const hasLlamadasFilters = formData.destino || formData.estado_civil || formData.preferencia_entretenimiento;
         
-        // Aplicar filtro de etapa si está seleccionada
-        if (formData.etapa) {
-          query = query.eq('etapa', formData.etapa);
-        }
-        
-        const { count, error } = await query;
-        
-        if (error) {
-          console.error('Error counting prospects:', error);
-          setProspectCount(0);
-        } else {
-          // Si hay destino seleccionado, hacer una segunda consulta con JOIN a llamadas_ventas
+        if (hasLlamadasFilters) {
+          // Consultar llamadas_ventas con los filtros y obtener prospectos únicos
+          let query = analysisSupabase
+            .from('llamadas_ventas')
+            .select('prospecto');
+          
+          // Filtro de destino
           if (formData.destino) {
-            // Consultar prospectos que tienen llamadas con ese destino preferido
-            const { count: destinoCount } = await analysisSupabase
-              .from('prospectos')
-              .select('id, llamadas_ventas!inner(destino_preferido)', { count: 'exact', head: true })
-              .eq('llamadas_ventas.destino_preferido', formData.destino);
+            // Normalizar el destino para coincidir con el formato de la BD
+            const destinoNormalizado = formData.destino.toLowerCase().replace(/ /g, '_');
+            query = query.eq('destino_preferido', destinoNormalizado);
+          }
+          
+          // Filtro de estado civil
+          if (formData.estado_civil) {
+            const estadoCivilNormalizado = formData.estado_civil.toLowerCase().replace(/ /g, '_');
+            query = query.eq('estado_civil', estadoCivilNormalizado);
+          }
+          
+          // Filtro de preferencia de entretenimiento (buscar en el array)
+          if (formData.preferencia_entretenimiento) {
+            const prefNormalizada = formData.preferencia_entretenimiento.toLowerCase();
+            query = query.contains('preferencia_vacaciones', [prefNormalizada]);
+          }
+          
+          const { data, error } = await query;
+          
+          if (error) {
+            console.error('Error counting from llamadas_ventas:', error);
+            setProspectCount(0);
+          } else if (data) {
+            // Obtener prospectos únicos
+            const prospectosUnicos = new Set(data.map(d => d.prospecto).filter(Boolean));
             
-            setProspectCount(destinoCount || 0);
+            // Si también hay filtro de etapa, filtrar por eso
+            if (formData.etapa && prospectosUnicos.size > 0) {
+              const { count } = await analysisSupabase
+                .from('prospectos')
+                .select('id', { count: 'exact', head: true })
+                .in('id', Array.from(prospectosUnicos))
+                .eq('etapa', formData.etapa);
+              setProspectCount(count || 0);
+            } else {
+              setProspectCount(prospectosUnicos.size);
+            }
+          }
+        } else {
+          // Sin filtros de llamadas_ventas, solo filtrar por etapa en prospectos
+          let query = analysisSupabase.from('prospectos').select('id', { count: 'exact', head: true });
+          
+          if (formData.etapa) {
+            query = query.eq('etapa', formData.etapa);
+          }
+          
+          const { count, error } = await query;
+          
+          if (error) {
+            console.error('Error counting prospects:', error);
+            setProspectCount(0);
           } else {
             setProspectCount(count || 0);
           }
@@ -3045,7 +3209,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     // Debounce para no hacer muchas consultas seguidas
     const timer = setTimeout(countProspects, 300);
     return () => clearTimeout(timer);
-  }, [formData.etapa, formData.destino]);
+  }, [formData.etapa, formData.destino, formData.estado_civil, formData.preferencia_entretenimiento]);
 
   const handleSubmit = async () => {
     if (!formData.nombre.trim()) {

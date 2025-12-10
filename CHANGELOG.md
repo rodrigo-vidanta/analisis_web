@@ -2,6 +2,33 @@
 
 ## Historial de Versiones
 
+### v2.1.9 (2025-12-10)
+**Descripción**: B4.3.5N6.0.0: Mejoras de rendimiento y contadores desde llamadas_ventas
+
+---
+
+## 🎯 **RELEASE B4.3.5N6.0.0 - Optimización de Catálogo y Contadores**
+
+### 📸 **Catálogo de Imágenes Optimizado**
+- **Infinite scroll** - Solo carga 24 imágenes iniciales, más al desplazar
+- **Lazy loading con IntersectionObserver** - Solo carga URLs cuando thumbnail es visible
+- **Cache global de URLs** - Evita regenerar URLs ya obtenidas
+- **Grid más compacto** - 8 columnas en pantallas grandes
+
+### 🧩 **Componentes de Plantilla**
+- Header siempre se inserta **antes del body** (orden correcto)
+- Categoría **MARKETING por defecto** en todos los casos
+
+### 👥 **Contadores de Audiencias desde llamadas_ventas**
+- Filtros de destino, estado_civil y preferencia_entretenimiento usan datos de `llamadas_ventas`
+- Normalización automática de valores (espacios → guiones bajos)
+- Conteo por prospectos únicos con filtros combinados
+
+### 📁 **Archivos Modificados**
+- `WhatsAppTemplatesManager.tsx` - Infinite scroll, lazy loading, contadores llamadas_ventas
+
+---
+
 ### v2.1.8 (2025-12-10)
 **Descripción**: B4.3.4N6.0.0: Catálogo de imágenes funcional y contadores reales
 
