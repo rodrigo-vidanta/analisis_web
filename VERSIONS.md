@@ -1,5 +1,25 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.3.4N6.0.0 (Diciembre 2025) - Catálogo Funcional y Contadores Reales
+
+### 🎯 RELEASE BETA - Catálogo de Imágenes Funcional
+
+#### Catálogo de Imágenes
+- Modal con misma lógica que ImageCatalogModal del Chat
+- Carga desde `content_management`, genera URLs con API Railway
+- Filtros por nombre y destino, lazy loading de thumbnails
+
+#### Contadores Dinámicos
+- Modal "Crear Audiencia" con conteo real de prospectos
+- Consultas en tiempo real a tabla `prospectos`
+- Debounce para optimizar rendimiento
+
+#### Cards de Plantillas
+- Nombres reales de audiencias asignadas
+- Contador de prospectos alcanzables por plantilla
+
+---
+
 ## Versión B4.3.3N6.0.0 (Diciembre 2025) - Catálogo de Imágenes y Audiencias Dinámicas
 
 ### 🎯 RELEASE BETA - Catálogo de Imágenes y Audiencias Reales

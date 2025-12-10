@@ -145,7 +145,75 @@ const WhatsAppTemplatesManager: React.FC = () => {
   useEffect(() => {
     loadTemplates();
     loadTableSchemas();
+    loadAudiencesForCards();
   }, []);
+  
+  // Cargar audiencias para mostrar en las cards
+  const loadAudiencesForCards = async () => {
+    try {
+      // Contar total de prospectos para audiencia Global
+      const { count: totalProspectos } = await analysisSupabase
+        .from('prospectos')
+        .select('*', { count: 'exact', head: true });
+      
+      // Contar prospectos por etapa
+      const { data: etapasCounts } = await analysisSupabase
+        .from('prospectos')
+        .select('etapa')
+        .not('etapa', 'is', null);
+      
+      const etapasMap = new Map<string, number>();
+      if (etapasCounts) {
+        etapasCounts.forEach(p => {
+          const count = etapasMap.get(p.etapa) || 0;
+          etapasMap.set(p.etapa, count + 1);
+        });
+      }
+      
+      const dynamicAudiences: WhatsAppAudience[] = [
+        {
+          id: 'global',
+          nombre: 'Global',
+          descripcion: 'Todos los prospectos',
+          etapa: null,
+          destino: null,
+          estado_civil: null,
+          tipo_audiencia: [],
+          preferencia_entretenimiento: null,
+          prospectos_count: totalProspectos || 0,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ];
+      
+      // Audiencias por etapa
+      const etapasConAudiencia = ['Interesado', 'Atendió llamada', 'En seguimiento', 'Nuevo', 'Activo PQNC'];
+      etapasConAudiencia.forEach((etapa, index) => {
+        const count = etapasMap.get(etapa) || 0;
+        if (count > 0) {
+          dynamicAudiences.push({
+            id: `etapa-${index}`,
+            nombre: etapa,
+            descripcion: `Prospectos en etapa "${etapa}"`,
+            etapa: etapa as ProspectoEtapa,
+            destino: null,
+            estado_civil: null,
+            tipo_audiencia: [],
+            preferencia_entretenimiento: null,
+            prospectos_count: count,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+      });
+      
+      setAudiences(dynamicAudiences);
+    } catch (error) {
+      console.error('Error loading audiences for cards:', error);
+    }
+  };
 
   // Filtrar plantillas
   useEffect(() => {
@@ -745,6 +813,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
                 syncingTemplateId={syncingTemplateId}
                 getStatusColor={getStatusColor}
                 getCategoryColor={getCategoryColor}
+                audiences={audiences}
               />
             ))}
           </AnimatePresence>
@@ -1009,6 +1078,7 @@ interface TemplateGridCardProps {
   syncingTemplateId: string | null;
   getStatusColor: (status: string) => string;
   getCategoryColor: (category: string) => string;
+  audiences: WhatsAppAudience[];
 }
 
 const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
@@ -1022,6 +1092,7 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
   syncingTemplateId,
   getStatusColor,
   getCategoryColor,
+  audiences,
 }) => {
   const bodyComponent = template.components.find(c => c.type === 'BODY');
   const previewText = bodyComponent?.text || 'Sin contenido';
@@ -1032,6 +1103,13 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
 
   // Contar variables
   const variableCount = template.variable_mappings?.length || 0;
+  
+  // Obtener audiencias asignadas con sus nombres y conteos
+  const assignedAudiences = template.classification?.audience_ids
+    ?.map(audId => audiences.find(a => a.id === audId))
+    .filter(Boolean) as WhatsAppAudience[] || [];
+  
+  const totalAudienceProspects = assignedAudiences.reduce((sum, a) => sum + (a?.prospectos_count || 0), 0);
 
   return (
     <motion.div
@@ -1123,23 +1201,31 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
           {truncated}
         </div>
 
-        {/* Audiencias asignadas */}
-        {template.classification?.audience_ids && template.classification.audience_ids.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-1">
-            {template.classification.audience_ids.slice(0, 2).map((audId, idx) => (
-              <span
-                key={audId}
-                className="px-2 py-0.5 text-[9px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-md flex items-center gap-1"
-              >
-                <Users className="w-2.5 h-2.5" />
-                {audId === 'global' ? 'Global' : `Audiencia ${idx + 1}`}
-              </span>
-            ))}
-            {template.classification.audience_ids.length > 2 && (
-              <span className="px-2 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-md">
-                +{template.classification.audience_ids.length - 2} más
-              </span>
-            )}
+        {/* Audiencias asignadas con nombres y conteos reales */}
+        {assignedAudiences.length > 0 && (
+          <div className="mb-3 space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {assignedAudiences.slice(0, 2).map((aud) => (
+                <span
+                  key={aud.id}
+                  className="px-2 py-0.5 text-[9px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-md flex items-center gap-1"
+                  title={`${aud.nombre}: ${aud.prospectos_count.toLocaleString()} prospectos`}
+                >
+                  <Users className="w-2.5 h-2.5" />
+                  {aud.nombre}
+                </span>
+              ))}
+              {assignedAudiences.length > 2 && (
+                <span className="px-2 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-md">
+                  +{assignedAudiences.length - 2} más
+                </span>
+              )}
+            </div>
+            {/* Contador total de prospectos */}
+            <div className="flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400">
+              <Users className="w-2.5 h-2.5" />
+              <span>{totalAudienceProspects.toLocaleString()} prospectos alcanzables</span>
+            </div>
           </div>
         )}
 
@@ -1882,47 +1968,142 @@ interface HeaderImageEditorProps {
   onImageSelect: (url: string) => void;
 }
 
+interface CatalogImage {
+  id: string;
+  nombre: string;
+  bucket: string;
+  nombre_archivo: string;
+  destinos: string[];
+}
+
 const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImageSelect }) => {
   const [inputUrl, setInputUrl] = useState(imageUrl);
   const [showCatalog, setShowCatalog] = useState(false);
-  const [catalogImages, setCatalogImages] = useState<Array<{ id: string; url: string; nombre: string; destino: string }>>([]);
+  const [catalogImages, setCatalogImages] = useState<CatalogImage[]>([]);
+  const [filteredImages, setFilteredImages] = useState<CatalogImage[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDestino, setSelectedDestino] = useState<string>('all');
+  const [destinos, setDestinos] = useState<string[]>([]);
   
-  // Cargar imágenes del catálogo
+  // Cargar imágenes del catálogo (misma lógica que ImageCatalogModal)
   const loadCatalogImages = async () => {
     setLoadingCatalog(true);
     try {
-      // Cargar imágenes desde la tabla contenido_multimedia
       const { data, error } = await analysisSupabase
-        .from('contenido_multimedia')
-        .select('id, url_contenido, nombre, destino_id')
-        .eq('tipo', 'Imagen')
-        .limit(50);
+        .from('content_management')
+        .select('*')
+        .eq('tipo_contenido', 'imagen')
+        .order('created_at', { ascending: false })
+        .limit(200);
       
       if (!error && data) {
-        setCatalogImages(data.map(item => ({
-          id: item.id,
-          url: item.url_contenido,
-          nombre: item.nombre,
-          destino: item.destino_id || 'General'
-        })));
+        setCatalogImages(data);
+        setFilteredImages(data);
+        
+        // Extraer destinos únicos
+        const allDestinos = new Set<string>();
+        data.forEach(img => {
+          if (img.destinos && Array.isArray(img.destinos)) {
+            img.destinos.forEach((d: string) => allDestinos.add(d));
+          }
+        });
+        setDestinos(Array.from(allDestinos).sort());
       }
     } catch (err) {
       console.error('Error loading catalog:', err);
+      toast.error('Error al cargar catálogo');
     } finally {
       setLoadingCatalog(false);
     }
   };
   
-  const handleOpenCatalog = () => {
-    setShowCatalog(true);
-    loadCatalogImages();
+  // Filtrar imágenes
+  useEffect(() => {
+    let filtered = [...catalogImages];
+    
+    if (searchTerm) {
+      filtered = filtered.filter(img => 
+        img.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    if (selectedDestino !== 'all') {
+      filtered = filtered.filter(img => 
+        img.destinos?.includes(selectedDestino)
+      );
+    }
+    
+    setFilteredImages(filtered);
+  }, [searchTerm, selectedDestino, catalogImages]);
+  
+  // Generar URL de imagen con cache
+  const getImageUrl = async (item: CatalogImage): Promise<string> => {
+    const cacheKey = `img_${item.bucket}/${item.nombre_archivo}`;
+    
+    if (imageUrls[cacheKey]) {
+      return imageUrls[cacheKey];
+    }
+    
+    // Revisar localStorage
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        if (parsed.url && parsed.timestamp && (Date.now() - parsed.timestamp) < 25 * 60 * 1000) {
+          setImageUrls(prev => ({ ...prev, [cacheKey]: parsed.url }));
+          return parsed.url;
+        }
+      } catch (e) {
+        localStorage.removeItem(cacheKey);
+      }
+    }
+    
+    try {
+      const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-token': '93fbcfc4-ccc9-4023-b820-86ef98f10122'
+        },
+        body: JSON.stringify({
+          filename: item.nombre_archivo,
+          bucket: item.bucket,
+          expirationMinutes: 30
+        })
+      });
+      
+      const data = await response.json();
+      const url = data[0]?.url || data.url;
+      
+      setImageUrls(prev => ({ ...prev, [cacheKey]: url }));
+      localStorage.setItem(cacheKey, JSON.stringify({ url, timestamp: Date.now() }));
+      
+      return url;
+    } catch (error) {
+      console.error('Error generating image URL:', error);
+      return '';
+    }
   };
   
-  const handleSelectImage = (url: string) => {
-    setInputUrl(url);
-    onImageSelect(url);
-    setShowCatalog(false);
+  const handleOpenCatalog = () => {
+    setShowCatalog(true);
+    if (catalogImages.length === 0) {
+      loadCatalogImages();
+    }
+  };
+  
+  const handleSelectImage = async (item: CatalogImage) => {
+    const url = await getImageUrl(item);
+    if (url) {
+      setInputUrl(url);
+      onImageSelect(url);
+      setShowCatalog(false);
+      toast.success('Imagen seleccionada');
+    } else {
+      toast.error('Error al obtener URL de imagen');
+    }
   };
   
   return (
@@ -1969,7 +2150,7 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
       )}
       
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Ingresa la URL de la imagen o selecciónala del catálogo. La imagen debe ser accesible públicamente.
+        Ingresa la URL de la imagen o selecciónala del catálogo.
       </p>
       
       {/* Modal de Catálogo */}
@@ -1987,61 +2168,134 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col"
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col"
             >
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Catálogo de Imágenes
-                </h3>
-                <button
-                  onClick={() => setShowCatalog(false)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    Catálogo de Imágenes
+                  </h3>
+                  <button
+                    onClick={() => setShowCatalog(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+                
+                {/* Filtros */}
+                <div className="flex gap-3">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Buscar imagen..."
+                      className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <select
+                    value={selectedDestino}
+                    onChange={(e) => setSelectedDestino(e.target.value)}
+                    className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-800 dark:text-white"
+                  >
+                    <option value="all">Todos los destinos</option>
+                    {destinos.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               
+              {/* Grid de imágenes */}
               <div className="flex-1 overflow-y-auto p-6">
                 {loadingCatalog ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <span className="ml-3 text-gray-500">Cargando imágenes...</span>
                   </div>
-                ) : catalogImages.length === 0 ? (
+                ) : filteredImages.length === 0 ? (
                   <div className="text-center py-12">
                     <Image className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400">No hay imágenes en el catálogo</p>
+                    <p className="text-gray-500 dark:text-gray-400">No hay imágenes que coincidan</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    {catalogImages.map((img) => (
-                      <motion.div
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                    {filteredImages.map((img) => (
+                      <ImageThumbnail
                         key={img.id}
-                        whileHover={{ scale: 1.05 }}
-                        onClick={() => handleSelectImage(img.url)}
-                        className="cursor-pointer group relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all"
-                      >
-                        <img
-                          src={img.url}
-                          alt={img.nombre}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Check className="w-8 h-8 text-white" />
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/60 text-white text-[10px] truncate">
-                          {img.nombre}
-                        </div>
-                      </motion.div>
+                        item={img}
+                        getImageUrl={getImageUrl}
+                        onSelect={() => handleSelectImage(img)}
+                      />
                     ))}
                   </div>
                 )}
+              </div>
+              
+              {/* Footer */}
+              <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm text-gray-500">
+                {filteredImages.length} imágenes disponibles
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+};
+
+// Componente para thumbnail de imagen con carga lazy
+interface ImageThumbnailProps {
+  item: CatalogImage;
+  getImageUrl: (item: CatalogImage) => Promise<string>;
+  onSelect: () => void;
+}
+
+const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ item, getImageUrl, onSelect }) => {
+  const [url, setUrl] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    let mounted = true;
+    getImageUrl(item).then(loadedUrl => {
+      if (mounted) {
+        setUrl(loadedUrl);
+        setLoading(false);
+      }
+    });
+    return () => { mounted = false; };
+  }, [item]);
+  
+  return (
+    <motion.div
+      whileHover={{ scale: 1.03 }}
+      onClick={onSelect}
+      className="cursor-pointer group relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all bg-gray-100 dark:bg-gray-800"
+    >
+      {loading ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <>
+          <img
+            src={url}
+            alt={item.nombre}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <Check className="w-8 h-8 text-white" />
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-1 bg-gradient-to-t from-black/70 to-transparent">
+            <p className="text-white text-[10px] truncate">{item.nombre}</p>
+          </div>
+        </>
+      )}
+    </motion.div>
   );
 };
 
@@ -2746,19 +3000,52 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
   });
   const [saving, setSaving] = useState(false);
   const [prospectCount, setProspectCount] = useState<number>(0);
+  const [countingProspects, setCountingProspects] = useState(false);
 
-  // Calcular prospectos en tiempo real (simulado)
+  // Calcular prospectos en tiempo real desde la BD
   useEffect(() => {
-    // TODO: Llamar a función RPC de Supabase para contar prospectos
-    // Por ahora simulamos un cálculo
-    let count = 500; // Base
-    if (formData.etapa) count = Math.floor(count * 0.6);
-    if (formData.destino) count = Math.floor(count * 0.5);
-    if (formData.estado_civil) count = Math.floor(count * 0.7);
-    if (formData.tipo_audiencia.length > 0) count = Math.floor(count * (formData.tipo_audiencia.length * 0.3));
-    if (formData.preferencia_entretenimiento) count = Math.floor(count * 0.8);
-    setProspectCount(Math.max(count, 10));
-  }, [formData]);
+    const countProspects = async () => {
+      setCountingProspects(true);
+      try {
+        // Construir query base
+        let query = analysisSupabase.from('prospectos').select('id', { count: 'exact', head: true });
+        
+        // Aplicar filtro de etapa si está seleccionada
+        if (formData.etapa) {
+          query = query.eq('etapa', formData.etapa);
+        }
+        
+        const { count, error } = await query;
+        
+        if (error) {
+          console.error('Error counting prospects:', error);
+          setProspectCount(0);
+        } else {
+          // Si hay destino seleccionado, hacer una segunda consulta con JOIN a llamadas_ventas
+          if (formData.destino) {
+            // Consultar prospectos que tienen llamadas con ese destino preferido
+            const { count: destinoCount } = await analysisSupabase
+              .from('prospectos')
+              .select('id, llamadas_ventas!inner(destino_preferido)', { count: 'exact', head: true })
+              .eq('llamadas_ventas.destino_preferido', formData.destino);
+            
+            setProspectCount(destinoCount || 0);
+          } else {
+            setProspectCount(count || 0);
+          }
+        }
+      } catch (err) {
+        console.error('Error in countProspects:', err);
+        setProspectCount(0);
+      } finally {
+        setCountingProspects(false);
+      }
+    };
+    
+    // Debounce para no hacer muchas consultas seguidas
+    const timer = setTimeout(countProspects, 300);
+    return () => clearTimeout(timer);
+  }, [formData.etapa, formData.destino]);
 
   const handleSubmit = async () => {
     if (!formData.nombre.trim()) {

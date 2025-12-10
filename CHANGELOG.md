@@ -2,6 +2,35 @@
 
 ## Historial de Versiones
 
+### v2.1.8 (2025-12-10)
+**Descripción**: B4.3.4N6.0.0: Catálogo de imágenes funcional y contadores reales
+
+---
+
+## 🎯 **RELEASE B4.3.4N6.0.0 - Catálogo de Imágenes y Contadores Dinámicos**
+
+### 📸 **Catálogo de Imágenes Funcional**
+- Modal de catálogo usa misma lógica que ImageCatalogModal del Chat
+- Carga imágenes desde tabla `content_management`
+- Generación de URLs con API de Railway y cache en localStorage
+- Filtros por nombre y destino
+- Grid con lazy loading de thumbnails
+
+### 👥 **Contadores de Audiencias Dinámicos**
+- Modal "Crear Audiencia" muestra conteo real de prospectos en tiempo real
+- Consultas a tabla `prospectos` con filtros de etapa y destino
+- Debounce de 300ms para optimizar consultas
+
+### 📋 **Cards de Plantillas Mejoradas**
+- Muestra nombres reales de audiencias asignadas
+- Contador de prospectos alcanzables por plantilla
+- Tooltips con información detallada
+
+### 📁 **Archivos Modificados**
+- `WhatsAppTemplatesManager.tsx` - Catálogo funcional, contadores dinámicos, cards mejoradas
+
+---
+
 ### v2.1.7 (2025-12-10)
 **Descripción**: B4.3.3N6.0.0: Catálogo de imágenes y audiencias dinámicas
 
