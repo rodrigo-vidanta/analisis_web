@@ -1,5 +1,21 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.4.0N6.0.0 (Diciembre 2025) - Filtros de Audiencia desde Prospectos
+
+### 🎯 RELEASE BETA - Datos Reales de Prospectos
+
+#### Nueva Estructura de Filtros
+- **destinos**: Multi-select desde `prospectos.destino_preferencia`
+- **viaja_con**: Multi-select desde `prospectos.viaja_con` (Familia, Pareja, Amigos, Solo, Hijos)
+- Eliminados campos no fiables (tipo_audiencia, preferencia_entretenimiento)
+
+#### Lógica de Conteo
+- Todos los filtros sobre tabla `prospectos` directamente
+- `overlaps` para arrays de destinos
+- `in` para viaja_con
+
+---
+
 ## Versión B4.3.9N6.0.0 (Diciembre 2025) - Sistema de Audiencias Completo
 
 ### 🎯 RELEASE BETA - Audiencias en Webhook N8N

@@ -35,25 +35,38 @@ export const PROSPECTO_ETAPAS: { value: ProspectoEtapa; label: string }[] = [
 ];
 
 /**
- * Destinos disponibles - valores exactos de BD llamadas_ventas.destino_preferido
+ * Destinos disponibles - valores exactos de BD prospectos.destino_preferencia
  */
 export type DestinoNombre = 
-  | 'nuevo_vallarta'
-  | 'riviera_maya'
-  | 'los_cabos'
-  | 'acapulco'
-  | 'puerto_penasco'
-  | 'mazatlan'
-  | 'puerto_vallarta';
+  | 'Nuevo Vallarta'
+  | 'Riviera Maya'
+  | 'Los Cabos'
+  | 'Acapulco'
+  | 'Puerto Peñasco'
+  | 'Mazatlán'
+  | 'Puerto Vallarta';
 
 export const DESTINOS: { value: DestinoNombre; label: string }[] = [
-  { value: 'nuevo_vallarta', label: 'Nuevo Vallarta' },
-  { value: 'riviera_maya', label: 'Riviera Maya' },
-  { value: 'los_cabos', label: 'Los Cabos' },
-  { value: 'acapulco', label: 'Acapulco' },
-  { value: 'puerto_penasco', label: 'Puerto Peñasco' },
-  { value: 'mazatlan', label: 'Mazatlán' },
-  { value: 'puerto_vallarta', label: 'Puerto Vallarta' },
+  { value: 'Nuevo Vallarta', label: 'Nuevo Vallarta' },
+  { value: 'Riviera Maya', label: 'Riviera Maya' },
+  { value: 'Los Cabos', label: 'Los Cabos' },
+  { value: 'Acapulco', label: 'Acapulco' },
+  { value: 'Puerto Peñasco', label: 'Puerto Peñasco' },
+  { value: 'Mazatlán', label: 'Mazatlán' },
+  { value: 'Puerto Vallarta', label: 'Puerto Vallarta' },
+];
+
+/**
+ * Opciones de "Viaja Con" - valores exactos de BD prospectos.viaja_con
+ */
+export type ViajaConTipo = 'Familia' | 'Pareja' | 'Amigos' | 'Solo' | 'Hijos';
+
+export const VIAJA_CON_OPTIONS: { value: ViajaConTipo; label: string }[] = [
+  { value: 'Familia', label: 'Familia' },
+  { value: 'Pareja', label: 'Pareja' },
+  { value: 'Amigos', label: 'Amigos' },
+  { value: 'Solo', label: 'Solo' },
+  { value: 'Hijos', label: 'Hijos' },
 ];
 
 /**
@@ -152,10 +165,9 @@ export interface WhatsAppAudience {
   nombre: string;
   descripcion?: string | null;
   etapa?: ProspectoEtapa | null;
-  destino?: DestinoNombre | null;
+  destinos?: string[]; // Array de destinos (prospectos.destino_preferencia)
   estado_civil?: EstadoCivil | null;
-  tipo_audiencia: TipoAudiencia[];
-  preferencia_entretenimiento?: PreferenciaEntretenimiento | null;
+  viaja_con?: string[]; // Array de tipos (prospectos.viaja_con)
   prospectos_count: number;
   is_active: boolean;
   created_by?: string | null;
@@ -170,10 +182,9 @@ export interface CreateAudienceInput {
   nombre: string;
   descripcion?: string;
   etapa?: ProspectoEtapa | null;
-  destino?: DestinoNombre | null;
+  destinos?: string[]; // Múltiples destinos seleccionables
   estado_civil?: EstadoCivil | null;
-  tipo_audiencia: TipoAudiencia[];
-  preferencia_entretenimiento?: PreferenciaEntretenimiento | null;
+  viaja_con?: string[]; // Múltiples opciones de "viaja con"
 }
 
 /**

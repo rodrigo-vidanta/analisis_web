@@ -2,6 +2,29 @@
 
 ## Historial de Versiones
 
+### v2.1.14 (2025-12-10)
+**Descripción**: B4.4.0N6.0.0: Filtros de audiencia corregidos usando prospectos.destino_preferencia y viaja_con
+
+---
+
+## 🎯 **RELEASE B4.4.0N6.0.0 - Filtros desde Tabla Prospectos**
+
+### 📊 **Nueva Estructura de Filtros**
+- **destinos**: Array de destinos seleccionables (multi-select) desde `prospectos.destino_preferencia`
+- **viaja_con**: Array de tipos (Familia, Pareja, Amigos, Solo, Hijos) desde `prospectos.viaja_con`
+- Eliminados: `tipo_audiencia`, `preferencia_entretenimiento` (datos no fiables)
+
+### 🔧 **Lógica de Conteo Mejorada**
+- Todos los filtros se aplican directamente sobre la tabla `prospectos`
+- Usa `overlaps` para arrays de destinos (busca coincidencia en array)
+- Usa `in` para viaja_con (múltiples valores)
+
+### 📁 **Archivos Modificados**
+- `whatsappTemplates.ts` - Nuevos tipos y constantes (VIAJA_CON_OPTIONS, ViajaConTipo)
+- `WhatsAppTemplatesManager.tsx` - UI multi-select para destinos y viaja_con, lógica de conteo
+
+---
+
 ### v2.1.13 (2025-12-10)
 **Descripción**: B4.3.9N6.0.0: Sistema de audiencias completo para plantillas WhatsApp
 

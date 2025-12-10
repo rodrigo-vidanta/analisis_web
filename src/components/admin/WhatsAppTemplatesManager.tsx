@@ -40,21 +40,17 @@ import type {
   TableSchema,
   TemplateClassification,
   ProspectoEtapa,
-  DestinoNombre,
-  PreferenciaEntretenimiento,
   WhatsAppAudience,
   CreateAudienceInput,
-  TipoAudiencia,
   EstadoCivil,
 } from '../../types/whatsappTemplates';
 import {
   PROSPECTO_ETAPAS,
   DESTINOS,
-  PREFERENCIAS_ENTRETENIMIENTO,
-  TIPOS_AUDIENCIA,
   ESTADOS_CIVILES,
+  VIAJA_CON_OPTIONS,
 } from '../../types/whatsappTemplates';
-import { Users, Heart, User as UserIcon, UserPlus, Users2, Image, MapPin } from 'lucide-react';
+import { Users, Heart, User as UserIcon, UserPlus, Users2, Image, MapPin, Baby } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 
 /**
@@ -2867,10 +2863,9 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
           nombre: 'Global - Todos los Prospectos',
           descripcion: 'Incluye a todos los prospectos sin filtros',
           etapa: null,
-          destino: null,
+          destinos: [],
           estado_civil: null,
-          tipo_audiencia: ['familia', 'pareja', 'solo', 'amigos', 'grupo'],
-          preferencia_entretenimiento: null,
+          viaja_con: [],
           prospectos_count: totalProspectos || 0,
           is_active: true,
           created_at: new Date().toISOString(),
@@ -2888,10 +2883,9 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
             nombre: etapa,
             descripcion: `Prospectos en etapa "${etapa}"`,
             etapa: etapa as ProspectoEtapa,
-            destino: null,
+            destinos: [],
             estado_civil: null,
-            tipo_audiencia: [],
-            preferencia_entretenimiento: null,
+            viaja_con: [],
             prospectos_count: count,
             is_active: true,
             created_at: new Date().toISOString(),
@@ -2900,7 +2894,7 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
         }
       });
       
-      // Intentar cargar audiencias guardadas en la BD (si la tabla existe)
+      // Cargar audiencias guardadas en la BD
       try {
         const { data: savedAudiences, error } = await analysisSupabase
           .from('whatsapp_audiences')
@@ -2909,70 +2903,42 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
           .order('created_at', { ascending: false });
         
         if (!error && savedAudiences && savedAudiences.length > 0) {
-          // Calcular conteo de prospectos para cada audiencia guardada
+          // Recalcular conteo para cada audiencia guardada usando filtros de prospectos
           for (const aud of savedAudiences) {
-            // Usar el conteo guardado o recalcular con todos los filtros
-            let finalCount = aud.prospectos_count || 0;
+            let query = analysisSupabase
+              .from('prospectos')
+              .select('id', { count: 'exact', head: true });
             
-            // Si hay filtros de destino o preferencia, recalcular desde llamadas_ventas
-            if (aud.destino || aud.preferencia_entretenimiento) {
-              let llamadasQuery = analysisSupabase
-                .from('llamadas_ventas')
-                .select('prospecto');
-              
-              if (aud.destino) {
-                llamadasQuery = llamadasQuery.eq('destino_preferido', aud.destino);
-              }
-              
-              if (aud.preferencia_entretenimiento) {
-                llamadasQuery = llamadasQuery.contains('preferencia_vacaciones', [aud.preferencia_entretenimiento]);
-              }
-              
-              const { data: llamadasData } = await llamadasQuery;
-              const prospectosIds = [...new Set(llamadasData?.map(d => d.prospecto).filter(Boolean) || [])];
-              
-              if (prospectosIds.length > 0) {
-                let prospectosQuery = analysisSupabase
-                  .from('prospectos')
-                  .select('id', { count: 'exact', head: true })
-                  .in('id', prospectosIds);
-                
-                if (aud.etapa) {
-                  prospectosQuery = prospectosQuery.eq('etapa', aud.etapa);
-                }
-                if (aud.estado_civil) {
-                  prospectosQuery = prospectosQuery.eq('estado_civil', aud.estado_civil);
-                }
-                
-                const { count } = await prospectosQuery;
-                finalCount = count || 0;
-              } else {
-                finalCount = 0;
-              }
-            } else if (aud.etapa || aud.estado_civil) {
-              // Solo filtros de prospectos
-              let query = analysisSupabase.from('prospectos').select('id', { count: 'exact', head: true });
-              
-              if (aud.etapa) {
-                query = query.eq('etapa', aud.etapa);
-              }
-              if (aud.estado_civil) {
-                query = query.eq('estado_civil', aud.estado_civil);
-              }
-              
-              const { count } = await query;
-              finalCount = count || 0;
+            // Filtro de etapa
+            if (aud.etapa) {
+              query = query.eq('etapa', aud.etapa);
             }
+            
+            // Filtro de estado civil
+            if (aud.estado_civil) {
+              query = query.eq('estado_civil', aud.estado_civil);
+            }
+            
+            // Filtro de viaja_con
+            if (aud.viaja_con && aud.viaja_con.length > 0) {
+              query = query.in('viaja_con', aud.viaja_con);
+            }
+            
+            // Filtro de destinos (overlaps con el array)
+            if (aud.destinos && aud.destinos.length > 0) {
+              query = query.overlaps('destino_preferencia', aud.destinos);
+            }
+            
+            const { count } = await query;
             
             dynamicAudiences.push({
               ...aud,
-              prospectos_count: finalCount,
+              prospectos_count: count || 0,
             });
           }
         }
       } catch (dbError) {
-        // La tabla no existe aún, usar solo audiencias dinámicas
-        console.log('Tabla whatsapp_audiences no existe, usando audiencias dinámicas');
+        console.log('Error cargando audiencias de BD:', dbError);
       }
       
       setAudiences(dynamicAudiences);
@@ -2986,10 +2952,9 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
         nombre: 'Global - Todos los Prospectos',
         descripcion: 'Incluye a todos los prospectos',
         etapa: null,
-        destino: null,
+        destinos: [],
         estado_civil: null,
-        tipo_audiencia: [],
-        preferencia_entretenimiento: null,
+        viaja_con: [],
         prospectos_count: 0,
         is_active: true,
         created_at: new Date().toISOString(),
@@ -3005,17 +2970,6 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
       onSelectionChange(selectedAudienceIds.filter(i => i !== id));
     } else {
       onSelectionChange([...selectedAudienceIds, id]);
-    }
-  };
-
-  const getIconForTipo = (tipo: TipoAudiencia) => {
-    switch (tipo) {
-      case 'familia': return Users;
-      case 'pareja': return Heart;
-      case 'solo': return UserIcon;
-      case 'amigos': return UserPlus;
-      case 'grupo': return Users2;
-      default: return Users;
     }
   };
 
@@ -3145,24 +3099,20 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
                       {audience.etapa}
                     </span>
                   )}
-                  {audience.destino && (
+                  {audience.destinos && audience.destinos.length > 0 && (
                     <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-md flex items-center gap-1">
                       <MapPin className="w-2.5 h-2.5" />
-                      {audience.destino}
+                      {audience.destinos.length === 1 ? audience.destinos[0] : `${audience.destinos.length} destinos`}
                     </span>
                   )}
-                  {audience.tipo_audiencia.map((tipo) => {
-                    const Icon = getIconForTipo(tipo);
-                    return (
-                      <span 
-                        key={tipo}
-                        className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-md flex items-center gap-1"
-                      >
-                        <Icon className="w-2.5 h-2.5" />
-                        {TIPOS_AUDIENCIA.find(t => t.value === tipo)?.label || tipo}
-                      </span>
-                    );
-                  })}
+                  {audience.viaja_con && audience.viaja_con.map((tipo) => (
+                    <span 
+                      key={tipo}
+                      className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-md"
+                    >
+                      {tipo}
+                    </span>
+                  ))}
                 </div>
               </motion.div>
             );
@@ -3202,80 +3152,43 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     nombre: '',
     descripcion: '',
     etapa: null,
-    destino: null,
+    destinos: [],
     estado_civil: null,
-    tipo_audiencia: [],
-    preferencia_entretenimiento: null,
+    viaja_con: [],
   });
   const [saving, setSaving] = useState(false);
   const [prospectCount, setProspectCount] = useState<number>(0);
   const [countingProspects, setCountingProspects] = useState(false);
 
   // Calcular prospectos en tiempo real desde la BD
-  // - estado_civil → tabla prospectos
-  // - destino_preferido, preferencia_vacaciones → tabla llamadas_ventas
+  // TODOS los filtros se aplican sobre la tabla prospectos
   useEffect(() => {
     const countProspects = async () => {
       setCountingProspects(true);
       try {
-        const hasLlamadasFilters = formData.destino || formData.preferencia_entretenimiento;
-        const hasProspectosFilters = formData.etapa || formData.estado_civil;
-        
-        let prospectosIds: string[] | null = null;
-        
-        // 1. Filtrar por llamadas_ventas si hay filtros
-        if (hasLlamadasFilters) {
-          let query = analysisSupabase
-            .from('llamadas_ventas')
-            .select('prospecto');
-          
-          // Filtro de destino (valor ya viene en formato de BD: nuevo_vallarta)
-          if (formData.destino) {
-            query = query.eq('destino_preferido', formData.destino);
-          }
-          
-          // Filtro de preferencia de entretenimiento
-          if (formData.preferencia_entretenimiento) {
-            query = query.contains('preferencia_vacaciones', [formData.preferencia_entretenimiento]);
-          }
-          
-          const { data, error } = await query;
-          
-          if (error) {
-            console.error('Error querying llamadas_ventas:', error);
-            setProspectCount(0);
-            setCountingProspects(false);
-            return;
-          }
-          
-          // Obtener prospectos únicos
-          prospectosIds = [...new Set(data?.map(d => d.prospecto).filter(Boolean) || [])];
-          
-          if (prospectosIds.length === 0) {
-            setProspectCount(0);
-            setCountingProspects(false);
-            return;
-          }
-        }
-        
-        // 2. Filtrar por prospectos
+        // Consultar prospectos con todos los filtros
         let query = analysisSupabase
           .from('prospectos')
           .select('id', { count: 'exact', head: true });
-        
-        // Si tenemos IDs de llamadas_ventas, filtrar por ellos
-        if (prospectosIds) {
-          query = query.in('id', prospectosIds);
-        }
         
         // Filtro de etapa
         if (formData.etapa) {
           query = query.eq('etapa', formData.etapa);
         }
         
-        // Filtro de estado civil (valor ya viene en formato de BD: Casado)
+        // Filtro de estado civil
         if (formData.estado_civil) {
           query = query.eq('estado_civil', formData.estado_civil);
+        }
+        
+        // Filtro de viaja_con (si hay seleccionados)
+        if (formData.viaja_con && formData.viaja_con.length > 0) {
+          query = query.in('viaja_con', formData.viaja_con);
+        }
+        
+        // Filtro de destinos (overlaps con el array destino_preferencia)
+        if (formData.destinos && formData.destinos.length > 0) {
+          query = query.overlaps('destino_preferencia', formData.destinos);
         }
         
         const { count, error } = await query;
@@ -3297,7 +3210,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     // Debounce para no hacer muchas consultas seguidas
     const timer = setTimeout(countProspects, 300);
     return () => clearTimeout(timer);
-  }, [formData.etapa, formData.destino, formData.estado_civil, formData.preferencia_entretenimiento]);
+  }, [formData.etapa, formData.destinos, formData.estado_civil, formData.viaja_con]);
 
   const handleSubmit = async () => {
     if (!formData.nombre.trim()) {
@@ -3308,15 +3221,14 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     try {
       setSaving(true);
       
-      // Intentar guardar en Supabase
+      // Guardar en Supabase
       const audienceData = {
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion?.trim() || null,
         etapa: formData.etapa || null,
-        destino: formData.destino || null,
+        destinos: formData.destinos || [],
         estado_civil: formData.estado_civil || null,
-        tipo_audiencia: formData.tipo_audiencia || [],
-        preferencia_entretenimiento: formData.preferencia_entretenimiento || null,
+        viaja_con: formData.viaja_con || [],
         prospectos_count: prospectCount,
         is_active: true,
       };
@@ -3328,22 +3240,21 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
         .single();
       
       if (error) {
-        console.log('Error guardando en BD (tabla puede no existir):', error);
-        // Si la tabla no existe, mostrar mensaje pero continuar
-        toast.success(`Audiencia "${formData.nombre}" creada (${prospectCount} prospectos)`);
-      } else {
-        toast.success(`Audiencia "${formData.nombre}" guardada exitosamente`);
+        console.log('Error guardando en BD:', error);
+        toast.error('Error al guardar audiencia: ' + error.message);
+        return;
       }
+      
+      toast.success(`Audiencia "${formData.nombre}" guardada (${prospectCount} prospectos)`);
       
       // Resetear formulario
       setFormData({
         nombre: '',
         descripcion: '',
         etapa: null,
-        destino: null,
+        destinos: [],
         estado_civil: null,
-        tipo_audiencia: [],
-        preferencia_entretenimiento: null,
+        viaja_con: [],
       });
       
       onCreated();
@@ -3355,27 +3266,31 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     }
   };
 
-  const toggleTipoAudiencia = (tipo: TipoAudiencia) => {
-    if (formData.tipo_audiencia.includes(tipo)) {
-      setFormData({
-        ...formData,
-        tipo_audiencia: formData.tipo_audiencia.filter(t => t !== tipo)
-      });
+  const toggleDestino = (destino: string) => {
+    const current = formData.destinos || [];
+    if (current.includes(destino)) {
+      setFormData({ ...formData, destinos: current.filter(d => d !== destino) });
     } else {
-      setFormData({
-        ...formData,
-        tipo_audiencia: [...formData.tipo_audiencia, tipo]
-      });
+      setFormData({ ...formData, destinos: [...current, destino] });
     }
   };
 
-  const getIconForTipo = (tipo: TipoAudiencia) => {
+  const toggleViajaCon = (tipo: string) => {
+    const current = formData.viaja_con || [];
+    if (current.includes(tipo)) {
+      setFormData({ ...formData, viaja_con: current.filter(t => t !== tipo) });
+    } else {
+      setFormData({ ...formData, viaja_con: [...current, tipo] });
+    }
+  };
+
+  const getIconForViajaCon = (tipo: string) => {
     switch (tipo) {
-      case 'familia': return Users;
-      case 'pareja': return Heart;
-      case 'solo': return UserIcon;
-      case 'amigos': return UserPlus;
-      case 'grupo': return Users2;
+      case 'Familia': return Users;
+      case 'Pareja': return Heart;
+      case 'Solo': return UserIcon;
+      case 'Amigos': return UserPlus;
+      case 'Hijos': return Baby;
       default: return Users;
     }
   };
@@ -3479,24 +3394,38 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                   </select>
                 </div>
 
-                {/* Destino */}
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-                    <MapPin className="w-4 h-4" />
-                    <span>Destino</span>
+                {/* Destinos (Multi-select) */}
+                <div className="space-y-2 md:col-span-2">
+                  <label className="flex items-center justify-between text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-4 h-4" />
+                      <span>Destinos Preferidos</span>
+                    </div>
+                    {(formData.destinos?.length || 0) > 0 && (
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {formData.destinos?.length} seleccionados
+                      </span>
+                    )}
                   </label>
-                  <select
-                    value={formData.destino || ''}
-                    onChange={(e) => setFormData({ ...formData, destino: e.target.value as DestinoNombre || null })}
-                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-                  >
-                    <option value="">No aplica</option>
-                    {DESTINOS.map((destino) => (
-                      <option key={destino.value} value={destino.value}>
-                        {destino.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {DESTINOS.map((destino) => {
+                      const isSelected = formData.destinos?.includes(destino.value);
+                      return (
+                        <button
+                          key={destino.value}
+                          type="button"
+                          onClick={() => toggleDestino(destino.value)}
+                          className={`px-3 py-2 text-xs font-medium rounded-lg border-2 transition-all ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          {destino.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Estado Civil */}
@@ -3519,44 +3448,33 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                   </select>
                 </div>
 
-                {/* Preferencia de entretenimiento */}
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-                    <Sparkles className="w-4 h-4" />
-                    <span>Preferencia de Entretenimiento</span>
-                  </label>
-                  <select
-                    value={formData.preferencia_entretenimiento || ''}
-                    onChange={(e) => setFormData({ ...formData, preferencia_entretenimiento: e.target.value as PreferenciaEntretenimiento || null })}
-                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-                  >
-                    <option value="">No aplica</option>
-                    {PREFERENCIAS_ENTRETENIMIENTO.map((pref) => (
-                      <option key={pref.value} value={pref.value}>
-                        {pref.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
-              {/* Tipo de Audiencia */}
+              {/* Viaja Con (Multi-select) */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2 mb-2">
-                  <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Tipo de Audiencia
-                  </h4>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Viaja Con
+                    </h4>
+                  </div>
+                  {(formData.viaja_con?.length || 0) > 0 && (
+                    <span className="text-xs text-purple-600 dark:text-purple-400">
+                      {formData.viaja_con?.length} seleccionados
+                    </span>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {TIPOS_AUDIENCIA.map((tipo) => {
-                    const Icon = getIconForTipo(tipo.value);
-                    const isSelected = formData.tipo_audiencia.includes(tipo.value);
+                  {VIAJA_CON_OPTIONS.map((tipo) => {
+                    const Icon = getIconForViajaCon(tipo.value);
+                    const isSelected = formData.viaja_con?.includes(tipo.value);
                     return (
                       <button
                         key={tipo.value}
-                        onClick={() => toggleTipoAudiencia(tipo.value)}
+                        type="button"
+                        onClick={() => toggleViajaCon(tipo.value)}
                         className={`p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center gap-1 ${
                           isSelected
                             ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30'
