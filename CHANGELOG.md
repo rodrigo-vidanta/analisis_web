@@ -1,6 +1,9 @@
-# 📋 Control de Cambios - PQNC AI Platform
+# 📋 CHANGELOG - PQNC QA AI Platform
 
-## 🎯 Versión B4.2.0N6.0.0 - Gestión de Auth Tokens y Corrección de Programar Llamadas (Diciembre 2025)
+## Historial de Versiones
+
+### v2.1.3 (2025-12-09 18:09)
+**Descripción**: B4.3.0N6.0.0: Monitoreo de audio en tiempo real para llamadas activas
 
 ### 🎯 **RELEASE BETA - Nueva Pestaña de Auth Tokens en Administración**
 
