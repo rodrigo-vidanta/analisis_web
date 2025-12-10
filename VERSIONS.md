@@ -1,5 +1,26 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.3.3N6.0.0 (Diciembre 2025) - Catálogo de Imágenes y Audiencias Dinámicas
+
+### 🎯 RELEASE BETA - Catálogo de Imágenes y Audiencias Reales
+
+#### Catálogo de Imágenes
+- Modal de selección de imágenes desde `contenido_multimedia`
+- Grid visual con preview y selección instantánea
+- Integrado con botón "Catálogo" en Header tipo Imagen
+
+#### Audiencias Dinámicas
+- Conteos de prospectos en tiempo real desde BD
+- Audiencia Global automática (todos los prospectos)
+- Audiencias por etapa con conteos reales
+- Soporte para audiencias personalizadas guardadas
+
+#### Cards de Plantillas
+- Muestra audiencias asignadas con badges
+- Indicador de múltiples audiencias
+
+---
+
 ## Versión B4.3.2N6.0.0 (Diciembre 2025) - Mejoras al Constructor de Plantillas WhatsApp
 
 ### 🎯 RELEASE BETA - Rediseño Completo del Modal de Plantillas

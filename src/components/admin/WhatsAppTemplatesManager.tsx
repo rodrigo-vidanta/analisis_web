@@ -55,6 +55,7 @@ import {
   ESTADOS_CIVILES,
 } from '../../types/whatsappTemplates';
 import { Users, Heart, User as UserIcon, UserPlus, Users2, Image, MapPin } from 'lucide-react';
+import { analysisSupabase } from '../../config/analysisSupabase';
 
 /**
  * ============================================
@@ -1122,6 +1123,26 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
           {truncated}
         </div>
 
+        {/* Audiencias asignadas */}
+        {template.classification?.audience_ids && template.classification.audience_ids.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1">
+            {template.classification.audience_ids.slice(0, 2).map((audId, idx) => (
+              <span
+                key={audId}
+                className="px-2 py-0.5 text-[9px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-md flex items-center gap-1"
+              >
+                <Users className="w-2.5 h-2.5" />
+                {audId === 'global' ? 'Global' : `Audiencia ${idx + 1}`}
+              </span>
+            ))}
+            {template.classification.audience_ids.length > 2 && (
+              <span className="px-2 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-md">
+                +{template.classification.audience_ids.length - 2} más
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Footer con metadata */}
         <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-400">
@@ -1864,6 +1885,45 @@ interface HeaderImageEditorProps {
 const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImageSelect }) => {
   const [inputUrl, setInputUrl] = useState(imageUrl);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [catalogImages, setCatalogImages] = useState<Array<{ id: string; url: string; nombre: string; destino: string }>>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  
+  // Cargar imágenes del catálogo
+  const loadCatalogImages = async () => {
+    setLoadingCatalog(true);
+    try {
+      // Cargar imágenes desde la tabla contenido_multimedia
+      const { data, error } = await analysisSupabase
+        .from('contenido_multimedia')
+        .select('id, url_contenido, nombre, destino_id')
+        .eq('tipo', 'Imagen')
+        .limit(50);
+      
+      if (!error && data) {
+        setCatalogImages(data.map(item => ({
+          id: item.id,
+          url: item.url_contenido,
+          nombre: item.nombre,
+          destino: item.destino_id || 'General'
+        })));
+      }
+    } catch (err) {
+      console.error('Error loading catalog:', err);
+    } finally {
+      setLoadingCatalog(false);
+    }
+  };
+  
+  const handleOpenCatalog = () => {
+    setShowCatalog(true);
+    loadCatalogImages();
+  };
+  
+  const handleSelectImage = (url: string) => {
+    setInputUrl(url);
+    onImageSelect(url);
+    setShowCatalog(false);
+  };
   
   return (
     <div className="space-y-3">
@@ -1877,7 +1937,7 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
           className="flex-1 px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
         />
         <button
-          onClick={() => setShowCatalog(true)}
+          onClick={handleOpenCatalog}
           className="px-4 py-2.5 text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-2"
         >
           <Image className="w-4 h-4" />
@@ -1911,6 +1971,76 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Ingresa la URL de la imagen o selecciónala del catálogo. La imagen debe ser accesible públicamente.
       </p>
+      
+      {/* Modal de Catálogo */}
+      <AnimatePresence>
+        {showCatalog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]"
+            onClick={() => setShowCatalog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col"
+            >
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Catálogo de Imágenes
+                </h3>
+                <button
+                  onClick={() => setShowCatalog(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6">
+                {loadingCatalog ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : catalogImages.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Image className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">No hay imágenes en el catálogo</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    {catalogImages.map((img) => (
+                      <motion.div
+                        key={img.id}
+                        whileHover={{ scale: 1.05 }}
+                        onClick={() => handleSelectImage(img.url)}
+                        className="cursor-pointer group relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all"
+                      >
+                        <img
+                          src={img.url}
+                          alt={img.nombre}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Check className="w-8 h-8 text-white" />
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/60 text-white text-[10px] truncate">
+                          {img.nombre}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -2290,56 +2420,118 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
   const loadAudiences = async () => {
     try {
       setLoading(true);
-      // TODO: Cargar desde Supabase cuando la tabla esté creada
-      // Por ahora usamos datos de ejemplo
-      const mockAudiences: WhatsAppAudience[] = [
+      
+      // Contar total de prospectos para audiencia Global
+      const { count: totalProspectos } = await analysisSupabase
+        .from('prospectos')
+        .select('*', { count: 'exact', head: true });
+      
+      // Contar prospectos por etapa para audiencias dinámicas
+      const { data: etapasCounts } = await analysisSupabase
+        .from('prospectos')
+        .select('etapa')
+        .not('etapa', 'is', null);
+      
+      // Agrupar conteos por etapa
+      const etapasMap = new Map<string, number>();
+      if (etapasCounts) {
+        etapasCounts.forEach(p => {
+          const count = etapasMap.get(p.etapa) || 0;
+          etapasMap.set(p.etapa, count + 1);
+        });
+      }
+      
+      // Crear audiencias dinámicas basadas en etapas reales
+      const dynamicAudiences: WhatsAppAudience[] = [
+        // Audiencia Global (todos los prospectos)
         {
-          id: '1',
-          nombre: 'Interesados Riviera Maya',
-          descripcion: 'Prospectos interesados en Riviera Maya',
-          etapa: 'Interesado',
-          destino: 'Riviera Maya',
-          estado_civil: null,
-          tipo_audiencia: ['familia', 'pareja'],
-          preferencia_entretenimiento: null,
-          prospectos_count: 245,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          nombre: 'Seguimiento Post-Llamada',
-          descripcion: 'Prospectos que atendieron llamada pero no cerraron',
-          etapa: 'Atendió llamada',
+          id: 'global',
+          nombre: 'Global - Todos los Prospectos',
+          descripcion: 'Incluye a todos los prospectos sin filtros',
+          etapa: null,
           destino: null,
           estado_civil: null,
-          tipo_audiencia: ['familia', 'pareja', 'grupo'],
+          tipo_audiencia: ['familia', 'pareja', 'solo', 'amigos', 'grupo'],
           preferencia_entretenimiento: null,
-          prospectos_count: 128,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          nombre: 'Luna de Miel Los Cabos',
-          descripcion: 'Parejas interesadas en luna de miel en Los Cabos',
-          etapa: 'Interesado',
-          destino: 'Los Cabos',
-          estado_civil: 'casado',
-          tipo_audiencia: ['pareja'],
-          preferencia_entretenimiento: 'descanso',
-          prospectos_count: 67,
+          prospectos_count: totalProspectos || 0,
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
       ];
-      setAudiences(mockAudiences);
+      
+      // Crear audiencias por etapa con conteos reales
+      const etapasConAudiencia = ['Interesado', 'Atendió llamada', 'En seguimiento', 'Nuevo', 'Activo PQNC'];
+      etapasConAudiencia.forEach((etapa, index) => {
+        const count = etapasMap.get(etapa) || 0;
+        if (count > 0) {
+          dynamicAudiences.push({
+            id: `etapa-${index}`,
+            nombre: etapa,
+            descripcion: `Prospectos en etapa "${etapa}"`,
+            etapa: etapa as ProspectoEtapa,
+            destino: null,
+            estado_civil: null,
+            tipo_audiencia: [],
+            preferencia_entretenimiento: null,
+            prospectos_count: count,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+      });
+      
+      // Intentar cargar audiencias guardadas en la BD (si la tabla existe)
+      try {
+        const { data: savedAudiences, error } = await analysisSupabase
+          .from('whatsapp_audiences')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        
+        if (!error && savedAudiences && savedAudiences.length > 0) {
+          // Calcular conteo de prospectos para cada audiencia guardada
+          for (const aud of savedAudiences) {
+            let query = analysisSupabase.from('prospectos').select('id', { count: 'exact', head: true });
+            
+            if (aud.etapa) {
+              query = query.eq('etapa', aud.etapa);
+            }
+            
+            const { count } = await query;
+            
+            dynamicAudiences.push({
+              ...aud,
+              prospectos_count: count || 0,
+            });
+          }
+        }
+      } catch (dbError) {
+        // La tabla no existe aún, usar solo audiencias dinámicas
+        console.log('Tabla whatsapp_audiences no existe, usando audiencias dinámicas');
+      }
+      
+      setAudiences(dynamicAudiences);
     } catch (error) {
       console.error('Error loading audiences:', error);
       toast.error('Error al cargar audiencias');
+      
+      // Fallback: mostrar al menos la audiencia Global
+      setAudiences([{
+        id: 'global',
+        nombre: 'Global - Todos los Prospectos',
+        descripcion: 'Incluye a todos los prospectos',
+        etapa: null,
+        destino: null,
+        estado_civil: null,
+        tipo_audiencia: [],
+        preferencia_entretenimiento: null,
+        prospectos_count: 0,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }]);
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,35 @@
 
 ## Historial de Versiones
 
+### v2.1.7 (2025-12-10)
+**Descripción**: B4.3.3N6.0.0: Catálogo de imágenes y audiencias dinámicas
+
+---
+
+## 🎯 **RELEASE B4.3.3N6.0.0 - Catálogo de Imágenes y Audiencias Dinámicas**
+
+### 📸 **Catálogo de Imágenes para Header**
+- Botón "Catálogo" ahora abre modal de selección de imágenes
+- Carga imágenes desde tabla `contenido_multimedia`
+- Grid visual con hover effects y selección inmediata
+- Preview de imagen con posibilidad de eliminar
+
+### 👥 **Audiencias Dinámicas**
+- Estadísticas de prospectos cargadas en tiempo real desde BD
+- Audiencia "Global - Todos los Prospectos" incluida automáticamente
+- Audiencias por etapa creadas dinámicamente con conteos reales
+- Fallback robusto si la tabla `whatsapp_audiences` no existe
+
+### 📋 **Mejoras en Cards de Plantillas**
+- Muestra etiquetas de audiencias asignadas
+- Indicador de +N audiencias si hay más de 2
+- Iconos de usuarios para identificar audiencias
+
+### 📁 **Archivos Modificados**
+- `WhatsAppTemplatesManager.tsx` - Catálogo de imágenes, audiencias dinámicas, cards mejoradas
+
+---
+
 ### v2.1.6 (2025-12-10)
 **Descripción**: B4.3.2N6.0.0: Rediseño completo del modal de plantillas WhatsApp
 
