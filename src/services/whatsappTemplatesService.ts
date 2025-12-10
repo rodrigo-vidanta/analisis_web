@@ -142,7 +142,14 @@ class WhatsAppTemplatesService {
         category: input.category,
         components: componentsWithExamples,
         description: input.description || undefined,
+        // Clasificación de la plantilla (array separado para el webhook)
+        classification: input.classification || null,
       };
+
+      console.log('📤 Enviando plantilla con clasificación:', {
+        name: payload.name,
+        classification: payload.classification,
+      });
 
       const response = await fetch(`${WEBHOOK_BASE_URL}/webhook/whatsapp-templates`, {
         method: 'POST',
@@ -508,6 +515,31 @@ class WhatsAppTemplatesService {
       ],
     });
 
+    // Esquema de discovery (llamadas_ventas) - Datos del prospecto obtenidos en llamadas
+    schemas.push({
+      table_name: 'llamadas_ventas',
+      display_name: 'Discovery (Llamadas)',
+      fields: [
+        // Datos directos de la tabla
+        { name: 'composicion_familiar_numero', type: 'number', display_name: 'Composición Familiar (Número)' },
+        { name: 'destino_preferido', type: 'string', display_name: 'Destino Preferido' },
+        { name: 'preferencia_vacaciones', type: 'string', display_name: 'Preferencia de Vacaciones' },
+        { name: 'numero_noches', type: 'number', display_name: 'Número de Noches' },
+        { name: 'mes_preferencia', type: 'string', display_name: 'Mes de Preferencia' },
+        { name: 'estado_civil', type: 'string', display_name: 'Estado Civil' },
+        { name: 'edad', type: 'number', display_name: 'Edad' },
+        { name: 'propuesta_economica_ofrecida', type: 'string', display_name: 'Propuesta Económica' },
+        { name: 'habitacion_ofertada', type: 'string', display_name: 'Habitación Ofertada' },
+        { name: 'resort_ofertado', type: 'string', display_name: 'Resort Ofertado' },
+        { name: 'resumen_llamada', type: 'string', display_name: 'Resumen de Llamada' },
+        // Datos anidados en datos_proceso (JSONB)
+        { name: 'datos_proceso.numero_personas', type: 'number', display_name: 'Número de Personas (Discovery)' },
+        { name: 'datos_proceso.duracion_estancia_noches', type: 'number', display_name: 'Duración de Estancia (Noches)' },
+        { name: 'datos_proceso.discovery_completo', type: 'boolean', display_name: 'Discovery Completo' },
+        { name: 'datos_proceso.metodo_pago_discutido', type: 'string', display_name: 'Método de Pago Discutido' },
+      ],
+    });
+
     return schemas;
   }
 
@@ -673,10 +705,35 @@ class WhatsAppTemplatesService {
 
   /**
    * Obtener datos de ejemplo de una tabla específica
+   * Soporta campos anidados JSONB usando notación de punto (ej: "datos_proceso.numero_personas")
    */
   async getTableExampleData(tableName: string, fieldName: string): Promise<string | null> {
     try {
-      let query = analysisSupabase.from(tableName).select(fieldName).limit(1);
+      // Verificar si es un campo anidado (JSONB)
+      const isNestedField = fieldName.includes('.');
+      
+      let selectField = fieldName;
+      let nestedPath: string[] = [];
+      
+      if (isNestedField) {
+        // Para campos anidados como "datos_proceso.numero_personas"
+        const parts = fieldName.split('.');
+        selectField = parts[0]; // "datos_proceso"
+        nestedPath = parts.slice(1); // ["numero_personas"]
+      }
+      
+      // Para llamadas_ventas, buscar un registro con datos más completos
+      let query;
+      if (tableName === 'llamadas_ventas') {
+        // Intentar obtener un registro con datos de discovery más completos
+        query = analysisSupabase
+          .from(tableName)
+          .select(selectField)
+          .not(isNestedField ? selectField : fieldName, 'is', null)
+          .limit(5);
+      } else {
+        query = analysisSupabase.from(tableName).select(selectField).limit(1);
+      }
       
       const { data, error } = await query;
       
@@ -684,7 +741,25 @@ class WhatsAppTemplatesService {
         return null;
       }
       
-      const value = data[0][fieldName];
+      // Para llamadas_ventas, buscar el primer registro con valor no nulo
+      let value: any = null;
+      
+      for (const record of data) {
+        let recordValue = record[selectField];
+        
+        // Si es campo anidado, navegar la estructura JSONB
+        if (isNestedField && recordValue && typeof recordValue === 'object') {
+          for (const key of nestedPath) {
+            recordValue = recordValue?.[key];
+          }
+        }
+        
+        if (recordValue !== null && recordValue !== undefined) {
+          value = recordValue;
+          break;
+        }
+      }
+      
       if (value === null || value === undefined) {
         return null;
       }
@@ -692,6 +767,10 @@ class WhatsAppTemplatesService {
       // Convertir a string si es necesario
       if (Array.isArray(value)) {
         return value.join(', ');
+      }
+      
+      if (typeof value === 'boolean') {
+        return value ? 'Sí' : 'No';
       }
       
       return String(value);
@@ -792,17 +871,61 @@ class WhatsAppTemplatesService {
               prospectos: {
                 nombre: 'Juan',
                 nombre_completo: 'Juan Pérez',
+                apellido_paterno: 'Pérez',
+                apellido_materno: 'García',
+                nombre_whatsapp: 'Juan Pérez',
                 whatsapp: '+521234567890',
+                telefono_principal: '+521234567890',
                 email: 'juan@example.com',
                 ciudad_residencia: 'Ciudad de México',
+                edad: '35',
+                estado_civil: 'Casado',
+                destino_preferencia: 'Riviera Maya, Los Cabos',
+                tamano_grupo: '4',
+                cantidad_menores: '2',
+                viaja_con: 'Familia',
+                asesor_asignado: 'María González',
               },
               destinos: {
                 nombre: 'Nuevo Nayarit',
+                nombre_anterior: 'Nuevo Vallarta',
+                descripcion: 'Destino de playa en la Riviera Nayarit',
                 estado: 'Nayarit',
+                aeropuerto_cercano: 'Aeropuerto Internacional de Puerto Vallarta',
+                clima: 'Tropical',
+                mejor_epoca_visitar: 'Octubre - Mayo',
               },
               resorts: {
                 nombre: 'The Grand Mayan',
+                nombre_completo: 'The Grand Mayan Nuevo Vallarta',
                 categoria: 'The Grand Mayan',
+                descripcion: 'Resort de lujo con vistas al océano',
+                direccion: 'Blvd. Nuevo Vallarta',
+                telefono: '+52 322 123 4567',
+                habitaciones_total: '500',
+                playa_km: '2',
+                albercas: '12',
+                restaurantes: '8',
+                campo_golf_nombre: 'Nayar Golf Course',
+              },
+              llamadas_ventas: {
+                // Datos directos de la tabla
+                composicion_familiar_numero: '4',
+                destino_preferido: 'Riviera Maya',
+                preferencia_vacaciones: 'Mixto (descanso y entretenimiento)',
+                numero_noches: '7',
+                mes_preferencia: 'Diciembre',
+                estado_civil: 'Casado(a)',
+                edad: '38',
+                propuesta_economica_ofrecida: '$2,500 USD (pago inicial)',
+                habitacion_ofertada: 'Suite Master',
+                resort_ofertado: 'Grand Mayan Riviera Maya',
+                resumen_llamada: 'Cliente interesado en vacaciones familiares',
+                // Campos anidados de datos_proceso
+                'datos_proceso.numero_personas': '4',
+                'datos_proceso.duracion_estancia_noches': '7',
+                'datos_proceso.discovery_completo': 'Sí',
+                'datos_proceso.metodo_pago_discutido': 'Tarjeta de crédito',
               },
             };
             

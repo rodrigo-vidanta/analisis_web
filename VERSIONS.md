@@ -1,5 +1,56 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.3.1N6.0.0 (Diciembre 2025) - Sistema de Clasificación de Plantillas WhatsApp
+
+### 🎯 RELEASE BETA - Clasificación Avanzada y Rediseño de UI
+
+#### Sistema de Clasificación de Plantillas
+- **Nueva pestaña "Clasificación"** en modal de creación/edición de plantillas
+- **Segmentación inteligente**: Etapa de prospecto, destino turístico, campaña
+- **5 Categorías de Reactivación**: Seguimiento Post-Llamada, Recordatorio de Reserva, Oferta Especial, Reenganche de Interés, Actualización de Información
+- **Preferencias de audiencia**: Entretenimiento/Descanso/Mixto, familias, grupos, menores, luna de miel
+- **Mapeo de Discovery**: Variables de `llamadas_ventas` con soporte JSONB anidado
+- **Mapeo de Prospectos**: Variables de tabla `prospectos`
+- **Payload separado**: Clasificación se envía al webhook N8N, no se almacena en BD
+
+#### Rediseño del Visualizador de Plantillas
+- **Nueva grilla moderna**: Cards con gradientes y animaciones
+- **Layout responsivo**: Optimizado para cientos de plantillas
+- **Vista expandible**: Detalles adicionales sin saturar la UI
+- **Acciones rápidas**: Editar, eliminar, sincronizar, preview con iconos intuitivos
+- **Indicadores visuales**: Estado activo/inactivo, badges de categoría coloridos
+
+#### Mejoras Técnicas
+- `getTableExampleData`: Soporte para campos JSONB con notación de punto
+- Búsqueda de valores no nulos en múltiples registros
+- Valores por defecto comprehensivos para previews completos
+- Nuevos tipos TypeScript: `TemplateClassification`, `ProspectoEtapa`, `DestinoNombre`, etc.
+
+#### Correcciones de UI/UX
+- Emoji removido de pestaña "Clasificación"
+- Dark mode corregido en "Audiencia Objetivo"
+- Separación clara entre "Tabla de BD" y "Función Sistema"
+
+#### Archivos Principales
+- whatsappTemplates.ts - Tipos de clasificación
+- WhatsAppTemplatesManager.tsx - Tab de clasificación, grilla rediseñada
+- whatsappTemplatesService.ts - Soporte JSONB y payload de clasificación
+- WHATSAPP_TEMPLATES_CLASSIFICATION.md - Documentación
+
+---
+
+## Versión B4.3.0N6.0.0 (Diciembre 2025) - Monitoreo de Audio en Tiempo Real
+
+### 🎯 RELEASE BETA - Audio Monitoring para Llamadas
+
+#### Funcionalidades
+- Monitoreo de audio en tiempo real para llamadas activas
+- Canales separados para IA y cliente
+- Escala de volumen ajustable
+- Panel de configuración técnica avanzada
+
+---
+
 ## Versión B4.2.0N6.0.0 (Diciembre 2025) - Gestión de Auth Tokens API
 
 ### 🎯 RELEASE BETA - Nueva Funcionalidad de Gestión de Tokens

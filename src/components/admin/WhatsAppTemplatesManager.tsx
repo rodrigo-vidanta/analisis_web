@@ -38,6 +38,19 @@ import type {
   UpdateTemplateInput,
   VariableMapping,
   TableSchema,
+  TemplateClassification,
+  ProspectoEtapa,
+  DestinoNombre,
+  CategoriaReactivacion,
+  PreferenciaEntretenimiento,
+} from '../../types/whatsappTemplates';
+import {
+  PROSPECTO_ETAPAS,
+  DESTINOS,
+  CATEGORIAS_REACTIVACION,
+  PREFERENCIAS_ENTRETENIMIENTO,
+  DISCOVERY_FIELDS,
+  PROSPECTO_FIELDS,
 } from '../../types/whatsappTemplates';
 
 /**
@@ -80,6 +93,20 @@ const WhatsAppTemplatesManager: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<WhatsAppTemplate | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
   
+  // Estado inicial de clasificación
+  const defaultClassification: TemplateClassification = {
+    etapa: null,
+    campana: null,
+    destino: null,
+    requiere_atencion_humana: false,
+    categoria_reactivacion: null,
+    preferencia_entretenimiento: null,
+    para_familias: false,
+    para_grupos: false,
+    con_menores: false,
+    luna_de_miel: false,
+  };
+
   // Estados del formulario
   const [formData, setFormData] = useState<CreateTemplateInput>({
     name: '',
@@ -88,6 +115,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
     components: [{ type: 'BODY', text: '' }],
     description: '',
     variable_mappings: [],
+    classification: { ...defaultClassification },
   });
   
   // Estados para gestión de variables
@@ -177,6 +205,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
       components: [{ type: 'BODY', text: '' }],
       description: '',
       variable_mappings: [],
+      classification: { ...defaultClassification },
     });
     setIsModalOpen(true);
   };
@@ -191,6 +220,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
       components: template.components,
       description: template.description || '',
       variable_mappings: template.variable_mappings || [],
+      classification: (template as any).classification || { ...defaultClassification },
     });
     setIsModalOpen(true);
   };
@@ -644,53 +674,72 @@ const WhatsAppTemplatesManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Lista de plantillas */}
-      <div className="space-y-4">
-        {filteredTemplates.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center">
-            <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              No hay plantillas
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' || filterActive !== 'all'
-                ? 'No se encontraron plantillas con los filtros aplicados'
-                : 'Crea tu primera plantilla de WhatsApp'}
-            </p>
-            {!searchQuery && filterCategory === 'all' && filterStatus === 'all' && filterActive === 'all' && (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleCreateNew}
-                className="inline-flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Crear Primera Plantilla</span>
-              </motion.button>
-            )}
+      {/* Contador de resultados */}
+      {filteredTemplates.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {filteredTemplates.length} plantilla{filteredTemplates.length !== 1 ? 's' : ''} 
+            {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' || filterActive !== 'all' 
+              ? ' encontrada' + (filteredTemplates.length !== 1 ? 's' : '') 
+              : ''}
+          </p>
+        </div>
+      )}
+
+      {/* Grid de plantillas - Diseño moderno */}
+      {filteredTemplates.length === 0 ? (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-16 text-center border border-gray-200 dark:border-gray-700"
+        >
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 flex items-center justify-center">
+            <MessageSquare className="w-10 h-10 text-gray-400" />
           </div>
-        ) : (
-          filteredTemplates.map((template) => (
-            <TemplateCard
-              key={template.id}
-              template={template}
-              isExpanded={expandedTemplate === template.id}
-              onExpand={() => setExpandedTemplate(expandedTemplate === template.id ? null : template.id)}
-              onEdit={() => handleEdit(template)}
-              onDelete={() => handleDelete(template)}
-              onToggleActive={() => handleToggleActive(template)}
-              onViewPreview={() => {
-                setSelectedTemplate(template);
-                setShowPreview(true);
-              }}
-              onSync={handleSyncSingle}
-              syncingTemplateId={syncingTemplateId}
-              getStatusColor={getStatusColor}
-              getCategoryColor={getCategoryColor}
-            />
-          ))
-        )}
-      </div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            No hay plantillas
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md mx-auto">
+            {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' || filterActive !== 'all'
+              ? 'No se encontraron plantillas con los filtros aplicados'
+              : 'Las plantillas de WhatsApp te permiten enviar mensajes predefinidos a tus prospectos'}
+          </p>
+          {!searchQuery && filterCategory === 'all' && filterStatus === 'all' && filterActive === 'all' && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleCreateNew}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg shadow-blue-500/25"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Crear Primera Plantilla</span>
+            </motion.button>
+          )}
+        </motion.div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+          <AnimatePresence mode="popLayout">
+            {filteredTemplates.map((template, index) => (
+              <TemplateGridCard
+                key={template.id}
+                template={template}
+                index={index}
+                onEdit={() => handleEdit(template)}
+                onDelete={() => handleDelete(template)}
+                onToggleActive={() => handleToggleActive(template)}
+                onViewPreview={() => {
+                  setSelectedTemplate(template);
+                  setShowPreview(true);
+                }}
+                onSync={handleSyncSingle}
+                syncingTemplateId={syncingTemplateId}
+                getStatusColor={getStatusColor}
+                getCategoryColor={getCategoryColor}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Modal de creación/edición */}
       <TemplateModal
@@ -935,6 +984,170 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
   );
 };
 
+// ============================================
+// NUEVO COMPONENTE: TemplateGridCard (Diseño moderno en grid)
+// ============================================
+
+interface TemplateGridCardProps {
+  template: WhatsAppTemplate;
+  index: number;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggleActive: () => void;
+  onViewPreview: () => void;
+  onSync: (templateId: string) => void;
+  syncingTemplateId: string | null;
+  getStatusColor: (status: string) => string;
+  getCategoryColor: (category: string) => string;
+}
+
+const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
+  template,
+  index,
+  onEdit,
+  onDelete,
+  onToggleActive,
+  onViewPreview,
+  onSync,
+  syncingTemplateId,
+  getStatusColor,
+  getCategoryColor,
+}) => {
+  const bodyComponent = template.components.find(c => c.type === 'BODY');
+  const previewText = bodyComponent?.text || 'Sin contenido';
+  const maxLength = 80;
+  const truncated = previewText.length > maxLength 
+    ? previewText.substring(0, maxLength) + '...' 
+    : previewText;
+
+  // Contar variables
+  const variableCount = template.variable_mappings?.length || 0;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2, delay: index * 0.03 }}
+      className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 overflow-hidden hover:shadow-lg hover:shadow-blue-500/5"
+    >
+      {/* Indicador de estado superior */}
+      <div className={`absolute top-0 left-0 right-0 h-1 ${
+        template.status === 'APPROVED' ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
+        template.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
+        'bg-gradient-to-r from-red-400 to-rose-500'
+      }`} />
+
+      {/* Contenido principal */}
+      <div className="p-4">
+        {/* Header con nombre y estado */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={template.name}>
+              {template.name}
+            </h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`px-2 py-0.5 text-[10px] font-medium rounded-md ${getCategoryColor(template.category)}`}>
+                {template.category}
+              </span>
+              {!template.is_active && (
+                <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 rounded-md">
+                  Inactiva
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Menu de acciones */}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={onViewPreview}
+              className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+              title="Vista previa"
+            >
+              <Eye className="w-4 h-4" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={onToggleActive}
+              className={`p-1.5 rounded-lg transition-colors ${
+                template.is_active
+                  ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30'
+                  : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+              title={template.is_active ? 'Desactivar' : 'Activar'}
+            >
+              <Power className="w-4 h-4" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onSync(template.id)}
+              disabled={syncingTemplateId === template.id}
+              className="p-1.5 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors disabled:opacity-50"
+              title="Sincronizar"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncingTemplateId === template.id ? 'animate-spin' : ''}`} />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={onDelete}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+              title="Eliminar"
+            >
+              <Trash2 className="w-4 h-4" />
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Preview del mensaje */}
+        <div 
+          className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-3 min-h-[40px] cursor-pointer hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
+          onClick={onViewPreview}
+        >
+          {truncated}
+        </div>
+
+        {/* Footer con metadata */}
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1">
+              <Globe className="w-3 h-3" />
+              {template.language}
+            </span>
+            {variableCount > 0 && (
+              <span className="flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                {variableCount} var
+              </span>
+            )}
+          </div>
+          
+          {/* Indicador de sync */}
+          <div className="flex items-center gap-1">
+            {template.uchat_synced ? (
+              <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
+                <CheckCircle2 className="w-3 h-3" />
+                Sync
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-[10px] text-yellow-600 dark:text-yellow-400">
+                <Clock className="w-3 h-3" />
+                Pendiente
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 // Componente de modal de creación/edición
 interface TemplateModalProps {
   isOpen: boolean;
@@ -983,7 +1196,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
   systemVariables,
   saving,
 }) => {
-  const [activeTab, setActiveTab] = useState<'content' | 'variables' | 'preview'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'variables' | 'classification' | 'preview'>('content');
   const [showPreviewContent, setShowPreviewContent] = useState(false);
 
   const variables = getAllVariables();
@@ -1053,7 +1266,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
 
                 {/* Tabs */}
                 <div className="flex space-x-1 border-b border-gray-200 dark:border-gray-700">
-                  {(['content', 'variables', 'preview'] as const).map((tab) => (
+                  {(['content', 'variables', 'classification', 'preview'] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -1065,6 +1278,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                     >
                       {tab === 'content' && 'Contenido'}
                       {tab === 'variables' && `Variables (${variables.length})`}
+                      {tab === 'classification' && 'Clasificación'}
                       {tab === 'preview' && 'Vista Previa'}
                     </button>
                   ))}
@@ -1211,6 +1425,24 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                     getVariableMapping={getVariableMapping}
                     onAddVariableMapping={onAddVariableMapping}
                     systemVariables={systemVariables}
+                  />
+                )}
+
+                {activeTab === 'classification' && (
+                  <TemplateClassificationTab
+                    classification={formData.classification || {
+                      etapa: null,
+                      campana: null,
+                      destino: null,
+                      requiere_atencion_humana: false,
+                      categoria_reactivacion: null,
+                      preferencia_entretenimiento: null,
+                      para_familias: false,
+                      para_grupos: false,
+                      con_menores: false,
+                      luna_de_miel: false,
+                    }}
+                    onChange={(classification) => setFormData({ ...formData, classification })}
                   />
                 )}
 
@@ -1653,7 +1885,7 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
                     <div className="text-xs text-gray-600 dark:text-gray-400">
                       {mapping.table_name === 'system' ? (
                         <>
-                          <span className="font-medium">Función del Sistema:</span> {mapping.display_name}
+                          <span className="font-medium">Variable Automática:</span> {mapping.display_name}
                         </>
                       ) : (
                         <>
@@ -1685,7 +1917,7 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
                               : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                           }`}
                         >
-                          Tabla de BD
+                          📊 Datos de Tablas
                         </button>
                         <button
                           onClick={() => {
@@ -1699,7 +1931,7 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
                               : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                           }`}
                         >
-                          Función Sistema
+                          ⚡ Variables Auto
                         </button>
                       </div>
                     </div>
@@ -1750,7 +1982,7 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
                     ) : (
                       <div>
                         <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">
-                          Seleccionar Función del Sistema
+                          Seleccionar Variable Automática
                         </label>
                         <select
                           value={selectedField}
@@ -1890,6 +2122,320 @@ const PreviewModal: React.FC<{ isOpen: boolean; onClose: () => void; template: W
         </>
       )}
     </AnimatePresence>
+  );
+};
+
+// ============================================
+// COMPONENTE DE PESTAÑA DE CLASIFICACIÓN
+// ============================================
+
+interface TemplateClassificationTabProps {
+  classification: TemplateClassification;
+  onChange: (classification: TemplateClassification) => void;
+}
+
+const TemplateClassificationTab: React.FC<TemplateClassificationTabProps> = ({
+  classification,
+  onChange,
+}) => {
+  const updateField = <K extends keyof TemplateClassification>(
+    field: K,
+    value: TemplateClassification[K]
+  ) => {
+    onChange({ ...classification, [field]: value });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center space-x-2 mb-4">
+        <div className="w-1 h-5 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
+        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+          Clasificación de Plantilla
+        </h4>
+      </div>
+      
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Define los criterios de segmentación para esta plantilla. Estos valores se envían al webhook para filtrar prospectos.
+      </p>
+
+      {/* Grid de clasificación */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Etapa del prospecto */}
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+            <Tag className="w-4 h-4" />
+            <span>Etapa del Prospecto</span>
+          </label>
+          <select
+            value={classification.etapa || ''}
+            onChange={(e) => updateField('etapa', e.target.value as ProspectoEtapa || null)}
+            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+          >
+            <option value="">Sin especificar</option>
+            {PROSPECTO_ETAPAS.map((etapa) => (
+              <option key={etapa.value} value={etapa.value}>
+                {etapa.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Campaña */}
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+            <FileText className="w-4 h-4" />
+            <span>Campaña</span>
+          </label>
+          <input
+            type="text"
+            value={classification.campana || ''}
+            onChange={(e) => updateField('campana', e.target.value || null)}
+            placeholder="Ej: Black Friday 2025"
+            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+          />
+        </div>
+
+        {/* Destino */}
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+            <Globe className="w-4 h-4" />
+            <span>Destino</span>
+          </label>
+          <select
+            value={classification.destino || ''}
+            onChange={(e) => updateField('destino', e.target.value as DestinoNombre || null)}
+            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+          >
+            <option value="">Sin especificar</option>
+            {DESTINOS.map((destino) => (
+              <option key={destino.value} value={destino.value}>
+                {destino.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Categoría de reactivación */}
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+            <MessageSquare className="w-4 h-4" />
+            <span>Categoría de Reactivación</span>
+          </label>
+          <select
+            value={classification.categoria_reactivacion || ''}
+            onChange={(e) => updateField('categoria_reactivacion', e.target.value as CategoriaReactivacion || null)}
+            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+          >
+            <option value="">Sin especificar</option>
+            {CATEGORIAS_REACTIVACION.map((cat) => (
+              <option key={cat.value} value={cat.value}>
+                {cat.label}
+              </option>
+            ))}
+          </select>
+          {classification.categoria_reactivacion && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+              {CATEGORIAS_REACTIVACION.find(c => c.value === classification.categoria_reactivacion)?.description}
+            </p>
+          )}
+        </div>
+
+        {/* Preferencia de entretenimiento */}
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+            <Sparkles className="w-4 h-4" />
+            <span>Preferencia de Entretenimiento</span>
+          </label>
+          <select
+            value={classification.preferencia_entretenimiento || ''}
+            onChange={(e) => updateField('preferencia_entretenimiento', e.target.value as PreferenciaEntretenimiento || null)}
+            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+          >
+            <option value="">Sin especificar</option>
+            {PREFERENCIAS_ENTRETENIMIENTO.map((pref) => (
+              <option key={pref.value} value={pref.value}>
+                {pref.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Sección de Flags de Audiencia */}
+      <div className="mt-8">
+        <div className="flex items-center space-x-2 mb-4">
+          <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            Audiencia Objetivo
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Para Familias */}
+          <label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:border-blue-400 dark:hover:border-blue-500 ${
+            classification.para_familias 
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' 
+              : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
+          }`}>
+            <input
+              type="checkbox"
+              checked={classification.para_familias}
+              onChange={(e) => updateField('para_familias', e.target.checked)}
+              className="sr-only"
+            />
+            <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
+              classification.para_familias
+                ? 'bg-blue-500 border-blue-500'
+                : 'border-gray-300 dark:border-gray-500'
+            }`}>
+              {classification.para_familias && (
+                <Check className="w-3 h-3 text-white" />
+              )}
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Familias</span>
+              <p className="text-xs text-gray-500 dark:text-gray-400">👨‍👩‍👧‍👦</p>
+            </div>
+          </label>
+
+          {/* Para Grupos */}
+          <label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-500 ${
+            classification.para_grupos 
+              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' 
+              : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
+          }`}>
+            <input
+              type="checkbox"
+              checked={classification.para_grupos}
+              onChange={(e) => updateField('para_grupos', e.target.checked)}
+              className="sr-only"
+            />
+            <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
+              classification.para_grupos
+                ? 'bg-purple-500 border-purple-500'
+                : 'border-gray-300 dark:border-gray-500'
+            }`}>
+              {classification.para_grupos && (
+                <Check className="w-3 h-3 text-white" />
+              )}
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Grupos</span>
+              <p className="text-xs text-gray-500 dark:text-gray-400">👥</p>
+            </div>
+          </label>
+
+          {/* Con Menores */}
+          <label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 ${
+            classification.con_menores 
+              ? 'border-green-500 bg-green-50 dark:bg-green-900/30' 
+              : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
+          }`}>
+            <input
+              type="checkbox"
+              checked={classification.con_menores}
+              onChange={(e) => updateField('con_menores', e.target.checked)}
+              className="sr-only"
+            />
+            <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
+              classification.con_menores
+                ? 'bg-green-500 border-green-500'
+                : 'border-gray-300 dark:border-gray-500'
+            }`}>
+              {classification.con_menores && (
+                <Check className="w-3 h-3 text-white" />
+              )}
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Menores</span>
+              <p className="text-xs text-gray-500 dark:text-gray-400">👶</p>
+            </div>
+          </label>
+
+          {/* Luna de Miel */}
+          <label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:border-pink-400 dark:hover:border-pink-500 ${
+            classification.luna_de_miel 
+              ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/30' 
+              : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
+          }`}>
+            <input
+              type="checkbox"
+              checked={classification.luna_de_miel}
+              onChange={(e) => updateField('luna_de_miel', e.target.checked)}
+              className="sr-only"
+            />
+            <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
+              classification.luna_de_miel
+                ? 'bg-pink-500 border-pink-500'
+                : 'border-gray-300 dark:border-gray-500'
+            }`}>
+              {classification.luna_de_miel && (
+                <Check className="w-3 h-3 text-white" />
+              )}
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Luna de Miel</span>
+              <p className="text-xs text-gray-500 dark:text-gray-400">💑</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Toggle Requiere Atención Humana */}
+      <div className="mt-8">
+        <div className="flex items-center space-x-2 mb-4">
+          <div className="w-1 h-5 bg-gradient-to-b from-red-500 to-orange-500 rounded-full"></div>
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            Configuración de Seguimiento
+          </h4>
+        </div>
+
+        <label className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer transition-all duration-200 group">
+          <div className="flex items-center space-x-3">
+            <div className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
+              classification.requiere_atencion_humana ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-700'
+            }`}>
+              <motion.div
+                animate={{ x: classification.requiere_atencion_humana ? 24 : 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
+              />
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Requiere Atención Humana
+              </span>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Activar flag de atención después de enviar esta plantilla
+              </p>
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={classification.requiere_atencion_humana}
+            onChange={(e) => updateField('requiere_atencion_humana', e.target.checked)}
+            className="sr-only"
+          />
+          <AlertCircle className={`w-5 h-5 transition-colors ${
+            classification.requiere_atencion_humana ? 'text-red-500' : 'text-gray-400'
+          }`} />
+        </label>
+      </div>
+
+      {/* Información adicional */}
+      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+        <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+          💡 Información
+        </h5>
+        <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+          <li>Estos valores se envían al webhook en un array separado llamado <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">classification</code></li>
+          <li>Todos los campos son opcionales y aceptan valores null</li>
+          <li>El webhook puede usar estos valores para filtrar prospectos objetivo</li>
+          <li>Los flags de audiencia ayudan a segmentar mensajes específicos</li>
+        </ul>
+      </div>
+    </div>
   );
 };
 

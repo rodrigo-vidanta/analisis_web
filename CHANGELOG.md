@@ -2,6 +2,85 @@
 
 ## Historial de Versiones
 
+### v2.1.5 (2025-12-10)
+**Descripción**: B4.3.1N6.0.0: Sistema de Clasificación de Plantillas WhatsApp y Rediseño de UI
+
+---
+
+## 🎯 **RELEASE B4.3.1N6.0.0 - Sistema de Clasificación de Plantillas WhatsApp**
+
+### 📋 **Sistema de Clasificación para Plantillas WhatsApp**
+
+#### Nueva Pestaña de Clasificación en Modal de Plantillas
+- **Segmentación por Etapa**: Selector con todas las etapas de prospectos (Activo PQNC, Atendió llamada, En seguimiento, etc.)
+- **Destinos Turísticos**: Selector con destinos Vidanta (Nuevo Nayarit, Riviera Maya, Los Cabos, etc.)
+- **Categorías de Reactivación**: 5 categorías para reactivar conversaciones de WhatsApp:
+  - Seguimiento Post-Llamada
+  - Recordatorio de Reserva
+  - Oferta Especial
+  - Reenganche de Interés
+  - Actualización de Información
+- **Preferencias de Entretenimiento**: Entretenimiento, Descanso o Mixto
+- **Audiencia Objetivo**: Toggles para familias, grupos, menores, luna de miel
+
+#### Mapeo de Variables de Discovery
+- Integración completa con tabla `llamadas_ventas`
+- Soporte para campos JSONB anidados (ej: `datos_proceso.numero_personas`)
+- Campos de composición familiar, preferencias de viaje, datos del proceso
+- Vista previa con datos reales de la base de datos
+
+#### Mapeo de Variables de Prospectos
+- Integración con tabla `prospectos`
+- Campos: nombre, email, teléfono, estado, campaña, etc.
+- Ejemplos automáticos para preview
+
+### 🎨 **Rediseño del Visualizador de Plantillas**
+
+#### Nueva Grilla de Plantillas
+- **Diseño moderno**: Cards con gradientes y animaciones suaves
+- **Layout responsivo**: Grid que se adapta a cualquier pantalla
+- **Animaciones**: Hover effects, transiciones y micro-interacciones
+- **Modo compacto**: Optimizado para manejar cientos de plantillas
+
+#### Funcionalidad Mejorada
+- Indicadores visuales de estado (activo/inactivo)
+- Badges de categoría con colores distintivos
+- Vista expandible para detalles adicionales
+- Acciones rápidas: editar, eliminar, sincronizar, preview
+- Información de última sincronización y variables mapeadas
+
+### 🔧 **Mejoras Técnicas**
+
+#### Servicio de Plantillas Actualizado
+- `getTableExampleData`: Soporte para campos JSONB anidados con notación de punto
+- Consulta múltiples registros para encontrar valores no nulos
+- Valores por defecto comprehensivos para preview completo
+- Payload de clasificación separado para webhook N8N
+
+#### Nuevos Tipos TypeScript
+```typescript
+// Tipos para clasificación
+ProspectoEtapa, DestinoNombre, CategoriaReactivacion, PreferenciaEntretenimiento
+
+// Interfaces
+TemplateClassification, DiscoveryFieldMapping, ProspectoFieldMapping
+```
+
+### 🐛 **Correcciones de UI/UX**
+- Eliminado emoji de pestaña "Clasificación" para consistencia
+- Corregido modo oscuro en sección "Audiencia Objetivo"
+- Separación clara entre "Tabla de BD" y "Función Sistema" en variables
+- Mejora de contraste en dark mode para todos los selectores
+
+### 📁 **Archivos Modificados**
+- `src/types/whatsappTemplates.ts` - Nuevos tipos de clasificación
+- `src/components/admin/WhatsAppTemplatesManager.tsx` - Tab de clasificación y rediseño de grilla
+- `src/services/whatsappTemplatesService.ts` - Soporte JSONB y clasificación en payload
+- `src/components/Footer.tsx` - Actualización de versión
+- `docs/WHATSAPP_TEMPLATES_CLASSIFICATION.md` - Documentación completa
+
+---
+
 ### v2.1.4 (2025-12-09 18:34)
 **Descripción**: B4.3.0: Audio monitoring con canales corregidos y escala de volumen ajustada
 
