@@ -1,5 +1,38 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.3.2N6.0.0 (Diciembre 2025) - Mejoras al Constructor de Plantillas WhatsApp
+
+### 🎯 RELEASE BETA - Rediseño Completo del Modal de Plantillas
+
+#### Pestaña de Contenido
+- Validación de nombres (solo alfanuméricos y _)
+- Límite de caracteres: Body 1000, Header 60
+- Eliminados Footer y Buttons
+- Header con opción de imagen (URL o catálogo)
+- Categoría por defecto: MARKETING
+- Solo idiomas es_MX y en_US
+
+#### Nueva Pestaña "Audiencia"
+- Selector múltiple de audiencias predefinidas
+- Conteo de prospectos por audiencia
+- Modal de creación de audiencias con:
+  - Nombre, descripción (300 chars), etapa, destino
+  - Estado civil (nuevo), tipo de audiencia con iconos
+  - Contador en tiempo real de prospectos
+- Iconos vectorizados (sin emojis)
+- Eliminada sección "Requiere Atención Humana"
+
+#### Base de Datos
+- Nueva tabla `whatsapp_audiences`
+- Función RPC `count_prospectos_for_audience()`
+
+#### Archivos
+- whatsappTemplates.ts - Tipos actualizados
+- WhatsAppTemplatesManager.tsx - Modal rediseñado
+- create_whatsapp_audiences.sql - Migración
+
+---
+
 ## Versión B4.3.1N6.0.0 (Diciembre 2025) - Sistema de Clasificación de Plantillas WhatsApp
 
 ### 🎯 RELEASE BETA - Clasificación Avanzada y Rediseño de UI

@@ -41,17 +41,20 @@ import type {
   TemplateClassification,
   ProspectoEtapa,
   DestinoNombre,
-  CategoriaReactivacion,
   PreferenciaEntretenimiento,
+  WhatsAppAudience,
+  CreateAudienceInput,
+  TipoAudiencia,
+  EstadoCivil,
 } from '../../types/whatsappTemplates';
 import {
   PROSPECTO_ETAPAS,
   DESTINOS,
-  CATEGORIAS_REACTIVACION,
   PREFERENCIAS_ENTRETENIMIENTO,
-  DISCOVERY_FIELDS,
-  PROSPECTO_FIELDS,
+  TIPOS_AUDIENCIA,
+  ESTADOS_CIVILES,
 } from '../../types/whatsappTemplates';
+import { Users, Heart, User as UserIcon, UserPlus, Users2, Image, MapPin } from 'lucide-react';
 
 /**
  * ============================================
@@ -93,30 +96,36 @@ const WhatsAppTemplatesManager: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<WhatsAppTemplate | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
   
-  // Estado inicial de clasificación
+  // Estado inicial de clasificación (ahora usa audiencias)
   const defaultClassification: TemplateClassification = {
-    etapa: null,
-    campana: null,
-    destino: null,
-    requiere_atencion_humana: false,
-    categoria_reactivacion: null,
-    preferencia_entretenimiento: null,
-    para_familias: false,
-    para_grupos: false,
-    con_menores: false,
-    luna_de_miel: false,
+    audience_ids: [],
   };
 
   // Estados del formulario
   const [formData, setFormData] = useState<CreateTemplateInput>({
     name: '',
     language: 'es_MX',
-    category: 'UTILITY',
+    category: 'MARKETING', // Por default MARKETING
     components: [{ type: 'BODY', text: '' }],
     description: '',
     variable_mappings: [],
     classification: { ...defaultClassification },
   });
+  
+  // Estados para audiencias
+  const [audiences, setAudiences] = useState<WhatsAppAudience[]>([]);
+  const [showAudienceModal, setShowAudienceModal] = useState(false);
+  const [audienceFormData, setAudienceFormData] = useState<CreateAudienceInput>({
+    nombre: '',
+    descripcion: '',
+    etapa: null,
+    destino: null,
+    estado_civil: null,
+    tipo_audiencia: [],
+    preferencia_entretenimiento: null,
+  });
+  const [savingAudience, setSavingAudience] = useState(false);
+  const [audienceProspectCount, setAudienceProspectCount] = useState<number>(0);
   
   // Estados para gestión de variables
   const [tableSchemas, setTableSchemas] = useState<TableSchema[]>([]);
@@ -1196,7 +1205,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
   systemVariables,
   saving,
 }) => {
-  const [activeTab, setActiveTab] = useState<'content' | 'variables' | 'classification' | 'preview'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'variables' | 'audience' | 'preview'>('content');
   const [showPreviewContent, setShowPreviewContent] = useState(false);
 
   const variables = getAllVariables();
@@ -1266,7 +1275,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
 
                 {/* Tabs */}
                 <div className="flex space-x-1 border-b border-gray-200 dark:border-gray-700">
-                  {(['content', 'variables', 'classification', 'preview'] as const).map((tab) => (
+                  {(['content', 'variables', 'audience', 'preview'] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -1278,7 +1287,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                     >
                       {tab === 'content' && 'Contenido'}
                       {tab === 'variables' && `Variables (${variables.length})`}
-                      {tab === 'classification' && 'Clasificación'}
+                      {tab === 'audience' && 'Audiencia'}
                       {tab === 'preview' && 'Vista Previa'}
                     </button>
                   ))}
@@ -1307,10 +1316,26 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                           <input
                             type="text"
                             value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            onChange={(e) => {
+                              // Solo permitir letras, números y guiones bajos (sin espacios, acentos ni caracteres especiales)
+                              const sanitized = e.target.value
+                                .toLowerCase()
+                                .replace(/\s+/g, '_') // Espacios a guiones bajos
+                                .replace(/[áàäâ]/g, 'a')
+                                .replace(/[éèëê]/g, 'e')
+                                .replace(/[íìïî]/g, 'i')
+                                .replace(/[óòöô]/g, 'o')
+                                .replace(/[úùüû]/g, 'u')
+                                .replace(/ñ/g, 'n')
+                                .replace(/[^a-z0-9_]/g, ''); // Solo alfanuméricos y guiones bajos
+                              setFormData({ ...formData, name: sanitized });
+                            }}
                             placeholder="ej: bienvenida_cliente"
-                            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white font-mono"
                           />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Solo letras, números y guiones bajos (_). Sin espacios ni acentos.
+                          </p>
                         </div>
 
                         <div>
@@ -1324,7 +1349,6 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                             className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
                           >
                             <option value="es_MX">Español (México)</option>
-                            <option value="es_ES">Español (España)</option>
                             <option value="en_US">English (US)</option>
                           </select>
                         </div>
@@ -1371,30 +1395,25 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                           </h4>
                         </div>
                         <div className="flex space-x-2">
-                          <button
-                            onClick={() => onAddComponent('HEADER')}
-                            className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                          >
-                            + Header
-                          </button>
-                          <button
-                            onClick={() => onAddComponent('BODY')}
-                            className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                          >
-                            + Body
-                          </button>
-                          <button
-                            onClick={() => onAddComponent('FOOTER')}
-                            className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                          >
-                            + Footer
-                          </button>
-                          <button
-                            onClick={() => onAddComponent('BUTTONS')}
-                            className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                          >
-                            + Buttons
-                          </button>
+                          {/* Solo mostrar Header si no existe uno */}
+                          {!formData.components.some(c => c.type === 'HEADER') && (
+                            <button
+                              onClick={() => onAddComponent('HEADER')}
+                              className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1"
+                            >
+                              <Image className="w-3 h-3" />
+                              + Header
+                            </button>
+                          )}
+                          {/* Solo mostrar Body si no existe uno */}
+                          {!formData.components.some(c => c.type === 'BODY') && (
+                            <button
+                              onClick={() => onAddComponent('BODY')}
+                              className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                            >
+                              + Body
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1428,21 +1447,13 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                   />
                 )}
 
-                {activeTab === 'classification' && (
-                  <TemplateClassificationTab
-                    classification={formData.classification || {
-                      etapa: null,
-                      campana: null,
-                      destino: null,
-                      requiere_atencion_humana: false,
-                      categoria_reactivacion: null,
-                      preferencia_entretenimiento: null,
-                      para_familias: false,
-                      para_grupos: false,
-                      con_menores: false,
-                      luna_de_miel: false,
-                    }}
-                    onChange={(classification) => setFormData({ ...formData, classification })}
+                {activeTab === 'audience' && (
+                  <AudienceSelectorTab
+                    selectedAudienceIds={formData.classification?.audience_ids || []}
+                    onSelectionChange={(audience_ids) => setFormData({ 
+                      ...formData, 
+                      classification: { audience_ids } 
+                    })}
                   />
                 )}
 
@@ -1633,9 +1644,25 @@ const ComponentEditor: React.FC<ComponentEditorProps> = ({
   return (
     <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
-          {component.type}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
+            {component.type}
+          </span>
+          {/* Contador de caracteres */}
+          <span className={`text-xs px-2 py-0.5 rounded-full ${
+            component.type === 'BODY' 
+              ? (component.text?.length || 0) > 1000 
+                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' 
+                : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+              : component.type === 'HEADER'
+                ? (component.text?.length || 0) > 60
+                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                  : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+          }`}>
+            {component.text?.length || 0}/{component.type === 'BODY' ? '1000' : '60'}
+          </span>
+        </div>
         <button
           onClick={onRemove}
           className="text-red-500 hover:text-red-600 transition-colors"
@@ -1643,18 +1670,57 @@ const ComponentEditor: React.FC<ComponentEditorProps> = ({
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
+      
+      {/* Selector de formato para HEADER */}
+      {component.type === 'HEADER' && (
+        <div className="mb-3">
+          <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 block">
+            Tipo de Header
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onUpdate({ format: 'TEXT' })}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                component.format !== 'IMAGE' 
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200'
+              }`}
+            >
+              Texto
+            </button>
+            <button
+              onClick={() => onUpdate({ format: 'IMAGE', text: '' })}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                component.format === 'IMAGE' 
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200'
+              }`}
+            >
+              <Image className="w-3 h-3" />
+              Imagen
+            </button>
+          </div>
+        </div>
+      )}
+      
       <div className="space-y-3">
-        {/* Editor simple con textarea */}
+        {/* Editor simple con textarea (solo para texto) */}
+        {component.format !== 'IMAGE' && (
         <div className="relative">
           <textarea
             ref={textareaRef}
             value={component.text || ''}
-            onChange={(e) => onUpdate({ text: e.target.value })}
+            onChange={(e) => {
+              const maxLength = component.type === 'BODY' ? 1000 : 60;
+              const text = e.target.value.slice(0, maxLength);
+              onUpdate({ text });
+            }}
             placeholder={`Escribe el contenido del ${component.type.toLowerCase()}...`}
             className="min-h-[120px] w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white resize-y"
             style={{ 
               minHeight: component.type === 'BODY' ? '150px' : '80px'
             }}
+            maxLength={component.type === 'BODY' ? 1000 : 60}
           />
           
           {/* Botones de acción */}
@@ -1703,9 +1769,10 @@ const ComponentEditor: React.FC<ComponentEditorProps> = ({
             )}
           </div>
         </div>
+        )}
 
         {/* Vista previa visual con tags mapeadas */}
-        {component.text && (
+        {component.text && component.format !== 'IMAGE' && (
           <div className="bg-gray-50 dark:bg-gray-800/30 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2 mb-2">
               <Sparkles className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
@@ -1770,7 +1837,80 @@ const ComponentEditor: React.FC<ComponentEditorProps> = ({
             </div>
           </div>
         )}
+        
+        {/* Editor de imagen para HEADER */}
+        {component.type === 'HEADER' && component.format === 'IMAGE' && (
+          <HeaderImageEditor 
+            imageUrl={component.example?.header_handle?.[0] || ''}
+            onImageSelect={(url) => onUpdate({ 
+              example: { 
+                ...component.example, 
+                header_handle: [url] 
+              } 
+            })}
+          />
+        )}
       </div>
+    </div>
+  );
+};
+
+// Componente para editor de imagen en header
+interface HeaderImageEditorProps {
+  imageUrl: string;
+  onImageSelect: (url: string) => void;
+}
+
+const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImageSelect }) => {
+  const [inputUrl, setInputUrl] = useState(imageUrl);
+  const [showCatalog, setShowCatalog] = useState(false);
+  
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={inputUrl}
+          onChange={(e) => setInputUrl(e.target.value)}
+          onBlur={() => onImageSelect(inputUrl)}
+          placeholder="URL de la imagen (ej: https://...)"
+          className="flex-1 px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+        />
+        <button
+          onClick={() => setShowCatalog(true)}
+          className="px-4 py-2.5 text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-2"
+        >
+          <Image className="w-4 h-4" />
+          Catálogo
+        </button>
+      </div>
+      
+      {/* Preview de imagen */}
+      {inputUrl && (
+        <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+          <img 
+            src={inputUrl} 
+            alt="Header preview" 
+            className="w-full h-32 object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x200?text=Imagen+no+encontrada';
+            }}
+          />
+          <button
+            onClick={() => {
+              setInputUrl('');
+              onImageSelect('');
+            }}
+            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Ingresa la URL de la imagen o selecciónala del catálogo. La imagen debe ser accesible públicamente.
+      </p>
     </div>
   );
 };
@@ -2126,316 +2266,613 @@ const PreviewModal: React.FC<{ isOpen: boolean; onClose: () => void; template: W
 };
 
 // ============================================
-// COMPONENTE DE PESTAÑA DE CLASIFICACIÓN
+// COMPONENTE DE PESTAÑA DE AUDIENCIA
 // ============================================
 
-interface TemplateClassificationTabProps {
-  classification: TemplateClassification;
-  onChange: (classification: TemplateClassification) => void;
+interface AudienceSelectorTabProps {
+  selectedAudienceIds: string[];
+  onSelectionChange: (ids: string[]) => void;
 }
 
-const TemplateClassificationTab: React.FC<TemplateClassificationTabProps> = ({
-  classification,
-  onChange,
+const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
+  selectedAudienceIds,
+  onSelectionChange,
 }) => {
-  const updateField = <K extends keyof TemplateClassification>(
-    field: K,
-    value: TemplateClassification[K]
-  ) => {
-    onChange({ ...classification, [field]: value });
+  const [audiences, setAudiences] = useState<WhatsAppAudience[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Cargar audiencias al montar
+  useEffect(() => {
+    loadAudiences();
+  }, []);
+
+  const loadAudiences = async () => {
+    try {
+      setLoading(true);
+      // TODO: Cargar desde Supabase cuando la tabla esté creada
+      // Por ahora usamos datos de ejemplo
+      const mockAudiences: WhatsAppAudience[] = [
+        {
+          id: '1',
+          nombre: 'Interesados Riviera Maya',
+          descripcion: 'Prospectos interesados en Riviera Maya',
+          etapa: 'Interesado',
+          destino: 'Riviera Maya',
+          estado_civil: null,
+          tipo_audiencia: ['familia', 'pareja'],
+          preferencia_entretenimiento: null,
+          prospectos_count: 245,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          nombre: 'Seguimiento Post-Llamada',
+          descripcion: 'Prospectos que atendieron llamada pero no cerraron',
+          etapa: 'Atendió llamada',
+          destino: null,
+          estado_civil: null,
+          tipo_audiencia: ['familia', 'pareja', 'grupo'],
+          preferencia_entretenimiento: null,
+          prospectos_count: 128,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: '3',
+          nombre: 'Luna de Miel Los Cabos',
+          descripcion: 'Parejas interesadas en luna de miel en Los Cabos',
+          etapa: 'Interesado',
+          destino: 'Los Cabos',
+          estado_civil: 'casado',
+          tipo_audiencia: ['pareja'],
+          preferencia_entretenimiento: 'descanso',
+          prospectos_count: 67,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ];
+      setAudiences(mockAudiences);
+    } catch (error) {
+      console.error('Error loading audiences:', error);
+      toast.error('Error al cargar audiencias');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const toggleAudience = (id: string) => {
+    if (selectedAudienceIds.includes(id)) {
+      onSelectionChange(selectedAudienceIds.filter(i => i !== id));
+    } else {
+      onSelectionChange([...selectedAudienceIds, id]);
+    }
+  };
+
+  const getIconForTipo = (tipo: TipoAudiencia) => {
+    switch (tipo) {
+      case 'familia': return Users;
+      case 'pareja': return Heart;
+      case 'solo': return UserIcon;
+      case 'amigos': return UserPlus;
+      case 'grupo': return Users2;
+      default: return Users;
+    }
+  };
+
+  const totalProspectos = audiences
+    .filter(a => selectedAudienceIds.includes(a.id))
+    .reduce((sum, a) => sum + a.prospectos_count, 0);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center space-x-2 mb-4">
-        <div className="w-1 h-5 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
-        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-          Clasificación de Plantilla
-        </h4>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-1 h-5 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            Seleccionar Audiencias
+          </h4>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Crear Audiencia
+        </motion.button>
       </div>
-      
+
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Define los criterios de segmentación para esta plantilla. Estos valores se envían al webhook para filtrar prospectos.
+        Selecciona las audiencias objetivo para esta plantilla. Puedes seleccionar múltiples audiencias.
       </p>
 
-      {/* Grid de clasificación */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Etapa del prospecto */}
-        <div className="space-y-2">
-          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-            <Tag className="w-4 h-4" />
-            <span>Etapa del Prospecto</span>
-          </label>
-          <select
-            value={classification.etapa || ''}
-            onChange={(e) => updateField('etapa', e.target.value as ProspectoEtapa || null)}
-            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-          >
-            <option value="">Sin especificar</option>
-            {PROSPECTO_ETAPAS.map((etapa) => (
-              <option key={etapa.value} value={etapa.value}>
-                {etapa.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Campaña */}
-        <div className="space-y-2">
-          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-            <FileText className="w-4 h-4" />
-            <span>Campaña</span>
-          </label>
-          <input
-            type="text"
-            value={classification.campana || ''}
-            onChange={(e) => updateField('campana', e.target.value || null)}
-            placeholder="Ej: Black Friday 2025"
-            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-          />
-        </div>
-
-        {/* Destino */}
-        <div className="space-y-2">
-          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-            <Globe className="w-4 h-4" />
-            <span>Destino</span>
-          </label>
-          <select
-            value={classification.destino || ''}
-            onChange={(e) => updateField('destino', e.target.value as DestinoNombre || null)}
-            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-          >
-            <option value="">Sin especificar</option>
-            {DESTINOS.map((destino) => (
-              <option key={destino.value} value={destino.value}>
-                {destino.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Categoría de reactivación */}
-        <div className="space-y-2">
-          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-            <MessageSquare className="w-4 h-4" />
-            <span>Categoría de Reactivación</span>
-          </label>
-          <select
-            value={classification.categoria_reactivacion || ''}
-            onChange={(e) => updateField('categoria_reactivacion', e.target.value as CategoriaReactivacion || null)}
-            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-          >
-            <option value="">Sin especificar</option>
-            {CATEGORIAS_REACTIVACION.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
-          {classification.categoria_reactivacion && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-              {CATEGORIAS_REACTIVACION.find(c => c.value === classification.categoria_reactivacion)?.description}
-            </p>
-          )}
-        </div>
-
-        {/* Preferencia de entretenimiento */}
-        <div className="space-y-2">
-          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-            <Sparkles className="w-4 h-4" />
-            <span>Preferencia de Entretenimiento</span>
-          </label>
-          <select
-            value={classification.preferencia_entretenimiento || ''}
-            onChange={(e) => updateField('preferencia_entretenimiento', e.target.value as PreferenciaEntretenimiento || null)}
-            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-          >
-            <option value="">Sin especificar</option>
-            {PREFERENCIAS_ENTRETENIMIENTO.map((pref) => (
-              <option key={pref.value} value={pref.value}>
-                {pref.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Sección de Flags de Audiencia */}
-      <div className="mt-8">
-        <div className="flex items-center space-x-2 mb-4">
-          <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
-          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-            Audiencia Objetivo
-          </h4>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Para Familias */}
-          <label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:border-blue-400 dark:hover:border-blue-500 ${
-            classification.para_familias 
-              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' 
-              : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
-          }`}>
-            <input
-              type="checkbox"
-              checked={classification.para_familias}
-              onChange={(e) => updateField('para_familias', e.target.checked)}
-              className="sr-only"
-            />
-            <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
-              classification.para_familias
-                ? 'bg-blue-500 border-blue-500'
-                : 'border-gray-300 dark:border-gray-500'
-            }`}>
-              {classification.para_familias && (
-                <Check className="w-3 h-3 text-white" />
-              )}
+      {/* Indicador de alcance total */}
+      {selectedAudienceIds.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
+                <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                  Alcance Estimado
+                </p>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                  {selectedAudienceIds.length} audiencia(s) seleccionada(s)
+                </p>
+              </div>
             </div>
-            <div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Familias</span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">👨‍👩‍👧‍👦</p>
-            </div>
-          </label>
-
-          {/* Para Grupos */}
-          <label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-500 ${
-            classification.para_grupos 
-              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' 
-              : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
-          }`}>
-            <input
-              type="checkbox"
-              checked={classification.para_grupos}
-              onChange={(e) => updateField('para_grupos', e.target.checked)}
-              className="sr-only"
-            />
-            <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
-              classification.para_grupos
-                ? 'bg-purple-500 border-purple-500'
-                : 'border-gray-300 dark:border-gray-500'
-            }`}>
-              {classification.para_grupos && (
-                <Check className="w-3 h-3 text-white" />
-              )}
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Grupos</span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">👥</p>
-            </div>
-          </label>
-
-          {/* Con Menores */}
-          <label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 ${
-            classification.con_menores 
-              ? 'border-green-500 bg-green-50 dark:bg-green-900/30' 
-              : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
-          }`}>
-            <input
-              type="checkbox"
-              checked={classification.con_menores}
-              onChange={(e) => updateField('con_menores', e.target.checked)}
-              className="sr-only"
-            />
-            <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
-              classification.con_menores
-                ? 'bg-green-500 border-green-500'
-                : 'border-gray-300 dark:border-gray-500'
-            }`}>
-              {classification.con_menores && (
-                <Check className="w-3 h-3 text-white" />
-              )}
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Menores</span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">👶</p>
-            </div>
-          </label>
-
-          {/* Luna de Miel */}
-          <label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:border-pink-400 dark:hover:border-pink-500 ${
-            classification.luna_de_miel 
-              ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/30' 
-              : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
-          }`}>
-            <input
-              type="checkbox"
-              checked={classification.luna_de_miel}
-              onChange={(e) => updateField('luna_de_miel', e.target.checked)}
-              className="sr-only"
-            />
-            <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${
-              classification.luna_de_miel
-                ? 'bg-pink-500 border-pink-500'
-                : 'border-gray-300 dark:border-gray-500'
-            }`}>
-              {classification.luna_de_miel && (
-                <Check className="w-3 h-3 text-white" />
-              )}
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Luna de Miel</span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">💑</p>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {/* Toggle Requiere Atención Humana */}
-      <div className="mt-8">
-        <div className="flex items-center space-x-2 mb-4">
-          <div className="w-1 h-5 bg-gradient-to-b from-red-500 to-orange-500 rounded-full"></div>
-          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-            Configuración de Seguimiento
-          </h4>
-        </div>
-
-        <label className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer transition-all duration-200 group">
-          <div className="flex items-center space-x-3">
-            <div className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
-              classification.requiere_atencion_humana ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-700'
-            }`}>
-              <motion.div
-                animate={{ x: classification.requiere_atencion_humana ? 24 : 0 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
-              />
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Requiere Atención Humana
-              </span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Activar flag de atención después de enviar esta plantilla
+            <div className="text-right">
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                {totalProspectos.toLocaleString()}
               </p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-400">prospectos</p>
             </div>
           </div>
-          <input
-            type="checkbox"
-            checked={classification.requiere_atencion_humana}
-            onChange={(e) => updateField('requiere_atencion_humana', e.target.checked)}
-            className="sr-only"
-          />
-          <AlertCircle className={`w-5 h-5 transition-colors ${
-            classification.requiere_atencion_humana ? 'text-red-500' : 'text-gray-400'
-          }`} />
-        </label>
-      </div>
+        </motion.div>
+      )}
 
-      {/* Información adicional */}
-      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-        <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
-          💡 Información
-        </h5>
-        <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
-          <li>Estos valores se envían al webhook en un array separado llamado <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">classification</code></li>
-          <li>Todos los campos son opcionales y aceptan valores null</li>
-          <li>El webhook puede usar estos valores para filtrar prospectos objetivo</li>
-          <li>Los flags de audiencia ayudan a segmentar mensajes específicos</li>
-        </ul>
-      </div>
+      {/* Lista de audiencias */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      ) : audiences.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+          <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-600 dark:text-gray-400">No hay audiencias creadas</p>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="mt-3 text-blue-600 dark:text-blue-400 hover:underline text-sm"
+          >
+            Crear primera audiencia
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {audiences.map((audience) => {
+            const isSelected = selectedAudienceIds.includes(audience.id);
+            return (
+              <motion.div
+                key={audience.id}
+                whileHover={{ scale: 1.01 }}
+                onClick={() => toggleAudience(audience.id)}
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                  isSelected
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {audience.nombre}
+                      </h5>
+                      <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center ${
+                        isSelected
+                          ? 'bg-blue-500 border-blue-500'
+                          : 'border-gray-300 dark:border-gray-600'
+                      }`}>
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    </div>
+                    {audience.descripcion && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                        {audience.descripcion}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right ml-3">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {audience.prospectos_count}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">prospectos</p>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {audience.etapa && (
+                    <span className="px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded-md">
+                      {audience.etapa}
+                    </span>
+                  )}
+                  {audience.destino && (
+                    <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-md flex items-center gap-1">
+                      <MapPin className="w-2.5 h-2.5" />
+                      {audience.destino}
+                    </span>
+                  )}
+                  {audience.tipo_audiencia.map((tipo) => {
+                    const Icon = getIconForTipo(tipo);
+                    return (
+                      <span 
+                        key={tipo}
+                        className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-md flex items-center gap-1"
+                      >
+                        <Icon className="w-2.5 h-2.5" />
+                        {TIPOS_AUDIENCIA.find(t => t.value === tipo)?.label || tipo}
+                      </span>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal de crear audiencia */}
+      <CreateAudienceModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreated={() => {
+          loadAudiences();
+          setShowCreateModal(false);
+        }}
+      />
     </div>
+  );
+};
+
+// ============================================
+// MODAL DE CREACIÓN DE AUDIENCIA
+// ============================================
+
+interface CreateAudienceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
+  isOpen,
+  onClose,
+  onCreated,
+}) => {
+  const [formData, setFormData] = useState<CreateAudienceInput>({
+    nombre: '',
+    descripcion: '',
+    etapa: null,
+    destino: null,
+    estado_civil: null,
+    tipo_audiencia: [],
+    preferencia_entretenimiento: null,
+  });
+  const [saving, setSaving] = useState(false);
+  const [prospectCount, setProspectCount] = useState<number>(0);
+
+  // Calcular prospectos en tiempo real (simulado)
+  useEffect(() => {
+    // TODO: Llamar a función RPC de Supabase para contar prospectos
+    // Por ahora simulamos un cálculo
+    let count = 500; // Base
+    if (formData.etapa) count = Math.floor(count * 0.6);
+    if (formData.destino) count = Math.floor(count * 0.5);
+    if (formData.estado_civil) count = Math.floor(count * 0.7);
+    if (formData.tipo_audiencia.length > 0) count = Math.floor(count * (formData.tipo_audiencia.length * 0.3));
+    if (formData.preferencia_entretenimiento) count = Math.floor(count * 0.8);
+    setProspectCount(Math.max(count, 10));
+  }, [formData]);
+
+  const handleSubmit = async () => {
+    if (!formData.nombre.trim()) {
+      toast.error('El nombre de la audiencia es requerido');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      // TODO: Guardar en Supabase
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simular guardado
+      toast.success('Audiencia creada exitosamente');
+      onCreated();
+    } catch (error) {
+      console.error('Error creating audience:', error);
+      toast.error('Error al crear audiencia');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleTipoAudiencia = (tipo: TipoAudiencia) => {
+    if (formData.tipo_audiencia.includes(tipo)) {
+      setFormData({
+        ...formData,
+        tipo_audiencia: formData.tipo_audiencia.filter(t => t !== tipo)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        tipo_audiencia: [...formData.tipo_audiencia, tipo]
+      });
+    }
+  };
+
+  const getIconForTipo = (tipo: TipoAudiencia) => {
+    switch (tipo) {
+      case 'familia': return Users;
+      case 'pareja': return Heart;
+      case 'solo': return UserIcon;
+      case 'amigos': return UserPlus;
+      case 'grupo': return Users2;
+      default: return Users;
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[60]"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    Crear Nueva Audiencia
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Define los criterios de segmentación
+                  </p>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Nombre de audiencia */}
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+                  <FileText className="w-4 h-4" />
+                  <span>Nombre de Audiencia</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  placeholder="Ej: Interesados Riviera Maya"
+                  className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                />
+              </div>
+
+              {/* Descripción */}
+              <div className="space-y-2">
+                <label className="flex items-center justify-between text-xs font-medium text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center space-x-2">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Descripción de Audiencia</span>
+                  </div>
+                  <span className={`${(formData.descripcion?.length || 0) > 300 ? 'text-red-500' : ''}`}>
+                    {formData.descripcion?.length || 0}/300
+                  </span>
+                </label>
+                <textarea
+                  value={formData.descripcion || ''}
+                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value.slice(0, 300) })}
+                  placeholder="Describe el propósito de esta audiencia..."
+                  maxLength={300}
+                  rows={2}
+                  className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white resize-none"
+                />
+              </div>
+
+              {/* Grid de criterios */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Etapa */}
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <Tag className="w-4 h-4" />
+                    <span>Etapa del Prospecto</span>
+                  </label>
+                  <select
+                    value={formData.etapa || ''}
+                    onChange={(e) => setFormData({ ...formData, etapa: e.target.value as ProspectoEtapa || null })}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                  >
+                    <option value="">No aplica</option>
+                    {PROSPECTO_ETAPAS.map((etapa) => (
+                      <option key={etapa.value} value={etapa.value}>
+                        {etapa.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Destino */}
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <MapPin className="w-4 h-4" />
+                    <span>Destino</span>
+                  </label>
+                  <select
+                    value={formData.destino || ''}
+                    onChange={(e) => setFormData({ ...formData, destino: e.target.value as DestinoNombre || null })}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                  >
+                    <option value="">No aplica</option>
+                    {DESTINOS.map((destino) => (
+                      <option key={destino.value} value={destino.value}>
+                        {destino.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Estado Civil */}
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <Heart className="w-4 h-4" />
+                    <span>Estado Civil</span>
+                  </label>
+                  <select
+                    value={formData.estado_civil || ''}
+                    onChange={(e) => setFormData({ ...formData, estado_civil: e.target.value as EstadoCivil || null })}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                  >
+                    <option value="">No aplica</option>
+                    {ESTADOS_CIVILES.map((ec) => (
+                      <option key={ec.value} value={ec.value}>
+                        {ec.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Preferencia de entretenimiento */}
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <Sparkles className="w-4 h-4" />
+                    <span>Preferencia de Entretenimiento</span>
+                  </label>
+                  <select
+                    value={formData.preferencia_entretenimiento || ''}
+                    onChange={(e) => setFormData({ ...formData, preferencia_entretenimiento: e.target.value as PreferenciaEntretenimiento || null })}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                  >
+                    <option value="">No aplica</option>
+                    {PREFERENCIAS_ENTRETENIMIENTO.map((pref) => (
+                      <option key={pref.value} value={pref.value}>
+                        {pref.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Tipo de Audiencia */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2 mb-2">
+                  <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Tipo de Audiencia
+                  </h4>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {TIPOS_AUDIENCIA.map((tipo) => {
+                    const Icon = getIconForTipo(tipo.value);
+                    const isSelected = formData.tipo_audiencia.includes(tipo.value);
+                    return (
+                      <button
+                        key={tipo.value}
+                        onClick={() => toggleTipoAudiencia(tipo.value)}
+                        className={`p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center gap-1 ${
+                          isSelected
+                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 ${isSelected ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <span className={`text-xs font-medium ${isSelected ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                          {tipo.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Contador de prospectos */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                      <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        Prospectos que coinciden
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                        Basado en los criterios seleccionados
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <motion.p 
+                      key={prospectCount}
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="text-3xl font-bold text-blue-600 dark:text-blue-400"
+                    >
+                      {prospectCount.toLocaleString()}
+                    </motion.p>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
+              <button
+                onClick={onClose}
+                disabled={saving}
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <motion.button
+                whileHover={{ scale: saving ? 1 : 1.02 }}
+                whileTap={{ scale: saving ? 1 : 0.98 }}
+                onClick={handleSubmit}
+                disabled={saving || !formData.nombre.trim()}
+                className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg shadow-blue-500/25 disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Crear Audiencia
+                  </>
+                )}
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

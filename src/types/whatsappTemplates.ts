@@ -109,32 +109,80 @@ export const PREFERENCIAS_ENTRETENIMIENTO: { value: PreferenciaEntretenimiento; 
 ];
 
 /**
+ * Tipo de audiencia objetivo
+ */
+export type TipoAudiencia = 
+  | 'familia'
+  | 'pareja'
+  | 'solo'
+  | 'amigos'
+  | 'grupo';
+
+export const TIPOS_AUDIENCIA: { value: TipoAudiencia; label: string; icon: string }[] = [
+  { value: 'familia', label: 'Familia', icon: 'Users' },
+  { value: 'pareja', label: 'Pareja', icon: 'Heart' },
+  { value: 'solo', label: 'Solo', icon: 'User' },
+  { value: 'amigos', label: 'Amigos', icon: 'UserPlus' },
+  { value: 'grupo', label: 'Grupo', icon: 'Users2' },
+];
+
+/**
+ * Estados civiles disponibles
+ */
+export type EstadoCivil = 
+  | 'soltero'
+  | 'casado'
+  | 'union_libre'
+  | 'divorciado'
+  | 'viudo';
+
+export const ESTADOS_CIVILES: { value: EstadoCivil; label: string }[] = [
+  { value: 'soltero', label: 'Soltero(a)' },
+  { value: 'casado', label: 'Casado(a)' },
+  { value: 'union_libre', label: 'Unión Libre' },
+  { value: 'divorciado', label: 'Divorciado(a)' },
+  { value: 'viudo', label: 'Viudo(a)' },
+];
+
+/**
+ * Audiencia para plantillas WhatsApp
+ */
+export interface WhatsAppAudience {
+  id: string;
+  nombre: string;
+  descripcion?: string | null;
+  etapa?: ProspectoEtapa | null;
+  destino?: DestinoNombre | null;
+  estado_civil?: EstadoCivil | null;
+  tipo_audiencia: TipoAudiencia[];
+  preferencia_entretenimiento?: PreferenciaEntretenimiento | null;
+  prospectos_count: number;
+  is_active: boolean;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Input para crear/editar audiencia
+ */
+export interface CreateAudienceInput {
+  nombre: string;
+  descripcion?: string;
+  etapa?: ProspectoEtapa | null;
+  destino?: DestinoNombre | null;
+  estado_civil?: EstadoCivil | null;
+  tipo_audiencia: TipoAudiencia[];
+  preferencia_entretenimiento?: PreferenciaEntretenimiento | null;
+}
+
+/**
  * Clasificación completa de plantilla para webhook
+ * NOTA: Ahora las audiencias se seleccionan desde la tabla whatsapp_audiences
  */
 export interface TemplateClassification {
-  // Etapa del prospecto objetivo
-  etapa?: ProspectoEtapa | null;
-  
-  // Campaña asociada
-  campana?: string | null;
-  
-  // Destino objetivo
-  destino?: DestinoNombre | null;
-  
-  // Requiere atención humana después de enviar
-  requiere_atencion_humana: boolean;
-  
-  // Categoría de reactivación
-  categoria_reactivacion?: CategoriaReactivacion | null;
-  
-  // Preferencia de entretenimiento
-  preferencia_entretenimiento?: PreferenciaEntretenimiento | null;
-  
-  // Flags de audiencia
-  para_familias: boolean;
-  para_grupos: boolean;
-  con_menores: boolean;
-  luna_de_miel: boolean;
+  // IDs de audiencias seleccionadas (nueva forma de segmentación)
+  audience_ids: string[];
 }
 
 /**

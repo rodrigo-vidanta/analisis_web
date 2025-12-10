@@ -2,6 +2,93 @@
 
 ## Historial de Versiones
 
+### v2.1.6 (2025-12-10)
+**Descripción**: B4.3.2N6.0.0: Rediseño completo del modal de plantillas WhatsApp
+
+---
+
+## 🎯 **RELEASE B4.3.2N6.0.0 - Mejoras al Constructor de Plantillas WhatsApp**
+
+### 📋 **Mejoras en Pestaña de Contenido**
+
+#### Validación de Nombres
+- Solo permite letras minúsculas, números y guiones bajos (_)
+- Automáticamente convierte espacios en guiones bajos
+- Elimina acentos y caracteres especiales
+- Mensaje de ayuda visible para el usuario
+
+#### Límites de Caracteres
+- **Body**: Máximo 1000 caracteres con contador visual
+- **Header**: Máximo 60 caracteres con contador visual
+- Indicador rojo cuando se excede el límite
+
+#### Componentes Simplificados
+- Eliminados botones de Footer y Buttons (no soportados por Meta)
+- Solo un Header y un Body permitidos por plantilla
+- Los botones se ocultan cuando ya existe el componente
+
+#### Header con Imagen
+- Nuevo selector de tipo: Texto o Imagen
+- Campo URL para imagen con preview en tiempo real
+- Botón para acceder al catálogo de imágenes
+- Validación de URL con fallback visual
+
+#### Idioma y Categoría
+- Eliminado "Español España" (solo es_MX y en_US)
+- Categoría por defecto: MARKETING
+
+### 👥 **Nueva Pestaña "Audiencia"**
+
+#### Sistema de Audiencias
+- Renombrada pestaña de "Clasificación" a "Audiencia"
+- Selector múltiple de audiencias predefinidas
+- Cada audiencia muestra conteo de prospectos
+- Indicador de alcance total estimado
+
+#### Modal de Creación de Audiencias
+- **Nombre de Audiencia** (antes "Campaña")
+- **Descripción** con límite de 300 caracteres (antes "Categoría de Reactivación")
+- **Etapa del prospecto** con opción "No aplica"
+- **Destino turístico** con opción "No aplica"
+- **Estado Civil** (nuevo campo)
+- **Tipo de Audiencia** con iconos vectorizados:
+  - Familia, Pareja, Solo, Amigos, Grupo
+- **Preferencia de Entretenimiento**
+- Contador en tiempo real de prospectos que coinciden
+
+#### Eliminado
+- Sección "Configuración de Seguimiento" (Requiere Atención Humana)
+- Emojis reemplazados por iconos vectorizados de Lucide
+
+### 🗄️ **Nueva Tabla de Base de Datos**
+
+#### `whatsapp_audiences`
+- id (UUID)
+- nombre (VARCHAR 100)
+- descripcion (VARCHAR 300)
+- etapa, destino, estado_civil
+- tipo_audiencia (VARCHAR[] array)
+- preferencia_entretenimiento
+- prospectos_count (calculado)
+- is_active, created_by, timestamps
+
+#### Función RPC
+- `count_prospectos_for_audience()` para contar prospectos en tiempo real
+
+### 🎨 **Mejoras de UI/UX**
+- Iconos vectorizados en lugar de emojis
+- Cards de audiencia con tags visuales
+- Animaciones suaves con Framer Motion
+- Consistencia en dark mode
+
+### 📁 **Archivos Modificados**
+- `src/types/whatsappTemplates.ts` - Nuevos tipos de audiencia
+- `src/components/admin/WhatsAppTemplatesManager.tsx` - Componentes actualizados
+- `docs/sql/create_whatsapp_audiences.sql` - Script de migración
+- `src/components/Footer.tsx` - Versión actualizada
+
+---
+
 ### v2.1.5 (2025-12-10)
 **Descripción**: B4.3.1N6.0.0: Sistema de Clasificación de Plantillas WhatsApp y Rediseño de UI
 
