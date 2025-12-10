@@ -28,15 +28,23 @@ const AUDIO_CONFIG = {
   MIN_CHUNK_SIZE: 320,
   // Volumen por defecto (master)
   DEFAULT_VOLUME: 1.0,
-  // Ganancia por defecto por canal
-  DEFAULT_LEFT_GAIN: 1.0,   // Canal izquierdo: Agente IA
-  DEFAULT_RIGHT_GAIN: 6.0,  // Canal derecho: Humano/Cliente
+  // Ganancia por defecto por canal (escala 1-10)
+  // Canal Izquierdo = HUMANO: 1-10 donde 1=300%, 10=800% → multiplicador = 3.0 + (slider-1) * (5.0/9)
+  // Canal Derecho = IA: 0-10 donde 5=50% → multiplicador = slider * 0.1
+  DEFAULT_HUMAN_SLIDER: 5,   // Canal izquierdo: Humano (5 = ~522%)
+  DEFAULT_IA_SLIDER: 5,      // Canal derecho: IA (5 = 50%)
   // Latency hint para AudioContext
   LATENCY_HINT: 'interactive' as AudioContextLatencyCategory,
   // Keys para localStorage
-  STORAGE_KEY_LEFT: 'pqnc_audio_left_gain',
-  STORAGE_KEY_RIGHT: 'pqnc_audio_right_gain',
+  STORAGE_KEY_HUMAN: 'pqnc_audio_human_slider',
+  STORAGE_KEY_IA: 'pqnc_audio_ia_slider',
 };
+
+// Funciones de conversión de slider (1-10) a multiplicador real
+// IA: 0-10 donde 5 = 50% (0.5x)
+const sliderToIAGain = (slider: number): number => slider * 0.1;
+// Humano: 1-10 donde 1=300% (3.0x), 10=800% (8.0x) - rango lineal
+const sliderToHumanGain = (slider: number): number => 3.0 + (slider - 1) * (5.0 / 9);
 
 /**
  * Obtiene la ganancia guardada en localStorage o el valor por defecto
@@ -150,12 +158,13 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
   const [audioVolume, setAudioVolume] = useState(AUDIO_CONFIG.DEFAULT_VOLUME);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [audioStats, setAudioStats] = useState({ chunks: 0 });
-  // Ganancia por canal (persistida en localStorage)
-  const [leftGain, setLeftGain] = useState(() => 
-    getStoredGain(AUDIO_CONFIG.STORAGE_KEY_LEFT, AUDIO_CONFIG.DEFAULT_LEFT_GAIN)
+  // Sliders de volumen por canal (persistidos en localStorage)
+  // Canal Izquierdo = HUMANO, Canal Derecho = IA
+  const [humanSlider, setHumanSlider] = useState(() => 
+    getStoredGain(AUDIO_CONFIG.STORAGE_KEY_HUMAN, AUDIO_CONFIG.DEFAULT_HUMAN_SLIDER)
   );
-  const [rightGain, setRightGain] = useState(() => 
-    getStoredGain(AUDIO_CONFIG.STORAGE_KEY_RIGHT, AUDIO_CONFIG.DEFAULT_RIGHT_GAIN)
+  const [iaSlider, setIaSlider] = useState(() => 
+    getStoredGain(AUDIO_CONFIG.STORAGE_KEY_IA, AUDIO_CONFIG.DEFAULT_IA_SLIDER)
   );
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   
@@ -170,8 +179,9 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
   const audioBufferQueueRef = useRef<AudioBuffer[]>([]);
   const BUFFER_THRESHOLD = 3; // Acumular 3 chunks antes de empezar (~60ms)
   // Refs para ganancia por canal (para acceso en tiempo real)
-  const leftGainRef = useRef(leftGain);
-  const rightGainRef = useRef(rightGain);
+  // Refs: Canal Izquierdo = HUMANO, Canal Derecho = IA
+  const leftGainRef = useRef(sliderToHumanGain(humanSlider));  // Izquierdo = Humano
+  const rightGainRef = useRef(sliderToIAGain(iaSlider));       // Derecho = IA
   
   // Estados para transferencia
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -509,15 +519,17 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
   /**
    * Sincronizar refs de ganancia por canal y guardar en localStorage
    */
+  // Sincronizar: Canal Izquierdo = HUMANO
   useEffect(() => {
-    leftGainRef.current = leftGain;
-    setStoredGain(AUDIO_CONFIG.STORAGE_KEY_LEFT, leftGain);
-  }, [leftGain]);
+    leftGainRef.current = sliderToHumanGain(humanSlider);
+    setStoredGain(AUDIO_CONFIG.STORAGE_KEY_HUMAN, humanSlider);
+  }, [humanSlider]);
 
+  // Sincronizar: Canal Derecho = IA
   useEffect(() => {
-    rightGainRef.current = rightGain;
-    setStoredGain(AUDIO_CONFIG.STORAGE_KEY_RIGHT, rightGain);
-  }, [rightGain]);
+    rightGainRef.current = sliderToIAGain(iaSlider);
+    setStoredGain(AUDIO_CONFIG.STORAGE_KEY_IA, iaSlider);
+  }, [iaSlider]);
 
   /**
    * Cleanup al cerrar el modal
@@ -1259,36 +1271,36 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
                           exit={{ opacity: 0, width: 0 }}
                           className="flex items-center gap-4 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-xl"
                         >
-                          {/* Canal Izquierdo - Agente IA */}
+                          {/* Agente IA (0-10, donde 5=50%) - Canal Derecho */}
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-blue-600 dark:text-blue-400 whitespace-nowrap">🤖 IA</span>
                             <input
                               type="range"
                               min="0"
-                              max="3"
-                              step="0.1"
-                              value={leftGain}
-                              onChange={(e) => setLeftGain(parseFloat(e.target.value))}
+                              max="10"
+                              step="1"
+                              value={iaSlider}
+                              onChange={(e) => setIaSlider(parseFloat(e.target.value))}
                               className="w-16 h-1.5 bg-blue-200 dark:bg-blue-900 rounded-full appearance-none cursor-pointer accent-blue-500"
-                              title={`Agente IA: ${Math.round(leftGain * 100)}%`}
+                              title={`Agente IA: ${iaSlider}/10 (${Math.round(sliderToIAGain(iaSlider) * 100)}%)`}
                             />
-                            <span className="text-xs text-gray-500 w-8">{Math.round(leftGain * 100)}%</span>
+                            <span className="text-xs text-gray-500 w-6">{iaSlider}</span>
                           </div>
                           
-                          {/* Canal Derecho - Cliente/Humano */}
+                          {/* Cliente/Humano (1-10, donde 1=300%, 10=800%) - Canal Izquierdo */}
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap">👤 Humano</span>
                             <input
                               type="range"
-                              min="0"
+                              min="1"
                               max="10"
-                              step="0.5"
-                              value={rightGain}
-                              onChange={(e) => setRightGain(parseFloat(e.target.value))}
+                              step="1"
+                              value={humanSlider}
+                              onChange={(e) => setHumanSlider(parseFloat(e.target.value))}
                               className="w-16 h-1.5 bg-emerald-200 dark:bg-emerald-900 rounded-full appearance-none cursor-pointer accent-emerald-500"
-                              title={`Humano: ${Math.round(rightGain * 100)}%`}
+                              title={`Humano: ${humanSlider}/10 (${Math.round(sliderToHumanGain(humanSlider) * 100)}%)`}
                             />
-                            <span className="text-xs text-gray-500 w-8">{Math.round(rightGain * 100)}%</span>
+                            <span className="text-xs text-gray-500 w-6">{humanSlider}</span>
                           </div>
                         </motion.div>
                       )}

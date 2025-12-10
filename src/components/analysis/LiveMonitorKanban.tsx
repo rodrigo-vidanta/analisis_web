@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Phone, MapPin, Users, Globe, Volume2, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Wand2, Mail, Search, Filter, Calendar, BarChart3, TrendingUp, Play, Pause, Download, AlertTriangle, ChevronRight, Loader2, Plane } from 'lucide-react';
+import { X, User, Phone, MapPin, Users, Globe, Volume2, VolumeX, FileText, CheckCircle, XCircle, Clock, Send, PhoneCall, RotateCcw, MessageSquare, ArrowRightLeft, Eye, Star, DollarSign, Wand2, Mail, Search, Filter, Calendar, BarChart3, TrendingUp, Play, Pause, Download, AlertTriangle, ChevronRight, Loader2, Plane, Headphones, Waves } from 'lucide-react';
 import Chart from 'chart.js/auto';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
@@ -142,6 +142,79 @@ const DEBUG_MIXED_SOURCES = true; // Debug para ver qué datos se están mostran
 // ⚠️ ProspectoSidebar LOCAL ELIMINADO - Ahora se usa el componente actualizado importado desde ProspectosManager.tsx
 // Ver glosario al inicio del archivo para más información sobre componentes compartidos
 
+// ============================================
+// CONFIGURACIÓN DE AUDIO EN TIEMPO REAL
+// ============================================
+const AUDIO_CONFIG = {
+  SAMPLE_RATE: 16000,
+  MIN_CHUNK_SIZE: 320,
+  DEFAULT_VOLUME: 1.0,
+  // Ganancia por defecto por canal (escala 1-10)
+  // Canal Izquierdo = HUMANO: 1-10 donde 1=300%, 10=800% → multiplicador = 3.0 + (slider-1) * (5.0/9)
+  // Canal Derecho = IA: 0-10 donde 5=50% → multiplicador = slider * 0.1
+  DEFAULT_HUMAN_SLIDER: 5,   // Canal izquierdo: Humano (5 = ~522%)
+  DEFAULT_IA_SLIDER: 5,      // Canal derecho: IA (5 = 50%)
+  LATENCY_HINT: 'interactive' as AudioContextLatencyCategory,
+  STORAGE_KEY_HUMAN: 'pqnc_audio_human_slider',
+  STORAGE_KEY_IA: 'pqnc_audio_ia_slider',
+};
+
+// Funciones de conversión de slider a multiplicador real
+// IA: 0-10 donde 5 = 50% (0.5x)
+const sliderToIAGain = (slider: number): number => slider * 0.1;
+// Humano: 1-10 donde 1=300% (3.0x), 10=800% (8.0x) - rango lineal
+const sliderToHumanGain = (slider: number): number => 3.0 + (slider - 1) * (5.0 / 9);
+
+const MULAW_TO_LINEAR: Int16Array = new Int16Array([
+  -32124, -31100, -30076, -29052, -28028, -27004, -25980, -24956,
+  -23932, -22908, -21884, -20860, -19836, -18812, -17788, -16764,
+  -15996, -15484, -14972, -14460, -13948, -13436, -12924, -12412,
+  -11900, -11388, -10876, -10364, -9852, -9340, -8828, -8316,
+  -7932, -7676, -7420, -7164, -6908, -6652, -6396, -6140,
+  -5884, -5628, -5372, -5116, -4860, -4604, -4348, -4092,
+  -3900, -3772, -3644, -3516, -3388, -3260, -3132, -3004,
+  -2876, -2748, -2620, -2492, -2364, -2236, -2108, -1980,
+  -1884, -1820, -1756, -1692, -1628, -1564, -1500, -1436,
+  -1372, -1308, -1244, -1180, -1116, -1052, -988, -924,
+  -876, -844, -812, -780, -748, -716, -684, -652,
+  -620, -588, -556, -524, -492, -460, -428, -396,
+  -372, -356, -340, -324, -308, -292, -276, -260,
+  -244, -228, -212, -196, -180, -164, -148, -132,
+  -120, -112, -104, -96, -88, -80, -72, -64,
+  -56, -48, -40, -32, -24, -16, -8, 0,
+  32124, 31100, 30076, 29052, 28028, 27004, 25980, 24956,
+  23932, 22908, 21884, 20860, 19836, 18812, 17788, 16764,
+  15996, 15484, 14972, 14460, 13948, 13436, 12924, 12412,
+  11900, 11388, 10876, 10364, 9852, 9340, 8828, 8316,
+  7932, 7676, 7420, 7164, 6908, 6652, 6396, 6140,
+  5884, 5628, 5372, 5116, 4860, 4604, 4348, 4092,
+  3900, 3772, 3644, 3516, 3388, 3260, 3132, 3004,
+  2876, 2748, 2620, 2492, 2364, 2236, 2108, 1980,
+  1884, 1820, 1756, 1692, 1628, 1564, 1500, 1436,
+  1372, 1308, 1244, 1180, 1116, 1052, 988, 924,
+  876, 844, 812, 780, 748, 716, 684, 652,
+  620, 588, 556, 524, 492, 460, 428, 396,
+  372, 356, 340, 324, 308, 292, 276, 260,
+  244, 228, 212, 196, 180, 164, 148, 132,
+  120, 112, 104, 96, 88, 80, 72, 64,
+  56, 48, 40, 32, 24, 16, 8, 0
+]);
+
+const getStoredGain = (key: string, defaultValue: number): number => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored !== null) {
+      const value = parseFloat(stored);
+      if (!isNaN(value) && value >= 0 && value <= 10) return value;
+    }
+  } catch {}
+  return defaultValue;
+};
+
+const setStoredGain = (key: string, value: number): void => {
+  try { localStorage.setItem(key, value.toString()); } catch {}
+};
+
 const LiveMonitorKanban: React.FC = () => {
   const { user } = useAuth();
   const { triggerCallNotification } = useNotificationStore();
@@ -212,6 +285,32 @@ const LiveMonitorKanban: React.FC = () => {
   const isModalOpenRef = useRef<boolean>(false);
   const [selectedProspectoData, setSelectedProspectoData] = useState<any | null>(null);
   
+  // ============================================
+  // ESTADOS DE MONITOREO DE AUDIO EN TIEMPO REAL
+  // ============================================
+  const [isListeningLive, setIsListeningLive] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioVolume, setAudioVolume] = useState(AUDIO_CONFIG.DEFAULT_VOLUME);
+  const [isLiveAudioPlaying, setIsLiveAudioPlaying] = useState(false);
+  const [audioStats, setAudioStats] = useState({ chunks: 0 });
+  // Canal Izquierdo = HUMANO, Canal Derecho = IA
+  const [humanSlider, setHumanSlider] = useState(() => getStoredGain(AUDIO_CONFIG.STORAGE_KEY_HUMAN, AUDIO_CONFIG.DEFAULT_HUMAN_SLIDER));
+  const [iaSlider, setIaSlider] = useState(() => getStoredGain(AUDIO_CONFIG.STORAGE_KEY_IA, AUDIO_CONFIG.DEFAULT_IA_SLIDER));
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
+  
+  // Refs para audio en tiempo real
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioWebSocketRef = useRef<WebSocket | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const audioChunkCountRef = useRef(0);
+  const nextPlayTimeRef = useRef<number>(0);
+  const isBufferingRef = useRef<boolean>(true);
+  const audioBufferQueueRef = useRef<AudioBuffer[]>([]);
+  // Refs: Canal Izquierdo = HUMANO, Canal Derecho = IA
+  const leftGainRef = useRef(sliderToHumanGain(humanSlider));  // Izquierdo = Humano
+  const rightGainRef = useRef(sliderToIAGain(iaSlider));       // Derecho = IA
+  const BUFFER_THRESHOLD = 3;
+  
   // Refs para optimización de rendimiento del audio
   const lastUpdateTimeRef = useRef<number>(0);
   const lastSegmentRef = useRef<number | null>(null);
@@ -222,6 +321,266 @@ const LiveMonitorKanban: React.FC = () => {
   const [isCoordinador, setIsCoordinador] = useState(false);
   const [isEjecutivo, setIsEjecutivo] = useState(false);
   const [modalTab, setModalTab] = useState<'details' | 'analysis'>('details');
+  
+  // ============================================
+  // FUNCIONES DE AUDIO EN TIEMPO REAL
+  // ============================================
+  
+  /**
+   * Inicializa el AudioContext para reproducción de audio
+   */
+  const initAudioContext = useCallback(() => {
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      return audioContextRef.current;
+    }
+    
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContextClass({
+        latencyHint: AUDIO_CONFIG.LATENCY_HINT
+      });
+      
+      console.log(`[LiveMonitor Audio] AudioContext creado @ ${ctx.sampleRate}Hz`);
+      
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = audioVolume;
+      gainNode.connect(ctx.destination);
+      
+      audioContextRef.current = ctx;
+      gainNodeRef.current = gainNode;
+      
+      return ctx;
+    } catch (error) {
+      console.error('[LiveMonitor Audio] Error inicializando AudioContext:', error);
+      setAudioError('No se pudo inicializar el sistema de audio');
+      return null;
+    }
+  }, [audioVolume]);
+
+  /**
+   * Programa la reproducción de un AudioBuffer con timing preciso
+   */
+  const scheduleAudioPlayback = useCallback((audioBuffer: AudioBuffer) => {
+    const ctx = audioContextRef.current;
+    const gainNode = gainNodeRef.current;
+    
+    if (!ctx || !gainNode) return;
+    
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(gainNode);
+    
+    const now = ctx.currentTime;
+    const startTime = Math.max(now, nextPlayTimeRef.current);
+    
+    source.start(startTime);
+    nextPlayTimeRef.current = startTime + audioBuffer.duration;
+    
+    setIsLiveAudioPlaying(true);
+  }, []);
+
+  /**
+   * Procesa la cola de buffers acumulados
+   */
+  const processBufferQueue = useCallback(() => {
+    while (audioBufferQueueRef.current.length > 0) {
+      const buffer = audioBufferQueueRef.current.shift();
+      if (buffer) {
+        scheduleAudioPlayback(buffer);
+      }
+    }
+  }, [scheduleAudioPlayback]);
+
+  /**
+   * Procesa y reproduce un chunk de audio PCM ESTÉREO INTERCALADO
+   */
+  const processAudioChunk = useCallback(async (audioData: ArrayBuffer) => {
+    const ctx = audioContextRef.current;
+    const gainNode = gainNodeRef.current;
+    
+    if (!ctx || !gainNode) return;
+    
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
+    try {
+      const chunkSize = audioData.byteLength;
+      
+      if (chunkSize < AUDIO_CONFIG.MIN_CHUNK_SIZE) {
+        return;
+      }
+      
+      audioChunkCountRef.current++;
+      if (audioChunkCountRef.current % 100 === 0) {
+        setAudioStats({ chunks: audioChunkCountRef.current });
+      }
+      
+      const pcmSamples = new Int16Array(audioData);
+      const totalSamples = pcmSamples.length;
+      
+      if (totalSamples < 2) return;
+      
+      const samplesPerChannel = Math.floor(totalSamples / 2);
+      
+      const audioBuffer = ctx.createBuffer(2, samplesPerChannel, AUDIO_CONFIG.SAMPLE_RATE);
+      const leftChannel = audioBuffer.getChannelData(0);
+      const rightChannel = audioBuffer.getChannelData(1);
+      
+      const currentLeftGain = leftGainRef.current;
+      const currentRightGain = rightGainRef.current;
+      
+      for (let i = 0; i < samplesPerChannel; i++) {
+        let leftSample = (pcmSamples[i * 2] / 32768.0) * currentLeftGain;
+        let rightSample = (pcmSamples[i * 2 + 1] / 32768.0) * currentRightGain;
+        
+        leftSample = Math.max(-0.98, Math.min(0.98, leftSample));
+        rightSample = Math.max(-0.98, Math.min(0.98, rightSample));
+        
+        leftChannel[i] = leftSample;
+        rightChannel[i] = rightSample;
+      }
+      
+      if (isBufferingRef.current) {
+        audioBufferQueueRef.current.push(audioBuffer);
+        
+        if (audioBufferQueueRef.current.length >= BUFFER_THRESHOLD) {
+          isBufferingRef.current = false;
+          nextPlayTimeRef.current = ctx.currentTime + 0.05;
+          processBufferQueue();
+        }
+      } else {
+        scheduleAudioPlayback(audioBuffer);
+      }
+      
+    } catch (error) {
+      console.error('[LiveMonitor Audio] Error procesando chunk:', error);
+    }
+  }, [scheduleAudioPlayback, processBufferQueue]);
+
+  /**
+   * Inicia el monitoreo de audio para una llamada específica
+   */
+  const startAudioMonitoring = useCallback(async (monitorUrl: string) => {
+    if (!monitorUrl) {
+      setAudioError('Esta llamada no tiene URL de monitoreo disponible');
+      return;
+    }
+    
+    setAudioError(null);
+    
+    const ctx = initAudioContext();
+    if (!ctx) return;
+    
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
+    try {
+      const ws = new WebSocket(monitorUrl);
+      ws.binaryType = 'arraybuffer';
+      
+      ws.onopen = () => {
+        console.log(`[LiveMonitor Audio] ✅ Conexión WebSocket establecida`);
+        setIsListeningLive(true);
+        audioChunkCountRef.current = 0;
+        setAudioStats({ chunks: 0 });
+        isBufferingRef.current = true;
+        audioBufferQueueRef.current = [];
+        nextPlayTimeRef.current = 0;
+      };
+      
+      ws.onmessage = async (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          await processAudioChunk(event.data);
+        } else if (event.data instanceof Blob) {
+          const arrayBuffer = await event.data.arrayBuffer();
+          await processAudioChunk(arrayBuffer);
+        } else {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'error') {
+              console.warn('[LiveMonitor Audio] Error del servidor:', msg.message);
+            }
+          } catch {
+            // No es JSON, ignorar
+          }
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('[LiveMonitor Audio] ❌ Error WebSocket:', error);
+        setAudioError('Error en la conexión de audio.');
+      };
+      
+      ws.onclose = (event) => {
+        console.log(`[LiveMonitor Audio] WebSocket cerrado: ${event.code}`);
+        if (event.code !== 1000) {
+          setAudioError('Conexión de audio finalizada.');
+        }
+        setIsListeningLive(false);
+        setIsLiveAudioPlaying(false);
+      };
+      
+      audioWebSocketRef.current = ws;
+      
+    } catch (error) {
+      console.error('[LiveMonitor Audio] Error al conectar:', error);
+      setAudioError('No se pudo conectar al audio de la llamada');
+      setIsListeningLive(false);
+    }
+  }, [initAudioContext, processAudioChunk]);
+
+  /**
+   * Detiene el monitoreo de audio
+   */
+  const stopAudioMonitoring = useCallback(() => {
+    if (audioWebSocketRef.current) {
+      audioWebSocketRef.current.close(1000, 'Usuario detuvo el monitoreo');
+      audioWebSocketRef.current = null;
+    }
+    
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    
+    gainNodeRef.current = null;
+    setIsListeningLive(false);
+    setIsLiveAudioPlaying(false);
+    setAudioError(null);
+    audioChunkCountRef.current = 0;
+  }, []);
+
+  /**
+   * Toggle del monitoreo de audio
+   */
+  const toggleAudioMonitoring = useCallback((monitorUrl?: string) => {
+    if (isListeningLive) {
+      stopAudioMonitoring();
+    } else if (monitorUrl) {
+      startAudioMonitoring(monitorUrl);
+    }
+  }, [isListeningLive, startAudioMonitoring, stopAudioMonitoring]);
+
+  // Sincronizar: Canal Izquierdo = HUMANO
+  useEffect(() => {
+    leftGainRef.current = sliderToHumanGain(humanSlider);
+    setStoredGain(AUDIO_CONFIG.STORAGE_KEY_HUMAN, humanSlider);
+  }, [humanSlider]);
+
+  // Sincronizar: Canal Derecho = IA
+  useEffect(() => {
+    rightGainRef.current = sliderToIAGain(iaSlider);
+    setStoredGain(AUDIO_CONFIG.STORAGE_KEY_IA, iaSlider);
+  }, [iaSlider]);
+  
+  // Actualizar volumen master en tiempo real
+  useEffect(() => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = audioVolume;
+    }
+  }, [audioVolume]);
   
   // Función para cargar transcripción
   const loadTranscript = async (callId: string, voiceSpeed: number = 1.04) => {
@@ -2874,6 +3233,9 @@ const LiveMonitorKanban: React.FC = () => {
 
   // Manejar cierre del modal de detalle
   const handleModalClose = () => {
+    // Detener monitoreo de audio si está activo
+    stopAudioMonitoring();
+    
     const currentCall = selectedCall;
     setSelectedCall(null);
     
@@ -4556,7 +4918,112 @@ const LiveMonitorKanban: React.FC = () => {
                             </h5>
                           </div>
                           
-                          {/* Escuchar llamada */}
+                          {/* Escuchar llamada en tiempo real */}
+                          {selectedCall.monitor_url ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <motion.button
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => toggleAudioMonitoring(selectedCall.monitor_url)}
+                                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center shadow-lg transition-all duration-200 ${
+                                    isListeningLive
+                                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/25'
+                                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-500/25'
+                                  }`}
+                                >
+                                  {isListeningLive ? (
+                                    <>
+                                      <VolumeX className="w-4 h-4 mr-2" />
+                                      Detener Audio
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Headphones className="w-4 h-4 mr-2" />
+                                      Escuchar Llamada
+                                    </>
+                                  )}
+                                </motion.button>
+                                
+                                {/* Toggle controles avanzados */}
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setShowAudioSettings(!showAudioSettings)}
+                                  className={`p-2.5 rounded-xl transition-all duration-200 ${
+                                    showAudioSettings 
+                                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                  }`}
+                                  title="Controles de volumen"
+                                >
+                                  <Waves className="w-4 h-4" />
+                                </motion.button>
+                              </div>
+                              
+                              {/* Controles de volumen por canal */}
+                              <AnimatePresence>
+                                {showAudioSettings && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 space-y-3">
+                                      {/* Agente IA (0-10, donde 5=50%) - Canal Derecho */}
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 w-14">🤖 IA</span>
+                                        <input
+                                          type="range"
+                                          min="0"
+                                          max="10"
+                                          step="1"
+                                          value={iaSlider}
+                                          onChange={(e) => setIaSlider(parseFloat(e.target.value))}
+                                          className="flex-1 h-2 bg-blue-200 dark:bg-blue-900 rounded-full appearance-none cursor-pointer accent-blue-500"
+                                          title={`IA: ${iaSlider}/10 (${Math.round(sliderToIAGain(iaSlider) * 100)}%)`}
+                                        />
+                                        <span className="text-xs text-gray-600 dark:text-gray-400 w-6 text-right">{iaSlider}</span>
+                                      </div>
+                                      
+                                      {/* Cliente/Humano (1-10, donde 1=300%, 10=800%) - Canal Izquierdo */}
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 w-14">👤 Humano</span>
+                                        <input
+                                          type="range"
+                                          min="1"
+                                          max="10"
+                                          step="1"
+                                          value={humanSlider}
+                                          onChange={(e) => setHumanSlider(parseFloat(e.target.value))}
+                                          className="flex-1 h-2 bg-emerald-200 dark:bg-emerald-900 rounded-full appearance-none cursor-pointer accent-emerald-500"
+                                          title={`Humano: ${humanSlider}/10 (${Math.round(sliderToHumanGain(humanSlider) * 100)}%)`}
+                                        />
+                                        <span className="text-xs text-gray-600 dark:text-gray-400 w-6 text-right">{humanSlider}</span>
+                                      </div>
+                                      
+                                      {/* Info de referencia */}
+                                      <p className="text-[10px] text-gray-500 dark:text-gray-500 text-center">
+                                        IA: 5 = 50% • Humano: 1-10 = 300%-800%
+                                      </p>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                              
+                              {/* Estado/Error */}
+                              {audioError && (
+                                <p className="text-xs text-red-500 dark:text-red-400 text-center">{audioError}</p>
+                              )}
+                              {isListeningLive && isLiveAudioPlaying && (
+                                <div className="flex items-center justify-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+                                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                  Reproduciendo audio en tiempo real
+                                </div>
+                              )}
+                            </div>
+                          ) : (
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -4564,8 +5031,9 @@ const LiveMonitorKanban: React.FC = () => {
                             className="w-full bg-gray-400 text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center opacity-50 cursor-not-allowed"
                           >
                             <Volume2 className="w-4 h-4 mr-2" />
-                            Escuchar Llamada (En desarrollo)
+                              Audio no disponible
                           </motion.button>
+                          )}
 
                           {/* Transferir llamada */}
                           <motion.button

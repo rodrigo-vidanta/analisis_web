@@ -1,251 +1,217 @@
-# 🎧 Implementación de Monitoreo de Audio en Tiempo Real
+# Implementación de Monitoreo de Audio en Tiempo Real
 
-## Información del Proyecto
+## 📋 Descripción General
 
-| Campo | Valor |
-|-------|-------|
-| **Módulo** | Dashboard - ActiveCallDetailModal |
-| **Versión** | B4.3.0N6.0.0 |
-| **Fecha** | 10 de Diciembre 2025 |
-| **Archivo Principal** | `src/components/dashboard/widgets/ActiveCallDetailModal.tsx` |
-| **Punto de Rollback** | `git tag: v4.2.1-pre-audio-monitor` |
+Esta documentación describe la implementación del sistema de monitoreo de audio en tiempo real para llamadas activas en la plataforma PQNC QA AI. El sistema permite escuchar las llamadas en curso a través de WebSocket, con controles de volumen independientes para cada canal (IA y Humano).
 
----
+## 🎯 Funcionalidad
 
-## 📋 Resumen Ejecutivo
+- **Escucha en tiempo real** de llamadas activas vía WebSocket
+- **Separación de canales**: IA (canal derecho) y Humano (canal izquierdo)
+- **Controles de volumen independientes** por canal
+- **Persistencia de preferencias** en localStorage
+- **Sistema de buffering** para reproducción fluida sin cortes
 
-Se implementó la funcionalidad de monitoreo de audio en tiempo real para llamadas activas en el Dashboard. Esta característica permite a los usuarios escuchar las llamadas de ventas mientras ocurren, con controles de volumen independientes para cada canal (Agente IA y Cliente).
+## 🔧 Configuración Técnica
 
----
+### Formato de Audio
+- **Formato**: PCM 16-bit signed little-endian estéreo intercalado
+- **Sample Rate**: 16kHz
+- **Canales**: 2 (estéreo)
+  - Canal Izquierdo: **Humano/Cliente**
+  - Canal Derecho: **Agente IA**
 
-## 🔍 Proceso de Investigación
-
-### 1. Identificación de la URL de Monitoreo
-
-Se encontró que VAPI almacena la URL de monitoreo en la tabla `llamadas_ventas` con el formato:
-
-```
-wss://phone-call-websocket.oci-us-sanjose-1-backend-production{N}.vapi.ai/{call_id}/listen
-```
-
-### 2. Análisis del Formato de Audio
-
-Se realizaron múltiples pruebas para identificar el formato correcto:
-
-| Prueba | Sample Rate | Resultado |
-|--------|-------------|-----------|
-| 1 | μ-law 8kHz | ❌ Ruido estático |
-| 2 | PCM 24kHz | ❌ Voz de "ardilla" (muy rápido) |
-| 3 | PCM 8kHz | ❌ Voz grave distorsionada |
-| 4 | PCM 16kHz | ✅ **Audio correcto** |
-
-### 3. Descubrimiento del Audio Estéreo
-
-Se identificó que VAPI envía audio **estéreo intercalado**:
-- **Canal Izquierdo (samples pares)**: Agente IA
-- **Canal Derecho (samples impares)**: Cliente/Humano
-
----
-
-## 🛠️ Solución Implementada
-
-### Arquitectura
-
-```
-WebSocket VAPI → Blob/ArrayBuffer → PCM Int16 → 
-  → Separación de canales → Aplicar ganancia → 
-    → AudioBuffer estéreo → Buffering → 
-      → Scheduling preciso → AudioContext → Altavoces
-```
-
-### Parámetros Finales de Audio
+### Configuración de Volumen
 
 ```typescript
 const AUDIO_CONFIG = {
-  SAMPLE_RATE: 16000,           // 16kHz
-  MIN_CHUNK_SIZE: 320,          // Mínimo para procesar
-  DEFAULT_LEFT_GAIN: 1.0,       // Agente IA: 100%
-  DEFAULT_RIGHT_GAIN: 6.0,      // Humano: 600% (amplificado)
-  LATENCY_HINT: 'interactive',  // Baja latencia
+  SAMPLE_RATE: 16000,
+  MIN_CHUNK_SIZE: 320,
+  DEFAULT_VOLUME: 1.0,
+  DEFAULT_HUMAN_SLIDER: 5,  // ~522%
+  DEFAULT_IA_SLIDER: 5,     // 50%
+  LATENCY_HINT: 'interactive',
+  STORAGE_KEY_HUMAN: 'pqnc_audio_human_slider',
+  STORAGE_KEY_IA: 'pqnc_audio_ia_slider',
 };
 ```
 
-### Sistema de Buffering
+### Escalas de Volumen
 
-Para evitar cortes y micro-gaps en el audio:
+| Canal | Slider | Rango Real | Fórmula |
+|-------|--------|------------|---------|
+| **IA** | 0-10 | 0%-100% | `slider * 0.1` |
+| **Humano** | 1-10 | 300%-800% | `3.0 + (slider-1) * (5.0/9)` |
 
-1. **Buffer inicial**: Acumula 3 chunks (~60ms) antes de empezar
-2. **Scheduling preciso**: Usa `source.start(time)` con timing exacto
-3. **Encadenamiento**: Cada chunk se programa para empezar cuando termina el anterior
+#### Tabla de Conversión - Humano
+| Slider | Multiplicador | Porcentaje |
+|--------|---------------|------------|
+| 1 | 3.00x | 300% |
+| 2 | 3.56x | 356% |
+| 3 | 4.11x | 411% |
+| 4 | 4.67x | 467% |
+| 5 | 5.22x | 522% |
+| 6 | 5.78x | 578% |
+| 7 | 6.33x | 633% |
+| 8 | 6.89x | 689% |
+| 9 | 7.44x | 744% |
+| 10 | 8.00x | 800% |
 
-### Persistencia de Preferencias
+#### Tabla de Conversión - IA
+| Slider | Multiplicador | Porcentaje |
+|--------|---------------|------------|
+| 0 | 0.00x | 0% |
+| 5 | 0.50x | 50% |
+| 10 | 1.00x | 100% |
 
-Los niveles de volumen por canal se guardan en `localStorage`:
-- `pqnc_audio_left_gain`: Ganancia canal izquierdo (IA)
-- `pqnc_audio_right_gain`: Ganancia canal derecho (Humano)
+## 📁 Archivos Modificados
 
----
+### 1. `src/components/dashboard/widgets/ActiveCallDetailModal.tsx`
+Modal de detalle de llamadas activas en el Dashboard.
 
-## 📝 Historial de Cambios
+**Cambios principales:**
+- Añadida configuración `AUDIO_CONFIG`
+- Implementadas funciones de conversión de slider a ganancia
+- Estados para sliders de volumen (`humanSlider`, `iaSlider`)
+- Refs para Web Audio API (`audioContextRef`, `gainNodeRef`, etc.)
+- Funciones de audio: `initAudioContext`, `scheduleAudioPlayback`, `processBufferQueue`, `processAudioChunk`
+- Funciones de control: `startAudioMonitoring`, `stopAudioMonitoring`, `toggleAudioMonitoring`
+- UI con botón "Escuchar" y controles de volumen desplegables
 
-### Iteración 1: Implementación Inicial
-- Detección automática de formato (falló)
-- Asumía μ-law a 8kHz
+### 2. `src/components/analysis/LiveMonitorKanban.tsx`
+Módulo AI Call Monitor con Kanban de llamadas.
 
-### Iteración 2: Corrección μ-law
-- Cambio a decodificación μ-law obligatoria
-- Resultado: Solo ruido estático
+**Cambios principales:**
+- Misma lógica de audio que ActiveCallDetailModal
+- Integración en el modal de detalle de llamadas activas
+- Botón "Escuchar Llamada" con controles de volumen
+- Cleanup automático al cerrar modal
 
-### Iteración 3: Cambio a PCM
-- PCM 16-bit @ 24kHz
-- Resultado: Voz de ardilla
+## 🔄 Flujo de Audio
 
-### Iteración 4: Ajuste de Sample Rate
-- PCM 16-bit @ 16kHz
-- Resultado: Agente suena bien, humano distorsionado
+```
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
+│   VAPI Server   │────▶│   WebSocket  │────▶│  ArrayBuffer    │
+│  (monitor_url)  │     │  (binario)   │     │  (PCM 16-bit)   │
+└─────────────────┘     └──────────────┘     └────────┬────────┘
+                                                      │
+                                                      ▼
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
+│   Speakers      │◀────│  AudioBuffer │◀────│ processAudio    │
+│   (estéreo)     │     │  (2 canales) │     │ Chunk()         │
+└─────────────────┘     └──────────────┘     └─────────────────┘
+```
 
-### Iteración 5: Audio Estéreo
-- Separación de canales intercalados
-- Ambos canales audibles pero humano muy bajo
+## 🎛️ Sistema de Buffering
 
-### Iteración 6: Ganancia por Canal
-- LEFT_GAIN: 1.0 (Agente IA)
-- RIGHT_GAIN: 6.0 (Humano amplificado)
-- Resultado: ✅ Audio correcto
-
-### Iteración 7: Sistema de Buffering
-- Buffer de 3 chunks antes de reproducir
-- Scheduling preciso con AudioContext
-- Resultado: ✅ Sin cortes
-
-### Iteración 8: Controles de Usuario
-- Sliders de volumen por canal
-- Persistencia en localStorage
-- UI con indicadores visuales
-
----
-
-## 🎛️ Controles de Usuario
-
-### UI del Footer del Modal
-
-1. **Botón Escuchar/Detener**: Inicia/detiene la conexión WebSocket
-2. **Icono de Ondas**: Muestra/oculta controles avanzados
-3. **Control IA (azul)**: Slider 0-300% para canal izquierdo
-4. **Control Humano (verde)**: Slider 0-1000% para canal derecho
-5. **Volumen Master**: Control general 0-200%
-
----
-
-## 🔧 Código Clave
-
-### Separación de Canales Estéreo
+Para evitar cortes en el audio, se implementó un sistema de buffering con scheduling preciso:
 
 ```typescript
-for (let i = 0; i < samplesPerChannel; i++) {
-  // Canal izquierdo (Agente IA) - samples pares
-  let leftSample = (pcmSamples[i * 2] / 32768.0) * currentLeftGain;
-  // Canal derecho (Humano) - samples impares
-  let rightSample = (pcmSamples[i * 2 + 1] / 32768.0) * currentRightGain;
-  
-  // Soft clipping
-  leftSample = Math.max(-0.98, Math.min(0.98, leftSample));
-  rightSample = Math.max(-0.98, Math.min(0.98, rightSample));
-  
-  leftChannel[i] = leftSample;
-  rightChannel[i] = rightSample;
+const BUFFER_THRESHOLD = 3; // Chunks mínimos antes de reproducir
+
+// Acumular chunks iniciales
+if (isBufferingRef.current) {
+  audioBufferQueueRef.current.push(audioBuffer);
+  if (audioBufferQueueRef.current.length >= BUFFER_THRESHOLD) {
+    isBufferingRef.current = false;
+    nextPlayTimeRef.current = ctx.currentTime + 0.05;
+    processBufferQueue();
+  }
+} else {
+  scheduleAudioPlayback(audioBuffer);
 }
 ```
 
-### Scheduling Preciso
+## 🐛 Problemas Resueltos
+
+### 1. Audio Distorsionado ("voz de secuestrador")
+- **Causa**: Sample rate incorrecto
+- **Solución**: Ajustado a 16kHz (formato nativo de VAPI)
+
+### 2. Canales Invertidos
+- **Causa**: Asignación incorrecta de canales
+- **Solución**: Canal Izquierdo = Humano, Canal Derecho = IA
+
+### 3. Cortes en el Audio
+- **Causa**: Reproducción inmediata sin buffering
+- **Solución**: Sistema de buffering con scheduling preciso usando `AudioContext.currentTime`
+
+### 4. Volumen del Humano muy bajo
+- **Causa**: Ganancia insuficiente
+- **Solución**: Rango de 300%-800% (mínimo 3x, máximo 8x)
+
+## 💾 Persistencia
+
+Las preferencias de volumen se guardan en `localStorage`:
+
+```javascript
+// Guardar
+localStorage.setItem('pqnc_audio_human_slider', humanSlider.toString());
+localStorage.setItem('pqnc_audio_ia_slider', iaSlider.toString());
+
+// Recuperar
+const humanSlider = parseFloat(localStorage.getItem('pqnc_audio_human_slider') || '5');
+const iaSlider = parseFloat(localStorage.getItem('pqnc_audio_ia_slider') || '5');
+```
+
+## 🔒 Cleanup
+
+Al cerrar el modal o detener el monitoreo:
 
 ```typescript
-const scheduleAudioPlayback = (audioBuffer: AudioBuffer) => {
-  const source = ctx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(gainNode);
+const stopAudioMonitoring = useCallback(() => {
+  // Cerrar WebSocket
+  if (audioWebSocketRef.current) {
+    audioWebSocketRef.current.close(1000, 'Usuario detuvo el monitoreo');
+    audioWebSocketRef.current = null;
+  }
   
-  const now = ctx.currentTime;
-  const startTime = Math.max(now, nextPlayTimeRef.current);
+  // Cerrar AudioContext
+  if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+    audioContextRef.current.close();
+    audioContextRef.current = null;
+  }
   
-  source.start(startTime);
-  nextPlayTimeRef.current = startTime + audioBuffer.duration;
-};
+  gainNodeRef.current = null;
+  setIsListening(false);
+  setIsAudioPlaying(false);
+  setAudioError(null);
+}, []);
 ```
 
----
+## 📱 UI Components
 
-## 🔄 Rollback
-
-Si es necesario revertir los cambios:
-
-```bash
-# Volver al estado anterior
-git checkout v4.2.1-pre-audio-monitor
-
-# O revertir solo el archivo
-git checkout v4.2.1-pre-audio-monitor -- src/components/dashboard/widgets/ActiveCallDetailModal.tsx
+### Botón de Escuchar
+```tsx
+<motion.button
+  onClick={() => toggleAudioMonitoring(monitorUrl)}
+  className={isListening 
+    ? 'bg-red-600 hover:bg-red-700' 
+    : 'bg-gradient-to-r from-emerald-600 to-teal-600'
+  }
+>
+  {isListening ? <VolumeX /> : <Headphones />}
+  {isListening ? 'Detener Audio' : 'Escuchar Llamada'}
+</motion.button>
 ```
 
----
+### Controles de Volumen
+```tsx
+{/* IA: 0-10, donde 5 = 50% */}
+<input type="range" min="0" max="10" step="1" value={iaSlider} />
 
-## 📊 Métricas de Rendimiento
+{/* Humano: 1-10, donde 1=300%, 10=800% */}
+<input type="range" min="1" max="10" step="1" value={humanSlider} />
+```
 
-| Métrica | Valor |
-|---------|-------|
-| Latencia inicial | ~60ms (buffer de 3 chunks) |
-| Sample rate | 16,000 Hz |
-| Bits por sample | 16 |
-| Canales | 2 (estéreo) |
-| Chunk típico | ~640 bytes (20ms de audio) |
+## 📊 Versión
 
----
+- **Versión**: B4.3.0N6.0.0
+- **Fecha**: Diciembre 2024
+- **Autor**: Desarrollo PQNC AI Platform
 
-## 🐛 Problemas Conocidos y Soluciones
+## 🔗 Referencias
 
-### Problema: Voz de "secuestrador" (grave y distorsionada)
-**Causa**: Sample rate incorrecto (muy bajo)
-**Solución**: Usar 16kHz
-
-### Problema: Voz de "ardilla" (aguda y rápida)
-**Causa**: Sample rate incorrecto (muy alto)
-**Solución**: Usar 16kHz
-
-### Problema: Ruido estático
-**Causa**: Decodificación μ-law en audio PCM
-**Solución**: Usar PCM directo sin decodificación
-
-### Problema: Micro-cortes en el audio
-**Causa**: Gaps entre reproducción de chunks
-**Solución**: Sistema de buffering con scheduling preciso
-
-### Problema: Canal del humano muy bajo
-**Causa**: Audio telefónico tiene menor amplitud
-**Solución**: Amplificación 6x para canal derecho
-
----
-
-## 📚 Referencias
-
-- [Web Audio API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
-- [AudioContext.createBuffer()](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/createBuffer)
-- [AudioBufferSourceNode.start()](https://developer.mozilla.org/en-US/docs/Web/API/AudioBufferSourceNode/start)
-- VAPI Documentation (interno)
-
----
-
-## ✅ Checklist de Validación
-
-- [x] Audio del Agente IA se escucha claramente
-- [x] Audio del Humano se escucha claramente
-- [x] No hay cortes ni gaps en el audio
-- [x] Controles de volumen funcionan en tiempo real
-- [x] Preferencias se guardan en localStorage
-- [x] El botón aparece solo en llamadas activas con monitor_url
-- [x] La conexión se limpia al cerrar el modal
-- [x] Mensajes de error informativos
-
----
-
-*Documento generado el 10 de Diciembre 2025*
-
+- [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+- [VAPI Documentation](https://docs.vapi.ai/)
+- [WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
