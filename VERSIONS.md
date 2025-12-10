@@ -1,5 +1,33 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.3.9N6.0.0 (Diciembre 2025) - Sistema de Audiencias Completo
+
+### 🎯 RELEASE BETA - Audiencias en Webhook N8N
+
+#### Payload al Webhook
+- `audience_ids`: Array de IDs de audiencias seleccionadas
+- `audiences`: Array con datos completos de cada audiencia
+- Campos: nombre, descripción, etapa, destino, estado_civil, tipo_audiencia, preferencia_entretenimiento, prospectos_count
+
+---
+
+## Versión B4.3.8N6.0.0 (Diciembre 2025) - Fix Conteo de Audiencias
+
+### 🔧 Corrección de Recálculo
+- Audiencias guardadas ahora aplican TODOS los filtros al recalcular
+- Lógica correcta: llamadas_ventas → prospectos únicos → filtros prospectos
+
+---
+
+## Versión B4.3.7N6.0.0 (Diciembre 2025) - Preview y Guardado de Audiencias
+
+### ✨ Mejoras
+- Preview de header/body en pestaña de variables
+- Guardado real en Supabase (tabla whatsapp_audiences)
+- Recarga automática al crear audiencia
+
+---
+
 ## Versión B4.3.6N6.0.0 (Diciembre 2025) - Corrección de Filtros de Audiencias
 
 ### 🎯 RELEASE BETA - Filtros con Datos Reales de BD

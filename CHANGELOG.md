@@ -2,6 +2,42 @@
 
 ## Historial de Versiones
 
+### v2.1.13 (2025-12-10)
+**Descripción**: B4.3.9N6.0.0: Sistema de audiencias completo para plantillas WhatsApp
+
+---
+
+## 🎯 **RELEASE B4.3.9N6.0.0 - Audiencias en Webhook N8N**
+
+### 📤 **Payload al Webhook**
+- Ahora se envía `audience_ids` (array de IDs) en lugar de `classification`
+- Array `audiences` con datos completos de cada audiencia seleccionada
+- Cada audiencia incluye: nombre, descripción, etapa, destino, estado_civil, tipo_audiencia, preferencia_entretenimiento, prospectos_count
+
+### 📁 **Archivos Modificados**
+- `whatsappTemplatesService.ts` - Nuevo método `getAudiencesByIds`, payload actualizado
+
+---
+
+### v2.1.12 (2025-12-10)
+**Descripción**: B4.3.8N6.0.0: Fix conteo de audiencias guardadas en selector
+
+### 🔧 **Correcciones**
+- Recálculo de prospectos para audiencias de BD aplica TODOS los filtros
+- Lógica: llamadas_ventas → prospectos únicos → filtros prospectos
+
+---
+
+### v2.1.11 (2025-12-10)
+**Descripción**: B4.3.7N6.0.0: Preview en variables y guardado de audiencias
+
+### ✨ **Mejoras**
+- Preview de header/body en pestaña de variables para contexto
+- Guardado de audiencias en Supabase (tabla whatsapp_audiences)
+- Reset de formulario y recarga automática al crear audiencia
+
+---
+
 ### v2.1.10 (2025-12-10)
 **Descripción**: B4.3.6N6.0.0: Corrección de filtros de audiencias con datos reales de BD
 
