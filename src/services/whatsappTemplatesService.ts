@@ -449,34 +449,37 @@ class WhatsAppTemplatesService {
    */
   private async deleteTemplateInUChat(templateId: string): Promise<any> {
     try {
-      const response = await fetch(
-        `${WEBHOOK_BASE_URL}/webhook/whatsapp-templates?id=${templateId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Auth': WEBHOOK_AUTH_TOKEN,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ _method: 'DELETE' })
-        }
-      );
+      const url = `${WEBHOOK_BASE_URL}/webhook/whatsapp-templates?id=${templateId}`;
+      const payload = { _method: 'DELETE' };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Auth': WEBHOOK_AUTH_TOKEN,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
 
       const responseText = await response.text();
       let result;
       
       try {
         result = JSON.parse(responseText);
-      } catch {
+      } catch (parseError) {
+        console.error('❌ Error parseando respuesta:', parseError);
         throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
       }
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || result.message || `Error ${response.status}`);
+        const errorMsg = result.error || result.message || `Error ${response.status}`;
+        console.error('❌ Error en respuesta del webhook:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       return result.data;
     } catch (error: any) {
-      console.error('Error eliminando template en uChat:', error);
+      console.error('❌ Error eliminando template en uChat:', error);
       throw error;
     }
   }
@@ -489,22 +492,53 @@ class WhatsAppTemplatesService {
     // Obtener template actual para verificar si está sincronizado
     const currentTemplate = await this.getTemplateById(id);
     
-    // Solo eliminar si está sincronizado (el webhook maneja BD y uChat)
-    if (currentTemplate?.uchat_synced) {
-      await this.deleteTemplateInUChat(id);
-      console.log('✅ Template eliminado a través del webhook (soft delete)');
-    } else {
-      // Si no está sincronizado, solo marcar como inactivo en BD local
-      const { error } = await analysisSupabase
-        .from('whatsapp_templates')
-        .update({
-          is_active: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
+    if (!currentTemplate) {
+      throw new Error('Plantilla no encontrada');
+    }
 
-      if (error) throw error;
-      console.log('✅ Template marcado como inactivo en BD local');
+    // Siempre intentar eliminar a través del webhook primero
+    // El webhook maneja tanto uChat como la base de datos
+    try {
+      await this.deleteTemplateInUChat(id);
+    } catch (error: any) {
+      console.warn('⚠️ Error eliminando a través del webhook, intentando fallback:', error);
+      
+      // Si falla el webhook, hacer soft delete en BD local como fallback
+      // Marcar como eliminado usando is_deleted si existe, sino is_active = false
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      // Intentar usar is_deleted primero, si no existe usar is_active
+      try {
+        const { error: updateError } = await analysisSupabase
+          .from('whatsapp_templates')
+          .update({
+            is_deleted: true,
+            ...updateData,
+          })
+          .eq('id', id);
+
+        if (updateError) {
+          // Si is_deleted no existe, usar is_active como fallback
+          const { error: fallbackError } = await analysisSupabase
+            .from('whatsapp_templates')
+            .update({
+              is_active: false,
+              ...updateData,
+            })
+            .eq('id', id);
+
+          if (fallbackError) throw fallbackError;
+          console.log('✅ Template marcado como inactivo en BD local (fallback)');
+        } else {
+          console.log('✅ Template marcado como eliminado en BD local (fallback)');
+        }
+      } catch (fallbackError: any) {
+        console.error('❌ Error en fallback de eliminación:', fallbackError);
+        // Re-lanzar el error original del webhook si el fallback también falla
+        throw error;
+      }
     }
   }
 

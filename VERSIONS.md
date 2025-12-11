@@ -1,5 +1,21 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.4.3N6.0.0 (Diciembre 2025) - Corrección de Eliminación de Plantillas
+
+### 🎯 RELEASE BETA - Correcciones en Flujo de Eliminación
+
+#### Correcciones Principales
+- Payload de eliminación siempre se envía al webhook
+- Modal se cierra correctamente después de eliminar
+- Manejo mejorado de estados con useRef
+- Timing optimizado para animación de éxito
+
+#### Limpieza
+- Eliminados mensajes de debug
+- Código optimizado para producción
+
+---
+
 ## Versión B4.4.2N6.0.0 (Diciembre 2025) - Mejoras en Gestión de Plantillas WhatsApp
 
 ### 🎯 RELEASE BETA - Timeout, Errores y Eliminación Mejorada

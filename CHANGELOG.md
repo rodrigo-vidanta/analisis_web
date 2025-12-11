@@ -2,6 +2,36 @@
 
 ## Historial de Versiones
 
+### v2.1.17 (2025-12-11)
+**Descripción**: B4.4.3N6.0.0: Corrección del flujo de eliminación de plantillas WhatsApp
+
+---
+
+## 🎯 **RELEASE B4.4.3N6.0.0 - Corrección de Eliminación de Plantillas**
+
+### 🔧 **Correcciones en Flujo de Eliminación**
+- **Payload siempre enviado**: El payload de eliminación ahora siempre se envía al webhook, independientemente del estado de sincronización
+- **Cierre automático del modal**: El modal se cierra correctamente después de mostrar la animación de éxito
+- **Manejo mejorado de estados**: Uso de `useRef` para mantener el estado de eliminación persistente entre re-renders
+- **Timing optimizado**: Espera de 2 segundos para mostrar animación antes de recargar plantillas
+
+### 🧹 **Limpieza de Código**
+- Eliminados todos los mensajes de debug (`console.log`)
+- Mantenidos solo `console.error` y `console.warn` para producción
+- Código optimizado y listo para producción
+
+### 🐛 **Bugs Corregidos**
+- Modal de eliminación se quedaba abierto después de eliminar plantilla
+- Payload de eliminación no se enviaba si la plantilla no estaba sincronizada
+- Estados del modal se reseteaban durante re-renders causados por `loadTemplates()`
+
+### 📁 **Archivos Modificados**
+- `src/components/shared/DeleteTemplateConfirmationModal.tsx` - Corrección de estados y cierre automático
+- `src/components/admin/WhatsAppTemplatesManager.tsx` - Mejoras en flujo de eliminación
+- `src/services/whatsappTemplatesService.ts` - Payload siempre enviado al webhook
+
+---
+
 ### v2.1.16 (2025-12-11)
 **Descripción**: B4.4.2N6.0.0: Mejoras en gestión de plantillas WhatsApp - Timeout, manejo de errores y eliminación mejorada
 

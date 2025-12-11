@@ -439,24 +439,24 @@ const WhatsAppTemplatesManager: React.FC = () => {
 
   // Confirmar eliminación de plantilla
   const handleConfirmDelete = async () => {
-    if (!templateToDelete) return;
+    if (!templateToDelete) {
+      console.error('❌ No hay plantilla para eliminar');
+      return;
+    }
 
     try {
       setIsDeleting(true);
       setIsSyncingAfterDelete(false);
-      console.log('🗑️ Eliminando plantilla:', templateToDelete.id);
       
       // Eliminar plantilla
       await whatsappTemplatesService.deleteTemplate(templateToDelete.id);
       
-      console.log('✅ Plantilla eliminada, iniciando sincronización global...');
       setIsDeleting(false);
       setIsSyncingAfterDelete(true);
       
       // Sincronización global automática después de eliminar
       try {
         await whatsappTemplatesService.syncTemplatesFromUChat();
-        console.log('✅ Sincronización global completada');
       } catch (syncError: any) {
         console.warn('⚠️ Error en sincronización global (no crítico):', syncError);
         // No lanzar error, solo loguear
@@ -464,10 +464,18 @@ const WhatsAppTemplatesManager: React.FC = () => {
         setIsSyncingAfterDelete(false);
       }
       
-      // Recargar plantillas
+      // Esperar un momento para que el modal muestre la animación de éxito
+      // El modal detectará que isDeleting=false e isSyncing=false y mostrará éxito
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 segundos para mostrar éxito
+      
+      // Recargar plantillas después de mostrar la animación
       await loadTemplates();
       
-      // El modal mostrará la animación de éxito automáticamente
+      // Cerrar el modal después de mostrar éxito y recargar
+      setShowDeleteModal(false);
+      setTemplateToDelete(null);
+      setIsDeleting(false);
+      setIsSyncingAfterDelete(false);
     } catch (error: any) {
       console.error('❌ Error eliminando plantilla:', error);
       setIsDeleting(false);

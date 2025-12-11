@@ -2,7 +2,7 @@
  * Modal de confirmación para eliminar plantillas de WhatsApp
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
@@ -26,23 +26,58 @@ export const DeleteTemplateConfirmationModal: React.FC<DeleteTemplateConfirmatio
   isSyncing = false
 }) => {
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [deletionStarted, setDeletionStarted] = useState(false);
+  const deletionStartedRef = useRef(false); // Ref para mantener el estado persistente
 
+  // Resetear estados SOLO cuando se cierra el modal completamente
+  useEffect(() => {
+    if (!isOpen) {
+      setShowSuccessAnimation(false);
+      setDeletionStarted(false);
+      deletionStartedRef.current = false;
+    } else {
+      // Cuando el modal se abre, NO resetear si ya había empezado una eliminación
+      // Esto previene que se resetee durante re-renders
+      if (deletionStartedRef.current && !deletionStarted) {
+        setDeletionStarted(true);
+      }
+    }
+  }, [isOpen, deletionStarted]);
+
+  // Rastrear cuando comienza la eliminación - usar ref para persistencia
   useEffect(() => {
     if (isDeleting) {
-      setShowSuccessAnimation(false);
+      if (!deletionStartedRef.current) {
+        deletionStartedRef.current = true;
+        setDeletionStarted(true);
+        setShowSuccessAnimation(false);
+      } else {
+        // Asegurar que el estado esté sincronizado con el ref
+        if (!deletionStarted) {
+          setDeletionStarted(true);
+        }
+      }
     }
-  }, [isDeleting]);
+  }, [isDeleting, deletionStarted]);
 
   // Mostrar animación de éxito cuando termine la eliminación y sincronización
   useEffect(() => {
-    if (!isDeleting && !isSyncing && !showSuccessAnimation) {
-      // Si ya no está eliminando ni sincronizando, mostrar éxito
+    // Usar el ref para verificar si la eliminación comenzó (más confiable que el state)
+    const hasStarted = deletionStartedRef.current || deletionStarted;
+
+    // Solo mostrar éxito si:
+    // 1. El modal está abierto (isOpen = true)
+    // 2. Ya se inició la eliminación (hasStarted = true)
+    // 3. Ya no está eliminando (isDeleting = false)
+    // 4. Ya no está sincronizando (isSyncing = false)
+    // 5. Aún no se ha mostrado la animación (showSuccessAnimation = false)
+    if (isOpen && hasStarted && !isDeleting && !isSyncing && !showSuccessAnimation) {
       const timer = setTimeout(() => {
         setShowSuccessAnimation(true);
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [isDeleting, isSyncing, showSuccessAnimation]);
+  }, [isOpen, deletionStarted, isDeleting, isSyncing, showSuccessAnimation]);
 
   // Cerrar modal automáticamente después de mostrar éxito
   useEffect(() => {
@@ -277,12 +312,13 @@ export const DeleteTemplateConfirmationModal: React.FC<DeleteTemplateConfirmatio
                     whileTap={{ scale: isDeleting ? 1 : 0.98 }}
                     onClick={async () => {
                       try {
+                        // Llamar a onDelete y esperar a que complete
                         await onDelete();
-                        // Mostrar animación de éxito solo después de que el webhook responda
-                        setShowSuccessAnimation(true);
+                        // El componente padre maneja el estado isDeleting
+                        // La animación de éxito se mostrará automáticamente cuando isDeleting sea false
                       } catch (error) {
-                        // Si hay error, no mostrar animación de éxito
-                        // El error ya se maneja en el componente padre
+                        // El error ya se maneja en el componente padre (handleConfirmDelete)
+                        console.error('Error en onDelete:', error);
                       }
                     }}
                     disabled={isDeleting}
