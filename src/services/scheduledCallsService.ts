@@ -229,21 +229,70 @@ class ScheduledCallsService {
     }
   }
 
-  async deleteScheduledCall(callId: string): Promise<boolean> {
+  async deleteScheduledCall(
+    callId: string,
+    callData: {
+      prospecto_id: string;
+      user_id: string | null;
+      justificacion?: string;
+      fecha_programada: string;
+      customer_phone?: string;
+      customer_name?: string;
+      conversation_id?: string;
+    }
+  ): Promise<boolean> {
     try {
-      const { error } = await analysisSupabase
-        .from('llamadas_programadas')
-        .delete()
-        .eq('id', callId);
+      // Construir payload para DELETE (mismo formato que UPDATE)
+      const payload: any = {
+        action: 'DELETE',
+        prospecto_id: callData.prospecto_id,
+        user_id: callData.user_id,
+        justificacion: callData.justificacion || 'Mejor momento de llamada',
+        scheduled_timestamp: callData.fecha_programada,
+        schedule_type: 'scheduled', // Siempre 'scheduled' para DELETE
+        customer_phone: callData.customer_phone,
+        customer_name: callData.customer_name,
+        conversation_id: callData.conversation_id,
+        llamada_programada_id: callId // ID de la llamada a eliminar
+      };
 
-      if (error) {
-        console.error('Error eliminando llamada programada:', error);
-        throw error;
+      // Crear AbortController para timeout de 15 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      try {
+        // Enviar al webhook
+        const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/trigger-manual', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Auth': 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV'
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Error desconocido');
+          throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+
+        // Éxito
+        await response.json().catch(() => ({}));
+        return true;
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Timeout: El webhook no respondió en 15 segundos');
+        }
+        
+        throw fetchError;
       }
-
-      return true;
     } catch (error) {
-      console.error('Error en deleteScheduledCall:', error);
       throw error;
     }
   }

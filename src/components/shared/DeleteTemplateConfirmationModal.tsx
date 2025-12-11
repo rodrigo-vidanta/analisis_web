@@ -1,29 +1,29 @@
 /**
- * Modal de confirmación para eliminar o reprogramar llamadas programadas
+ * Modal de confirmación para eliminar plantillas de WhatsApp
  */
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
-import type { ScheduledCall } from '../../services/scheduledCallsService';
+import { X, Trash2, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import type { WhatsAppTemplate } from '../../types/whatsappTemplates';
 
-interface DeleteCallConfirmationModalProps {
+interface DeleteTemplateConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  call: ScheduledCall | null;
-  onDelete: () => void;
-  onReprogram: () => void;
+  template: WhatsAppTemplate | null;
+  onDelete: () => Promise<void>;
   isDeleting?: boolean;
+  isSyncing?: boolean;
 }
 
-export const DeleteCallConfirmationModal: React.FC<DeleteCallConfirmationModalProps> = ({
+export const DeleteTemplateConfirmationModal: React.FC<DeleteTemplateConfirmationModalProps> = ({
   isOpen,
   onClose,
-  call,
+  template,
   onDelete,
-  onReprogram,
-  isDeleting = false
+  isDeleting = false,
+  isSyncing = false
 }) => {
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
@@ -33,27 +33,35 @@ export const DeleteCallConfirmationModal: React.FC<DeleteCallConfirmationModalPr
     }
   }, [isDeleting]);
 
-  if (!isOpen || !call) return null;
+  // Mostrar animación de éxito cuando termine la eliminación y sincronización
+  useEffect(() => {
+    if (!isDeleting && !isSyncing && !showSuccessAnimation) {
+      // Si ya no está eliminando ni sincronizando, mostrar éxito
+      const timer = setTimeout(() => {
+        setShowSuccessAnimation(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isDeleting, isSyncing, showSuccessAnimation]);
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('es-MX', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'America/Mexico_City'
-    });
-  };
+  // Cerrar modal automáticamente después de mostrar éxito
+  useEffect(() => {
+    if (showSuccessAnimation && !isSyncing) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 2000); // Cerrar después de 2 segundos
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessAnimation, isSyncing, onClose]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-MX', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'America/Mexico_City'
-    });
-  };
+  if (!isOpen || !template) return null;
+
+  const bodyComponent = template.components.find(c => c.type === 'BODY');
+  const previewText = bodyComponent?.text || 'Sin contenido';
+  const maxPreviewLength = 100;
+  const truncatedPreview = previewText.length > maxPreviewLength
+    ? previewText.substring(0, maxPreviewLength) + '...'
+    : previewText;
 
   return createPortal(
     <AnimatePresence>
@@ -112,7 +120,7 @@ export const DeleteCallConfirmationModal: React.FC<DeleteCallConfirmationModalPr
                           exit={{ opacity: 0, y: 10 }}
                           className="text-lg font-bold text-emerald-700 dark:text-emerald-400"
                         >
-                          ¡Llamada eliminada!
+                          ¡Plantilla eliminada!
                         </motion.h3>
                       ) : (
                         <motion.h3
@@ -122,13 +130,13 @@ export const DeleteCallConfirmationModal: React.FC<DeleteCallConfirmationModalPr
                           exit={{ opacity: 0, y: 10 }}
                           className="text-lg font-bold text-gray-900 dark:text-white"
                         >
-                          ¿Eliminar llamada programada?
+                          ¿Eliminar plantilla?
                         </motion.h3>
                       )}
                     </AnimatePresence>
                     {!showSuccessAnimation && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Esta acción puede deshacerse
+                        Esta acción no se puede deshacer
                       </p>
                     )}
                   </div>
@@ -156,43 +164,43 @@ export const DeleteCallConfirmationModal: React.FC<DeleteCallConfirmationModalPr
                   transition={{ duration: 0.2 }}
                   className="px-6 py-5 space-y-4"
                 >
-                  {/* Información de la llamada */}
+                  {/* Información de la plantilla */}
                   <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Prospecto
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {call.prospecto_nombre || call.prospecto_whatsapp || 'Sin nombre'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Fecha programada
-                    </p>
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      {formatDate(call.fecha_programada)} a las {formatTime(call.fecha_programada)}
-                    </p>
-                  </div>
-                  {call.justificacion_llamada && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Justificación
-                      </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        {call.justificacion_llamada}
-                      </p>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                          Nombre
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {template.name}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                          Categoría
+                        </p>
+                        <p className="text-sm text-gray-900 dark:text-white capitalize">
+                          {template.category.toLowerCase()}
+                        </p>
+                      </div>
+                      {truncatedPreview && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Contenido
+                          </p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
+                            {truncatedPreview}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
                   {/* Mensaje de confirmación */}
                   <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                     <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                     <p className="text-sm text-amber-800 dark:text-amber-200">
-                      ¿Estás seguro de que deseas eliminar esta llamada programada? Si te equivocaste, puedes reprogramarla.
+                      ¿Estás seguro de que deseas eliminar esta plantilla? Esta acción marcará la plantilla como eliminada y no se podrá deshacer.
                     </p>
                   </div>
                 </motion.div>
@@ -218,8 +226,29 @@ export const DeleteCallConfirmationModal: React.FC<DeleteCallConfirmationModalPr
                     transition={{ delay: 0.3 }}
                     className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center"
                   >
-                    La llamada programada ha sido eliminada exitosamente
+                    La plantilla ha sido eliminada exitosamente
                   </motion.p>
+                  {isSyncing && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                    >
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Sincronizando plantillas...</span>
+                    </motion.div>
+                  )}
+                  {!isSyncing && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center"
+                    >
+                      Sincronización completada
+                    </motion.p>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -237,16 +266,15 @@ export const DeleteCallConfirmationModal: React.FC<DeleteCallConfirmationModalPr
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={onReprogram}
+                    onClick={onClose}
                     disabled={isDeleting}
-                    className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+                    className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   >
-                    <Calendar className="w-4 h-4" />
-                    Reprogramar
+                    Cancelar
                   </motion.button>
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: isDeleting ? 1 : 1.02 }}
+                    whileTap={{ scale: isDeleting ? 1 : 0.98 }}
                     onClick={async () => {
                       try {
                         await onDelete();

@@ -42,15 +42,30 @@ const WEBHOOK_AUTH_TOKEN = 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzV
 
 class WhatsAppTemplatesService {
   /**
-   * Obtener todas las plantillas
+   * Obtener todas las plantillas (solo las no eliminadas)
    */
   async getAllTemplates(): Promise<WhatsAppTemplate[]> {
     const { data, error } = await analysisSupabase
       .from('whatsapp_templates')
       .select('*')
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      // Si el campo is_deleted no existe, intentar con is_active = true como fallback
+      if (error.code === '42703' || error.message?.includes('is_deleted')) {
+        console.warn('Campo is_deleted no encontrado, usando is_active como filtro');
+        const { data: fallbackData, error: fallbackError } = await analysisSupabase
+          .from('whatsapp_templates')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        
+        if (fallbackError) throw fallbackError;
+        return fallbackData || [];
+      }
+      throw error;
+    }
     return data || [];
   }
 
@@ -192,29 +207,73 @@ class WhatsAppTemplatesService {
         audiences_count: payload.audiences.length,
       });
 
-      const response = await fetch(`${WEBHOOK_BASE_URL}/webhook/whatsapp-templates`, {
-        method: 'POST',
-        headers: {
-          'Auth': WEBHOOK_AUTH_TOKEN,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      // Crear AbortController para timeout de 15 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 15000); // 15 segundos
 
-      const responseText = await response.text();
-      let result;
-      
       try {
-        result = JSON.parse(responseText);
-      } catch {
-        throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
-      }
+        const response = await fetch(`${WEBHOOK_BASE_URL}/webhook/whatsapp-templates`, {
+          method: 'POST',
+          headers: {
+            'Auth': WEBHOOK_AUTH_TOKEN,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || result.message || `Error ${response.status}`);
-      }
+        clearTimeout(timeoutId);
 
-      return result.data;
+        const responseText = await response.text();
+        let result;
+        
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          // Si el response es 400, crear un error específico
+          if (response.status === 400) {
+            const error = new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
+            (error as any).status = 400;
+            throw error;
+          }
+          throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
+        }
+
+        // Si el response es 400, crear un error específico
+        if (response.status === 400) {
+          const error = new Error(result.error || result.message || `Error ${response.status}`);
+          (error as any).status = 400;
+          throw error;
+        }
+
+        if (!response.ok || !result.success) {
+          const error = new Error(result.error || result.message || `Error ${response.status}`);
+          if (response.status === 400) {
+            (error as any).status = 400;
+          }
+          throw error;
+        }
+
+        return result.data;
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        // Si es un error de abort (timeout)
+        if (fetchError.name === 'AbortError') {
+          const timeoutError = new Error('La solicitud tardó demasiado tiempo. Por favor, intente nuevamente.');
+          (timeoutError as any).status = 408; // Request Timeout
+          throw timeoutError;
+        }
+        
+        // Re-lanzar el error si ya tiene status 400
+        if (fetchError.status === 400) {
+          throw fetchError;
+        }
+        
+        throw fetchError;
+      }
     } catch (error: any) {
       console.error('Error creando template en uChat:', error);
       throw error;

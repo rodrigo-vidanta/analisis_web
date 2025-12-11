@@ -4,6 +4,7 @@ import { Clock, User, Users, Trash2 } from 'lucide-react';
 import type { ScheduledCall } from '../../../services/scheduledCallsService';
 import { DeleteCallConfirmationModal } from '../../shared/DeleteCallConfirmationModal';
 import { scheduledCallsService } from '../../../services/scheduledCallsService';
+import { useAuth } from '../../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 interface WeeklyViewProps {
@@ -21,6 +22,7 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
   onProspectClick,
   onCallDeleted
 }) => {
+  const { user } = useAuth();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedCallForDelete, setSelectedCallForDelete] = useState<ScheduledCall | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -39,7 +41,20 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
     setDeletingCallId(selectedCallForDelete.id);
     
     try {
-      await scheduledCallsService.deleteScheduledCall(selectedCallForDelete.id);
+      await scheduledCallsService.deleteScheduledCall(
+        selectedCallForDelete.id,
+        {
+          prospecto_id: selectedCallForDelete.prospecto,
+          user_id: user?.id || null,
+          justificacion: selectedCallForDelete.justificacion_llamada,
+          fecha_programada: selectedCallForDelete.fecha_programada,
+          customer_phone: selectedCallForDelete.prospecto_whatsapp,
+          customer_name: selectedCallForDelete.prospecto_nombre,
+          conversation_id: undefined
+        }
+      );
+      
+      toast.success('Llamada eliminada exitosamente');
       
       // Esperar a que termine la animación de éxito antes de cerrar
       setTimeout(() => {
@@ -51,11 +66,13 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
           onCallDeleted();
         }
       }, 1500);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error eliminando llamada:', error);
-      toast.error('Error al eliminar la llamada');
+      const errorMessage = error?.message || 'Error al eliminar la llamada';
+      toast.error(errorMessage.includes('Timeout') ? 'El webhook tardó demasiado en responder (máximo 15 segundos)' : errorMessage);
       setIsDeleting(false);
       setDeletingCallId(null);
+      throw error; // Re-lanzar para que el modal maneje el error
     }
   };
 

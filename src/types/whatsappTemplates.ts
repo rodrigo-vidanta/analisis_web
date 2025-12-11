@@ -301,6 +301,7 @@ export interface WhatsAppTemplate {
   uchat_synced: boolean;
   last_synced_at?: string | null;
   is_active: boolean;
+  is_deleted?: boolean; // Campo para soft delete
   description?: string | null;
   created_by?: string | null;
   created_at: string;

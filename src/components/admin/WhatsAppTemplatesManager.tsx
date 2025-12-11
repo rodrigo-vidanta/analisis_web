@@ -52,6 +52,8 @@ import {
 } from '../../types/whatsappTemplates';
 import { Users, Heart, User as UserIcon, UserPlus, Users2, Image, MapPin, Baby } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { ErrorModal } from '../shared/ErrorModal';
+import { DeleteTemplateConfirmationModal } from '../shared/DeleteTemplateConfirmationModal';
 
 /**
  * ============================================
@@ -92,6 +94,16 @@ const WhatsAppTemplatesManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WhatsAppTemplate | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
+  
+  // Estados para modal de error
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  
+  // Estados para modal de confirmación de eliminación
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<WhatsAppTemplate | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncingAfterDelete, setIsSyncingAfterDelete] = useState(false);
   
   // Estado inicial de clasificación (ahora usa audiencias)
   const defaultClassification: TemplateClassification = {
@@ -392,38 +404,78 @@ const WhatsAppTemplatesManager: React.FC = () => {
       console.error('❌ [handleSave] Error stack:', error.stack);
       console.error('❌ [handleSave] Error code:', error.code);
       console.error('❌ [handleSave] Error message:', error.message);
+      console.error('❌ [handleSave] Error status:', error.status);
       
-      // Mensajes de error más específicos
-      let errorMessage = 'Error al guardar la plantilla';
-      
-      if (error.code === '23505') {
-        errorMessage = 'Ya existe una plantilla con ese nombre';
-      } else if (error.code === '42P01') {
-        errorMessage = 'La tabla whatsapp_templates no existe. Por favor ejecuta el script SQL de creación.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      // Si es un error 400, mostrar modal de error
+      if (error.status === 400 || (error.message && error.message.includes('400'))) {
+        const message = error.message || 'No se pudo procesar su solicitud. Por favor, verifique los datos e intente nuevamente.';
+        setErrorMessage(message);
+        setShowErrorModal(true);
+      } else {
+        // Mensajes de error más específicos para otros errores
+        let errorMessage = 'Error al guardar la plantilla';
+        
+        if (error.code === '23505') {
+          errorMessage = 'Ya existe una plantilla con ese nombre';
+        } else if (error.code === '42P01') {
+          errorMessage = 'La tabla whatsapp_templates no existe. Por favor ejecuta el script SQL de creación.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        toast.error(errorMessage);
       }
-      
-      toast.error(errorMessage);
     } finally {
       console.log('🔵 [handleSave] Finalizando, estableciendo saving a false');
       setSaving(false);
     }
   };
 
-  // Eliminar plantilla
-  const handleDelete = async (template: WhatsAppTemplate) => {
-    if (!confirm(`¿Estás seguro de eliminar la plantilla "${template.name}"?`)) {
-      return;
-    }
+  // Abrir modal de confirmación de eliminación
+  const handleDelete = (template: WhatsAppTemplate) => {
+    setTemplateToDelete(template);
+    setShowDeleteModal(true);
+  };
+
+  // Confirmar eliminación de plantilla
+  const handleConfirmDelete = async () => {
+    if (!templateToDelete) return;
 
     try {
-      await whatsappTemplatesService.deleteTemplate(template.id);
-      toast.success('Plantilla eliminada exitosamente');
-      loadTemplates();
+      setIsDeleting(true);
+      setIsSyncingAfterDelete(false);
+      console.log('🗑️ Eliminando plantilla:', templateToDelete.id);
+      
+      // Eliminar plantilla
+      await whatsappTemplatesService.deleteTemplate(templateToDelete.id);
+      
+      console.log('✅ Plantilla eliminada, iniciando sincronización global...');
+      setIsDeleting(false);
+      setIsSyncingAfterDelete(true);
+      
+      // Sincronización global automática después de eliminar
+      try {
+        await whatsappTemplatesService.syncTemplatesFromUChat();
+        console.log('✅ Sincronización global completada');
+      } catch (syncError: any) {
+        console.warn('⚠️ Error en sincronización global (no crítico):', syncError);
+        // No lanzar error, solo loguear
+      } finally {
+        setIsSyncingAfterDelete(false);
+      }
+      
+      // Recargar plantillas
+      await loadTemplates();
+      
+      // El modal mostrará la animación de éxito automáticamente
     } catch (error: any) {
-      console.error('Error eliminando plantilla:', error);
+      console.error('❌ Error eliminando plantilla:', error);
+      setIsDeleting(false);
+      setIsSyncingAfterDelete(false);
+      setShowDeleteModal(false);
+      setTemplateToDelete(null);
       toast.error(error.message || 'Error al eliminar la plantilla');
+      throw error; // Re-lanzar para que el modal maneje el error
     }
   };
 
@@ -863,6 +915,29 @@ const WhatsAppTemplatesManager: React.FC = () => {
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
         template={selectedTemplate}
+      />
+
+      {/* Modal de error para errores 400 */}
+      <ErrorModal
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        title="Error al crear plantilla"
+        message={errorMessage || 'No se pudo procesar su solicitud. Por favor, verifique los datos e intente nuevamente.'}
+      />
+
+      {/* Modal de confirmación de eliminación */}
+      <DeleteTemplateConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setTemplateToDelete(null);
+          setIsDeleting(false);
+          setIsSyncingAfterDelete(false);
+        }}
+        template={templateToDelete}
+        onDelete={handleConfirmDelete}
+        isDeleting={isDeleting}
+        isSyncing={isSyncingAfterDelete}
       />
     </div>
   );

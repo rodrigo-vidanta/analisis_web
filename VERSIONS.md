@@ -1,5 +1,26 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.4.2N6.0.0 (Diciembre 2025) - Mejoras en Gestión de Plantillas WhatsApp
+
+### 🎯 RELEASE BETA - Timeout, Errores y Eliminación Mejorada
+
+#### Timeout y Manejo de Errores
+- Timeout de 15 segundos en creación de plantillas
+- Modal de error para errores 400
+- Manejo mejorado de errores del webhook
+
+#### Sistema de Eliminación
+- Filtrado automático por `is_deleted = false`
+- Modal de confirmación con animaciones
+- Sync global automático después de eliminar
+- Indicadores visuales durante proceso
+
+#### Componentes Nuevos
+- `ErrorModal.tsx` - Modal reutilizable para errores
+- `DeleteTemplateConfirmationModal.tsx` - Modal de confirmación
+
+---
+
 ## Versión B4.4.0N6.0.0 (Diciembre 2025) - Filtros de Audiencia desde Prospectos
 
 ### 🎯 RELEASE BETA - Datos Reales de Prospectos

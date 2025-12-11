@@ -2,6 +2,50 @@
 
 ## Historial de Versiones
 
+### v2.1.16 (2025-12-11)
+**Descripción**: B4.4.2N6.0.0: Mejoras en gestión de plantillas WhatsApp - Timeout, manejo de errores y eliminación mejorada
+
+---
+
+## 🎯 **RELEASE B4.4.2N6.0.0 - Mejoras en Plantillas WhatsApp**
+
+### ⏱️ **Timeout y Manejo de Errores en Creación**
+- **Timeout de 15 segundos** en creación de plantillas para evitar esperas indefinidas
+- **Modal de error** para errores 400 con mensaje claro al usuario
+- **Manejo mejorado** de errores del webhook con códigos de estado específicos
+- **AbortController** para cancelar peticiones que excedan el timeout
+
+### 🗑️ **Sistema de Eliminación Mejorado**
+- **Filtrado automático** por `is_deleted = false` en todas las consultas
+- **Modal de confirmación** con animaciones para eliminar plantillas
+- **Sync global automático** después de eliminar una plantilla
+- **Indicadores visuales** durante eliminación y sincronización
+- **Animación de éxito** antes de cerrar el modal
+
+### 📊 **Filtrado de Plantillas**
+- Solo se muestran plantillas con `is_deleted = false`
+- Fallback a `is_active = true` si el campo `is_deleted` no existe
+- Mejora en rendimiento al filtrar en la consulta SQL
+
+### 🎨 **Componentes Nuevos**
+- `ErrorModal.tsx` - Modal reutilizable para mostrar errores
+- `DeleteTemplateConfirmationModal.tsx` - Modal de confirmación con animaciones
+
+### 🔧 **Mejoras Técnicas**
+- Actualizado tipo `WhatsAppTemplate` con campo `is_deleted` opcional
+- Manejo de errores mejorado en `createTemplateInUChat`
+- Integración de sync automático en flujo de eliminación
+- Estados de carga mejorados en modales
+
+### 📁 **Archivos Modificados/Creados**
+- `src/components/shared/ErrorModal.tsx` - Modal de error (nuevo)
+- `src/components/shared/DeleteTemplateConfirmationModal.tsx` - Modal de confirmación (nuevo)
+- `src/components/admin/WhatsAppTemplatesManager.tsx` - Integración de modales y filtrado
+- `src/services/whatsappTemplatesService.ts` - Timeout, filtrado y manejo de errores
+- `src/types/whatsappTemplates.ts` - Campo `is_deleted` agregado
+
+---
+
 ### v2.1.15 (2025-12-11)
 **Descripción**: B4.4.1N6.0.0: Sistema de eliminación de llamadas programadas con modal de confirmación
 

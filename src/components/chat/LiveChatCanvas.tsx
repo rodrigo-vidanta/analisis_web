@@ -5577,15 +5577,26 @@ const LiveChatCanvas: React.FC = () => {
             justificacion_llamada: selectedCallForDelete.justificacion_llamada
           }}
           onDelete={async () => {
-            if (!selectedCallForDelete) return;
+            if (!selectedCallForDelete || !selectedConversation) return;
             setIsDeletingCall(true);
             try {
-              await scheduledCallsService.deleteScheduledCall(selectedCallForDelete.id);
+              await scheduledCallsService.deleteScheduledCall(
+                selectedCallForDelete.id,
+                {
+                  prospecto_id: selectedConversation.prospecto_id || '',
+                  user_id: user?.id || null,
+                  justificacion: selectedCallForDelete.justificacion_llamada,
+                  fecha_programada: selectedCallForDelete.fecha_programada,
+                  customer_phone: selectedConversation.customer_phone,
+                  customer_name: selectedConversation.customer_name || selectedCallForDelete.prospecto_nombre,
+                  conversation_id: selectedConversation.id
+                }
+              );
+              
+              toast.success('Llamada eliminada exitosamente');
               
               // Recargar mensajes para actualizar la vista
-              if (selectedConversation) {
-                await loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
-              }
+              await loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
               
               // Esperar a que termine la animación de éxito antes de cerrar
               setTimeout(() => {
@@ -5593,10 +5604,12 @@ const LiveChatCanvas: React.FC = () => {
                 setSelectedCallForDelete(null);
                 setIsDeletingCall(false);
               }, 1500);
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error eliminando llamada:', error);
-              toast.error('Error al eliminar la llamada');
+              const errorMessage = error?.message || 'Error al eliminar la llamada';
+              toast.error(errorMessage.includes('Timeout') ? 'El webhook tardó demasiado en responder (máximo 15 segundos)' : errorMessage);
               setIsDeletingCall(false);
+              throw error; // Re-lanzar para que el modal maneje el error
             }
           }}
           onReprogram={() => {
@@ -5652,59 +5665,6 @@ const LiveChatCanvas: React.FC = () => {
           }}
           conversation={selectedConversation}
           prospectoData={prospectoForReactivate}
-        />
-      )}
-
-      {/* Modal de confirmación de eliminación de llamada programada */}
-      {selectedCallForDelete && (
-        <DeleteCallConfirmationModal
-          isOpen={deleteCallModalOpen}
-          onClose={() => {
-            if (!isDeletingCall) {
-              setDeleteCallModalOpen(false);
-              setSelectedCallForDelete(null);
-            }
-          }}
-          call={{
-            id: selectedCallForDelete.id,
-            prospecto: '',
-            fecha_programada: selectedCallForDelete.fecha_programada,
-            estatus: 'programada',
-            creada: '',
-            prospecto_nombre: selectedCallForDelete.prospecto_nombre,
-            prospecto_whatsapp: selectedCallForDelete.prospecto_whatsapp,
-            justificacion_llamada: selectedCallForDelete.justificacion_llamada
-          }}
-          onDelete={async () => {
-            if (!selectedCallForDelete) return;
-            setIsDeletingCall(true);
-            try {
-              await scheduledCallsService.deleteScheduledCall(selectedCallForDelete.id);
-              
-              // Recargar mensajes para actualizar la vista
-              if (selectedConversation) {
-                await loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
-              }
-              
-              // Esperar a que termine la animación de éxito antes de cerrar
-              setTimeout(() => {
-                setDeleteCallModalOpen(false);
-                setSelectedCallForDelete(null);
-                setIsDeletingCall(false);
-              }, 1500);
-            } catch (error) {
-              console.error('Error eliminando llamada:', error);
-              toast.error('Error al eliminar la llamada');
-              setIsDeletingCall(false);
-            }
-          }}
-          onReprogram={() => {
-            if (!selectedCallForDelete || !selectedConversation) return;
-            setDeleteCallModalOpen(false);
-            setSelectedCallForDelete(null);
-            setShowCallModal(true);
-          }}
-          isDeleting={isDeletingCall}
         />
       )}
     </div>
