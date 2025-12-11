@@ -1,5 +1,28 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B4.4.4N6.0.0 (Enero 2025) - Validación y Mapeo de Variables Mejorado
+
+### 🎯 RELEASE BETA - Sistema de Validación Completo
+
+#### Nuevas Funcionalidades
+- Columna "titulo" disponible en variables de prospectos
+- Botón para editar variables ya mapeadas
+- Sistema de validación estructurado con alertas minimalistas
+
+#### Validaciones Implementadas
+- Variables sin mapear antes de crear plantilla
+- Audiencias no seleccionadas
+- Nombre de plantilla requerido
+- Caracteres inválidos en body (solo texto, números y signos de puntuación)
+
+#### Mejoras de UI/UX
+- Alertas minimalistas y elegantes
+- Visibles en todas las pestañas del modal
+- Indicadores visuales sutiles
+- Limpieza automática de errores
+
+---
+
 ## Versión B4.4.3N6.0.0 (Diciembre 2025) - Corrección de Eliminación de Plantillas
 
 ### 🎯 RELEASE BETA - Correcciones en Flujo de Eliminación

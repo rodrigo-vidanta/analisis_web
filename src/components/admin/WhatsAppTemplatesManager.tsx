@@ -123,6 +123,14 @@ const WhatsAppTemplatesManager: React.FC = () => {
   
   // Estados para audiencias
   const [audiences, setAudiences] = useState<WhatsAppAudience[]>([]);
+  
+  // Estado para errores de validación (minimalista)
+  const [validationErrors, setValidationErrors] = useState<{
+    unmappedVariables?: number[];
+    noAudiences?: boolean;
+    emptyName?: boolean;
+    invalidBodyChars?: boolean;
+  }>({});
   const [showAudienceModal, setShowAudienceModal] = useState(false);
   const [audienceFormData, setAudienceFormData] = useState<CreateAudienceInput>({
     nombre: '',
@@ -311,6 +319,16 @@ const WhatsAppTemplatesManager: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  // Validar caracteres del body (solo texto, números y signos de puntuación)
+  const validateBodyChars = (text: string): boolean => {
+    // Permitir: letras (con acentos), números, espacios, signos de puntuación básicos
+    // Variables {{1}}, {{2}}, etc. están permitidas
+    const validPattern = /^[\w\sáéíóúÁÉÍÓÚñÑüÜ.,;:!?\-()\[\]{}"'\/\\\{\}]*$/;
+    // Remover variables para validar solo el texto
+    const textWithoutVars = text.replace(/\{\{\d+\}\}/g, '');
+    return validPattern.test(textWithoutVars);
+  };
+
   // Guardar plantilla (crear o actualizar)
   const handleSave = async () => {
     console.log('🔵 [handleSave] Iniciando guardado de plantilla...');
@@ -321,28 +339,35 @@ const WhatsAppTemplatesManager: React.FC = () => {
       setSaving(true);
       console.log('🔵 [handleSave] Estado saving establecido a true');
       
-      // Validar datos básicos
+      const errors: typeof validationErrors = {};
+      
+      // Validar nombre de plantilla
       if (!formData.name.trim()) {
-        console.log('❌ [handleSave] Error: nombre vacío');
-        toast.error('El nombre de la plantilla es requerido');
-        setSaving(false);
-        return;
+        errors.emptyName = true;
       }
 
       // Validar formato del nombre (snake_case)
       const nameRegex = /^[a-z0-9_]+$/;
-      if (!nameRegex.test(formData.name.trim())) {
-        console.log('❌ [handleSave] Error: formato de nombre inválido');
-        toast.error('El nombre debe estar en formato snake_case (solo letras minúsculas, números y guiones bajos)');
-        setSaving(false);
-        return;
+      if (formData.name.trim() && !nameRegex.test(formData.name.trim())) {
+        errors.emptyName = true; // Usar el mismo error para simplificar
       }
 
-      if (!formData.components.some(c => c.text && c.text.trim())) {
-        console.log('❌ [handleSave] Error: no hay componentes con texto');
-        toast.error('La plantilla debe tener al menos un componente con texto');
-        setSaving(false);
-        return;
+      // Validar que haya contenido en los componentes
+      const hasContent = formData.components.some(c => c.text && c.text.trim());
+      if (!hasContent) {
+        errors.invalidBodyChars = true;
+      }
+
+      // Validar caracteres del body
+      const bodyComponent = formData.components.find(c => c.type === 'BODY');
+      if (bodyComponent?.text && !validateBodyChars(bodyComponent.text)) {
+        errors.invalidBodyChars = true;
+      }
+
+      // Validar audiencias seleccionadas
+      const hasAudiences = formData.classification?.audience_ids && formData.classification.audience_ids.length > 0;
+      if (!hasAudiences) {
+        errors.noAudiences = true;
       }
 
       // Validar mapeos de variables (solo si hay variables)
@@ -350,6 +375,19 @@ const WhatsAppTemplatesManager: React.FC = () => {
       const hasVariables = /\{\{\d+\}\}/.test(allText);
       
       if (hasVariables) {
+        // Obtener todas las variables usadas en el contenido
+        const allVars = getAllVariables();
+        
+        // Verificar que todas las variables tengan un mapeo
+        const unmappedVars = allVars.filter(varNum => {
+          const mapping = getVariableMapping(varNum);
+          return !mapping;
+        });
+        
+        if (unmappedVars.length > 0) {
+          errors.unmappedVariables = unmappedVars;
+        }
+        
         // Filtrar variables del sistema (mapeadas a 'system') de la validación
         const systemMappings = (formData.variable_mappings || []).filter(
           m => m.table_name === 'system'
@@ -359,7 +397,6 @@ const WhatsAppTemplatesManager: React.FC = () => {
         );
         
         // Solo validar variables dinámicas (no las del sistema)
-        const allVars = getAllVariables();
         const systemVarNumbers = systemMappings.map(m => m.variable_number);
         const dynamicVariables = allVars.filter(v => !systemVarNumbers.includes(v));
         
@@ -372,12 +409,24 @@ const WhatsAppTemplatesManager: React.FC = () => {
 
           if (!validation.valid) {
             console.log('❌ [handleSave] Error de validación:', validation.errors);
-            toast.error(`Errores en variables: ${validation.errors.join(', ')}`);
-            setSaving(false);
-            return;
+            // Agregar errores de validación a los errores existentes
+            if (!errors.unmappedVariables) {
+              errors.unmappedVariables = [];
+            }
           }
         }
       }
+
+      // Si hay errores, mostrarlos y detener el guardado
+      if (Object.keys(errors).length > 0) {
+        console.log('❌ [handleSave] Errores de validación:', errors);
+        setValidationErrors(errors);
+        setSaving(false);
+        return;
+      }
+
+      // Limpiar errores si la validación pasa
+      setValidationErrors({});
 
       console.log('✅ [handleSave] Validaciones pasadas, guardando...');
 
@@ -716,6 +765,20 @@ const WhatsAppTemplatesManager: React.FC = () => {
     }
   };
 
+  // Obtener texto de estado en español
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'APPROVED':
+        return 'Aprobada';
+      case 'PENDING':
+        return 'Pendiente';
+      case 'REJECTED':
+        return 'Rechazada';
+      default:
+        return status;
+    }
+  };
+
   // Obtener color de categoría
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -885,6 +948,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
                 onSync={handleSyncSingle}
                 syncingTemplateId={syncingTemplateId}
                 getStatusColor={getStatusColor}
+                getStatusText={getStatusText}
                 getCategoryColor={getCategoryColor}
                 audiences={audiences}
               />
@@ -896,7 +960,10 @@ const WhatsAppTemplatesManager: React.FC = () => {
       {/* Modal de creación/edición */}
       <TemplateModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setValidationErrors({}); // Limpiar errores al cerrar
+        }}
         onSave={handleSave}
         formData={formData}
         setFormData={setFormData}
@@ -916,6 +983,8 @@ const WhatsAppTemplatesManager: React.FC = () => {
         previewLoading={previewLoading}
         systemVariables={systemVariables}
         saving={saving}
+        validationErrors={validationErrors}
+        onValidationErrorsChange={setValidationErrors}
       />
 
       {/* Modal de vista previa */}
@@ -1173,6 +1242,7 @@ interface TemplateGridCardProps {
   onSync: (templateId: string) => void;
   syncingTemplateId: string | null;
   getStatusColor: (status: string) => string;
+  getStatusText: (status: string) => string;
   getCategoryColor: (category: string) => string;
   audiences: WhatsAppAudience[];
 }
@@ -1187,6 +1257,7 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
   onSync,
   syncingTemplateId,
   getStatusColor,
+  getStatusText,
   getCategoryColor,
   audiences,
 }) => {
@@ -1217,14 +1288,25 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
       className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 overflow-hidden hover:shadow-lg hover:shadow-blue-500/5"
     >
       {/* Indicador de estado superior */}
-      <div className={`absolute top-0 left-0 right-0 h-1 ${
+      <div className={`absolute top-0 left-0 right-0 h-5 relative ${
         template.status === 'APPROVED' ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
         template.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
         'bg-gradient-to-r from-red-400 to-rose-500'
-      }`} />
+      }`}>
+        {/* Barra de color inferior */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-current opacity-50" />
+        {/* Texto del estado alineado a la derecha */}
+        <span className={`absolute top-0.5 right-2 text-[10px] font-medium ${
+          template.status === 'APPROVED' ? 'text-green-800 dark:text-green-200' :
+          template.status === 'PENDING' ? 'text-yellow-800 dark:text-yellow-200' :
+          'text-red-800 dark:text-red-200'
+        }`}>
+          {getStatusText(template.status)}
+        </span>
+      </div>
 
       {/* Contenido principal */}
-      <div className="p-4">
+      <div className="p-4 pt-6">
         {/* Header con nombre y estado */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
@@ -1383,6 +1465,18 @@ interface TemplateModalProps {
   previewLoading: boolean;
   systemVariables: Array<{ type: string; label: string; icon: any; color: string }>;
   saving: boolean;
+  validationErrors?: {
+    unmappedVariables?: number[];
+    noAudiences?: boolean;
+    emptyName?: boolean;
+    invalidBodyChars?: boolean;
+  };
+  onValidationErrorsChange?: (errors: {
+    unmappedVariables?: number[];
+    noAudiences?: boolean;
+    emptyName?: boolean;
+    invalidBodyChars?: boolean;
+  }) => void;
 }
 
 const TemplateModal: React.FC<TemplateModalProps> = ({
@@ -1407,6 +1501,8 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
   previewLoading,
   systemVariables,
   saving,
+  validationErrors = {},
+  onValidationErrorsChange,
 }) => {
   const [activeTab, setActiveTab] = useState<'content' | 'variables' | 'audience' | 'preview'>('content');
   const [showPreviewContent, setShowPreviewContent] = useState(false);
@@ -1468,6 +1564,27 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                       {editingTemplate ? 'Modifica los datos de la plantilla' : 'Crea una nueva plantilla de WhatsApp'}
                     </p>
                   </div>
+                  
+                  {/* Alerta minimalista de errores de validación */}
+                  <AnimatePresence>
+                    {Object.keys(validationErrors).length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex items-center space-x-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+                      >
+                        <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+                        <span className="text-xs font-medium text-red-700 dark:text-red-300">
+                          {validationErrors.unmappedVariables && `Variables sin mapear`}
+                          {validationErrors.noAudiences && (validationErrors.unmappedVariables ? ', ' : '') + `Sin audiencias`}
+                          {validationErrors.emptyName && ((validationErrors.unmappedVariables || validationErrors.noAudiences) ? ', ' : '') + `Nombre requerido`}
+                          {validationErrors.invalidBodyChars && ((validationErrors.unmappedVariables || validationErrors.noAudiences || validationErrors.emptyName) ? ', ' : '') + `Caracteres inválidos`}
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   <button
                     onClick={onClose}
                     className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -1532,9 +1649,17 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                                 .replace(/ñ/g, 'n')
                                 .replace(/[^a-z0-9_]/g, ''); // Solo alfanuméricos y guiones bajos
                               setFormData({ ...formData, name: sanitized });
+                              // Limpiar error de nombre si se está escribiendo
+                              if (validationErrors.emptyName && sanitized.trim()) {
+                                onValidationErrorsChange?.({ ...validationErrors, emptyName: false });
+                              }
                             }}
                             placeholder="ej: bienvenida_cliente"
-                            className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white font-mono"
+                            className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white font-mono ${
+                              validationErrors.emptyName
+                                ? 'border-red-300 dark:border-red-700'
+                                : 'border-gray-200 dark:border-gray-700'
+                            }`}
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Solo letras, números y guiones bajos (_). Sin espacios ni acentos.
@@ -1648,16 +1773,25 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                     onAddVariableMapping={onAddVariableMapping}
                     systemVariables={systemVariables}
                     components={formData.components}
+                    validationErrors={validationErrors}
+                    onValidationErrorsChange={onValidationErrorsChange}
                   />
                 )}
 
                 {activeTab === 'audience' && (
                   <AudienceSelectorTab
                     selectedAudienceIds={formData.classification?.audience_ids || []}
-                    onSelectionChange={(audience_ids) => setFormData({ 
-                      ...formData, 
-                      classification: { audience_ids } 
-                    })}
+                    onSelectionChange={(audience_ids) => {
+                      setFormData({ 
+                        ...formData, 
+                        classification: { audience_ids } 
+                      });
+                      // Limpiar error de audiencias si se seleccionan
+                      if (validationErrors.noAudiences && audience_ids.length > 0) {
+                        onValidationErrorsChange?.({ ...validationErrors, noAudiences: false });
+                      }
+                    }}
+                    hasError={validationErrors.noAudiences}
                   />
                 )}
 
@@ -2512,6 +2646,18 @@ interface VariableMapperTabProps {
   onAddVariableMapping: (variableNumber: number, tableName: string, fieldName: string) => void;
   systemVariables: Array<{ type: string; label: string; icon: any; color: string }>;
   components: WhatsAppTemplate['components'];
+  validationErrors?: {
+    unmappedVariables?: number[];
+    noAudiences?: boolean;
+    emptyName?: boolean;
+    invalidBodyChars?: boolean;
+  };
+  onValidationErrorsChange?: (errors: {
+    unmappedVariables?: number[];
+    noAudiences?: boolean;
+    emptyName?: boolean;
+    invalidBodyChars?: boolean;
+  }) => void;
 }
 
 const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
@@ -2521,11 +2667,27 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
   onAddVariableMapping,
   systemVariables,
   components,
+  validationErrors = {},
+  onValidationErrorsChange,
 }) => {
   const [selectedVar, setSelectedVar] = useState<number | null>(null);
   const [selectedSource, setSelectedSource] = useState<'table' | 'system'>('table');
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [selectedField, setSelectedField] = useState<string>('');
+  
+  // Efecto para limpiar variables sin mapear cuando se mapean
+  useEffect(() => {
+    if (validationErrors?.unmappedVariables && validationErrors.unmappedVariables.length > 0 && onValidationErrorsChange) {
+      // Verificar si alguna variable sin mapear ahora tiene mapeo
+      const stillUnmapped = validationErrors.unmappedVariables.filter(varNum => !getVariableMapping(varNum));
+      if (stillUnmapped.length !== validationErrors.unmappedVariables.length) {
+        onValidationErrorsChange({
+          ...validationErrors,
+          unmappedVariables: stillUnmapped.length > 0 ? stillUnmapped : undefined,
+        });
+      }
+    }
+  }, [variables, getVariableMapping, validationErrors, onValidationErrorsChange]);
 
   const handleMapVariable = () => {
     if (!selectedVar) return;
@@ -2536,6 +2698,16 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
         const systemVar = systemVariables.find(v => v.type === selectedField);
         if (systemVar) {
           onAddVariableMapping(selectedVar, 'system', selectedField);
+          
+          // Limpiar de variables sin mapear si estaba ahí
+          if (onValidationErrorsChange && validationErrors?.unmappedVariables?.includes(selectedVar)) {
+            const updatedUnmapped = validationErrors.unmappedVariables.filter(v => v !== selectedVar);
+            onValidationErrorsChange({
+              ...validationErrors,
+              unmappedVariables: updatedUnmapped.length > 0 ? updatedUnmapped : undefined,
+            });
+          }
+          
           setSelectedVar(null);
           setSelectedSource('table');
           setSelectedTable('');
@@ -2547,6 +2719,16 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
       // Mapear variable de tabla
       if (selectedTable && selectedField) {
         onAddVariableMapping(selectedVar, selectedTable, selectedField);
+        
+        // Limpiar de variables sin mapear si estaba ahí
+        if (onValidationErrorsChange && validationErrors?.unmappedVariables?.includes(selectedVar)) {
+          const updatedUnmapped = validationErrors.unmappedVariables.filter(v => v !== selectedVar);
+          onValidationErrorsChange({
+            ...validationErrors,
+            unmappedVariables: updatedUnmapped.length > 0 ? updatedUnmapped : undefined,
+          });
+        }
+        
         setSelectedVar(null);
         setSelectedSource('table');
         setSelectedTable('');
@@ -2569,6 +2751,7 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
 
   return (
     <div className="space-y-6">
+
       {/* Preview del contenido para contexto */}
       {(headerText || bodyText) && (
         <div className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -2617,14 +2800,23 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
         <div className="space-y-4">
           {variables.map((varNum) => {
             const mapping = getVariableMapping(varNum);
+            const isUnmapped = validationErrors?.unmappedVariables?.includes(varNum);
             return (
               <div
                 key={varNum}
-                className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl"
+                className={`p-4 border rounded-xl transition-colors ${
+                  isUnmapped
+                    ? 'border-red-300 dark:border-red-700 bg-red-50/30 dark:bg-red-900/5'
+                    : 'border-gray-200 dark:border-gray-700'
+                }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-2">
-                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400 rounded-lg font-mono text-sm font-medium">
+                    <span className={`px-3 py-1 rounded-lg font-mono text-sm font-medium ${
+                      isUnmapped
+                        ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                        : 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
+                    }`}>
                       {`{{${varNum}}}`}
                     </span>
                     {mapping && (
@@ -2632,15 +2824,40 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
                         → {mapping.display_name}
                       </span>
                     )}
+                    {isUnmapped && !mapping && (
+                      <span className="text-xs text-red-600 dark:text-red-400">
+                        Sin mapear
+                      </span>
+                    )}
                   </div>
-                  {!mapping && (
-                    <button
-                      onClick={() => setSelectedVar(varNum)}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                    >
-                      Mapear
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      setSelectedVar(varNum);
+                      // Si hay un mapping existente, pre-seleccionar los valores
+                      if (mapping) {
+                        if (mapping.table_name === 'system') {
+                          setSelectedSource('system');
+                          setSelectedField(mapping.field_name);
+                        } else {
+                          setSelectedSource('table');
+                          setSelectedTable(mapping.table_name);
+                          setSelectedField(mapping.field_name);
+                        }
+                      } else {
+                        // Resetear si no hay mapping
+                        setSelectedSource('table');
+                        setSelectedTable('');
+                        setSelectedField('');
+                      }
+                    }}
+                    className={`text-xs ${
+                      mapping
+                        ? 'text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300'
+                        : 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
+                    }`}
+                  >
+                    {mapping ? 'Editar' : 'Mapear'}
+                  </button>
                 </div>
 
                 {mapping && (
@@ -2664,7 +2881,7 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
                   </div>
                 )}
 
-                {selectedVar === varNum && !mapping && (
+                {selectedVar === varNum && (
                   <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg space-y-3">
                     {/* Selector de fuente: Tabla o Sistema */}
                     <div>
@@ -2788,7 +3005,7 @@ const VariableMapperTab: React.FC<VariableMapperTabProps> = ({
                           selectedSource === 'system' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
                         }`}
                       >
-                        Guardar Mapeo
+                        {selectedVar && getVariableMapping(selectedVar) ? 'Actualizar Mapeo' : 'Guardar Mapeo'}
                       </button>
                       <button
                         onClick={() => {
@@ -2899,6 +3116,7 @@ const PreviewModal: React.FC<{ isOpen: boolean; onClose: () => void; template: W
 interface AudienceSelectorTabProps {
   selectedAudienceIds: string[];
   onSelectionChange: (ids: string[]) => void;
+  hasError?: boolean;
 }
 
 const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
@@ -3305,16 +3523,25 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       setSaving(true);
       
       // Guardar en Supabase
-      const audienceData = {
+      // Nota: Si las columnas destinos y viaja_con no existen, se usarán solo los campos básicos
+      const audienceData: any = {
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion?.trim() || null,
         etapa: formData.etapa || null,
-        destinos: formData.destinos || [],
         estado_civil: formData.estado_civil || null,
-        viaja_con: formData.viaja_con || [],
         prospectos_count: prospectCount,
         is_active: true,
       };
+      
+      // Agregar campos de arrays solo si existen en el esquema
+      // Estos campos se agregarán después de ejecutar el script SQL:
+      // docs/sql/add_destinos_viaja_con_to_audiences.sql
+      if (formData.destinos && formData.destinos.length > 0) {
+        audienceData.destinos = formData.destinos;
+      }
+      if (formData.viaja_con && formData.viaja_con.length > 0) {
+        audienceData.viaja_con = formData.viaja_con;
+      }
       
       const { data, error } = await analysisSupabase
         .from('whatsapp_audiences')
@@ -3323,8 +3550,17 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
         .single();
       
       if (error) {
-        console.log('Error guardando en BD:', error);
-        toast.error('Error al guardar audiencia: ' + error.message);
+        console.error('Error guardando en BD:', error);
+        
+        // Si el error es por columnas faltantes, mostrar mensaje específico
+        if (error.message?.includes('destinos') || error.message?.includes('viaja_con')) {
+          toast.error(
+            'Error: Las columnas destinos/viaja_con no existen. Por favor ejecuta el script SQL: docs/sql/add_destinos_viaja_con_to_audiences.sql',
+            { duration: 8000 }
+          );
+        } else {
+          toast.error('Error al guardar audiencia: ' + error.message);
+        }
         return;
       }
       

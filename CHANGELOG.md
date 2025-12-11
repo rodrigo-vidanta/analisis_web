@@ -2,6 +2,42 @@
 
 ## Historial de Versiones
 
+### v2.1.18 (2025-01-XX)
+**Descripción**: B4.4.4N6.0.0: Mejoras en validación y mapeo de variables en plantillas WhatsApp
+
+---
+
+## 🎯 **RELEASE B4.4.4N6.0.0 - Validación y Mapeo de Variables Mejorado**
+
+### ✨ **Nuevas Funcionalidades**
+- **Columna "titulo" agregada**: Disponible en variables de la tabla prospectos
+- **Edición de variables mapeadas**: Botón para modificar variables ya mapeadas
+- **Sistema de validación completo**: Validación estructurada con alertas minimalistas
+
+### 🔍 **Validaciones Implementadas**
+- **Variables sin mapear**: Impide crear plantilla si hay variables sin mapear
+- **Audiencias no seleccionadas**: Requiere al menos una audiencia seleccionada
+- **Nombre de plantilla**: Validación de campo requerido
+- **Caracteres inválidos en body**: Solo permite texto, números y signos de puntuación básicos
+
+### 🎨 **Mejoras de UI/UX**
+- **Alertas minimalistas**: Indicadores sutiles y elegantes acordes al diseño
+- **Alertas visibles en todas las pestañas**: Se muestran en el header del modal
+- **Indicadores visuales sutiles**: Variables sin mapear con borde rojo discreto
+- **Limpieza automática de errores**: Los errores se limpian al corregirlos
+
+### 🐛 **Correcciones**
+- Variables sin mapear ahora se detectan correctamente antes de guardar
+- Validación de caracteres especiales en el contenido del body
+- Mejora en la experiencia de usuario al crear plantillas
+
+### 📁 **Archivos Modificados**
+- `src/services/whatsappTemplatesService.ts` - Agregada columna "titulo" a campos de prospectos
+- `src/components/admin/WhatsAppTemplatesManager.tsx` - Sistema completo de validación y alertas
+- `src/types/whatsappTemplates.ts` - Actualización de tipos
+
+---
+
 ### v2.1.17 (2025-12-11)
 **Descripción**: B4.4.3N6.0.0: Corrección del flujo de eliminación de plantillas WhatsApp
 

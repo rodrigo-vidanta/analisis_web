@@ -604,6 +604,7 @@ class WhatsAppTemplatesService {
         { name: 'whatsapp', type: 'string', display_name: 'Número WhatsApp' },
         { name: 'telefono_principal', type: 'string', display_name: 'Teléfono Principal' },
         { name: 'email', type: 'string', display_name: 'Email' },
+        { name: 'titulo', type: 'string', display_name: 'Título' },
         { name: 'ciudad_residencia', type: 'string', display_name: 'Ciudad de Residencia' },
         { name: 'edad', type: 'number', display_name: 'Edad' },
         { name: 'estado_civil', type: 'string', display_name: 'Estado Civil' },
