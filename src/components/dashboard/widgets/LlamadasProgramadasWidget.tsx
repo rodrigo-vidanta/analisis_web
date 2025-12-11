@@ -7,10 +7,13 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Loader2, Trash2 } from 'lucide-react';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { ManualCallModal } from '../../shared/ManualCallModal';
 import { systemNotificationService } from '../../../services/systemNotificationService';
+import { DeleteCallConfirmationModal } from '../../shared/DeleteCallConfirmationModal';
+import { scheduledCallsService } from '../../../services/scheduledCallsService';
+import toast from 'react-hot-toast';
 
 interface LlamadasProgramadasWidgetProps {
   userId?: string; // Mantenido para compatibilidad pero ya no se usa para filtrar
@@ -22,6 +25,9 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
   const channelRef = useRef<any>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedCallForDelete, setSelectedCallForDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadLlamadas = useCallback(async () => {
     try {
@@ -317,6 +323,42 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
     });
   };
 
+  const handleDeleteClick = (e: React.MouseEvent, llamada: any) => {
+    e.stopPropagation();
+    setSelectedCallForDelete(llamada);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedCallForDelete) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      await scheduledCallsService.deleteScheduledCall(selectedCallForDelete.id);
+      
+      // Esperar a que termine la animación de éxito antes de cerrar
+      setTimeout(() => {
+        setDeleteModalOpen(false);
+        setSelectedCallForDelete(null);
+        setIsDeleting(false);
+        loadLlamadas();
+      }, 1500);
+    } catch (error) {
+      console.error('Error eliminando llamada:', error);
+      toast.error('Error al eliminar la llamada');
+      setIsDeleting(false);
+    }
+  };
+
+  const handleReprogram = () => {
+    if (!selectedCallForDelete) return;
+    setDeleteModalOpen(false);
+    setSelectedCall(selectedCallForDelete);
+    setSelectedCallForDelete(null);
+    setShowScheduleModal(true);
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
       {/* Header */}
@@ -358,8 +400,11 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
               }}
               className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0" onClick={() => {
+                  setSelectedCall(llamada);
+                  setShowScheduleModal(true);
+                }}>
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                     {llamada.prospecto_nombre || llamada.prospecto_whatsapp || 'Sin nombre'}
                   </p>
@@ -375,6 +420,18 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
                     </p>
                   )}
                 </div>
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(e) => handleDeleteClick(e, llamada)}
+                  disabled={isDeleting}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                  title="Eliminar llamada programada"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </motion.button>
               </div>
             </motion.div>
           ))
@@ -398,6 +455,21 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
           }}
         />
       )}
+
+      {/* Modal de confirmación de eliminación */}
+      <DeleteCallConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteModalOpen(false);
+            setSelectedCallForDelete(null);
+          }
+        }}
+        call={selectedCallForDelete}
+        onDelete={handleDelete}
+        onReprogram={handleReprogram}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 };

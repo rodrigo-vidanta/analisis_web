@@ -307,6 +307,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
                 onProspectClick={handleNavigateToProspect}
                 onDateChange={setSelectedDate}
                 showNavigation={false}
+                onCallDeleted={loadCalls}
               />
             ) : (
               <WeeklyView
@@ -314,6 +315,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
                 selectedDate={selectedDate}
                 onCallClick={handleOpenScheduleModal}
                 onProspectClick={handleNavigateToProspect}
+                onCallDeleted={loadCalls}
               />
             )}
           </div>

@@ -39,7 +39,8 @@ import {
   GripVertical,
   Paperclip,
   Flag,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
@@ -69,6 +70,8 @@ import { ManualCallModal } from '../shared/ManualCallModal';
 import BotPauseButton from './BotPauseButton';
 import { Avatar } from '../shared/Avatar';
 import { ReactivateConversationModal } from './ReactivateConversationModal';
+import { DeleteCallConfirmationModal } from '../shared/DeleteCallConfirmationModal';
+import { scheduledCallsService } from '../../services/scheduledCallsService';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -576,6 +579,11 @@ const LiveChatCanvas: React.FC = () => {
 
   // Estado para respuestas rápidas
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+
+  // Estados para eliminación de llamadas programadas
+  const [deleteCallModalOpen, setDeleteCallModalOpen] = useState(false);
+  const [selectedCallForDelete, setSelectedCallForDelete] = useState<{ id: string; prospecto_nombre?: string; prospecto_whatsapp?: string; fecha_programada: string; justificacion_llamada?: string } | null>(null);
+  const [isDeletingCall, setIsDeletingCall] = useState(false);
 
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -4908,6 +4916,30 @@ const LiveChatCanvas: React.FC = () => {
                                         ? 'Llamada no contestada'
                                         : 'Llamada programada'}
                                     </span>
+                                    {message.call_data.estatus === 'programada' && (
+                                      <motion.button
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedCallForDelete({
+                                            id: message.call_data.id,
+                                            prospecto_nombre: selectedConversation?.customer_name,
+                                            prospecto_whatsapp: selectedConversation?.customer_phone,
+                                            fecha_programada: message.call_data.fecha_programada,
+                                            justificacion_llamada: undefined
+                                          });
+                                          setDeleteCallModalOpen(true);
+                                        }}
+                                        disabled={isDeletingCall}
+                                        className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Eliminar llamada programada"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </motion.button>
+                                    )}
                                   </div>
                                   
                                   {/* Duración si está disponible */}
@@ -5524,6 +5556,59 @@ const LiveChatCanvas: React.FC = () => {
         document.body
       )}
 
+      {/* Modal de confirmación de eliminación de llamada programada */}
+      {selectedCallForDelete && (
+        <DeleteCallConfirmationModal
+          isOpen={deleteCallModalOpen}
+          onClose={() => {
+            if (!isDeletingCall) {
+              setDeleteCallModalOpen(false);
+              setSelectedCallForDelete(null);
+            }
+          }}
+          call={{
+            id: selectedCallForDelete.id,
+            prospecto: '',
+            fecha_programada: selectedCallForDelete.fecha_programada,
+            estatus: 'programada',
+            creada: '',
+            prospecto_nombre: selectedCallForDelete.prospecto_nombre,
+            prospecto_whatsapp: selectedCallForDelete.prospecto_whatsapp,
+            justificacion_llamada: selectedCallForDelete.justificacion_llamada
+          }}
+          onDelete={async () => {
+            if (!selectedCallForDelete) return;
+            setIsDeletingCall(true);
+            try {
+              await scheduledCallsService.deleteScheduledCall(selectedCallForDelete.id);
+              
+              // Recargar mensajes para actualizar la vista
+              if (selectedConversation) {
+                await loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
+              }
+              
+              // Esperar a que termine la animación de éxito antes de cerrar
+              setTimeout(() => {
+                setDeleteCallModalOpen(false);
+                setSelectedCallForDelete(null);
+                setIsDeletingCall(false);
+              }, 1500);
+            } catch (error) {
+              console.error('Error eliminando llamada:', error);
+              toast.error('Error al eliminar la llamada');
+              setIsDeletingCall(false);
+            }
+          }}
+          onReprogram={() => {
+            if (!selectedCallForDelete || !selectedConversation) return;
+            setDeleteCallModalOpen(false);
+            setSelectedCallForDelete(null);
+            setShowCallModal(true);
+          }}
+          isDeleting={isDeletingCall}
+        />
+      )}
+
       {/* Modal simple para imágenes */}
       <AnimatePresence>
         {selectedImageModal && (
@@ -5567,6 +5652,59 @@ const LiveChatCanvas: React.FC = () => {
           }}
           conversation={selectedConversation}
           prospectoData={prospectoForReactivate}
+        />
+      )}
+
+      {/* Modal de confirmación de eliminación de llamada programada */}
+      {selectedCallForDelete && (
+        <DeleteCallConfirmationModal
+          isOpen={deleteCallModalOpen}
+          onClose={() => {
+            if (!isDeletingCall) {
+              setDeleteCallModalOpen(false);
+              setSelectedCallForDelete(null);
+            }
+          }}
+          call={{
+            id: selectedCallForDelete.id,
+            prospecto: '',
+            fecha_programada: selectedCallForDelete.fecha_programada,
+            estatus: 'programada',
+            creada: '',
+            prospecto_nombre: selectedCallForDelete.prospecto_nombre,
+            prospecto_whatsapp: selectedCallForDelete.prospecto_whatsapp,
+            justificacion_llamada: selectedCallForDelete.justificacion_llamada
+          }}
+          onDelete={async () => {
+            if (!selectedCallForDelete) return;
+            setIsDeletingCall(true);
+            try {
+              await scheduledCallsService.deleteScheduledCall(selectedCallForDelete.id);
+              
+              // Recargar mensajes para actualizar la vista
+              if (selectedConversation) {
+                await loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
+              }
+              
+              // Esperar a que termine la animación de éxito antes de cerrar
+              setTimeout(() => {
+                setDeleteCallModalOpen(false);
+                setSelectedCallForDelete(null);
+                setIsDeletingCall(false);
+              }, 1500);
+            } catch (error) {
+              console.error('Error eliminando llamada:', error);
+              toast.error('Error al eliminar la llamada');
+              setIsDeletingCall(false);
+            }
+          }}
+          onReprogram={() => {
+            if (!selectedCallForDelete || !selectedConversation) return;
+            setDeleteCallModalOpen(false);
+            setSelectedCallForDelete(null);
+            setShowCallModal(true);
+          }}
+          isDeleting={isDeletingCall}
         />
       )}
     </div>

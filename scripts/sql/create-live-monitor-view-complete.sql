@@ -225,9 +225,10 @@ SELECT
     CASE WHEN lv.destino_preferido IS NOT NULL THEN ARRAY[lv.destino_preferido::text] ELSE NULL END,
     p.destino_preferencia
   ) AS destino_preferencia,
-  COALESCE(lv.preferencia_vacaciones, p.preferencia_vacaciones) AS preferencia_vacaciones,
-  COALESCE(lv.numero_noches, p.numero_noches) AS numero_noches,
-  COALESCE(lv.mes_preferencia, p.mes_preferencia) AS mes_preferencia,
+  -- NOTA: preferencia_vacaciones, numero_noches y mes_preferencia solo existen en llamadas_ventas
+  lv.preferencia_vacaciones,
+  lv.numero_noches,
+  lv.mes_preferencia,
   p.viaja_con,
   p.cantidad_menores,
   
@@ -257,8 +258,7 @@ SELECT
   
   -- Metadata
   p.id_uchat,
-  p.id_airtable,
-  p.crm_data,
+  -- NOTA: id_airtable y crm_data fueron eliminados (2025-12-11)
   
   -- Coordinación (desde prospecto)
   p.coordinacion_id,

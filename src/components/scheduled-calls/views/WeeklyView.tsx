@@ -1,21 +1,70 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, User, Users } from 'lucide-react';
+import { Clock, User, Users, Trash2 } from 'lucide-react';
 import type { ScheduledCall } from '../../../services/scheduledCallsService';
+import { DeleteCallConfirmationModal } from '../../shared/DeleteCallConfirmationModal';
+import { scheduledCallsService } from '../../../services/scheduledCallsService';
+import toast from 'react-hot-toast';
 
 interface WeeklyViewProps {
   calls: ScheduledCall[];
   selectedDate: Date;
   onCallClick: (call: ScheduledCall) => void;
   onProspectClick?: (prospectoId: string) => void;
+  onCallDeleted?: () => void;
 }
 
 export const WeeklyView: React.FC<WeeklyViewProps> = ({
   calls,
   selectedDate,
   onCallClick,
-  onProspectClick
+  onProspectClick,
+  onCallDeleted
 }) => {
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedCallForDelete, setSelectedCallForDelete] = useState<ScheduledCall | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
+
+  const handleDeleteClick = (e: React.MouseEvent, call: ScheduledCall) => {
+    e.stopPropagation();
+    setSelectedCallForDelete(call);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedCallForDelete) return;
+    
+    setIsDeleting(true);
+    setDeletingCallId(selectedCallForDelete.id);
+    
+    try {
+      await scheduledCallsService.deleteScheduledCall(selectedCallForDelete.id);
+      
+      // Esperar a que termine la animación de éxito antes de cerrar
+      setTimeout(() => {
+        setDeleteModalOpen(false);
+        setSelectedCallForDelete(null);
+        setIsDeleting(false);
+        setDeletingCallId(null);
+        if (onCallDeleted) {
+          onCallDeleted();
+        }
+      }, 1500);
+    } catch (error) {
+      console.error('Error eliminando llamada:', error);
+      toast.error('Error al eliminar la llamada');
+      setIsDeleting(false);
+      setDeletingCallId(null);
+    }
+  };
+
+  const handleReprogram = () => {
+    if (!selectedCallForDelete) return;
+    setDeleteModalOpen(false);
+    setSelectedCallForDelete(null);
+    onCallClick(selectedCallForDelete);
+  };
   const weekDays = useMemo(() => {
     const startOfWeek = new Date(selectedDate);
     const day = startOfWeek.getDay();
@@ -164,9 +213,25 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
                               {formatTime(call.fecha_programada)}
                             </span>
                           </div>
-                          <span className={`inline-flex items-center px-0.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium border flex-shrink-0 relative z-30 ${getStatusColor(call.estatus)}`}>
-                            {call.estatus === 'programada' ? 'P' : call.estatus === 'ejecutada' ? 'E' : call.estatus === 'cancelada' ? 'C' : 'N'}
-                          </span>
+                          <div className="flex items-center gap-0.5">
+                            <span className={`inline-flex items-center px-0.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium border flex-shrink-0 relative z-30 ${getStatusColor(call.estatus)}`}>
+                              {call.estatus === 'programada' ? 'P' : call.estatus === 'ejecutada' ? 'E' : call.estatus === 'cancelada' ? 'C' : 'N'}
+                            </span>
+                            {call.estatus === 'programada' && (
+                              <motion.button
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => handleDeleteClick(e, call)}
+                                disabled={deletingCallId === call.id}
+                                className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded flex items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative z-30 flex-shrink-0"
+                                title="Eliminar llamada programada"
+                              >
+                                <Trash2 className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+                              </motion.button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Nombre del prospecto - ultra compacto - Clickable */}
@@ -190,6 +255,21 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
             </motion.div>
           );
         })}
+
+      {/* Modal de confirmación de eliminación */}
+      <DeleteCallConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteModalOpen(false);
+            setSelectedCallForDelete(null);
+          }
+        }}
+        call={selectedCallForDelete}
+        onDelete={handleDelete}
+        onReprogram={handleReprogram}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 };

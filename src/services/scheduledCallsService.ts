@@ -228,6 +228,25 @@ class ScheduledCallsService {
       return [];
     }
   }
+
+  async deleteScheduledCall(callId: string): Promise<boolean> {
+    try {
+      const { error } = await analysisSupabase
+        .from('llamadas_programadas')
+        .delete()
+        .eq('id', callId);
+
+      if (error) {
+        console.error('Error eliminando llamada programada:', error);
+        throw error;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error en deleteScheduledCall:', error);
+      throw error;
+    }
+  }
 }
 
 export const scheduledCallsService = new ScheduledCallsService();

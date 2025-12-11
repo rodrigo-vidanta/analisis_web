@@ -1,8 +1,11 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Clock, Phone, User, Users } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, Phone, User, Users, Trash2 } from 'lucide-react';
 import type { ScheduledCall } from '../../../services/scheduledCallsService';
 import { ProspectAvatar } from '../../analysis/ProspectAvatar';
+import { DeleteCallConfirmationModal } from '../../shared/DeleteCallConfirmationModal';
+import { scheduledCallsService } from '../../../services/scheduledCallsService';
+import toast from 'react-hot-toast';
 
 interface DailyViewProps {
   calls: ScheduledCall[];
@@ -11,6 +14,7 @@ interface DailyViewProps {
   onProspectClick?: (prospectoId: string) => void;
   onDateChange?: (date: Date) => void;
   showNavigation?: boolean;
+  onCallDeleted?: () => void;
 }
 
 export const DailyView: React.FC<DailyViewProps> = ({
@@ -18,8 +22,13 @@ export const DailyView: React.FC<DailyViewProps> = ({
   selectedDate,
   onCallClick,
   onProspectClick,
-  showNavigation = true
+  showNavigation = true,
+  onCallDeleted
 }) => {
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedCallForDelete, setSelectedCallForDelete] = useState<ScheduledCall | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
   // Filtrar llamadas del día seleccionado usando zona horaria de Puerto Vallarta (America/Mexico_City, UTC-6)
   const dayCalls = useMemo(() => {
     // Obtener año, mes y día de la fecha seleccionada en zona horaria local
@@ -112,6 +121,46 @@ export const DailyView: React.FC<DailyViewProps> = ({
 
   // Horario laboral: 9am a 8pm (9-20)
   const hours = Array.from({ length: 12 }, (_, i) => i + 9);
+
+  const handleDeleteClick = (e: React.MouseEvent, call: ScheduledCall) => {
+    e.stopPropagation();
+    setSelectedCallForDelete(call);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedCallForDelete) return;
+    
+    setIsDeleting(true);
+    setDeletingCallId(selectedCallForDelete.id);
+    
+    try {
+      await scheduledCallsService.deleteScheduledCall(selectedCallForDelete.id);
+      
+      // Esperar a que termine la animación de éxito antes de cerrar
+      setTimeout(() => {
+        setDeleteModalOpen(false);
+        setSelectedCallForDelete(null);
+        setIsDeleting(false);
+        setDeletingCallId(null);
+        if (onCallDeleted) {
+          onCallDeleted();
+        }
+      }, 1500);
+    } catch (error) {
+      console.error('Error eliminando llamada:', error);
+      toast.error('Error al eliminar la llamada');
+      setIsDeleting(false);
+      setDeletingCallId(null);
+    }
+  };
+
+  const handleReprogram = () => {
+    if (!selectedCallForDelete) return;
+    setDeleteModalOpen(false);
+    setSelectedCallForDelete(null);
+    onCallClick(selectedCallForDelete);
+  };
 
   return (
     <div className="w-full h-full p-6">
@@ -223,9 +272,25 @@ export const DailyView: React.FC<DailyViewProps> = ({
                                     >
                                       {call.prospecto_nombre}
                                     </h3>
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium relative z-30 ${getStatusColor(call.estatus)}`}>
-                                      {call.estatus}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium relative z-30 ${getStatusColor(call.estatus)}`}>
+                                        {call.estatus}
+                                      </span>
+                                      {call.estatus === 'programada' && (
+                                        <motion.button
+                                          initial={{ opacity: 0, scale: 0.8 }}
+                                          animate={{ opacity: 1, scale: 1 }}
+                                          whileHover={{ scale: 1.1 }}
+                                          whileTap={{ scale: 0.9 }}
+                                          onClick={(e) => handleDeleteClick(e, call)}
+                                          disabled={deletingCallId === call.id}
+                                          className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative z-30"
+                                          title="Eliminar llamada programada"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </motion.button>
+                                      )}
+                                    </div>
                                   </div>
 
                                   <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -283,6 +348,21 @@ export const DailyView: React.FC<DailyViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Modal de confirmación de eliminación */}
+      <DeleteCallConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteModalOpen(false);
+            setSelectedCallForDelete(null);
+          }
+        }}
+        call={selectedCallForDelete}
+        onDelete={handleDelete}
+        onReprogram={handleReprogram}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 };

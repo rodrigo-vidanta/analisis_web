@@ -2,6 +2,57 @@
 
 ## Historial de Versiones
 
+### v2.1.15 (2025-12-11)
+**Descripción**: B4.4.1N6.0.0: Sistema de eliminación de llamadas programadas con modal de confirmación
+
+---
+
+## 🎯 **RELEASE B4.4.1N6.0.0 - Eliminación de Llamadas Programadas**
+
+### 🗑️ **Sistema de Eliminación de Llamadas Programadas**
+- **Botón de eliminar** en cards de llamadas programadas (vista diaria, semanal, chat y dashboard)
+- **Modal de confirmación** con opciones "Reprogramar" y "Eliminar"
+- **Animación de éxito** antes de cerrar el modal tras eliminar
+- **Actualización automática** de vistas tras eliminar
+
+### 📍 **Ubicaciones Implementadas**
+1. **Módulo de Llamadas Programadas**
+   - Vista diaria: Botón eliminar en cada card
+   - Vista semanal: Botón eliminar compacto en cards
+   
+2. **AI Chat Monitor**
+   - Botón eliminar en cards de llamadas programadas dentro de conversaciones
+   - Recarga automática de mensajes tras eliminar
+
+3. **Dashboard**
+   - Botón eliminar en widget de llamadas programadas
+   - Actualización automática de lista
+
+### 🎨 **Características del Modal**
+- Diseño según guía de modales del proyecto
+- Información completa de la llamada (prospecto, fecha, justificación)
+- Opción "Reprogramar" que abre modal de reprogramación
+- Opción "Eliminar" con animación de éxito
+- Estados de carga durante eliminación
+- Manejo de errores con toasts
+
+### 🔧 **Implementación Técnica**
+- Nuevo servicio: `deleteScheduledCall` en `scheduledCallsService.ts`
+- Componente reutilizable: `DeleteCallConfirmationModal.tsx`
+- Integración con realtime: Actualización automática en todas las vistas
+- Animaciones con framer-motion
+
+### 📁 **Archivos Modificados/Creados**
+- `src/services/scheduledCallsService.ts` - Función `deleteScheduledCall`
+- `src/components/shared/DeleteCallConfirmationModal.tsx` - Modal de confirmación (nuevo)
+- `src/components/scheduled-calls/views/DailyView.tsx` - Botón eliminar y lógica
+- `src/components/scheduled-calls/views/WeeklyView.tsx` - Botón eliminar y lógica
+- `src/components/chat/LiveChatCanvas.tsx` - Botón eliminar en cards de llamadas
+- `src/components/dashboard/widgets/LlamadasProgramadasWidget.tsx` - Botón eliminar en widget
+- `src/components/scheduled-calls/ScheduledCallsManager.tsx` - Callback `onCallDeleted`
+
+---
+
 ### v2.1.14 (2025-12-10)
 **Descripción**: B4.4.0N6.0.0: Filtros de audiencia corregidos usando prospectos.destino_preferencia y viaja_con
 
