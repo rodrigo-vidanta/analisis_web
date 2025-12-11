@@ -319,14 +319,20 @@ const WhatsAppTemplatesManager: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  // Validar caracteres del body (solo texto, números y signos de puntuación)
+  // Validar caracteres del body (texto, números, signos de puntuación, emojis y corchetes)
   const validateBodyChars = (text: string): boolean => {
-    // Permitir: letras (con acentos), números, espacios, signos de puntuación básicos
+    // Permitir: letras (con acentos), números, espacios, signos de puntuación básicos, emojis, corchetes
     // Variables {{1}}, {{2}}, etc. están permitidas
-    const validPattern = /^[\w\sáéíóúÁÉÍÓÚñÑüÜ.,;:!?\-()\[\]{}"'\/\\\{\}]*$/;
+    // Corchetes {{ }} están permitidos
+    // Emojis están permitidos (cualquier carácter Unicode que no sea control)
+    // Usamos una validación más permisiva: solo rechazamos caracteres de control (excepto \n, \r, \t)
     // Remover variables para validar solo el texto
     const textWithoutVars = text.replace(/\{\{\d+\}\}/g, '');
-    return validPattern.test(textWithoutVars);
+    
+    // Validar que no haya caracteres de control excepto los permitidos (\n, \r, \t)
+    // Permitir todos los caracteres Unicode excepto caracteres de control (0x00-0x1F excepto \n, \r, \t)
+    const controlCharPattern = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
+    return !controlCharPattern.test(textWithoutVars);
   };
 
   // Guardar plantilla (crear o actualizar)
