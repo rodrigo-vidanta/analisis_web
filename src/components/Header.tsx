@@ -210,10 +210,10 @@ interface HeaderProps {
   progress?: number;
   progressText?: string;
   darkMode: boolean;
-  appMode?: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard';
+  appMode?: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard' | 'campaigns';
   onToggleDarkMode: () => void;
   onReset?: () => void;
-  onModeChange?: (mode: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard') => void;
+  onModeChange?: (mode: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard' | 'campaigns') => void;
   simplified?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -324,8 +324,8 @@ const Header = ({
                 <div>
                   <h1 className="text-lg font-medium text-slate-900 dark:text-white capitalize">
                     {appMode === 'natalia' ? 'Análisis Natalia IA' :
-                     appMode === 'pqnc' ? 'Llamadas' :
-                     appMode === 'live-monitor' ? 'Llamadas' :
+                     appMode === 'pqnc' ? 'Llamadas PQNC' :
+                     appMode === 'live-monitor' ? 'Llamadas IA' :
                      appMode === 'admin' ? 'Administración' :
                      appMode === 'live-chat' ? 'WhatsApp' :
                      appMode === 'ai-models' ? 'Modelos LLM' :

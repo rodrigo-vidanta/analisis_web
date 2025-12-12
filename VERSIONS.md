@@ -1,5 +1,27 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B5.0.1N6.0.0 (Diciembre 2025) - Vistas Duales y Mejoras de UI
+
+### 🎯 RELEASE BETA - Vistas Duales y Renombrado de Módulos
+
+#### Vistas Duales en Módulo de Campañas
+- Plantillas: Vista Cards (20/página) y Grid sorteable (50/página), vista por defecto Grid
+- Audiencias: Vista Cards rediseñada y Grid sorteable (50/página), vista por defecto Grid
+- Filtros rápidos tipo etiqueta en ambas vistas
+- Paginación completa en ambas vistas
+
+#### Mejoras de Diseño
+- Cards de Audiencias rediseñadas siguiendo el estilo de plantillas
+- Barra superior con gradientes acordes a la paleta UI
+- Menú de acciones en hover
+- Contador de prospectos destacado
+
+#### Renombrado de Módulos
+- Llamadas PQNC: Módulo de llamadas humanas
+- Llamadas IA: Módulo de llamadas con IA
+
+---
+
 ## Versión B5.0.0N6.0.0 (Diciembre 2025) - Refactorización y Optimización
 
 ### 🎯 RELEASE BETA - Reestructuración Completa de Módulos

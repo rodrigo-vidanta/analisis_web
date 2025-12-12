@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Clock, Calendar, User, MapPin, Building2, Loader2 } from 'lucide-react';
+import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService } from '../../services/whatsappTemplatesService';
-import type { WhatsAppTemplate, VariableMapping } from '../../types/whatsappTemplates';
+import type { WhatsAppTemplate } from '../../types/whatsappTemplates';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -20,6 +20,7 @@ interface ReactivateConversationModalProps {
     id?: string;
     nombre_completo?: string;
     whatsapp?: string;
+    etapa?: string;
     [key: string]: any;
   };
 }
@@ -32,11 +33,21 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
 }) => {
   const { user } = useAuth();
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [audiences, setAudiences] = useState<Array<{
+    id: string;
+    nombre: string;
+    etapa?: string | null;
+    destinos?: string[];
+    viaja_con?: string[];
+    estado_civil?: string | null;
+  }>>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [sending, setSending] = useState(false);
+  const [sendingSuccess, setSendingSuccess] = useState(false);
   const [preview, setPreview] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [destinos, setDestinos] = useState<Array<{ id: string; nombre: string }>>([]);
   const [resorts, setResorts] = useState<Array<{ id: string; nombre: string; nombre_completo: string }>>([]);
   
@@ -48,49 +59,23 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     resortId?: string;
   }>>({});
 
-  // Cargar plantillas activas y resetear selector
+  // Cargar plantillas y audiencias al abrir el modal
   useEffect(() => {
     if (isOpen) {
-      // Resetear selector de plantilla al abrir el modal
       setSelectedTemplate(null);
       setCustomVariables({});
       setPreview('');
+      setSearchTerm('');
+      setSendingSuccess(false);
       loadTemplates();
+      loadAudiences();
       loadDestinos();
     }
   }, [isOpen]);
-  
-  // Buscar destinos por nombre después de cargar la lista de destinos y cuando se selecciona una plantilla
-  useEffect(() => {
-    if (destinos.length > 0 && selectedTemplate) {
-      // Buscar variable 3 que es de tipo destino
-      const var3 = customVariables[3];
-      if (var3?.type === 'destino' && var3.value && !var3.destinoId) {
-        const destinoNombre = var3.value;
-        const destinoEncontrado = destinos.find(d => 
-          d.nombre.toLowerCase() === destinoNombre.toLowerCase() ||
-          d.nombre.toLowerCase().includes(destinoNombre.toLowerCase()) ||
-          destinoNombre.toLowerCase().includes(d.nombre.toLowerCase())
-        );
-        
-        if (destinoEncontrado) {
-          setCustomVariables(prev => ({
-            ...prev,
-            3: {
-              ...prev[3],
-              destinoId: destinoEncontrado.id,
-              value: destinoEncontrado.nombre,
-            }
-          }));
-        }
-      }
-    }
-  }, [destinos, selectedTemplate, customVariables]);
 
   // Cargar resorts cuando se selecciona un destino
   useEffect(() => {
     if (selectedTemplate) {
-      // Buscar variables de tipo destino (con o sin mapeos)
       Object.keys(customVariables).forEach(key => {
         const varNum = parseInt(key, 10);
         const customVar = customVariables[varNum];
@@ -100,183 +85,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       });
     }
   }, [customVariables, selectedTemplate]);
-
-  const generatePreview = useCallback(async () => {
-    if (!selectedTemplate) return;
-    
-    try {
-      setLoading(true);
-      const variablesMap: Record<number, string> = {};
-      
-      // Extraer todas las variables del texto
-      const allVariablesInText: number[] = [];
-      selectedTemplate.components.forEach(component => {
-        if (component.text) {
-          const vars = whatsappTemplatesService.extractVariables(component.text);
-          vars.forEach(v => {
-            if (!allVariablesInText.includes(v)) {
-              allVariablesInText.push(v);
-            }
-          });
-        }
-      });
-      
-      // Construir mapa de variables
-      if (selectedTemplate.variable_mappings && selectedTemplate.variable_mappings.length > 0) {
-        selectedTemplate.variable_mappings.forEach(mapping => {
-        const customVar = customVariables[mapping.variable_number];
-        if (customVar) {
-          if (mapping.table_name === 'system') {
-            // Para fecha/hora actual, no pasar customValue (undefined)
-            // Para fecha/hora personalizada, pasar el valor seleccionado
-            let customValue: string | undefined = undefined;
-            
-            if (mapping.field_name === 'fecha_personalizada') {
-              // Asegurar que tenemos un valor válido para fecha personalizada
-              customValue = customVar.value && customVar.value !== 'current' && customVar.value.trim() !== '' ? customVar.value : undefined;
-            } else if (mapping.field_name === 'hora_personalizada') {
-              // Asegurar que tenemos un valor válido para hora personalizada
-              customValue = customVar.value && customVar.value !== 'current' && customVar.value.trim() !== '' ? customVar.value : undefined;
-            } else if (mapping.field_name === 'fecha_actual' || mapping.field_name === 'hora_actual') {
-              // Para fecha/hora actual, no pasar customValue
-              customValue = undefined;
-            }
-            
-            const formattedValue = whatsappTemplatesService.getSystemVariableValue(
-              mapping.field_name,
-              customValue,
-              user?.full_name || user?.displayName
-            );
-            
-            variablesMap[mapping.variable_number] = formattedValue;
-          } else if (mapping.table_name === 'destinos' && customVar.destinoId) {
-            const destino = destinos.find(d => d.id === customVar.destinoId);
-            variablesMap[mapping.variable_number] = destino?.nombre || '';
-          } else if (mapping.table_name === 'resorts' && customVar.resortId) {
-            const resort = resorts.find(r => r.id === customVar.resortId);
-            variablesMap[mapping.variable_number] = resort?.nombre || resort?.nombre_completo || '';
-          } else if (mapping.table_name === 'llamadas_ventas') {
-            // Variables de llamadas_ventas - usar el valor directamente
-            variablesMap[mapping.variable_number] = customVar.value || '';
-          } else {
-            variablesMap[mapping.variable_number] = customVar.value || '';
-          }
-        }
-      });
-    } else {
-        // Si no hay variable_mappings, usar directamente los valores de customVariables
-        allVariablesInText.forEach(varNum => {
-          const customVar = customVariables[varNum];
-          if (customVar) {
-            if (customVar.type === 'prospecto') {
-              variablesMap[varNum] = customVar.value || '';
-            } else if (customVar.type === 'destino' && customVar.destinoId) {
-              const destino = destinos.find(d => d.id === customVar.destinoId);
-              variablesMap[varNum] = destino?.nombre || customVar.value || '';
-            } else if (customVar.type === 'resort' && customVar.resortId) {
-              const resort = resorts.find(r => r.id === customVar.resortId);
-              variablesMap[varNum] = resort?.nombre || resort?.nombre_completo || customVar.value || '';
-            } else if (customVar.type === 'fecha_actual' || customVar.type === 'hora_actual' || customVar.type === 'ejecutivo') {
-              const systemFieldName = customVar.type === 'ejecutivo' ? 'ejecutivo_nombre' 
-                : customVar.type === 'fecha_actual' ? 'fecha_actual'
-                : customVar.type === 'hora_actual' ? 'hora_actual'
-                : customVar.type === 'fecha_personalizada' ? 'fecha_personalizada'
-                : 'hora_personalizada';
-              variablesMap[varNum] = whatsappTemplatesService.getSystemVariableValue(
-                systemFieldName,
-                customVar.type === 'fecha_personalizada' || customVar.type === 'hora_personalizada' ? customVar.value : undefined,
-                user?.full_name || user?.displayName
-              );
-            } else {
-              variablesMap[varNum] = customVar.value || '';
-            }
-          }
-        });
-      }
-      
-      const ejecutivoNombre = user?.full_name || user?.displayName || '';
-      const previewText = await whatsappTemplatesService.generateExample(
-        selectedTemplate,
-        variablesMap,
-        ejecutivoNombre
-      );
-      setPreview(previewText);
-    } catch (error) {
-      console.error('Error generando preview:', error);
-      setPreview('Error al generar la vista previa');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedTemplate, customVariables, destinos, resorts, user]);
-
-  // Serializar customVariables para detectar cambios
-  const customVariablesKey = useMemo(() => {
-    return JSON.stringify(customVariables);
-  }, [customVariables]);
-  
-  // Validar si todas las variables están completas
-  const areAllVariablesComplete = useMemo(() => {
-    if (!selectedTemplate) return false;
-    
-    // Extraer todas las variables del texto
-    const allVariablesInText: number[] = [];
-    selectedTemplate.components.forEach(component => {
-      if (component.text) {
-        const vars = whatsappTemplatesService.extractVariables(component.text);
-        vars.forEach(v => {
-          if (!allVariablesInText.includes(v)) {
-            allVariablesInText.push(v);
-          }
-        });
-      }
-    });
-    
-    // Verificar que todas las variables tengan valores
-    for (const varNum of allVariablesInText) {
-      const customVar = customVariables[varNum];
-      
-      if (!customVar) {
-        return false;
-      }
-      
-      // Variables del sistema siempre están completas
-      if (customVar.type === 'fecha_actual' || customVar.type === 'fecha_personalizada' || 
-          customVar.type === 'hora_actual' || customVar.type === 'hora_personalizada' || 
-          customVar.type === 'ejecutivo') {
-        continue;
-      }
-      
-      // Variables de destino deben tener destinoId o valor
-      if (customVar.type === 'destino') {
-        if (!customVar.destinoId && (!customVar.value || customVar.value.trim() === '')) {
-          return false;
-        }
-        continue;
-      }
-      
-      // Variables de resort deben tener resortId
-      if (customVar.type === 'resort') {
-        if (!customVar.resortId) {
-          return false;
-        }
-        continue;
-      }
-      
-      // Otras variables deben tener valor
-      if (!customVar.value || customVar.value.trim() === '') {
-        return false;
-      }
-    }
-    
-    return true;
-  }, [selectedTemplate, customVariables]);
-
-  // Generar preview cuando cambian las variables
-  useEffect(() => {
-    if (selectedTemplate) {
-      generatePreview();
-    }
-  }, [selectedTemplate, customVariablesKey, destinos.length, resorts.length, generatePreview]);
 
   const loadTemplates = async () => {
     try {
@@ -289,6 +97,20 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       toast.error('Error al cargar las plantillas');
     } finally {
       setLoadingTemplates(false);
+    }
+  };
+
+  const loadAudiences = async () => {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('whatsapp_audiences')
+        .select('id, nombre, etapa, destinos, viaja_con, estado_civil')
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      setAudiences(data || []);
+    } catch (error) {
+      console.error('Error cargando audiencias:', error);
     }
   };
 
@@ -310,13 +132,144 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     }
   };
 
+  // Obtener características del prospecto
+  const prospectoEtapa = prospectoData?.etapa || conversation.metadata?.etapa || null;
+  const prospectoDestinos = prospectoData?.destino_preferencia 
+    ? (Array.isArray(prospectoData.destino_preferencia) 
+        ? prospectoData.destino_preferencia 
+        : [prospectoData.destino_preferencia])
+    : [];
+  const prospectoViajaCon = prospectoData?.viaja_con 
+    ? (Array.isArray(prospectoData.viaja_con) 
+        ? prospectoData.viaja_con 
+        : [prospectoData.viaja_con])
+    : [];
+  const prospectoEstadoCivil = prospectoData?.estado_civil || null;
+
+  // Calcular score de coincidencia entre audiencia y prospecto
+  const calculateAudienceMatchScore = useCallback((audience: typeof audiences[0]): number => {
+    let score = 0;
+    let totalCriteria = 0;
+
+    // Etapa (peso: 3)
+    if (audience.etapa) {
+      totalCriteria += 3;
+      if (prospectoEtapa && audience.etapa === prospectoEtapa) {
+        score += 3;
+      }
+    }
+
+    // Destinos (peso: 2)
+    if (audience.destinos && audience.destinos.length > 0) {
+      totalCriteria += 2;
+      const hasMatchingDestino = prospectoDestinos.some(destino => 
+        audience.destinos!.some(audDestino => 
+          destino.toLowerCase().includes(audDestino.toLowerCase()) ||
+          audDestino.toLowerCase().includes(destino.toLowerCase())
+        )
+      );
+      if (hasMatchingDestino) {
+        score += 2;
+      }
+    }
+
+    // Viaja con (peso: 2)
+    if (audience.viaja_con && audience.viaja_con.length > 0) {
+      totalCriteria += 2;
+      const hasMatchingViajaCon = prospectoViajaCon.some(viaja => 
+        audience.viaja_con!.some(audViaja => 
+          viaja.toLowerCase() === audViaja.toLowerCase()
+        )
+      );
+      if (hasMatchingViajaCon) {
+        score += 2;
+      }
+    }
+
+    // Estado civil (peso: 1)
+    if (audience.estado_civil) {
+      totalCriteria += 1;
+      if (prospectoEstadoCivil && audience.estado_civil === prospectoEstadoCivil) {
+        score += 1;
+      }
+    }
+
+    // Retornar porcentaje de coincidencia
+    return totalCriteria > 0 ? (score / totalCriteria) * 100 : 0;
+  }, [prospectoEtapa, prospectoDestinos, prospectoViajaCon, prospectoEstadoCivil]);
+
+  // Calcular score de coincidencia para una plantilla
+  const calculateTemplateMatchScore = useCallback((template: WhatsAppTemplate): number => {
+    const classification = (template as any).classification;
+    const audienceIds = classification?.audience_ids || [];
+    
+    if (audienceIds.length === 0) return 0;
+
+    // Obtener audiencias de la plantilla
+    const templateAudiences = audiences.filter(a => audienceIds.includes(a.id));
+    
+    if (templateAudiences.length === 0) return 0;
+
+    // Calcular el score promedio de todas las audiencias de la plantilla
+    const scores = templateAudiences.map(aud => calculateAudienceMatchScore(aud));
+    const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+
+    return avgScore;
+  }, [audiences, calculateAudienceMatchScore]);
+
+  // Filtrar y ordenar plantillas
+  const filteredAndSortedTemplates = useMemo(() => {
+    let filtered = templates;
+
+    // Filtrar por búsqueda
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.name.toLowerCase().includes(searchLower) ||
+        (t.description && t.description.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Calcular scores y ordenar
+    const templatesWithScores = filtered.map(template => ({
+      template,
+      score: calculateTemplateMatchScore(template)
+    }));
+
+    // Ordenar por score descendente
+    templatesWithScores.sort((a, b) => b.score - a.score);
+
+    return templatesWithScores.map(item => item.template);
+  }, [templates, searchTerm, calculateTemplateMatchScore]);
+
+  // Verificar si una plantilla es recomendada (score > 50%)
+  const isTemplateRecommended = useCallback((template: WhatsAppTemplate) => {
+    return calculateTemplateMatchScore(template) > 50;
+  }, [calculateTemplateMatchScore]);
+
+  // Obtener etapas asignadas a una plantilla
+  const getTemplateEtapas = useCallback((template: WhatsAppTemplate) => {
+    const classification = (template as any).classification;
+    const audienceIds = classification?.audience_ids || [];
+    const templateAudiences = audiences.filter(a => audienceIds.includes(a.id));
+    const etapas = templateAudiences
+      .map(a => a.etapa)
+      .filter((etapa): etapa is string => etapa !== null && etapa !== undefined);
+    return [...new Set(etapas)]; // Eliminar duplicados
+  }, [audiences]);
+
+  // Obtener score de coincidencia de una plantilla
+  const getTemplateMatchScore = useCallback((template: WhatsAppTemplate) => {
+    return calculateTemplateMatchScore(template);
+  }, [calculateTemplateMatchScore]);
+
   const handleSelectTemplate = async (template: WhatsAppTemplate) => {
     setSelectedTemplate(template);
     
     // Inicializar variables con valores por defecto
     const initialVars: Record<number, any> = {};
     
-    // Extraer todas las variables del texto si no hay mapeos configurados
+    // Extraer todas las variables del texto
     const allVariablesInText: number[] = [];
     template.components.forEach(component => {
       if (component.text) {
@@ -329,9 +282,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       }
     });
     
-    // Cargar datos de llamadas_ventas si hay mapeos que lo requieren
-    let llamadasVentasData: any = null;
-    // Normalizar variable_mappings si viene como objeto
+    // Normalizar variable_mappings
     let variableMappings: any[] = [];
     if (template.variable_mappings) {
       if (Array.isArray(template.variable_mappings)) {
@@ -341,6 +292,9 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         variableMappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
       }
     }
+
+    // Cargar datos de llamadas_ventas si es necesario
+    let llamadasVentasData: any = null;
     const needsLlamadasVentas = variableMappings.some(m => m.table_name === 'llamadas_ventas');
     if (needsLlamadasVentas && prospectoData?.id) {
       try {
@@ -356,308 +310,136 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
           llamadasVentasData = data;
         }
       } catch (error) {
-        console.error('Error cargando datos de llamadas_ventas:', error);
+        console.error('Error cargando llamadas_ventas:', error);
       }
     }
-    
-    // Si hay variable_mappings, usarlos
-    if (template.variable_mappings && template.variable_mappings.length > 0) {
-      template.variable_mappings.forEach((mapping) => {
+
+    // Inicializar variables según mapeos
+    if (variableMappings.length > 0) {
+      variableMappings.forEach(mapping => {
       if (mapping.table_name === 'prospectos' && prospectoData) {
-        // Variables del prospecto (no editables)
         let value = prospectoData[mapping.field_name];
-        
-        // Manejar diferentes tipos de datos
         if (value === null || value === undefined) {
           value = '';
         } else if (Array.isArray(value)) {
-          // Si es un array, tomar el primer elemento o unir con comas
-          value = value.length > 0 ? value[0] : '';
-        } else if (typeof value === 'number') {
-          // Convertir números a string
-          value = String(value);
-        } else if (typeof value === 'boolean') {
-          // Convertir booleanos a string
-          value = value ? 'Sí' : 'No';
+            value = value[0] || '';
         } else {
           value = String(value);
         }
-        
         initialVars[mapping.variable_number] = {
-          value: String(value),
+            value,
           type: 'prospecto',
         };
-      } else if (mapping.table_name === 'llamadas_ventas') {
-        // Variables de llamadas_ventas (discovery) - obtener desde la tabla llamadas_ventas
-        let value = '';
-        
-        if (llamadasVentasData) {
-          // Si el campo tiene punto, es un campo anidado (datos_proceso.numero_personas)
-          if (mapping.field_name.includes('.')) {
-            const [parentField, childField] = mapping.field_name.split('.');
-            if (llamadasVentasData[parentField] && typeof llamadasVentasData[parentField] === 'object') {
-              value = llamadasVentasData[parentField][childField] || '';
-            }
-          } else {
-            value = llamadasVentasData[mapping.field_name] || '';
-          }
-        }
-        
-        // Manejar diferentes tipos de datos
+        } else if (mapping.table_name === 'llamadas_ventas' && llamadasVentasData) {
+          let value = llamadasVentasData[mapping.field_name];
         if (value === null || value === undefined) {
           value = '';
         } else if (Array.isArray(value)) {
-          value = value.length > 0 ? value[0] : '';
-        } else if (typeof value === 'number') {
-          value = String(value);
-        } else if (typeof value === 'boolean') {
-          value = value ? 'Sí' : 'No';
+            value = value[0] || '';
         } else {
           value = String(value);
         }
-        
         initialVars[mapping.variable_number] = {
-          value: String(value),
-          type: 'prospecto', // Usar tipo prospecto para mantener compatibilidad
+            value,
+            type: 'prospecto',
         };
       } else if (mapping.table_name === 'system') {
-        // Variables del sistema
         if (mapping.field_name === 'ejecutivo_nombre') {
           initialVars[mapping.variable_number] = {
-            value: user?.full_name || user?.displayName || '',
+              value: user?.full_name || '',
             type: 'ejecutivo',
           };
         } else if (mapping.field_name === 'fecha_actual') {
-          // Fecha actual: se muestra automáticamente, no necesita valor personalizado
           initialVars[mapping.variable_number] = {
-            value: 'current', // Marcador especial para fecha actual
+              value: 'current',
             type: 'fecha_actual',
           };
-        } else if (mapping.field_name === 'fecha_personalizada') {
-          // Fecha personalizada: necesita selección del usuario
-          initialVars[mapping.variable_number] = {
-            value: new Date().toISOString().split('T')[0],
-            type: 'fecha_personalizada',
-          };
         } else if (mapping.field_name === 'hora_actual') {
-          // Hora actual: se muestra automáticamente
           initialVars[mapping.variable_number] = {
-            value: 'current', // Marcador especial para hora actual
+              value: 'current',
             type: 'hora_actual',
           };
+          } else if (mapping.field_name === 'fecha_personalizada') {
+            initialVars[mapping.variable_number] = {
+              value: '',
+              type: 'fecha_personalizada',
+            };
         } else if (mapping.field_name === 'hora_personalizada') {
-          // Hora personalizada: necesita selección del usuario
-          const now = new Date();
           initialVars[mapping.variable_number] = {
-            value: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
+              value: '',
             type: 'hora_personalizada',
           };
         }
       } else if (mapping.table_name === 'destinos') {
-        // Variables de destino (seleccionables)
+          let destinoNombre = '';
+          if (prospectoData?.destino_preferencia) {
+            if (Array.isArray(prospectoData.destino_preferencia)) {
+              destinoNombre = prospectoData.destino_preferencia[0] || '';
+            } else {
+              destinoNombre = String(prospectoData.destino_preferencia);
+            }
+          }
         initialVars[mapping.variable_number] = {
-          value: '',
+            value: destinoNombre,
           type: 'destino',
-          destinoId: '',
         };
       } else if (mapping.table_name === 'resorts') {
-        // Variables de resort (seleccionables)
         initialVars[mapping.variable_number] = {
           value: '',
           type: 'resort',
-          destinoId: '',
-          resortId: '',
         };
       }
     });
     } else {
-      // Si no hay variable_mappings, inicializar variables básicas desde el texto
-      // Intentar inferir los campos basándose en el orden común de uso
+      // Sin mapeos, usar valores por defecto comunes
       allVariablesInText.forEach(varNum => {
         if (prospectoData) {
-          // Mapeo común basado en el número de variable
-          // Variable 1: título (si existe)
           if (varNum === 1) {
             initialVars[varNum] = {
-              value: prospectoData.titulo || '',
+              value: prospectoData.titulo || prospectoData.nombre_completo?.split(' ')[0] || '',
               type: 'prospecto',
             };
-          }
-          // Variable 2: apellido paterno
-          else if (varNum === 2) {
-            // Intentar obtener apellido paterno desde diferentes campos posibles
-            let apellidoPaterno = '';
-            if (prospectoData.apellido_paterno) {
-              apellidoPaterno = prospectoData.apellido_paterno;
-            } else if (prospectoData.apellidoPaterno) {
-              apellidoPaterno = prospectoData.apellidoPaterno;
-            } else if (prospectoData.nombre_completo) {
-              // Si no hay apellido_paterno separado, intentar extraerlo del nombre_completo
-              // Formato común: "Nombre ApellidoPaterno ApellidoMaterno"
-              const partes = prospectoData.nombre_completo.trim().split(/\s+/);
-              if (partes.length >= 2) {
-                // El segundo elemento suele ser el apellido paterno
-                apellidoPaterno = partes[1];
-              }
-            }
-            
+          } else if (varNum === 2) {
             initialVars[varNum] = {
-              value: apellidoPaterno || '',
+              value: prospectoData.apellido_paterno || '',
               type: 'prospecto',
             };
-          }
-          // Variable 3: apellido materno o destino_preferencia
-          else if (varNum === 3) {
-            // Intentar apellido materno primero
-            let apellidoMaterno = '';
-            if (prospectoData.apellido_materno) {
-              apellidoMaterno = prospectoData.apellido_materno;
-            } else if (prospectoData.apellidoMaterno) {
-              apellidoMaterno = prospectoData.apellidoMaterno;
-            } else if (prospectoData.nombre_completo) {
-              // Si no hay apellido_materno separado, intentar extraerlo del nombre_completo
-              // Formato común: "Nombre ApellidoPaterno ApellidoMaterno"
-              const partes = prospectoData.nombre_completo.trim().split(/\s+/);
-              if (partes.length >= 3) {
-                // El tercer elemento suele ser el apellido materno
-                apellidoMaterno = partes[2];
-              }
-            }
-            
-            if (apellidoMaterno) {
+          } else if (varNum === 3) {
               initialVars[varNum] = {
-                value: apellidoMaterno,
-                type: 'prospecto',
-              };
-            } else if (prospectoData.destino_preferencia) {
-              let destinoNombre = '';
-              if (Array.isArray(prospectoData.destino_preferencia)) {
-                destinoNombre = prospectoData.destino_preferencia[0] || '';
-              } else {
-                destinoNombre = String(prospectoData.destino_preferencia);
-              }
-              
+              value: prospectoData.apellido_materno || prospectoData.destino_preferencia?.[0] || '',
+              type: prospectoData.apellido_materno ? 'prospecto' : 'destino',
+            };
+          } else if (varNum === 4) {
               initialVars[varNum] = {
-                value: destinoNombre,
-                type: 'destino',
-                destinoId: '',
-              };
-            } else {
-              initialVars[varNum] = {
-                value: '',
-                type: 'prospecto',
-              };
-            }
-          }
-          // Variable 4: email
-          else if (varNum === 4) {
-            initialVars[varNum] = {
               value: prospectoData.email || '',
               type: 'prospecto',
-            };
-          }
-          // Variable 5: fecha_actual (inferir si parece fecha)
-          else if (varNum === 5) {
-            initialVars[varNum] = {
-              value: 'current',
-              type: 'fecha_actual',
-            };
-          }
-          // Variable 6: fecha_personalizada (inferir si parece fecha)
-          else if (varNum === 6) {
-            initialVars[varNum] = {
-              value: new Date().toISOString().split('T')[0],
-              type: 'fecha_personalizada',
-            };
-          }
-          // Variable 7: ejecutivo_nombre
-          else if (varNum === 7) {
-            initialVars[varNum] = {
-              value: user?.full_name || user?.displayName || '',
-              type: 'ejecutivo',
-            };
-          }
-          // Variable 8: destino_preferido de llamadas_ventas o destino
-          else if (varNum === 8) {
-            // Intentar desde destino_preferencia primero
-            if (prospectoData.destino_preferencia) {
-              let destinoNombre = '';
-              if (Array.isArray(prospectoData.destino_preferencia)) {
-                destinoNombre = prospectoData.destino_preferencia[0] || '';
-              } else {
-                destinoNombre = String(prospectoData.destino_preferencia);
-              }
-              
-              initialVars[varNum] = {
-                value: destinoNombre,
-                type: 'destino',
-                destinoId: '',
               };
             } else {
               initialVars[varNum] = {
                 value: '',
-                type: 'destino',
-                destinoId: '',
+                type: 'prospecto',
               };
             }
-          }
-          // Variables adicionales: otros campos comunes
-          else {
+        } else {
             initialVars[varNum] = {
-              value: '',
+            value: '',
               type: 'prospecto',
             };
           }
-        } else {
-          // Sin prospecto, requerir entrada del usuario
-          initialVars[varNum] = {
-            value: '',
-            type: 'prospecto',
-          };
-        }
       });
-      
-      // Después de inicializar, buscar destinos por nombre para variables de tipo destino
-      if (prospectoData) {
-        Object.keys(initialVars).forEach(key => {
-          const varNum = parseInt(key, 10);
-          const varData = initialVars[varNum];
-          if (varData.type === 'destino' && varData.value && !varData.destinoId) {
-            // Se buscará después cuando se carguen los destinos en el useEffect
-          }
-        });
-      }
     }
-    
+
     setCustomVariables(initialVars);
   };
 
-
-  const handleSend = async () => {
-    if (!selectedTemplate || !prospectoData?.id) {
-      toast.error('Selecciona una plantilla y asegúrate de que hay un prospecto asociado');
-      return;
-    }
-
-    // Validar que el template esté aprobado y activo
-    if (selectedTemplate.status !== 'APPROVED') {
-      toast.error(`La plantilla "${selectedTemplate.name}" no está aprobada. Estado actual: ${selectedTemplate.status}`);
-      return;
-    }
-
-    if (!selectedTemplate.is_active) {
-      toast.error(`La plantilla "${selectedTemplate.name}" está inactiva`);
-      return;
-    }
-
+  const generatePreview = useCallback(async () => {
+    if (!selectedTemplate) return;
+    
     try {
-      setSending(true);
+      setLoading(true);
+      const variablesMap: Record<number, string> = {};
       
-      // Construir variables para enviar (formato: {"1": "valor1", "2": "valor2"})
-      const variables: Record<string, string> = {};
-      const missingVariables: string[] = [];
-      
-      // Extraer todas las variables del texto de la plantilla
+      // Extraer todas las variables del texto
       const allVariablesInText: number[] = [];
       selectedTemplate.components.forEach(component => {
         if (component.text) {
@@ -670,332 +452,364 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         }
       });
       
-      // Si hay variable_mappings configurados, usarlos
-      if (selectedTemplate.variable_mappings && selectedTemplate.variable_mappings.length > 0) {
-        selectedTemplate.variable_mappings.forEach(mapping => {
+      // Normalizar variable_mappings
+      let variableMappings: any[] = [];
+      if (selectedTemplate.variable_mappings) {
+        if (Array.isArray(selectedTemplate.variable_mappings)) {
+          variableMappings = selectedTemplate.variable_mappings;
+        } else if (typeof selectedTemplate.variable_mappings === 'object' && 'mappings' in selectedTemplate.variable_mappings) {
+          const mappingsObj = selectedTemplate.variable_mappings as { mappings?: any[] };
+          variableMappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
+        }
+      }
+
+      // Construir mapa de variables
+      if (variableMappings.length > 0) {
+        variableMappings.forEach(mapping => {
+          const customVar = customVariables[mapping.variable_number];
+          if (customVar) {
+            if (mapping.table_name === 'system') {
+              let customValue: string | undefined = undefined;
+              if (mapping.field_name === 'fecha_personalizada' || mapping.field_name === 'hora_personalizada') {
+                customValue = customVar.value && customVar.value.trim() !== '' ? customVar.value : undefined;
+              }
+              const formattedValue = whatsappTemplatesService.getSystemVariableValue(
+                mapping.field_name,
+                customValue,
+                user?.full_name
+              );
+              variablesMap[mapping.variable_number] = formattedValue;
+            } else if (mapping.table_name === 'destinos' && customVar.destinoId) {
+              const destino = destinos.find(d => d.id === customVar.destinoId);
+              variablesMap[mapping.variable_number] = destino?.nombre || '';
+            } else if (mapping.table_name === 'resorts' && customVar.resortId) {
+              const resort = resorts.find(r => r.id === customVar.resortId);
+              variablesMap[mapping.variable_number] = resort?.nombre || resort?.nombre_completo || '';
+            } else {
+              variablesMap[mapping.variable_number] = customVar.value || '';
+            }
+          }
+        });
+        } else {
+        allVariablesInText.forEach(varNum => {
+          const customVar = customVariables[varNum];
+          if (customVar) {
+            if (customVar.type === 'destino' && customVar.destinoId) {
+              const destino = destinos.find(d => d.id === customVar.destinoId);
+              variablesMap[varNum] = destino?.nombre || customVar.value || '';
+            } else if (customVar.type === 'resort' && customVar.resortId) {
+              const resort = resorts.find(r => r.id === customVar.resortId);
+              variablesMap[varNum] = resort?.nombre || resort?.nombre_completo || customVar.value || '';
+            } else if (customVar.type === 'fecha_actual' || customVar.type === 'hora_actual' || customVar.type === 'ejecutivo') {
+              const systemFieldName = customVar.type === 'ejecutivo' ? 'ejecutivo_nombre' 
+                : customVar.type === 'fecha_actual' ? 'fecha_actual'
+                : 'hora_actual';
+              variablesMap[varNum] = whatsappTemplatesService.getSystemVariableValue(
+                systemFieldName,
+                undefined,
+                user?.full_name
+              );
+            } else {
+              variablesMap[varNum] = customVar.value || '';
+            }
+          }
+        });
+      }
+      
+      const ejecutivoNombre = user?.full_name || '';
+      const previewText = await whatsappTemplatesService.generateExample(
+        selectedTemplate,
+        variablesMap,
+        ejecutivoNombre
+      );
+      setPreview(previewText);
+    } catch (error) {
+      console.error('Error generando preview:', error);
+      setPreview('Error al generar la vista previa');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedTemplate, customVariables, destinos, resorts, user]);
+
+  // Generar preview cuando cambian las variables
+  const customVariablesKey = useMemo(() => JSON.stringify(customVariables), [customVariables]);
+  useEffect(() => {
+    if (selectedTemplate) {
+      generatePreview();
+    }
+  }, [selectedTemplate, customVariablesKey, destinos.length, resorts.length, generatePreview]);
+
+  // Validar si todas las variables están completas
+  const areAllVariablesComplete = useMemo(() => {
+    if (!selectedTemplate) return false;
+    
+    const allVariablesInText: number[] = [];
+    selectedTemplate.components.forEach(component => {
+      if (component.text) {
+        const vars = whatsappTemplatesService.extractVariables(component.text);
+        vars.forEach(v => {
+          if (!allVariablesInText.includes(v)) {
+            allVariablesInText.push(v);
+          }
+        });
+      }
+    });
+    
+    for (const varNum of allVariablesInText) {
+      const customVar = customVariables[varNum];
+      if (!customVar) return false;
+      
+      if (customVar.type === 'fecha_actual' || customVar.type === 'hora_actual' || customVar.type === 'ejecutivo') {
+        continue;
+      }
+      
+      if (customVar.type === 'destino' && !customVar.destinoId && (!customVar.value || customVar.value.trim() === '')) {
+        return false;
+      }
+      
+      if (customVar.type === 'resort' && !customVar.resortId) {
+        return false;
+      }
+      
+      if (!customVar.value || customVar.value.trim() === '') {
+        return false;
+      }
+    }
+    
+    return true;
+  }, [selectedTemplate, customVariables]);
+
+  // Normalizar variable_mappings para mostrar
+  const normalizedMappings = useMemo(() => {
+    if (!selectedTemplate) return [];
+    
+    let mappings: any[] = [];
+    if (selectedTemplate.variable_mappings) {
+      if (Array.isArray(selectedTemplate.variable_mappings)) {
+        mappings = selectedTemplate.variable_mappings;
+      } else if (typeof selectedTemplate.variable_mappings === 'object' && 'mappings' in selectedTemplate.variable_mappings) {
+        const mappingsObj = selectedTemplate.variable_mappings as { mappings?: any[] };
+        mappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
+      }
+    }
+    
+    if (mappings.length === 0) {
+      const allVariablesInText: number[] = [];
+      selectedTemplate.components.forEach(component => {
+        if (component.text) {
+          const vars = whatsappTemplatesService.extractVariables(component.text);
+          vars.forEach(v => {
+            if (!allVariablesInText.includes(v)) {
+              allVariablesInText.push(v);
+            }
+          });
+        }
+      });
+      mappings = allVariablesInText.map(varNum => ({
+        variable_number: varNum,
+        display_name: `Variable ${varNum}`,
+        table_name: 'prospectos',
+      }));
+    }
+    
+    return mappings;
+  }, [selectedTemplate]);
+
+  // Variables editables (solo fecha/hora personalizada, destinos y resorts)
+  const editableMappings = useMemo(() => {
+    return normalizedMappings.filter((mapping: any) => {
+      const customVar = customVariables[mapping.variable_number];
+      return customVar && (
+        (mapping.table_name === 'system' && mapping.field_name === 'fecha_personalizada') ||
+        (mapping.table_name === 'system' && mapping.field_name === 'hora_personalizada') ||
+        mapping.table_name === 'destinos' ||
+        mapping.table_name === 'resorts'
+      );
+    });
+  }, [normalizedMappings, customVariables]);
+
+  const handleSend = async () => {
+    if (!selectedTemplate || !prospectoData?.id) {
+      toast.error('Selecciona una plantilla y asegúrate de que hay un prospecto asociado');
+      return;
+    }
+
+    if (selectedTemplate.status !== 'APPROVED') {
+      toast.error('La plantilla debe estar aprobada para poder enviarla');
+      return;
+    }
+
+    try {
+      setSending(true);
+      
+      // Construir variables y texto resuelto (mismo código que antes)
+      const allVariablesInText: number[] = [];
+      selectedTemplate.components.forEach(component => {
+        if (component.text) {
+          const vars = whatsappTemplatesService.extractVariables(component.text);
+          vars.forEach(v => {
+            if (!allVariablesInText.includes(v)) {
+              allVariablesInText.push(v);
+            }
+          });
+        }
+      });
+      
+      const variables: Record<string, string> = {};
+      let resolvedText = '';
+      
+      // Normalizar variable_mappings
+      let variableMappings: any[] = [];
+      if (selectedTemplate.variable_mappings) {
+        if (Array.isArray(selectedTemplate.variable_mappings)) {
+          variableMappings = selectedTemplate.variable_mappings;
+        } else if (typeof selectedTemplate.variable_mappings === 'object' && 'mappings' in selectedTemplate.variable_mappings) {
+          const mappingsObj = selectedTemplate.variable_mappings as { mappings?: any[] };
+          variableMappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
+        }
+      }
+
+      if (variableMappings.length > 0) {
+        selectedTemplate.components.forEach(component => {
+          if (component.text) {
+            let text = component.text;
+            variableMappings.forEach(mapping => {
           const customVar = customVariables[mapping.variable_number];
           if (customVar) {
             let value = '';
-            
             if (mapping.table_name === 'system') {
-              // Para fecha/hora actual, no pasar customValue (undefined)
-              // Para fecha/hora personalizada, pasar el valor seleccionado
-              const customValue = (mapping.field_name === 'fecha_actual' || mapping.field_name === 'hora_actual')
-                ? undefined
-                : customVar.value;
-              
+                  let customValue: string | undefined = undefined;
+                  if (mapping.field_name === 'fecha_personalizada' || mapping.field_name === 'hora_personalizada') {
+                    customValue = customVar.value && customVar.value.trim() !== '' ? customVar.value : undefined;
+                  }
               value = whatsappTemplatesService.getSystemVariableValue(
                 mapping.field_name,
                 customValue,
-                user?.full_name || user?.displayName
+                    user?.full_name
               );
-        } else if (mapping.table_name === 'destinos') {
-            if (customVar.destinoId) {
+                } else if (mapping.table_name === 'destinos' && customVar.destinoId) {
               const destino = destinos.find(d => d.id === customVar.destinoId);
               value = destino?.nombre || '';
-            } else if (customVar.value) {
-              // Si hay un valor directo sin destinoId, usarlo
-              value = customVar.value;
-            } else {
-              missingVariables.push(`${mapping.display_name} ({{${mapping.variable_number}}})`);
-            }
-          } else if (mapping.table_name === 'resorts') {
-              if (customVar.resortId) {
+                } else if (mapping.table_name === 'resorts' && customVar.resortId) {
                 const resort = resorts.find(r => r.id === customVar.resortId);
                 value = resort?.nombre || resort?.nombre_completo || '';
               } else {
-                missingVariables.push(`${mapping.display_name} ({{${mapping.variable_number}}})`);
-              }
-            } else if (mapping.table_name === 'llamadas_ventas') {
-              // Variables de llamadas_ventas - usar el valor directamente
               value = customVar.value || '';
-              // Si no hay valor, marcar como faltante
-              if (!value || value.trim() === '') {
-                missingVariables.push(`${mapping.display_name} ({{${mapping.variable_number}}})`);
-              }
-            } else if (mapping.table_name === 'prospectos') {
-              // Variables de prospectos - usar el valor directamente
-              value = customVar.value || '';
-              // Si no hay valor, marcar como faltante
-              if (!value || value.trim() === '') {
-                missingVariables.push(`${mapping.display_name} ({{${mapping.variable_number}}})`);
-              }
-            } else {
-              value = customVar.value || '';
-            }
-            
-            // Solo agregar si tiene valor
-            // Para variables del sistema, siempre agregar (tienen valores por defecto)
-            if (mapping.table_name === 'system') {
+                }
               variables[mapping.variable_number.toString()] = value;
-            } else if (value && value.trim() !== '') {
-              variables[mapping.variable_number.toString()] = value;
-            } else if (mapping.table_name !== 'system') {
-              // Todas las demás variables deben tener valor, excepto sistema
-              if (!missingVariables.some(mv => mv.includes(`{{${mapping.variable_number}}}`))) {
-                missingVariables.push(`${mapping.display_name} ({{${mapping.variable_number}}})`);
+                text = text.replace(new RegExp(`\\{\\{${mapping.variable_number}\\}\\}`, 'g'), value);
               }
-            }
-          } else {
-            // Variable sin mapeo
-            missingVariables.push(`Variable {{${mapping.variable_number}}}`);
+            });
+            resolvedText += text + '\n';
           }
         });
           } else {
-            // Si no hay variable_mappings, usar directamente los valores de customVariables
             allVariablesInText.forEach(varNum => {
               const customVar = customVariables[varNum];
               if (customVar) {
-                // Procesar según el tipo
                 let value = '';
-                if (customVar.type === 'prospecto') {
-                  value = customVar.value || '';
-            } else if (customVar.type === 'destino') {
-              if (customVar.destinoId) {
+            if (customVar.type === 'destino' && customVar.destinoId) {
                 const destino = destinos.find(d => d.id === customVar.destinoId);
                 value = destino?.nombre || customVar.value || '';
-              } else if (customVar.value) {
-                // Si hay un valor directo sin destinoId seleccionado, usarlo
-                value = customVar.value;
-              } else {
-                value = '';
-              }
             } else if (customVar.type === 'resort' && customVar.resortId) {
                   const resort = resorts.find(r => r.id === customVar.resortId);
                   value = resort?.nombre || resort?.nombre_completo || customVar.value || '';
-                } else if (customVar.type === 'fecha_actual' || customVar.type === 'fecha_personalizada' || 
-                           customVar.type === 'hora_actual' || customVar.type === 'hora_personalizada' || 
-                           customVar.type === 'ejecutivo') {
-                  // Variables del sistema
+            } else if (customVar.type === 'fecha_actual' || customVar.type === 'hora_actual' || customVar.type === 'ejecutivo') {
                   const systemFieldName = customVar.type === 'ejecutivo' ? 'ejecutivo_nombre' 
                     : customVar.type === 'fecha_actual' ? 'fecha_actual'
-                    : customVar.type === 'hora_actual' ? 'hora_actual'
-                    : customVar.type === 'fecha_personalizada' ? 'fecha_personalizada'
-                    : 'hora_personalizada';
+                : 'hora_actual';
                   value = whatsappTemplatesService.getSystemVariableValue(
                     systemFieldName,
-                    customVar.type === 'fecha_personalizada' || customVar.type === 'hora_personalizada' ? customVar.value : undefined,
-                    user?.full_name || user?.displayName
+                undefined,
+                user?.full_name
                   );
                 } else {
                   value = customVar.value || '';
                 }
-                
-                // SIEMPRE agregar la variable al objeto variables si tiene valor
-                // Variables del sistema siempre tienen valor
-                if (customVar.type === 'fecha_actual' || customVar.type === 'fecha_personalizada' || 
-                    customVar.type === 'hora_actual' || customVar.type === 'hora_personalizada' || 
-                    customVar.type === 'ejecutivo') {
-                  // Variables del sistema siempre se agregan
                   variables[varNum.toString()] = value;
-                } else if (customVar.type === 'destino') {
-                  // Para destinos, validar que tenga destinoId o valor
-                  if (customVar.destinoId || (value && value.trim() !== '')) {
-                    variables[varNum.toString()] = value;
-                  } else {
-                    const varName = varNum === 8 ? 'Destino Preferido' : `Destino ({{${varNum}}})`;
-                    missingVariables.push(`${varName} ({{${varNum}}})`);
-                  }
-                } else if (value && value.trim() !== '') {
-                  // Cualquier otra variable con valor se agrega
-                  variables[varNum.toString()] = value;
+          }
+        });
+        
+        selectedTemplate.components.forEach(component => {
+          if (component.text) {
+            let text = component.text;
+            allVariablesInText.forEach(varNum => {
+              const customVar = customVariables[varNum];
+              if (customVar) {
+                let value = '';
+                if (customVar.type === 'destino' && customVar.destinoId) {
+                  const destino = destinos.find(d => d.id === customVar.destinoId);
+                  value = destino?.nombre || customVar.value || '';
+                } else if (customVar.type === 'resort' && customVar.resortId) {
+                  const resort = resorts.find(r => r.id === customVar.resortId);
+                  value = resort?.nombre || resort?.nombre_completo || customVar.value || '';
+                } else if (customVar.type === 'fecha_actual' || customVar.type === 'hora_actual' || customVar.type === 'ejecutivo') {
+                  const systemFieldName = customVar.type === 'ejecutivo' ? 'ejecutivo_nombre' 
+                    : customVar.type === 'fecha_actual' ? 'fecha_actual'
+                    : 'hora_actual';
+                  value = whatsappTemplatesService.getSystemVariableValue(
+                    systemFieldName,
+                    undefined,
+                    user?.full_name
+                  );
                 } else {
-                  // Variable sin valor
-                  const varName = varNum === 1 ? 'Título' 
-                    : varNum === 2 ? 'Apellido Paterno'
-                    : varNum === 3 ? 'Apellido Materno'
-                    : varNum === 4 ? 'Email'
-                    : `Variable {{${varNum}}}`;
-                  missingVariables.push(`${varName} ({{${varNum}}})`);
+                  value = customVar.value || '';
                 }
-              } else {
-                // Variable sin customVar, determinar nombre según el número
-                const varName = varNum === 1 ? 'Título' 
-                  : varNum === 2 ? 'Apellido Paterno'
-                  : varNum === 3 ? 'Apellido Materno'
-                  : varNum === 4 ? 'Email'
-                  : `Variable {{${varNum}}}`;
-                missingVariables.push(`${varName} ({{${varNum}}})`);
+                text = text.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), value);
               }
             });
+            resolvedText += text + '\n';
           }
-
-      // Validar que no falten variables requeridas
-      if (missingVariables.length > 0) {
-        toast.error(`No se puede enviar la plantilla. Faltan variables requeridas: ${missingVariables.join(', ')}`, {
-          duration: 5000,
         });
-        setSending(false);
-        return;
-      }
-      
-      // Validar que todas las variables requeridas en el texto tengan valores
-      const allRequiredVars = allVariablesInText.filter(varNum => {
-        const varKey = varNum.toString();
-        return !variables[varKey] || variables[varKey].trim() === '';
-      });
-      
-      if (allRequiredVars.length > 0) {
-        const missingVarsList = allRequiredVars.map(v => `{{${v}}}`).join(', ');
-        toast.error(`No se puede enviar la plantilla. Las siguientes variables no tienen valores: ${missingVarsList}`, {
-          duration: 5000,
-        });
-        setSending(false);
-        return;
       }
 
-      // Validar que prospecto_id sea un UUID válido
-      if (!prospectoData.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prospectoData.id)) {
-        toast.error('ID de prospecto inválido');
-        console.error('❌ Prospecto ID inválido:', prospectoData.id);
-        return;
-      }
-
-      // Validar que todas las variables requeridas tengan valores antes de construir el payload
-      const allVarsComplete = allVariablesInText.every(varNum => {
-        const varKey = varNum.toString();
-        return variables[varKey] && variables[varKey].trim() !== '';
-      });
-      
-      if (!allVarsComplete) {
-        const missingVars = allVariablesInText
-          .filter(varNum => !variables[varNum.toString()] || variables[varNum.toString()].trim() === '')
-          .map(v => `{{${v}}}`)
-          .join(', ');
-        toast.error(`No se puede enviar. Variables sin valores: ${missingVars}`, {
-          duration: 5000,
-        });
-        setSending(false);
-        return;
-      }
-
-      // Verificar que todas las variables requeridas estén en el objeto variables
-      const missingInPayload = allVariablesInText.filter(varNum => {
-        const varKey = varNum.toString();
-        return !variables[varKey] || variables[varKey].trim() === '';
-      });
-      
-      if (missingInPayload.length > 0) {
-        const missingVarsList = missingInPayload.map(v => `{{${v}}}`).join(', ');
-        toast.error(`Error: Las siguientes variables no se resolvieron correctamente: ${missingVarsList}`, {
-          duration: 5000,
-        });
-        setSending(false);
-        return;
-      }
-
-      // Generar el texto resuelto para enviar al webhook
-      // Esto asegura que el webhook tenga el texto completo con las variables ya reemplazadas
-      let resolvedText = '';
-      if (selectedTemplate.components && selectedTemplate.components.length > 0) {
-        const bodyComponent = selectedTemplate.components.find(c => c.type === 'BODY');
-        if (bodyComponent && bodyComponent.text) {
-          resolvedText = bodyComponent.text;
-          // Reemplazar todas las variables {{1}}, {{2}}, etc. con sus valores
-          Object.keys(variables).forEach(varKey => {
-            const varNum = parseInt(varKey, 10);
-            const value = variables[varKey];
-            // Reemplazar todas las ocurrencias de {{varNum}} con el valor
-            resolvedText = resolvedText.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), value);
-          });
-        }
-      }
-
-      // Construir payload según la documentación
       const payload = {
         template_id: selectedTemplate.id,
         template_name: selectedTemplate.name,
         prospecto_id: prospectoData.id,
         variables: variables,
-        resolved_text: resolvedText, // Agregar texto resuelto como campo adicional
+        resolved_text: resolvedText.trim(),
         triggered_by: 'MANUAL' as const
       };
 
-      // Enviar al webhook
       const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates-send';
       const authToken = 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV';
       
-      const requestBody = JSON.stringify(payload);
-      
-      // Debug temporal: Verificar que todas las variables estén resueltas
-      console.log('📤 Enviando plantilla al webhook:', {
-        template_name: payload.template_name,
-        variables_enviadas: payload.variables,
-        total_variables: Object.keys(payload.variables).length,
-        variables_requeridas: allVariablesInText,
-        todas_resueltas: allVariablesInText.every(v => payload.variables[v.toString()]),
-        texto_resuelto: payload.resolved_text,
-        payload_completo: payload
-      });
-      
-      // Usar header 'Auth' como especifica la documentación
-      const requestHeaders = {
-        'Auth': authToken,
-        'Content-Type': 'application/json'
-      };
-      
       const response = await fetch(webhookUrl, {
         method: 'POST',
-        headers: requestHeaders,
-        body: requestBody
+        headers: {
+          'Auth': authToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
 
-      // Obtener el texto de la respuesta primero
       const responseText = await response.text();
-
-      // Si el payload llegó pero el servidor responde con error, podría ser que el webhook no esté implementado
-      if (response.status === 400 && !responseText.trim()) {
-        console.warn('⚠️ El payload llegó al webhook pero el servidor respondió con 400 sin mensaje');
-        console.warn('⚠️ Esto podría indicar que el webhook aún no está completamente implementado o conectado con uChat');
-        // Mostrar mensaje informativo pero no cerrar el modal para que el usuario pueda revisar
-        toast.error('El payload llegó al webhook pero el servidor respondió con error. Verifica que el webhook esté conectado con uChat.', {
-          duration: 5000
-        });
-        return; // No cerrar el modal para que el usuario pueda revisar
-      }
-
-      // Si la respuesta es texto plano (no JSON), manejar directamente
-      if (responseText && !responseText.trim().startsWith('{') && !responseText.trim().startsWith('[')) {
-        // Es texto plano, no JSON
-        if (response.status === 403) {
-          throw new Error(`Error de autenticación: ${responseText || 'Token inválido o expirado'}`);
-        }
-        throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
-      }
-
-      // Intentar parsear como JSON solo si hay contenido
       let result;
       if (responseText && responseText.trim()) {
         try {
           result = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('❌ Error parseando respuesta JSON:', parseError);
-          // Si no es JSON válido pero tenemos texto, usar el texto como mensaje
+        } catch {
           throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
         }
       } else {
-        // Respuesta vacía
-        if (response.ok) {
-          result = { success: true };
-        } else {
-          throw new Error(`Error del servidor (${response.status}): ${response.statusText || 'Sin respuesta del servidor'}`);
-        }
+        result = response.ok ? { success: true } : { success: false };
       }
 
       if (!response.ok || (result && !result.success)) {
         const errorMessage = result?.error || result?.message || `Error ${response.status}: ${response.statusText}`;
-        console.error('❌ Error en respuesta:', result);
         throw new Error(errorMessage);
       }
 
-      // Éxito
+      // Éxito - mostrar animación
+      setSendingSuccess(true);
+      setTimeout(() => {
       toast.success('Plantilla enviada exitosamente');
-      
       onClose();
+      }, 1500);
     } catch (error: any) {
       console.error('❌ Error enviando plantilla:', error);
       toast.error(error.message || 'Error al enviar la plantilla');
-    } finally {
       setSending(false);
     }
   };
@@ -1018,7 +832,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
           exit={{ opacity: 0, scale: 0.96, y: 10 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[92vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
         >
           {/* Header */}
           <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
@@ -1028,7 +842,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                   Reactivar Conversación con Plantilla
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Selecciona una plantilla para reactivar la conversación de WhatsApp
+                  {prospectoEtapa && `Etapa del prospecto: ${prospectoEtapa}`}
                 </p>
               </div>
               <button
@@ -1040,34 +854,100 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
             </div>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto px-8 py-6">
-            {!selectedTemplate ? (
-              // Selección de plantilla
-              <div className="space-y-4">
+          {/* Content - Layout dividido */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Panel izquierdo - Lista de plantillas */}
+            <div className="w-[45%] border-r border-gray-200 dark:border-gray-800 flex flex-col">
+              {/* Filtro de búsqueda */}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar plantillas..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Lista de plantillas */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {loadingTemplates ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                   </div>
-                ) : templates.length === 0 ? (
+                ) : filteredAndSortedTemplates.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-gray-500 dark:text-gray-400">No hay plantillas disponibles</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {templates.map((template) => (
+                  filteredAndSortedTemplates.map((template, index) => {
+                    const isRecommended = isTemplateRecommended(template);
+                    const isSelected = selectedTemplate?.id === template.id;
+                    const templateEtapas = getTemplateEtapas(template);
+                    const matchScore = getTemplateMatchScore(template);
+                    
+                    return (
                       <motion.button
                         key={template.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleSelectTemplate(template)}
-                        className="text-left p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-600 transition-all bg-white dark:bg-gray-800"
+                        className={`w-full text-left p-4 rounded-xl border-2 transition-all relative ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : isRecommended
+                            ? 'border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 hover:border-green-300 dark:hover:border-green-700'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-white">
-                            {template.name}
-                          </h4>
-                          <span className={`px-2 py-1 text-xs rounded-lg ${
+                        {/* Icono de mejor opción para plantillas sugeridas */}
+                        {isRecommended && !isSelected && (
+                          <div className="absolute top-3 right-3">
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: index * 0.03 + 0.1, type: "spring", stiffness: 200 }}
+                              className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full shadow-lg"
+                            >
+                              <Star className="w-3.5 h-3.5 text-white fill-white" />
+                            </motion.div>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start justify-between mb-2 pr-8">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className={`font-semibold ${isSelected ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'}`}>
+                                {template.name}
+                              </h4>
+                              {isRecommended && !isSelected && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded font-medium">
+                                  <Sparkles className="w-3 h-3" />
+                                  Recomendada {matchScore > 0 && `(${Math.round(matchScore)}%)`}
+                                </span>
+                              )}
+                            </div>
+                            {/* Etiquetas de etapa asignada */}
+                            {templateEtapas.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {templateEtapas.map((etapa, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-block px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded"
+                                  >
+                                    {etapa}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <span className={`px-2 py-1 text-xs rounded-lg flex-shrink-0 ${
                             template.category === 'MARKETING' 
                               ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
                               : template.category === 'AUTHENTICATION'
@@ -1078,13 +958,13 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                           </span>
                         </div>
                         {template.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
                             {template.description}
                           </p>
                         )}
-                        {template.variable_mappings && template.variable_mappings.length > 0 && (
+                        {template.variable_mappings && Array.isArray(template.variable_mappings) && template.variable_mappings.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {template.variable_mappings.map((mapping, idx) => (
+                            {template.variable_mappings.slice(0, 3).map((mapping: any, idx: number) => (
                               <span
                                 key={idx}
                                 className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded"
@@ -1092,141 +972,103 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                                 {mapping.display_name}
                               </span>
                             ))}
+                            {template.variable_mappings.length > 3 && (
+                              <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+                                +{template.variable_mappings.length - 3}
+                              </span>
+                            )}
                           </div>
                         )}
                       </motion.button>
-                    ))}
-                  </div>
+                    );
+                  })
                 )}
               </div>
-            ) : (
-              // Configuración de variables y preview
-              <div className="space-y-6">
-                {/* Información de la plantilla seleccionada */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
+            </div>
+
+            {/* Panel derecho - Vista previa y variables */}
+            <div className="w-[55%] flex flex-col">
+              {selectedTemplate ? (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={selectedTemplate.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex-1 overflow-y-auto p-6 space-y-6"
+                  >
+                    {/* Información de la plantilla */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
                         {selectedTemplate.name}
                       </h4>
                       {selectedTemplate.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           {selectedTemplate.description}
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => {
-                        setSelectedTemplate(null);
-                        setCustomVariables({});
-                        setPreview('');
-                      }}
-                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      Cambiar plantilla
-                    </button>
+
+                    {/* Variables como tags */}
+                    {normalizedMappings.length > 0 && (
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          Variables de la Plantilla
+                        </h5>
+                        <div className="flex flex-wrap gap-2">
+                          {normalizedMappings.map((mapping: any) => {
+                            const customVar = customVariables[mapping.variable_number];
+                            if (!customVar) return null;
+
+                            let displayValue = '';
+                            if (mapping.table_name === 'system') {
+                              if (mapping.field_name === 'fecha_actual') {
+                                displayValue = whatsappTemplatesService.getSystemVariableValue('fecha_actual', undefined, user?.full_name);
+                              } else if (mapping.field_name === 'hora_actual') {
+                                displayValue = whatsappTemplatesService.getSystemVariableValue('hora_actual', undefined, user?.full_name);
+                              } else {
+                                displayValue = customVar.value || '';
+                              }
+                            } else {
+                              displayValue = customVar.value || 'No disponible';
+                            }
+
+                            return (
+                              <span
+                                key={mapping.variable_number}
+                                className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg"
+                                title={`{{${mapping.variable_number}}}: ${displayValue}`}
+                              >
+                                {mapping.display_name}
+                              </span>
+                            );
+                          })}
                   </div>
                 </div>
+                    )}
 
-                {/* Variables */}
-                {(() => {
-                  // Normalizar variable_mappings una sola vez
-                  let normalizedMappings: any[] = [];
-                  if (selectedTemplate.variable_mappings) {
-                    if (Array.isArray(selectedTemplate.variable_mappings)) {
-                      normalizedMappings = selectedTemplate.variable_mappings;
-                    } else if (typeof selectedTemplate.variable_mappings === 'object' && 'mappings' in selectedTemplate.variable_mappings) {
-                      const mappingsObj = selectedTemplate.variable_mappings as { mappings?: any[] };
-                      normalizedMappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
-                    }
-                  }
-                  
-                  // Si no hay variable_mappings, extraer variables del texto
-                  if (normalizedMappings.length === 0) {
-                    const allVariablesInText: number[] = [];
-                    selectedTemplate.components.forEach(component => {
-                      if (component.text) {
-                        const vars = whatsappTemplatesService.extractVariables(component.text);
-                        vars.forEach(v => {
-                          if (!allVariablesInText.includes(v)) {
-                            allVariablesInText.push(v);
-                          }
-                        });
-                      }
-                    });
-                    normalizedMappings = allVariablesInText.map(varNum => ({
-                      variable_number: varNum,
-                      display_name: `Variable ${varNum}`,
-                      table_name: 'prospectos',
-                    }));
-                  }
-                  
-                  const editableMappings = normalizedMappings.filter((mapping: any) => {
+                    {/* Variables editables */}
+                    {editableMappings.length > 0 && (
+                <div className="space-y-4">
+                        <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          Variables Editables
+                  </h5>
+                        <div className="space-y-3">
+                          {editableMappings.map((mapping: any) => {
                     const customVar = customVariables[mapping.variable_number];
-                    return customVar && (
-                      (mapping.table_name === 'system' && mapping.field_name === 'fecha_personalizada') ||
-                      (mapping.table_name === 'system' && mapping.field_name === 'hora_personalizada') ||
-                      mapping.table_name === 'destinos' ||
-                      mapping.table_name === 'resorts'
-                    );
-                  });
-                  
-                  return (
-                    <div className="space-y-4">
-                      <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        Variables de la Plantilla
-                      </h5>
-                      
-                      {/* Mostrar variables como tags compactos */}
-                      <div className="flex flex-wrap gap-2">
-                        {normalizedMappings.map((mapping: any) => {
-                          const customVar = customVariables[mapping.variable_number];
-                          if (!customVar) return null;
+                    if (!customVar) return null;
 
-                          // Obtener el valor a mostrar
-                          let displayValue = '';
-                          if (mapping.table_name === 'system') {
-                            if (mapping.field_name === 'fecha_actual') {
-                              displayValue = whatsappTemplatesService.getSystemVariableValue('fecha_actual', undefined, user?.full_name);
-                            } else if (mapping.field_name === 'hora_actual') {
-                              displayValue = whatsappTemplatesService.getSystemVariableValue('hora_actual', undefined, user?.full_name);
-                            } else if (mapping.field_name === 'ejecutivo_nombre') {
-                              displayValue = customVar.value || '';
-                            } else {
-                              displayValue = customVar.value || '';
-                            }
-                          } else {
-                            displayValue = customVar.value || 'No disponible';
-                          }
+                    return (
+                      <div
+                        key={mapping.variable_number}
+                                className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700"
+                      >
+                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                          {`${mapping.display_name} ({{${mapping.variable_number}}})`}
+                        </label>
 
-                          return (
-                            <span
-                              key={mapping.variable_number}
-                              className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg"
-                              title={`{{${mapping.variable_number}}}: ${displayValue}`}
-                            >
-                              {mapping.display_name}
-                            </span>
-                          );
-                        })}
-                      </div>
-                      
-                      {/* Campos editables para fecha/hora personalizada, destinos y resorts */}
-                      {editableMappings.length > 0 && editableMappings.map((mapping: any) => {
-                        const customVar = customVariables[mapping.variable_number];
-                        if (!customVar) return null;
-
-                        return (
-                          <div
-                            key={mapping.variable_number}
-                            className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700"
-                          >
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                              {`${mapping.display_name} ({{${mapping.variable_number}}})`}
-                            </label>
-
-                        {mapping.table_name === 'system' && mapping.field_name === 'fecha_personalizada' ? (
-                          // Fecha personalizada: selector de calendario
+                                {mapping.table_name === 'system' && mapping.field_name === 'fecha_personalizada' ? (
                           <input
                             type="date"
                             value={customVar.value}
@@ -1239,7 +1081,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                             className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                           />
                         ) : mapping.table_name === 'system' && mapping.field_name === 'hora_personalizada' ? (
-                          // Hora personalizada: selector de hora
                           <input
                             type="time"
                             value={customVar.value}
@@ -1252,7 +1093,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                             className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                           />
                         ) : mapping.table_name === 'destinos' ? (
-                          // Variables de destino (menú desplegable)
                           <select
                             value={customVar.destinoId || ''}
                             onChange={(e) => {
@@ -1279,7 +1119,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                             ))}
                           </select>
                         ) : mapping.table_name === 'resorts' ? (
-                          // Variables de resort (menú desplegable dependiente del destino)
                           <div className="space-y-2">
                             <select
                               value={customVar.destinoId || ''}
@@ -1336,40 +1175,44 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                         ) : null}
                       </div>
                     );
-                  })}
-                    </div>
-                  );
-                })()}
+                          })}
+                              </div>
+                            </div>
+                    )}
 
-                {/* Vista Previa */}
-                <div className="space-y-4">
-                  <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Vista Previa
-                  </h5>
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider">
+                    {/* Vista Previa */}
+                    <div className="space-y-3">
+                      <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Vista Previa
-                      </span>
-                    </div>
+                      </h5>
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
                     {loading ? (
                       <div className="flex items-center justify-center py-4">
                         <Loader2 className="w-5 h-5 animate-spin text-green-500" />
                       </div>
-                    ) : preview ? (
-                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                        {preview}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                        La vista previa aparecerá aquí...
-                      </p>
+                        ) : preview ? (
+                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {preview}
+                        </p>
+                        ) : (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                            La vista previa aparecerá aquí...
+                          </p>
                     )}
                   </div>
-                </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              ) : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <div className="text-center">
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Selecciona una plantilla para ver la vista previa
+                    </p>
+                  </div>
               </div>
             )}
+            </div>
           </div>
 
           {/* Footer */}
@@ -1383,7 +1226,23 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
               >
                 Cancelar
               </motion.button>
+              <AnimatePresence mode="wait">
+                {sendingSuccess ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center space-x-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Enviado</span>
+                  </motion.div>
+                ) : (
               <motion.button
+                    key="send-button"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSend}
@@ -1403,6 +1262,8 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                   </>
                 )}
               </motion.button>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </motion.div>
@@ -1410,4 +1271,3 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     </AnimatePresence>
   );
 };
-

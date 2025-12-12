@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, 
@@ -12,9 +12,16 @@ import {
   MessageSquare,
   Tag,
   MapPin,
-  Check,
   Edit2,
-  Trash2
+  Trash2,
+  LayoutGrid,
+  Table,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Search
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { analysisSupabase } from '../../../config/analysisSupabase';
@@ -36,6 +43,21 @@ const AudienciasManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAudience, setEditingAudience] = useState<WhatsAppAudience | null>(null);
+  
+  // Estados para vista y paginación
+  const [viewMode, setViewMode] = useState<'cards' | 'grid'>('grid');
+  const [currentPageCards, setCurrentPageCards] = useState(1);
+  const [currentPageGrid, setCurrentPageGrid] = useState(1);
+  const itemsPerPageCards = 20;
+  const itemsPerPageGrid = 50;
+  
+  // Estados para ordenamiento del grid
+  const [sortColumn, setSortColumn] = useState<keyof WhatsAppAudience | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Estados para filtros
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadAudiences();
@@ -144,10 +166,146 @@ const AudienciasManager: React.FC = () => {
     }
   };
 
+  // Filtrar y ordenar audiencias
+  const filteredAudiences = useMemo(() => {
+    let filtered = [...audiences];
+
+    // Filtro de búsqueda
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        a => 
+          a.nombre.toLowerCase().includes(query) ||
+          a.descripcion?.toLowerCase().includes(query) ||
+          a.etapa?.toLowerCase().includes(query) ||
+          a.destinos?.some(d => d.toLowerCase().includes(query)) ||
+          a.viaja_con?.some(v => v.toLowerCase().includes(query))
+      );
+    }
+
+    // Filtros rápidos (etiquetas) - acumulativos
+    if (activeQuickFilters.size > 0) {
+      const etapaFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('etapa-'));
+      const estadoCivilFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('estado_civil-'));
+      const viajaConFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('viaja_con-'));
+      const destinosFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('destinos-'));
+
+      filtered = filtered.filter(a => {
+        // Si hay filtros de etapa, debe coincidir con al menos uno
+        if (etapaFilters.length > 0) {
+          const matchesEtapa = etapaFilters.some(filter => {
+            const etapaValue = filter.replace('etapa-', '');
+            return a.etapa === etapaValue;
+          });
+          if (!matchesEtapa) return false;
+        }
+
+        // Si hay filtros de estado civil, debe coincidir con al menos uno
+        if (estadoCivilFilters.length > 0) {
+          const matchesEstadoCivil = estadoCivilFilters.some(filter => {
+            const estadoCivilValue = filter.replace('estado_civil-', '');
+            return a.estado_civil === estadoCivilValue;
+          });
+          if (!matchesEstadoCivil) return false;
+        }
+
+        // Si hay filtros de viaja_con, debe coincidir con al menos uno
+        if (viajaConFilters.length > 0) {
+          const matchesViajaCon = viajaConFilters.some(filter => {
+            const viajaConValue = filter.replace('viaja_con-', '');
+            return a.viaja_con?.includes(viajaConValue);
+          });
+          if (!matchesViajaCon) return false;
+        }
+
+        // Si hay filtros de destinos, debe coincidir con al menos uno
+        if (destinosFilters.length > 0) {
+          const matchesDestinos = destinosFilters.some(filter => {
+            const destinoValue = filter.replace('destinos-', '');
+            return a.destinos?.includes(destinoValue);
+          });
+          if (!matchesDestinos) return false;
+        }
+
+        return true;
+      });
+    }
+
+    // Ordenamiento para grid
+    if (viewMode === 'grid' && sortColumn) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortColumn];
+        const bValue = b[sortColumn];
+        
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          const comparison = aValue.localeCompare(bValue);
+          return sortDirection === 'asc' ? comparison : -comparison;
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        
+        if (Array.isArray(aValue) && Array.isArray(bValue)) {
+          const comparison = aValue.length - bValue.length;
+          return sortDirection === 'asc' ? comparison : -comparison;
+        }
+        
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [audiences, searchQuery, activeQuickFilters, viewMode, sortColumn, sortDirection]);
+
+  // Toggle filtro rápido
+  const toggleQuickFilter = (filter: string) => {
+    setActiveQuickFilters(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(filter)) {
+        newSet.delete(filter);
+      } else {
+        newSet.add(filter);
+      }
+      return newSet;
+    });
+  };
+
+  // Manejar ordenamiento
+  const handleSort = (column: keyof WhatsAppAudience) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Calcular paginación
+  const totalPagesCards = Math.ceil(filteredAudiences.length / itemsPerPageCards);
+  const totalPagesGrid = Math.ceil(filteredAudiences.length / itemsPerPageGrid);
+  
+  const startIndexCards = (currentPageCards - 1) * itemsPerPageCards;
+  const endIndexCards = startIndexCards + itemsPerPageCards;
+  const paginatedAudiencesCards = filteredAudiences.slice(startIndexCards, endIndexCards);
+  
+  const startIndexGrid = (currentPageGrid - 1) * itemsPerPageGrid;
+  const endIndexGrid = startIndexGrid + itemsPerPageGrid;
+  const paginatedAudiencesGrid = filteredAudiences.slice(startIndexGrid, endIndexGrid);
+
+  // Resetear páginas cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPageCards(1);
+    setCurrentPageGrid(1);
+  }, [searchQuery, activeQuickFilters]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Gestión de Audiencias
@@ -170,110 +328,411 @@ const AudienciasManager: React.FC = () => {
         </motion.button>
       </div>
 
-      {/* Lista de audiencias */}
+      {/* Filtros y búsqueda */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 space-y-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Búsqueda */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar audiencias..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700/50 dark:text-white"
+            />
+          </div>
+
+          {/* Selector de vista */}
+          <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700/50 rounded-xl p-1">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                viewMode === 'cards'
+                  ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="text-sm font-medium">Cards</span>
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <Table className="w-4 h-4" />
+              <span className="text-sm font-medium">Grid</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filtros rápidos tipo etiquetas */}
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 self-center">Filtros rápidos:</span>
+          
+          {/* Etapas */}
+          {PROSPECTO_ETAPAS.map((etapa) => (
+            <button
+              key={`etapa-${etapa.value}`}
+              onClick={() => toggleQuickFilter(`etapa-${etapa.value}`)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                activeQuickFilters.has(`etapa-${etapa.value}`)
+                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-2 border-purple-500'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+              }`}
+            >
+              {etapa.label}
+            </button>
+          ))}
+
+          {/* Estados Civiles */}
+          {ESTADOS_CIVILES.map((ec) => (
+            <button
+              key={`estado_civil-${ec.value}`}
+              onClick={() => toggleQuickFilter(`estado_civil-${ec.value}`)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                activeQuickFilters.has(`estado_civil-${ec.value}`)
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-2 border-blue-500'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+              }`}
+            >
+              {ec.label}
+            </button>
+          ))}
+
+          {/* Viaja Con */}
+          {VIAJA_CON_OPTIONS.map((vc) => (
+            <button
+              key={`viaja_con-${vc.value}`}
+              onClick={() => toggleQuickFilter(`viaja_con-${vc.value}`)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                activeQuickFilters.has(`viaja_con-${vc.value}`)
+                  ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 border-2 border-pink-500'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+              }`}
+            >
+              {vc.label}
+            </button>
+          ))}
+
+          {/* Destinos */}
+          {DESTINOS.slice(0, 5).map((destino) => (
+            <button
+              key={`destinos-${destino.value}`}
+              onClick={() => toggleQuickFilter(`destinos-${destino.value}`)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                activeQuickFilters.has(`destinos-${destino.value}`)
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-2 border-emerald-500'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+              }`}
+            >
+              {destino.label}
+            </button>
+          ))}
+
+          {/* Limpiar filtros */}
+          {activeQuickFilters.size > 0 && (
+            <button
+              onClick={() => setActiveQuickFilters(new Set())}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300 transition-all"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Contador de resultados */}
+      {filteredAudiences.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {filteredAudiences.length} audiencia{filteredAudiences.length !== 1 ? 's' : ''} 
+            {searchQuery || activeQuickFilters.size > 0
+              ? ' encontrada' + (filteredAudiences.length !== 1 ? 's' : '') 
+              : ''}
+          </p>
+        </div>
+      )}
+
+      {/* Vista de audiencias */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
-      ) : audiences.length === 0 ? (
+      ) : filteredAudiences.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
           <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 dark:text-gray-400">No hay audiencias creadas</p>
-          <button
-            onClick={() => {
-              setEditingAudience(null);
-              setShowCreateModal(true);
-            }}
-            className="mt-3 text-blue-600 dark:text-blue-400 hover:underline text-sm"
-          >
-            Crear primera audiencia
-          </button>
+          <p className="text-gray-600 dark:text-gray-400">
+            {searchQuery || activeQuickFilters.size > 0
+              ? 'No se encontraron audiencias con los filtros aplicados'
+              : 'No hay audiencias creadas'}
+          </p>
+          {!searchQuery && activeQuickFilters.size === 0 && (
+            <button
+              onClick={() => {
+                setEditingAudience(null);
+                setShowCreateModal(true);
+              }}
+              className="mt-3 text-blue-600 dark:text-blue-400 hover:underline text-sm"
+            >
+              Crear primera audiencia
+            </button>
+          )}
         </div>
+      ) : viewMode === 'cards' ? (
+        <>
+          {/* Vista de Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <AnimatePresence mode="popLayout">
+              {paginatedAudiencesCards.map((audience, index) => {
+                const isSystem = audience.id === 'global' || audience.id.startsWith('etapa-');
+                return (
+                  <AudienceCard
+                    key={audience.id}
+                    audience={audience}
+                    isSystem={isSystem}
+                    index={index}
+                    onEdit={() => {
+                      setEditingAudience(audience);
+                      setShowCreateModal(true);
+                    }}
+                    onDelete={() => handleDelete(audience.id)}
+                  />
+                );
+              })}
+            </AnimatePresence>
+          </div>
+
+          {/* Paginación Cards */}
+          {totalPagesCards > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Mostrando {startIndexCards + 1} - {Math.min(endIndexCards, filteredAudiences.length)} de {filteredAudiences.length} audiencias
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPageCards(prev => Math.max(1, prev - 1))}
+                  disabled={currentPageCards === 1}
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400 px-3">
+                  Página {currentPageCards} de {totalPagesCards}
+                </span>
+                <button
+                  onClick={() => setCurrentPageCards(prev => Math.min(totalPagesCards, prev + 1))}
+                  disabled={currentPageCards === totalPagesCards}
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {audiences.map((audience) => {
-            const isSystem = audience.id === 'global' || audience.id.startsWith('etapa-');
-            return (
-              <motion.div
-                key={audience.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-all"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h5 className="text-base font-semibold text-gray-900 dark:text-white">
-                        {audience.nombre}
-                      </h5>
-                      {isSystem && (
-                        <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-md">
-                          Sistema
-                        </span>
-                      )}
-                    </div>
-                    {audience.descripcion && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                        {audience.descripcion}
-                      </p>
-                    )}
-                  </div>
-                  {!isSystem && (
-                    <div className="flex items-center gap-2 ml-2">
+        <>
+          {/* Vista de Data Grid */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left">
                       <button
-                        onClick={() => {
-                          setEditingAudience(audience);
-                          setShowCreateModal(true);
-                        }}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Editar"
+                        onClick={() => handleSort('nombre')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
-                        <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        Nombre
+                        {sortColumn === 'nombre' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
                       </button>
+                    </th>
+                    <th className="px-4 py-3 text-left">
                       <button
-                        onClick={() => handleDelete(audience.id)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        title="Eliminar"
+                        onClick={() => handleSort('etapa')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        Etapa
+                        {sortColumn === 'etapa' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
                       </button>
-                    </div>
-                  )}
-                </div>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Descripción
+                      </span>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Criterios
+                      </span>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <button
+                        onClick={() => handleSort('prospectos_count')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        Prospectos
+                        {sortColumn === 'prospectos_count' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Acciones
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {paginatedAudiencesGrid.map((audience) => {
+                    const isSystem = audience.id === 'global' || audience.id.startsWith('etapa-');
+                    return (
+                      <motion.tr
+                        key={audience.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {audience.nombre}
+                            </span>
+                            {isSystem && (
+                              <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-md">
+                                Sistema
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {audience.etapa ? (
+                            <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded-md">
+                              {audience.etapa}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs">
+                            {audience.descripcion || 'Sin descripción'}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {audience.destinos && audience.destinos.length > 0 && (
+                              <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded">
+                                {audience.destinos.length} destino{audience.destinos.length !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {audience.viaja_con && audience.viaja_con.length > 0 && (
+                              <span className="px-2 py-0.5 text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 rounded">
+                                {audience.viaja_con.length} tipo{audience.viaja_con.length !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {audience.estado_civil && (
+                              <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded">
+                                {audience.estado_civil}
+                              </span>
+                            )}
+                            {!audience.destinos?.length && !audience.viaja_con?.length && !audience.estado_civil && (
+                              <span className="text-xs text-gray-400 dark:text-gray-500">Sin criterios</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {audience.prospectos_count.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {!isSystem && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditingAudience(audience);
+                                  setShowCreateModal(true);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                title="Editar"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(audience.id)}
+                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-                <div className="text-right mb-3">
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {audience.prospectos_count.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">prospectos</p>
+            {/* Paginación Grid */}
+            {totalPagesGrid > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Mostrando {startIndexGrid + 1} - {Math.min(endIndexGrid, filteredAudiences.length)} de {filteredAudiences.length} audiencias
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPageGrid(prev => Math.max(1, prev - 1))}
+                    disabled={currentPageGrid === 1}
+                    className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 px-3">
+                    Página {currentPageGrid} de {totalPagesGrid}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPageGrid(prev => Math.min(totalPagesGrid, prev + 1))}
+                    disabled={currentPageGrid === totalPagesGrid}
+                    className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1.5">
-                  {audience.etapa && (
-                    <span className="px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded-md">
-                      {audience.etapa}
-                    </span>
-                  )}
-                  {audience.destinos && audience.destinos.length > 0 && (
-                    <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-md flex items-center gap-1">
-                      <MapPin className="w-2.5 h-2.5" />
-                      {audience.destinos.length === 1 ? audience.destinos[0] : `${audience.destinos.length} destinos`}
-                    </span>
-                  )}
-                  {audience.viaja_con && audience.viaja_con.map((tipo) => (
-                    <span 
-                      key={tipo}
-                      className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-md"
-                    >
-                      {tipo}
-                    </span>
-                  ))}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Modal de crear/editar audiencia */}
@@ -744,6 +1203,208 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+};
+
+// Componente de Card de Audiencia (diseño similar a TemplateGridCard)
+interface AudienceCardProps {
+  audience: WhatsAppAudience;
+  isSystem: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  index: number;
+}
+
+const AudienceCard: React.FC<AudienceCardProps> = ({
+  audience,
+  isSystem,
+  onEdit,
+  onDelete,
+  index,
+}) => {
+  // Determinar color de la barra superior según el tipo de audiencia (colores acordes al diseño UI)
+  const getBarColor = () => {
+    if (isSystem) {
+      return 'bg-gradient-to-r from-blue-500 to-indigo-600';
+    }
+    if (audience.prospectos_count > 1000) {
+      return 'bg-gradient-to-r from-emerald-500 to-teal-600';
+    }
+    if (audience.prospectos_count > 100) {
+      return 'bg-gradient-to-r from-blue-500 to-purple-600';
+    }
+    return 'bg-gradient-to-r from-indigo-500 to-purple-600';
+  };
+
+  const getBarTextColor = () => {
+    if (isSystem) {
+      return 'text-blue-50 dark:text-blue-100';
+    }
+    if (audience.prospectos_count > 1000) {
+      return 'text-emerald-50 dark:text-emerald-100';
+    }
+    if (audience.prospectos_count > 100) {
+      return 'text-blue-50 dark:text-blue-100';
+    }
+    return 'text-indigo-50 dark:text-indigo-100';
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2, delay: index * 0.03 }}
+      className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 overflow-hidden hover:shadow-lg hover:shadow-blue-500/5"
+    >
+      {/* Indicador de estado superior */}
+      <div className={`absolute top-0 left-0 right-0 h-5 relative ${getBarColor()}`}>
+        {/* Barra de color inferior */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-current opacity-50" />
+        {/* Texto del estado alineado a la derecha */}
+        <span className={`absolute top-0.5 right-2 text-[10px] font-medium ${getBarTextColor()}`}>
+          {isSystem ? 'Sistema' : `${audience.prospectos_count.toLocaleString()} prospectos`}
+        </span>
+      </div>
+
+      {/* Contenido principal */}
+      <div className="p-4 pt-6">
+        {/* Header con nombre y badges */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={audience.nombre}>
+              {audience.nombre}
+            </h3>
+            <div className="flex items-center gap-2 mt-1">
+              {isSystem && (
+                <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-md">
+                  Sistema
+                </span>
+              )}
+              {audience.etapa && (
+                <span className="px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded-md">
+                  {audience.etapa}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Menu de acciones */}
+          {!isSystem && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onEdit}
+                className="p-1.5 text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors"
+                title="Editar"
+              >
+                <Edit2 className="w-4 h-4" />
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onDelete}
+                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                title="Eliminar"
+              >
+                <Trash2 className="w-4 h-4" />
+              </motion.button>
+            </div>
+          )}
+        </div>
+
+        {/* Descripción */}
+        {audience.descripcion && (
+          <div 
+            className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-3 min-h-[40px] line-clamp-2"
+          >
+            {audience.descripcion}
+          </div>
+        )}
+
+        {/* Contador de prospectos destacado */}
+        <div className="mb-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                Prospectos
+              </span>
+            </div>
+            <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+              {audience.prospectos_count.toLocaleString()}
+            </span>
+          </div>
+        </div>
+
+        {/* Tags de criterios */}
+        {((audience.destinos && audience.destinos.length > 0) || (audience.viaja_con && audience.viaja_con.length > 0) || audience.estado_civil) && (
+          <div className="mb-3 space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {audience.destinos && audience.destinos.length > 0 && (
+                <span className="px-2 py-0.5 text-[9px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-md flex items-center gap-1">
+                  <MapPin className="w-2.5 h-2.5" />
+                  {audience.destinos.length === 1 ? audience.destinos[0] : `${audience.destinos.length} destinos`}
+                </span>
+              )}
+              {audience.viaja_con && audience.viaja_con.slice(0, 2).map((tipo) => (
+                <span 
+                  key={tipo}
+                  className="px-2 py-0.5 text-[9px] font-medium bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 rounded-md"
+                >
+                  {tipo}
+                </span>
+              ))}
+              {audience.viaja_con && audience.viaja_con.length > 2 && (
+                <span className="px-2 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-md">
+                  +{audience.viaja_con.length - 2} más
+                </span>
+              )}
+              {audience.estado_civil && (
+                <span className="px-2 py-0.5 text-[9px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-md">
+                  {audience.estado_civil}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer con metadata */}
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-400">
+            {audience.destinos && audience.destinos.length > 0 && (
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {audience.destinos.length} destino{(audience.destinos.length || 0) !== 1 ? 's' : ''}
+              </span>
+            )}
+            {audience.viaja_con && audience.viaja_con.length > 0 && (
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {audience.viaja_con.length} tipo{(audience.viaja_con.length || 0) !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          
+          {/* Indicador de tipo */}
+          <div className="flex items-center gap-1">
+            {isSystem ? (
+              <span className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400">
+                <Tag className="w-3 h-3" />
+                Sistema
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-[10px] text-purple-600 dark:text-purple-400">
+                <Users className="w-3 h-3" />
+                Personalizada
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

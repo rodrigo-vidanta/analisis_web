@@ -31,7 +31,14 @@ import {
   Power,
   MapPin,
   Building2,
-  Database
+  Database,
+  LayoutGrid,
+  Table,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService } from '../../../services/whatsappTemplatesService';
@@ -92,6 +99,20 @@ const WhatsAppTemplatesManager: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterActive, setFilterActive] = useState<string>('all');
+  
+  // Estados para vista y paginación
+  const [viewMode, setViewMode] = useState<'cards' | 'grid'>('grid');
+  const [currentPageCards, setCurrentPageCards] = useState(1);
+  const [currentPageGrid, setCurrentPageGrid] = useState(1);
+  const itemsPerPageCards = 20;
+  const itemsPerPageGrid = 50;
+  
+  // Estados para ordenamiento del grid
+  const [sortColumn, setSortColumn] = useState<keyof WhatsAppTemplate | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Filtros rápidos (etiquetas)
+  const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
   
   // Estados para modal de edición/creación
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -276,8 +297,114 @@ const WhatsAppTemplatesManager: React.FC = () => {
       filtered = filtered.filter(t => t.is_active === isActive);
     }
 
+    // Filtros rápidos (etiquetas) - acumulativos (OR entre filtros del mismo tipo, AND entre tipos diferentes)
+    if (activeQuickFilters.size > 0) {
+      const categoryFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('category-'));
+      const statusFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('status-'));
+      const activeFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('active-'));
+
+      filtered = filtered.filter(t => {
+        // Si hay filtros de categoría, debe coincidir con al menos uno
+        if (categoryFilters.length > 0) {
+          const matchesCategory = categoryFilters.some(filter => {
+            if (filter === 'category-MARKETING') return t.category === 'MARKETING';
+            if (filter === 'category-UTILITY') return t.category === 'UTILITY';
+            if (filter === 'category-AUTHENTICATION') return t.category === 'AUTHENTICATION';
+            return false;
+          });
+          if (!matchesCategory) return false;
+        }
+
+        // Si hay filtros de estado, debe coincidir con al menos uno
+        if (statusFilters.length > 0) {
+          const matchesStatus = statusFilters.some(filter => {
+            if (filter === 'status-APPROVED') return t.status === 'APPROVED';
+            if (filter === 'status-PENDING') return t.status === 'PENDING';
+            if (filter === 'status-REJECTED') return t.status === 'REJECTED';
+            return false;
+          });
+          if (!matchesStatus) return false;
+        }
+
+        // Si hay filtros de activo/inactivo, debe coincidir con al menos uno
+        if (activeFilters.length > 0) {
+          const matchesActive = activeFilters.some(filter => {
+            if (filter === 'active-true') return t.is_active === true;
+            if (filter === 'active-false') return t.is_active === false;
+            return false;
+          });
+          if (!matchesActive) return false;
+        }
+
+        return true;
+      });
+    }
+
+    // Ordenamiento para grid
+    if (viewMode === 'grid' && sortColumn) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortColumn];
+        const bValue = b[sortColumn];
+        
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          const comparison = aValue.localeCompare(bValue);
+          return sortDirection === 'asc' ? comparison : -comparison;
+        }
+        
+        if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+          return sortDirection === 'asc' 
+            ? (aValue === bValue ? 0 : aValue ? 1 : -1)
+            : (aValue === bValue ? 0 : aValue ? -1 : 1);
+        }
+        
+        return 0;
+      });
+    }
+
     setFilteredTemplates(filtered);
-  }, [templates, searchQuery, filterCategory, filterStatus, filterActive]);
+    
+    // Resetear páginas cuando cambian los filtros
+    setCurrentPageCards(1);
+    setCurrentPageGrid(1);
+  }, [templates, searchQuery, filterCategory, filterStatus, filterActive, activeQuickFilters, viewMode, sortColumn, sortDirection]);
+
+  // Toggle filtro rápido
+  const toggleQuickFilter = (filter: string) => {
+    setActiveQuickFilters(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(filter)) {
+        newSet.delete(filter);
+      } else {
+        newSet.add(filter);
+      }
+      return newSet;
+    });
+  };
+
+  // Manejar ordenamiento
+  const handleSort = (column: keyof WhatsAppTemplate) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Calcular paginación
+  const totalPagesCards = Math.ceil(filteredTemplates.length / itemsPerPageCards);
+  const totalPagesGrid = Math.ceil(filteredTemplates.length / itemsPerPageGrid);
+  
+  const startIndexCards = (currentPageCards - 1) * itemsPerPageCards;
+  const endIndexCards = startIndexCards + itemsPerPageCards;
+  const paginatedTemplatesCards = filteredTemplates.slice(startIndexCards, endIndexCards);
+  
+  const startIndexGrid = (currentPageGrid - 1) * itemsPerPageGrid;
+  const endIndexGrid = startIndexGrid + itemsPerPageGrid;
+  const paginatedTemplatesGrid = filteredTemplates.slice(startIndexGrid, endIndexGrid);
 
   // Cargar plantillas
   const loadTemplates = async () => {
@@ -1087,40 +1214,132 @@ const WhatsAppTemplatesManager: React.FC = () => {
             />
           </div>
 
-          {/* Filtros */}
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700/50 dark:text-white"
+          {/* Selector de vista */}
+          <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700/50 rounded-xl p-1">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                viewMode === 'cards'
+                  ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
             >
-              <option value="all">Todas las categorías</option>
-              <option value="MARKETING">Marketing</option>
-              <option value="UTILITY">Utilidad</option>
-              <option value="AUTHENTICATION">Autenticación</option>
-            </select>
-
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700/50 dark:text-white"
+              <LayoutGrid className="w-4 h-4" />
+              <span className="text-sm font-medium">Cards</span>
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
             >
-              <option value="all">Todos los estados</option>
-              <option value="APPROVED">Aprobado</option>
-              <option value="PENDING">Pendiente</option>
-              <option value="REJECTED">Rechazado</option>
-            </select>
-
-            <select
-              value={filterActive}
-              onChange={(e) => setFilterActive(e.target.value)}
-              className="px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700/50 dark:text-white"
-            >
-              <option value="all">Todas</option>
-              <option value="active">Activas</option>
-              <option value="inactive">Inactivas</option>
-            </select>
+              <Table className="w-4 h-4" />
+              <span className="text-sm font-medium">Grid</span>
+            </button>
           </div>
+        </div>
+
+        {/* Filtros rápidos tipo etiquetas */}
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 self-center">Filtros rápidos:</span>
+          
+          {/* Categorías */}
+          <button
+            onClick={() => toggleQuickFilter('category-MARKETING')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeQuickFilters.has('category-MARKETING')
+                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-2 border-purple-500'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+            }`}
+          >
+            Marketing
+          </button>
+          <button
+            onClick={() => toggleQuickFilter('category-UTILITY')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeQuickFilters.has('category-UTILITY')
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-2 border-blue-500'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+            }`}
+          >
+            Utilidad
+          </button>
+          <button
+            onClick={() => toggleQuickFilter('category-AUTHENTICATION')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeQuickFilters.has('category-AUTHENTICATION')
+                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-2 border-orange-500'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+            }`}
+          >
+            Autenticación
+          </button>
+
+          {/* Estados */}
+          <button
+            onClick={() => toggleQuickFilter('status-APPROVED')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeQuickFilters.has('status-APPROVED')
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-2 border-green-500'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+            }`}
+          >
+            Aprobadas
+          </button>
+          <button
+            onClick={() => toggleQuickFilter('status-PENDING')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeQuickFilters.has('status-PENDING')
+                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-2 border-yellow-500'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+            }`}
+          >
+            Pendientes
+          </button>
+          <button
+            onClick={() => toggleQuickFilter('status-REJECTED')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeQuickFilters.has('status-REJECTED')
+                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-2 border-red-500'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+            }`}
+          >
+            Rechazadas
+          </button>
+
+          {/* Activo/Inactivo */}
+          <button
+            onClick={() => toggleQuickFilter('active-true')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeQuickFilters.has('active-true')
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-2 border-emerald-500'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+            }`}
+          >
+            Activas
+          </button>
+          <button
+            onClick={() => toggleQuickFilter('active-false')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeQuickFilters.has('active-false')
+                ? 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300 border-2 border-gray-500'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+            }`}
+          >
+            Inactivas
+          </button>
+
+          {/* Limpiar filtros */}
+          {activeQuickFilters.size > 0 && (
+            <button
+              onClick={() => setActiveQuickFilters(new Set())}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300 transition-all"
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
       </div>
 
@@ -1136,7 +1355,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
         </div>
       )}
 
-      {/* Grid de plantillas - Diseño moderno */}
+      {/* Vista de plantillas */}
       {filteredTemplates.length === 0 ? (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -1166,31 +1385,298 @@ const WhatsAppTemplatesManager: React.FC = () => {
             </motion.button>
           )}
         </motion.div>
+      ) : viewMode === 'cards' ? (
+        <>
+          {/* Vista de Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <AnimatePresence mode="popLayout">
+              {paginatedTemplatesCards.map((template, index) => (
+                <TemplateGridCard
+                  key={template.id}
+                  template={template}
+                  index={index}
+                  onEdit={() => handleLimitedEdit(template)}
+                  onDelete={() => handleDelete(template)}
+                  onToggleActive={() => handleToggleActive(template)}
+                  onViewPreview={() => {
+                    setSelectedTemplate(template);
+                    setShowPreview(true);
+                  }}
+                  onSync={handleSyncSingle}
+                  syncingTemplateId={syncingTemplateId}
+                  getStatusColor={getStatusColor}
+                  getStatusText={getStatusText}
+                  getCategoryColor={getCategoryColor}
+                  audiences={audiences}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* Paginación Cards */}
+          {totalPagesCards > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Mostrando {startIndexCards + 1} - {Math.min(endIndexCards, filteredTemplates.length)} de {filteredTemplates.length} plantillas
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPageCards(prev => Math.max(1, prev - 1))}
+                  disabled={currentPageCards === 1}
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400 px-3">
+                  Página {currentPageCards} de {totalPagesCards}
+                </span>
+                <button
+                  onClick={() => setCurrentPageCards(prev => Math.min(totalPagesCards, prev + 1))}
+                  disabled={currentPageCards === totalPagesCards}
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          <AnimatePresence mode="popLayout">
-            {filteredTemplates.map((template, index) => (
-              <TemplateGridCard
-                key={template.id}
-                template={template}
-                index={index}
-                onEdit={() => handleLimitedEdit(template)}
-                onDelete={() => handleDelete(template)}
-                onToggleActive={() => handleToggleActive(template)}
-                onViewPreview={() => {
-                  setSelectedTemplate(template);
-                  setShowPreview(true);
-                }}
-                onSync={handleSyncSingle}
-                syncingTemplateId={syncingTemplateId}
-                getStatusColor={getStatusColor}
-                getStatusText={getStatusText}
-                getCategoryColor={getCategoryColor}
-                audiences={audiences}
-              />
-            ))}
-          </AnimatePresence>
-        </div>
+        <>
+          {/* Vista de Data Grid */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left">
+                      <button
+                        onClick={() => handleSort('name')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        Nombre
+                        {sortColumn === 'name' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <button
+                        onClick={() => handleSort('category')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        Categoría
+                        {sortColumn === 'category' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <button
+                        onClick={() => handleSort('status')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        Estado
+                        {sortColumn === 'status' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Descripción
+                      </span>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Variables
+                      </span>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <button
+                        onClick={() => handleSort('is_active')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        Activa
+                        {sortColumn === 'is_active' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Acciones
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {paginatedTemplatesGrid.map((template) => {
+                    const normalizedMappings = (() => {
+                      let mappings: any[] = [];
+                      if (template.variable_mappings) {
+                        if (Array.isArray(template.variable_mappings)) {
+                          mappings = template.variable_mappings;
+                        } else if (typeof template.variable_mappings === 'object' && 'mappings' in template.variable_mappings) {
+                          const mappingsObj = template.variable_mappings as { mappings?: any[] };
+                          mappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
+                        }
+                      }
+                      return mappings;
+                    })();
+
+                    // assignedAudiences no se usa en el grid, pero se mantiene por si se necesita después
+
+                    return (
+                      <motion.tr
+                        key={template.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            {template.name}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${getCategoryColor(template.category)}`}>
+                            {template.category === 'MARKETING' ? 'Marketing' :
+                             template.category === 'UTILITY' ? 'Utilidad' :
+                             'Autenticación'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${getStatusColor(template.status)}`}>
+                            {getStatusText(template.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs">
+                            {template.description || 'Sin descripción'}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {normalizedMappings.slice(0, 2).map((mapping: any, idx: number) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded"
+                              >
+                                {mapping.display_name}
+                              </span>
+                            ))}
+                            {normalizedMappings.length > 2 && (
+                              <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+                                +{normalizedMappings.length - 2}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleToggleActive(template)}
+                            className={`w-10 h-6 rounded-full relative transition-colors ${
+                              template.is_active
+                                ? 'bg-green-500'
+                                : 'bg-gray-300 dark:bg-gray-600'
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                                template.is_active ? 'translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleLimitedEdit(template)}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedTemplate(template);
+                                setShowPreview(true);
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                              title="Vista previa"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(template)}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Paginación Grid */}
+            {totalPagesGrid > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Mostrando {startIndexGrid + 1} - {Math.min(endIndexGrid, filteredTemplates.length)} de {filteredTemplates.length} plantillas
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPageGrid(prev => Math.max(1, prev - 1))}
+                    disabled={currentPageGrid === 1}
+                    className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 px-3">
+                    Página {currentPageGrid} de {totalPagesGrid}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPageGrid(prev => Math.min(totalPagesGrid, prev + 1))}
+                    disabled={currentPageGrid === totalPagesGrid}
+                    className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Modal de creación/edición */}
@@ -1640,8 +2126,9 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
   const variableCount = template.variable_mappings?.length || 0;
   
   // Obtener audiencias asignadas con sus nombres y conteos
-  const assignedAudiences = template.classification?.audience_ids
-    ?.map(audId => audiences.find(a => a.id === audId))
+  const classification = (template as any).classification;
+  const assignedAudiences = classification?.audience_ids
+    ?.map((audId: string) => audiences.find(a => a.id === audId))
     .filter(Boolean) as WhatsAppAudience[] || [];
   
   const totalAudienceProspects = assignedAudiences.reduce((sum, a) => sum + (a?.prospectos_count || 0), 0);

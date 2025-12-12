@@ -417,19 +417,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     //   onClick: () => setAppMode('natalia')
     // }] : []),
 
-    // 3. Llamadas (PQNC Humans)
+    // 3. Llamadas PQNC (PQNC Humans)
     ...(canAccessModule('analisis') && pqnc ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
       ),
-      label: 'Llamadas',
+      label: 'Llamadas PQNC',
       active: appMode === 'pqnc',
       onClick: () => setAppMode('pqnc')
     }] : []),
 
-    // 4. Llamadas (AI Call Monitor)
+    // 4. Llamadas IA (AI Call Monitor)
     ...(canAccessLiveMonitor() ? [{
       icon: (
         <div className="relative">
@@ -439,7 +439,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
         </div>
       ),
-      label: 'Llamadas',
+      label: 'Llamadas IA',
       active: appMode === 'live-monitor',
       onClick: () => setAppMode('live-monitor')
     }] : []),

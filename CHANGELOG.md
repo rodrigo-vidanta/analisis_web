@@ -2,6 +2,50 @@
 
 ## Historial de Versiones
 
+### v2.1.20 (2025-12-12)
+**Descripción**: B5.0.1N6.0.0: Vistas duales en módulos de Campañas y renombrado de módulos de Llamadas
+
+---
+
+## 🎯 **RELEASE B5.0.1N6.0.0 - Vistas Duales y Mejoras de UI**
+
+### 📊 **Vistas Duales en Módulo de Campañas**
+- **Plantillas**:
+  - Vista Cards con paginación de 20 por página
+  - Vista Grid con columnas sorteables y paginación de 50 por página
+  - Vista por defecto: Grid
+  - Filtros rápidos tipo etiqueta (categorías, estados, activo/inactivo)
+- **Audiencias**:
+  - Vista Cards rediseñada con estilo similar a plantillas
+  - Vista Grid con columnas sorteables y paginación de 50 por página
+  - Vista por defecto: Grid
+  - Filtros rápidos tipo etiqueta (etapas, estados civiles, viaja con, destinos)
+  - Barra superior con gradientes acordes al diseño UI
+
+### 🎨 **Mejoras de Diseño**
+- **Cards de Audiencias**: Rediseño completo siguiendo el estilo de las cards de plantillas
+  - Barra superior con gradiente según tipo y número de prospectos
+  - Menú de acciones en hover
+  - Contador de prospectos destacado
+  - Tags de criterios mejorados
+  - Footer con metadata
+- **Gradientes ajustados**: Colores más acordes a la paleta de la UI (azul/índigo/púrpura)
+
+### 🔄 **Renombrado de Módulos**
+- **Llamadas PQNC**: Módulo de llamadas humanas (anteriormente "Llamadas" con icono humano)
+- **Llamadas IA**: Módulo de llamadas con IA (anteriormente "Llamadas" con icono robot)
+- Actualización completa en Sidebar, Header y LinearHeader
+
+### 📁 **Archivos Modificados**
+- `src/components/campaigns/plantillas/WhatsAppTemplatesManager.tsx` - Vistas duales y filtros rápidos
+- `src/components/campaigns/audiencias/AudienciasManager.tsx` - Vistas duales, cards rediseñadas y filtros rápidos
+- `src/components/Sidebar.tsx` - Renombrado módulos de llamadas
+- `src/components/Header.tsx` - Renombrado módulos de llamadas
+- `src/components/linear/LinearHeader.tsx` - Renombrado módulos de llamadas
+- `src/components/Footer.tsx` - Versión actualizada a B5.0.1N6.0.0
+
+---
+
 ### v2.1.19 (2025-12-12)
 **Descripción**: B5.0.0N6.0.0: Refactorización de módulos, migración de audiencias a BD y optimización de UI
 

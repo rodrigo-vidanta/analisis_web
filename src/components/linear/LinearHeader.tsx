@@ -150,8 +150,8 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
       case 'constructor': return 'Constructor de Agentes';
       case 'plantillas': return 'Plantillas';
       case 'natalia': return 'Natalia IA';
-      case 'pqnc': return 'Llamadas';
-      case 'live-monitor': return 'Llamadas';
+      case 'pqnc': return 'Llamadas PQNC';
+      case 'live-monitor': return 'Llamadas IA';
       case 'live-chat': return 'WhatsApp';
       case 'admin': return 'Administración';
       case 'campaigns': return 'Campañas';
