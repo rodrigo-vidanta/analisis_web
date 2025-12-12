@@ -87,7 +87,173 @@ class WhatsAppTemplatesService {
   }
 
   /**
-   * Generar ejemplos dummy para los components según las variables encontradas
+   * Generar ejemplos basados en los variable_mappings
+   */
+  private async generateExamplesFromMappings(
+    components: WhatsAppTemplateComponent[],
+    variableMappings?: VariableMapping[]
+  ): Promise<WhatsAppTemplateComponent[]> {
+    // Crear un mapa de variable_number -> ejemplo
+    const exampleMap: Record<number, string> = {};
+    
+    if (variableMappings && variableMappings.length > 0) {
+      // Procesar cada mapeo para generar ejemplos
+      await Promise.all(
+        variableMappings.map(async (mapping) => {
+          let exampleValue = '';
+          
+          if (mapping.table_name === 'system') {
+            // Variables del sistema
+            exampleValue = this.getSystemVariableValue(
+              mapping.field_name,
+              mapping.field_name === 'fecha_personalizada' ? new Date().toISOString().split('T')[0] : undefined,
+              'Ejecutivo Ejemplo'
+            );
+          } else {
+            // Variables de base de datos - obtener ejemplo real
+            const dbExample = await this.getTableExampleData(
+              mapping.table_name,
+              mapping.field_name
+            );
+            
+            if (dbExample) {
+              exampleValue = dbExample;
+            } else {
+              // Valores por defecto si no hay datos
+              const defaults: Record<string, Record<string, string>> = {
+                prospectos: {
+                  nombre: 'Juan',
+                  nombre_completo: 'Juan Pérez',
+                  apellido_paterno: 'Pérez',
+                  apellido_materno: 'García',
+                  nombre_whatsapp: 'Juan Pérez',
+                  whatsapp: '+521234567890',
+                  telefono_principal: '+521234567890',
+                  email: 'juan@example.com',
+                  titulo: 'Señor',
+                  ciudad_residencia: 'Ciudad de México',
+                  edad: '35',
+                  estado_civil: 'Casado',
+                  destino_preferencia: 'Riviera Maya',
+                  tamano_grupo: '4',
+                  cantidad_menores: '2',
+                  viaja_con: 'Familia',
+                  asesor_asignado: 'María González',
+                },
+                destinos: {
+                  nombre: 'Nuevo Nayarit',
+                  nombre_anterior: 'Nuevo Vallarta',
+                  descripcion: 'Destino de playa en la Riviera Nayarit',
+                  estado: 'Nayarit',
+                  aeropuerto_cercano: 'Aeropuerto Internacional de Puerto Vallarta',
+                  clima: 'Tropical',
+                  mejor_epoca_visitar: 'Octubre - Mayo',
+                },
+                resorts: {
+                  nombre: 'The Grand Mayan',
+                  nombre_completo: 'The Grand Mayan Nuevo Vallarta',
+                  categoria: 'The Grand Mayan',
+                  descripcion: 'Resort de lujo con vistas al océano',
+                  direccion: 'Blvd. Nuevo Vallarta',
+                  telefono: '+52 322 123 4567',
+                  habitaciones_total: '500',
+                  playa_km: '2',
+                  albercas: '12',
+                  restaurantes: '8',
+                  campo_golf_nombre: 'Nayar Golf Course',
+                },
+                llamadas_ventas: {
+                  composicion_familiar_numero: '4',
+                  destino_preferido: 'Riviera Maya',
+                  preferencia_vacaciones: 'Mixto (descanso y entretenimiento)',
+                  numero_noches: '7',
+                  mes_preferencia: 'Diciembre',
+                  estado_civil: 'Casado(a)',
+                  edad: '38',
+                  propuesta_economica_ofrecida: '$2,500 USD (pago inicial)',
+                  habitacion_ofertada: 'Suite Master',
+                  resort_ofertado: 'Grand Mayan Riviera Maya',
+                  resumen_llamada: 'Cliente interesado en vacaciones familiares',
+                  'datos_proceso.numero_personas': '4',
+                  'datos_proceso.duracion_estancia_noches': '7',
+                  'datos_proceso.discovery_completo': 'Sí',
+                  'datos_proceso.metodo_pago_discutido': 'Tarjeta de crédito',
+                },
+              };
+              
+              exampleValue = defaults[mapping.table_name]?.[mapping.field_name] || `[${mapping.display_name}]`;
+            }
+          }
+          
+          exampleMap[mapping.variable_number] = exampleValue;
+        })
+      );
+    }
+    
+    // Generar componentes con ejemplos
+    return components.map(component => {
+      if (component.type === 'BODY' && component.text) {
+        // Extraer variables del texto
+        const variables = this.extractVariables(component.text);
+        
+        // Generar ejemplos basados en los mapeos
+        const exampleValues: string[] = [];
+        variables.forEach((varNum) => {
+          if (exampleMap[varNum]) {
+            exampleValues.push(exampleMap[varNum]);
+          } else {
+            // Fallback a valores dummy si no hay mapeo
+            const dummyData = [
+              'Juan',
+              'María',
+              'Carlos',
+              'Ana',
+              'Pedro',
+              'Laura',
+              'Roberto',
+              'Sofía',
+              'Miguel',
+              'Carmen'
+            ];
+            exampleValues.push(dummyData[(varNum - 1) % dummyData.length] || `Ejemplo${varNum}`);
+          }
+        });
+        
+        // Formato requerido: body_text es un array de arrays (una fila por cada ejemplo)
+        return {
+          ...component,
+          example: {
+            body_text: [exampleValues]
+          }
+        };
+      } else if (component.type === 'HEADER' && component.format === 'TEXT' && component.text) {
+        // Para headers de texto, generar ejemplo basado en mapeos
+        const variables = this.extractVariables(component.text);
+        const exampleValues: string[] = [];
+        variables.forEach((varNum) => {
+          if (exampleMap[varNum]) {
+            exampleValues.push(exampleMap[varNum]);
+          } else {
+            const dummyData = ['Ejemplo', 'Demo', 'Test'];
+            exampleValues.push(dummyData[(varNum - 1) % dummyData.length] || `Ejemplo${varNum}`);
+          }
+        });
+        
+        return {
+          ...component,
+          example: {
+            header_text: exampleValues
+          }
+        };
+      }
+      
+      return component;
+    });
+  }
+
+  /**
+   * Generar ejemplos dummy para los components según las variables encontradas (método legacy)
+   * @deprecated Usar generateExamplesFromMappings en su lugar
    */
   private generateDummyExamples(components: WhatsAppTemplateComponent[]): WhatsAppTemplateComponent[] {
     return components.map(component => {
@@ -172,8 +338,11 @@ class WhatsAppTemplatesService {
    */
   private async createTemplateInUChat(input: CreateTemplateInput): Promise<any> {
     try {
-      // Generar ejemplos dummy para los components
-      const componentsWithExamples = this.generateDummyExamples(input.components);
+      // Generar ejemplos basados en los variable_mappings
+      const componentsWithExamples = await this.generateExamplesFromMappings(
+        input.components,
+        input.variable_mappings
+      );
       
       // Obtener datos completos de las audiencias seleccionadas
       const audienceIds = input.classification?.audience_ids || [];
@@ -185,6 +354,8 @@ class WhatsAppTemplatesService {
         category: input.category,
         components: componentsWithExamples,
         description: input.description || undefined,
+        // Incluir variable_mappings para que el webhook los guarde en BD
+        variable_mappings: input.variable_mappings || [],
         // Array de IDs de audiencias para referencia
         audience_ids: audienceIds,
         // Array separado con datos completos de las audiencias
@@ -201,11 +372,6 @@ class WhatsAppTemplatesService {
         })),
       };
 
-      console.log('📤 Enviando plantilla con audiencias:', {
-        name: payload.name,
-        audience_ids: payload.audience_ids,
-        audiences_count: payload.audiences.length,
-      });
 
       // Crear AbortController para timeout de 15 segundos
       const controller = new AbortController();
@@ -287,10 +453,38 @@ class WhatsAppTemplatesService {
   async createTemplate(input: CreateTemplateInput): Promise<WhatsAppTemplate> {
     // Crear a través del webhook (maneja uChat y BD)
     const uchatData = await this.createTemplateInUChat(input);
-    console.log('✅ Template creado a través del webhook:', uchatData);
     
-    // El webhook devuelve los datos completos de la plantilla
-    // Incluir variable_mappings en la respuesta si no vienen del webhook
+    // El webhook crea el registro en BD, pero puede que no incluya variable_mappings
+    // Actualizar el registro en BD local con los variable_mappings si existen
+    if (input.variable_mappings && input.variable_mappings.length > 0 && uchatData?.id) {
+      try {
+        const { error: updateError } = await analysisSupabase
+          .from('whatsapp_templates')
+          .update({
+            variable_mappings: input.variable_mappings,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', uchatData.id);
+        
+        if (updateError) {
+          console.error('Error actualizando variable_mappings en BD:', updateError);
+          // No lanzar error, solo loguear, ya que la plantilla se creó exitosamente
+        }
+      } catch (error) {
+        console.error('Error actualizando variable_mappings en BD:', error);
+        // No lanzar error, solo loguear
+      }
+    }
+    
+    // Obtener el template completo desde BD para asegurar que tenemos todos los datos
+    if (uchatData?.id) {
+      const fullTemplate = await this.getTemplateById(uchatData.id);
+      if (fullTemplate) {
+        return fullTemplate;
+      }
+    }
+    
+    // Si no se puede obtener desde BD, retornar con variable_mappings del input
     return {
       ...uchatData,
       variable_mappings: input.variable_mappings || [],
@@ -395,10 +589,15 @@ class WhatsAppTemplatesService {
       throw new Error('Template no encontrado');
     }
 
-    // Si tiene components, generar ejemplos dummy
+    // Si tiene components, generar ejemplos basados en variable_mappings
     let updatePayload = { ...input };
     if (input.components) {
-      const componentsWithExamples = this.generateDummyExamples(input.components);
+      // Usar variable_mappings del input o del template actual
+      const variableMappings = input.variable_mappings || currentTemplate.variable_mappings;
+      const componentsWithExamples = await this.generateExamplesFromMappings(
+        input.components,
+        variableMappings
+      );
       updatePayload = { ...input, components: componentsWithExamples };
     }
 
@@ -407,17 +606,13 @@ class WhatsAppTemplatesService {
 
     if (!currentTemplate.uchat_synced) {
       // Si NO está sincronizado, primero verificar si existe en uChat
-      console.log('🔍 Template no sincronizado, verificando si existe en uChat...');
       const existingTemplate = await this.getTemplateFromUChat(id);
       
       if (existingTemplate) {
         // Existe en uChat, actualizar
-        console.log('✅ Template encontrado en uChat, actualizando...');
         uchatData = await this.updateTemplateInUChat(id, updatePayload);
-        console.log('✅ Template actualizado a través del webhook');
       } else {
         // No existe en uChat, crear como nueva
-        console.log('➕ Template no existe en uChat, creando como nueva...');
         // Preparar payload para creación (necesita name, language, category, components)
         const createPayload: CreateTemplateInput = {
           name: currentTemplate.name,
@@ -428,19 +623,46 @@ class WhatsAppTemplatesService {
         };
         
         uchatData = await this.createTemplateInUChat(createPayload);
-        console.log('✅ Template creado a través del webhook');
       }
     } else {
       // Ya está sincronizado, solo actualizar
       uchatData = await this.updateTemplateInUChat(id, updatePayload);
-      console.log('✅ Template actualizado a través del webhook');
     }
 
-    // El webhook devuelve los datos completos de la plantilla actualizada
-    // Preservar variable_mappings si no vienen del webhook
+    // El webhook actualiza el registro en BD, pero puede que no incluya variable_mappings
+    // Actualizar el registro en BD local con los variable_mappings si existen
+    const finalVariableMappings = input.variable_mappings !== undefined ? input.variable_mappings : currentTemplate.variable_mappings;
+    
+    if (finalVariableMappings && finalVariableMappings.length > 0) {
+      try {
+        const { error: updateError } = await analysisSupabase
+          .from('whatsapp_templates')
+          .update({
+            variable_mappings: finalVariableMappings,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+        
+        if (updateError) {
+          console.error('Error actualizando variable_mappings en BD:', updateError);
+          // No lanzar error, solo loguear
+        }
+      } catch (error) {
+        console.error('Error actualizando variable_mappings en BD:', error);
+        // No lanzar error, solo loguear
+      }
+    }
+    
+    // Obtener el template completo desde BD para asegurar que tenemos todos los datos
+    const fullTemplate = await this.getTemplateById(id);
+    if (fullTemplate) {
+      return fullTemplate;
+    }
+    
+    // Si no se puede obtener desde BD, retornar con variable_mappings preservados
     return {
       ...uchatData,
-      variable_mappings: input.variable_mappings !== undefined ? input.variable_mappings : currentTemplate.variable_mappings,
+      variable_mappings: finalVariableMappings,
     } as WhatsAppTemplate;
   }
 
@@ -530,9 +752,7 @@ class WhatsAppTemplatesService {
             .eq('id', id);
 
           if (fallbackError) throw fallbackError;
-          console.log('✅ Template marcado como inactivo en BD local (fallback)');
         } else {
-          console.log('✅ Template marcado como eliminado en BD local (fallback)');
         }
       } catch (fallbackError: any) {
         console.error('❌ Error en fallback de eliminación:', fallbackError);
@@ -548,7 +768,6 @@ class WhatsAppTemplatesService {
    */
   async toggleTemplateActive(id: string, isActive: boolean): Promise<WhatsAppTemplate> {
     try {
-      console.log(`🔄 Cambiando estado de plantilla ${id} a ${isActive ? 'activa' : 'inactiva'} (solo BD local)`);
       
       const { data, error } = await analysisSupabase
         .from('whatsapp_templates')
@@ -564,7 +783,6 @@ class WhatsAppTemplatesService {
         throw error;
       }
 
-      console.log(`✅ Estado de plantilla ${id} actualizado en BD local`);
       return data;
     } catch (error: any) {
       console.error(`Error cambiando estado de plantilla ${id}:`, error);
@@ -695,19 +913,15 @@ class WhatsAppTemplatesService {
         // Formatear fecha personalizada en formato "11 de abril" (sin año)
         if (customValue && customValue.trim() !== '') {
           // customValue viene en formato "YYYY-MM-DD" del input date
-          console.log('🔧 getSystemVariableValue - fecha_personalizada recibida:', customValue);
           const customDate = new Date(customValue + 'T00:00:00'); // Agregar hora para evitar problemas de zona horaria
-          console.log('🔧 Fecha parseada:', customDate, 'isValid:', !isNaN(customDate.getTime()));
           if (!isNaN(customDate.getTime())) {
             const formatted = customDate.toLocaleDateString('es-MX', { 
               month: 'long', 
               day: 'numeric' 
             });
-            console.log('🔧 Fecha formateada:', formatted);
             return formatted;
           }
         }
-        console.log('⚠️ fecha_personalizada sin valor válido, retornando placeholder');
         return '{{fecha_por_usuario}}';
       case 'hora_actual':
         // Formato: "4:30pm"
@@ -890,7 +1104,12 @@ class WhatsAppTemplatesService {
         }
         
         if (recordValue !== null && recordValue !== undefined) {
-          value = recordValue;
+          // Si es un array, tomar el primer elemento
+          if (Array.isArray(recordValue) && recordValue.length > 0) {
+            value = recordValue[0];
+          } else {
+            value = recordValue;
+          }
           break;
         }
       }
@@ -900,10 +1119,7 @@ class WhatsAppTemplatesService {
       }
       
       // Convertir a string si es necesario
-      if (Array.isArray(value)) {
-        return value.join(', ');
-      }
-      
+      // Nota: Los arrays ya fueron procesados arriba (se toma el primer elemento)
       if (typeof value === 'boolean') {
         return value ? 'Sí' : 'No';
       }
@@ -947,7 +1163,6 @@ class WhatsAppTemplatesService {
         const varNum = parseInt(key, 10);
         if (customVariables[varNum] && customVariables[varNum].trim() !== '') {
           exampleValues[varNum] = customVariables[varNum];
-          console.log('✅ Usando customVariable para variable', varNum, ':', customVariables[varNum]);
         }
       });
     }
@@ -959,7 +1174,6 @@ class WhatsAppTemplatesService {
     allVariablesInText.forEach(varNum => {
       // Si ya tiene un valor (de customVariables), no sobrescribir
       if (exampleValues[varNum]) {
-        console.log('⏭️ Variable', varNum, 'ya tiene valor, omitiendo procesamiento del sistema');
         return;
       }
       
@@ -967,7 +1181,6 @@ class WhatsAppTemplatesService {
       const systemMapping = systemVariableMappings.find(m => m.variable_number === varNum);
       if (systemMapping) {
         // Solo usar custom_value del mapping si no hay valor en customVariables
-        console.log('🔄 Procesando variable del sistema', varNum, 'con field_name:', systemMapping.field_name);
         exampleValues[varNum] = this.getSystemVariableValue(
           systemMapping.field_name,
           systemMapping.custom_value,
@@ -982,13 +1195,11 @@ class WhatsAppTemplatesService {
         template.variable_mappings.map(async (mapping) => {
           // Si ya tiene valor (de customVariables o sistema), no procesar de nuevo
           if (exampleValues[mapping.variable_number]) {
-            console.log('⏭️ Mapping', mapping.variable_number, 'ya tiene valor, omitiendo');
             return;
           }
           
           // Si es variable del sistema, ya se procesó arriba (o debería estar en customVariables)
           if (mapping.table_name === 'system') {
-            console.log('⏭️ Mapping', mapping.variable_number, 'es del sistema, omitiendo procesamiento de BD');
             return;
           }
 
@@ -1105,7 +1316,6 @@ class WhatsAppTemplatesService {
    */
   async syncTemplatesFromUChat(): Promise<{ synced: number; templates: any[] }> {
     try {
-      console.log('🔄 Llamando al webhook de sincronización global...');
       const response = await fetch(
         `${WEBHOOK_BASE_URL}/webhook/whatsapp-templates?action=sync`,
         {
@@ -1119,7 +1329,6 @@ class WhatsAppTemplatesService {
       );
 
       const responseText = await response.text();
-      console.log('📥 Respuesta raw del webhook:', responseText);
       
       let result;
       
@@ -1128,8 +1337,6 @@ class WhatsAppTemplatesService {
       } catch {
         throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
       }
-
-      console.log('📦 Resultado parseado:', result);
 
       if (!response.ok || !result.success) {
         throw new Error(result.error || result.message || `Error ${response.status}`);
@@ -1140,13 +1347,11 @@ class WhatsAppTemplatesService {
       
       // Si data tiene la estructura esperada { synced, templates }
       if (data && typeof data.synced === 'number' && Array.isArray(data.templates)) {
-        console.log(`✅ Sincronización exitosa: ${data.synced} plantilla(s)`);
         return data;
       }
       
       // Si data es un array de templates
       if (Array.isArray(data)) {
-        console.log(`✅ Sincronización exitosa: ${data.length} plantilla(s)`);
         return {
           synced: data.length,
           templates: data
@@ -1155,7 +1360,6 @@ class WhatsAppTemplatesService {
       
       // Si data es un objeto individual (template único)
       if (data && typeof data === 'object' && data.id) {
-        console.log(`✅ Sincronización exitosa: 1 plantilla`);
         return {
           synced: 1,
           templates: [data]
@@ -1181,7 +1385,6 @@ class WhatsAppTemplatesService {
    */
   async syncSingleTemplateFromUChat(templateId: string): Promise<WhatsAppTemplate> {
     try {
-      console.log(`🔄 Sincronizando plantilla individual desde uChat: ${templateId}`);
       
       // Obtener la plantilla actual de la BD para preservar variable_mappings
       const currentTemplate = await this.getTemplateById(templateId);
@@ -1220,7 +1423,6 @@ class WhatsAppTemplatesService {
         throw error;
       }
 
-      console.log(`✅ Plantilla ${templateId} sincronizada exitosamente`);
       return data;
     } catch (error: any) {
       console.error(`Error sincronizando plantilla individual ${templateId}:`, error);

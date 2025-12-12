@@ -50,7 +50,7 @@ import {
   ESTADOS_CIVILES,
   VIAJA_CON_OPTIONS,
 } from '../../types/whatsappTemplates';
-import { Users, Heart, User as UserIcon, UserPlus, Users2, Image, MapPin, Baby } from 'lucide-react';
+import { Users, Heart, User as UserIcon, UserPlus, Users2, Image, Baby } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { ErrorModal } from '../shared/ErrorModal';
 import { DeleteTemplateConfirmationModal } from '../shared/DeleteTemplateConfirmationModal';
@@ -3056,6 +3056,60 @@ const PreviewModal: React.FC<{ isOpen: boolean; onClose: () => void; template: W
 
   if (!template) return null;
 
+  // Obtener iconos según el tipo de tabla
+  const getTableIcon = (tableName: string) => {
+    switch (tableName) {
+      case 'prospectos':
+        return <User className="w-4 h-4" />;
+      case 'destinos':
+        return <MapPin className="w-4 h-4" />;
+      case 'resorts':
+        return <Building2 className="w-4 h-4" />;
+      case 'system':
+        return <Sparkles className="w-4 h-4" />;
+      case 'llamadas_ventas':
+        return <Phone className="w-4 h-4" />;
+      default:
+        return <Database className="w-4 h-4" />;
+    }
+  };
+
+  // Obtener color según el tipo de tabla
+  const getTableColor = (tableName: string) => {
+    switch (tableName) {
+      case 'prospectos':
+        return 'text-blue-600 dark:text-blue-400';
+      case 'destinos':
+        return 'text-green-600 dark:text-green-400';
+      case 'resorts':
+        return 'text-purple-600 dark:text-purple-400';
+      case 'system':
+        return 'text-orange-600 dark:text-orange-400';
+      case 'llamadas_ventas':
+        return 'text-pink-600 dark:text-pink-400';
+      default:
+        return 'text-gray-600 dark:text-gray-400';
+    }
+  };
+
+  // Obtener nombre amigable de la tabla
+  const getTableDisplayName = (tableName: string) => {
+    switch (tableName) {
+      case 'prospectos':
+        return 'Prospectos';
+      case 'destinos':
+        return 'Destinos';
+      case 'resorts':
+        return 'Resorts';
+      case 'system':
+        return 'Sistema';
+      case 'llamadas_ventas':
+        return 'Discovery (Llamadas)';
+      default:
+        return tableName;
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -3076,12 +3130,17 @@ const PreviewModal: React.FC<{ isOpen: boolean; onClose: () => void; template: W
             onClick={(e) => e.stopPropagation()}
             className="fixed inset-0 flex items-center justify-center p-4 z-50"
           >
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800">
               <div className="px-8 pt-8 pb-6 border-b border-gray-100 dark:border-gray-800">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Vista Previa
-                  </h3>
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      Vista Previa
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {template.name}
+                    </p>
+                  </div>
                   <button
                     onClick={onClose}
                     className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -3097,10 +3156,83 @@ const PreviewModal: React.FC<{ isOpen: boolean; onClose: () => void; template: W
                     <span className="ml-3 text-gray-600 dark:text-gray-400">Cargando datos reales...</span>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6">
-                    <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                      {preview || 'No hay contenido para previsualizar'}
-                    </p>
+                  <div className="space-y-6">
+                    {/* Vista previa del mensaje */}
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider">
+                          Mensaje
+                        </span>
+                      </div>
+                      <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
+                        {preview || 'No hay contenido para previsualizar'}
+                      </p>
+                    </div>
+
+                    {/* Mapeo de variables */}
+                    {template.variable_mappings && template.variable_mappings.length > 0 && (
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center space-x-2 mb-4">
+                          <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
+                          <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                            Mapeo de Variables
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {template.variable_mappings
+                            .sort((a, b) => a.variable_number - b.variable_number)
+                            .map((mapping) => (
+                              <motion.div
+                                key={mapping.variable_number}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: mapping.variable_number * 0.05 }}
+                                className="bg-white dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-semibold">
+                                        {`{{${mapping.variable_number}}}`}
+                                      </span>
+                                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {mapping.display_name}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2 text-xs text-gray-600 dark:text-gray-400">
+                                      <span className={`flex items-center space-x-1 ${getTableColor(mapping.table_name)}`}>
+                                        {getTableIcon(mapping.table_name)}
+                                        <span>{getTableDisplayName(mapping.table_name)}</span>
+                                      </span>
+                                      <span className="text-gray-400">•</span>
+                                      <span className="font-mono text-gray-500 dark:text-gray-500">
+                                        {mapping.field_name}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {mapping.is_required && (
+                                    <span className="text-xs px-2 py-1 rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-medium">
+                                      Requerido
+                                    </span>
+                                  )}
+                                </div>
+                              </motion.div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(!template.variable_mappings || template.variable_mappings.length === 0) && (
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-800">
+                        <div className="flex items-center space-x-2">
+                          <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                          <span className="text-sm text-yellow-700 dark:text-yellow-400">
+                            Esta plantilla no tiene variables mapeadas
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 italic">
