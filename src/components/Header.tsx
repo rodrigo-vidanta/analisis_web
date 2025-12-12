@@ -324,16 +324,17 @@ const Header = ({
                 <div>
                   <h1 className="text-lg font-medium text-slate-900 dark:text-white capitalize">
                     {appMode === 'natalia' ? 'Análisis Natalia IA' :
-                     appMode === 'pqnc' ? 'Análisis PQNC Humans' :
-                     appMode === 'live-monitor' ? 'AI Call Monitor' :
+                     appMode === 'pqnc' ? 'Llamadas' :
+                     appMode === 'live-monitor' ? 'Llamadas' :
                      appMode === 'admin' ? 'Administración' :
-                     appMode === 'live-chat' ? 'AI Chat Monitor' :
-                     appMode === 'ai-models' ? 'AI Models' :
-                     appMode === 'aws-manager' ? 'AWS Manager' :
-                     appMode === 'log-server' ? 'Log Server' :
+                     appMode === 'live-chat' ? 'WhatsApp' :
+                     appMode === 'ai-models' ? 'Modelos LLM' :
+                     appMode === 'aws-manager' ? 'Administración AWS' :
+                     appMode === 'log-server' ? 'Logs' :
                      appMode === 'prospectos' ? 'Prospectos' :
-                     appMode === 'scheduled-calls' ? 'Llamadas Programadas' :
-                     appMode === 'operative-dashboard' ? 'Dashboard Operativo' :
+                     appMode === 'scheduled-calls' ? 'Programación' :
+                     appMode === 'operative-dashboard' ? 'Inicio' :
+                     appMode === 'campaigns' ? 'Campañas' :
                      appMode === 'direccion' ? 'Mis Tareas' : 'PQNC AI Platform'}
                   </h1>
                   {appMode === 'live-monitor' && (
@@ -452,7 +453,7 @@ const Header = ({
                         ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md'
                         : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                     }`}
-                    title="AWS Manager - Gestión de Infraestructura"
+                    title="Administración AWS - Gestión de Infraestructura"
                   >
                     <div className="flex items-center space-x-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -331,7 +331,17 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     
     // Cargar datos de llamadas_ventas si hay mapeos que lo requieren
     let llamadasVentasData: any = null;
-    const needsLlamadasVentas = template.variable_mappings?.some(m => m.table_name === 'llamadas_ventas');
+    // Normalizar variable_mappings si viene como objeto
+    let variableMappings: any[] = [];
+    if (template.variable_mappings) {
+      if (Array.isArray(template.variable_mappings)) {
+        variableMappings = template.variable_mappings;
+      } else if (typeof template.variable_mappings === 'object' && 'mappings' in template.variable_mappings) {
+        const mappingsObj = template.variable_mappings as { mappings?: any[] };
+        variableMappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
+      }
+    }
+    const needsLlamadasVentas = variableMappings.some(m => m.table_name === 'llamadas_ventas');
     if (needsLlamadasVentas && prospectoData?.id) {
       try {
         const { data, error } = await analysisSupabase
@@ -1119,51 +1129,103 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                 </div>
 
                 {/* Variables */}
-                <div className="space-y-4">
-                  <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Variables de la Plantilla
-                  </h5>
+                {(() => {
+                  // Normalizar variable_mappings una sola vez
+                  let normalizedMappings: any[] = [];
+                  if (selectedTemplate.variable_mappings) {
+                    if (Array.isArray(selectedTemplate.variable_mappings)) {
+                      normalizedMappings = selectedTemplate.variable_mappings;
+                    } else if (typeof selectedTemplate.variable_mappings === 'object' && 'mappings' in selectedTemplate.variable_mappings) {
+                      const mappingsObj = selectedTemplate.variable_mappings as { mappings?: any[] };
+                      normalizedMappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
+                    }
+                  }
                   
-                  {/* Si hay variable_mappings, usarlos */}
-                  {selectedTemplate.variable_mappings && selectedTemplate.variable_mappings.length > 0 ? (
-                    selectedTemplate.variable_mappings.map((mapping) => {
+                  // Si no hay variable_mappings, extraer variables del texto
+                  if (normalizedMappings.length === 0) {
+                    const allVariablesInText: number[] = [];
+                    selectedTemplate.components.forEach(component => {
+                      if (component.text) {
+                        const vars = whatsappTemplatesService.extractVariables(component.text);
+                        vars.forEach(v => {
+                          if (!allVariablesInText.includes(v)) {
+                            allVariablesInText.push(v);
+                          }
+                        });
+                      }
+                    });
+                    normalizedMappings = allVariablesInText.map(varNum => ({
+                      variable_number: varNum,
+                      display_name: `Variable ${varNum}`,
+                      table_name: 'prospectos',
+                    }));
+                  }
+                  
+                  const editableMappings = normalizedMappings.filter((mapping: any) => {
                     const customVar = customVariables[mapping.variable_number];
-                    if (!customVar) return null;
+                    return customVar && (
+                      (mapping.table_name === 'system' && mapping.field_name === 'fecha_personalizada') ||
+                      (mapping.table_name === 'system' && mapping.field_name === 'hora_personalizada') ||
+                      mapping.table_name === 'destinos' ||
+                      mapping.table_name === 'resorts'
+                    );
+                  });
+                  
+                  return (
+                    <div className="space-y-4">
+                      <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Variables de la Plantilla
+                      </h5>
+                      
+                      {/* Mostrar variables como tags compactos */}
+                      <div className="flex flex-wrap gap-2">
+                        {normalizedMappings.map((mapping: any) => {
+                          const customVar = customVariables[mapping.variable_number];
+                          if (!customVar) return null;
 
-                    return (
-                      <div
-                        key={mapping.variable_number}
-                        className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                      >
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {`${mapping.display_name} ({{${mapping.variable_number}}})`}
-                        </label>
+                          // Obtener el valor a mostrar
+                          let displayValue = '';
+                          if (mapping.table_name === 'system') {
+                            if (mapping.field_name === 'fecha_actual') {
+                              displayValue = whatsappTemplatesService.getSystemVariableValue('fecha_actual', undefined, user?.full_name);
+                            } else if (mapping.field_name === 'hora_actual') {
+                              displayValue = whatsappTemplatesService.getSystemVariableValue('hora_actual', undefined, user?.full_name);
+                            } else if (mapping.field_name === 'ejecutivo_nombre') {
+                              displayValue = customVar.value || '';
+                            } else {
+                              displayValue = customVar.value || '';
+                            }
+                          } else {
+                            displayValue = customVar.value || 'No disponible';
+                          }
 
-                        {mapping.table_name === 'prospectos' || mapping.table_name === 'llamadas_ventas' ? (
-                          // Variables del prospecto o discovery (no editables)
-                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 px-3 py-2 rounded-lg">
-                            <User className="w-4 h-4" />
-                            <span>{customVar.value || 'No disponible'}</span>
-                          </div>
-                        ) : mapping.table_name === 'system' && mapping.field_name === 'ejecutivo_nombre' ? (
-                          // Variable de ejecutivo (no editable)
-                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 px-3 py-2 rounded-lg">
-                            <User className="w-4 h-4" />
-                            <span>{customVar.value}</span>
-                          </div>
-                                        ) : mapping.table_name === 'system' && mapping.field_name === 'fecha_actual' ? (
-                          // Fecha actual: mostrar automáticamente formateada
-                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 px-3 py-2 rounded-lg">
-                            <Calendar className="w-4 h-4" />
-                            <span>
-                              {whatsappTemplatesService.getSystemVariableValue(
-                                'fecha_actual',
-                                undefined,
-                                user?.full_name
-                              )}
+                          return (
+                            <span
+                              key={mapping.variable_number}
+                              className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg"
+                              title={`{{${mapping.variable_number}}}: ${displayValue}`}
+                            >
+                              {mapping.display_name}
                             </span>
-                          </div>
-                        ) : mapping.table_name === 'system' && mapping.field_name === 'fecha_personalizada' ? (
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Campos editables para fecha/hora personalizada, destinos y resorts */}
+                      {editableMappings.length > 0 && editableMappings.map((mapping: any) => {
+                        const customVar = customVariables[mapping.variable_number];
+                        if (!customVar) return null;
+
+                        return (
+                          <div
+                            key={mapping.variable_number}
+                            className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700"
+                          >
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                              {`${mapping.display_name} ({{${mapping.variable_number}}})`}
+                            </label>
+
+                        {mapping.table_name === 'system' && mapping.field_name === 'fecha_personalizada' ? (
                           // Fecha personalizada: selector de calendario
                           <input
                             type="date"
@@ -1176,18 +1238,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                             }}
                             className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                           />
-                        ) : mapping.table_name === 'system' && mapping.field_name === 'hora_actual' ? (
-                          // Hora actual: mostrar automáticamente formateada
-                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 px-3 py-2 rounded-lg">
-                            <Clock className="w-4 h-4" />
-                            <span>
-                              {whatsappTemplatesService.getSystemVariableValue(
-                                'hora_actual',
-                                undefined,
-                                user?.full_name
-                              )}
-                            </span>
-                          </div>
                         ) : mapping.table_name === 'system' && mapping.field_name === 'hora_personalizada' ? (
                           // Hora personalizada: selector de hora
                           <input
@@ -1286,209 +1336,16 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                         ) : null}
                       </div>
                     );
-                  })
-                  ) : (
-                    // Si no hay variable_mappings, mostrar campos simples para todas las variables del texto
-                    (() => {
-                      const allVariablesInText: number[] = [];
-                      selectedTemplate.components.forEach(component => {
-                        if (component.text) {
-                          const vars = whatsappTemplatesService.extractVariables(component.text);
-                          vars.forEach(v => {
-                            if (!allVariablesInText.includes(v)) {
-                              allVariablesInText.push(v);
-                            }
-                          });
-                        }
-                      });
-                      
-                      return allVariablesInText.map(varNum => {
-                        const customVar = customVariables[varNum] || { value: '', type: 'prospecto' };
-                        
-                        // Variables del sistema: fecha_actual, fecha_personalizada, hora_actual, hora_personalizada, ejecutivo
-                        if (customVar.type === 'fecha_actual') {
-                          return (
-                            <div
-                              key={varNum}
-                              className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                            >
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Fecha Actual {`({{${varNum}}})`}
-                              </label>
-                              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 px-3 py-2 rounded-lg">
-                                <Calendar className="w-4 h-4" />
-                                <span>
-                                  {whatsappTemplatesService.getSystemVariableValue(
-                                    'fecha_actual',
-                                    undefined,
-                                    user?.full_name
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        }
-                        
-                        if (customVar.type === 'fecha_personalizada') {
-                          return (
-                            <div
-                              key={varNum}
-                              className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                            >
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Fecha Personalizada {`({{${varNum}}})`}
-                              </label>
-                              <input
-                                type="date"
-                                value={customVar.value || ''}
-                                onChange={(e) => {
-                                  setCustomVariables({
-                                    ...customVariables,
-                                    [varNum]: { ...customVar, value: e.target.value }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                              />
-                            </div>
-                          );
-                        }
-                        
-                        if (customVar.type === 'hora_actual') {
-                          return (
-                            <div
-                              key={varNum}
-                              className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                            >
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Hora Actual {`({{${varNum}}})`}
-                              </label>
-                              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 px-3 py-2 rounded-lg">
-                                <Clock className="w-4 h-4" />
-                                <span>
-                                  {whatsappTemplatesService.getSystemVariableValue(
-                                    'hora_actual',
-                                    undefined,
-                                    user?.full_name
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        }
-                        
-                        if (customVar.type === 'hora_personalizada') {
-                          return (
-                            <div
-                              key={varNum}
-                              className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                            >
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Hora Personalizada {`({{${varNum}}})`}
-                              </label>
-                              <input
-                                type="time"
-                                value={customVar.value || ''}
-                                onChange={(e) => {
-                                  setCustomVariables({
-                                    ...customVariables,
-                                    [varNum]: { ...customVar, value: e.target.value }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                              />
-                            </div>
-                          );
-                        }
-                        
-                        if (customVar.type === 'ejecutivo') {
-                          return (
-                            <div
-                              key={varNum}
-                              className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                            >
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Ejecutivo {`({{${varNum}}})`}
-                              </label>
-                              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 px-3 py-2 rounded-lg">
-                                <User className="w-4 h-4" />
-                                <span>{customVar.value || user?.full_name || user?.displayName || 'No disponible'}</span>
-                              </div>
-                            </div>
-                          );
-                        }
-                        
-                        // Si es variable de tipo destino, mostrar selector de destinos
-                        if (customVar.type === 'destino') {
-                          return (
-                            <div
-                              key={varNum}
-                              className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                            >
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Destino Preferido {`({{${varNum}}})`}
-                              </label>
-                              <select
-                                value={customVar.destinoId || ''}
-                                onChange={(e) => {
-                                  const destinoId = e.target.value;
-                                  const destino = destinos.find(d => d.id === destinoId);
-                                  setCustomVariables({
-                                    ...customVariables,
-                                    [varNum]: {
-                                      ...customVar,
-                                      destinoId,
-                                      value: destino?.nombre || '',
-                                      type: 'destino'
-                                    }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                              >
-                                <option value="">Selecciona un destino</option>
-                                {destinos.map((destino) => (
-                                  <option key={destino.id} value={destino.id}>
-                                    {destino.nombre}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          );
-                        }
-                        
-                        // Campo de texto normal para otras variables
-                        return (
-                          <div
-                            key={varNum}
-                            className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                          >
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              {varNum === 1 ? `Título ({{${varNum}}})` : varNum === 2 ? `Apellido Paterno ({{${varNum}}})` : varNum === 3 ? `Apellido Materno ({{${varNum}}})` : varNum === 4 ? `Email ({{${varNum}}})` : `Variable {{${varNum}}}`}
-                            </label>
-                            <input
-                              type="text"
-                              value={customVar.value || ''}
-                              onChange={(e) => {
-                                setCustomVariables({
-                                  ...customVariables,
-                                  [varNum]: {
-                                    ...customVar,
-                                    value: e.target.value,
-                                    type: customVar.type || 'prospecto'
-                                  }
-                                });
-                              }}
-                              placeholder={varNum === 1 ? 'Ej: Sr., Sra., Dr.' : varNum === 2 ? 'Apellido paterno del prospecto' : varNum === 3 ? 'Apellido materno' : varNum === 4 ? 'Email del prospecto' : `Ingresa el valor para {{${varNum}}}`}
-                              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                            />
-                          </div>
-                        );
-                      });
-                    })()
-                  )}
-                </div>
+                  })}
+                    </div>
+                  );
+                })()}
 
-                {/* Preview */}
-                {preview && (
+                {/* Vista Previa */}
+                <div className="space-y-4">
+                  <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Vista Previa
+                  </h5>
                   <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -1500,15 +1357,17 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                       <div className="flex items-center justify-center py-4">
                         <Loader2 className="w-5 h-5 animate-spin text-green-500" />
                       </div>
+                    ) : preview ? (
+                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                        {preview}
+                      </p>
                     ) : (
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-                        <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                          {preview}
-                        </p>
-                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                        La vista previa aparecerá aquí...
+                      </p>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>

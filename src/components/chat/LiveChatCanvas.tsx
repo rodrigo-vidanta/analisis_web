@@ -40,7 +40,9 @@ import {
   Paperclip,
   Flag,
   Loader2,
-  Trash2
+  Trash2,
+  Filter,
+  Check
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
@@ -65,6 +67,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
+import { PROSPECTO_ETAPAS } from '../../types/whatsappTemplates';
 import { useAppStore } from '../../stores/appStore';
 import { ManualCallModal } from '../shared/ManualCallModal';
 import BotPauseButton from './BotPauseButton';
@@ -552,6 +555,38 @@ const LiveChatCanvas: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  
+  // Estado para filtro por etapa (con persistencia en localStorage)
+  const [selectedEtapas, setSelectedEtapas] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('livechat-etapas-filter');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return new Set(parsed);
+      } catch {
+        return new Set(); // Si hay error, todas las etapas seleccionadas (vacío = todas)
+      }
+    }
+    return new Set(); // Vacío = todas las etapas por defecto
+  });
+  
+  const [showEtapasFilter, setShowEtapasFilter] = useState(false);
+  const etapasFilterRef = useRef<HTMLDivElement>(null);
+  const [prospectosDataVersion, setProspectosDataVersion] = useState(0); // Para forzar re-render cuando cambien los prospectos
+  
+  // Cerrar dropdown de etapas al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (etapasFilterRef.current && !etapasFilterRef.current.contains(event.target as Node)) {
+        setShowEtapasFilter(false);
+      }
+    };
+    
+    if (showEtapasFilter) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showEtapasFilter]);
   const [newMessage, setNewMessage] = useState('');
   const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
   const [prospectNameById, setProspectNameById] = useState<{ [id: string]: string }>({});
@@ -619,7 +654,7 @@ const LiveChatCanvas: React.FC = () => {
   // Estado de distribución de columnas (guardado en localStorage)
   const [columnWidths, setColumnWidths] = useState(() => {
     const saved = localStorage.getItem('livechat-column-widths');
-    return saved ? JSON.parse(saved) : { conversations: 320, blocks: 280 };
+    return saved ? JSON.parse(saved) : { conversations: 320, blocks: 70 };
   });
 
   // Estado para menú contextual de asignación
@@ -723,7 +758,7 @@ const LiveChatCanvas: React.FC = () => {
   // Ref para debounce timer de scroll
   const scrollDebounceTimerRef = useRef<number | null>(null);
   
-  // Ref para almacenar datos de prospectos (coordinacion_id, ejecutivo_id) para acceso desde handlers
+  // Ref para almacenar datos de prospectos (coordinacion_id, ejecutivo_id, etapa) para acceso desde handlers
   const prospectosDataRef = useRef<Map<string, { 
     coordinacion_id?: string; 
     ejecutivo_id?: string;
@@ -734,6 +769,7 @@ const LiveChatCanvas: React.FC = () => {
     whatsapp?: string | null;
     requiere_atencion_humana?: boolean;
     motivo_handoff?: string | null;
+    etapa?: string | null;
   }>>(new Map());
 
   const [metrics, setMetrics] = useState({
@@ -2402,7 +2438,7 @@ const LiveChatCanvas: React.FC = () => {
           conversations: newWidth
         });
       } else if (resizeType === 'blocks') {
-        const newWidth = Math.max(200, Math.min(400, startWidths.blocks + deltaX));
+        const newWidth = Math.max(70, Math.min(400, startWidths.blocks + deltaX));
         setColumnWidths({
           ...columnWidths,
           blocks: newWidth
@@ -2468,7 +2504,7 @@ const LiveChatCanvas: React.FC = () => {
         prospectoIds.size > 0
           ? analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, email, whatsapp, requiere_atencion_humana, motivo_handoff')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa')
               .in('id', Array.from(prospectoIds))
               .then(({ data }) => {
                 const map = new Map<string, { 
@@ -2481,6 +2517,7 @@ const LiveChatCanvas: React.FC = () => {
                   whatsapp?: string | null;
                   requiere_atencion_humana?: boolean;
                   motivo_handoff?: string | null;
+                  etapa?: string | null;
                 }>();
                 (data || []).forEach(p => {
                   map.set(p.id, { 
@@ -2493,12 +2530,15 @@ const LiveChatCanvas: React.FC = () => {
                     whatsapp: p.whatsapp,
                     requiere_atencion_humana: p.requiere_atencion_humana || false,
                     motivo_handoff: p.motivo_handoff || null,
+                    etapa: p.etapa || null,
                   });
                   if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
                   if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
                 });
                 // Guardar en ref para acceso desde handlers
                 prospectosDataRef.current = map;
+                // Forzar actualización del filtro cuando se carguen los prospectos
+                setProspectosDataVersion(prev => prev + 1);
                 return map;
               })
               .catch(() => new Map())
@@ -4154,6 +4194,25 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
+  // Helper para extraer día y mes de una fecha
+  const getDayAndMonth = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return { day: 'HOY', month: '' };
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return { day: 'AYE', month: '' };
+    } else {
+      return {
+        day: date.getDate().toString(),
+        month: date.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase()
+      };
+    }
+  };
+
   const formatTimeAgo = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -4294,30 +4353,65 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
-  // Filtrado optimizado con useMemo y manejo seguro de strings
-  const filteredConversations = useMemo(() => {
-    if (!debouncedSearchTerm.trim()) return conversations;
-    
-    const searchLower = debouncedSearchTerm.toLowerCase().trim();
-    
-    try {
-      return conversations.filter(conv => {
-        // Manejo seguro de strings con fallbacks
-        const customerName = conv.customer_name || conv.nombre_contacto || '';
-        const customerPhone = conv.customer_phone || conv.telefono || '';
-        const customerEmail = conv.customer_email || conv.email || '';
-        
-        return (
-          customerName.toLowerCase().includes(searchLower) ||
-          customerPhone.includes(searchLower) ||
-          customerEmail.toLowerCase().includes(searchLower)
-        );
-      });
-    } catch (error) {
-      console.error('❌ Error filtrando conversaciones:', error);
-      return conversations; // Retornar todas las conversaciones en caso de error
+  // Función helper para normalizar números de teléfono (quitar espacios, guiones, paréntesis, etc.)
+  const normalizePhone = (phone: string): string => {
+    return phone.replace(/[\s\-\(\)\+]/g, '').replace(/^52/, ''); // Quitar espacios, guiones, paréntesis, + y prefijo 52
+  };
+
+  // Guardar preferencia de etapas en localStorage cuando cambie
+  useEffect(() => {
+    if (selectedEtapas.size > 0) {
+      localStorage.setItem('livechat-etapas-filter', JSON.stringify(Array.from(selectedEtapas)));
+    } else {
+      localStorage.removeItem('livechat-etapas-filter'); // Si está vacío, eliminar para mostrar todas
     }
-  }, [conversations, debouncedSearchTerm]);
+  }, [selectedEtapas]);
+
+  // Filtrado optimizado con useMemo - Búsqueda mejorada + Filtro por etapa
+  const filteredConversations = useMemo(() => {
+    let filtered = conversations;
+    
+    // 1. Filtro por etapa (si hay etapas seleccionadas)
+    if (selectedEtapas.size > 0) {
+      filtered = filtered.filter(conv => {
+        // Obtener etapa desde prospectosDataRef (tabla prospectos)
+        const prospectId = conv.prospecto_id || conv.id;
+        const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+        const etapa = prospectoData?.etapa || conv.metadata?.etapa || conv.etapa || null;
+        return etapa && selectedEtapas.has(etapa);
+      });
+    }
+    
+    // 2. Filtro por búsqueda (nombre, teléfono mejorado, email)
+    if (debouncedSearchTerm.trim()) {
+      const searchLower = debouncedSearchTerm.toLowerCase().trim();
+      const searchNormalized = normalizePhone(debouncedSearchTerm); // Normalizar búsqueda también
+      
+      try {
+        filtered = filtered.filter(conv => {
+          // Manejo seguro de strings con fallbacks
+          const customerName = conv.customer_name || conv.nombre_contacto || '';
+          const customerPhone = conv.customer_phone || conv.telefono || conv.numero_telefono || '';
+          const customerEmail = conv.customer_email || conv.email || '';
+          
+          // Normalizar teléfono para búsqueda
+          const phoneNormalized = normalizePhone(customerPhone);
+          
+          return (
+            customerName.toLowerCase().includes(searchLower) ||
+            customerPhone.includes(searchLower) || // Búsqueda original
+            phoneNormalized.includes(searchNormalized) || // Búsqueda normalizada (cualquier parte)
+            customerEmail.toLowerCase().includes(searchLower)
+          );
+        });
+      } catch (error) {
+        console.error('❌ Error filtrando conversaciones:', error);
+        return filtered; // Retornar conversaciones filtradas por etapa en caso de error
+      }
+    }
+    
+    return filtered;
+  }, [conversations, debouncedSearchTerm, selectedEtapas, prospectosDataVersion]);
 
   // Total no leídos - calcular desde conversaciones filtradas según permisos
   const totalUnread = useMemo(() => {
@@ -4417,7 +4511,7 @@ const LiveChatCanvas: React.FC = () => {
     >
       {/* SECCIÓN 1: Lista de Conversaciones - CAJA INDEPENDIENTE */}
       <div 
-        className="bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700"
+        className="bg-white dark:bg-gray-800 border-r border-slate-200/50 dark:border-gray-700/50"
         style={{ 
           width: `${adjustedConversationsWidth}px`,
           height: '100%',
@@ -4432,45 +4526,123 @@ const LiveChatCanvas: React.FC = () => {
           className="p-4 border-b border-slate-100 dark:border-gray-700 bg-white dark:bg-gray-800"
           style={{ 
             flexShrink: 0,
-            height: '200px'
+            minHeight: '200px'
           }}
         >
-            <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Conversaciones</h1>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="text-center">
+              <div className="text-sm font-semibold text-slate-900 dark:text-white">{filteredConversations.length > 0 ? filteredConversations.length : conversations.length}</div>
+              <div className="text-[10px] text-slate-500 dark:text-gray-400">Total</div>
+            </div>
+            <div className="text-center">
+              <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
+              <div className="text-[10px] text-slate-500 dark:text-gray-400">Activas</div>
+            </div>
+            <div className="text-center">
+              <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">{totalUnread}</div>
+              <div className="text-[10px] text-slate-500 dark:text-gray-400">No leídos</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="text-center">
-              <div className="text-lg font-semibold text-slate-900 dark:text-white">{filteredConversations.length > 0 ? filteredConversations.length : conversations.length}</div>
-              <div className="text-xs text-slate-500 dark:text-gray-400">Total</div>
+          <div className="space-y-2">
+            {/* Búsqueda mejorada */}
+            <div className="relative">
+              <label htmlFor="livechat-search-input" className="sr-only">
+                Buscar conversaciones
+              </label>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-500 w-4 h-4" />
+              <input
+                id="livechat-search-input"
+                name="livechat-search"
+                type="search"
+                placeholder="Buscar por nombre, teléfono o email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                autoComplete="off"
+                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-300 dark:focus:ring-gray-500"
+              />
             </div>
-            <div className="text-center">
-              <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
-              <div className="text-xs text-slate-500 dark:text-gray-400">Activas</div>
+            
+            {/* Filtro por etapa */}
+            <div className="relative" ref={etapasFilterRef}>
+              <button
+                onClick={() => setShowEtapasFilter(!showEtapasFilter)}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white rounded-md hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors ${
+                  selectedEtapas.size > 0 ? 'border-blue-500 dark:border-blue-400' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-slate-400 dark:text-gray-500" />
+                  <span className="text-xs text-slate-600 dark:text-gray-300">
+                    {selectedEtapas.size === 0 
+                      ? 'Todas las etapas' 
+                      : `${selectedEtapas.size} etapa${selectedEtapas.size > 1 ? 's' : ''} seleccionada${selectedEtapas.size > 1 ? 's' : ''}`
+                    }
+                  </span>
+                </div>
+                <ChevronRight className={`w-4 h-4 text-slate-400 dark:text-gray-500 transition-transform ${showEtapasFilter ? 'rotate-90' : ''}`} />
+              </button>
+              
+              {/* Dropdown de etapas */}
+              <AnimatePresence>
+                {showEtapasFilter && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto"
+                  >
+                    <div className="p-2 space-y-1">
+                      {PROSPECTO_ETAPAS.map((etapa) => {
+                        const isSelected = selectedEtapas.has(etapa.value);
+                        return (
+                          <label
+                            key={etapa.value}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                          >
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                              isSelected
+                                ? 'bg-blue-500 border-blue-500'
+                                : 'border-slate-300 dark:border-gray-600'
+                            }`}>
+                              {isSelected && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-700 dark:text-gray-300">{etapa.label}</span>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedEtapas(prev => {
+                                  const newSet = new Set(prev);
+                                  if (isSelected) {
+                                    newSet.delete(etapa.value);
+                                  } else {
+                                    newSet.add(etapa.value);
+                                  }
+                                  return newSet;
+                                });
+                              }}
+                              className="sr-only"
+                            />
+                          </label>
+                        );
+                      })}
+                      {selectedEtapas.size > 0 && (
+                        <button
+                          onClick={() => setSelectedEtapas(new Set())}
+                          className="w-full mt-2 px-2 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                        >
+                          Limpiar filtros
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <div className="text-center">
-              <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">{totalUnread}</div>
-              <div className="text-xs text-slate-500 dark:text-gray-400">No leídos</div>
-            </div>
-          </div>
-
-          <div className="relative">
-            <label htmlFor="livechat-search-input" className="sr-only">
-              Buscar conversaciones
-            </label>
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-500 w-4 h-4" />
-            <input
-              id="livechat-search-input"
-              name="livechat-search"
-              type="search"
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              autoComplete="off"
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-300 dark:focus:ring-gray-500"
-            />
           </div>
         </div>
 
@@ -4563,7 +4735,7 @@ const LiveChatCanvas: React.FC = () => {
 
       {/* DIVISOR REDIMENSIONABLE 1 */}
       <div 
-        className="w-1 bg-slate-200 dark:bg-gray-600 hover:bg-slate-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
+        className="w-[0.5px] bg-slate-200/50 dark:bg-gray-600/50 hover:bg-slate-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
         style={{ 
           height: '100%',
           flexShrink: 0,
@@ -4571,14 +4743,14 @@ const LiveChatCanvas: React.FC = () => {
         }}
         onMouseDown={(e) => handleMouseDown(e, 'conversations')}
       >
-        <GripVertical className="w-3 h-3 text-slate-400 dark:text-gray-400 group-hover:text-slate-600 dark:group-hover:text-gray-300" />
+        <GripVertical className="w-3 h-3 text-slate-400/50 dark:text-gray-400/50 group-hover:text-slate-600 dark:group-hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
 
       {/* SECCIÓN 2: Bloques de Conversación - CAJA INDEPENDIENTE */}
       {selectedConversation && (
         <>
           <div 
-            className="bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 border-r border-slate-200/50 dark:border-gray-700/50"
             style={{ 
               width: `${columnWidths.blocks}px`,
               height: '100%',
@@ -4588,22 +4760,10 @@ const LiveChatCanvas: React.FC = () => {
               overflow: 'hidden'
             }}
           >
-            {/* Header fijo de la caja */}
-            <div 
-              className="p-4 border-b border-slate-100 dark:border-gray-700 bg-white dark:bg-gray-800"
-              style={{ 
-                flexShrink: 0,
-                height: '80px'
-              }}
-            >
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Bloques por Día</h3>
-              <p className="text-xs text-slate-500 dark:text-gray-400">{selectedConversation.customer_name}</p>
-            </div>
-
-            {/* Área de scroll INDIVIDUAL de la caja */}
+            {/* Área de scroll INDIVIDUAL de la caja - Ultra minimalista */}
             <div 
               ref={blocksScrollRef}
-              className="flex-1 overflow-y-auto"
+              className="flex-1 overflow-y-auto px-1 py-2"
               style={{ 
                 overscrollBehavior: 'contain',
                 scrollbarWidth: 'thin'
@@ -4613,34 +4773,48 @@ const LiveChatCanvas: React.FC = () => {
                 e.stopPropagation();
               }}
             >
-              {conversationBlocks.map((block) => (
-                <div
-                  key={block.date}
-                  className="p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer hover:bg-slate-25 dark:hover:bg-gray-700/50 transition-all duration-200"
-                  onClick={() => scrollToDateInMessages(block.date)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Calendar className="w-4 h-4 text-slate-400 dark:text-gray-500" />
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                          {formatDate(block.date)}
+              {conversationBlocks.map((block, index) => {
+                const { day, month } = getDayAndMonth(block.date);
+                const isToday = day === 'HOY';
+                const isYesterday = day === 'AYE';
+                
+                return (
+                  <div key={block.date}>
+                    <button
+                      className="w-full py-2.5 px-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-all duration-200 flex flex-col items-center justify-center group"
+                      onClick={() => scrollToDateInMessages(block.date)}
+                    >
+                      {/* Solo texto - Ultra minimalista */}
+                      <div className={`flex flex-col items-center justify-center w-full ${isToday ? 'text-blue-600 dark:text-blue-400' : isYesterday ? 'text-purple-600 dark:text-purple-400' : 'text-slate-700 dark:text-gray-300'}`}>
+                        {/* Mes arriba (muy pequeño) */}
+                        {month && (
+                          <span className="text-[8px] font-semibold uppercase tracking-tight leading-none mb-0.5 opacity-70">
+                            {month}
+                          </span>
+                        )}
+                        {/* Día grande */}
+                        <span className={`text-lg font-bold leading-none ${isToday || isYesterday ? 'text-[10px]' : ''}`}>
+                          {day}
+                        </span>
+                        {/* Contador de mensajes (muy pequeño) */}
+                        <span className="text-[9px] font-medium text-slate-500 dark:text-gray-400 group-hover:text-slate-700 dark:group-hover:text-gray-200 transition-colors mt-1 leading-none">
+                          {block.message_count} msj
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-gray-400">
-                        {block.message_count} mensajes
-                      </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 dark:text-gray-500" />
+                    </button>
+                    {/* Divisor entre días */}
+                    {index < conversationBlocks.length - 1 && (
+                      <div className="h-px bg-slate-200 dark:bg-gray-700 mx-2 my-1" />
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* DIVISOR REDIMENSIONABLE 2 */}
           <div 
-            className="w-1 bg-slate-200 dark:bg-gray-600 hover:bg-slate-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
+            className="w-[0.5px] bg-slate-200/50 dark:bg-gray-600/50 hover:bg-slate-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
             style={{ 
               height: '100%',
               flexShrink: 0,
@@ -4648,7 +4822,7 @@ const LiveChatCanvas: React.FC = () => {
             }}
             onMouseDown={(e) => handleMouseDown(e, 'blocks')}
           >
-            <GripVertical className="w-3 h-3 text-slate-400 dark:text-gray-400 group-hover:text-slate-600 dark:group-hover:text-gray-300" />
+            <GripVertical className="w-3 h-3 text-slate-400/50 dark:text-gray-400/50 group-hover:text-slate-600 dark:group-hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </>
       )}

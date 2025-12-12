@@ -393,14 +393,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 
   const menuItems: MenuItemProps[] = [
 
-    // 1. Dashboard Operativo (PRIMERO - Movido arriba)
+    // 1. Inicio (Dashboard Operativo)
     ...((canAccessModule('prospectos') || canAccessModule('live-chat') || canAccessModule('live-monitor')) ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z" />
         </svg>
       ),
-      label: 'Dashboard',
+      label: 'Inicio',
       active: appMode === 'operative-dashboard',
       onClick: () => setAppMode('operative-dashboard')
     }] : []),
@@ -417,34 +417,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     //   onClick: () => setAppMode('natalia')
     // }] : []),
 
-    // 3. PQNC Humans (TERCERO)
+    // 3. Llamadas (PQNC Humans)
     ...(canAccessModule('analisis') && pqnc ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
       ),
-      label: 'PQNC Humans',
+      label: 'Llamadas',
       active: appMode === 'pqnc',
       onClick: () => setAppMode('pqnc')
     }] : []),
 
-    // 4. AI Call Monitor (CUARTO)
+    // 4. Llamadas (AI Call Monitor)
     ...(canAccessLiveMonitor() ? [{
       icon: (
         <div className="relative">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
         </div>
       ),
-      label: 'AI Call Monitor',
+      label: 'Llamadas',
       active: appMode === 'live-monitor',
       onClick: () => setAppMode('live-monitor')
     }] : []),
 
-    // 5. AI Chat Monitor (QUINTO)
+    // 5. WhatsApp (AI Chat Monitor)
     ...(canAccessModule('live-chat') ? [{
       icon: (
         <div className="relative">
@@ -454,7 +454,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
         </div>
       ),
-      label: 'AI Chat Monitor',
+      label: 'WhatsApp',
       active: appMode === 'live-chat',
       onClick: () => setAppMode('live-chat')
     }] : []),
@@ -472,45 +472,45 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('prospectos')
     }] : []),
 
-    // 6.5. Llamadas Programadas
+    // 6.5. Programación (Llamadas Programadas)
     ...(canAccessModule('scheduled-calls') ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       ),
-      label: 'Llamadas Programadas',
+      label: 'Programación',
       active: appMode === 'scheduled-calls',
       onClick: () => setAppMode('scheduled-calls')
     }] : []),
 
-    // 7. AI Models (SÉPTIMO)
+    // 7. Modelos LLM (AI Models)
     ...((user?.role_name === 'admin' || user?.role_name === 'productor' || user?.role_name === 'developer') ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
       ),
-      label: 'AI Models',
+      label: 'Modelos LLM',
       active: appMode === 'ai-models',
       onClick: () => setAppMode('ai-models')
     }] : []),
 
   ];
 
-  // Log Server Manager - Solo para Admin
+  // Logs (Log Server Manager) - Solo para Admin
   const logServerItem: MenuItemProps | null = user?.role_name === 'admin' ? {
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     ),
-    label: 'Log Server',
+    label: 'Logs',
     active: appMode === 'log-server',
     onClick: () => setAppMode('log-server')
   } : null;
 
-  // AWS Manager - Para Admin y Developer
+  // Administración AWS (AWS Manager) - Para Admin y Developer
   const awsItem: MenuItemProps | null = canAccessModule('aws-manager') ? {
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -518,9 +518,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4" />
       </svg>
     ),
-    label: 'AWS Manager',
+    label: 'Administración AWS',
     active: appMode === 'aws-manager',
     onClick: () => setAppMode('aws-manager')
+  } : null;
+
+  // Campañas - Solo para Admin
+  const campaignsItem: MenuItemProps | null = user?.role_name === 'admin' ? {
+    icon: (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+      </svg>
+    ),
+    label: 'Campañas',
+    active: appMode === 'campaigns',
+    onClick: () => setAppMode('campaigns')
   } : null;
 
   // Admin al final - Usar canAccessModule para incluir administrador_operativo
@@ -674,16 +686,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           ))}
         </motion.nav>
 
-        {/* AWS Manager - Para Admin y Developer */}
+        {/* Logs - Solo para Admin */}
         {logServerItem && (
           <div className="p-4 border-t border-slate-200 dark:border-slate-700">
             <MenuItem {...logServerItem} isCollapsed={isCollapsed} />
           </div>
         )}
 
+        {/* Administración AWS - Para Admin y Developer */}
         {awsItem && (
           <div className="p-4 border-t border-slate-200 dark:border-slate-700">
             <MenuItem {...awsItem} isCollapsed={isCollapsed} />
+          </div>
+        )}
+
+        {/* Campañas - Solo para Admin */}
+        {campaignsItem && (
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+            <MenuItem {...campaignsItem} isCollapsed={isCollapsed} />
           </div>
         )}
 

@@ -62,11 +62,57 @@ class WhatsAppTemplatesService {
           .order('created_at', { ascending: false });
         
         if (fallbackError) throw fallbackError;
-        return fallbackData || [];
+        return this.normalizeTemplatesVariableMappings(fallbackData || []);
       }
       throw error;
     }
-    return data || [];
+    return this.normalizeTemplatesVariableMappings(data || []);
+  }
+
+  /**
+   * Normaliza variable_mappings para que siempre sea un array
+   * Si viene como objeto { mappings: [...], audience_ids: [...] }, extrae solo mappings
+   */
+  private normalizeTemplatesVariableMappings(templates: any[]): WhatsAppTemplate[] {
+    return templates.map(template => {
+      if (template.variable_mappings) {
+        let rawMappings: any = template.variable_mappings;
+        
+        // Si viene como string, parsear
+        if (typeof rawMappings === 'string') {
+          try {
+            rawMappings = JSON.parse(rawMappings);
+          } catch (e) {
+            rawMappings = [];
+          }
+        }
+        
+        // Si tiene estructura con mappings y audience_ids (metadata)
+        if (rawMappings && typeof rawMappings === 'object' && !Array.isArray(rawMappings)) {
+          if (rawMappings.mappings && Array.isArray(rawMappings.mappings)) {
+            // Extraer solo los mappings, mantener audience_ids en classification si existe
+            return {
+              ...template,
+              variable_mappings: rawMappings.mappings,
+              classification: {
+                ...(template.classification || {}),
+                audience_ids: rawMappings.audience_ids || (template.classification as any)?.audience_ids || [],
+              },
+            };
+          }
+        }
+        
+        // Si ya es array, devolver tal cual
+        if (Array.isArray(rawMappings)) {
+          return {
+            ...template,
+            variable_mappings: rawMappings,
+          };
+        }
+      }
+      
+      return template;
+    });
   }
 
   /**
@@ -1094,7 +1140,7 @@ class WhatsAppTemplatesService {
       let value: any = null;
       
       for (const record of data) {
-        let recordValue = record[selectField];
+        let recordValue = (record as any)[selectField];
         
         // Si es campo anidado, navegar la estructura JSONB
         if (isNestedField && recordValue && typeof recordValue === 'object') {
@@ -1168,7 +1214,17 @@ class WhatsAppTemplatesService {
     }
     
     // Segundo: procesar variables del sistema que están en el texto pero pueden no estar mapeadas
-    const systemVariableMappings = (template.variable_mappings || []).filter(m => m.table_name === 'system');
+    // Normalizar variable_mappings si viene como objeto
+    let variableMappings: VariableMapping[] = [];
+    if (template.variable_mappings) {
+      if (Array.isArray(template.variable_mappings)) {
+        variableMappings = template.variable_mappings;
+      } else if (typeof template.variable_mappings === 'object' && 'mappings' in template.variable_mappings) {
+        const mappingsObj = template.variable_mappings as { mappings?: VariableMapping[] };
+        variableMappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
+      }
+    }
+    const systemVariableMappings = variableMappings.filter(m => m.table_name === 'system');
     
     // Procesar todas las variables del sistema encontradas en el texto
     allVariablesInText.forEach(varNum => {

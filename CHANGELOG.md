@@ -2,6 +2,85 @@
 
 ## Historial de Versiones
 
+### v2.1.19 (2025-12-12)
+**Descripción**: B5.0.0N6.0.0: Refactorización de módulos, migración de audiencias a BD y optimización de UI
+
+---
+
+## 🎯 **RELEASE B5.0.0N6.0.0 - Refactorización y Optimización**
+
+### 🏗️ **Reestructuración de Módulos**
+- **Nuevo módulo "Campañas"**: Módulo exclusivo para administradores con subsecciones:
+  - Plantillas (desacoplado de Administración)
+  - Audiencias (desacoplado de Administración)
+  - Campañas (placeholder)
+  - Bases de datos (placeholder)
+  - Secuencias (placeholder)
+- **Renombrado de módulos**:
+  - Dashboard → Inicio
+  - PQNC Humans → Llamadas (icono humano)
+  - AI Call Monitor → Llamadas (icono robot)
+  - AI Chat Monitor → Whatsapp (icono Whatsapp)
+  - Llamadas Programadas → Programación (icono agenda)
+  - AI Models → Modelos LLM
+  - Log Server → Logs
+  - AWS Manager → Administracion AWS
+
+### 🗄️ **Migración de Audiencias a Base de Datos**
+- **Audiencias por etapa migradas**: Las 5 audiencias hardcodeadas (Interesado, Atendió llamada, En seguimiento, Nuevo, Activo PQNC) ahora están en BD
+- **Eliminación de código hardcodeado**: Todas las audiencias se cargan dinámicamente desde `whatsapp_audiences`
+- **Script de migración**: Creado script SQL para reasignar plantillas con audiencias hardcodeadas a las nuevas audiencias en BD
+
+### 🎨 **Optimización de UI - Modales**
+- **Modal de Reactivación**: Variables mostradas como tags compactos en lugar de campos grandes
+- **Modal de Vista Previa**: Mapeo de variables optimizado con tags compactos
+- **Optimización de espacio**: Reducción significativa del espacio vertical en modales
+
+### 💬 **Mejoras en Módulo WhatsApp**
+- **Columna "Bloques por Día"**: Diseño minimalista y compacto
+  - Formato: "16 DIC 8 msj" (texto pequeño)
+  - Sin iconos redundantes
+  - Ancho mínimo ajustado al contenido
+  - Divisores verticales más discretos
+- **Filtros mejorados**:
+  - Búsqueda por número de teléfono (inicio, medio, final)
+  - Filtro por etapa (multi-select, acumulativo)
+  - Preferencias guardadas en cache del navegador
+- **Contadores optimizados**: Tamaño reducido para mejor uso de espacio
+
+### ✏️ **Edición Limitada de Plantillas**
+- **Modal de edición limitada**: Permite editar solo:
+  - Descripción de la plantilla
+  - Asignación de audiencias
+  - Mapeo de variables
+- **Validaciones**:
+  - No permite guardar sin cambios
+  - Detecta mapeos existentes correctamente
+  - Previene guardar si hay variables sin mapear
+  - Variables no pueden eliminarse (protege composición del mensaje)
+- **Vista previa con mockup**: Muestra datos de ejemplo basados en mapeos configurados
+
+### 🔧 **Mejoras Técnicas**
+- **Normalización de `variable_mappings`**: Manejo consistente de formato `{ mappings: [...], audience_ids: [...] }`
+- **Compatibilidad hacia atrás**: Soporte para formatos antiguos de `variable_mappings`
+- **Limpieza de código**: Eliminadas funciones no utilizadas y código duplicado
+
+### 📁 **Archivos Modificados**
+- `src/stores/appStore.ts` - Agregado modo 'campaigns'
+- `src/components/MainApp.tsx` - Integración del módulo Campañas
+- `src/components/campaigns/CampaignsDashboardTabs.tsx` - Nuevo componente principal
+- `src/components/campaigns/plantillas/WhatsAppTemplatesManager.tsx` - Movido y mejorado
+- `src/components/campaigns/audiencias/AudienciasManager.tsx` - Nuevo componente
+- `src/components/Sidebar.tsx` - Renombrado módulos y agregado Campañas
+- `src/components/Header.tsx` - Actualizados títulos de módulos
+- `src/components/chat/LiveChatCanvas.tsx` - Optimización de columna "Bloques por Día" y filtros
+- `src/components/chat/ReactivateConversationModal.tsx` - Variables como tags compactos
+- `src/components/Footer.tsx` - Versión actualizada a B5.0.0N6.0.0
+- `src/services/whatsappTemplatesService.ts` - Normalización de variable_mappings
+- `docs/sql/migrate_hardcoded_audiences_to_db.sql` - Script de migración
+
+---
+
 ### v2.1.18 (2025-01-XX)
 **Descripción**: B4.4.4N6.0.0: Mejoras en validación y mapeo de variables en plantillas WhatsApp
 

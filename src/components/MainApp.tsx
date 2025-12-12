@@ -37,6 +37,9 @@ import ScheduledCallsManager from './scheduled-calls/ScheduledCallsManager';
 // Operative Dashboard
 import { OperativeDashboard } from './dashboard/OperativeDashboard';
 
+// Campaigns Manager
+import CampaignsDashboardTabs from './campaigns/CampaignsDashboardTabs';
+
 // Analysis IA Complete
 import AnalysisIAComplete from './analysis/AnalysisIAComplete';
 // Change Password Modal
@@ -279,7 +282,7 @@ function MainApp() {
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'live-chat' | 'aws-manager' | 'log-server' | 'direccion') => {
+  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'live-chat' | 'aws-manager' | 'log-server' | 'direccion' | 'campaigns') => {
     // Bloquear cambio de módulo para usuarios con rol direccion
     if (user?.role_name === 'direccion' && mode !== 'direccion') {
       return; // No permitir cambiar de módulo
@@ -499,6 +502,24 @@ function MainApp() {
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
                   No tienes permisos para acceder al Dashboard Operativo
+                </p>
+              </div>
+            </div>
+          )
+        );
+
+      case 'campaigns':
+        return (
+          user?.role_name === 'admin' ? (
+            <CampaignsDashboardTabs />
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Acceso Denegado
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Solo administradores pueden acceder al módulo de Campañas
                 </p>
               </div>
             </div>

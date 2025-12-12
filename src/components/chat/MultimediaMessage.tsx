@@ -11,10 +11,12 @@ interface Adjunto {
   bucket?: string;
   filename?: string;
   archivo?: string; // Alias de filename (usado en webhook)
+  url?: string; // URL directa (usado en templates de WhatsApp)
   timestamp?: string;
   descripcion?: string;
   destino?: string; // Para imágenes del catálogo
   resort?: string; // Para imágenes del catálogo
+  origen?: string; // Origen del adjunto (ej: 'whatsapp_template_header')
 }
 
 interface MultimediaMessageProps {
@@ -45,14 +47,26 @@ export const needsBubble = (adjuntos: Adjunto[]): boolean => {
 const getFileTypeFromAdjunto = (adjunto: Adjunto): 'image' | 'audio' | 'video' | 'sticker' | 'document' => {
   // Validar que existan los campos básicos
   const filename = adjunto?.filename || adjunto?.archivo;
+  const url = adjunto?.url;
   
-  if (!adjunto || !filename) {
-    console.warn('⚠️ Adjunto inválido:', adjunto);
+  // Si tiene URL directa (templates de WhatsApp), extraer nombre de archivo de la URL o usar tipo
+  if (!adjunto || (!filename && !url)) {
+    // Solo mostrar warning si realmente no tiene información útil
+    if (adjunto && !adjunto.tipo && !url) {
+      console.warn('⚠️ Adjunto inválido:', adjunto);
+    }
+    // Si tiene tipo 'Imagen' y URL, es válido para templates
+    if (adjunto?.tipo?.toLowerCase().includes('imagen') && url) {
+      return 'image';
+    }
     return 'document';
   }
 
   const tipoLower = (adjunto.tipo || '').toLowerCase();
-  const filenameLower = filename.toLowerCase();
+  // Si hay URL pero no filename, intentar extraer extensión de la URL
+  const filenameLower = filename 
+    ? filename.toLowerCase() 
+    : (url ? url.split('.').pop()?.split('?')[0] || '' : '');
   
   // Stickers de WhatsApp
   if (tipoLower.includes('sticker')) return 'sticker';
@@ -317,8 +331,29 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
     adjuntos.forEach(async (adjunto) => {
       const filename = adjunto.filename || adjunto.archivo;
       const bucket = adjunto.bucket || 'whatsapp-media';
+      const urlDirecta = adjunto.url; // URL directa (templates de WhatsApp)
       
-      if (!filename) return; // Skip si no hay filename
+      // Si tiene URL directa, usarla directamente sin generar
+      if (urlDirecta) {
+        const key = urlDirecta; // Usar URL como key para adjuntos con URL directa
+        
+        // Si ya está cargado, no hacer nada
+        if (loadedUrls[key]) return;
+        
+        // Marcar como cargado inmediatamente
+        setLoadedUrls(prev => ({ ...prev, [key]: urlDirecta }));
+        setErrors(prev => ({ ...prev, [key]: '' }));
+        
+        // Detectar dimensiones para imágenes
+        const fileType = getFileTypeFromAdjunto(adjunto);
+        if (fileType === 'image' || fileType === 'sticker') {
+          detectImageDimensions(urlDirecta, key);
+        }
+        return;
+      }
+      
+      // Si no hay filename, skip (ya no mostrar warning aquí, se maneja en getFileTypeFromAdjunto)
+      if (!filename) return;
       
       const key = `${bucket}/${filename}`;
       
@@ -333,7 +368,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
         setErrors(prev => ({ ...prev, [key]: '' }));
         
         // Detectar dimensiones para imágenes
-        const fileType = getFileType(adjunto.tipo || '', filename);
+        const fileType = getFileTypeFromAdjunto(adjunto);
         if (fileType === 'image' || fileType === 'sticker') {
           detectImageDimensions(url, key);
         }
@@ -415,14 +450,28 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
       {adjuntos.map((adjunto, index) => {
         const filename = adjunto.filename || adjunto.archivo;
         const bucket = adjunto.bucket || 'whatsapp-media';
+        const urlDirecta = adjunto.url; // URL directa (templates de WhatsApp)
         
-        if (!filename) return null; // Skip adjuntos sin filename
+        // Determinar key y URL según el tipo de adjunto
+        let key: string;
+        let url: string | undefined;
         
-        const key = `${bucket}/${filename}`;
-        const url = loadedUrls[key];
+        if (urlDirecta) {
+          // Adjunto con URL directa (templates de WhatsApp)
+          key = urlDirecta;
+          url = loadedUrls[key] || urlDirecta; // Usar URL directa si no está en loadedUrls
+        } else if (filename) {
+          // Adjunto tradicional con filename
+          key = `${bucket}/${filename}`;
+          url = loadedUrls[key];
+        } else {
+          // Skip adjuntos sin filename ni URL
+          return null;
+        }
+        
         const loading = loadingStates[key];
         const error = errors[key];
-        const fileType = getFileType(adjunto.tipo || '', filename);
+        const fileType = getFileTypeFromAdjunto(adjunto);
 
         return (
           <div key={index} className={`rounded-lg overflow-hidden ${

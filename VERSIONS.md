@@ -1,5 +1,34 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B5.0.0N6.0.0 (Diciembre 2025) - Refactorización y Optimización
+
+### 🎯 RELEASE BETA - Reestructuración Completa de Módulos
+
+#### Reestructuración de Módulos
+- Nuevo módulo "Campañas" exclusivo para administradores
+- Desacoplamiento de Plantillas y Audiencias del módulo Administración
+- Renombrado completo de módulos con iconos vectorizados
+- Actualización de referencias internas del sistema
+
+#### Migración de Audiencias
+- Audiencias por etapa migradas de código hardcodeado a base de datos
+- 5 audiencias creadas en BD: Interesado, Atendió llamada, En seguimiento, Nuevo, Activo PQNC
+- Carga dinámica de todas las audiencias desde `whatsapp_audiences`
+- Script SQL para migración de plantillas existentes
+
+#### Optimización de UI
+- Variables mostradas como tags compactos en modales
+- Columna "Bloques por Día" minimalista en módulo WhatsApp
+- Filtros mejorados con búsqueda por teléfono y etapa
+- Contadores optimizados para mejor uso de espacio
+
+#### Edición Limitada de Plantillas
+- Modal de edición que permite modificar solo descripción, audiencias y mapeos
+- Validaciones completas para prevenir guardado sin cambios
+- Vista previa con datos mockup basados en mapeos
+
+---
+
 ## Versión B4.4.4N6.0.0 (Enero 2025) - Validación y Mapeo de Variables Mejorado
 
 ### 🎯 RELEASE BETA - Sistema de Validación Completo

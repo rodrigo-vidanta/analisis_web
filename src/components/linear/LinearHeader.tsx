@@ -150,10 +150,11 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
       case 'constructor': return 'Constructor de Agentes';
       case 'plantillas': return 'Plantillas';
       case 'natalia': return 'Natalia IA';
-      case 'pqnc': return 'PQNC Humans';
-      case 'live-monitor': return 'AI Call Monitor';
-      case 'live-chat': return 'AI Chat Monitor';
+      case 'pqnc': return 'Llamadas';
+      case 'live-monitor': return 'Llamadas';
+      case 'live-chat': return 'WhatsApp';
       case 'admin': return 'Administración';
+      case 'campaigns': return 'Campañas';
       default: return 'PQNC AI Platform';
     }
   };
