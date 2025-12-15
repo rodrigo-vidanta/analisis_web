@@ -407,7 +407,7 @@ class ProspectsService {
           // Coordinador: todos los prospectos de su coordinación
           query = query.eq('coordinacion_id', coordinacionFilter);
         }
-        // Admin: sin filtros
+        // Admin y Administrador Operativo: sin filtros (pueden ver todo)
       }
 
       query = query

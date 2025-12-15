@@ -101,8 +101,8 @@ class PermissionsService {
         };
       }
 
-      // Admin puede ver todo
-      if (permissions.role === 'admin') {
+      // Admin y Administrador Operativo pueden ver todo
+      if (permissions.role === 'admin' || permissions.role === 'administrador_operativo') {
         return {
           canAccess: true,
           reason: undefined,
@@ -131,9 +131,9 @@ class PermissionsService {
       const prospectCoordinacionId = prospectoData.coordinacion_id;
       const prospectEjecutivoId = prospectoData.ejecutivo_id;
 
-      // Si el prospecto no tiene coordinación asignada, solo admin puede verlo
+      // Si el prospecto no tiene coordinación asignada, solo admin y administrador_operativo pueden verlo
       if (!prospectCoordinacionId) {
-        const canAccess = permissions.role === 'admin';
+        const canAccess = permissions.role === 'admin' || permissions.role === 'administrador_operativo';
         return {
           canAccess,
           reason: canAccess ? undefined : 'El prospecto no tiene coordinación asignada',
@@ -197,8 +197,8 @@ class PermissionsService {
       const permissions = await this.getUserPermissions(userId);
       if (!permissions) return false;
 
-      // Admin tiene acceso completo
-      if (permissions.role === 'admin') return true;
+      // Admin y Administrador Operativo tienen acceso completo
+      if (permissions.role === 'admin' || permissions.role === 'administrador_operativo') return true;
 
       // Buscar permiso específico
       const hasPermission = permissions.permissions.some(
@@ -229,8 +229,8 @@ class PermissionsService {
       const permissions = await this.getUserPermissions(userId);
       if (!permissions) return null;
 
-      // Admin no tiene filtro
-      if (permissions.role === 'admin') return null;
+      // Admin y Administrador Operativo no tienen filtro (pueden ver todo)
+      if (permissions.role === 'admin' || permissions.role === 'administrador_operativo') return null;
 
       // Coordinador y ejecutivo tienen filtro por coordinación
       return permissions.coordinacion_id || null;
@@ -369,7 +369,7 @@ class PermissionsService {
       else if (coordinacionFilter) {
         query = query.eq('coordinacion_id', coordinacionFilter);
       }
-      // Admin no tiene filtros
+      // Admin y Administrador Operativo no tienen filtros (pueden ver todo)
 
       return query;
     } catch (error) {
@@ -426,7 +426,7 @@ class PermissionsService {
       else if (coordinacionFilter) {
         query = query.eq('coordinacion_id', coordinacionFilter);
       }
-      // Admin no tiene filtros
+      // Admin y Administrador Operativo no tienen filtros (pueden ver todo)
 
       return query;
     } catch (error) {

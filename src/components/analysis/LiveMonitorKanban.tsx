@@ -320,6 +320,7 @@ const LiveMonitorKanban: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCoordinador, setIsCoordinador] = useState(false);
   const [isEjecutivo, setIsEjecutivo] = useState(false);
+  const [isAdminOperativo, setIsAdminOperativo] = useState(false);
   const [modalTab, setModalTab] = useState<'details' | 'analysis'>('details');
   
   // ============================================
@@ -990,16 +991,58 @@ const LiveMonitorKanban: React.FC = () => {
       }
       
       // Determinar permisos del usuario
+      let ejecutivoFilter: string | null = null;
+      let coordinacionesFilter: string[] | null = null;
+      let isAdminCheck = false;
+      
       if (user?.id) {
         const permissionsServiceModule = await import('../../services/permissionsService');
-        const adminCheck = await permissionsServiceModule.permissionsService.isAdmin(user.id);
-        setIsAdmin(adminCheck);
+        const permissions = await permissionsServiceModule.permissionsService.getUserPermissions(user.id);
         
-        if (!adminCheck) {
-          const ejecutivoFilter = await permissionsServiceModule.permissionsService.getEjecutivoFilter(user.id);
-          const coordinacionesFilter = await permissionsServiceModule.permissionsService.getCoordinacionesFilter(user.id);
+        // Administrador Operativo NO puede ver historial - retornar vacío
+        if (permissions?.role === 'administrador_operativo') {
+          setIsAdminOperativo(true);
+          setAllCallsWithAnalysis([]);
+          setAllCalls([]);
+          setLoading(false);
+          // Si está en la pestaña de historial, cambiar a activas
+          if (selectedTab === 'all') {
+            setSelectedTab('active');
+          }
+          return;
+        }
+        
+        setIsAdminOperativo(false);
+        isAdminCheck = permissions?.role === 'admin';
+        setIsAdmin(isAdminCheck);
+        
+        if (!isAdminCheck) {
+          ejecutivoFilter = await permissionsServiceModule.permissionsService.getEjecutivoFilter(user.id);
+          coordinacionesFilter = await permissionsServiceModule.permissionsService.getCoordinacionesFilter(user.id);
           setIsEjecutivo(!!ejecutivoFilter);
           setIsCoordinador(!!coordinacionesFilter && coordinacionesFilter.length > 0);
+          
+          // Si es ejecutivo, verificar si tiene prospectos asignados ANTES de cargar llamadas
+          if (ejecutivoFilter) {
+            const { data: prospectosEjecutivo, error: prospectosError } = await analysisSupabase
+              .from('prospectos')
+              .select('id')
+              .eq('ejecutivo_id', ejecutivoFilter)
+              .not('ejecutivo_id', 'is', null)
+              .limit(1);
+            
+            if (prospectosError) {
+              console.error('Error verificando prospectos del ejecutivo:', prospectosError);
+            }
+            
+            // Si no tiene prospectos asignados, retornar vacío sin cargar llamadas
+            if (!prospectosEjecutivo || prospectosEjecutivo.length === 0) {
+              setAllCallsWithAnalysis([]);
+              setAllCalls([]);
+              setLoading(false);
+              return;
+            }
+          }
         }
       }
       
@@ -1082,20 +1125,28 @@ const LiveMonitorKanban: React.FC = () => {
               .select('*')
               .in('id', prospectoIds);
             
-            // Obtener filtros de permisos
+            // Obtener filtros de permisos (usar los ya obtenidos arriba)
             if (user?.id) {
               const permissionsServiceModule = await import('../../services/permissionsService');
-              const ejecutivoFilter = await permissionsServiceModule.permissionsService.getEjecutivoFilter(user.id);
-              const coordinacionesFilter = await permissionsServiceModule.permissionsService.getCoordinacionesFilter(user.id);
-              const isAdmin = await permissionsServiceModule.permissionsService.isAdmin(user.id);
+              const permissions = await permissionsServiceModule.permissionsService.getUserPermissions(user.id);
               
-              if (!isAdmin) {
-                if (ejecutivoFilter) {
-                  // Ejecutivo: solo prospectos asignados a él
-                  prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter);
-                } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-                  // Coordinador: solo prospectos de sus coordinaciones
-                  prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+              // Administrador Operativo NO puede ver historial - ya se bloqueó arriba, pero por seguridad
+              if (permissions?.role === 'administrador_operativo') {
+                prospectosQuery = prospectosQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Query imposible
+              } else {
+                // Usar los filtros ya obtenidos arriba (ejecutivoFilter, coordinacionesFilter, isAdminCheck)
+                // Admin puede ver todo (sin filtros)
+                if (!isAdminCheck) {
+                  if (ejecutivoFilter) {
+                    // Ejecutivo: solo prospectos asignados a él (debe tener ejecutivo_id asignado)
+                    prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter).not('ejecutivo_id', 'is', null);
+                  } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                    // Coordinador: solo prospectos de sus coordinaciones (debe tener coordinacion_id asignado)
+                    prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+                  } else {
+                    // Si no es admin, ejecutivo ni coordinador, no mostrar nada
+                    prospectosQuery = prospectosQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Query imposible
+                  }
                 }
               }
             }
@@ -1103,7 +1154,20 @@ const LiveMonitorKanban: React.FC = () => {
             const { data: prospectosResult, error: prospectosError } = await prospectosQuery;
             
             if (!prospectosError && prospectosResult) {
-              prospectosData = prospectosResult;
+              // Filtrar adicionalmente en el código para asegurar que ejecutivos solo vean prospectos con ejecutivo_id asignado
+              if (ejecutivoFilter) {
+                prospectosData = prospectosResult.filter((p: any) => {
+                  // Validación estricta: el prospecto DEBE tener ejecutivo_id asignado y coincidir
+                  const ejecutivoId = p.ejecutivo_id;
+                  return ejecutivoId && 
+                         ejecutivoId !== null && 
+                         ejecutivoId !== undefined && 
+                         ejecutivoId !== '' &&
+                         String(ejecutivoId).trim() === String(ejecutivoFilter).trim();
+                });
+              } else {
+                prospectosData = prospectosResult;
+              }
               
               // Cargar datos de ejecutivos y coordinaciones únicos
               const ejecutivoIds = [...new Set(prospectosResult.map(p => p.ejecutivo_id).filter(Boolean))];
@@ -1145,6 +1209,9 @@ const LiveMonitorKanban: React.FC = () => {
         if (prospectosData.length > 0) {
           const allowedProspectoIds = new Set(prospectosData.map(p => p.id));
           
+          // Usar el filtro de ejecutivo ya obtenido arriba (no volver a consultar)
+          const ejecutivoFilterForValidation = ejecutivoFilter;
+          
           enrichedData = combinedAnalysisData.map((analysis: any) => {
             const llamada = llamadasData.find(l => l.call_id === analysis.call_id);
               const finalLlamada = llamada || allLlamadasData?.find(l => l.call_id === analysis.call_id);
@@ -1153,9 +1220,27 @@ const LiveMonitorKanban: React.FC = () => {
               }
               const prospecto = prospectosData.find(p => p.id === finalLlamada?.prospecto);
             
-            // Si el prospecto no está en la lista permitida, excluir este análisis
-              if (finalLlamada?.prospecto && !allowedProspectoIds.has(finalLlamada.prospecto)) {
+            // Validación estricta: el prospecto debe existir en la lista permitida
+            if (!finalLlamada?.prospecto || !allowedProspectoIds.has(finalLlamada.prospecto)) {
               return null;
+            }
+            
+            // Validación adicional: el prospecto debe existir en prospectosData
+            if (!prospecto) {
+              return null; // Prospecto no encontrado en los datos permitidos
+            }
+            
+            // Validación CRÍTICA para ejecutivos: el prospecto DEBE tener ejecutivo_id asignado y coincidir exactamente
+            if (ejecutivoFilterForValidation) {
+              // Validación estricta: el prospecto DEBE tener ejecutivo_id asignado (no null, no undefined, no string vacío)
+              const ejecutivoId = prospecto.ejecutivo_id;
+              if (!ejecutivoId || ejecutivoId === null || ejecutivoId === undefined || ejecutivoId === '') {
+                return null; // Ejecutivo NO puede ver prospectos sin ejecutivo_id asignado
+              }
+              // Validación estricta: el ejecutivo_id DEBE coincidir exactamente con el ejecutivo actual
+              if (String(ejecutivoId).trim() !== String(ejecutivoFilterForValidation).trim()) {
+                return null; // Ejecutivo no puede ver prospectos asignados a otro ejecutivo
+              }
             }
             
             // Parsear datos_proceso y datos_llamada
@@ -1282,8 +1367,9 @@ const LiveMonitorKanban: React.FC = () => {
             };
           }).filter((item): item is NonNullable<typeof item> => item !== null);
         } else {
-          // Si no hay prospectos permitidos, usar solo los análisis disponibles
-          enrichedData = combinedAnalysisData.filter((item: any) => item !== null);
+          // Si no hay prospectos permitidos, no mostrar nada (seguridad)
+          // Esto asegura que ejecutivos y coordinadores solo vean lo que tienen asignado
+          enrichedData = [];
         }
       } else {
         // Si no hay llamadas, usar solo los análisis disponibles
@@ -3773,24 +3859,26 @@ const LiveMonitorKanban: React.FC = () => {
               </div>
             </button>
             
-            <button
-              onClick={() => setSelectedTab('all')}
-              className={`px-6 py-4 text-sm font-medium transition-colors ${
-                selectedTab === 'all'
-                  ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-b-2 border-purple-500'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <span>Historial</span>
-                <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {allCallsWithAnalysis.length}
-                </span>
-              </div>
-            </button>
+            {!isAdminOperativo && (
+              <button
+                onClick={() => setSelectedTab('all')}
+                className={`px-6 py-4 text-sm font-medium transition-colors ${
+                  selectedTab === 'all'
+                    ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-b-2 border-purple-500'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <span>Historial</span>
+                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                    {allCallsWithAnalysis.length}
+                  </span>
+                </div>
+              </button>
+            )}
           </div>
 
           {/* Contenido de tabs */}

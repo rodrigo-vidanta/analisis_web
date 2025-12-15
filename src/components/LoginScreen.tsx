@@ -21,15 +21,18 @@ const LoginScreen: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Guardar email si "recordarme" está activado
+    // Normalizar email a minúsculas para comparación case-insensitive
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Guardar email normalizado si "recordarme" está activado
     if (rememberMe) {
-      localStorage.setItem('remembered_email', email.trim());
+      localStorage.setItem('remembered_email', normalizedEmail);
     } else {
       localStorage.removeItem('remembered_email');
     }
     
     // Ejecutar login - la animación se maneja en AuthContext
-    await login({ email: email.trim(), password });
+    await login({ email: normalizedEmail, password });
   };
 
   // Cargar email recordado al inicializar

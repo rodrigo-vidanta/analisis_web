@@ -111,13 +111,16 @@ class AuthService {
   // Autenticar usuario con email y contraseña
   async login(credentials: LoginCredentials): Promise<AuthState> {
     try {
-      console.log('🔐 Intentando autenticar:', credentials.email);
+      // Normalizar email a minúsculas para comparación case-insensitive
+      const normalizedEmail = credentials.email.trim().toLowerCase();
+      console.log('🔐 Intentando autenticar:', normalizedEmail);
       
       // Primero verificar el estado del usuario directamente desde la tabla
+      // Usar ilike para comparación case-insensitive
       const { data: userData, error: userError } = await supabase
         .from('auth_users')
         .select('id, email, password_hash, is_active, failed_login_attempts, locked_until')
-        .eq('email', credentials.email)
+        .ilike('email', normalizedEmail)
         .single();
 
       // Si el usuario existe, verificar bloqueo ANTES de autenticar
@@ -140,9 +143,10 @@ class AuthService {
       }
 
       // Ahora intentar autenticar usando la función RPC
+      // Pasar email normalizado a minúsculas para comparación case-insensitive
       const { data: authResult, error: authError } = await supabase
         .rpc('authenticate_user', {
-          user_email: credentials.email,
+          user_email: normalizedEmail,
           user_password: credentials.password
         });
 
@@ -155,10 +159,11 @@ class AuthService {
 
       if (!authResult || authResult.length === 0) {
         // Si la función RPC no retorna datos, verificar manualmente el estado después del intento
+        // Usar email normalizado para comparación case-insensitive
         const { data: updatedUserData } = await supabase
           .from('auth_users')
           .select('failed_login_attempts, locked_until')
-          .eq('email', credentials.email)
+          .ilike('email', normalizedEmail)
           .single();
 
         if (updatedUserData) {
@@ -198,7 +203,7 @@ class AuthService {
         const { data: currentUserData } = await supabase
           .from('auth_users')
           .select('failed_login_attempts, locked_until')
-          .eq('email', credentials.email)
+          .ilike('email', normalizedEmail)
           .single();
 
         if (currentUserData) {

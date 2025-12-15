@@ -2,6 +2,45 @@
 
 ## Historial de Versiones
 
+### v2.1.21 (2025-01-25)
+**Descripción**: B5.0.2N6.0.0: Correcciones de permisos y seguridad en módulos de Llamadas IA y Administración
+
+---
+
+## 🎯 **RELEASE B5.0.2N6.0.0 - Correcciones de Permisos y Seguridad**
+
+### 🔐 **Permisos en Historial de Llamadas IA**
+- **Administradores**: Pueden ver todo el historial sin restricciones
+- **Administradores Operativos**: Bloqueados completamente del historial (pestaña oculta)
+- **Coordinadores**: Pueden ver todo el historial de prospectos asignados a sus coordinaciones
+- **Ejecutivos**: Solo pueden ver historial de prospectos asignados a ellos (con ejecutivo_id válido)
+- **Validación estricta**: Ejecutivos no pueden ver prospectos sin ejecutivo asignado
+
+### 🔒 **Seguridad en Llamadas Programadas**
+- **Filtrado mejorado**: Ejecutivos solo ven llamadas de prospectos con ejecutivo_id asignado
+- **Validación estricta**: Comparación exacta de UUIDs para evitar filtraciones
+- **Prospectos sin asignación**: Excluidos automáticamente para ejecutivos
+
+### 👤 **Gestión de Usuarios**
+- **Edición de email**: Administradores y Administradores Operativos pueden cambiar el email de usuarios
+- **Validación de email**: Verificación de duplicados antes de actualizar
+- **Normalización**: Email se normaliza a minúsculas automáticamente
+
+### 🔑 **Login Case-Insensitive**
+- **Email normalizado**: El login no distingue entre mayúsculas y minúsculas
+- **Frontend**: Email se normaliza antes de enviar al backend
+- **Backend**: Función RPC `authenticate_user` actualizada para comparación case-insensitive
+
+### 📁 **Archivos Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Permisos en historial de llamadas IA
+- `src/services/scheduledCallsService.ts` - Filtrado mejorado para ejecutivos
+- `src/components/admin/UserManagement.tsx` - Edición de email para administradores
+- `src/services/authService.ts` - Login case-insensitive
+- `src/components/LoginScreen.tsx` - Normalización de email en frontend
+- `scripts/sql/update_authenticate_user_case_insensitive.sql` - Actualización de función RPC
+
+---
+
 ### v2.1.20 (2025-12-12)
 **Descripción**: B5.0.1N6.0.0: Vistas duales en módulos de Campañas y renombrado de módulos de Llamadas
 

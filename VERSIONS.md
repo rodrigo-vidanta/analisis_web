@@ -1,5 +1,32 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B5.0.2N6.0.0 (Enero 2025) - Correcciones de Permisos y Seguridad
+
+### 🎯 RELEASE BETA - Seguridad y Permisos Mejorados
+
+#### Permisos en Historial de Llamadas IA
+- Administradores: Acceso completo sin restricciones
+- Administradores Operativos: Bloqueados completamente (pestaña oculta)
+- Coordinadores: Acceso a prospectos de sus coordinaciones
+- Ejecutivos: Solo prospectos asignados con ejecutivo_id válido
+- Validación estricta: Prospectos sin ejecutivo excluidos para ejecutivos
+
+#### Seguridad en Llamadas Programadas
+- Filtrado mejorado para ejecutivos
+- Validación estricta de UUIDs
+- Prospectos sin asignación excluidos automáticamente
+
+#### Gestión de Usuarios
+- Edición de email para administradores y administradores operativos
+- Validación de duplicados
+- Normalización automática a minúsculas
+
+#### Login Case-Insensitive
+- Email normalizado en frontend y backend
+- Función RPC actualizada para comparación case-insensitive
+
+---
+
 ## Versión B5.0.1N6.0.0 (Diciembre 2025) - Vistas Duales y Mejoras de UI
 
 ### 🎯 RELEASE BETA - Vistas Duales y Renombrado de Módulos

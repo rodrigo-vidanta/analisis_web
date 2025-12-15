@@ -46,7 +46,9 @@ class ScheduledCallsService {
     try {
       const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
       const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
-      const isAdmin = await permissionsService.isAdmin(userId);
+      // Verificar si es admin o administrador_operativo (ambos pueden ver todo)
+      const permissions = await permissionsService.getUserPermissions(userId);
+      const isAdminOrOperativo = permissions?.role === 'admin' || permissions?.role === 'administrador_operativo';
 
       let query = analysisSupabase
         .from('llamadas_programadas')
@@ -85,11 +87,17 @@ class ScheduledCallsService {
       // Aplicar filtros de permisos
       let filteredCallsData = callsData;
       
-      if (!isAdmin) {
+      // Admin y Administrador Operativo pueden ver todo, no aplicar filtros
+      if (!isAdminOrOperativo) {
         if (ejecutivoFilter) {
           // Ejecutivo: solo sus prospectos asignados
           // Necesitamos obtener los prospectos primero para filtrar
-          const prospectoIds = [...new Set(callsData.map(call => call.prospecto))];
+          const prospectoIds = [...new Set(callsData.map(call => call.prospecto).filter(Boolean))];
+          
+          if (prospectoIds.length === 0) {
+            return [];
+          }
+          
           const { data: prospectosData } = await analysisSupabase
             .from('prospectos')
             .select('id, ejecutivo_id')
@@ -99,13 +107,30 @@ class ScheduledCallsService {
             (prospectosData || []).map(p => [p.id, p])
           );
 
+          // Filtrar solo llamadas de prospectos que:
+          // 1. Tienen ejecutivo_id asignado (no null, no undefined)
+          // 2. El ejecutivo_id coincide exactamente con el userId del ejecutivo actual (comparación estricta)
           filteredCallsData = callsData.filter(call => {
+            if (!call.prospecto) return false;
             const prospecto = prospectosMap.get(call.prospecto);
-            return prospecto?.ejecutivo_id === ejecutivoFilter;
+            // Validar estrictamente:
+            // - El prospecto existe en el mapa
+            // - Tiene ejecutivo_id asignado (no null, no undefined)
+            // - El ejecutivo_id coincide exactamente con el userId del ejecutivo actual
+            if (!prospecto || !prospecto.ejecutivo_id) {
+              return false; // Prospecto sin ejecutivo asignado - ejecutivo no puede verlo
+            }
+            // Comparación estricta de UUIDs (ambos deben ser strings y coincidir exactamente)
+            return String(prospecto.ejecutivo_id) === String(ejecutivoFilter);
           });
         } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
           // Coordinador: prospectos de sus coordinaciones
-          const prospectoIds = [...new Set(callsData.map(call => call.prospecto))];
+          const prospectoIds = [...new Set(callsData.map(call => call.prospecto).filter(Boolean))];
+          
+          if (prospectoIds.length === 0) {
+            return [];
+          }
+          
           const { data: prospectosData } = await analysisSupabase
             .from('prospectos')
             .select('id, coordinacion_id')
@@ -115,10 +140,17 @@ class ScheduledCallsService {
             (prospectosData || []).map(p => [p.id, p])
           );
 
+          // Filtrar solo llamadas de prospectos que:
+          // 1. Tienen coordinacion_id asignado (no null)
+          // 2. El coordinacion_id está en la lista de coordinaciones del coordinador
           filteredCallsData = callsData.filter(call => {
+            if (!call.prospecto) return false;
             const prospecto = prospectosMap.get(call.prospecto);
             return prospecto?.coordinacion_id && coordinacionesFilter.includes(prospecto.coordinacion_id);
           });
+        } else {
+          // Si no es admin, admin operativo, ejecutivo ni coordinador, no mostrar nada
+          return [];
         }
       }
 

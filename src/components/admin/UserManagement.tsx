@@ -1042,6 +1042,26 @@ const UserManagement: React.FC = () => {
         updated_at: new Date().toISOString()
       };
 
+      // Si es admin o administrador_operativo y el email cambió, actualizarlo
+      if ((isAdmin || isAdminOperativo) && formData.email && formData.email !== selectedUser.email) {
+        const normalizedEmail = formData.email.trim().toLowerCase();
+        // Verificar que el nuevo email no esté en uso por otro usuario
+        const { data: existingUser, error: checkError } = await supabaseSystemUIAdmin
+          .from('auth_users')
+          .select('id, email')
+          .ilike('email', normalizedEmail)
+          .neq('id', selectedUser.id)
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+        
+        if (existingUser) {
+          throw new Error(`El email ${normalizedEmail} ya está en uso por otro usuario`);
+        }
+
+        updateData.email = normalizedEmail;
+      }
+
       // Actualizar datos básicos del usuario
       const { error: updateError } = await supabaseSystemUIAdmin
         .from('auth_users')
@@ -2766,17 +2786,31 @@ const UserManagement: React.FC = () => {
                     <div className="group">
                       <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                         <Mail className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                        <span>Email</span>
+                        <span>Email {isAdmin || isAdminOperativo ? '*' : ''}</span>
                 </label>
                 <input
                   type="email"
+                  required={isAdmin || isAdminOperativo}
                   value={formData.email}
-                  disabled
-                        className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value.trim().toLowerCase() })}
+                  disabled={!(isAdmin || isAdminOperativo)}
+                        className={`w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 ${
+                          isAdmin || isAdminOperativo
+                            ? 'hover:border-gray-300 dark:hover:border-gray-600'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        }`}
+                        placeholder="usuario@ejemplo.com"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  El email no se puede modificar
-                </p>
+                {!(isAdmin || isAdminOperativo) && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Solo administradores pueden modificar el email
+                  </p>
+                )}
+                {(isAdmin || isAdminOperativo) && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    El email se normalizará a minúsculas automáticamente
+                  </p>
+                )}
               </div>
 
 
