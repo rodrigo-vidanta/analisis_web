@@ -148,6 +148,13 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           const notArchived = c.archivado === false || c.archivado === undefined;
           return isActive && notArchived;
         });
+        
+        console.log(`📋 [loadAllEjecutivos] Coordinaciones activas encontradas: ${coordinacionesActivas.length}`, coordinacionesActivas.map(c => ({
+          id: c.id,
+          nombre: c.nombre,
+          is_active: c.is_active,
+          archivado: c.archivado
+        })));
       } catch (coordError) {
         console.error('Error obteniendo coordinaciones:', coordError);
         toast.error('Error al cargar coordinaciones. Mostrando todos los ejecutivos activos.');
@@ -157,8 +164,95 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         ? new Set(coordinacionesActivas.map(c => c.id))
         : null; // Si no hay coordinaciones, no filtrar por coordinación
       
+      console.log(`📋 [loadAllEjecutivos] Coordinaciones activas IDs (Set):`, coordinacionesActivasIds ? Array.from(coordinacionesActivasIds) : 'null');
+      
       // Obtener todos los ejecutivos
       const allEjecutivos = await coordinacionService.getAllEjecutivos();
+      
+      // IMPORTANTE: Si el usuario es admin o admin operativo, también incluir coordinadores
+      let allCoordinadores: Ejecutivo[] = [];
+      if (isAdmin || isAdminOperativo) {
+        try {
+          console.log(`🔍 [loadAllEjecutivos] Cargando coordinadores para admin/admin operativo`);
+          
+          // Intentar obtener todos los coordinadores directamente (más eficiente)
+          try {
+            const todosCoordinadores = await coordinacionService.getAllCoordinadores();
+            console.log(`📋 [loadAllEjecutivos] getAllCoordinadores() devolvió ${todosCoordinadores.length} coordinadores`);
+            console.log(`📋 [loadAllEjecutivos] Coordinaciones activas IDs:`, coordinacionesActivasIds ? Array.from(coordinacionesActivasIds) : 'null');
+            console.log(`📋 [loadAllEjecutivos] Primeros 3 coordinadores:`, todosCoordinadores.slice(0, 3).map(c => ({
+              id: c.id,
+              nombre: c.full_name,
+              coordinacion_id: c.coordinacion_id,
+              is_active: c.is_active
+            })));
+            
+            // IMPORTANTE: Para administradores, mostrar TODOS los coordinadores activos
+            // No filtrar por coordinaciones activas (ese filtro solo aplica a ejecutivos)
+            // Los administradores deben poder asignar a cualquier coordinador activo
+            allCoordinadores = todosCoordinadores.filter(coord => {
+              const isActive = coord.is_active;
+              const hasCoordinacion = !!coord.coordinacion_id;
+              
+              // Solo filtrar por activo y que tenga coordinación asignada
+              // NO filtrar por coordinaciones activas para coordinadores
+              const pasaFiltro = isActive && hasCoordinacion;
+              
+              if (!pasaFiltro && todosCoordinadores.indexOf(coord) < 3) {
+                console.log(`🚫 [loadAllEjecutivos] Coordinador ${coord.full_name} filtrado:`, {
+                  isActive,
+                  hasCoordinacion,
+                  coordinacion_id: coord.coordinacion_id
+                });
+              }
+              
+              return pasaFiltro;
+            });
+            
+            console.log(`✅ [loadAllEjecutivos] ${allCoordinadores.length} coordinadores filtrados de ${todosCoordinadores.length} totales`);
+            if (allCoordinadores.length === 0 && todosCoordinadores.length > 0) {
+              console.warn(`⚠️ [loadAllEjecutivos] Todos los coordinadores fueron filtrados. Muestra de coordinadores:`, todosCoordinadores.slice(0, 5).map(c => ({
+                nombre: c.full_name,
+                coordinacion_id: c.coordinacion_id,
+                is_active: c.is_active
+              })));
+            }
+          } catch (getAllError) {
+            console.warn('⚠️ [loadAllEjecutivos] getAllCoordinadores() falló, intentando por coordinación:', getAllError);
+            
+            // Fallback: obtener coordinadores por coordinación
+            const coordinadoresPromises = coordinacionesActivas.map(async (coord) => {
+              try {
+                const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coord.id);
+                console.log(`📋 [loadAllEjecutivos] Coordinación ${coord.nombre} (${coord.id}): ${coordinadores.length} coordinadores encontrados`);
+                return coordinadores;
+              } catch (error) {
+                console.error(`❌ [loadAllEjecutivos] Error cargando coordinadores de ${coord.nombre}:`, error);
+                return [];
+              }
+            });
+            
+            const coordinadoresArrays = await Promise.all(coordinadoresPromises);
+            
+            // Aplanar y marcar como coordinadores
+            allCoordinadores = coordinadoresArrays.flat().map(coord => ({
+              ...coord,
+              is_coordinator: true
+            }));
+            
+            // Eliminar duplicados por ID (un coordinador puede estar en múltiples coordinaciones)
+            const uniqueCoordinadores = Array.from(
+              new Map(allCoordinadores.map(coord => [coord.id, coord])).values()
+            );
+            
+            console.log(`✅ [loadAllEjecutivos] Cargados ${uniqueCoordinadores.length} coordinadores únicos para asignación (de ${allCoordinadores.length} totales antes de deduplicar)`);
+            allCoordinadores = uniqueCoordinadores;
+          }
+        } catch (coordError) {
+          console.error('❌ [loadAllEjecutivos] Error cargando coordinadores para admin:', coordError);
+          // Continuar sin coordinadores si falla
+        }
+      }
       
       // Filtrar: solo ejecutivos activos
       // Si hay coordinaciones activas, filtrar por ellas también
@@ -172,6 +266,29 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         return isActive && hasCoordinacion && isInActiveCoordinacion;
       });
       
+      // Agregar coordinadores activos a la lista (solo para admin/admin operativo)
+      // NOTA: Los coordinadores ya fueron filtrados arriba, así que aquí solo los agregamos
+      if (isAdmin || isAdminOperativo) {
+        console.log(`🔍 [loadAllEjecutivos] Agregando ${allCoordinadores.length} coordinadores ya filtrados a la lista`);
+        
+        // Marcar todos como coordinadores (por si acaso)
+        const coordinadoresMarcados = allCoordinadores.map(c => ({
+          ...c,
+          is_coordinator: true
+        }));
+        
+        console.log(`✅ [loadAllEjecutivos] ${coordinadoresMarcados.length} coordinadores agregados a la lista`);
+        console.log(`📋 [loadAllEjecutivos] Coordinadores agregados:`, coordinadoresMarcados.map(c => ({
+          id: c.id,
+          nombre: c.full_name,
+          email: c.email,
+          coordinacion_id: c.coordinacion_id,
+          is_coordinator: c.is_coordinator
+        })));
+        
+        ejecutivosFiltrados = [...ejecutivosFiltrados, ...coordinadoresMarcados];
+      }
+      
       // Si no hay ejecutivos filtrados pero hay ejecutivos activos, mostrar todos los activos
       if (ejecutivosFiltrados.length === 0 && allEjecutivos.length > 0) {
         ejecutivosFiltrados = allEjecutivos.filter(e => e.is_active && e.coordinacion_id);
@@ -183,7 +300,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         console.warn('No hay ejecutivos disponibles:', {
           totalEjecutivos: allEjecutivos.length,
           ejecutivosActivos: allEjecutivos.filter(e => e.is_active).length,
-          coordinacionesActivas: coordinacionesActivas.length
+          coordinacionesActivas: coordinacionesActivas.length,
+          coordinadoresCargados: allCoordinadores.length
         });
       }
     } catch (error) {

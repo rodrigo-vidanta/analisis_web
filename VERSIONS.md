@@ -1,5 +1,28 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B6.0.1N6.0.0 (Enero 2025) - Correcciones de Permisos y Asignación de Coordinadores
+
+### 🎯 RELEASE - Correcciones de Permisos y Asignación de Coordinadores
+
+#### Correcciones de Permisos de Prospectos
+- Verificación RPC mejorada con fallback a `prospectos` cuando RPC retorna false
+- Acceso condicional cuando prospecto tiene `ejecutivo_id` asignado
+- Backup preservado para ejecutivos que respaldan a otros ejecutivos
+- Logs de depuración detallados
+
+#### Asignación de Coordinadores en WhatsApp
+- Administradores pueden asignar conversaciones a coordinadores
+- Función `getAllCoordinadores()` con fallback robusto
+- Filtrado sin restricción de coordinación activa para administradores
+- Badge "Coordinador" para diferenciación visual
+
+#### Correcciones de Bugs
+- Filtro de coordinadores corregido
+- Permisos de prospectos mejorados
+- Carga de usuarios optimizada
+
+---
+
 ## Versión B6.0.0N6.0.0 (Enero 2025) - Correcciones de Permisos y Modal de Backup
 
 ### 🎯 RELEASE - Correcciones de Permisos y Modal de Backup

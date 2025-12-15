@@ -35,6 +35,7 @@ import { Avatar } from '../shared/Avatar';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { coordinacionService } from '../../services/coordinacionService';
+import { permissionsService } from '../../services/permissionsService';
 import ReactMarkdown from 'react-markdown';
 import { CallDetailModalSidebar } from '../chat/CallDetailModalSidebar';
 import { ProspectoSidebar } from '../prospectos/ProspectosManager';
@@ -1194,33 +1195,24 @@ const LiveMonitorKanban: React.FC = () => {
             if (!prospectosError && prospectosResult) {
               // Filtrar adicionalmente en el código para asegurar que ejecutivos solo vean prospectos con ejecutivo_id asignado
               // Incluir prospectos de ejecutivos donde es backup
+              // IMPORTANTE: Usar canUserAccessProspect para verificar permisos basándose en prospect_assignments
               if (ejecutivoFilter) {
-                // Obtener IDs de ejecutivos donde este ejecutivo es backup (si no se obtuvo antes)
-                const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
-                const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUIAdmin
-                  .from('auth_users')
-                  .select('id')
-                  .eq('backup_id', ejecutivoFilter)
-                  .eq('has_backup', true);
+                // Filtrar prospectos usando el servicio de permisos (verifica prospect_assignments)
+                const prospectosFiltrados = await Promise.all(
+                  prospectosResult.map(async (prospecto: any) => {
+                    // Verificar permisos usando el servicio (usa prospect_assignments como fuente de verdad)
+                    try {
+                      const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, prospecto.id);
+                      return permissionCheck.canAccess ? prospecto : null;
+                    } catch (error) {
+                      console.error(`❌ Error verificando permiso para prospecto ${prospecto.id}:`, error);
+                      return null; // En caso de error, excluir por seguridad
+                    }
+                  })
+                );
                 
-                if (backupError) {
-                  console.error('❌ Error obteniendo ejecutivos donde es backup:', backupError);
-                }
-                
-                const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
-                if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
-                  ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
-                }
-                
-                prospectosData = prospectosResult.filter((p: any) => {
-                  // Validación estricta: el prospecto DEBE tener ejecutivo_id asignado y coincidir con alguno de los IDs
-                  const ejecutivoId = p.ejecutivo_id;
-                  return ejecutivoId && 
-                         ejecutivoId !== null && 
-                         ejecutivoId !== undefined && 
-                         ejecutivoId !== '' &&
-                         ejecutivosIds.includes(String(ejecutivoId).trim());
-                });
+                // Filtrar nulls y actualizar prospectosResult
+                prospectosData = prospectosFiltrados.filter((p: any) => p !== null);
               } else {
                 prospectosData = prospectosResult;
               }

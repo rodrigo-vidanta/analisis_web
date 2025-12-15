@@ -127,19 +127,44 @@ class ScheduledCallsService {
           // Filtrar solo llamadas de prospectos que:
           // 1. Tienen ejecutivo_id asignado (no null, no undefined)
           // 2. El ejecutivo_id coincide con alguno de los IDs en ejecutivosIds (propios + backups)
-          filteredCallsData = callsData.filter(call => {
-            if (!call.prospecto) return false;
-            const prospecto = prospectosMap.get(call.prospecto);
-            // Validar estrictamente:
-            // - El prospecto existe en el mapa
-            // - Tiene ejecutivo_id asignado (no null, no undefined)
-            // - El ejecutivo_id coincide con alguno de los IDs en ejecutivosIds
-            if (!prospecto || !prospecto.ejecutivo_id) {
-              return false; // Prospecto sin ejecutivo asignado - ejecutivo no puede verlo
-            }
-            // Verificar si el ejecutivo_id está en la lista (propios + backups)
-            return ejecutivosIds.includes(String(prospecto.ejecutivo_id));
-          });
+          // 3. Tienen asignación activa en prospect_assignments (verificado por canUserAccessProspect)
+          filteredCallsData = await Promise.all(
+            callsData.map(async (call) => {
+              if (!call.prospecto) return null;
+              const prospecto = prospectosMap.get(call.prospecto);
+              
+              // Validar estrictamente:
+              // - El prospecto existe en el mapa
+              // - Tiene ejecutivo_id asignado (no null, no undefined)
+              // - El ejecutivo_id coincide con alguno de los IDs en ejecutivosIds
+              if (!prospecto || !prospecto.ejecutivo_id) {
+                return null; // Prospecto sin ejecutivo asignado - ejecutivo no puede verlo
+              }
+              
+              // Verificar si el ejecutivo_id está en la lista (propios + backups)
+              if (!ejecutivosIds.includes(String(prospecto.ejecutivo_id))) {
+                return null;
+              }
+              
+              // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
+              // Esto verifica prospect_assignments como fuente de verdad
+              try {
+                const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, call.prospecto);
+                if (permissionCheck.canAccess) {
+                  return call;
+                } else {
+                  console.log(`🚫 [scheduledCallsService] Ejecutivo ${ejecutivoFilter}: Prospecto ${call.prospecto} denegado por servicio de permisos: ${permissionCheck.reason}`);
+                  return null;
+                }
+              } catch (error) {
+                console.error(`❌ [scheduledCallsService] Error verificando permiso para ${call.prospecto}:`, error);
+                return null; // En caso de error, excluir por seguridad
+              }
+            })
+          );
+          
+          // Filtrar nulls
+          filteredCallsData = filteredCallsData.filter((call: any) => call !== null);
         } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
           // Coordinador: prospectos de sus coordinaciones
           const prospectoIds = [...new Set(callsData.map(call => call.prospecto).filter(Boolean))];

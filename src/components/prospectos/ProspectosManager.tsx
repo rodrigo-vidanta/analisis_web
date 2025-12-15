@@ -1232,7 +1232,27 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       const { coordinacionesMap, ejecutivosMap } = await loadCoordinacionesAndEjecutivos();
 
       // Enriquecer prospectos usando mapas (instantáneo)
-      const enrichedProspectos = enrichProspectos(data || [], coordinacionesMap, ejecutivosMap);
+      let enrichedProspectos = enrichProspectos(data || [], coordinacionesMap, ejecutivosMap);
+
+      // Para ejecutivos: verificación adicional usando canUserAccessProspect (verifica prospect_assignments)
+      if (user?.id && ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
+        // Filtrar prospectos usando el servicio de permisos (verifica prospect_assignments)
+        const prospectosFiltrados = await Promise.all(
+          enrichedProspectos.map(async (prospecto: Prospecto) => {
+            // Verificar permisos usando el servicio (usa prospect_assignments como fuente de verdad)
+            try {
+              const permissionCheck = await permissionsService.canUserAccessProspect(user.id, prospecto.id);
+              return permissionCheck.canAccess ? prospecto : null;
+            } catch (error) {
+              console.error(`❌ Error verificando permiso para prospecto ${prospecto.id}:`, error);
+              return null; // En caso de error, excluir por seguridad
+            }
+          })
+        );
+        
+        // Filtrar nulls
+        enrichedProspectos = prospectosFiltrados.filter((p: Prospecto | null) => p !== null) as Prospecto[];
+      }
 
       // Cargar todos los prospectos de una vez
       setAllProspectos(enrichedProspectos);

@@ -2650,9 +2650,26 @@ const LiveChatCanvas: React.FC = () => {
           if (conv.prospecto_id) {
             const prospectoData = prospectosData.get(conv.prospecto_id);
             if (ejecutivoFilter) {
-              // Ejecutivo: sus prospectos asignados + prospectos de ejecutivos donde es backup
-              if (prospectoData?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-                uchatConversations.push(conv);
+              // Ejecutivo: verificar con servicio de permisos (usa prospect_assignments como fuente de verdad)
+              // Validación estricta: debe tener ejecutivo_id asignado
+              if (!prospectoData?.ejecutivo_id) {
+                continue; // Prospecto sin ejecutivo asignado, ejecutivo NO puede verlo
+              }
+              
+              // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+              if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
+                // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
+                try {
+                  const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, conv.prospecto_id);
+                  if (permissionCheck.canAccess) {
+                    uchatConversations.push(conv);
+                  } else {
+                    console.log(`🚫 [LiveChatCanvas] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} denegado por servicio de permisos: ${permissionCheck.reason}`);
+                  }
+                } catch (error) {
+                  console.error(`❌ [LiveChatCanvas] Error verificando permiso para ${conv.prospecto_id}:`, error);
+                  // En caso de error, no incluir la conversación por seguridad
+                }
               }
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
               // Coordinador: todos los prospectos de sus coordinaciones (múltiples)
@@ -2733,9 +2750,26 @@ const LiveChatCanvas: React.FC = () => {
             if (conv.prospecto_id) {
               const prospectoData = prospectosData.get(conv.prospecto_id);
               if (ejecutivoFilter) {
-                // Ejecutivo: sus prospectos asignados + prospectos de ejecutivos donde es backup
-                if (prospectoData?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-                  whatsappConversations.push(conv);
+                // Ejecutivo: verificar con servicio de permisos (usa prospect_assignments como fuente de verdad)
+                // Validación estricta: debe tener ejecutivo_id asignado
+                if (!prospectoData?.ejecutivo_id) {
+                  continue; // Prospecto sin ejecutivo asignado, ejecutivo NO puede verlo
+                }
+                
+                // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+                if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
+                  // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
+                  try {
+                    const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, conv.prospecto_id);
+                    if (permissionCheck.canAccess) {
+                      whatsappConversations.push(conv);
+                    } else {
+                      console.log(`🚫 [LiveChatCanvas] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} denegado por servicio de permisos: ${permissionCheck.reason}`);
+                    }
+                  } catch (error) {
+                    console.error(`❌ [LiveChatCanvas] Error verificando permiso para ${conv.prospecto_id}:`, error);
+                    // En caso de error, no incluir la conversación por seguridad
+                  }
                 }
               } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
                 // Coordinador: todos los prospectos de sus coordinaciones (múltiples)

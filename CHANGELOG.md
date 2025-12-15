@@ -2,6 +2,32 @@
 
 ## Historial de Versiones
 
+### v2.1.24 (2025-01-25)
+**Descripción**: B6.0.1N6.0.0: Correcciones de Permisos de Prospectos y Asignación de Coordinadores
+
+---
+
+## 🎯 **RELEASE B6.0.1N6.0.0 - Correcciones de Permisos y Asignación de Coordinadores**
+
+### 🔐 **Correcciones de Permisos de Prospectos**
+- **Verificación RPC mejorada**: Cuando la función RPC retorna `false`, se verifica si el prospecto tiene `ejecutivo_id` asignado antes de denegar acceso
+- **Acceso condicional**: Si el prospecto tiene `ejecutivo_id` asignado que coincide con el usuario actual, se permite acceso (asignado en `prospectos` aunque no en `prospect_assignments`)
+- **Backup preservado**: Los ejecutivos backup mantienen acceso a prospectos del ejecutivo que están respaldando
+- **Logs de depuración**: Agregados logs detallados para rastrear verificaciones de permisos
+
+### 👥 **Asignación de Coordinadores en WhatsApp**
+- **Administradores**: Ahora pueden asignar conversaciones de WhatsApp a coordinadores (igual que pueden asignar prospectos)
+- **Carga de coordinadores**: Implementada función `getAllCoordinadores()` con fallback robusto
+- **Filtrado inteligente**: Los coordinadores se muestran sin restricción de coordinación activa para administradores
+- **Visualización mejorada**: Los coordinadores se muestran con badge "Coordinador" para diferenciarlos de ejecutivos
+
+### 🐛 **Correcciones de Bugs**
+- **Filtro de coordinadores**: Corregido filtro que eliminaba todos los coordinadores al verificar coordinaciones activas
+- **Permisos de prospectos**: Corregida lógica que denegaba acceso cuando el prospecto estaba asignado en `prospectos` pero no en `prospect_assignments`
+- **Carga de usuarios**: Mejorada la carga de coordinadores para administradores con manejo de errores robusto
+
+---
+
 ### v2.1.23 (2025-01-25)
 **Descripción**: B6.0.0N6.0.0: Correcciones de Permisos en Widget de Conversaciones y Modal de Backup
 

@@ -73,22 +73,85 @@ class PermissionsService {
     prospectId: string
   ): Promise<PermissionCheck> {
     try {
-      // Primero intentar con la función RPC (busca en prospect_assignments)
+      // Primero intentar con la función RPC (busca en prospect_assignments de system_ui)
+      // Esta es la fuente de verdad para las asignaciones
       try {
         const { data, error } = await supabaseSystemUI.rpc('can_user_access_prospect', {
           p_user_id: userId,
           p_prospect_id: prospectId,
         });
 
+        // Si la función RPC retorna true, el usuario tiene acceso
         if (!error && data === true) {
           return {
             canAccess: true,
             reason: undefined,
           };
         }
+        
+        // Si la función RPC retorna false (sin error), verificar si el prospecto tiene ejecutivo_id asignado
+        // Si el ejecutivo_id coincide con el usuario actual, permitir acceso (asignado en prospectos aunque no en prospect_assignments)
+        // Si no coincide, continuar con el fallback para verificar si es backup
+        if (!error && data === false) {
+          console.log(`⚠️ [canUserAccessProspect] RPC retornó false: Verificando asignación en prospectos para prospecto ${prospectId}`);
+          
+          // Obtener datos del prospecto para verificar si tiene ejecutivo_id asignado
+          const { analysisSupabase } = await import('../config/analysisSupabase');
+          const { data: prospectoData, error: prospectoError } = await analysisSupabase
+            .from('prospectos')
+            .select('ejecutivo_id, coordinacion_id')
+            .eq('id', prospectId)
+            .maybeSingle();
+          
+          // Si el prospecto no tiene ejecutivo_id asignado, denegar acceso inmediatamente
+          if (!prospectoData || !prospectoData.ejecutivo_id) {
+            console.log(`🚫 [canUserAccessProspect] RPC retornó false Y prospecto ${prospectId} no tiene ejecutivo_id asignado, denegando acceso`);
+            return {
+              canAccess: false,
+              reason: 'El prospecto no tiene una asignación activa en prospect_assignments y no tiene ejecutivo asignado',
+            };
+          }
+          
+          // Si tiene ejecutivo_id, verificar si coincide con el usuario actual
+          // Obtener permisos del usuario para verificar su ejecutivo_id
+          const permissions = await this.getUserPermissions(userId);
+          if (permissions && permissions.role === 'ejecutivo') {
+            const userEjecutivoId = await this.getEjecutivoFilter(userId);
+            const userCoordinaciones = await this.getCoordinacionesFilter(userId);
+            
+            // Comparar IDs como strings para evitar problemas de tipo
+            const prospectEjecutivoIdStr = String(prospectoData.ejecutivo_id).trim();
+            const userEjecutivoIdStr = userEjecutivoId ? String(userEjecutivoId).trim() : null;
+            
+            // Si el ejecutivo_id coincide y están en la misma coordinación, permitir acceso
+            if (userEjecutivoIdStr && prospectEjecutivoIdStr === userEjecutivoIdStr) {
+              const sameCoordinacion = userCoordinaciones ? userCoordinaciones.includes(prospectoData.coordinacion_id) : false;
+              
+              if (sameCoordinacion) {
+                console.log(`✅ [canUserAccessProspect] RPC retornó false pero prospecto tiene ejecutivo_id asignado que coincide con usuario ${userId}, permitiendo acceso`);
+                return {
+                  canAccess: true,
+                  reason: 'El prospecto está asignado a ti en la tabla prospectos',
+                };
+              } else {
+                console.log(`⚠️ [canUserAccessProspect] RPC retornó false, ejecutivo_id coincide pero coordinación no coincide, continuando con verificación de backup`);
+              }
+            } else {
+              console.log(`⚠️ [canUserAccessProspect] RPC retornó false, ejecutivo_id no coincide (prospecto: ${prospectEjecutivoIdStr}, usuario: ${userEjecutivoIdStr}), verificando si usuario es backup`);
+            }
+          }
+          
+          // Si no coincide o no es ejecutivo, continuar con el fallback para verificar si es backup
+          console.log(`⚠️ [canUserAccessProspect] RPC retornó false pero prospecto tiene ejecutivo_id ${prospectoData.ejecutivo_id}, continuando con fallback`);
+        }
+        
+        // Si hay un error en la función RPC, hacer fallback a verificación directa
+        if (error) {
+          console.warn('RPC can_user_access_prospect falló con error, haciendo fallback a verificación directa en prospectos:', error);
+        }
       } catch (rpcError) {
-        // Si la función RPC falla o retorna false, verificar directamente en prospectos
-        console.warn('RPC can_user_access_prospect falló o retornó false, verificando directamente en prospectos:', rpcError);
+        // Si la función RPC falla completamente (excepción), hacer fallback
+        console.warn('RPC can_user_access_prospect lanzó excepción, haciendo fallback a verificación directa en prospectos:', rpcError);
       }
 
       // Fallback: Verificar directamente en la tabla prospectos
@@ -130,6 +193,16 @@ class PermissionsService {
 
       const prospectCoordinacionId = prospectoData.coordinacion_id;
       const prospectEjecutivoId = prospectoData.ejecutivo_id;
+      
+      // IMPORTANTE: Si llegamos aquí desde el fallback y el prospecto no tiene ejecutivo_id asignado,
+      // denegar acceso inmediatamente (ya verificamos esto arriba, pero por seguridad lo verificamos de nuevo)
+      if (!prospectEjecutivoId && permissions.role === 'ejecutivo') {
+        console.log(`🚫 [canUserAccessProspect] Ejecutivo ${userId}: Prospecto ${prospectId} sin ejecutivo_id asignado en fallback, denegando acceso`);
+        return {
+          canAccess: false,
+          reason: 'El prospecto no tiene ejecutivo asignado',
+        };
+      }
 
       // Si el prospecto no tiene coordinación asignada, solo admin y administrador_operativo pueden verlo
       if (!prospectCoordinacionId) {
@@ -159,45 +232,71 @@ class PermissionsService {
 
       // Ejecutivo: solo puede ver si el prospecto está asignado a él y a su coordinación
       // O si es backup del ejecutivo asignado
+      // IMPORTANTE: Este es un fallback solo si la función RPC falló técnicamente
+      // Si la función RPC retornó false (sin asignación activa), ya se denegó el acceso arriba
       if (permissions.role === 'ejecutivo') {
+        // Verificación estricta: el prospecto DEBE tener ejecutivo_id asignado
+        if (!prospectEjecutivoId) {
+          console.log(`🚫 [canUserAccessProspect] Ejecutivo ${userId}: Prospecto ${prospectId} sin ejecutivo_id asignado, denegando acceso`);
+          return {
+            canAccess: false,
+            reason: 'El prospecto no tiene ejecutivo asignado',
+          };
+        }
+        
         const sameCoordinacion = userCoordinaciones ? userCoordinaciones.includes(prospectCoordinacionId) : false;
         const sameEjecutivo = userEjecutivoId === prospectEjecutivoId;
         
-        // Verificar acceso directo
+        // Verificar acceso directo: debe estar en la misma coordinación Y asignado al mismo ejecutivo
         if (sameCoordinacion && sameEjecutivo) {
+          console.log(`✅ [canUserAccessProspect] Ejecutivo ${userId}: Prospecto ${prospectId} asignado correctamente (coordinación y ejecutivo coinciden)`);
           return {
             canAccess: true,
             reason: undefined,
           };
+        }
+        
+        // Si no coincide coordinación o ejecutivo, denegar acceso
+        if (!sameCoordinacion) {
+          console.log(`🚫 [canUserAccessProspect] Ejecutivo ${userId}: Prospecto ${prospectId} no está en su coordinación (prospecto: ${prospectCoordinacionId}, usuario: ${userCoordinaciones})`);
+        }
+        if (!sameEjecutivo) {
+          console.log(`🚫 [canUserAccessProspect] Ejecutivo ${userId}: Prospecto ${prospectId} no está asignado a él (prospecto: ${prospectEjecutivoId}, usuario: ${userEjecutivoId})`);
         }
 
         // Verificar si es backup del ejecutivo asignado
         // El prospecto está asignado a prospectEjecutivoId
         // Verificamos si prospectEjecutivoId tiene como backup a userEjecutivoId
         if (prospectEjecutivoId && userEjecutivoId) {
-          console.log(`🔍 Verificando backup: prospecto asignado a ${prospectEjecutivoId}, usuario actual ${userEjecutivoId}`);
+          console.log(`🔍 [canUserAccessProspect] Verificando backup: prospecto asignado a ${prospectEjecutivoId}, usuario actual ${userEjecutivoId}`);
           
           // Verificar directamente en la BD si el ejecutivo asignado tiene como backup al usuario actual
-          const { data: ejecutivoData, error } = await supabaseSystemUIAdmin
+          const { data: ejecutivoData, error: backupError } = await supabaseSystemUIAdmin
             .from('auth_users')
             .select('backup_id, has_backup')
             .eq('id', prospectEjecutivoId)
             .single();
           
-          if (!error && ejecutivoData) {
-            console.log(`📋 Datos del ejecutivo asignado: backup_id=${ejecutivoData.backup_id}, has_backup=${ejecutivoData.has_backup}`);
+          if (!backupError && ejecutivoData) {
+            console.log(`📋 [canUserAccessProspect] Datos del ejecutivo asignado: backup_id=${ejecutivoData.backup_id}, has_backup=${ejecutivoData.has_backup}`);
             
             if (ejecutivoData.backup_id === userEjecutivoId && ejecutivoData.has_backup === true) {
-              console.log(`✅ Usuario ${userEjecutivoId} es backup del ejecutivo ${prospectEjecutivoId}`);
-              return {
-                canAccess: true,
-                reason: 'Eres el backup del ejecutivo asignado',
-              };
+              console.log(`✅ [canUserAccessProspect] Usuario ${userEjecutivoId} es backup del ejecutivo ${prospectEjecutivoId}, permitiendo acceso`);
+              
+              // Verificar también que estén en la misma coordinación
+              if (sameCoordinacion) {
+                return {
+                  canAccess: true,
+                  reason: 'Eres el backup del ejecutivo asignado',
+                };
+              } else {
+                console.log(`🚫 [canUserAccessProspect] Usuario ${userEjecutivoId} es backup pero prospecto no está en su coordinación`);
+              }
             } else {
-              console.log(`❌ Usuario ${userEjecutivoId} NO es backup del ejecutivo ${prospectEjecutivoId} (backup_id=${ejecutivoData.backup_id}, has_backup=${ejecutivoData.has_backup})`);
+              console.log(`❌ [canUserAccessProspect] Usuario ${userEjecutivoId} NO es backup del ejecutivo ${prospectEjecutivoId} (backup_id=${ejecutivoData.backup_id}, has_backup=${ejecutivoData.has_backup})`);
             }
           } else {
-            console.error('Error verificando backup en BD:', error);
+            console.error(`❌ [canUserAccessProspect] Error verificando backup en BD:`, backupError);
           }
         }
 

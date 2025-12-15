@@ -609,12 +609,99 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     const prospectId = conversation.prospect_id || conversation.prospecto_id || conversation.metadata?.prospect_id;
     
     // Si no hay prospect_id, solo administradores pueden verla (ya retornamos true arriba)
-    // Para otros roles, si no hay prospect_id, no pueden verla
+    // Para ejecutivos y coordinadores, si no hay prospect_id, no pueden verla
     if (!prospectId) {
+      // Coordinadores pueden ver conversaciones sin prospecto si están en su coordinación
+      // Pero esto requiere verificación adicional que no tenemos aquí
+      // Por ahora, excluir conversaciones sin prospect_id para ejecutivos
+      if (user?.role_name === 'ejecutivo') {
+        console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Conversación sin prospect_id, denegando acceso`);
+        return false;
+      }
+      // Para coordinadores, necesitaríamos verificar la coordinación de otra manera
+      // Por ahora, también excluir
       return false;
     }
     
-    // Verificar permisos usando el servicio
+    // Para ejecutivos, verificación temprana: verificar directamente en el mapa de prospectos
+    if (user?.role_name === 'ejecutivo') {
+      const prospectoData = prospectosDataRef.current.get(prospectId);
+      
+      // Si el prospecto no está en el mapa, intentar cargarlo
+      if (!prospectoData) {
+        try {
+          const { data } = await analysisSupabase
+            .from('prospectos')
+            .select('id, ejecutivo_id, coordinacion_id')
+            .eq('id', prospectId)
+            .maybeSingle();
+          
+          if (!data) {
+            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} no encontrado en BD, denegando acceso`);
+            return false;
+          }
+          
+          // Verificar si tiene ejecutivo_id asignado
+          if (!data.ejecutivo_id) {
+            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} sin ejecutivo_id asignado, denegando acceso`);
+            return false;
+          }
+          
+          // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+          const ejecutivosIdsParaFiltrar = ejecutivosIdsParaFiltrarRef.current;
+          if (!ejecutivosIdsParaFiltrar.includes(data.ejecutivo_id)) {
+            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} asignado a ${data.ejecutivo_id}, no coincide con ejecutivos permitidos [${ejecutivosIdsParaFiltrar.join(', ')}]`);
+            return false;
+          }
+          
+          // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
+          // Esto verifica también la coordinación
+          const permissionCheck = await permissionsService.canUserAccessProspect(userId, prospectId);
+          if (!permissionCheck.canAccess) {
+            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} denegado por servicio de permisos: ${permissionCheck.reason}`);
+            return false;
+          }
+          
+          // Actualizar el mapa para futuras consultas
+          prospectosDataRef.current.set(prospectId, data);
+          
+          return true;
+        } catch (error) {
+          console.error(`❌ [canViewConversation] Error cargando prospecto ${prospectId}:`, error);
+          return false;
+        }
+      } else {
+        // Prospecto está en el mapa, verificar ejecutivo_id
+        if (!prospectoData.ejecutivo_id) {
+          console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} sin ejecutivo_id en mapa, denegando acceso`);
+          return false;
+        }
+        
+        // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+        const ejecutivosIdsParaFiltrar = ejecutivosIdsParaFiltrarRef.current;
+        if (!ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
+          console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} asignado a ${prospectoData.ejecutivo_id}, no coincide con ejecutivos permitidos [${ejecutivosIdsParaFiltrar.join(', ')}]`);
+          return false;
+        }
+        
+        // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
+        // Esto verifica también la coordinación
+        try {
+          const permissionCheck = await permissionsService.canUserAccessProspect(userId, prospectId);
+          if (!permissionCheck.canAccess) {
+            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} denegado por servicio de permisos: ${permissionCheck.reason}`);
+            return false;
+          }
+        } catch (error) {
+          console.error(`❌ [canViewConversation] Error verificando permiso para ${prospectId}:`, error);
+          return false;
+        }
+        
+        return true;
+      }
+    }
+    
+    // Para coordinadores y otros roles, usar el servicio de permisos
     try {
       const permissionCheck = await permissionsService.canUserAccessProspect(userId, prospectId);
       return permissionCheck.canAccess;
@@ -1190,16 +1277,57 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
               .from('prospectos')
               .select('id, coordinacion_id, ejecutivo_id, requiere_atencion_humana, motivo_handoff, nombre_completo, nombre_whatsapp, id_uchat')
               .in('id', Array.from(prospectoIds))
-              .then(({ data }) => {
+              .then(({ data, error }) => {
+                if (error) {
+                  console.error('❌ [ConversacionesWidget] Error cargando prospectos:', error);
+                  return new Map();
+                }
                 const map = new Map();
                 (data || []).forEach(p => {
                   map.set(p.id, p);
                   if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
                   if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
                 });
+                
+                // Debug: verificar si el prospecto problemático está en el mapa
+                if (ejecutivoFilter) {
+                  const problemProspectId = '97c8bd6f-235e-41b5-981d-42a61880442f';
+                  if (prospectoIds.has(problemProspectId)) {
+                    const problemProspect = map.get(problemProspectId);
+                    const ejecutivosIdsParaFiltrar = ejecutivosIdsParaFiltrarRef.current;
+                    const tieneEjecutivoId = !!problemProspect?.ejecutivo_id;
+                    const ejecutivoIdCoincide = problemProspect?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(problemProspect.ejecutivo_id);
+                    
+                    console.log(`🔍 [ConversacionesWidget] Prospecto problemático ${problemProspectId}:`, {
+                      encontrado: !!problemProspect,
+                      ejecutivo_id: problemProspect?.ejecutivo_id,
+                      coordinacion_id: problemProspect?.coordinacion_id,
+                      ejecutivoFilter,
+                      ejecutivosIdsParaFiltrar,
+                      tieneEjecutivoId,
+                      ejecutivoIdCoincide,
+                      deberiaVerlo: tieneEjecutivoId && ejecutivoIdCoincide
+                    });
+                    
+                    // Verificar también con el servicio de permisos
+                    if (problemProspect) {
+                      permissionsService.canUserAccessProspect(ejecutivoFilter, problemProspectId)
+                        .then(result => {
+                          console.log(`🔍 [ConversacionesWidget] Permiso del servicio para ${problemProspectId}:`, result);
+                        })
+                        .catch(err => {
+                          console.error(`❌ [ConversacionesWidget] Error verificando permiso:`, err);
+                        });
+                    }
+                  }
+                }
+                
                 return map;
               })
-              .catch(() => new Map())
+              .catch((error) => {
+                console.error('❌ [ConversacionesWidget] Error en catch cargando prospectos:', error);
+                return new Map();
+              })
           : Promise.resolve(new Map()),
         coordinacionIds.size > 0
           ? coordinacionService.getCoordinacionesByIds(Array.from(coordinacionIds))
@@ -1320,40 +1448,148 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       } else {
         // Filtrar según permisos (incluyendo backups)
         for (const conv of uchatConversations) {
-          if (conv.prospect_id) {
-            const prospectoData = prospectosDataMap.get(conv.prospect_id);
-            if (ejecutivoFilter) {
-              // Ejecutivo: sus prospectos asignados + prospectos de ejecutivos donde es backup
-              if (prospectoData?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-                filteredUchat.push(conv);
+          // Ejecutivos: solo conversaciones con prospect_id asignado
+          if (!conv.prospect_id) {
+            // Si no tiene prospect_id, solo coordinadores y administradores pueden verla
+            if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              // Coordinador: puede ver conversaciones sin prospecto si están en su coordinación
+              // Pero necesitamos verificar la coordinación de otra manera
+              // Por ahora, excluir conversaciones sin prospect_id para todos excepto admins
+              continue;
+            }
+            continue;
+          }
+          
+          const prospectoData = prospectosDataMap.get(conv.prospect_id);
+          
+          if (ejecutivoFilter) {
+            // Ejecutivo: SOLO prospectos con ejecutivo_id asignado (no null) que coincida con él o sus backups
+            if (!prospectoData) {
+              // Prospecto no encontrado en el mapa, excluir
+              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospect_id} no encontrado en mapa, excluyendo`);
+              continue;
+            }
+            
+            // Validación estricta: debe tener ejecutivo_id asignado (no null, no undefined)
+            if (!prospectoData.ejecutivo_id) {
+              // Prospecto sin ejecutivo asignado, ejecutivo NO puede verlo
+              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospect_id} sin ejecutivo_id asignado, excluyendo`);
+              continue;
+            }
+            
+            // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+            if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
+              // Verificación adicional: usar el servicio de permisos para confirmar acceso
+              try {
+                const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, conv.prospect_id);
+                if (permissionCheck.canAccess) {
+                  filteredUchat.push(conv);
+                } else {
+                  console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospect_id} denegado por servicio de permisos: ${permissionCheck.reason}`);
+                }
+              } catch (error) {
+                console.error(`❌ [ConversacionesWidget] Error verificando permiso para ${conv.prospect_id}:`, error);
+                // En caso de error, no incluir la conversación por seguridad
               }
-            } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-              if (prospectoData?.coordinacion_id && coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
-                filteredUchat.push(conv);
-              }
+            } else {
+              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospect_id} asignado a ${prospectoData.ejecutivo_id}, no coincide con ejecutivos permitidos [${ejecutivosIdsParaFiltrar.join(', ')}]`);
+            }
+          } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+            // Coordinador: solo prospectos asignados a su coordinación
+            if (prospectoData?.coordinacion_id && coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
+              filteredUchat.push(conv);
             }
           }
         }
 
         for (const conv of whatsappConversations) {
-          if (conv.prospecto_id) {
-            const prospectoData = prospectosDataMap.get(conv.prospecto_id);
-            if (ejecutivoFilter) {
-              // Ejecutivo: sus prospectos asignados + prospectos de ejecutivos donde es backup
-              if (prospectoData?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-                filteredWhatsapp.push(conv);
+          // Ejecutivos: solo conversaciones con prospecto_id asignado
+          if (!conv.prospecto_id) {
+            // Si no tiene prospecto_id, solo coordinadores y administradores pueden verla
+            if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              // Coordinador: puede ver conversaciones sin prospecto si están en su coordinación
+              // Pero necesitamos verificar la coordinación de otra manera
+              // Por ahora, excluir conversaciones sin prospecto_id para todos excepto admins
+              continue;
+            }
+            continue;
+          }
+          
+          const prospectoData = prospectosDataMap.get(conv.prospecto_id);
+          
+          if (ejecutivoFilter) {
+            // Ejecutivo: SOLO prospectos con ejecutivo_id asignado (no null) que coincida con él o sus backups
+            if (!prospectoData) {
+              // Prospecto no encontrado en el mapa, excluir
+              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} no encontrado en mapa, excluyendo`);
+              continue;
+            }
+            
+            // Validación estricta: debe tener ejecutivo_id asignado (no null, no undefined)
+            if (!prospectoData.ejecutivo_id) {
+              // Prospecto sin ejecutivo asignado, ejecutivo NO puede verlo
+              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} sin ejecutivo_id asignado, excluyendo`);
+              continue;
+            }
+            
+            // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+            if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
+              // Verificación adicional: usar el servicio de permisos para confirmar acceso
+              try {
+                const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, conv.prospecto_id);
+                if (permissionCheck.canAccess) {
+                  filteredWhatsapp.push(conv);
+                } else {
+                  console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} denegado por servicio de permisos: ${permissionCheck.reason}`);
+                }
+              } catch (error) {
+                console.error(`❌ [ConversacionesWidget] Error verificando permiso para ${conv.prospecto_id}:`, error);
+                // En caso de error, no incluir la conversación por seguridad
               }
-            } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-              if (prospectoData?.coordinacion_id && coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
-                filteredWhatsapp.push(conv);
-              }
+            } else {
+              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} asignado a ${prospectoData.ejecutivo_id}, no coincide con ejecutivos permitidos [${ejecutivosIdsParaFiltrar.join(', ')}]`);
+            }
+          } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+            // Coordinador: solo prospectos asignados a su coordinación
+            if (prospectoData?.coordinacion_id && coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
+              filteredWhatsapp.push(conv);
             }
           }
         }
       }
 
       // Combinar y eliminar duplicados
-      const allConversations = [...filteredUchat, ...filteredWhatsapp];
+      let allConversations = [...filteredUchat, ...filteredWhatsapp];
+      
+      // Filtrado adicional para ejecutivos: asegurar que todas las conversaciones tengan ejecutivo_id asignado
+      if (ejecutivoFilter) {
+        allConversations = allConversations.filter(conv => {
+          const prospectId = conv.prospect_id || conv.prospecto_id;
+          if (!prospectId) {
+            console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Conversación sin prospect_id, excluyendo`);
+            return false;
+          }
+          
+          const prospectoData = prospectosDataMap.get(prospectId);
+          if (!prospectoData) {
+            console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${prospectId} no encontrado en mapa final, excluyendo`);
+            return false;
+          }
+          
+          if (!prospectoData.ejecutivo_id) {
+            console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${prospectId} sin ejecutivo_id en filtrado final, excluyendo`);
+            return false;
+          }
+          
+          if (!ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
+            console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${prospectId} ejecutivo_id ${prospectoData.ejecutivo_id} no coincide en filtrado final, excluyendo`);
+            return false;
+          }
+          
+          return true;
+        });
+      }
+      
       const uniqueConversations = allConversations.filter((conv, index, self) =>
         index === self.findIndex(c => (c.id || c.prospecto_id) === (conv.id || conv.prospecto_id))
       );

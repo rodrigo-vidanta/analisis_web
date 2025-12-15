@@ -825,6 +825,147 @@ class CoordinacionService {
   }
 
   /**
+   * Obtiene todos los coordinadores activos de todas las coordinaciones
+   * Útil para administradores que necesitan asignar a coordinadores
+   */
+  async getAllCoordinadores(): Promise<Ejecutivo[]> {
+    try {
+      // Obtener coordinadores directamente de auth_users
+      // Primero intentar con coordinador_coordinaciones si existe
+      const { data: coordinadorCoordinaciones, error: ccError } = await supabaseSystemUI
+        .from('coordinador_coordinaciones')
+        .select(`
+          coordinador_id,
+          coordinacion_id,
+          coordinaciones:coordinacion_id (
+            codigo,
+            nombre
+          )
+        `);
+
+      let coordinadores: Ejecutivo[] = [];
+
+      if (!ccError && coordinadorCoordinaciones && coordinadorCoordinaciones.length > 0) {
+        // Usar coordinador_coordinaciones si existe y tiene datos
+        const coordinadorIds = coordinadorCoordinaciones
+          .map(cc => cc.coordinador_id)
+          .filter((id): id is string => id !== null && id !== undefined);
+
+        if (coordinadorIds.length > 0) {
+          const { data: usersData, error: usersError } = await supabaseSystemUI
+            .from('auth_users')
+            .select(`
+              id,
+              email,
+              full_name,
+              first_name,
+              last_name,
+              phone,
+              coordinacion_id,
+              is_active,
+              is_operativo,
+              id_dynamics,
+              email_verified,
+              last_login,
+              created_at
+            `)
+            .in('id', coordinadorIds)
+            .eq('is_coordinator', true)
+            .eq('is_active', true)
+            .order('full_name');
+
+          if (!usersError && usersData) {
+            coordinadores = usersData.map((user: any) => {
+              // Encontrar la relación para obtener la coordinación
+              const relacion = coordinadorCoordinaciones.find(cc => cc.coordinador_id === user.id);
+              const coordinacionData = relacion?.coordinaciones;
+              const coordInfo = Array.isArray(coordinacionData) 
+                ? coordinacionData[0] 
+                : coordinacionData;
+
+              return {
+                id: user.id,
+                email: user.email,
+                full_name: user.full_name,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                phone: user.phone,
+                coordinacion_id: relacion?.coordinacion_id || user.coordinacion_id,
+                coordinacion_codigo: coordInfo?.codigo,
+                coordinacion_nombre: coordInfo?.nombre,
+                is_active: user.is_active,
+                is_operativo: user.is_operativo,
+                id_dynamics: user.id_dynamics,
+                email_verified: user.email_verified,
+                last_login: user.last_login,
+                created_at: user.created_at,
+              };
+            });
+          }
+        }
+      } else {
+        // Fallback: obtener coordinadores directamente de auth_users donde tienen coordinacion_id
+        const { data: usersData, error: usersError } = await supabaseSystemUI
+          .from('auth_users')
+          .select(`
+            id,
+            email,
+            full_name,
+            first_name,
+            last_name,
+            phone,
+            coordinacion_id,
+            is_active,
+            is_operativo,
+            id_dynamics,
+            email_verified,
+            last_login,
+            created_at,
+            coordinaciones:coordinacion_id (
+              codigo,
+              nombre
+            )
+          `)
+          .eq('is_coordinator', true)
+          .eq('is_active', true)
+          .not('coordinacion_id', 'is', null)
+          .order('full_name');
+
+        if (!usersError && usersData) {
+          coordinadores = usersData.map((user: any) => {
+            const coordinacion = Array.isArray(user.coordinaciones) 
+              ? user.coordinaciones[0] 
+              : user.coordinaciones;
+
+            return {
+              id: user.id,
+              email: user.email,
+              full_name: user.full_name,
+              first_name: user.first_name,
+              last_name: user.last_name,
+              phone: user.phone,
+              coordinacion_id: user.coordinacion_id,
+              coordinacion_codigo: coordinacion?.codigo,
+              coordinacion_nombre: coordinacion?.nombre,
+              is_active: user.is_active,
+              is_operativo: user.is_operativo,
+              id_dynamics: user.id_dynamics,
+              email_verified: user.email_verified,
+              last_login: user.last_login,
+              created_at: user.created_at,
+            };
+          });
+        }
+      }
+
+      return coordinadores;
+    } catch (error) {
+      console.error('Error obteniendo todos los coordinadores:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Obtiene todos los ejecutivos (asignados y sin asignación)
    * Útil para coordinadores que necesitan ver todos los ejecutivos disponibles
    */
