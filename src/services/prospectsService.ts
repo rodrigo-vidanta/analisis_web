@@ -201,15 +201,11 @@ class ProspectsService {
         .like('whatsapp', `%${lastDigits}`)
         .limit(5);
 
-      // Aplicar filtros de permisos si hay userId
+      // Aplicar filtros de permisos si hay userId (incluye lógica de backup)
       if (userId) {
-        const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
-        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
-
-        if (ejecutivoFilter) {
-          query = query.eq('ejecutivo_id', ejecutivoFilter);
-        } else if (coordinacionFilter) {
-          query = query.eq('coordinacion_id', coordinacionFilter);
+        const filteredQuery = await permissionsService.applyProspectFilters(query, userId);
+        if (filteredQuery && typeof filteredQuery.limit === 'function') {
+          query = filteredQuery;
         }
       }
 
@@ -395,24 +391,86 @@ class ProspectsService {
         query = query.ilike('ciudad_residencia', `%${criteria.ciudad}%`);
       }
 
-      // Aplicar filtros de permisos si hay userId
+      // Aplicar filtros de permisos si hay userId (incluye lógica de backup)
+      let ejecutivosIdsParaFiltro: string[] | null = null;
+      let coordinacionIdParaFiltro: string | null = null;
+      
       if (userId) {
-        const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
-        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
-
-        if (ejecutivoFilter) {
-          // Ejecutivo: solo sus prospectos asignados
-          query = query.eq('ejecutivo_id', ejecutivoFilter);
-        } else if (coordinacionFilter) {
-          // Coordinador: todos los prospectos de su coordinación
-          query = query.eq('coordinacion_id', coordinacionFilter);
+        try {
+          const filteredQuery = await permissionsService.applyProspectFilters(query, userId);
+          // Si applyProspectFilters retorna algo, es válido (la función interna ya valida)
+          if (filteredQuery && typeof filteredQuery === 'object') {
+            query = filteredQuery;
+            
+            // Guardar los filtros aplicados para usar en fallback si es necesario
+            const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+            const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
+            
+            if (ejecutivoFilter) {
+              // Obtener IDs de ejecutivos donde es backup
+              const { supabaseSystemUIAdmin } = await import('../config/supabaseSystemUI');
+              const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+                .from('auth_users')
+                .select('id')
+                .eq('backup_id', ejecutivoFilter)
+                .eq('has_backup', true);
+              
+              ejecutivosIdsParaFiltro = [ejecutivoFilter];
+              if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+                ejecutivosIdsParaFiltro.push(...ejecutivosConBackup.map(e => e.id));
+              }
+            } else if (coordinacionFilter) {
+              coordinacionIdParaFiltro = coordinacionFilter;
+            }
+          }
+        } catch (error) {
+          // Silenciar error, continuar con query original
         }
-        // Admin y Administrador Operativo: sin filtros (pueden ver todo)
       }
 
-      query = query
-        .order('updated_at', { ascending: false })
-        .limit(criteria.limit || 50);
+      // Aplicar ordenamiento y límite - la query siempre debería tener estos métodos
+      try {
+        // Verificar que la query tiene .order() antes de usarlo
+        if (typeof query.order === 'function') {
+          query = query
+            .order('updated_at', { ascending: false })
+            .limit(criteria.limit || 50);
+        } else {
+          // Si no tiene .order(), reconstruir la query con los filtros aplicados
+          const { analysisSupabase } = await import('../config/analysisSupabase');
+          let fallbackQuery = analysisSupabase
+            .from('prospectos')
+            .select('*');
+          
+          // Aplicar los mismos filtros que se aplicaron antes
+          if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
+            fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
+          } else if (coordinacionIdParaFiltro) {
+            fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionIdParaFiltro);
+          }
+          
+          query = fallbackQuery
+            .order('updated_at', { ascending: false })
+            .limit(criteria.limit || 50);
+        }
+      } catch (error) {
+        // Si falla, reconstruir la query con los filtros aplicados (no sin filtros)
+        const { analysisSupabase } = await import('../config/analysisSupabase');
+        let fallbackQuery = analysisSupabase
+          .from('prospectos')
+          .select('*');
+        
+        // Aplicar los mismos filtros que se aplicaron antes
+        if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
+          fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
+        } else if (coordinacionIdParaFiltro) {
+          fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionIdParaFiltro);
+        }
+        
+        query = fallbackQuery
+          .order('updated_at', { ascending: false })
+          .limit(criteria.limit || 50);
+      }
 
       const { data, error } = await query;
 

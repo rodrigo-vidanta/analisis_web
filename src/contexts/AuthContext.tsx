@@ -2,11 +2,11 @@
 // CONTEXTO DE AUTENTICACIÓN PARA REACT
 // ============================================
 
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { authService, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
-import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
+import { supabaseSystemUI as supabase, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 
 // Tipos para el contexto
 interface AuthContextType extends AuthState {
@@ -44,11 +44,102 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   });
   const [showLoginAnimation, setShowLoginAnimation] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const backupRealtimeChannelRef = useRef<any>(null);
 
   // Inicializar autenticación al cargar la aplicación
   useEffect(() => {
     initializeAuth();
   }, []);
+
+  // Refrescar datos del usuario (definir antes de usar en useEffect)
+  const refreshUser = async (silent: boolean = false): Promise<void> => {
+    try {
+      if (!silent) {
+        setAuthState(prev => ({ ...prev, isLoading: true }));
+      }
+      const state = await authService.initialize();
+      setAuthState(prev => ({
+        ...state,
+        isLoading: silent ? prev.isLoading : state.isLoading // Mantener loading si es silencioso
+      }));
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+      if (!silent) {
+        setAuthState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: 'Error al refrescar datos del usuario'
+        }));
+      }
+    }
+  };
+
+  // Suscripción realtime para detectar cuando se asigna un backup al usuario actual
+  useEffect(() => {
+    if (!authState.user?.id || !authState.isAuthenticated) {
+      // Limpiar suscripción si no hay usuario autenticado
+      if (backupRealtimeChannelRef.current) {
+        supabaseSystemUIAdmin.removeChannel(backupRealtimeChannelRef.current);
+        backupRealtimeChannelRef.current = null;
+      }
+      return;
+    }
+
+    // Crear canal realtime para escuchar cambios en auth_users relacionados con backup
+    const channel = supabaseSystemUIAdmin
+      .channel(`backup-updates-${authState.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'auth_users',
+          filter: `id=eq.${authState.user.id}`
+        },
+        async (payload) => {
+          const newData = payload.new as any;
+          const oldData = payload.old as any;
+          
+          // Verificar si cambió backup_id o has_backup
+          const backupIdChanged = newData.backup_id !== oldData.backup_id;
+          const hasBackupChanged = newData.has_backup !== oldData.has_backup;
+          
+          if (backupIdChanged || hasBackupChanged) {
+            console.log('🔄 Cambio detectado en backup, actualizando usuario...', {
+              backupIdChanged,
+              hasBackupChanged,
+              newBackupId: newData.backup_id,
+              oldBackupId: oldData.backup_id,
+              newHasBackup: newData.has_backup,
+              oldHasBackup: oldData.has_backup
+            });
+            
+            // Actualizar datos del usuario silenciosamente
+            try {
+              await refreshUser(true); // true = actualización silenciosa
+              console.log('✅ Usuario actualizado después de cambio de backup');
+            } catch (error) {
+              console.error('Error actualizando usuario después de cambio de backup:', error);
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Suscripción realtime de backup activa para usuario', authState.user?.id);
+        }
+      });
+
+    backupRealtimeChannelRef.current = channel;
+
+    // Cleanup al desmontar o cambiar de usuario
+    return () => {
+      if (backupRealtimeChannelRef.current) {
+        supabaseSystemUIAdmin.removeChannel(backupRealtimeChannelRef.current);
+        backupRealtimeChannelRef.current = null;
+      }
+    };
+  }, [authState.user?.id, authState.isAuthenticated]);
 
   const initializeAuth = async () => {
     try {
@@ -105,7 +196,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       ? backupId 
       : undefined;
     
-    // Si es ejecutivo y no se proporcionó backupId válido, mostrar modal de selección
+    // Si es ejecutivo y no se proporcionó backupId válido, verificar si es backup o tiene prospectos propios
     const isEjecutivo = authState.user?.role_name === 'ejecutivo';
     const hasCoordinacion = !!authState.user?.coordinacion_id;
     
@@ -117,6 +208,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       backupIdType: typeof backupId
     });
     
+    // Mostrar modal de backup si:
+    // 1. Es ejecutivo
+    // 2. Tiene coordinación
+    // 3. No se proporcionó backupId válido
+    // NOTA: Todos los ejecutivos pueden seleccionar un backup, incluso si son backup de otros ejecutivos
     if (isEjecutivo && !validBackupId && hasCoordinacion) {
       console.log('✅ Mostrando modal de backup');
       setShowBackupModal(true);
@@ -153,6 +249,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const handleBackupSelected = async (backupId: string): Promise<void> => {
     setShowBackupModal(false);
     await logout(backupId);
+  };
+
+  // Función para manejar la cancelación del modal de backup
+  const handleCancelBackupSelection = (): void => {
+    console.log('❌ Modal cancelado, cerrando sin hacer logout');
+    setShowBackupModal(false);
+    // NO hacer logout, solo cerrar el modal y volver a la aplicación
   };
 
   // Función para manejar el completado de la animación
@@ -386,21 +489,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return null;
   };
 
-  // Refrescar datos del usuario
-  const refreshUser = async (): Promise<void> => {
-    try {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-      const state = await authService.initialize();
-      setAuthState(state);
-    } catch (error) {
-      console.error('Error refreshing user:', error);
-      setAuthState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: 'Error al refrescar datos del usuario'
-      }));
-    }
-  };
 
   // Valor del contexto
   const contextValue: AuthContextType = {
@@ -435,12 +523,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           ejecutivoId={authState.user.id}
           coordinacionId={authState.user.coordinacion_id}
           onBackupSelected={handleBackupSelected}
-          onCancel={() => {
-            console.log('❌ Modal cancelado, haciendo logout sin backup');
-            setShowBackupModal(false);
-            // Si cancela, hacer logout sin backup
-            logout();
-          }}
+          onCancel={handleCancelBackupSelection}
         />
       )}
     </AuthContext.Provider>

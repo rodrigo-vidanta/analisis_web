@@ -16,6 +16,8 @@ import { CallDetailModalSidebar } from '../../chat/CallDetailModalSidebar';
 import { createPortal } from 'react-dom';
 import { getAvatarGradient } from '../../../utils/avatarGradient';
 import { systemNotificationService } from '../../../services/systemNotificationService';
+import { BackupBadgeWrapper } from '../../shared/BackupBadgeWrapper';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface ProspectosNuevosWidgetProps {
   userId?: string;
@@ -23,6 +25,7 @@ interface ProspectosNuevosWidgetProps {
 
 export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ userId }) => {
   const { setAppMode } = useAppStore();
+  const { user } = useAuth();
   const [prospectos, setProspectos] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -602,7 +605,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
                         );
                       })()}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p 
                             className="text-sm font-medium text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                             onClick={(e) => {
@@ -614,6 +617,13 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
                           </p>
                           {prospecto.requiere_atencion_humana && (
                             <Flag className="w-3 h-3 text-red-500 fill-red-500 flex-shrink-0" />
+                          )}
+                          {user?.id && prospecto.ejecutivo_id && (
+                            <BackupBadgeWrapper
+                              currentUserId={user.id}
+                              prospectoEjecutivoId={prospecto.ejecutivo_id}
+                              variant="compact"
+                            />
                           )}
                         </div>
                         {prospecto.whatsapp && (

@@ -53,7 +53,7 @@ export const useInactivityTimeout = () => {
             if (ejecutivoData?.coordinacion_id) {
               // Obtener siguiente ejecutivo operativo como backup automático
               const { backupService } = await import('../services/backupService');
-              const backupId = await backupService.getNextOperativeEjecutivo(
+              const backupId = await backupService.getAutomaticBackup(
                 ejecutivoData.coordinacion_id,
                 currentUser.id
               );
@@ -62,12 +62,12 @@ export const useInactivityTimeout = () => {
                 // Asignar backup automáticamente
                 const result = await backupService.assignBackup(currentUser.id, backupId);
                 if (result.success) {
-                  console.log(`✅ Backup automático asignado: ${backupId}`);
+                  console.log(`✅ Backup automático asignado por inactividad: ${backupId}`);
                 } else {
                   console.error('Error asignando backup automático:', result.error);
                 }
               } else {
-                console.warn('⚠️ No hay ejecutivos operativos disponibles para backup automático');
+                console.warn('⚠️ No hay backups disponibles siguiendo el orden de prioridad');
               }
             }
 
@@ -154,7 +154,7 @@ export const useInactivityTimeout = () => {
             if (ejecutivoData?.coordinacion_id) {
               // Obtener siguiente ejecutivo operativo como backup automático
               const { backupService } = await import('../services/backupService');
-              const backupId = await backupService.getNextOperativeEjecutivo(
+              const backupId = await backupService.getAutomaticBackup(
                 ejecutivoData.coordinacion_id,
                 currentUser.id
               );
@@ -163,12 +163,12 @@ export const useInactivityTimeout = () => {
                 // Asignar backup automáticamente
                 const result = await backupService.assignBackup(currentUser.id, backupId);
                 if (result.success) {
-                  console.log(`✅ Backup automático asignado: ${backupId}`);
+                  console.log(`✅ Backup automático asignado por inactividad: ${backupId}`);
                 } else {
                   console.error('Error asignando backup automático:', result.error);
                 }
               } else {
-                console.warn('⚠️ No hay ejecutivos operativos disponibles para backup automático');
+                console.warn('⚠️ No hay backups disponibles siguiendo el orden de prioridad');
               }
             }
 

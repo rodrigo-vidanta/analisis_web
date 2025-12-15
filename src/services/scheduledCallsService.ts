@@ -4,7 +4,7 @@
  */
 
 import { analysisSupabase } from '../config/analysisSupabase';
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 import { permissionsService } from './permissionsService';
 import { coordinacionService } from './coordinacionService';
 
@@ -90,7 +90,24 @@ class ScheduledCallsService {
       // Admin y Administrador Operativo pueden ver todo, no aplicar filtros
       if (!isAdminOrOperativo) {
         if (ejecutivoFilter) {
-          // Ejecutivo: solo sus prospectos asignados
+          // Ejecutivo: solo sus prospectos asignados + prospectos de ejecutivos donde es backup
+          // Obtener IDs de ejecutivos donde este ejecutivo es backup
+          const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUIAdmin
+            .from('auth_users')
+            .select('id')
+            .eq('backup_id', ejecutivoFilter)
+            .eq('has_backup', true);
+          
+          if (backupError) {
+            console.error('❌ Error obteniendo ejecutivos donde es backup:', backupError);
+          }
+          
+          const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
+          if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+            ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+            console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver llamadas programadas de ${ejecutivosConBackup.length} ejecutivos como backup`);
+          }
+          
           // Necesitamos obtener los prospectos primero para filtrar
           const prospectoIds = [...new Set(callsData.map(call => call.prospecto).filter(Boolean))];
           
@@ -109,19 +126,19 @@ class ScheduledCallsService {
 
           // Filtrar solo llamadas de prospectos que:
           // 1. Tienen ejecutivo_id asignado (no null, no undefined)
-          // 2. El ejecutivo_id coincide exactamente con el userId del ejecutivo actual (comparación estricta)
+          // 2. El ejecutivo_id coincide con alguno de los IDs en ejecutivosIds (propios + backups)
           filteredCallsData = callsData.filter(call => {
             if (!call.prospecto) return false;
             const prospecto = prospectosMap.get(call.prospecto);
             // Validar estrictamente:
             // - El prospecto existe en el mapa
             // - Tiene ejecutivo_id asignado (no null, no undefined)
-            // - El ejecutivo_id coincide exactamente con el userId del ejecutivo actual
+            // - El ejecutivo_id coincide con alguno de los IDs en ejecutivosIds
             if (!prospecto || !prospecto.ejecutivo_id) {
               return false; // Prospecto sin ejecutivo asignado - ejecutivo no puede verlo
             }
-            // Comparación estricta de UUIDs (ambos deben ser strings y coincidir exactamente)
-            return String(prospecto.ejecutivo_id) === String(ejecutivoFilter);
+            // Verificar si el ejecutivo_id está en la lista (propios + backups)
+            return ejecutivosIds.includes(String(prospecto.ejecutivo_id));
           });
         } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
           // Coordinador: prospectos de sus coordinaciones

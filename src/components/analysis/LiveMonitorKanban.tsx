@@ -28,6 +28,7 @@ import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { ParaphraseModal } from '../chat/ParaphraseModal';
 import { AssignmentBadge } from './AssignmentBadge';
 import { useAuth } from '../../contexts/AuthContext';
+import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { ProspectAvatar } from './ProspectAvatar';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
@@ -1023,11 +1024,30 @@ const LiveMonitorKanban: React.FC = () => {
           setIsCoordinador(!!coordinacionesFilter && coordinacionesFilter.length > 0);
           
           // Si es ejecutivo, verificar si tiene prospectos asignados ANTES de cargar llamadas
+          // Incluir prospectos de ejecutivos donde es backup
           if (ejecutivoFilter) {
+            // Obtener IDs de ejecutivos donde este ejecutivo es backup
+            const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
+            const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUIAdmin
+              .from('auth_users')
+              .select('id')
+              .eq('backup_id', ejecutivoFilter)
+              .eq('has_backup', true);
+            
+            if (backupError) {
+              console.error('❌ Error obteniendo ejecutivos donde es backup:', backupError);
+            }
+            
+            const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
+            if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+              ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+              console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver historial de ${ejecutivosConBackup.length} ejecutivos como backup`);
+            }
+            
             const { data: prospectosEjecutivo, error: prospectosError } = await analysisSupabase
               .from('prospectos')
               .select('id')
-              .eq('ejecutivo_id', ejecutivoFilter)
+              .in('ejecutivo_id', ejecutivosIds)
               .not('ejecutivo_id', 'is', null)
               .limit(1);
             
@@ -1035,7 +1055,7 @@ const LiveMonitorKanban: React.FC = () => {
               console.error('Error verificando prospectos del ejecutivo:', prospectosError);
             }
             
-            // Si no tiene prospectos asignados, retornar vacío sin cargar llamadas
+            // Si no tiene prospectos asignados (ni propios ni de backups), retornar vacío sin cargar llamadas
             if (!prospectosEjecutivo || prospectosEjecutivo.length === 0) {
               setAllCallsWithAnalysis([]);
               setAllCalls([]);
@@ -1138,8 +1158,26 @@ const LiveMonitorKanban: React.FC = () => {
                 // Admin puede ver todo (sin filtros)
                 if (!isAdminCheck) {
                   if (ejecutivoFilter) {
-                    // Ejecutivo: solo prospectos asignados a él (debe tener ejecutivo_id asignado)
-                    prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter).not('ejecutivo_id', 'is', null);
+                    // Ejecutivo: solo prospectos asignados a él + prospectos de ejecutivos donde es backup
+                    // Obtener IDs de ejecutivos donde este ejecutivo es backup
+                    const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
+                    const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUIAdmin
+                      .from('auth_users')
+                      .select('id')
+                      .eq('backup_id', ejecutivoFilter)
+                      .eq('has_backup', true);
+                    
+                    if (backupError) {
+                      console.error('❌ Error obteniendo ejecutivos donde es backup:', backupError);
+                    }
+                    
+                    const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
+                    if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+                      ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+                    }
+                    
+                    // Filtrar por todos los ejecutivos (propios + backups)
+                    prospectosQuery = prospectosQuery.in('ejecutivo_id', ejecutivosIds).not('ejecutivo_id', 'is', null);
                   } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
                     // Coordinador: solo prospectos de sus coordinaciones (debe tener coordinacion_id asignado)
                     prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
@@ -1155,15 +1193,33 @@ const LiveMonitorKanban: React.FC = () => {
             
             if (!prospectosError && prospectosResult) {
               // Filtrar adicionalmente en el código para asegurar que ejecutivos solo vean prospectos con ejecutivo_id asignado
+              // Incluir prospectos de ejecutivos donde es backup
               if (ejecutivoFilter) {
+                // Obtener IDs de ejecutivos donde este ejecutivo es backup (si no se obtuvo antes)
+                const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
+                const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUIAdmin
+                  .from('auth_users')
+                  .select('id')
+                  .eq('backup_id', ejecutivoFilter)
+                  .eq('has_backup', true);
+                
+                if (backupError) {
+                  console.error('❌ Error obteniendo ejecutivos donde es backup:', backupError);
+                }
+                
+                const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
+                if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+                  ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+                }
+                
                 prospectosData = prospectosResult.filter((p: any) => {
-                  // Validación estricta: el prospecto DEBE tener ejecutivo_id asignado y coincidir
+                  // Validación estricta: el prospecto DEBE tener ejecutivo_id asignado y coincidir con alguno de los IDs
                   const ejecutivoId = p.ejecutivo_id;
                   return ejecutivoId && 
                          ejecutivoId !== null && 
                          ejecutivoId !== undefined && 
                          ejecutivoId !== '' &&
-                         String(ejecutivoId).trim() === String(ejecutivoFilter).trim();
+                         ejecutivosIds.includes(String(ejecutivoId).trim());
                 });
               } else {
                 prospectosData = prospectosResult;
@@ -4394,7 +4450,7 @@ const LiveMonitorKanban: React.FC = () => {
                         </div>
                                     
                                     <div className="flex-1 min-w-0 overflow-hidden">
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                         <div className={`text-sm font-medium truncate ${
                                           isGroupMain 
                                             ? 'text-slate-900 dark:text-white' 
@@ -4402,6 +4458,13 @@ const LiveMonitorKanban: React.FC = () => {
                                         }`} title={call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}>
                           {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
                         </div>
+                                        {user?.id && call.ejecutivo_id && (
+                                          <BackupBadgeWrapper
+                                            currentUserId={user.id}
+                                            prospectoEjecutivoId={call.ejecutivo_id}
+                                            variant="compact"
+                                          />
+                                        )}
                                         {isGroupMain && groupSize > 1 && (
                                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
                                             {groupSize} llamadas

@@ -36,6 +36,10 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
     try {
       setLoadingBackups(true);
       const backups = await backupService.getAvailableBackups(coordinacionId, ejecutivoId);
+      console.log(`📋 Backups cargados en modal: ${backups.length} totales`);
+      backups.forEach(backup => {
+        console.log(`  - ${backup.full_name} (${backup.email}) - Coordinador: ${backup.is_coordinator}, Teléfono: ${backup.phone || 'N/A'}`);
+      });
       setAvailableBackups(backups);
       
       // No mostrar toast de error aquí - el modal mostrará el mensaje apropiado si no hay opciones
@@ -64,29 +68,46 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
     }
   };
 
-  // Filtrar backups por búsqueda y limitar a top 3
+  // Filtrar backups por búsqueda y limitar a top 3 (solo si no hay búsqueda activa)
   const filteredBackups = useMemo(() => {
     let filtered = availableBackups;
 
     // Filtrar por búsqueda
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(backup =>
-        backup.full_name.toLowerCase().includes(query) ||
-        backup.email.toLowerCase().includes(query) ||
-        backup.phone?.includes(query)
-      );
+      console.log(`🔍 Buscando "${query}" en ${availableBackups.length} backups disponibles`);
+      filtered = filtered.filter(backup => {
+        const matchesName = backup.full_name.toLowerCase().includes(query);
+        const matchesEmail = backup.email.toLowerCase().includes(query);
+        const matchesPhone = backup.phone?.includes(query) || false;
+        const matches = matchesName || matchesEmail || matchesPhone;
+        
+        if (matches) {
+          console.log(`✅ Match encontrado: ${backup.full_name} (${backup.email}) - Name: ${matchesName}, Email: ${matchesEmail}, Phone: ${matchesPhone}`);
+        }
+        
+        return matches;
+      });
+      console.log(`📊 Resultados de búsqueda: ${filtered.length} de ${availableBackups.length}`);
     }
 
     // Ordenar: primero ejecutivos operativos, luego coordinadores
+    // PRIORIDAD: Ejecutivos primero, luego coordinadores
     filtered.sort((a, b) => {
-      if (a.is_coordinator && !b.is_coordinator) return 1;
+      // Ejecutivos primero (is_coordinator = false)
       if (!a.is_coordinator && b.is_coordinator) return -1;
+      if (a.is_coordinator && !b.is_coordinator) return 1;
+      // Si ambos son del mismo tipo, ordenar alfabéticamente
       return a.full_name.localeCompare(b.full_name);
     });
 
-    // Limitar a top 3
-    return filtered.slice(0, 3);
+    // Limitar a top 3 SOLO si NO hay búsqueda activa
+    // Si hay búsqueda, mostrar todos los resultados
+    if (searchQuery.trim()) {
+      return filtered; // Mostrar todos los resultados de búsqueda
+    }
+    
+    return filtered.slice(0, 3); // Sin búsqueda, mostrar solo top 3
   }, [availableBackups, searchQuery]);
 
   // Contar total de ejecutivos activos (incluyendo coordinadores)
@@ -122,6 +143,11 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Elige un ejecutivo o coordinador que atenderá tus prospectos mientras estés fuera
                 </p>
+                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <p className="text-xs text-amber-800 dark:text-amber-300">
+                    <strong>Nota:</strong> Si un ejecutivo no aparece, verifica que tenga número de teléfono e ID de Dynamics asignado.
+                  </p>
+                </div>
               </div>
             </div>
             
@@ -251,7 +277,11 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={onCancel}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancel();
+              }}
               disabled={loading}
               className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >

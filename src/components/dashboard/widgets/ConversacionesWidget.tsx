@@ -17,6 +17,7 @@ import { prospectsService } from '../../../services/prospectsService';
 import { useAppStore } from '../../../stores/appStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AssignmentBadge } from '../../analysis/AssignmentBadge';
+import { BackupBadgeWrapper } from '../../shared/BackupBadgeWrapper';
 import { MultimediaMessage, needsBubble } from '../../chat/MultimediaMessage';
 import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
 import { CallDetailModalSidebar } from '../../chat/CallDetailModalSidebar';
@@ -62,6 +63,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   const prospectosDataRef = useRef<Map<string, any>>(new Map());
   const coordinacionesMapRef = useRef<Map<string, any>>(new Map());
   const ejecutivosMapRef = useRef<Map<string, any>>(new Map());
+  const ejecutivosIdsParaFiltrarRef = useRef<string[]>([]); // Cache de IDs de ejecutivos para filtros
+  const coordinacionesFilterRef = useRef<string[] | null>(null); // Cache de coordinaciones para filtros
+  const ejecutivoFilterRef = useRef<string | null>(null); // Cache de ejecutivo filter
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProspectoIdForSidebar, setSelectedProspectoIdForSidebar] = useState<string | null>(null);
   const [selectedProspectoForSidebar, setSelectedProspectoForSidebar] = useState<any | null>(null);
@@ -593,6 +597,33 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     loadBotImageUrls();
   }, [messages]);
 
+  // Función helper para verificar si una conversación puede ser vista por el usuario actual
+  const canViewConversation = useCallback(async (conversation: any): Promise<boolean> => {
+    if (!userId) return false;
+    
+    // Administradores y administradores operativos pueden ver todas las conversaciones
+    if (user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
+      return true;
+    }
+    
+    const prospectId = conversation.prospect_id || conversation.prospecto_id || conversation.metadata?.prospect_id;
+    
+    // Si no hay prospect_id, solo administradores pueden verla (ya retornamos true arriba)
+    // Para otros roles, si no hay prospect_id, no pueden verla
+    if (!prospectId) {
+      return false;
+    }
+    
+    // Verificar permisos usando el servicio
+    try {
+      const permissionCheck = await permissionsService.canUserAccessProspect(userId, prospectId);
+      return permissionCheck.canAccess;
+    } catch (error) {
+      console.error('Error verificando permisos de conversación:', error);
+      return false;
+    }
+  }, [userId, user?.role_name]);
+
   const setupRealtime = () => {
     // Limpiar canales anteriores si existen
     if (realtimeChannelRef.current) {
@@ -618,8 +649,21 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           schema: 'public',
           table: 'uchat_conversations'
         },
-        (payload) => {
+        async (payload) => {
           const updatedConv = payload.new as any;
+          
+          // Verificar permisos antes de agregar/actualizar (solo si no es admin)
+          if (user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
+            const hasPermission = await canViewConversation(updatedConv);
+            if (!hasPermission) {
+              // Si no tiene permisos, remover de la lista si existe
+              startTransition(() => {
+                setConversations(prev => prev.filter(c => c.id !== updatedConv.id));
+              });
+              return;
+            }
+          }
+          
           startTransition(() => {
             setConversations(prev => {
               const exists = prev.find(c => c.id === updatedConv.id);
@@ -657,8 +701,17 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           schema: 'public',
           table: 'uchat_conversations'
         },
-        (payload) => {
+        async (payload) => {
           const newConv = payload.new as any;
+          
+          // Verificar permisos antes de agregar (solo si no es admin)
+          if (user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
+            const hasPermission = await canViewConversation(newConv);
+            if (!hasPermission) {
+              return; // No agregar si no tiene permisos
+            }
+          }
+          
           startTransition(() => {
             setConversations(prev => {
               const exists = prev.find(c => c.id === newConv.id);
@@ -684,8 +737,20 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           schema: 'public',
           table: 'uchat_messages'
         },
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new as any;
+          
+          // Verificar permisos antes de procesar el mensaje (solo si no es admin)
+          if (user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
+            const prospectId = newMessage.prospect_id || newMessage.prospecto_id;
+            if (prospectId) {
+              const hasPermission = await canViewConversation({ prospect_id: prospectId, prospecto_id: prospectId });
+              if (!hasPermission) {
+                // Si no tiene permisos, no procesar el mensaje
+                return;
+              }
+            }
+          }
           
           // Reproducir sonido solo si el mensaje es del cliente y no ha sido procesado antes
           if (newMessage.sender_type === 'customer' && newMessage.id && !processedMessagesRef.current.has(newMessage.id)) {
@@ -748,6 +813,14 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                       
                       const newConv = convData.find(c => c.id === newMessage.conversation_id);
                       if (newConv) {
+                        // Verificar permisos antes de agregar (solo si no es admin)
+                        if (user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
+                          const hasPermission = await canViewConversation(newConv);
+                          if (!hasPermission) {
+                            return; // No agregar si no tiene permisos
+                          }
+                        }
+                        
                         // Enriquecer con datos de prospecto
                         const prospectoData = newConv.prospect_id ? prospectosDataRef.current.get(newConv.prospect_id) : null;
                         const coordinacionId = prospectoData?.coordinacion_id;
@@ -818,16 +891,33 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           schema: 'public',
           table: 'prospectos'
         },
-        (payload) => {
+        async (payload) => {
           const updatedProspecto = payload.new as any;
           const oldProspecto = payload.old as any;
           const prospectoId = updatedProspecto.id;
+          
+          // Verificar si cambió el ejecutivo_id o coordinacion_id (puede afectar permisos)
+          const ejecutivoChanged = oldProspecto?.ejecutivo_id !== updatedProspecto.ejecutivo_id;
+          const coordinacionChanged = oldProspecto?.coordinacion_id !== updatedProspecto.coordinacion_id;
+          
+          // Si cambió la asignación, verificar permisos y remover conversación si es necesario (solo si no es admin)
+          if ((ejecutivoChanged || coordinacionChanged) && user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
+            const hasPermission = await canViewConversation({ prospect_id: prospectoId, prospecto_id: prospectoId });
+            if (!hasPermission) {
+              // Remover conversación de la lista si ya no tiene permisos
+              startTransition(() => {
+                setConversations(prev => prev.filter(c => 
+                  c.prospect_id !== prospectoId && c.prospecto_id !== prospectoId
+                ));
+              });
+            }
+          }
           
           // Actualizar requiere_atencion_humana y motivo_handoff en el Map
           const requiereAtencionChanged = oldProspecto?.requiere_atencion_humana !== updatedProspecto.requiere_atencion_humana;
           const motivoHandoffChanged = oldProspecto?.motivo_handoff !== updatedProspecto.motivo_handoff;
           
-          if (requiereAtencionChanged || motivoHandoffChanged || updatedProspecto.nombre_completo || updatedProspecto.nombre_whatsapp) {
+          if (requiereAtencionChanged || motivoHandoffChanged || updatedProspecto.nombre_completo || updatedProspecto.nombre_whatsapp || ejecutivoChanged || coordinacionChanged) {
             startTransition(() => {
               // Actualizar el Map de prospectos
               setProspectosData(prev => {
@@ -839,7 +929,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     requiere_atencion_humana: updatedProspecto.requiere_atencion_humana || false,
                     motivo_handoff: updatedProspecto.motivo_handoff || null,
                     nombre_completo: updatedProspecto.nombre_completo || existing.nombre_completo,
-                    nombre_whatsapp: updatedProspecto.nombre_whatsapp || existing.nombre_whatsapp
+                    nombre_whatsapp: updatedProspecto.nombre_whatsapp || existing.nombre_whatsapp,
+                    coordinacion_id: updatedProspecto.coordinacion_id,
+                    ejecutivo_id: updatedProspecto.ejecutivo_id
                   });
                 } else {
                   // Si no existe, añadirlo con los datos básicos
@@ -893,8 +985,20 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           schema: 'public',
           table: 'mensajes_whatsapp'
         },
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new as any;
+          
+          // Verificar permisos antes de procesar el mensaje (solo si no es admin)
+          if (user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
+            if (newMessage.prospecto_id) {
+              const hasPermission = await canViewConversation({ prospect_id: newMessage.prospecto_id, prospecto_id: newMessage.prospecto_id });
+              if (!hasPermission) {
+                // Si no tiene permisos, no procesar el mensaje
+                return;
+              }
+            }
+          }
+          
           const messageTimestamp = newMessage.fecha_hora || new Date().toISOString();
           const messageId = newMessage.id || `${newMessage.prospecto_id}-${messageTimestamp}`;
           
@@ -967,6 +1071,14 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     
                     const newConvData = rpcData.find((c: any) => c.prospecto_id === newMessage.prospecto_id);
                     if (!newConvData) return;
+                    
+                    // Verificar permisos antes de agregar (solo si no es admin)
+                    if (user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
+                      const hasPermission = await canViewConversation({ prospect_id: newConvData.prospecto_id, prospecto_id: newConvData.prospecto_id });
+                      if (!hasPermission) {
+                        return; // No agregar si no tiene permisos
+                      }
+                    }
                     
                     // Enriquecer con datos de prospecto
                     const prospectoData = newConvData.prospecto_id ? prospectosDataRef.current.get(newConvData.prospecto_id) : null;
@@ -1170,20 +1282,49 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       });
 
       // Aplicar filtros de permisos
+      // Si es ejecutivo, obtener IDs de ejecutivos donde es backup (una sola vez)
+      let ejecutivosIdsParaFiltrar: string[] = [];
+      if (ejecutivoFilter) {
+        ejecutivosIdsParaFiltrar = [ejecutivoFilter]; // Sus propios prospectos
+        
+        // Obtener IDs de ejecutivos donde este ejecutivo es backup
+        try {
+          const { supabaseSystemUIAdmin } = await import('../../../config/supabaseSystemUI');
+          const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+            .from('auth_users')
+            .select('id')
+            .eq('backup_id', ejecutivoFilter)
+            .eq('has_backup', true);
+          
+          if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+            ejecutivosIdsParaFiltrar.push(...ejecutivosConBackup.map(e => e.id));
+            console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver conversaciones de ${ejecutivosConBackup.length} ejecutivos como backup`);
+          }
+        } catch (error) {
+          console.error('Error obteniendo ejecutivos donde es backup:', error);
+        }
+      }
+      
+      // Actualizar refs de filtros después de calcular ejecutivosIdsParaFiltrar
+      ejecutivoFilterRef.current = ejecutivoFilter;
+      coordinacionesFilterRef.current = coordinacionesFilter;
+      ejecutivosIdsParaFiltrarRef.current = ejecutivosIdsParaFiltrar;
+
       let filteredUchat: any[] = [];
       let filteredWhatsapp: any[] = [];
 
+      // Admin y Administrador Operativo: sin filtros, ver todas las conversaciones
       if (!coordinacionesFilter && !ejecutivoFilter) {
-        // Admin: sin filtros
         filteredUchat = uchatConversations;
         filteredWhatsapp = whatsappConversations;
       } else {
-        // Filtrar según permisos
+        // Filtrar según permisos (incluyendo backups)
         for (const conv of uchatConversations) {
           if (conv.prospect_id) {
             const prospectoData = prospectosDataMap.get(conv.prospect_id);
             if (ejecutivoFilter) {
-              if (prospectoData?.ejecutivo_id === ejecutivoFilter) {
+              // Ejecutivo: sus prospectos asignados + prospectos de ejecutivos donde es backup
+              if (prospectoData?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
                 filteredUchat.push(conv);
               }
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
@@ -1198,7 +1339,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           if (conv.prospecto_id) {
             const prospectoData = prospectosDataMap.get(conv.prospecto_id);
             if (ejecutivoFilter) {
-              if (prospectoData?.ejecutivo_id === ejecutivoFilter) {
+              // Ejecutivo: sus prospectos asignados + prospectos de ejecutivos donde es backup
+              if (prospectoData?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
                 filteredWhatsapp.push(conv);
               }
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
@@ -1215,6 +1357,22 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const uniqueConversations = allConversations.filter((conv, index, self) =>
         index === self.findIndex(c => (c.id || c.prospecto_id) === (conv.id || conv.prospecto_id))
       );
+
+      // Debug logs para administradores
+      if (user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
+        console.log('🔍 [ConversacionesWidget] Debug Admin:', {
+          uchatConversationsRaw: uchatConversationsRaw.length,
+          rpcData: rpcData.length,
+          uchatConversations: uchatConversations.length,
+          whatsappConversations: whatsappConversations.length,
+          filteredUchat: filteredUchat.length,
+          filteredWhatsapp: filteredWhatsapp.length,
+          allConversations: allConversations.length,
+          uniqueConversations: uniqueConversations.length,
+          coordinacionesFilter,
+          ejecutivoFilter
+        });
+      }
 
       // Ordenar por última actividad (más recientes primero)
       const sorted = uniqueConversations.sort((a, b) => {
@@ -1686,10 +1844,17 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                           })()
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                               {conv.customer_name || conv.customer_phone || 'Sin nombre'}
                             </p>
+                            {user?.id && conv.metadata?.ejecutivo_id && (
+                              <BackupBadgeWrapper
+                                currentUserId={user.id}
+                                prospectoEjecutivoId={conv.metadata.ejecutivo_id}
+                                variant="compact"
+                              />
+                            )}
                           </div>
                         {conv.last_message_at && (
                           <p className="text-xs text-gray-500 dark:text-gray-400">

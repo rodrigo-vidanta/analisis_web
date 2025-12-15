@@ -67,6 +67,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
+import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { PROSPECTO_ETAPAS } from '../../types/whatsappTemplates';
 import { useAppStore } from '../../stores/appStore';
 import { ManualCallModal } from '../shared/ManualCallModal';
@@ -444,6 +445,7 @@ interface ConversationItemProps {
   requiereAtencion: boolean;
   unreadCount: number;
   userRole: string | undefined;
+  userId?: string;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onCallClick: () => void;
@@ -459,6 +461,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
   requiereAtencion,
   unreadCount,
   userRole,
+  userId,
   onSelect,
   onContextMenu,
   onCallClick,
@@ -485,10 +488,17 @@ const ConversationItem = React.memo<ConversationItemProps>(({
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                 {conversation.customer_name}
               </h3>
+              {userId && conversation.metadata?.ejecutivo_id && (
+                <BackupBadgeWrapper
+                  currentUserId={userId}
+                  prospectoEjecutivoId={conversation.metadata.ejecutivo_id}
+                  variant="compact"
+                />
+              )}
             </div>
             <div className="flex items-center gap-2">
               <RequiereAtencionListFlag 
@@ -2607,18 +2617,41 @@ const LiveChatCanvas: React.FC = () => {
       });
 
       // OPTIMIZACIÓN: Aplicar filtros de permisos a uchat conversations
+      // Si es ejecutivo, obtener IDs de ejecutivos donde es backup (una sola vez)
+      let ejecutivosIdsParaFiltrar: string[] = [];
+      if (ejecutivoFilter) {
+        ejecutivosIdsParaFiltrar = [ejecutivoFilter]; // Sus propios prospectos
+        
+        // Obtener IDs de ejecutivos donde este ejecutivo es backup
+        try {
+          const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
+          const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+            .from('auth_users')
+            .select('id')
+            .eq('backup_id', ejecutivoFilter)
+            .eq('has_backup', true);
+          
+          if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+            ejecutivosIdsParaFiltrar.push(...ejecutivosConBackup.map(e => e.id));
+            console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver conversaciones de ${ejecutivosConBackup.length} ejecutivos como backup`);
+          }
+        } catch (error) {
+          console.error('Error obteniendo ejecutivos donde es backup:', error);
+        }
+      }
+      
       let uchatConversations: Conversation[] = [];
       if (!coordinacionesFilter && !ejecutivoFilter) {
         // Admin: sin filtros
         uchatConversations = uchatConversationsEnriched;
       } else {
-        // Filtrar según permisos
+        // Filtrar según permisos (incluyendo backups)
         for (const conv of uchatConversationsEnriched) {
           if (conv.prospecto_id) {
             const prospectoData = prospectosData.get(conv.prospecto_id);
             if (ejecutivoFilter) {
-              // Ejecutivo: solo sus prospectos asignados
-              if (prospectoData?.ejecutivo_id === ejecutivoFilter) {
+              // Ejecutivo: sus prospectos asignados + prospectos de ejecutivos donde es backup
+              if (prospectoData?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
                 uchatConversations.push(conv);
               }
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
@@ -2690,17 +2723,18 @@ const LiveChatCanvas: React.FC = () => {
         });
 
         // OPTIMIZACIÓN: Aplicar filtros de permisos en batch (usando los filtros ya obtenidos arriba)
+        // Reutilizar ejecutivosIdsParaFiltrar calculado arriba
         if (!coordinacionesFilter && !ejecutivoFilter) {
           // Admin: sin filtros
           whatsappConversations = adaptedConversations;
         } else {
-          // Filtrar según permisos
+          // Filtrar según permisos (incluyendo backups)
           for (const conv of adaptedConversations) {
             if (conv.prospecto_id) {
               const prospectoData = prospectosData.get(conv.prospecto_id);
               if (ejecutivoFilter) {
-                // Ejecutivo: solo sus prospectos asignados
-                if (prospectoData?.ejecutivo_id === ejecutivoFilter) {
+                // Ejecutivo: sus prospectos asignados + prospectos de ejecutivos donde es backup
+                if (prospectoData?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
                   whatsappConversations.push(conv);
                 }
               } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
@@ -4681,6 +4715,7 @@ const LiveChatCanvas: React.FC = () => {
                 requiereAtencion={prospectoData?.requiere_atencion_humana || false}
                 unreadCount={Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0)}
                 userRole={user?.role_name}
+                userId={user?.id}
                 onSelect={() => {
                   isManualSelectionRef.current = true;
                   selectedConversationRef.current = conversation.prospecto_id;

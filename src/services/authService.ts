@@ -247,11 +247,25 @@ class AuthService {
       // Si es ejecutivo, restaurar backup y actualizar is_operativo a true al hacer login
       if (this.currentUser && this.currentUser.role_name === 'ejecutivo') {
         try {
-          // Remover backup y restaurar teléfono original
-          const { backupService } = await import('./backupService');
-          await backupService.removeBackup(authData.user_id);
+          // Verificar si este ejecutivo tiene un backup asignado (has_backup = true)
+          // Solo remover backup si este ejecutivo es el que tenía el backup asignado
+          const { data: ejecutivoData, error: checkError } = await supabaseSystemUIAdmin
+            .from('auth_users')
+            .select('has_backup, backup_id')
+            .eq('id', authData.user_id)
+            .single();
+          
+          if (!checkError && ejecutivoData && ejecutivoData.has_backup === true) {
+            console.log(`🔍 Ejecutivo ${authData.user_id} tiene backup asignado, removiendo backup...`);
+            // Remover backup y restaurar teléfono original SOLO si tiene backup asignado
+            const { backupService } = await import('./backupService');
+            await backupService.removeBackup(authData.user_id);
+            console.log(`✅ Backup removido para ejecutivo ${authData.user_id}`);
+          } else {
+            console.log(`ℹ️ Ejecutivo ${authData.user_id} no tiene backup asignado (o es un backup), no se remueve backup`);
+          }
 
-          // Actualizar is_operativo a true
+          // Actualizar is_operativo a true (para todos los ejecutivos que hacen login)
           const { error: updateError } = await supabaseSystemUIAdmin
             .from('auth_users')
             .update({ 
@@ -264,7 +278,7 @@ class AuthService {
             console.error('Error actualizando is_operativo en login:', updateError);
             // No lanzar error, solo loguear - el login debe continuar
           } else {
-            console.log('✅ Ejecutivo marcado como operativo en login y backup removido');
+            console.log('✅ Ejecutivo marcado como operativo en login');
             // Actualizar el objeto currentUser para reflejar el cambio
             this.currentUser = {
               ...this.currentUser,

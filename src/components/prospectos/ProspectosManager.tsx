@@ -36,6 +36,7 @@ import type { ViewType } from '../../services/prospectsViewPreferencesService';
 import ProspectosKanban from './ProspectosKanban';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
+import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
@@ -1131,21 +1132,91 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         .from('prospectos')
         .select('*', { count: 'exact' });
 
-      // Aplicar filtros de permisos si hay usuario
+      // Aplicar filtros de permisos si hay usuario (incluye lógica de backup)
+      let ejecutivosIdsParaFiltro: string[] | null = null;
+      let coordinacionIdParaFiltro: string | null = null;
+      
       if (user?.id) {
-        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
-        const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
-
-        if (ejecutivoFilter) {
-          query = query.eq('ejecutivo_id', ejecutivoFilter);
-        } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-          query = query.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+        try {
+          const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
+          // Si applyProspectFilters retorna algo, es válido (la función interna ya valida)
+          if (filteredQuery && typeof filteredQuery === 'object') {
+            query = filteredQuery;
+            
+            // Guardar los filtros aplicados para usar en fallback si es necesario
+            const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
+            const coordinacionFilter = await permissionsService.getCoordinacionFilter(user.id);
+            
+            if (ejecutivoFilter) {
+              // Obtener IDs de ejecutivos donde es backup
+              const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
+              const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+                .from('auth_users')
+                .select('id')
+                .eq('backup_id', ejecutivoFilter)
+                .eq('has_backup', true);
+              
+              ejecutivosIdsParaFiltro = [ejecutivoFilter];
+              if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+                ejecutivosIdsParaFiltro.push(...ejecutivosConBackup.map(e => e.id));
+              }
+            } else if (coordinacionFilter) {
+              coordinacionIdParaFiltro = coordinacionFilter;
+            }
+          }
+        } catch (error) {
+          // Silenciar error, continuar con query original
         }
       }
 
       // NO aplicar paginación - cargar todos los prospectos
-      const { data, error, count } = await query
-        .order('created_at', { ascending: false });
+      // La query siempre debería tener .order() después de .select()
+      let data, error, count;
+      try {
+        // Verificar que la query tiene .order() antes de usarlo
+        if (typeof query.order === 'function') {
+          const result = await query.order('created_at', { ascending: false });
+          data = result.data;
+          error = result.error;
+          count = result.count;
+        } else {
+          // Si no tiene .order(), reconstruir la query con los filtros aplicados
+          const { analysisSupabase } = await import('../../config/analysisSupabase');
+          let fallbackQuery = analysisSupabase
+            .from('prospectos')
+            .select('*', { count: 'exact' });
+          
+          // Aplicar los mismos filtros que se aplicaron antes
+          if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
+            fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
+          } else if (coordinacionIdParaFiltro) {
+            fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionIdParaFiltro);
+          }
+          
+          const fallbackResult = await fallbackQuery.order('created_at', { ascending: false });
+          data = fallbackResult.data;
+          error = fallbackResult.error;
+          count = fallbackResult.count;
+        }
+      } catch (err) {
+        // Si falla, reconstruir la query con los filtros aplicados (no sin filtros)
+        const { analysisSupabase } = await import('../../config/analysisSupabase');
+        let fallbackQuery = analysisSupabase
+          .from('prospectos')
+          .select('*', { count: 'exact' });
+        
+        // Aplicar los mismos filtros que se aplicaron antes
+        if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
+          fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
+        } else if (coordinacionIdParaFiltro) {
+          fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionIdParaFiltro);
+        }
+        
+        const fallbackResult = await fallbackQuery.order('created_at', { ascending: false });
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+        count = fallbackResult.count;
+      }
 
       if (error) {
         console.error('❌ Error loading prospectos:', error);
@@ -1496,8 +1567,17 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       <User size={18} className="text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                        </div>
+                        {user?.id && prospecto.ejecutivo_id && (
+                          <BackupBadgeWrapper
+                            currentUserId={user.id}
+                            prospectoEjecutivoId={prospecto.ejecutivo_id}
+                            variant="compact"
+                          />
+                        )}
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
                         {prospecto.ciudad_residencia}
@@ -1615,8 +1695,17 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                             <User size={14} className="md:w-4 md:h-4 text-blue-600 dark:text-blue-400" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-xs md:text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="text-xs md:text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
+                              </div>
+                              {user?.id && prospecto.ejecutivo_id && (
+                                <BackupBadgeWrapper
+                                  currentUserId={user.id}
+                                  prospectoEjecutivoId={prospecto.ejecutivo_id}
+                                  variant="compact"
+                                />
+                              )}
                             </div>
                             <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
                               {prospecto.ciudad_residencia}

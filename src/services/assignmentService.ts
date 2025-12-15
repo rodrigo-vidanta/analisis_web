@@ -13,7 +13,7 @@
 
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 import { analysisSupabase } from '../config/analysisSupabase';
-import type { ProspectAssignment } from './coordinacionService';
+import { coordinacionService, type ProspectAssignment } from './coordinacionService';
 
 // ============================================
 // INTERFACES Y TIPOS
@@ -293,17 +293,31 @@ class AssignmentService {
     reason?: string
   ): Promise<AssignmentResult> {
     try {
+      console.log('🔍 Iniciando asignación manual:', {
+        prospectId,
+        coordinacionId,
+        ejecutivoId,
+        assignedBy,
+        reason
+      });
+
       // Actualizar o crear asignación
-      const { data: existingAssignment } = await supabaseSystemUIAdmin
+      const { data: existingAssignment, error: checkError } = await supabaseSystemUIAdmin
         .from('prospect_assignments')
         .select('id')
         .eq('prospect_id', prospectId)
         .eq('is_active', true)
         .maybeSingle();
 
+      if (checkError) {
+        console.error('Error verificando asignación existente:', checkError);
+        throw checkError;
+      }
+
       if (existingAssignment) {
+        console.log('📝 Actualizando asignación existente:', existingAssignment.id);
         // Actualizar asignación existente (incluyendo coordinación si cambió)
-        await supabaseSystemUIAdmin
+        const { error: updateError } = await supabaseSystemUIAdmin
           .from('prospect_assignments')
           .update({
             coordinacion_id: coordinacionId, // Actualizar coordinación también
@@ -314,9 +328,16 @@ class AssignmentService {
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingAssignment.id);
+
+        if (updateError) {
+          console.error('Error actualizando asignación:', updateError);
+          throw updateError;
+        }
+        console.log('✅ Asignación actualizada exitosamente');
       } else {
+        console.log('➕ Creando nueva asignación');
         // Crear nueva asignación
-        await supabaseSystemUIAdmin.from('prospect_assignments').insert({
+        const { error: insertError } = await supabaseSystemUIAdmin.from('prospect_assignments').insert({
           prospect_id: prospectId,
           coordinacion_id: coordinacionId,
           ejecutivo_id: ejecutivoId,
@@ -324,23 +345,41 @@ class AssignmentService {
           assignment_type: 'manual',
           assignment_reason: reason || 'Asignación manual',
         });
+
+        if (insertError) {
+          console.error('Error creando asignación:', insertError);
+          throw insertError;
+        }
+        console.log('✅ Asignación creada exitosamente');
       }
 
-      // Registrar en logs
-      await supabaseSystemUIAdmin.from('assignment_logs').insert({
-        prospect_id: prospectId,
-        coordinacion_id: coordinacionId,
-        ejecutivo_id: ejecutivoId,
-        action: 'assigned',
-        assigned_by: assignedBy,
-        reason: reason || 'Asignación manual',
-      });
+      // Registrar en logs (no crítico si falla)
+      try {
+        await supabaseSystemUIAdmin.from('assignment_logs').insert({
+          prospect_id: prospectId,
+          coordinacion_id: coordinacionId,
+          ejecutivo_id: ejecutivoId,
+          action: 'assigned',
+          assigned_by: assignedBy,
+          reason: reason || 'Asignación manual',
+        });
+        console.log('✅ Log de asignación registrado');
+      } catch (logError) {
+        console.warn('⚠️ Error registrando log (no crítico):', logError);
+      }
 
       // Sincronizar con base de análisis (tanto coordinación como ejecutivo)
-      await Promise.all([
-        this.syncProspectoCoordinacion(prospectId, coordinacionId),
-        this.syncProspectoEjecutivo(prospectId, ejecutivoId)
-      ]);
+      // No crítico si falla, solo loguear
+      try {
+        await Promise.all([
+          this.syncProspectoCoordinacion(prospectId, coordinacionId),
+          this.syncProspectoEjecutivo(prospectId, ejecutivoId)
+        ]);
+        console.log('✅ Sincronización con base de análisis completada');
+      } catch (syncError) {
+        console.warn('⚠️ Error en sincronización (no crítico):', syncError);
+        // Continuar aunque falle la sincronización
+      }
 
       return {
         success: true,
@@ -349,7 +388,7 @@ class AssignmentService {
         message: 'Prospecto asignado manualmente a ejecutivo',
       };
     } catch (error) {
-      console.error('Error asignando prospecto manualmente a ejecutivo:', error);
+      console.error('❌ Error asignando prospecto manualmente a ejecutivo:', error);
       return {
         success: false,
         message: 'Error al asignar prospecto manualmente',
@@ -462,12 +501,13 @@ class AssignmentService {
         }
       }
 
-      // Actualizar prospectos
+      // Actualizar prospectos (limpiar tanto ejecutivo_id como asesor_asignado)
       updatePromises.push(
         analysisSupabase
           .from('prospectos')
           .update({
             ejecutivo_id: null,
+            asesor_asignado: null,
             assignment_date: now,
           })
           .eq('id', prospectId)
@@ -566,19 +606,39 @@ class AssignmentService {
   }
 
   /**
-   * Sincroniza ejecutivo_id en la tabla prospectos de la base de análisis
+   * Sincroniza ejecutivo_id y asesor_asignado en la tabla prospectos de la base de análisis
    */
   private async syncProspectoEjecutivo(
     prospectId: string,
     ejecutivoId: string
   ): Promise<void> {
     try {
+      // Obtener información del ejecutivo para actualizar asesor_asignado
+      let ejecutivoNombre: string | null = null;
+      try {
+        const ejecutivo = await coordinacionService.getEjecutivoById(ejecutivoId);
+        if (ejecutivo) {
+          ejecutivoNombre = ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || null;
+        }
+      } catch (error) {
+        console.warn('No se pudo obtener nombre del ejecutivo para asesor_asignado:', error);
+        // Continuar sin el nombre, solo actualizar ejecutivo_id
+      }
+
+      // Actualizar tanto ejecutivo_id como asesor_asignado
+      const updateData: any = {
+        ejecutivo_id: ejecutivoId,
+        assignment_date: new Date().toISOString(),
+      };
+
+      // Solo actualizar asesor_asignado si obtuvimos el nombre
+      if (ejecutivoNombre) {
+        updateData.asesor_asignado = ejecutivoNombre;
+      }
+
       await analysisSupabase
         .from('prospectos')
-        .update({
-          ejecutivo_id: ejecutivoId,
-          assignment_date: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', prospectId);
     } catch (error) {
       console.error('Error sincronizando ejecutivo_id:', error);

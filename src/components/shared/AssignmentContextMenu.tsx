@@ -33,7 +33,7 @@ interface AssignmentContextMenuProps {
 export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   prospectId,
   coordinacionId,
-  ejecutivoId,
+  ejecutivoId: initialEjecutivoId,
   prospectData: initialProspectData,
   isOpen,
   position,
@@ -54,6 +54,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
     whatsapp?: string | null;
   } | null>(null);
   const [pendingEjecutivoId, setPendingEjecutivoId] = useState<string | null>(null);
+  // Estado local para el ejecutivo asignado (se actualiza después de asignar)
+  const [currentEjecutivoId, setCurrentEjecutivoId] = useState<string | undefined>(initialEjecutivoId);
   
   // Verificar si el usuario es administrador, administrador operativo o coordinador
   const isAdmin = user?.role_name === 'admin';
@@ -64,6 +66,18 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   const userCoordinacionRef = useRef<string | null>(null);
   const ejecutivosCacheRef = useRef<{ coordinacionId: string; ejecutivos: Ejecutivo[]; timestamp: number } | null>(null);
   const CACHE_DURATION = 30000; // 30 segundos
+
+  // Actualizar ejecutivoId local cuando cambia el prop
+  useEffect(() => {
+    console.log('📋 AssignmentContextMenu - Props recibidos:', {
+      prospectId,
+      coordinacionId,
+      ejecutivoId: initialEjecutivoId,
+      isOpen
+    });
+    setCurrentEjecutivoId(initialEjecutivoId);
+    console.log('✅ Estado local ejecutivoId actualizado:', initialEjecutivoId);
+  }, [initialEjecutivoId, prospectId, coordinacionId, isOpen]);
 
   // Cargar ejecutivos según el rol del usuario
   useEffect(() => {
@@ -123,22 +137,57 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   const loadAllEjecutivos = async () => {
     setLoading(true);
     try {
-      // Obtener coordinaciones activas primero
-      const coordinacionesActivas = await coordinacionService.getCoordinacionesParaAsignacion();
-      const coordinacionesActivasIds = new Set(coordinacionesActivas.map(c => c.id));
+      // Obtener coordinaciones activas directamente (sin usar función RPC que no existe)
+      let coordinacionesActivas: any[] = [];
+      try {
+        // Usar getCoordinaciones() directamente y filtrar por activas
+        const todasCoordinaciones = await coordinacionService.getCoordinaciones();
+        // Filtrar solo las activas y no archivadas
+        coordinacionesActivas = todasCoordinaciones.filter(c => {
+          const isActive = c.is_active === true;
+          const notArchived = c.archivado === false || c.archivado === undefined;
+          return isActive && notArchived;
+        });
+      } catch (coordError) {
+        console.error('Error obteniendo coordinaciones:', coordError);
+        toast.error('Error al cargar coordinaciones. Mostrando todos los ejecutivos activos.');
+      }
+      
+      const coordinacionesActivasIds = coordinacionesActivas.length > 0 
+        ? new Set(coordinacionesActivas.map(c => c.id))
+        : null; // Si no hay coordinaciones, no filtrar por coordinación
       
       // Obtener todos los ejecutivos
       const allEjecutivos = await coordinacionService.getAllEjecutivos();
       
-      // Filtrar: solo ejecutivos activos que pertenezcan a coordinaciones activas
-      const ejecutivosFiltrados = allEjecutivos.filter(e => 
-        e.is_active && 
-        e.coordinacion_id && 
-        coordinacionesActivasIds.has(e.coordinacion_id)
-      );
+      // Filtrar: solo ejecutivos activos
+      // Si hay coordinaciones activas, filtrar por ellas también
+      let ejecutivosFiltrados = allEjecutivos.filter(e => {
+        const isActive = e.is_active;
+        const hasCoordinacion = !!e.coordinacion_id;
+        const isInActiveCoordinacion = coordinacionesActivasIds 
+          ? coordinacionesActivasIds.has(e.coordinacion_id || '')
+          : true; // Si no hay coordinaciones activas, incluir todos
+        
+        return isActive && hasCoordinacion && isInActiveCoordinacion;
+      });
+      
+      // Si no hay ejecutivos filtrados pero hay ejecutivos activos, mostrar todos los activos
+      if (ejecutivosFiltrados.length === 0 && allEjecutivos.length > 0) {
+        ejecutivosFiltrados = allEjecutivos.filter(e => e.is_active && e.coordinacion_id);
+      }
       
       setEjecutivos(ejecutivosFiltrados);
+      
+      if (ejecutivosFiltrados.length === 0) {
+        console.warn('No hay ejecutivos disponibles:', {
+          totalEjecutivos: allEjecutivos.length,
+          ejecutivosActivos: allEjecutivos.filter(e => e.is_active).length,
+          coordinacionesActivas: coordinacionesActivas.length
+        });
+      }
     } catch (error) {
+      console.error('Error al cargar ejecutivos:', error);
       toast.error('Error al cargar ejecutivos');
       setEjecutivos([]);
     } finally {
@@ -240,55 +289,94 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
   // Función interna para ejecutar la asignación (sin validación)
   const executeAssignment = async (ejecutivoIdToAssign: string) => {
+    console.log('🚀 executeAssignment iniciado:', ejecutivoIdToAssign);
+    console.log('📋 Estado actual:', {
+      ejecutivosCount: ejecutivos.length,
+      prospectId,
+      currentEjecutivoId,
+      isAdmin,
+      isAdminOperativo
+    });
+    
     setAssigning(ejecutivoIdToAssign);
     try {
       // Obtener el ejecutivo seleccionado para obtener su coordinación
+      console.log('🔍 Buscando ejecutivo en lista:', ejecutivoIdToAssign);
       const ejecutivoSeleccionado = ejecutivos.find(e => e.id === ejecutivoIdToAssign);
       
       if (!ejecutivoSeleccionado) {
+        console.error('❌ Ejecutivo no encontrado en lista');
+        console.log('📋 Ejecutivos disponibles:', ejecutivos.map(e => ({ id: e.id, name: e.full_name })));
         toast.error('Ejecutivo no encontrado');
         setAssigning(null);
         return;
       }
 
+      console.log('✅ Ejecutivo encontrado:', {
+        id: ejecutivoSeleccionado.id,
+        name: ejecutivoSeleccionado.full_name,
+        coordinacion_id: ejecutivoSeleccionado.coordinacion_id
+      });
+
       // Determinar la coordinación a usar
       let coordinacionIdToUse: string;
       
       if (isAdmin || isAdminOperativo) {
+        console.log('👤 Usuario admin/admin operativo, usando coordinación del ejecutivo');
         // Admin y Admin Operativo: usar la coordinación del ejecutivo seleccionado
         if (!ejecutivoSeleccionado.coordinacion_id) {
+          console.error('❌ Ejecutivo no tiene coordinación asignada');
           toast.error('El ejecutivo seleccionado no tiene coordinación asignada');
           setAssigning(null);
           return;
         }
         
-        // Verificar que la coordinación del ejecutivo esté activa
-        const coordinacionesActivas = await coordinacionService.getCoordinacionesParaAsignacion();
-        const coordinacionActiva = coordinacionesActivas.find(c => c.id === ejecutivoSeleccionado.coordinacion_id);
-        
-        if (!coordinacionActiva) {
-          toast.error('No se puede asignar a una coordinación inactiva');
-          setAssigning(null);
-          return;
-        }
-        
+        // Verificar que la coordinación del ejecutivo esté activa (con manejo de errores robusto)
         coordinacionIdToUse = ejecutivoSeleccionado.coordinacion_id;
+        console.log('🔍 Verificando coordinación:', coordinacionIdToUse);
+        
+        // Verificación de coordinación opcional (no bloquea la asignación)
+        try {
+          console.log('🔍 Verificando coordinación:', coordinacionIdToUse);
+          const coordinacion = await coordinacionService.getCoordinacionById(coordinacionIdToUse);
+          console.log('📋 Coordinación obtenida:', coordinacion ? { id: coordinacion.id, nombre: coordinacion.nombre, is_active: coordinacion.is_active } : 'null');
+          
+          if (coordinacion && !coordinacion.is_active) {
+            console.warn('⚠️ Coordinación no está activa, pero continuando con asignación');
+            // No bloquear la asignación, solo advertir
+          }
+          console.log('✅ Verificación de coordinación completada');
+        } catch (coordError) {
+          console.warn('⚠️ No se pudo verificar el estado de la coordinación, continuando con la asignación:', coordError);
+          // Si falla la verificación, continuar de todas formas (el ejecutivo tiene coordinación asignada)
+        }
       } else {
+        console.log('👤 Usuario coordinador, usando coordinación propia');
         // Coordinador: usar su propia coordinación
         if (!currentCoordinacionId) {
+          console.error('❌ No hay coordinación del coordinador');
           toast.error('No se puede asignar: falta coordinación del coordinador');
           setAssigning(null);
           return;
         }
         coordinacionIdToUse = currentCoordinacionId;
+        console.log('✅ Usando coordinación del coordinador:', coordinacionIdToUse);
       }
 
       // Si ya tiene ejecutivo asignado, es una reasignación
-      const reason = ejecutivoId
+      const reason = currentEjecutivoId
         ? `Reasignación desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : isAdminOperativo ? ' (Admin Operativo)' : ''}`
         : `Asignación manual desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : isAdminOperativo ? ' (Admin Operativo)' : ''}`;
 
-      await assignmentService.assignProspectManuallyToEjecutivo(
+      console.log('🔍 Intentando asignar prospecto:', {
+        prospectId,
+        coordinacionIdToUse,
+        ejecutivoIdToAssign,
+        assignedBy: user!.id,
+        reason
+      });
+
+      const result = await assignmentService.assignProspectManuallyToEjecutivo(
         prospectId,
         coordinacionIdToUse,
         ejecutivoIdToAssign,
@@ -296,19 +384,57 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         reason
       );
 
+      console.log('📦 Resultado de asignación:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || result.message || 'Error desconocido al asignar prospecto');
+      }
+
+      // Actualizar el estado local del ejecutivo asignado
+      setCurrentEjecutivoId(ejecutivoIdToAssign);
+      console.log('✅ Ejecutivo asignado actualizado localmente:', ejecutivoIdToAssign);
+
       toast.success('Prospecto asignado exitosamente');
+      
+      // Llamar al callback de completado antes de cerrar
       onAssignmentComplete?.();
-      onClose();
+      
+      // Cerrar el modal después de un pequeño delay para que el usuario vea el cambio
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (error) {
-      toast.error('Error al asignar prospecto');
+      console.error('❌ Error al asignar prospecto:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al asignar prospecto';
+      toast.error(`Error al asignar prospecto: ${errorMessage}`);
     } finally {
       setAssigning(null);
     }
   };
 
   const handleAssign = async (ejecutivoIdToAssign: string, skipValidation = false) => {
+    console.log('🔍 handleAssign llamado:', {
+      ejecutivoIdToAssign,
+      skipValidation,
+      isAdmin,
+      isAdminOperativo,
+      isCoordinador,
+      userRole: user?.role_name,
+      prospectId,
+      coordinacionId,
+      ejecutivoId: currentEjecutivoId
+    });
+
+    // Si es admin o admin operativo, saltar validación directamente
+    if (isAdmin || isAdminOperativo) {
+      console.log('✅ Usuario admin/admin operativo, saltando validación');
+      await executeAssignment(ejecutivoIdToAssign);
+      return;
+    }
+
     // VALIDACIÓN: Solo para coordinadores - verificar id_dynamics antes de asignar
     if (!skipValidation && isCoordinador && !isAdmin && !isAdminOperativo) {
+      console.log('🔍 Validación para coordinador iniciada');
       let prospect: { id_dynamics?: string | null; nombre_completo?: string | null; nombre_whatsapp?: string | null; email?: string | null; whatsapp?: string | null } | null = null;
 
       // Intentar usar datos iniciales si están disponibles
@@ -376,6 +502,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
     }
 
     // Ejecutar la asignación
+    console.log('✅ Validación pasada, ejecutando asignación');
     await executeAssignment(ejecutivoIdToAssign);
   };
 
@@ -393,7 +520,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   }, [ejecutivos, searchTerm]);
 
   const handleUnassign = async () => {
-    if (!ejecutivoId) {
+    if (!currentEjecutivoId) {
       toast.error('No hay ejecutivo asignado para desasignar');
       return;
     }
@@ -412,9 +539,17 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       );
 
       if (result.success) {
+        // Actualizar el estado local del ejecutivo asignado (remover)
+        setCurrentEjecutivoId(undefined);
+        console.log('✅ Ejecutivo desasignado, estado local actualizado');
+        
         toast.success('Ejecutivo desasignado exitosamente');
         onAssignmentComplete?.();
-        onClose();
+        
+        // Cerrar el modal después de un pequeño delay
+        setTimeout(() => {
+          onClose();
+        }, 500);
       } else {
         toast.error(result.message || 'Error al desasignar ejecutivo');
       }
@@ -455,11 +590,25 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                Asignar a Ejecutivo
-              </h3>
+            <div className="flex flex-col space-y-1">
+              <div className="flex items-center space-x-2">
+                <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Asignar a Ejecutivo
+                </h3>
+              </div>
+              {currentEjecutivoId && (() => {
+                const ejecutivoAsignado = ejecutivos.find(e => e.id === currentEjecutivoId);
+                return ejecutivoAsignado ? (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 ml-6">
+                    Actualmente asignado a: <span className="font-medium text-purple-600 dark:text-purple-400">{ejecutivoAsignado.full_name}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 ml-6">
+                    Ejecutivo asignado (ID: {currentEjecutivoId.substring(0, 8)}...)
+                  </p>
+                );
+              })()}
             </div>
             <button
               onClick={onClose}
@@ -524,7 +673,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
                   {filteredEjecutivos.length} {filteredEjecutivos.length === 1 ? 'usuario encontrado' : 'usuarios encontrados'}
                 </div>
               )}
-              {ejecutivoId && (
+              {currentEjecutivoId && (
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -550,22 +699,34 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
               
               {filteredEjecutivos.map((ejecutivo) => {
                 const isInactive = !ejecutivo.is_active;
-                const isCurrentlyAssigned = ejecutivo.id === ejecutivoId;
+                const isCurrentlyAssigned = ejecutivo.id === currentEjecutivoId;
                 const isCurrentUser = ejecutivo.id === user?.id;
                 return (
                   <button
                     key={ejecutivo.id}
                     onClick={() => {
+                      console.log('🔍 Click en ejecutivo:', {
+                        ejecutivoId: ejecutivo.id,
+                        ejecutivoName: ejecutivo.full_name,
+                        isInactive,
+                        isCurrentlyAssigned,
+                        isCurrentUser
+                      });
+                      
                       if (isInactive) {
                         toast.error('Este ejecutivo está inactivo. Actívalo desde Gestión de Ejecutivos primero.', {
                           duration: 4000
                         });
                         return;
                       }
+                      
+                      console.log('✅ Ejecutivo activo, llamando handleAssign');
                       handleAssign(ejecutivo.id);
                     }}
                     disabled={assigning === ejecutivo.id || isInactive}
                     className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center justify-between ${
+                      assigning === ejecutivo.id ? 'cursor-not-allowed opacity-50' : ''
+                    } ${
                       isCurrentUser
                         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-l-4 border-blue-500'
                         : isCurrentlyAssigned

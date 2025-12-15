@@ -64,6 +64,8 @@ export interface Ejecutivo {
   coordinacion_codigo?: string;
   coordinacion_nombre?: string;
   is_active: boolean;
+  is_operativo?: boolean | null; // Indica si el ejecutivo está operativo
+  id_dynamics?: string | null; // ID de Dynamics CRM
   email_verified: boolean;
   last_login?: string;
   created_at: string;
@@ -130,28 +132,43 @@ class CoordinacionService {
 
   /**
    * Obtiene coordinaciones operativas para asignación de prospectos
+   * NOTA: Ya no usa función RPC, obtiene directamente desde la tabla
    */
   async getCoordinacionesParaAsignacion(): Promise<Coordinacion[]> {
     try {
-      // Intentar usar RPC primero
-      try {
-        const { data, error } = await supabaseSystemUIAdmin.rpc('get_coordinaciones_para_asignacion');
-        if (!error && data) {
-          return data;
-        }
-      } catch (rpcError) {
-        console.warn('RPC no disponible, usando método directo:', rpcError);
-      }
-
-      // Fallback: obtener coordinaciones activas directamente
+      // Obtener coordinaciones activas directamente (sin usar función RPC que no existe)
       const { data, error } = await supabaseSystemUIAdmin
         .from('coordinaciones')
         .select('*')
-        .eq('is_active', true)
-        .order('codigo', { ascending: true });
+        .eq('is_active', true);
 
-      if (error) throw error;
-      return data || [];
+      if (error) {
+        console.error('Error obteniendo coordinaciones:', error);
+        throw error;
+      }
+
+      // Filtrar coordinaciones archivadas si la columna existe
+      const coordinacionesFiltradas = (data || []).filter((coord: any) => {
+        // Si tiene campo archivado, filtrar por él
+        if (coord.archivado !== undefined) {
+          return coord.archivado === false;
+        }
+        // Si no tiene campo archivado, asumir que no está archivada si is_active es true
+        return true;
+      });
+
+      // Ordenar por código o nombre
+      coordinacionesFiltradas.sort((a: any, b: any) => {
+        if (a.codigo && b.codigo) {
+          return a.codigo.localeCompare(b.codigo);
+        }
+        if (a.nombre && b.nombre) {
+          return a.nombre.localeCompare(b.nombre);
+        }
+        return 0;
+      });
+
+      return coordinacionesFiltradas;
     } catch (error) {
       console.error('Error obteniendo coordinaciones para asignación:', error);
       throw error;
@@ -487,6 +504,8 @@ class CoordinacionService {
           phone,
           coordinacion_id,
           is_active,
+          is_operativo,
+          id_dynamics,
           email_verified,
           last_login,
           created_at,
@@ -522,6 +541,8 @@ class CoordinacionService {
           coordinacion_codigo: coordinacion?.codigo,
           coordinacion_nombre: coordinacion?.nombre,
           is_active: user.is_active,
+          is_operativo: user.is_operativo,
+          id_dynamics: user.id_dynamics,
           email_verified: user.email_verified,
           last_login: user.last_login,
           created_at: user.created_at,
@@ -730,6 +751,8 @@ class CoordinacionService {
           phone,
           coordinacion_id,
           is_active,
+          is_operativo,
+          id_dynamics,
           email_verified,
           last_login,
           created_at
@@ -786,6 +809,8 @@ class CoordinacionService {
             coordinacion_codigo: coordInfo?.codigo || coordinacion?.codigo,
             coordinacion_nombre: coordInfo?.nombre || coordinacion?.nombre,
             is_active: user.is_active,
+            is_operativo: user.is_operativo,
+            id_dynamics: user.id_dynamics,
             email_verified: user.email_verified,
             last_login: user.last_login,
             created_at: user.created_at,

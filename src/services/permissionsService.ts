@@ -172,15 +172,32 @@ class PermissionsService {
         }
 
         // Verificar si es backup del ejecutivo asignado
+        // El prospecto está asignado a prospectEjecutivoId
+        // Verificamos si prospectEjecutivoId tiene como backup a userEjecutivoId
         if (prospectEjecutivoId && userEjecutivoId) {
-          const { backupService } = await import('./backupService');
-          const backupInfo = await backupService.getBackupInfo(prospectEjecutivoId);
+          console.log(`🔍 Verificando backup: prospecto asignado a ${prospectEjecutivoId}, usuario actual ${userEjecutivoId}`);
           
-          if (backupInfo && backupInfo.backup_id === userEjecutivoId && backupInfo.has_backup) {
-            return {
-              canAccess: true,
-              reason: 'Eres el backup del ejecutivo asignado',
-            };
+          // Verificar directamente en la BD si el ejecutivo asignado tiene como backup al usuario actual
+          const { data: ejecutivoData, error } = await supabaseSystemUIAdmin
+            .from('auth_users')
+            .select('backup_id, has_backup')
+            .eq('id', prospectEjecutivoId)
+            .single();
+          
+          if (!error && ejecutivoData) {
+            console.log(`📋 Datos del ejecutivo asignado: backup_id=${ejecutivoData.backup_id}, has_backup=${ejecutivoData.has_backup}`);
+            
+            if (ejecutivoData.backup_id === userEjecutivoId && ejecutivoData.has_backup === true) {
+              console.log(`✅ Usuario ${userEjecutivoId} es backup del ejecutivo ${prospectEjecutivoId}`);
+              return {
+                canAccess: true,
+                reason: 'Eres el backup del ejecutivo asignado',
+              };
+            } else {
+              console.log(`❌ Usuario ${userEjecutivoId} NO es backup del ejecutivo ${prospectEjecutivoId} (backup_id=${ejecutivoData.backup_id}, has_backup=${ejecutivoData.has_backup})`);
+            }
+          } else {
+            console.error('Error verificando backup en BD:', error);
           }
         }
 
@@ -380,24 +397,32 @@ class PermissionsService {
     userId: string
   ): Promise<any> {
     try {
+      // Verificar que la query original es válida
+      if (!query || typeof query !== 'object') {
+        console.error('❌ [applyProspectFilters] Query original inválida:', query);
+        const { analysisSupabase } = await import('../config/analysisSupabase');
+        return analysisSupabase.from('prospectos').select('*');
+      }
+
       const coordinacionFilter = await this.getCoordinacionFilter(userId);
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
 
       // Si es ejecutivo, filtrar por ejecutivo_id + prospectos de ejecutivos donde es backup
       if (ejecutivoFilter) {
-        // Obtener IDs de ejecutivos donde este ejecutivo es backup
-        const { backupService } = await import('./backupService');
-        const { data: backupEjecutivos } = await supabaseSystemUIAdmin
+        // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
+        // Buscar ejecutivos que tienen backup_id = ejecutivoFilter
+        const { data: ejecutivosConBackup, error } = await supabaseSystemUIAdmin
           .from('auth_users')
           .select('id')
           .eq('backup_id', ejecutivoFilter)
           .eq('has_backup', true);
         
-        const ejecutivosIds = [ejecutivoFilter];
-        if (backupEjecutivos && backupEjecutivos.length > 0) {
-          ejecutivosIds.push(...backupEjecutivos.map(e => e.id));
+        const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
+        if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+          ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
         }
         
+        // Aplicar filtro .in() - esto retorna una nueva query builder válida
         query = query.in('ejecutivo_id', ejecutivosIds);
       }
       // Si es coordinador, filtrar por coordinacion_id
@@ -405,16 +430,27 @@ class PermissionsService {
         query = query.eq('coordinacion_id', coordinacionFilter);
       }
       // Admin y Administrador Operativo no tienen filtros (pueden ver todo)
+      // La query se retorna tal cual sin modificar
+
+      // Verificar que la query sigue siendo válida antes de retornarla
+      if (!query || typeof query !== 'object') {
+        console.error('❌ [applyProspectFilters] Query inválida después de aplicar filtros:', query);
+        const { analysisSupabase } = await import('../config/analysisSupabase');
+        return analysisSupabase.from('prospectos').select('*');
+      }
 
       return query;
     } catch (error) {
       console.error('Error aplicando filtros de prospectos:', error);
-      return query;
+      // En caso de error, retornar query de fallback
+      const { analysisSupabase } = await import('../config/analysisSupabase');
+      return analysisSupabase.from('prospectos').select('*');
     }
   }
 
   /**
    * Aplica filtros de permisos a una query de llamadas
+   * Incluye lógica de backup: ejecutivos pueden ver llamadas de ejecutivos donde son backup
    */
   async applyCallFilters(
     query: any,
@@ -424,21 +460,42 @@ class PermissionsService {
       const coordinacionFilter = await this.getCoordinacionFilter(userId);
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
 
-      // Si es ejecutivo, filtrar por ejecutivo_id del prospecto
+      // Si es ejecutivo, filtrar por ejecutivo_id del prospecto + prospectos de ejecutivos donde es backup
       if (ejecutivoFilter) {
-        // Necesitamos hacer join con prospectos o filtrar después
-        // Por ahora, retornamos query sin modificar
-        // Esto se manejará en el servicio específico
+        console.log(`🔍 [applyCallFilters] Ejecutivo ${ejecutivoFilter} buscando backups para llamadas...`);
+        
+        // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
+        const { data: ejecutivosConBackup, error } = await supabaseSystemUIAdmin
+          .from('auth_users')
+          .select('id')
+          .eq('backup_id', ejecutivoFilter)
+          .eq('has_backup', true);
+        
+        if (error) {
+          console.error('❌ Error obteniendo ejecutivos donde es backup:', error);
+        }
+        
+        const ejecutivosIds = [ejecutivoFilter]; // Sus propias llamadas
+        if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+          ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+          console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver llamadas de ${ejecutivosConBackup.length} ejecutivos como backup. IDs:`, ejecutivosIds);
+        } else {
+          console.log(`⚠️ Ejecutivo ${ejecutivoFilter} NO tiene ejecutivos donde es backup`);
+        }
+        
+        // Nota: Este método retorna los IDs para filtrar después, ya que las llamadas no tienen ejecutivo_id directo
+        // El filtrado real se hace en los servicios que llaman a este método
+        return { ejecutivosIds, tipo: 'ejecutivo' };
       }
       // Si es coordinador, filtrar por coordinacion_id del prospecto
       else if (coordinacionFilter) {
-        // Similar al caso anterior
+        return { coordinacionesIds: coordinacionFilter, tipo: 'coordinador' };
       }
-
-      return query;
+      // Admin y Administrador Operativo no tienen filtros
+      return { tipo: 'admin' };
     } catch (error) {
       console.error('Error aplicando filtros de llamadas:', error);
-      return query;
+      return { tipo: 'error' };
     }
   }
 
@@ -455,17 +512,22 @@ class PermissionsService {
 
       // Si es ejecutivo, filtrar por ejecutivo_id + prospectos de ejecutivos donde es backup
       if (ejecutivoFilter) {
-        // Obtener IDs de ejecutivos donde este ejecutivo es backup
-        const { backupService } = await import('./backupService');
-        const { data: backupEjecutivos } = await supabaseSystemUIAdmin
+        // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
+        // Buscar ejecutivos que tienen backup_id = ejecutivoFilter
+        const { data: ejecutivosConBackup, error } = await supabaseSystemUIAdmin
           .from('auth_users')
           .select('id')
           .eq('backup_id', ejecutivoFilter)
           .eq('has_backup', true);
         
-        const ejecutivosIds = [ejecutivoFilter];
-        if (backupEjecutivos && backupEjecutivos.length > 0) {
-          ejecutivosIds.push(...backupEjecutivos.map(e => e.id));
+        if (error) {
+          console.error('Error obteniendo ejecutivos donde es backup:', error);
+        }
+        
+        const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
+        if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+          ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+          console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver conversaciones de ${ejecutivosConBackup.length} ejecutivos como backup`);
         }
         
         query = query.in('ejecutivo_id', ejecutivosIds);
