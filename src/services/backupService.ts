@@ -495,7 +495,7 @@ class BackupService {
    * Obtiene información del ejecutivo del cual el usuario actual es backup
    * Retorna null si el usuario no es backup de nadie
    */
-  async getBackupInfo(currentUserId: string): Promise<{
+  async getBackupEjecutivoInfo(currentUserId: string): Promise<{
     ejecutivo_id: string;
     ejecutivo_nombre: string;
     ejecutivo_email: string;
@@ -549,7 +549,7 @@ class BackupService {
     }
 
     try {
-      const backupInfo = await this.getBackupInfo(currentUserId);
+      const backupInfo = await this.getBackupEjecutivoInfo(currentUserId);
       
       if (!backupInfo) {
         return { isBackup: false };

@@ -1204,7 +1204,10 @@ const Timeline: React.FC = () => {
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
                             transition={{ delay: (monthIndex * 0.05) + (dayIndex * 0.001) }}
-                            className="aspect-square flex items-center justify-center text-sm rounded transition-all cursor-pointer font-medium"
+                            className={cn(
+                                "aspect-square flex items-center justify-center text-sm rounded transition-all cursor-pointer font-medium",
+                                !dayData.hasActivity && "text-slate-400 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+                            )}
                             style={{
                               background: dayData.hasActivity 
                                 ? isDarkMode 
@@ -1223,10 +1226,6 @@ const Timeline: React.FC = () => {
                               textDecoration: dayData.allCompleted ? 'line-through' : 'none',
                               opacity: dayData.allCompleted ? 0.6 : 1,
                             }}
-                            className={cn(
-                                "aspect-square flex items-center justify-center text-sm rounded transition-all cursor-pointer font-medium",
-                                !dayData.hasActivity && "text-slate-400 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
-                            )}
                             onClick={() => {
                               const element = document.querySelector(`[data-date="${dayData.date}"]`);
                               if (element) {
