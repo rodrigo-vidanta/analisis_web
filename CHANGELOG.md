@@ -2,6 +2,70 @@
 
 ## Historial de Versiones
 
+### v2.1.22 (2025-01-25)
+**Descripción**: B5.0.3N6.0.0: Sistema de Backup para Ejecutivos, Logout Automático por Inactividad y Mejoras de Seguridad
+
+---
+
+## 🎯 **RELEASE B5.0.3N6.0.0 - Sistema de Backup y Gestión de Estado Operativo**
+
+### 🔄 **Sistema de Backup para Ejecutivos**
+- **Modal de selección**: Al hacer logout, ejecutivos deben seleccionar un backup de su coordinación
+- **Filtros inteligentes**: Solo muestra ejecutivos y coordinadores con teléfono válido
+- **Top 3 resultados**: Muestra máximo 3 opciones ordenadas (ejecutivos primero, luego coordinadores)
+- **Buscador integrado**: Búsqueda en tiempo real por nombre, email o teléfono
+- **Contador de disponibles**: Muestra total de ejecutivos y coordinadores activos con teléfono
+- **Fallback automático**: Si no hay ejecutivos operativos, muestra coordinadores activos
+- **Mimetización de teléfono**: El teléfono del ejecutivo se cambia al del backup para recibir llamadas
+- **Restauración automática**: Al hacer login, se restaura el teléfono original del ejecutivo
+
+### ⏰ **Logout Automático por Inactividad**
+- **Timeout de 2 horas**: Después de 2 horas de inactividad, logout automático
+- **Detección de actividad**: Monitorea eventos del usuario (mouse, teclado, scroll, touch)
+- **Asignación automática de backup**: Si el ejecutivo no hizo logout manual, se asigna automáticamente el siguiente ejecutivo operativo como backup
+- **Verificación de foco**: Al recuperar el foco de la ventana, verifica si pasaron 2 horas
+
+### 👤 **Gestión de Estado Operativo**
+- **Login**: Ejecutivos se marcan automáticamente como operativos al hacer login
+- **Logout manual**: Ejecutivos se marcan como no operativos y asignan backup
+- **Logout automático**: Ejecutivos se marcan como no operativos y asignan backup automáticamente
+- **Restauración**: Al hacer login, se remueve el backup asignado y se restaura el teléfono original
+
+### 🔐 **Permisos de Visualización para Backups**
+- **Acceso a prospectos**: El backup puede ver y atender prospectos del ejecutivo asignado
+- **No propietario**: El backup no es propietario, solo tiene permisos de visualización
+- **Restauración de permisos**: Al hacer login el ejecutivo, el backup pierde acceso a sus prospectos
+- **Filtros actualizados**: Servicios de permisos modificados para incluir prospectos del ejecutivo cuando el usuario es backup
+
+### 📊 **Base de Datos**
+- **Nuevos campos en auth_users**:
+  - `backup_id`: UUID del ejecutivo asignado como backup
+  - `telefono_original`: Teléfono original del ejecutivo (se restaura al login)
+  - `has_backup`: Boolean que indica si tiene backup asignado actualmente
+- **Índices**: Creados para mejorar rendimiento en consultas de backup
+
+### 📁 **Archivos Nuevos**
+- `scripts/sql/add_backup_fields_to_auth_users.sql` - Script SQL para agregar campos de backup
+- `src/services/backupService.ts` - Servicio completo de gestión de backups
+- `src/components/auth/BackupSelectionModal.tsx` - Modal de selección de backup con buscador
+- `src/hooks/useInactivityTimeout.ts` - Hook para detección de inactividad y logout automático
+
+### 📁 **Archivos Modificados**
+- `src/services/authService.ts` - Logout con backup, login restaura teléfono y estado operativo
+- `src/contexts/AuthContext.tsx` - Intercepta logout de ejecutivos y muestra modal de backup
+- `src/services/permissionsService.ts` - Permisos de visualización para backups
+- `src/components/Header.tsx` - Botones de logout corregidos para no pasar eventos
+- `src/components/linear/LinearHeader.tsx` - Botones de logout corregidos
+- `src/components/MainApp.tsx` - Integración del hook de inactividad
+- `src/components/LoginScreen.tsx` - Función "recordar" corregida
+
+### 🐛 **Correcciones**
+- **Login case-insensitive**: Funciona correctamente en frontend y backend
+- **Función "recordar"**: Corregida para guardar/eliminar email correctamente en localStorage
+- **Logout con eventos**: Corregido para que no pase eventos de click como parámetros
+
+---
+
 ### v2.1.21 (2025-01-25)
 **Descripción**: B5.0.2N6.0.0: Correcciones de permisos y seguridad en módulos de Llamadas IA y Administración
 

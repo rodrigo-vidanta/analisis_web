@@ -5,12 +5,13 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authService, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
+import BackupSelectionModal from '../components/auth/BackupSelectionModal';
 import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
 
 // Tipos para el contexto
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<boolean>;
-  logout: () => Promise<void>;
+  logout: (backupId?: string) => Promise<void>;
   hasPermission: (permissionName: string) => boolean;
   canAccessModule: (module: string, subModule?: string) => boolean;
   canAccessSubModule: (subModule: 'natalia' | 'pqnc') => boolean;
@@ -42,6 +43,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error: null
   });
   const [showLoginAnimation, setShowLoginAnimation] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
 
   // Inicializar autenticación al cargar la aplicación
   useEffect(() => {
@@ -97,10 +99,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Función de logout
-  const logout = async (): Promise<void> => {
+  const logout = async (backupId?: string | Event): Promise<void> => {
+    // Validar que backupId sea un string válido, no un evento
+    const validBackupId = backupId && typeof backupId === 'string' && backupId.trim() !== '' 
+      ? backupId 
+      : undefined;
+    
+    // Si es ejecutivo y no se proporcionó backupId válido, mostrar modal de selección
+    const isEjecutivo = authState.user?.role_name === 'ejecutivo';
+    const hasCoordinacion = !!authState.user?.coordinacion_id;
+    
+    console.log('🔍 Logout check:', { 
+      isEjecutivo, 
+      hasCoordinacion, 
+      coordinacion_id: authState.user?.coordinacion_id,
+      backupId: validBackupId,
+      backupIdType: typeof backupId
+    });
+    
+    if (isEjecutivo && !validBackupId && hasCoordinacion) {
+      console.log('✅ Mostrando modal de backup');
+      setShowBackupModal(true);
+      return;
+    }
+
+    // Si se proporcionó backupId válido o no es ejecutivo, proceder con logout normal
     try {
       setAuthState(prev => ({ ...prev, isLoading: true }));
-      await authService.logout();
+      await authService.logout(validBackupId);
       setAuthState({
         user: null,
         permissions: [],
@@ -108,6 +134,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false,
         error: null
       });
+      setShowBackupModal(false);
     } catch (error) {
       console.error('Logout error:', error);
       // Forzar logout local aunque falle el servidor
@@ -118,7 +145,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false,
         error: null
       });
+      setShowBackupModal(false);
     }
+  };
+
+  // Función para manejar la selección de backup
+  const handleBackupSelected = async (backupId: string): Promise<void> => {
+    setShowBackupModal(false);
+    await logout(backupId);
   };
 
   // Función para manejar el completado de la animación
@@ -393,6 +427,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         onComplete={handleLoginAnimationComplete}
         type="login"
       />
+
+      {/* Modal de selección de backup para ejecutivos */}
+      {showBackupModal && authState.user?.role_name === 'ejecutivo' && authState.user?.coordinacion_id && (
+        <BackupSelectionModal
+          isOpen={showBackupModal}
+          ejecutivoId={authState.user.id}
+          coordinacionId={authState.user.coordinacion_id}
+          onBackupSelected={handleBackupSelected}
+          onCancel={() => {
+            console.log('❌ Modal cancelado, haciendo logout sin backup');
+            setShowBackupModal(false);
+            // Si cancela, hacer logout sin backup
+            logout();
+          }}
+        />
+      )}
     </AuthContext.Provider>
   );
 };

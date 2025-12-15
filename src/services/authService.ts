@@ -19,7 +19,7 @@
 // SERVICIO DE AUTENTICACIÓN
 // ============================================
 
-import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
+import { supabaseSystemUI as supabase, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 import { errorLogService } from './errorLogService';
 import { loginLogService } from './loginLogService';
 
@@ -37,12 +37,14 @@ export interface User {
   role_name: string;
   role_display_name: string;
   is_active: boolean;
+  is_operativo?: boolean; // Estado operativo/no operativo para ejecutivos
   email_verified: boolean;
   last_login?: string;
   created_at: string;
   must_change_password?: boolean;
   id_colaborador?: string;
   id_dynamics?: string;
+  coordinacion_id?: string; // ID de coordinación para ejecutivos
 }
 
 export interface Permission {
@@ -242,6 +244,39 @@ class AuthService {
       // Actualizar último login
       await this.updateLastLogin(authData.user_id);
 
+      // Si es ejecutivo, restaurar backup y actualizar is_operativo a true al hacer login
+      if (this.currentUser && this.currentUser.role_name === 'ejecutivo') {
+        try {
+          // Remover backup y restaurar teléfono original
+          const { backupService } = await import('./backupService');
+          await backupService.removeBackup(authData.user_id);
+
+          // Actualizar is_operativo a true
+          const { error: updateError } = await supabaseSystemUIAdmin
+            .from('auth_users')
+            .update({ 
+              is_operativo: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', authData.user_id);
+          
+          if (updateError) {
+            console.error('Error actualizando is_operativo en login:', updateError);
+            // No lanzar error, solo loguear - el login debe continuar
+          } else {
+            console.log('✅ Ejecutivo marcado como operativo en login y backup removido');
+            // Actualizar el objeto currentUser para reflejar el cambio
+            this.currentUser = {
+              ...this.currentUser,
+              is_operativo: true
+            } as User;
+          }
+        } catch (error) {
+          console.error('Error restaurando ejecutivo en login:', error);
+          // No lanzar error, solo loguear - el login debe continuar
+        }
+      }
+
       // Registrar login exitoso en logs
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24); // Sesión válida por 24 horas
@@ -299,8 +334,45 @@ class AuthService {
   }
 
   // Cerrar sesión
-  async logout(): Promise<void> {
+  async logout(backupId?: string): Promise<void> {
     try {
+      // Si es ejecutivo, manejar backup y actualizar is_operativo
+      if (this.currentUser && this.currentUser.role_name === 'ejecutivo') {
+        try {
+          // Si se proporciona un backupId válido (string no vacío), asignar backup
+          if (backupId && typeof backupId === 'string' && backupId.trim() !== '') {
+            const { backupService } = await import('./backupService');
+            const result = await backupService.assignBackup(this.currentUser.id, backupId);
+            if (!result.success) {
+              console.error('Error asignando backup:', result.error);
+              // Continuar con el logout aunque falle la asignación de backup
+            } else {
+              console.log('✅ Backup asignado correctamente');
+            }
+          } else {
+            console.log('⚠️ No se proporcionó backupId válido, continuando con logout sin backup');
+          }
+
+          // Actualizar is_operativo a false
+          const { error: updateError } = await supabaseSystemUIAdmin
+            .from('auth_users')
+            .update({ 
+              is_operativo: false,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', this.currentUser.id);
+          
+          if (updateError) {
+            throw updateError;
+          }
+          
+          console.log('✅ Ejecutivo marcado como no operativo en logout');
+        } catch (error) {
+          console.error('Error actualizando ejecutivo en logout:', error);
+          // Continuar con el logout aunque falle la actualización
+        }
+      }
+
       if (this.sessionToken) {
         // Eliminar sesión de la base de datos
         await supabase
@@ -568,7 +640,7 @@ class AuthService {
     // Cargar campos adicionales desde auth_users directamente
     const { data: additionalData } = await supabase
       .from('auth_users')
-      .select('must_change_password, id_colaborador, id_dynamics')
+      .select('must_change_password, id_colaborador, id_dynamics, is_operativo, coordinacion_id')
       .eq('id', sessionData.user_id)
       .single();
 
@@ -578,6 +650,8 @@ class AuthService {
       must_change_password: additionalData?.must_change_password || false,
       id_colaborador: additionalData?.id_colaborador,
       id_dynamics: additionalData?.id_dynamics,
+      is_operativo: additionalData?.is_operativo !== undefined ? additionalData.is_operativo : true, // Por defecto true si no está definido
+      coordinacion_id: additionalData?.coordinacion_id,
     } as User;
 
     // Cargar permisos del usuario

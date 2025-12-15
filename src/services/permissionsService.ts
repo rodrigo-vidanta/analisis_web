@@ -158,13 +158,35 @@ class PermissionsService {
       }
 
       // Ejecutivo: solo puede ver si el prospecto está asignado a él y a su coordinación
+      // O si es backup del ejecutivo asignado
       if (permissions.role === 'ejecutivo') {
         const sameCoordinacion = userCoordinaciones ? userCoordinaciones.includes(prospectCoordinacionId) : false;
         const sameEjecutivo = userEjecutivoId === prospectEjecutivoId;
-        const canAccess = sameCoordinacion && sameEjecutivo;
+        
+        // Verificar acceso directo
+        if (sameCoordinacion && sameEjecutivo) {
+          return {
+            canAccess: true,
+            reason: undefined,
+          };
+        }
+
+        // Verificar si es backup del ejecutivo asignado
+        if (prospectEjecutivoId && userEjecutivoId) {
+          const { backupService } = await import('./backupService');
+          const backupInfo = await backupService.getBackupInfo(prospectEjecutivoId);
+          
+          if (backupInfo && backupInfo.backup_id === userEjecutivoId && backupInfo.has_backup) {
+            return {
+              canAccess: true,
+              reason: 'Eres el backup del ejecutivo asignado',
+            };
+          }
+        }
+
         return {
-          canAccess,
-          reason: canAccess ? undefined : 'El prospecto no está asignado a ti',
+          canAccess: false,
+          reason: 'El prospecto no está asignado a ti ni eres backup del ejecutivo asignado',
         };
       }
 
@@ -361,9 +383,22 @@ class PermissionsService {
       const coordinacionFilter = await this.getCoordinacionFilter(userId);
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
 
-      // Si es ejecutivo, filtrar por ejecutivo_id
+      // Si es ejecutivo, filtrar por ejecutivo_id + prospectos de ejecutivos donde es backup
       if (ejecutivoFilter) {
-        query = query.eq('ejecutivo_id', ejecutivoFilter);
+        // Obtener IDs de ejecutivos donde este ejecutivo es backup
+        const { backupService } = await import('./backupService');
+        const { data: backupEjecutivos } = await supabaseSystemUIAdmin
+          .from('auth_users')
+          .select('id')
+          .eq('backup_id', ejecutivoFilter)
+          .eq('has_backup', true);
+        
+        const ejecutivosIds = [ejecutivoFilter];
+        if (backupEjecutivos && backupEjecutivos.length > 0) {
+          ejecutivosIds.push(...backupEjecutivos.map(e => e.id));
+        }
+        
+        query = query.in('ejecutivo_id', ejecutivosIds);
       }
       // Si es coordinador, filtrar por coordinacion_id
       else if (coordinacionFilter) {
@@ -418,9 +453,22 @@ class PermissionsService {
       const coordinacionFilter = await this.getCoordinacionFilter(userId);
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
 
-      // Si es ejecutivo, filtrar por ejecutivo_id
+      // Si es ejecutivo, filtrar por ejecutivo_id + prospectos de ejecutivos donde es backup
       if (ejecutivoFilter) {
-        query = query.eq('ejecutivo_id', ejecutivoFilter);
+        // Obtener IDs de ejecutivos donde este ejecutivo es backup
+        const { backupService } = await import('./backupService');
+        const { data: backupEjecutivos } = await supabaseSystemUIAdmin
+          .from('auth_users')
+          .select('id')
+          .eq('backup_id', ejecutivoFilter)
+          .eq('has_backup', true);
+        
+        const ejecutivosIds = [ejecutivoFilter];
+        if (backupEjecutivos && backupEjecutivos.length > 0) {
+          ejecutivosIds.push(...backupEjecutivos.map(e => e.id));
+        }
+        
+        query = query.in('ejecutivo_id', ejecutivosIds);
       }
       // Si es coordinador, filtrar por coordinacion_id
       else if (coordinacionFilter) {

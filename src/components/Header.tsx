@@ -546,7 +546,11 @@ const Header = ({
 
                   {/* Logout */}
                   <button
-                    onClick={logout}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      logout();
+                    }}
                     className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
                     title="Cerrar sesión"
                   >
@@ -851,7 +855,11 @@ const Header = ({
                 </div>
                 
                 <button
-                  onClick={logout}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    logout();
+                  }}
                   className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group"
                   title="Cerrar sesión"
                 >

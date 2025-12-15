@@ -1,5 +1,41 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B5.0.3N6.0.0 (Enero 2025) - Sistema de Backup y Gestión de Estado Operativo
+
+### 🎯 RELEASE BETA - Sistema de Backup para Ejecutivos
+
+#### Sistema de Backup
+- Modal de selección obligatorio al hacer logout
+- Filtro por teléfono: Solo muestra ejecutivos/coordinadores con teléfono válido
+- Top 3 resultados con buscador integrado
+- Contador de disponibles (ejecutivos + coordinadores)
+- Fallback automático a coordinadores si no hay ejecutivos operativos
+- Mimetización de teléfono: Cambia al teléfono del backup
+- Restauración automática del teléfono original al hacer login
+
+#### Logout Automático por Inactividad
+- Timeout de 2 horas de inactividad
+- Detección de actividad del usuario (mouse, teclado, scroll, touch)
+- Asignación automática de backup si no hay logout manual
+- Verificación de foco de ventana
+
+#### Gestión de Estado Operativo
+- Login: Ejecutivos se marcan como operativos automáticamente
+- Logout manual: Ejecutivos se marcan como no operativos y asignan backup
+- Logout automático: Ejecutivos se marcan como no operativos y asignan backup automáticamente
+- Restauración: Al login se remueve backup y se restaura teléfono original
+
+#### Permisos de Visualización para Backups
+- Backup puede ver y atender prospectos del ejecutivo asignado
+- No es propietario, solo tiene permisos de visualización
+- Restauración de permisos al hacer login el ejecutivo
+
+#### Base de Datos
+- Nuevos campos: backup_id, telefono_original, has_backup
+- Índices para mejorar rendimiento
+
+---
+
 ## Versión B5.0.2N6.0.0 (Enero 2025) - Correcciones de Permisos y Seguridad
 
 ### 🎯 RELEASE BETA - Seguridad y Permisos Mejorados

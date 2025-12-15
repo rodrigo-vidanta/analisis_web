@@ -46,6 +46,8 @@ import AnalysisIAComplete from './analysis/AnalysisIAComplete';
 import ChangePasswordModal from './auth/ChangePasswordModal';
 // Timeline Dirección
 import Timeline from './direccion/Timeline';
+// Hook de inactividad
+import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -82,6 +84,9 @@ function MainApp() {
   } = useAppStore();
   const [localDarkMode, setLocalDarkMode] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Por defecto abierto
+  
+  // Hook para detectar inactividad y hacer logout automático después de 2 horas
+  useInactivityTimeout();
   
   // Actualizar el módulo activo en el servicio de logging cuando cambia
   useEffect(() => {

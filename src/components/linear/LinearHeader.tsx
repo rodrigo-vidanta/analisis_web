@@ -263,7 +263,11 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
             
             {/* Logout button */}
             <button
-              onClick={logout}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                logout();
+              }}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
               title="Cerrar sesión"
             >

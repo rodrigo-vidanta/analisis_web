@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import PasswordResetModal from './auth/PasswordResetModal';
@@ -18,23 +18,6 @@ const LoginScreen: React.FC = () => {
   const { login, isLoading, error } = useAuth();
   const { config } = useSystemConfig();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Normalizar email a minúsculas para comparación case-insensitive
-    const normalizedEmail = email.trim().toLowerCase();
-    
-    // Guardar email normalizado si "recordarme" está activado
-    if (rememberMe) {
-      localStorage.setItem('remembered_email', normalizedEmail);
-    } else {
-      localStorage.removeItem('remembered_email');
-    }
-    
-    // Ejecutar login - la animación se maneja en AuthContext
-    await login({ email: normalizedEmail, password });
-  };
-
   // Cargar email recordado al inicializar
   useEffect(() => {
     const rememberedEmail = localStorage.getItem('remembered_email');
@@ -43,6 +26,51 @@ const LoginScreen: React.FC = () => {
       setRememberMe(true);
     }
   }, []);
+
+  // Guardar/eliminar email cuando el usuario marca/desmarca el checkbox "Recordarme"
+  // Usamos useRef para evitar ejecutar este efecto durante la carga inicial
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    // Saltar la primera ejecución (carga inicial)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    // Solo actualizar localStorage cuando el usuario cambia explícitamente el checkbox
+    if (email.trim()) {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (rememberMe) {
+        // Guardar email cuando se marca "Recordarme"
+        localStorage.setItem('remembered_email', normalizedEmail);
+      } else {
+        // Eliminar solo si el email actual coincide con el guardado
+        const storedEmail = localStorage.getItem('remembered_email');
+        if (storedEmail && storedEmail.toLowerCase() === normalizedEmail) {
+          localStorage.removeItem('remembered_email');
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rememberMe]); // Solo ejecutar cuando cambia rememberMe, no cuando cambia email
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Normalizar email a minúsculas para comparación case-insensitive
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Asegurar que el email se guarde/elimine según el estado de "recordarme"
+    // (esto ya se hace en el useEffect, pero lo hacemos aquí también para asegurar)
+    if (rememberMe && normalizedEmail) {
+      localStorage.setItem('remembered_email', normalizedEmail);
+    } else if (!rememberMe) {
+      localStorage.removeItem('remembered_email');
+    }
+    
+    // Ejecutar login - la animación se maneja en AuthContext
+    await login({ email: normalizedEmail, password });
+  };
 
   return (
     <>
