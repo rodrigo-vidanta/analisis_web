@@ -1,5 +1,32 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B6.0.0N6.0.0 (Enero 2025) - Correcciones de Permisos y Modal de Backup
+
+### 🎯 RELEASE - Correcciones de Permisos y Modal de Backup
+
+#### Correcciones de Permisos en Widget de Conversaciones
+- Administradores pueden ver todas las conversaciones sin restricciones
+- Verificaciones de permisos en suscripciones realtime mejoradas
+- Filtrado correcto para ejecutivos (solo prospectos asignados o backups)
+- Logs de depuración agregados para facilitar debugging
+
+#### Corrección del Modal de Backup
+- Todos los ejecutivos pueden seleccionar backup al hacer logout
+- Eliminada verificación que bloqueaba modal para ejecutivos backup
+- Lógica simplificada y más robusta
+
+#### Mejoras en Filtrado
+- Conversaciones sin prospecto visibles para administradores
+- Filtrado por coordinación para coordinadores
+- Filtrado por ejecutivo con soporte para backups
+
+#### Correcciones de Bugs
+- Widget vacío corregido para administradores
+- Orden de variables corregido
+- Verificaciones de permisos mejoradas
+
+---
+
 ## Versión B5.0.3N6.0.0 (Enero 2025) - Sistema de Backup y Gestión de Estado Operativo
 
 ### 🎯 RELEASE BETA - Sistema de Backup para Ejecutivos

@@ -2,6 +2,35 @@
 
 ## Historial de Versiones
 
+### v2.1.23 (2025-01-25)
+**Descripción**: B6.0.0N6.0.0: Correcciones de Permisos en Widget de Conversaciones y Modal de Backup
+
+---
+
+## 🎯 **RELEASE B6.0.0N6.0.0 - Correcciones de Permisos y Modal de Backup**
+
+### 🔐 **Correcciones de Permisos en Widget de Conversaciones**
+- **Administradores**: Ahora pueden ver todas las conversaciones sin restricciones
+- **Verificaciones en tiempo real**: Agregadas verificaciones de permisos en suscripciones realtime
+- **Filtrado mejorado**: Los ejecutivos solo ven conversaciones de prospectos asignados o de ejecutivos donde son backup
+- **Logs de depuración**: Agregados logs para facilitar debugging de permisos
+
+### 🔄 **Corrección del Modal de Backup**
+- **Ejecutivos backup**: Ahora todos los ejecutivos pueden seleccionar backup al hacer logout, incluso si son backup de otros ejecutivos
+- **Lógica simplificada**: Eliminada verificación innecesaria que bloqueaba el modal para ejecutivos backup
+
+### 📊 **Mejoras en Filtrado**
+- **Conversaciones sin prospecto**: Administradores pueden ver todas las conversaciones, incluso sin prospecto asignado
+- **Filtrado por coordinación**: Coordinadores ven solo conversaciones de su coordinación
+- **Filtrado por ejecutivo**: Ejecutivos ven solo conversaciones de sus prospectos asignados o de ejecutivos donde son backup
+
+### 🐛 **Correcciones de Bugs**
+- **Widget vacío**: Corregido problema donde el widget no mostraba conversaciones para administradores
+- **Orden de variables**: Corregido uso de variables antes de su definición
+- **Verificaciones de permisos**: Mejoradas las verificaciones en suscripciones realtime para evitar bloqueos incorrectos
+
+---
+
 ### v2.1.22 (2025-01-25)
 **Descripción**: B5.0.3N6.0.0: Sistema de Backup para Ejecutivos, Logout Automático por Inactividad y Mejoras de Seguridad
 
