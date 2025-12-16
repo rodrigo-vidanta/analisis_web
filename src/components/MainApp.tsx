@@ -46,6 +46,8 @@ import AnalysisIAComplete from './analysis/AnalysisIAComplete';
 import ChangePasswordModal from './auth/ChangePasswordModal';
 // Timeline Dirección
 import Timeline from './direccion/Timeline';
+// Documentation Module
+import DocumentationModule from './documentation/DocumentationModule';
 // Hook de inactividad
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 
@@ -287,7 +289,7 @@ function MainApp() {
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'live-chat' | 'aws-manager' | 'log-server' | 'direccion' | 'campaigns') => {
+  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'live-chat' | 'aws-manager' | 'log-server' | 'direccion' | 'campaigns' | 'documentation') => {
     // Bloquear cambio de módulo para usuarios con rol direccion
     if (user?.role_name === 'direccion' && mode !== 'direccion') {
       return; // No permitir cambiar de módulo
@@ -525,6 +527,24 @@ function MainApp() {
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
                   Solo administradores pueden acceder al módulo de Campañas
+                </p>
+              </div>
+            </div>
+          )
+        );
+
+      case 'documentation':
+        return (
+          user?.role_name === 'admin' || user?.role_name === 'developer' ? (
+            <DocumentationModule />
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Acceso Denegado
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Solo administradores y desarrolladores pueden acceder a la documentación técnica
                 </p>
               </div>
             </div>

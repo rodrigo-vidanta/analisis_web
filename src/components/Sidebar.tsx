@@ -535,6 +535,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     onClick: () => setAppMode('campaigns')
   } : null;
 
+  // Documentación Técnica - Para Admin y Developer
+  const documentationItem: MenuItemProps | null = (user?.role_name === 'admin' || user?.role_name === 'developer') ? {
+    icon: (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+      </svg>
+    ),
+    label: 'Documentación',
+    active: appMode === 'documentation',
+    onClick: () => setAppMode('documentation')
+  } : null;
+
   // Admin al final - Usar canAccessModule para incluir administrador_operativo
   const adminItem: MenuItemProps | null = canAccessModule('admin') ? {
     icon: (
@@ -704,6 +716,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         {campaignsItem && (
           <div className="p-4 border-t border-slate-200 dark:border-slate-700">
             <MenuItem {...campaignsItem} isCollapsed={isCollapsed} />
+          </div>
+        )}
+
+        {/* Documentación Técnica - Para Admin y Developer */}
+        {documentationItem && (
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+            <MenuItem {...documentationItem} isCollapsed={isCollapsed} />
           </div>
         )}
 

@@ -2,47 +2,47 @@
 # REGLAS DEL PROYECTO - PQNC QA AI PLATFORM
 # ============================================
 # 
-# ⚠️ ESTADO: PRODUCCIÓN ACTIVA
-# ⚠️ VERSIÓN: v2.1.0
-# ⚠️ FECHA ÚLTIMA ACTUALIZACIÓN: 25 de Noviembre 2025
+# ESTADO: PRODUCCION ACTIVA
+# VERSION: v2.1.25
+# FECHA ULTIMA ACTUALIZACION: 15 de Diciembre 2025
 #
 # ============================================
 
-## 🚨 REGLAS CRÍTICAS DE PRODUCCIÓN
+## REGLAS CRITICAS DE PRODUCCION
 
-### ❌ PROHIBIDO SIN AUTORIZACIÓN EXPLÍCITA
+### PROHIBIDO SIN AUTORIZACION EXPLICITA
 
-1. **DESPLIEGUES AUTOMÁTICOS**
-   - ❌ NUNCA hacer push a Git sin autorización explícita del usuario
-   - ❌ NUNCA hacer deploy a AWS sin solicitud explícita del usuario
-   - ❌ NUNCA ejecutar scripts de despliegue automáticamente
-   - ✅ SOLO hacer commits/push cuando el usuario lo solicite explícitamente
-   - ✅ SOLO hacer deploy cuando el usuario lo solicite explícitamente
+1. **DESPLIEGUES AUTOMATICOS**
+   - NUNCA hacer push a Git sin autorizacion explicita del usuario
+   - NUNCA hacer deploy a AWS sin solicitud explicita del usuario
+   - NUNCA ejecutar scripts de despliegue automaticamente
+   - SOLO hacer commits/push cuando el usuario lo solicite explicitamente
+   - SOLO hacer deploy cuando el usuario lo solicite explicitamente
 
-2. **CÓDIGO DE PRUEBA Y MOCKS**
-   - ❌ NUNCA generar código con funciones mock o de prueba
-   - ❌ NUNCA crear datos de prueba hardcodeados
-   - ❌ NUNCA dejar TODOs o placeholders sin implementar
-   - ❌ NUNCA crear funciones "de ejemplo" o "temporales"
-   - ✅ TODO el código debe ser código de producción funcional
-   - ✅ TODAS las funciones deben estar completamente implementadas
-   - ✅ TODOS los datos deben venir de fuentes reales (APIs, BD, etc.)
+2. **CODIGO DE PRUEBA Y MOCKS**
+   - NUNCA generar codigo con funciones mock o de prueba
+   - NUNCA crear datos de prueba hardcodeados
+   - NUNCA dejar TODOs o placeholders sin implementar
+   - NUNCA crear funciones "de ejemplo" o "temporales"
+   - TODO el codigo debe ser codigo de produccion funcional
+   - TODAS las funciones deben estar completamente implementadas
+   - TODOS los datos deben venir de fuentes reales (APIs, BD, etc.)
 
-3. **ENTORNO DE PRODUCCIÓN**
-   - ⚠️ Este es un entorno 100% productivo
-   - ⚠️ Cualquier cambio afecta usuarios reales
-   - ⚠️ Todos los servicios están en producción (AWS, Supabase, etc.)
-   - ✅ Verificar impacto antes de cualquier cambio
-   - ✅ Probar cambios localmente antes de sugerir despliegue
+3. **ENTORNO DE PRODUCCION**
+   - Este es un entorno 100% productivo
+   - Cualquier cambio afecta usuarios reales
+   - Todos los servicios estan en produccion (AWS, Supabase, etc.)
+   - Verificar impacto antes de cualquier cambio
+   - Probar cambios localmente antes de sugerir despliegue
 
 ---
 
-## 📋 REGLAS GENERALES DE DESARROLLO
+## REGLAS GENERALES DE DESARROLLO
 
-### 🔧 Principios de Código
+### Principios de Codigo
 
 1. **TypeScript Estricto**
-   - Usar TypeScript para todo el código nuevo
+   - Usar TypeScript para todo el codigo nuevo
    - Tipar todas las funciones, props, y estados
    - No usar `any` a menos que sea absolutamente necesario
    - Validar tipos en runtime cuando sea necesario
@@ -55,31 +55,33 @@
 
 3. **TailwindCSS Exclusivo**
    - NO crear archivos CSS adicionales
-   - NO usar estilos inline (excepto dinámicos)
+   - NO usar estilos inline (excepto dinamicos)
    - Usar clases de Tailwind y utilidades existentes
-   - Seguir patrones de diseño establecidos
+   - Seguir patrones de diseno establecidos
 
 4. **Estado y Servicios**
    - Usar Zustand para estado global cuando sea necesario
    - Reutilizar servicios existentes (supabaseService, n8nService, etc.)
    - NO crear nuevos servicios sin verificar si existe uno similar
-   - Mantener separación de responsabilidades
+   - Mantener separacion de responsabilidades
 
 ---
 
-## 🏗️ Arquitectura del Proyecto
+## ARQUITECTURA DEL PROYECTO
 
 ### Estructura de Carpetas
 
 ```
 src/
-├── components/        # Componentes React organizados por módulo
-├── services/         # Servicios de negocio (Supabase, N8N, VAPI, etc.)
-├── hooks/            # Custom hooks reutilizables
-├── contexts/         # Context providers (Auth, etc.)
-├── stores/           # Zustand stores
-├── config/           # Configuraciones (Supabase, AWS, etc.)
-└── utils/            # Utilidades y helpers
+  components/        # Componentes React organizados por modulo
+  services/         # Servicios de negocio (Supabase, N8N, VAPI, etc.)
+  hooks/            # Custom hooks reutilizables
+  contexts/         # Context providers (Auth, etc.)
+  stores/           # Zustand stores
+  config/           # Configuraciones (Supabase, AWS, etc.)
+  utils/            # Utilidades y helpers
+docs/               # Documentacion tecnica (FUENTE)
+public/docs/        # Documentacion servida para la UI
 ```
 
 ### Servicios Principales
@@ -87,116 +89,290 @@ src/
 - `supabaseService` - Cliente Supabase principal
 - `pqncSupabase` - Cliente Supabase para PQNC
 - `n8nDeploymentServiceV3` - Servicio de despliegue N8N
-- `intelligentImportService` - Servicio de importación inteligente
-- `vapiService` - Integración con VAPI
-- `awsDiagramService` - Gestión de diagramas AWS
+- `intelligentImportService` - Servicio de importacion inteligente
+- `vapiService` - Integracion con VAPI
+- `awsDiagramService` - Gestion de diagramas AWS
 
 ---
 
-## 🔐 Seguridad y Credenciales
+## SEGURIDAD Y CREDENCIALES
 
-### ❌ PROHIBIDO
+### PROHIBIDO
 
-- ❌ Hardcodear credenciales en el código
-- ❌ Exponer API keys o secrets
-- ❌ Commitear archivos `.env` o con credenciales
-- ❌ Usar credenciales de producción en desarrollo
+- Hardcodear credenciales en el codigo
+- Exponer API keys o secrets
+- Commitear archivos `.env` o con credenciales
+- Usar credenciales de produccion en desarrollo
 
-### ✅ CORRECTO
+### CORRECTO
 
-- ✅ Usar variables de entorno (`import.meta.env.VITE_*`)
-- ✅ Usar servicios de configuración existentes
-- ✅ Validar permisos antes de operaciones sensibles
-- ✅ Usar autenticación y autorización apropiadas
-
----
-
-## 🚀 Despliegue y Git
-
-### Flujo de Trabajo Git
-
-1. **Antes de hacer cambios**:
-   - Verificar estado actual (`git status`)
-   - Crear branch si es necesario (solo si el usuario lo solicita)
-   - NO hacer commits automáticos
-
-2. **Al hacer cambios**:
-   - Hacer cambios en archivos específicos
-   - Verificar que no hay errores de linting
-   - NO hacer commit hasta que el usuario lo solicite
-
-3. **Commit y Push**:
-   - ✅ SOLO cuando el usuario lo solicite explícitamente
-   - Usar mensajes descriptivos y claros
-   - NO hacer push automático
-   - Verificar que el usuario quiere hacer push antes de ejecutar
-
-4. **Despliegue AWS**:
-   - ✅ SOLO cuando el usuario lo solicite explícitamente
-   - Verificar que el build funciona localmente primero
-   - Ejecutar script de despliegue (`update-frontend.sh`)
-   - Informar al usuario del resultado
+- Usar variables de entorno (`import.meta.env.VITE_*`)
+- Usar servicios de configuracion existentes
+- Validar permisos antes de operaciones sensibles
+- Usar autenticacion y autorizacion apropiadas
 
 ---
 
-## 🧪 Testing y Calidad
+## PROCESO DE DESPLIEGUE (GIT + AWS)
 
-### Código de Producción
+### Cuando el usuario solicite PUSH A GIT y/o DEPLOY A AWS, ejecutar:
 
-- ✅ Todo el código debe ser funcional y completo
-- ✅ Manejar casos edge y errores apropiadamente
-- ✅ Validar inputs y outputs
-- ✅ Logging apropiado para debugging en producción
-- ✅ Comentarios claros cuando el código es complejo
+#### PASO 1: Sincronizar Documentacion
+```bash
+# Copiar documentacion tecnica a /public/docs/
+cp docs/*.md public/docs/ 2>/dev/null || true
+cp CHANGELOG.md public/docs/
+cp VERSIONS.md public/docs/
+```
 
-### NO Permitido
+#### PASO 2: Actualizar Modulo de Documentacion
+- Verificar/actualizar version en `src/components/documentation/DocumentationModule.tsx`:
+  - stats[0].value = version actual (ej: 'v2.1.26')
+  - stats[1].value = fecha actual (ej: '16 Dic 2025')
+- Agregar nuevo commit al array `gitCommits[]` al inicio:
+  ```typescript
+  { hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripcion', isRelease: true/false }
+  ```
 
-- ❌ Código de prueba o mock
-- ❌ Funciones incompletas o con placeholders
-- ❌ Datos hardcodeados de ejemplo
-- ❌ Console.logs de debug sin propósito
-- ❌ Código comentado "por si acaso"
+#### PASO 3: Actualizar package.json
+- Incrementar version en `package.json` si es release
+
+#### PASO 4: Git Commit y Push
+```bash
+git add -A
+git status  # Verificar cambios
+git commit -m "vX.X.X: Descripcion clara del cambio"
+git push origin main
+```
+
+#### PASO 5: Deploy a AWS (si se solicita)
+```bash
+./update-frontend.sh
+```
+
+#### PASO 6: Informar Resultado
+- Confirmar que el push fue exitoso
+- Si es deploy AWS, informar estado del despliegue
+- Mencionar archivos modificados principales
+
+### Formato de Mensajes de Commit
+
+```
+# Para releases:
+vX.X.X: BX.X.XNX.X.X - Descripcion breve del release
+
+# Para fixes:
+fix: Descripcion del bug corregido
+
+# Para features:
+feat: Descripcion de la nueva funcionalidad
+
+# Para refactors:
+refactor: Descripcion del cambio de estructura
+
+# Para documentacion:
+docs: Descripcion de actualizacion de docs
+```
+
+### Versionamiento
+
+```
+Version Formato: vMAJOR.MINOR.PATCH
+Nomenclatura interna: BBACKEND.NNX.NFRONTEND
+
+Ejemplo: v2.1.25 = B6.0.2N6.0.0
+- B6.0.2 = Backend version 6.0.2
+- N6.0.0 = N8N/Frontend version 6.0.0
+```
 
 ---
 
-## 📝 Documentación
+## DOCUMENTACION
 
-### Cuando Crear Documentación
+### COMANDO RAPIDO: "documenta y actualiza"
 
-- ✅ Para nuevas funcionalidades complejas
-- ✅ Para cambios en arquitectura
-- ✅ Para procesos de despliegue
-- ✅ Para configuraciones importantes
+Cuando el usuario diga **"documenta y actualiza"** o **"push a git y aws"**, ejecutar TODO este proceso:
 
-### Formato de Documentación
+#### PASO 1: Sincronizar TODA la documentacion de modulos a /public/docs/
+```bash
+# Documentacion raiz
+cp CHANGELOG.md public/docs/
+cp VERSIONS.md public/docs/
 
-- Usar Markdown
-- Incluir ejemplos de código cuando sea útil
-- Mantener actualizada con cambios
-- Ubicar en carpeta `docs/` o como comentarios en código
+# Documentacion general en /docs/
+cp docs/*.md public/docs/ 2>/dev/null || true
+
+# Documentacion de MODULOS (muy importante)
+cp src/components/analysis/*.md public/docs/
+cp src/components/chat/*.md public/docs/
+cp src/components/prospectos/*.md public/docs/
+cp src/components/admin/*.md public/docs/
+cp src/components/aws/*.md public/docs/
+cp src/components/scheduled-calls/*.md public/docs/
+
+# Documentacion de servicios y config
+cp src/services/README.md public/docs/README_SERVICES.md
+cp src/config/README.md public/docs/README_CONFIG.md
+```
+
+#### PASO 2: Actualizar DocumentationModule.tsx
+Archivo: `src/components/documentation/DocumentationModule.tsx`
+
+1. **Actualizar stats** (linea ~300):
+   ```typescript
+   const stats = [
+     { label: 'Version', value: 'vX.X.X', highlight: true },  // <- ACTUALIZAR
+     { label: 'Ultima actualizacion', value: 'DD Mes YYYY', highlight: false },  // <- ACTUALIZAR
+     ...
+   ];
+   ```
+
+2. **Agregar commit a gitCommits[]** (linea ~193):
+   ```typescript
+   { hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripcion', isRelease: true },
+   ```
+
+3. **Si es deploy AWS, agregar a awsDeployments[]** (linea ~225):
+   ```typescript
+   { id: 'deploy-XXX', date: 'YYYY-MM-DD HH:mm', version: 'vX.X.X', status: 'success', duration: 'Xm Xs', triggeredBy: 'Samuel Rosales', environment: 'Production' },
+   ```
+
+#### PASO 3: Actualizar package.json si es release
+```json
+"version": "X.X.X"
+```
+
+#### PASO 4: Git commit y push
+```bash
+git add -A
+git commit -m "vX.X.X: Descripcion del cambio"
+git push origin main
+```
+
+#### PASO 5: Deploy a AWS
+```bash
+./update-frontend.sh
+```
 
 ---
 
-## 🎨 UI/UX
+### MAPA COMPLETO DE DOCUMENTACION
 
-### Principios de Diseño
+#### Archivos FUENTE -> Archivos PUBLICADOS (UI)
 
-- Seguir guía de diseño de modales (ver workspace rules)
+| Fuente | Destino en /public/docs/ | Seccion UI |
+|--------|-------------------------|------------|
+| `/CHANGELOG.md` | `CHANGELOG.md` | Versiones |
+| `/VERSIONS.md` | `VERSIONS.md` | Versiones |
+| `/docs/ARCHITECTURE_DIAGRAMS.md` | `ARCHITECTURE_DIAGRAMS.md` | Arquitectura |
+| `/docs/DATABASE_README.md` | `DATABASE_README.md` | Base de Datos |
+| `/docs/PERMISSIONS_SYSTEM_README.md` | `PERMISSIONS_SYSTEM_README.md` | Seguridad |
+| `/docs/WHATSAPP_TEMPLATES_API.md` | `WHATSAPP_TEMPLATES_API.md` | Integraciones |
+| `/docs/ERROR_LOGGING_GUIDE.md` | `ERROR_LOGGING_GUIDE.md` | Operaciones |
+| `/docs/MARKDOWN_VIEWER_STYLING_GUIDE.md` | `MARKDOWN_VIEWER_STYLING_GUIDE.md` | Operaciones |
+
+#### Documentacion de MODULOS
+
+| Modulo | Archivos Fuente | Destino |
+|--------|----------------|---------|
+| **Analysis** | `src/components/analysis/README_ANALISIS_IA.md` | `README_ANALISIS_IA.md` |
+| | `src/components/analysis/CHANGELOG_ANALISIS_IA.md` | `CHANGELOG_ANALISIS_IA.md` |
+| | `src/components/analysis/README_LIVEMONITOR.md` | `README_LIVEMONITOR.md` |
+| | `src/components/analysis/CHANGELOG_LIVEMONITOR.md` | `CHANGELOG_LIVEMONITOR.md` |
+| | `src/components/analysis/OPTIMIZACIONES_RENDIMIENTO.md` | `OPTIMIZACIONES_RENDIMIENTO.md` |
+| **Chat** | `src/components/chat/README.md` | `README.md` |
+| | `src/components/chat/CHANGELOG_LIVECHAT.md` | `CHANGELOG_LIVECHAT.md` |
+| | `src/components/chat/OPTIMIZACIONES_RENDIMIENTO_V4.md` | `OPTIMIZACIONES_RENDIMIENTO_V4.md` |
+| | `src/components/chat/OPTIMIZACION_CACHE_IMAGENES.md` | `OPTIMIZACION_CACHE_IMAGENES.md` |
+| **Prospectos** | `src/components/prospectos/README_PROSPECTOS.md` | `README_PROSPECTOS.md` |
+| | `src/components/prospectos/CHANGELOG_PROSPECTOS.md` | `CHANGELOG_PROSPECTOS.md` |
+| **Admin** | `src/components/admin/README_PQNC_HUMANS.md` | `README_PQNC_HUMANS.md` |
+| | `src/components/admin/CHANGELOG_PQNC_HUMANS.md` | `CHANGELOG_PQNC_HUMANS.md` |
+| **AWS** | `src/components/aws/README_AWS_MANAGER.md` | `README_AWS_MANAGER.md` |
+| | `src/components/aws/CHANGELOG_AWS_MANAGER.md` | `CHANGELOG_AWS_MANAGER.md` |
+| **Scheduled** | `src/components/scheduled-calls/CHANGELOG_SCHEDULED_CALLS.md` | `CHANGELOG_SCHEDULED_CALLS.md` |
+| **Services** | `src/services/README.md` | `README_SERVICES.md` |
+| **Config** | `src/config/README.md` | `README_CONFIG.md` |
+
+---
+
+### QUE DOCUMENTAR SEGUN EL TIPO DE CAMBIO
+
+| Tipo de Cambio | Documentos a Actualizar |
+|----------------|------------------------|
+| **Cambio en Analysis** | `CHANGELOG_ANALISIS_IA.md` o `CHANGELOG_LIVEMONITOR.md` |
+| **Cambio en Chat** | `CHANGELOG_LIVECHAT.md` |
+| **Cambio en Prospectos** | `CHANGELOG_PROSPECTOS.md` |
+| **Cambio en Admin/PQNC** | `CHANGELOG_PQNC_HUMANS.md` |
+| **Cambio en AWS Manager** | `CHANGELOG_AWS_MANAGER.md` |
+| **Cambio en Scheduled Calls** | `CHANGELOG_SCHEDULED_CALLS.md` |
+| **Bug Fix general** | `CHANGELOG.md` (si es significativo) |
+| **Nueva Feature** | `CHANGELOG.md` + doc del modulo afectado |
+| **Release** | `CHANGELOG.md`, `VERSIONS.md`, `package.json` |
+| **Troubleshooting resuelto** | Crear doc en `/docs/` con solucion |
+
+---
+
+### CATALOGO UI - DocumentationModule.tsx
+
+El catalogo en la UI (linea ~130 de DocumentationModule.tsx) tiene estas secciones:
+
+```typescript
+documentationSections = [
+  { id: 'versioning', title: 'Versiones', docs: [...] },
+  { id: 'architecture', title: 'Arquitectura', docs: [...] },
+  { id: 'database', title: 'Base de Datos', docs: [...] },
+  { id: 'analysis', title: 'Analisis IA', docs: [...] },
+  { id: 'chat', title: 'Live Chat', docs: [...] },
+  { id: 'prospectos', title: 'Prospectos', docs: [...] },
+  { id: 'admin', title: 'PQNC Humans', docs: [...] },
+  { id: 'aws-module', title: 'AWS Manager', docs: [...] },
+  { id: 'scheduled', title: 'Llamadas Programadas', docs: [...] },
+  { id: 'security', title: 'Seguridad', docs: [...] },
+  { id: 'integrations', title: 'Integraciones', docs: [...] },
+  { id: 'operations', title: 'Operaciones', docs: [...] },
+  { id: 'services', title: 'Servicios', docs: [...] },
+]
+```
+
+Para agregar un nuevo documento, agregar entrada en la seccion correspondiente:
+```typescript
+{ id: 'unique-id', name: 'Nombre Visible', path: '/docs/ARCHIVO.md', description: 'Descripcion' }
+```
+
+---
+
+### REGLAS DE DOCUMENTACION
+
+1. **SIEMPRE** sincronizar docs de modulos cuando se hace push
+2. **SIEMPRE** actualizar el CHANGELOG del modulo afectado
+3. **SIEMPRE** actualizar gitCommits[] en DocumentationModule.tsx
+4. **SIEMPRE** actualizar awsDeployments[] si se hace deploy a AWS
+5. **NUNCA** crear documentos duplicados - fusionar si es necesario
+6. **NUNCA** dejar documentacion desactualizada despues de un cambio
+
+---
+
+## UI/UX
+
+### Principios de Diseno
+
+- Seguir guia de diseno de modales (ver workspace rules)
 - Mantener consistencia visual
 - Usar animaciones sutiles (framer-motion)
-- Accesibilidad básica (aria-labels, keyboard navigation)
+- Accesibilidad basica (aria-labels, keyboard navigation)
 - Dark mode compatible
 
 ### Componentes Reutilizables
 
 - Usar componentes existentes antes de crear nuevos
 - Verificar si hay componentes similares en el proyecto
-- Mantener componentes pequeños y enfocados
+- Mantener componentes pequenos y enfocados
 - Props tipadas con TypeScript
 
 ---
 
-## 🔄 Integraciones
+## INTEGRACIONES
 
 ### Supabase
 
@@ -208,7 +384,7 @@ src/
 ### AWS
 
 - Usar servicios AWS existentes
-- No crear recursos AWS sin autorización
+- No crear recursos AWS sin autorizacion
 - Verificar costos antes de crear recursos
 - Usar scripts de despliegue existentes
 
@@ -216,42 +392,41 @@ src/
 
 - Usar `n8nDeploymentServiceV3` para despliegues
 - No modificar workflows sin verificar impacto
-- Validar configuración antes de desplegar
+- Validar configuracion antes de desplegar
 
 ---
 
-## ⚠️ ADVERTENCIAS FINALES
+## ADVERTENCIAS FINALES
 
-1. **Este es un entorno de PRODUCCIÓN**
-   - Usuarios reales dependen de esta aplicación
+1. **Este es un entorno de PRODUCCION**
+   - Usuarios reales dependen de esta aplicacion
    - Cualquier cambio puede afectar operaciones
    - Verificar impacto antes de cambios
 
-2. **NO hacer despliegues automáticos**
-   - Siempre esperar autorización explícita
+2. **NO hacer despliegues automaticos**
+   - Siempre esperar autorizacion explicita
    - Verificar que el usuario quiere desplegar
    - Informar del resultado del despliegue
 
-3. **NO generar código de prueba**
-   - Todo debe ser código de producción
+3. **NO generar codigo de prueba**
+   - Todo debe ser codigo de produccion
    - Funciones completas y funcionales
    - Sin mocks ni datos de ejemplo
 
-4. **Mantener calidad de código**
+4. **Mantener calidad de codigo**
    - TypeScript estricto
    - Manejo de errores apropiado
-   - Código limpio y mantenible
+   - Codigo limpio y mantenible
 
 ---
 
-## 📞 Contacto y Soporte
+## CONTACTO Y SOPORTE
 
 - **Proyecto**: PQNC QA AI Platform
-- **Versión**: v2.1.0
-- **Estado**: Producción Activa
-- **Última Actualización**: 25 de Noviembre 2025
+- **Version**: v2.1.25
+- **Estado**: Produccion Activa
+- **Ultima Actualizacion**: 15 de Diciembre 2025
 
 ---
 
-**⚠️ RECUERDA: Este es un entorno de PRODUCCIÓN. Actúa con precaución y siempre solicita autorización antes de desplegar cambios.**
-
+**RECUERDA: Este es un entorno de PRODUCCION. Actua con precaucion y siempre solicita autorizacion antes de desplegar cambios.**
