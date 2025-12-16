@@ -250,7 +250,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2025-12-16', author: 'Team', message: 'v2.1.27: Columna Coordinacion y mejoras de asignacion en DataGrid y Sidebars', isRelease: true },
+  { hash: '8487c9a', date: '2025-12-16', author: 'Team', message: 'v2.1.27: Columna Coordinacion y mejoras de asignacion en DataGrid y Sidebars', isRelease: true },
   { hash: '42a4996', date: '2025-12-15', author: 'Team', message: 'fix: mostrar version release en stats de documentacion', isRelease: false },
   { hash: 'e46391e', date: '2025-12-15', author: 'Team', message: 'fix: actualizar version en Footer y agregar paso en rule', isRelease: false },
   { hash: 'd920f10', date: '2025-12-15', author: 'Team', message: 'chore: actualizar hash de commit v2.1.26 en UI', isRelease: false },
