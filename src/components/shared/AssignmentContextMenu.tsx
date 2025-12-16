@@ -137,36 +137,18 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   const loadAllEjecutivos = async () => {
     setLoading(true);
     try {
-      // Obtener coordinaciones activas directamente (sin usar función RPC que no existe)
-      let coordinacionesActivas: any[] = [];
+      // IMPORTANTE: Para admin y admin operativo, obtener TODAS las coordinaciones (activas e inactivas)
+      // No filtrar por coordinaciones activas - deben poder asignar a cualquier ejecutivo/coordinación
+      let todasCoordinaciones: any[] = [];
       try {
-        // Usar getCoordinaciones() directamente y filtrar por activas
-        const todasCoordinaciones = await coordinacionService.getCoordinaciones();
-        // Filtrar solo las activas y no archivadas
-        coordinacionesActivas = todasCoordinaciones.filter(c => {
-          const isActive = c.is_active === true;
-          const notArchived = c.archivado === false || c.archivado === undefined;
-          return isActive && notArchived;
-        });
-        
-        console.log(`📋 [loadAllEjecutivos] Coordinaciones activas encontradas: ${coordinacionesActivas.length}`, coordinacionesActivas.map(c => ({
-          id: c.id,
-          nombre: c.nombre,
-          is_active: c.is_active,
-          archivado: c.archivado
-        })));
+        todasCoordinaciones = await coordinacionService.getCoordinaciones();
+        console.log(`📋 [loadAllEjecutivos] Todas las coordinaciones encontradas: ${todasCoordinaciones.length} (admin/admin operativo ve todas, activas e inactivas)`);
       } catch (coordError) {
         console.error('Error obteniendo coordinaciones:', coordError);
         toast.error('Error al cargar coordinaciones. Mostrando todos los ejecutivos activos.');
       }
       
-      const coordinacionesActivasIds = coordinacionesActivas.length > 0 
-        ? new Set(coordinacionesActivas.map(c => c.id))
-        : null; // Si no hay coordinaciones, no filtrar por coordinación
-      
-      console.log(`📋 [loadAllEjecutivos] Coordinaciones activas IDs (Set):`, coordinacionesActivasIds ? Array.from(coordinacionesActivasIds) : 'null');
-      
-      // Obtener todos los ejecutivos
+      // Obtener todos los ejecutivos (sin filtrar por coordinaciones activas para admin/admin operativo)
       const allEjecutivos = await coordinacionService.getAllEjecutivos();
       
       // IMPORTANTE: Si el usuario es admin o admin operativo, también incluir coordinadores
@@ -179,34 +161,17 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           try {
             const todosCoordinadores = await coordinacionService.getAllCoordinadores();
             console.log(`📋 [loadAllEjecutivos] getAllCoordinadores() devolvió ${todosCoordinadores.length} coordinadores`);
-            console.log(`📋 [loadAllEjecutivos] Coordinaciones activas IDs:`, coordinacionesActivasIds ? Array.from(coordinacionesActivasIds) : 'null');
-            console.log(`📋 [loadAllEjecutivos] Primeros 3 coordinadores:`, todosCoordinadores.slice(0, 3).map(c => ({
-              id: c.id,
-              nombre: c.full_name,
-              coordinacion_id: c.coordinacion_id,
-              is_active: c.is_active
-            })));
             
-            // IMPORTANTE: Para administradores, mostrar TODOS los coordinadores activos
-            // No filtrar por coordinaciones activas (ese filtro solo aplica a ejecutivos)
-            // Los administradores deben poder asignar a cualquier coordinador activo
+            // IMPORTANTE: Para administradores y administradores operativos, mostrar TODOS los coordinadores activos
+            // No filtrar por coordinaciones activas - deben poder asignar a cualquier coordinador activo
+            // independientemente de si su coordinación está activa o no
             allCoordinadores = todosCoordinadores.filter(coord => {
               const isActive = coord.is_active;
               const hasCoordinacion = !!coord.coordinacion_id;
               
               // Solo filtrar por activo y que tenga coordinación asignada
               // NO filtrar por coordinaciones activas para coordinadores
-              const pasaFiltro = isActive && hasCoordinacion;
-              
-              if (!pasaFiltro && todosCoordinadores.indexOf(coord) < 3) {
-                console.log(`🚫 [loadAllEjecutivos] Coordinador ${coord.full_name} filtrado:`, {
-                  isActive,
-                  hasCoordinacion,
-                  coordinacion_id: coord.coordinacion_id
-                });
-              }
-              
-              return pasaFiltro;
+              return isActive && hasCoordinacion;
             });
             
             console.log(`✅ [loadAllEjecutivos] ${allCoordinadores.length} coordinadores filtrados de ${todosCoordinadores.length} totales`);
@@ -220,8 +185,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           } catch (getAllError) {
             console.warn('⚠️ [loadAllEjecutivos] getAllCoordinadores() falló, intentando por coordinación:', getAllError);
             
-            // Fallback: obtener coordinadores por coordinación
-            const coordinadoresPromises = coordinacionesActivas.map(async (coord) => {
+            // Fallback: obtener coordinadores de TODAS las coordinaciones (no solo activas)
+            const coordinadoresPromises = todasCoordinaciones.map(async (coord) => {
               try {
                 const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coord.id);
                 console.log(`📋 [loadAllEjecutivos] Coordinación ${coord.nombre} (${coord.id}): ${coordinadores.length} coordinadores encontrados`);
@@ -254,17 +219,18 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         }
       }
       
-      // Filtrar: solo ejecutivos activos
-      // Si hay coordinaciones activas, filtrar por ellas también
+      // IMPORTANTE: Para admin y admin operativo, NO filtrar por coordinaciones activas
+      // Mostrar TODOS los ejecutivos activos, independientemente de si su coordinación está activa o no
       let ejecutivosFiltrados = allEjecutivos.filter(e => {
         const isActive = e.is_active;
         const hasCoordinacion = !!e.coordinacion_id;
-        const isInActiveCoordinacion = coordinacionesActivasIds 
-          ? coordinacionesActivasIds.has(e.coordinacion_id || '')
-          : true; // Si no hay coordinaciones activas, incluir todos
         
-        return isActive && hasCoordinacion && isInActiveCoordinacion;
+        // Solo filtrar por activo y que tenga coordinación asignada
+        // NO filtrar por coordinaciones activas para admin/admin operativo
+        return isActive && hasCoordinacion;
       });
+      
+      console.log(`✅ [loadAllEjecutivos] ${ejecutivosFiltrados.length} ejecutivos activos cargados (de ${allEjecutivos.length} totales, sin filtrar por coordinaciones activas)`);
       
       // Agregar coordinadores activos a la lista (solo para admin/admin operativo)
       // NOTA: Los coordinadores ya fueron filtrados arriba, así que aquí solo los agregamos
@@ -454,14 +420,15 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         console.log('🔍 Verificando coordinación:', coordinacionIdToUse);
         
         // Verificación de coordinación opcional (no bloquea la asignación)
+        // IMPORTANTE: Admin y Admin Operativo pueden asignar a coordinaciones no activas
         try {
           console.log('🔍 Verificando coordinación:', coordinacionIdToUse);
           const coordinacion = await coordinacionService.getCoordinacionById(coordinacionIdToUse);
-          console.log('📋 Coordinación obtenida:', coordinacion ? { id: coordinacion.id, nombre: coordinacion.nombre, is_active: coordinacion.is_active } : 'null');
+          console.log('📋 Coordinación obtenida:', coordinacion ? { id: coordinacion.id, nombre: coordinacion.nombre, is_active: coordinacion.is_active, archivado: coordinacion.archivado } : 'null');
           
-          if (coordinacion && !coordinacion.is_active) {
-            console.warn('⚠️ Coordinación no está activa, pero continuando con asignación');
-            // No bloquear la asignación, solo advertir
+          if (coordinacion && (!coordinacion.is_active || coordinacion.archivado)) {
+            console.log('ℹ️ Coordinación no está activa o está archivada, pero admin/admin operativo puede asignar de todas formas');
+            // No bloquear la asignación - admin y admin operativo pueden asignar a cualquier coordinación
           }
           console.log('✅ Verificación de coordinación completada');
         } catch (coordError) {

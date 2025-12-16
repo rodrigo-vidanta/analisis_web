@@ -7,6 +7,7 @@ import { authService, type Permission, type AuthState, type LoginCredentials } f
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
 import { supabaseSystemUI as supabase, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import toast from 'react-hot-toast';
 
 // Tipos para el contexto
 interface AuthContextType extends AuthState {
@@ -43,6 +44,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error: null
   });
   const [showLoginAnimation, setShowLoginAnimation] = useState(false);
+  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const backupRealtimeChannelRef = useRef<any>(null);
 
@@ -105,30 +108,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const hasBackupChanged = newData.has_backup !== oldData.has_backup;
           
           if (backupIdChanged || hasBackupChanged) {
-            console.log('🔄 Cambio detectado en backup, actualizando usuario...', {
-              backupIdChanged,
-              hasBackupChanged,
-              newBackupId: newData.backup_id,
-              oldBackupId: oldData.backup_id,
-              newHasBackup: newData.has_backup,
-              oldHasBackup: oldData.has_backup
-            });
-            
             // Actualizar datos del usuario silenciosamente
             try {
-              await refreshUser(true); // true = actualización silenciosa
-              console.log('✅ Usuario actualizado después de cambio de backup');
+              await refreshUser(true);
             } catch (error) {
               console.error('Error actualizando usuario después de cambio de backup:', error);
             }
           }
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Suscripción realtime de backup activa para usuario', authState.user?.id);
-        }
-      });
+      .subscribe();
 
     backupRealtimeChannelRef.current = channel;
 
@@ -140,6 +129,129 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
   }, [authState.user?.id, authState.isAuthenticated]);
+
+  // Suscripción a broadcast para invalidación INSTANTÁNEA de sesión
+  useEffect(() => {
+    // Solo activar si hay usuario autenticado
+    if (!authState.isAuthenticated || !authState.user?.id) {
+      if (sessionBroadcastChannelRef.current) {
+        supabase.removeChannel(sessionBroadcastChannelRef.current);
+        sessionBroadcastChannelRef.current = null;
+      }
+      if (sessionCheckIntervalRef.current) {
+        clearInterval(sessionCheckIntervalRef.current);
+        sessionCheckIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const currentToken = localStorage.getItem('auth_token');
+    const userId = authState.user.id;
+
+    // Crear canal de broadcast para este usuario
+    const channel = supabase
+      .channel(`session-invalidation-${userId}`)
+      .on('broadcast', { event: 'session_replaced' }, (payload) => {
+        const newSessionToken = payload.payload?.newSessionToken;
+        
+        // Si el token nuevo es diferente al nuestro, nos desconectaron
+        if (newSessionToken && newSessionToken !== currentToken) {
+          console.log('🔐 BROADCAST: Sesión reemplazada por otro dispositivo');
+          handleForceLogout('Iniciaste sesión en otro dispositivo');
+        }
+      })
+      .subscribe();
+
+    sessionBroadcastChannelRef.current = channel;
+
+    // Verificación de respaldo cada 60 segundos (por si falla el broadcast)
+    const checkSessionValidity = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        handleForceLogout('Token no encontrado');
+        return;
+      }
+
+      try {
+        // Usar maybeSingle() para evitar error 406 cuando no hay resultados
+        const { data, error } = await supabase
+          .from('auth_sessions')
+          .select('id')
+          .eq('session_token', token)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error consultando sesión:', error);
+          return; // No forzar logout en caso de error de red
+        }
+
+        if (!data) {
+          console.log('🔐 Sesión eliminada de la BD - otro dispositivo inició sesión');
+          handleForceLogout('Iniciaste sesión en otro dispositivo');
+        }
+      } catch (err) {
+        console.error('Error verificando sesión:', err);
+      }
+    };
+
+    // Verificar al montar después de 5s (detecta si ya fue invalidada antes de suscribirse)
+    setTimeout(checkSessionValidity, 5000);
+
+    // Verificación de respaldo cada 2 minutos (solo emergencia, el broadcast es instantáneo)
+    sessionCheckIntervalRef.current = setInterval(checkSessionValidity, 120000);
+
+    return () => {
+      if (sessionBroadcastChannelRef.current) {
+        supabase.removeChannel(sessionBroadcastChannelRef.current);
+        sessionBroadcastChannelRef.current = null;
+      }
+      if (sessionCheckIntervalRef.current) {
+        clearInterval(sessionCheckIntervalRef.current);
+        sessionCheckIntervalRef.current = null;
+      }
+    };
+  }, [authState.isAuthenticated, authState.user?.id]);
+
+  // Handler para forzar logout cuando la sesión es invalidada externamente
+  const handleForceLogout = (reason: string) => {
+    console.log(`🔐 Cerrando sesión automáticamente: ${reason}`);
+    
+    // Mostrar notificación PRIMERO (antes de desmontar componentes)
+    toast('Iniciaste sesión en otro dispositivo', {
+      duration: 5000,
+      icon: '🔐',
+      style: {
+        background: '#1f2937',
+        color: '#fff',
+      }
+    });
+
+    // Limpiar canal de broadcast
+    if (sessionBroadcastChannelRef.current) {
+      supabase.removeChannel(sessionBroadcastChannelRef.current);
+      sessionBroadcastChannelRef.current = null;
+    }
+    
+    // Limpiar intervalo de verificación
+    if (sessionCheckIntervalRef.current) {
+      clearInterval(sessionCheckIntervalRef.current);
+      sessionCheckIntervalRef.current = null;
+    }
+
+    // Limpiar localStorage
+    localStorage.removeItem('auth_token');
+    
+    // Pequeño delay para que el toast se renderice antes de desmontar
+    setTimeout(() => {
+      setAuthState({
+        isAuthenticated: false,
+        isLoading: false,
+        user: null,
+        permissions: [],
+        error: null
+      });
+    }, 100);
+  };
 
   const initializeAuth = async () => {
     try {
@@ -200,21 +312,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const isEjecutivo = authState.user?.role_name === 'ejecutivo';
     const hasCoordinacion = !!authState.user?.coordinacion_id;
     
-    console.log('🔍 Logout check:', { 
-      isEjecutivo, 
-      hasCoordinacion, 
-      coordinacion_id: authState.user?.coordinacion_id,
-      backupId: validBackupId,
-      backupIdType: typeof backupId
-    });
-    
-    // Mostrar modal de backup si:
-    // 1. Es ejecutivo
-    // 2. Tiene coordinación
-    // 3. No se proporcionó backupId válido
-    // NOTA: Todos los ejecutivos pueden seleccionar un backup, incluso si son backup de otros ejecutivos
+    // Mostrar modal de backup si es ejecutivo sin backup preseleccionado
     if (isEjecutivo && !validBackupId && hasCoordinacion) {
-      console.log('✅ Mostrando modal de backup');
       setShowBackupModal(true);
       return;
     }
@@ -256,6 +355,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('❌ Modal cancelado, cerrando sin hacer logout');
     setShowBackupModal(false);
     // NO hacer logout, solo cerrar el modal y volver a la aplicación
+  };
+
+  // Función para logout sin asignar backup (ejecutivo consciente de que sus prospectos no serán visibles)
+  const handleLogoutWithoutBackup = async (): Promise<void> => {
+    setShowBackupModal(false);
+    
+    // Hacer logout con un marcador especial que indica "sin backup explícito"
+    // El authService.logout se encargará de marcar is_operativo = false
+    await authService.logout(undefined);
+    
+    // Limpiar estado
+    setAuthState({
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      permissions: []
+    });
   };
 
   // Función para manejar el completado de la animación
@@ -524,6 +640,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           coordinacionId={authState.user.coordinacion_id}
           onBackupSelected={handleBackupSelected}
           onCancel={handleCancelBackupSelection}
+          onLogoutWithoutBackup={handleLogoutWithoutBackup}
         />
       )}
     </AuthContext.Provider>

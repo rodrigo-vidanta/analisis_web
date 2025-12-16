@@ -645,6 +645,94 @@ class AssignmentService {
       // No lanzar error, solo loguear
     }
   }
+
+  // ============================================
+  // ASIGNACIÓN MASIVA
+  // ============================================
+
+  /**
+   * Asigna múltiples prospectos masivamente a un ejecutivo
+   */
+  async assignProspectsBulkToEjecutivo(
+    prospectIds: string[],
+    coordinacionId: string,
+    ejecutivoId: string,
+    assignedBy: string,
+    reason?: string
+  ): Promise<{ success: number; failed: number; errors: string[] }> {
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+
+    for (const prospectId of prospectIds) {
+      try {
+        const result = await this.assignProspectManuallyToEjecutivo(
+          prospectId,
+          coordinacionId,
+          ejecutivoId,
+          assignedBy,
+          reason || `Asignación masiva de ${prospectIds.length} prospectos`
+        );
+
+        if (result.success) {
+          successCount++;
+        } else {
+          failedCount++;
+          errors.push(`${prospectId}: ${result.message}`);
+        }
+      } catch (error) {
+        failedCount++;
+        errors.push(`${prospectId}: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      }
+    }
+
+    return {
+      success: successCount,
+      failed: failedCount,
+      errors
+    };
+  }
+
+  /**
+   * Asigna múltiples prospectos masivamente a una coordinación
+   */
+  async assignProspectsBulkToCoordinacion(
+    prospectIds: string[],
+    coordinacionId: string,
+    assignedBy: string,
+    reason?: string
+  ): Promise<{ success: number; failed: number; errors: string[] }> {
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+
+    for (const prospectId of prospectIds) {
+      try {
+        const result = await this.assignProspectManuallyToCoordinacion(
+          prospectId,
+          coordinacionId,
+          assignedBy,
+          reason || `Asignación masiva de ${prospectIds.length} prospectos`
+        );
+
+        if (result.success) {
+          successCount++;
+        } else {
+          failedCount++;
+          errors.push(`${prospectId}: ${result.message}`);
+        }
+      } catch (error) {
+        failedCount++;
+        errors.push(`${prospectId}: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      }
+    }
+
+    return {
+      success: successCount,
+      failed: failedCount,
+      errors
+    };
+  }
 }
 
 // Exportar instancia singleton

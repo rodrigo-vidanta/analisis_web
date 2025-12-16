@@ -2,6 +2,54 @@
 
 ## Historial de Versiones
 
+### v2.1.25 (2025-12-15)
+**Descripción**: B6.0.2N6.0.0: Control de Sesión Única, Mejoras en Sistema de Backup y Limpieza de Logs
+
+---
+
+## 🎯 **RELEASE B6.0.2N6.0.0 - Control de Sesión Única y Mejoras de Backup**
+
+### 🔐 **Control de Sesión Única**
+- **Una sesión por usuario**: Al iniciar sesión en un nuevo dispositivo, la sesión anterior se invalida automáticamente
+- **Broadcast instantáneo**: Notificación inmediata via Supabase Broadcast cuando se reemplaza una sesión
+- **Polling de respaldo**: Verificación cada 2 minutos como fallback si el broadcast falla
+- **Toast informativo**: Mensaje "Iniciaste sesión en otro dispositivo" al ser desconectado
+- **Componente Toaster**: Agregado `<Toaster />` en `App.tsx` para notificaciones globales
+
+### 🔄 **Mejoras en Sistema de Backup**
+- **Orden de prioridad corregido** en `getAutomaticBackup()`:
+  1. Ejecutivos operativos con teléfono (PRIORIDAD 1)
+  2. Coordinadores operativos con teléfono (PRIORIDAD 2)
+  3. Coordinadores con teléfono aunque no operativos (PRIORIDAD 3)
+- **Botón "Salir sin transferir"**: Opción discreta con doble confirmación para logout sin asignar backup
+- **Advertencia visual**: Banner amber con mensaje "Tus prospectos no estarán visibles para nadie mientras estés ausente"
+
+### 🐛 **Correcciones de Errores**
+- **Error 406 corregido**: Cambiado `.single()` a `.maybeSingle()` en validación de sesiones para evitar errores cuando la sesión no existe
+- **Error 404 en CallDetailModalSidebar**: Eliminadas queries a tablas inexistentes (`ejecutivos`, `coordinaciones`) en base de datos incorrecta
+- **Filtro de coordinaciones**: El filtro ahora muestra todas las coordinaciones disponibles
+
+### 🧹 **Limpieza de Código**
+- **Logs eliminados**: Removidos todos los `console.log` informativos de:
+  - `authService.ts` - logs de autenticación y backup
+  - `backupService.ts` - logs de prioridades y asignación
+  - `permissionsService.ts` - logs de verificación de permisos
+  - `AuthContext.tsx` - logs de suscripciones realtime
+  - `BackupSelectionModal.tsx` - logs de carga y búsqueda
+- **Solo errores reales**: Mantenidos únicamente `console.error` para errores críticos
+
+### 📁 **Archivos Modificados**
+- `src/services/authService.ts` - Control de sesión única, broadcast, limpieza de logs
+- `src/services/backupService.ts` - Orden de prioridad corregido, limpieza de logs
+- `src/services/permissionsService.ts` - Limpieza de logs de debugging
+- `src/contexts/AuthContext.tsx` - Listener de broadcast, polling de respaldo, handler logout sin backup
+- `src/components/auth/BackupSelectionModal.tsx` - Botón "Salir sin transferir"
+- `src/components/chat/CallDetailModalSidebar.tsx` - Eliminadas queries 404
+- `src/components/prospectos/ProspectosManager.tsx` - Filtro de coordinaciones
+- `src/App.tsx` - Agregado componente Toaster
+
+---
+
 ### v2.1.24 (2025-01-25)
 **Descripción**: B6.0.1N6.0.0: Correcciones de Permisos de Prospectos y Asignación de Coordinadores
 

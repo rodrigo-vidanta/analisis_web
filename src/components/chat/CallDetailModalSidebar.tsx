@@ -130,50 +130,9 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   const lastSegmentRef = useRef<number | null>(null);
   const scrollTimeoutRef = useRef<number | null>(null);
 
-  // Cargar datos de ejecutivos y coordinaciones (solo si las tablas existen)
-  useEffect(() => {
-    const loadEjecutivosAndCoordinaciones = async () => {
-      try {
-        // Intentar cargar ejecutivos y coordinaciones, pero silenciar errores 404
-        const [ejecutivosRes, coordinacionesRes] = await Promise.allSettled([
-          analysisSupabase.from('ejecutivos').select('*').then(res => {
-            if (res.error && res.error.code === 'PGRST116') {
-              return { data: null, error: null };
-            }
-            return res;
-          }),
-          analysisSupabase.from('coordinaciones').select('*').then(res => {
-            if (res.error && res.error.code === 'PGRST116') {
-              return { data: null, error: null };
-            }
-            return res;
-          })
-        ]);
-
-        if (ejecutivosRes.status === 'fulfilled' && ejecutivosRes.value.data) {
-          const map: Record<string, any> = {};
-          ejecutivosRes.value.data.forEach((e: any) => {
-            map[e.id] = e;
-          });
-          setEjecutivosMap(map);
-        }
-
-        if (coordinacionesRes.status === 'fulfilled' && coordinacionesRes.value.data) {
-          const map: Record<string, any> = {};
-          coordinacionesRes.value.data.forEach((c: any) => {
-            map[c.id] = c;
-          });
-          setCoordinacionesMap(map);
-        }
-      } catch (error) {
-        // Silenciar errores - las tablas pueden no existir
-      }
-    };
-
-    if (isOpen) {
-      loadEjecutivosAndCoordinaciones();
-    }
-  }, [isOpen]);
+  // NOTA: ejecutivosMap y coordinacionesMap están vacíos porque las tablas
+  // ejecutivos/coordinaciones no existen en pqnc_ai (están en system_ui).
+  // El código usa fallbacks (asesor_asignado, 'N/A') cuando no hay datos.
 
   // Cargar detalle de llamada - mover loadCallDetail antes del useEffect
   const loadCallDetail = useCallback(async (callId: string) => {

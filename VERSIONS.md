@@ -1,5 +1,42 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B6.0.2N6.0.0 (Diciembre 2025) - Control de Sesión Única y Mejoras de Backup
+
+### 🎯 RELEASE - Control de Sesión Única y Sistema de Backup Mejorado
+
+#### Control de Sesión Única
+- Una sola sesión activa por usuario
+- Invalidación inmediata via Supabase Broadcast
+- Polling de respaldo cada 2 minutos
+- Toast informativo al ser desconectado
+- Componente Toaster global en App.tsx
+
+#### Mejoras en Sistema de Backup
+- Orden de prioridad corregido en `getAutomaticBackup()`:
+  - PRIORIDAD 1: Ejecutivos operativos
+  - PRIORIDAD 2: Coordinadores operativos
+  - PRIORIDAD 3: Coordinadores no operativos
+- Botón "Salir sin transferir" con doble confirmación
+- Advertencia visual sobre prospectos no visibles
+
+#### Correcciones de Errores
+- Error 406 corregido (`.single()` → `.maybeSingle()`)
+- Error 404 en CallDetailModalSidebar eliminado
+- Filtro de coordinaciones muestra todas las opciones
+
+#### Limpieza de Código
+- Eliminados logs informativos de authService, backupService, permissionsService
+- Eliminados logs de AuthContext y BackupSelectionModal
+- Mantenidos solo console.error para errores reales
+
+#### Archivos Modificados
+- authService.ts, backupService.ts, permissionsService.ts
+- AuthContext.tsx, BackupSelectionModal.tsx
+- CallDetailModalSidebar.tsx, ProspectosManager.tsx
+- App.tsx
+
+---
+
 ## Versión B6.0.1N6.0.0 (Enero 2025) - Correcciones de Permisos y Asignación de Coordinadores
 
 ### 🎯 RELEASE - Correcciones de Permisos y Asignación de Coordinadores

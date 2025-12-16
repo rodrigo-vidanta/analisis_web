@@ -4757,7 +4757,7 @@ const LiveChatCanvas: React.FC = () => {
                 }}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  if (user?.role_name === 'coordinador' || user?.role_name === 'admin') {
+                  if (user?.role_name === 'coordinador' || user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
                     const ejecutivoId = conversation.metadata?.ejecutivo_id || prospectoData?.ejecutivo_id;
                     const coordinacionId = conversation.metadata?.coordinacion_id || prospectoData?.coordinacion_id;
                     

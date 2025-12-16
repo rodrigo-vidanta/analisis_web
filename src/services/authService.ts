@@ -115,7 +115,6 @@ class AuthService {
     try {
       // Normalizar email a minúsculas para comparación case-insensitive
       const normalizedEmail = credentials.email.trim().toLowerCase();
-      console.log('🔐 Intentando autenticar:', normalizedEmail);
       
       // Primero verificar el estado del usuario directamente desde la tabla
       // Usar ilike para comparación case-insensitive
@@ -130,9 +129,7 @@ class AuthService {
         // Verificar si la cuenta está bloqueada
         if (userData.locked_until && new Date(userData.locked_until) > new Date()) {
           const lockedUntil = new Date(userData.locked_until).toLocaleString('es-ES');
-          const errorMsg = `ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Contacta al administrador. Bloqueado hasta: ${lockedUntil}`;
-          console.log('🔒 Cuenta bloqueada detectada:', errorMsg);
-          throw new Error(errorMsg);
+          throw new Error(`ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Contacta al administrador. Bloqueado hasta: ${lockedUntil}`);
         }
 
         // Si estaba bloqueado pero ya pasó el tiempo, desbloquear
@@ -151,9 +148,6 @@ class AuthService {
           user_email: normalizedEmail,
           user_password: credentials.password
         });
-
-      console.log('📦 Auth result raw:', authResult);
-      console.log('❌ Auth error:', authError);
 
       if (authError) {
         throw new Error(authError?.message || 'Error de autenticación');
@@ -188,9 +182,6 @@ class AuthService {
       // La función retorna un array, tomar el primer resultado
       const authData = authResult[0];
       
-      console.log('✅ Auth result completo:', JSON.stringify(authData, null, 2));
-      console.log('📋 Campos disponibles:', Object.keys(authData));
-      
       // Verificar si la cuenta está bloqueada (puede venir de la función o verificar manualmente)
       let accountLocked = false;
       let failedAttempts = 0;
@@ -219,17 +210,12 @@ class AuthService {
         const lockedUntilFormatted = lockedUntil 
           ? new Date(lockedUntil).toLocaleString('es-ES')
           : '30 minutos';
-        const errorMsg = `ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Contacta al administrador. Bloqueado hasta: ${lockedUntilFormatted}`;
-        console.log('🔒 Cuenta bloqueada detectada:', errorMsg);
-        throw new Error(errorMsg);
+        throw new Error(`ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Contacta al administrador. Bloqueado hasta: ${lockedUntilFormatted}`);
       }
       
       if (!authData.is_valid || !authData.user_id) {
-        console.log('❌ Login fallido. Intentos fallidos:', failedAttempts);
         if (failedAttempts >= 3) {
-          const warningMsg = `CREDENTIALS_INVALID_WARNING: Credenciales inválidas. Te quedan ${4 - failedAttempts} intento(s) antes del bloqueo.`;
-          console.log('⚠️ Advertencia de bloqueo:', warningMsg);
-          throw new Error(warningMsg);
+          throw new Error(`CREDENTIALS_INVALID_WARNING: Credenciales inválidas. Te quedan ${4 - failedAttempts} intento(s) antes del bloqueo.`);
         }
         throw new Error('Credenciales inválidas');
       }
@@ -256,13 +242,9 @@ class AuthService {
             .single();
           
           if (!checkError && ejecutivoData && ejecutivoData.has_backup === true) {
-            console.log(`🔍 Ejecutivo ${authData.user_id} tiene backup asignado, removiendo backup...`);
-            // Remover backup y restaurar teléfono original SOLO si tiene backup asignado
+            // Remover backup y restaurar teléfono original
             const { backupService } = await import('./backupService');
             await backupService.removeBackup(authData.user_id);
-            console.log(`✅ Backup removido para ejecutivo ${authData.user_id}`);
-          } else {
-            console.log(`ℹ️ Ejecutivo ${authData.user_id} no tiene backup asignado (o es un backup), no se remueve backup`);
           }
 
           // Actualizar is_operativo a true (para todos los ejecutivos que hacen login)
@@ -276,9 +258,7 @@ class AuthService {
           
           if (updateError) {
             console.error('Error actualizando is_operativo en login:', updateError);
-            // No lanzar error, solo loguear - el login debe continuar
           } else {
-            console.log('✅ Ejecutivo marcado como operativo en login');
             // Actualizar el objeto currentUser para reflejar el cambio
             this.currentUser = {
               ...this.currentUser,
@@ -304,6 +284,22 @@ class AuthService {
 
       // Guardar token en localStorage
       localStorage.setItem('auth_token', sessionToken);
+
+      // Notificar a otras sesiones del mismo usuario que deben cerrar (broadcast instantáneo)
+      try {
+        const channel = supabase.channel(`session-invalidation-${authData.user_id}`);
+        await channel.send({
+          type: 'broadcast',
+          event: 'session_replaced',
+          payload: { 
+            newSessionToken: sessionToken,
+            timestamp: new Date().toISOString()
+          }
+        });
+        await supabase.removeChannel(channel);
+      } catch (broadcastError) {
+        // Silenciar - el polling de respaldo detectará la sesión invalidada
+      }
 
       return {
         user: this.currentUser,
@@ -360,11 +356,8 @@ class AuthService {
             if (!result.success) {
               console.error('Error asignando backup:', result.error);
               // Continuar con el logout aunque falle la asignación de backup
-            } else {
-              console.log('✅ Backup asignado correctamente');
             }
           } else {
-            console.log('⚠️ No se proporcionó backupId válido, continuando con logout sin backup');
           }
 
           // Actualizar is_operativo a false
@@ -379,8 +372,6 @@ class AuthService {
           if (updateError) {
             throw updateError;
           }
-          
-          console.log('✅ Ejecutivo marcado como no operativo en logout');
         } catch (error) {
           console.error('Error actualizando ejecutivo en logout:', error);
           // Continuar con el logout aunque falle la actualización
@@ -568,6 +559,17 @@ class AuthService {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24); // Sesión válida por 24 horas
 
+    // INVALIDAR sesiones anteriores del mismo usuario (solo 1 sesión activa permitida)
+    const { error: deleteError, count } = await supabase
+      .from('auth_sessions')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (deleteError) {
+      console.warn('⚠️ Error eliminando sesiones anteriores:', deleteError);
+      // No lanzar error, continuar con la creación de la nueva sesión
+    }
+
     const { error } = await supabase
       .from('auth_sessions')
       .insert({
@@ -591,9 +593,15 @@ class AuthService {
         .from('auth_sessions')
         .select('user_id, expires_at')
         .eq('session_token', token)
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
+      if (error) {
+        console.error('Error validando sesión:', error);
+        return false;
+      }
+
+      if (!data) {
+        // Sesión no existe (fue eliminada o nunca existió)
         return false;
       }
 
@@ -633,10 +641,15 @@ class AuthService {
       .from('auth_sessions')
       .select('user_id')
       .eq('session_token', this.sessionToken)
-      .single();
+      .maybeSingle();
 
-    if (sessionError || !sessionData) {
-      throw new Error('Sesión inválida');
+    if (sessionError) {
+      console.error('Error obteniendo sesión:', sessionError);
+      throw new Error('Error de sesión');
+    }
+
+    if (!sessionData) {
+      throw new Error('Sesión inválida o expirada');
     }
 
     // Cargar datos del usuario desde la vista y tabla directa para campos adicionales

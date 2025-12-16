@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { backupService } from '../../services/backupService';
 import type { EjecutivoBackup } from '../../services/backupService';
-import { Loader2, User, Phone, CheckCircle2, AlertCircle, Search, Users } from 'lucide-react';
+import { Loader2, User, Phone, CheckCircle2, AlertCircle, Search, Users, LogOut, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface BackupSelectionModalProps {
@@ -11,6 +11,7 @@ interface BackupSelectionModalProps {
   coordinacionId: string;
   onBackupSelected: (backupId: string) => Promise<void>;
   onCancel: () => void;
+  onLogoutWithoutBackup?: () => Promise<void>;
 }
 
 const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
@@ -18,13 +19,15 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
   ejecutivoId,
   coordinacionId,
   onBackupSelected,
-  onCancel
+  onCancel,
+  onLogoutWithoutBackup
 }) => {
   const [availableBackups, setAvailableBackups] = useState<EjecutivoBackup[]>([]);
   const [selectedBackupId, setSelectedBackupId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [loadingBackups, setLoadingBackups] = useState(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showConfirmNoBackup, setShowConfirmNoBackup] = useState(false);
 
   useEffect(() => {
     if (isOpen && coordinacionId) {
@@ -36,13 +39,7 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
     try {
       setLoadingBackups(true);
       const backups = await backupService.getAvailableBackups(coordinacionId, ejecutivoId);
-      console.log(`📋 Backups cargados en modal: ${backups.length} totales`);
-      backups.forEach(backup => {
-        console.log(`  - ${backup.full_name} (${backup.email}) - Coordinador: ${backup.is_coordinator}, Teléfono: ${backup.phone || 'N/A'}`);
-      });
       setAvailableBackups(backups);
-      
-      // No mostrar toast de error aquí - el modal mostrará el mensaje apropiado si no hay opciones
     } catch (error) {
       console.error('Error cargando backups disponibles:', error);
       toast.error('Error al cargar ejecutivos y coordinadores disponibles');
@@ -59,7 +56,6 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
 
     try {
       setLoading(true);
-      console.log('✅ Backup seleccionado:', selectedBackupId);
       await onBackupSelected(selectedBackupId);
     } catch (error) {
       console.error('Error asignando backup:', error);
@@ -68,6 +64,36 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
     }
   };
 
+  // Handler para logout sin transferir (con doble confirmación)
+  const handleLogoutWithoutBackup = async () => {
+    if (!showConfirmNoBackup) {
+      setShowConfirmNoBackup(true);
+      return;
+    }
+
+    if (!onLogoutWithoutBackup) {
+      console.warn('⚠️ onLogoutWithoutBackup no está definido');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await onLogoutWithoutBackup();
+    } catch (error) {
+      console.error('Error en logout sin backup:', error);
+      toast.error('Error al cerrar sesión');
+      setLoading(false);
+      setShowConfirmNoBackup(false);
+    }
+  };
+
+  // Resetear confirmación cuando se cierra el modal
+  useEffect(() => {
+    if (!isOpen) {
+      setShowConfirmNoBackup(false);
+    }
+  }, [isOpen]);
+
   // Filtrar backups por búsqueda y limitar a top 3 (solo si no hay búsqueda activa)
   const filteredBackups = useMemo(() => {
     let filtered = availableBackups;
@@ -75,20 +101,12 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
     // Filtrar por búsqueda
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      console.log(`🔍 Buscando "${query}" en ${availableBackups.length} backups disponibles`);
       filtered = filtered.filter(backup => {
         const matchesName = backup.full_name.toLowerCase().includes(query);
         const matchesEmail = backup.email.toLowerCase().includes(query);
         const matchesPhone = backup.phone?.includes(query) || false;
-        const matches = matchesName || matchesEmail || matchesPhone;
-        
-        if (matches) {
-          console.log(`✅ Match encontrado: ${backup.full_name} (${backup.email}) - Name: ${matchesName}, Email: ${matchesEmail}, Phone: ${matchesPhone}`);
-        }
-        
-        return matches;
+        return matchesName || matchesEmail || matchesPhone;
       });
-      console.log(`📊 Resultados de búsqueda: ${filtered.length} de ${availableBackups.length}`);
     }
 
     // Ordenar: primero ejecutivos operativos, luego coordinadores
@@ -273,36 +291,102 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onCancel();
-              }}
-              disabled={loading}
-              className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              Cancelar
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleConfirm}
-              disabled={loading || !selectedBackupId || filteredBackups.length === 0}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center space-x-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Asignando...</span>
-                </>
-              ) : (
-                <span>Confirmar y Cerrar Sesión</span>
+          <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+            {/* Alerta de confirmación para logout sin backup */}
+            <AnimatePresence>
+              {showConfirmNoBackup && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-start space-x-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        ¿Seguro que deseas salir sin asignar un backup?
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        Tus prospectos no estarán visibles para nadie mientras estés ausente.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowConfirmNoBackup(false)}
+                      className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 text-xs font-medium"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </motion.div>
               )}
-            </motion.button>
+            </AnimatePresence>
+
+            <div className="flex justify-between items-center">
+              {/* Botón discreto: Salir sin transferir (lado izquierdo) */}
+              {onLogoutWithoutBackup && (
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleLogoutWithoutBackup();
+                  }}
+                  disabled={loading}
+                  className={`text-xs font-medium transition-all duration-200 flex items-center space-x-1.5 ${
+                    showConfirmNoBackup
+                      ? 'px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 shadow-sm'
+                      : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline decoration-dotted underline-offset-2'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {loading && showConfirmNoBackup ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <LogOut className="w-3.5 h-3.5" />
+                  )}
+                  <span>{showConfirmNoBackup ? 'Confirmar salida' : 'Salir sin transferir'}</span>
+                </motion.button>
+              )}
+              
+              {/* Espacio vacío si no hay botón de logout sin backup */}
+              {!onLogoutWithoutBackup && <div />}
+
+              {/* Botones principales (lado derecho) */}
+              <div className="flex space-x-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowConfirmNoBackup(false);
+                    onCancel();
+                  }}
+                  disabled={loading}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  Cancelar
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleConfirm}
+                  disabled={loading || !selectedBackupId || filteredBackups.length === 0}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center space-x-2"
+                >
+                  {loading && !showConfirmNoBackup ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Asignando...</span>
+                    </>
+                  ) : (
+                    <span>Confirmar y Cerrar Sesión</span>
+                  )}
+                </motion.button>
+              </div>
+            </div>
           </div>
         </motion.div>
       </motion.div>

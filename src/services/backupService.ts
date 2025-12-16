@@ -85,7 +85,6 @@ class BackupService {
         return { success: false, error: updateError.message };
       }
 
-      console.log(`✅ Backup asignado: Ejecutivo ${ejecutivoId} -> Backup ${backupId}`);
       return { success: true };
     } catch (error) {
       console.error('Error en assignBackup:', error);
@@ -131,7 +130,6 @@ class BackupService {
         return { success: false, error: updateError.message };
       }
 
-      console.log(`✅ Backup removido y teléfono restaurado para ejecutivo ${ejecutivoId}`);
       return { success: true };
     } catch (error) {
       console.error('Error en removeBackup:', error);
@@ -184,43 +182,18 @@ class BackupService {
 
   /**
    * Obtiene el backup automático siguiendo el orden de prioridad:
-   * 1. Primer coordinador activo con teléfono de la coordinación
-   * 2. Si no hay coordinadores activos, primer ejecutivo activo con teléfono
-   * 3. Si no hay ninguno activo, primer coordinador con teléfono (aunque no esté activo)
+   * 1. Ejecutivos operativos con teléfono de la misma coordinación
+   * 2. Si no hay ejecutivos operativos, coordinadores operativos con teléfono
+   * 3. Si no hay coordinadores operativos, coordinadores con teléfono (aunque no estén operativos)
+   * 
+   * NOTA: Este orden coincide con getAvailableBackups() para mantener consistencia
    */
   async getAutomaticBackup(coordinacionId: string, excludeId?: string): Promise<string | null> {
     try {
-      // PRIORIDAD 1: Coordinadores activos con teléfono
-      try {
-        const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
-        const coordinadoresActivos = coordinadores.filter(coord => 
-          coord.id !== excludeId &&
-          coord.is_active &&
-          coord.phone &&
-          coord.phone.trim() !== ''
-        );
-
-        if (coordinadoresActivos.length > 0) {
-          // Ordenar por último login o nombre
-          coordinadoresActivos.sort((a, b) => {
-            if (a.last_login && b.last_login) {
-              return new Date(b.last_login).getTime() - new Date(a.last_login).getTime();
-            }
-            if (a.last_login) return -1;
-            if (b.last_login) return 1;
-            return a.full_name.localeCompare(b.full_name);
-          });
-          console.log('✅ Backup automático: Coordinador activo encontrado:', coordinadoresActivos[0].full_name);
-          return coordinadoresActivos[0].id;
-        }
-      } catch (coordError) {
-        console.error('Error obteniendo coordinadores para backup automático:', coordError);
-      }
-
-      // PRIORIDAD 2: Ejecutivos activos con teléfono
+      // PRIORIDAD 1: Ejecutivos operativos con teléfono
       try {
         const ejecutivos = await coordinacionService.getEjecutivosByCoordinacion(coordinacionId);
-        const ejecutivosActivos = ejecutivos.filter(ejecutivo => 
+        const ejecutivosOperativos = ejecutivos.filter(ejecutivo => 
           ejecutivo.id !== excludeId &&
           ejecutivo.is_active &&
           ejecutivo.is_operativo !== false &&
@@ -228,9 +201,9 @@ class BackupService {
           ejecutivo.phone.trim() !== ''
         );
 
-        if (ejecutivosActivos.length > 0) {
+        if (ejecutivosOperativos.length > 0) {
           // Ordenar por último login o nombre
-          ejecutivosActivos.sort((a, b) => {
+          ejecutivosOperativos.sort((a, b) => {
             if (a.last_login && b.last_login) {
               return new Date(b.last_login).getTime() - new Date(a.last_login).getTime();
             }
@@ -238,18 +211,45 @@ class BackupService {
             if (b.last_login) return 1;
             return a.full_name.localeCompare(b.full_name);
           });
-          console.log('✅ Backup automático: Ejecutivo activo encontrado:', ejecutivosActivos[0].full_name);
-          return ejecutivosActivos[0].id;
+          return ejecutivosOperativos[0].id;
         }
       } catch (ejecError) {
         console.error('Error obteniendo ejecutivos para backup automático:', ejecError);
       }
 
-      // PRIORIDAD 3: Coordinadores con teléfono (aunque no estén activos)
+      // PRIORIDAD 2: Coordinadores operativos con teléfono
+      try {
+        const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
+        const coordinadoresOperativos = coordinadores.filter(coord => 
+          coord.id !== excludeId &&
+          coord.is_active &&
+          coord.is_operativo !== false &&
+          coord.phone &&
+          coord.phone.trim() !== ''
+        );
+
+        if (coordinadoresOperativos.length > 0) {
+          // Ordenar por último login o nombre
+          coordinadoresOperativos.sort((a, b) => {
+            if (a.last_login && b.last_login) {
+              return new Date(b.last_login).getTime() - new Date(a.last_login).getTime();
+            }
+            if (a.last_login) return -1;
+            if (b.last_login) return 1;
+            return a.full_name.localeCompare(b.full_name);
+          });
+          return coordinadoresOperativos[0].id;
+        }
+      } catch (coordError) {
+        console.error('Error obteniendo coordinadores para backup automático:', coordError);
+      }
+
+      // PRIORIDAD 3: Coordinadores con teléfono (aunque no estén operativos)
       try {
         const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
         const coordinadoresConTelefono = coordinadores.filter(coord => 
           coord.id !== excludeId &&
+          coord.is_active && // Deben estar activos en el sistema
           coord.phone &&
           coord.phone.trim() !== ''
         );
@@ -264,14 +264,12 @@ class BackupService {
             if (b.last_login) return 1;
             return a.full_name.localeCompare(b.full_name);
           });
-          console.log('✅ Backup automático: Coordinador (no activo) encontrado:', coordinadoresConTelefono[0].full_name);
           return coordinadoresConTelefono[0].id;
         }
       } catch (coordError) {
-        console.error('Error obteniendo coordinadores (no activos) para backup automático:', coordError);
+        console.error('Error obteniendo coordinadores (no operativos) para backup automático:', coordError);
       }
 
-      console.warn('⚠️ No se encontró ningún backup disponible siguiendo el orden de prioridad');
       return null;
     } catch (error) {
       console.error('Error obteniendo backup automático:', error);
@@ -336,25 +334,18 @@ class BackupService {
     try {
       // Obtener ejecutivos de la coordinación
       const ejecutivos = await coordinacionService.getEjecutivosByCoordinacion(coordinacionId);
-      console.log(`🔍 Analizando ${ejecutivos.length} ejecutivos para backup en coordinación ${coordinacionId}`);
       
       // PRIORIDAD 1: Ejecutivos operativos con teléfono e ID Dynamics
       const ejecutivosPrioridad1 = ejecutivos
         .filter(ejecutivo => {
           if (ejecutivo.id === excludeEjecutivoId) return false;
           if (!ejecutivo.is_active) return false;
-          if (ejecutivo.is_operativo === false) return false; // Debe estar operativo
+          if (ejecutivo.is_operativo === false) return false;
           
           const hasPhone = ejecutivo.phone && ejecutivo.phone.trim() !== '';
           const hasDynamics = ejecutivo.id_dynamics && ejecutivo.id_dynamics.trim() !== '';
           
-          if (!hasPhone || !hasDynamics) {
-            console.log(`⚠️ Ejecutivo ${ejecutivo.full_name} no cumple requisitos: teléfono=${hasPhone}, dynamics=${hasDynamics}`);
-            return false;
-          }
-          
-          console.log(`✅ Ejecutivo PRIORIDAD 1: ${ejecutivo.full_name} - Operativo, Teléfono, Dynamics`);
-          return true;
+          return hasPhone && hasDynamics;
         })
         .map(ejecutivo => ({
           id: ejecutivo.id,
@@ -365,32 +356,26 @@ class BackupService {
           is_coordinator: false
         }));
 
-      // Si hay ejecutivos de prioridad 1, retornarlos (no incluir coordinadores)
+      // Si hay ejecutivos de prioridad 1, retornarlos
       if (ejecutivosPrioridad1.length > 0) {
-        console.log(`✅ Retornando ${ejecutivosPrioridad1.length} ejecutivos (PRIORIDAD 1)`);
         return ejecutivosPrioridad1;
       }
 
       // PRIORIDAD 2-4: Coordinadores
-      let coordinadoresDisponibles: EjecutivoBackup[] = [];
       try {
         const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
-        console.log(`🔍 Analizando ${coordinadores.length} coordinadores para backup`);
         
         // PRIORIDAD 2: Coordinadores operativos con teléfono e ID Dynamics
         const coordinadoresPrioridad2 = coordinadores
           .filter(coord => {
             if (coord.id === excludeEjecutivoId) return false;
             if (!coord.is_active) return false;
-            if (coord.is_operativo === false) return false; // Debe estar operativo
+            if (coord.is_operativo === false) return false;
             
             const hasPhone = coord.phone && coord.phone.trim() !== '';
             const hasDynamics = coord.id_dynamics && coord.id_dynamics.trim() !== '';
             
-            if (!hasPhone || !hasDynamics) return false;
-            
-            console.log(`✅ Coordinador PRIORIDAD 2: ${coord.full_name} - Operativo, Teléfono, Dynamics`);
-            return true;
+            return hasPhone && hasDynamics;
           })
           .map(coord => ({
             id: coord.id,
@@ -402,7 +387,6 @@ class BackupService {
           }));
 
         if (coordinadoresPrioridad2.length > 0) {
-          console.log(`✅ Retornando ${coordinadoresPrioridad2.length} coordinadores (PRIORIDAD 2)`);
           return coordinadoresPrioridad2;
         }
 
@@ -415,10 +399,7 @@ class BackupService {
             const hasPhone = coord.phone && coord.phone.trim() !== '';
             const hasDynamics = coord.id_dynamics && coord.id_dynamics.trim() !== '';
             
-            if (!hasPhone || !hasDynamics) return false;
-            
-            console.log(`✅ Coordinador PRIORIDAD 3: ${coord.full_name} - Teléfono, Dynamics (operativo: ${coord.is_operativo})`);
-            return true;
+            return hasPhone && hasDynamics;
           })
           .map(coord => ({
             id: coord.id,
@@ -430,18 +411,15 @@ class BackupService {
           }));
 
         if (coordinadoresPrioridad3.length > 0) {
-          console.log(`✅ Retornando ${coordinadoresPrioridad3.length} coordinadores (PRIORIDAD 3)`);
           return coordinadoresPrioridad3;
         }
 
-        // PRIORIDAD 4: Coordinadores no operativos (última opción, pueden o no tener teléfono/Dynamics)
+        // PRIORIDAD 4: Coordinadores no operativos (última opción)
         const coordinadoresPrioridad4 = coordinadores
           .filter(coord => {
             if (coord.id === excludeEjecutivoId) return false;
             if (!coord.is_active) return false;
-            if (coord.is_operativo === true) return false; // Solo no operativos
-            
-            console.log(`✅ Coordinador PRIORIDAD 4: ${coord.full_name} - No operativo (última opción)`);
+            if (coord.is_operativo === true) return false;
             return true;
           })
           .map(coord => ({
@@ -454,14 +432,12 @@ class BackupService {
           }));
 
         if (coordinadoresPrioridad4.length > 0) {
-          console.log(`⚠️ Retornando ${coordinadoresPrioridad4.length} coordinadores NO OPERATIVOS (PRIORIDAD 4 - última opción)`);
           return coordinadoresPrioridad4;
         }
       } catch (coordError) {
         console.error('Error obteniendo coordinadores para backup:', coordError);
       }
 
-      console.log(`❌ No se encontraron backups disponibles siguiendo el orden de prioridad`);
       return [];
     } catch (error) {
       console.error('Error obteniendo backups disponibles:', error);

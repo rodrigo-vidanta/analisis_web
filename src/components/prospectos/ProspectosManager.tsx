@@ -35,6 +35,7 @@ import { prospectsViewPreferencesService } from '../../services/prospectsViewPre
 import type { ViewType } from '../../services/prospectsViewPreferencesService';
 import ProspectosKanban from './ProspectosKanban';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
+import { BulkAssignmentModal } from '../shared/BulkAssignmentModal';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { coordinacionService } from '../../services/coordinacionService';
@@ -94,6 +95,9 @@ interface FilterState {
   score: string;
   campana_origen: string;
   dateRange: string;
+  coordinacion_id: string;
+  ejecutivo_id: string;
+  asignacion: 'todos' | 'asignados' | 'no_asignados';
 }
 
 interface SortState {
@@ -1010,8 +1014,15 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     etapa: '',
     score: '', // Mantener en estado pero no mostrar en UI
     campana_origen: '',
-    dateRange: ''
+    dateRange: '',
+    coordinacion_id: '',
+    ejecutivo_id: '',
+    asignacion: 'todos'
   });
+  
+  // Estado para opciones de filtros (coordinaciones y ejecutivos)
+  const [coordinacionesOptions, setCoordinacionesOptions] = useState<{id: string; nombre: string; codigo: string}[]>([]);
+  const [ejecutivosOptions, setEjecutivosOptions] = useState<{id: string; full_name: string; coordinacion_id?: string}[]>([]);
   
   const [sort, setSort] = useState<SortState>({
     field: 'created_at',
@@ -1033,12 +1044,50 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     position: { x: number; y: number };
   } | null>(null);
 
+  // Estado para selección múltiple (solo para admin/admin operativo en vista grid)
+  const [selectedProspectIds, setSelectedProspectIds] = useState<Set<string>>(new Set());
+  const [showBulkAssignmentModal, setShowBulkAssignmentModal] = useState(false);
+
   // Cargar preferencias de vista al inicio
   useEffect(() => {
     const preferences = prospectsViewPreferencesService.getUserPreferences(user?.id || null);
     setViewType(preferences.viewType);
     setCollapsedColumns(preferences.collapsedColumns || []);
   }, [user?.id]);
+
+  // Cargar opciones de filtros (coordinaciones y ejecutivos) para admin/admin operativo
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      if (!user?.id) return;
+      
+      const isAdmin = user.role_name === 'admin';
+      const isAdminOperativo = user.role_name === 'administrador_operativo';
+      
+      if (isAdmin || isAdminOperativo) {
+        try {
+          // Cargar coordinaciones (todas, sin filtrar)
+          const coordinaciones = await coordinacionService.getCoordinaciones();
+          setCoordinacionesOptions(coordinaciones.map(c => ({
+            id: c.id,
+            nombre: c.nombre,
+            codigo: c.codigo || c.nombre
+          })));
+          
+          // Cargar ejecutivos
+          const ejecutivos = await coordinacionService.getAllEjecutivos();
+          setEjecutivosOptions(ejecutivos.filter(e => e.is_active).map(e => ({
+            id: e.id,
+            full_name: e.full_name,
+            coordinacion_id: e.coordinacion_id
+          })));
+        } catch (error) {
+          console.error('Error cargando opciones de filtros:', error);
+        }
+      }
+    };
+    
+    loadFilterOptions();
+  }, [user?.id, user?.role_name]);
 
   // Cargar prospectos iniciales para todas las columnas (Kanban)
   useEffect(() => {
@@ -1311,6 +1360,23 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       filtered = filtered.filter(p => p.campana_origen === filters.campana_origen);
     }
 
+    // Filtro por coordinación (solo admin/admin operativo)
+    if (filters.coordinacion_id) {
+      filtered = filtered.filter(p => p.coordinacion_id === filters.coordinacion_id);
+    }
+
+    // Filtro por ejecutivo (solo admin/admin operativo)
+    if (filters.ejecutivo_id) {
+      filtered = filtered.filter(p => p.ejecutivo_id === filters.ejecutivo_id);
+    }
+
+    // Filtro por estado de asignación
+    if (filters.asignacion === 'asignados') {
+      filtered = filtered.filter(p => p.ejecutivo_id && p.ejecutivo_id.trim() !== '');
+    } else if (filters.asignacion === 'no_asignados') {
+      filtered = filtered.filter(p => !p.ejecutivo_id || p.ejecutivo_id.trim() === '');
+    }
+
     // Aplicar ordenamiento
     filtered.sort((a, b) => {
       const aValue = a[sort.field];
@@ -1366,6 +1432,10 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const handleViewTypeChange = (newViewType: ViewType) => {
     setViewType(newViewType);
     prospectsViewPreferencesService.updateViewType(user?.id || null, newViewType);
+    // Limpiar selección al cambiar de vista
+    if (newViewType !== 'datagrid') {
+      setSelectedProspectIds(new Set());
+    }
   };
 
   // Manejar colapso de columnas en Kanban
@@ -1483,13 +1553,72 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               ))}
             </select>
             
+            {/* Filtros adicionales para admin/admin operativo */}
+            {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') && (
+              <>
+                <select
+                  value={filters.coordinacion_id}
+                  onChange={(e) => {
+                    setFilters(prev => ({ 
+                      ...prev, 
+                      coordinacion_id: e.target.value,
+                      // Limpiar ejecutivo si cambia la coordinación
+                      ejecutivo_id: e.target.value ? prev.ejecutivo_id : ''
+                    }));
+                  }}
+                  className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
+                >
+                  <option value="">Todas las coordinaciones</option>
+                  {coordinacionesOptions.map(coord => (
+                    <option key={coord.id} value={coord.id}>{coord.codigo}</option>
+                  ))}
+                </select>
+                
+                <select
+                  value={filters.ejecutivo_id}
+                  onChange={(e) => setFilters(prev => ({ ...prev, ejecutivo_id: e.target.value }))}
+                  className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
+                >
+                  <option value="">Todos los ejecutivos</option>
+                  {ejecutivosOptions
+                    .filter(e => !filters.coordinacion_id || e.coordinacion_id === filters.coordinacion_id)
+                    .map(ejecutivo => (
+                      <option key={ejecutivo.id} value={ejecutivo.id}>{ejecutivo.full_name}</option>
+                    ))}
+                </select>
+                
+                <select
+                  value={filters.asignacion}
+                  onChange={(e) => setFilters(prev => ({ ...prev, asignacion: e.target.value as 'todos' | 'asignados' | 'no_asignados' }))}
+                  className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[100px]"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="asignados">Asignados</option>
+                  <option value="no_asignados">Sin asignar</option>
+                </select>
+              </>
+            )}
+            
             <button 
-              onClick={() => setFilters({ search: '', etapa: '', score: '', campana_origen: '', dateRange: '' })}
+              onClick={() => setFilters({ search: '', etapa: '', score: '', campana_origen: '', dateRange: '', coordinacion_id: '', ejecutivo_id: '', asignacion: 'todos' })}
               className="h-9 flex items-center justify-center gap-1.5 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-xs whitespace-nowrap"
             >
               <Filter size={14} />
               <span className="hidden sm:inline">Limpiar</span>
             </button>
+            
+            {/* Botón de reasignación masiva (solo para admin/admin operativo en vista grid) */}
+            {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') && viewType === 'datagrid' && selectedProspectIds.size > 0 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                onClick={() => setShowBulkAssignmentModal(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+              >
+                <Users size={14} />
+                <span>Reasignar {selectedProspectIds.size} prospecto{selectedProspectIds.size > 1 ? 's' : ''}</span>
+              </motion.button>
+            )}
             
             {/* Toggle de Vista al final */}
             <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 h-9">
@@ -1536,7 +1665,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             prospectos={filteredAndSortedProspectos}
             onProspectoClick={handleProspectoClick}
             onProspectoContextMenu={(e, prospecto) => {
-              if (user?.role_name === 'coordinador' || user?.role_name === 'admin') {
+              if (user?.role_name === 'coordinador' || user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
                 setAssignmentContextMenu({
                   prospectId: prospecto.id,
                   coordinacionId: prospecto.coordinacion_id,
@@ -1613,10 +1742,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                     <div className="text-gray-900 dark:text-white font-mono truncate">{prospecto.whatsapp || '-'}</div>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Email:</span>
-                    <div className="text-gray-900 dark:text-white truncate">{prospecto.email || '-'}</div>
-                  </div>
-                  <div>
                     <span className="text-gray-500 dark:text-gray-400">Etapa:</span>
                     <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
                       {prospecto.etapa}
@@ -1652,10 +1777,42 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             <table className="w-full min-w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
+                  {/* Checkbox de selección múltiple (solo para admin/admin operativo) */}
+                  {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') && (
+                    <th className="px-3 md:px-4 lg:px-6 py-2 md:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-12">
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={() => {
+                            if (selectedProspectIds.size === filteredAndSortedProspectos.length) {
+                              setSelectedProspectIds(new Set());
+                            } else {
+                              setSelectedProspectIds(new Set(filteredAndSortedProspectos.map(p => p.id)));
+                            }
+                          }}
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
+                            selectedProspectIds.size > 0 && selectedProspectIds.size === filteredAndSortedProspectos.length
+                              ? 'bg-blue-600 border-blue-600 text-white'
+                              : selectedProspectIds.size > 0
+                                ? 'bg-blue-600/50 border-blue-600 text-white'
+                                : 'bg-transparent border-gray-400 dark:border-gray-500 hover:border-blue-500 dark:hover:border-blue-400'
+                          }`}
+                        >
+                          {selectedProspectIds.size > 0 && (
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              {selectedProspectIds.size === filteredAndSortedProspectos.length ? (
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              ) : (
+                                <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                              )}
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </th>
+                  )}
                   {[
                     { key: 'nombre_completo', label: 'Nombre', sortable: true, responsive: false },
                     { key: 'whatsapp', label: 'WhatsApp', sortable: true, responsive: false },
-                    { key: 'email', label: 'Email', sortable: true, responsive: 'md' },
                     { key: 'etapa', label: 'Etapa', sortable: true, responsive: false },
                     { key: 'created_at', label: 'Creado', sortable: true, responsive: 'md' },
                     { key: 'asignacion', label: 'Asignación', sortable: false, responsive: false }
@@ -1691,7 +1848,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       onClick={() => handleProspectoClick(prospecto)}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        if (user?.role_name === 'coordinador' || user?.role_name === 'admin') {
+                        if (user?.role_name === 'coordinador' || user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
                           setAssignmentContextMenu({
                             prospectId: prospecto.id,
                             coordinacionId: prospecto.coordinacion_id,
@@ -1707,8 +1864,54 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                           });
                         }
                       }}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                        selectedProspectIds.has(prospecto.id) 
+                          ? 'bg-blue-50 dark:bg-blue-900/20' 
+                          : 'cursor-pointer'
+                      }`}
                     >
+                      {/* Checkbox de selección (solo para admin/admin operativo) */}
+                      {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') && (
+                        <td 
+                          className="px-3 md:px-4 lg:px-6 py-3 md:py-4 align-middle"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newSelected = new Set(selectedProspectIds);
+                            if (newSelected.has(prospecto.id)) {
+                              newSelected.delete(prospecto.id);
+                            } else {
+                              newSelected.add(prospecto.id);
+                            }
+                            setSelectedProspectIds(newSelected);
+                          }}
+                        >
+                          <div className="flex items-center justify-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const newSelected = new Set(selectedProspectIds);
+                                if (newSelected.has(prospecto.id)) {
+                                  newSelected.delete(prospecto.id);
+                                } else {
+                                  newSelected.add(prospecto.id);
+                                }
+                                setSelectedProspectIds(newSelected);
+                              }}
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
+                                selectedProspectIds.has(prospecto.id)
+                                  ? 'bg-blue-600 border-blue-600 text-white'
+                                  : 'bg-transparent border-gray-400 dark:border-gray-500 hover:border-blue-500 dark:hover:border-blue-400'
+                              }`}
+                            >
+                              {selectedProspectIds.has(prospecto.id) && (
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                         <div className="flex items-center gap-2 md:gap-3 min-w-[200px]">
                           <div className="p-1.5 md:p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full flex-shrink-0">
@@ -1735,9 +1938,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       </td>
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-900 dark:text-white font-mono">
                         <div className="min-w-[100px] md:min-w-[120px] truncate">{prospecto.whatsapp || '-'}</div>
-                      </td>
-                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                        <div className="max-w-[150px] md:max-w-[200px] truncate">{prospecto.email || '-'}</div>
                       </td>
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
@@ -1841,6 +2041,20 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           }}
         />
       )}
+
+      {/* Modal de reasignación masiva */}
+      <BulkAssignmentModal
+        prospectIds={Array.from(selectedProspectIds)}
+        isOpen={showBulkAssignmentModal}
+        onClose={() => {
+          setShowBulkAssignmentModal(false);
+          setSelectedProspectIds(new Set());
+        }}
+        onAssignmentComplete={() => {
+          loadProspectos(true);
+          setSelectedProspectIds(new Set());
+        }}
+      />
 
       {/* Sidebar */}
       <ProspectoSidebar
