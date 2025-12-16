@@ -3,7 +3,7 @@
 # ============================================
 # 
 # ESTADO: PRODUCCION ACTIVA
-# VERSION: v2.1.25
+# VERSION: v2.1.26
 # FECHA ULTIMA ACTUALIZACION: 15 de Diciembre 2025
 #
 # ============================================
@@ -125,13 +125,17 @@ cp CHANGELOG.md public/docs/
 cp VERSIONS.md public/docs/
 ```
 
-#### PASO 2: Actualizar Modulo de Documentacion
+#### PASO 2: Actualizar Modulo de Documentacion y Footer
 - Verificar/actualizar version en `src/components/documentation/DocumentationModule.tsx`:
   - stats[0].value = version actual (ej: 'v2.1.26')
   - stats[1].value = fecha actual (ej: '16 Dic 2025')
 - Agregar nuevo commit al array `gitCommits[]` al inicio:
   ```typescript
   { hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripcion', isRelease: true/false }
+  ```
+- **Actualizar version en Footer** (`src/components/Footer.tsx`):
+  ```typescript
+  const version = 'BX.X.XNX.X.X';  // Ej: 'B6.0.3N6.0.0'
   ```
 
 #### PASO 3: Actualizar package.json
@@ -180,8 +184,8 @@ docs: Descripcion de actualizacion de docs
 Version Formato: vMAJOR.MINOR.PATCH
 Nomenclatura interna: BBACKEND.NNX.NFRONTEND
 
-Ejemplo: v2.1.25 = B6.0.2N6.0.0
-- B6.0.2 = Backend version 6.0.2
+Ejemplo: v2.1.26 = B6.0.3N6.0.0
+- B6.0.3 = Backend version 6.0.3
 - N6.0.0 = N8N/Frontend version 6.0.0
 ```
 
@@ -227,15 +231,24 @@ Archivo: `src/components/documentation/DocumentationModule.tsx`
    ];
    ```
 
-2. **Agregar commit a gitCommits[]** (linea ~193):
+2. **Agregar commit a gitCommits[]** (linea ~253):
    ```typescript
    { hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripcion', isRelease: true },
    ```
 
-3. **Si es deploy AWS, agregar a awsDeployments[]** (linea ~225):
+3. **Si es deploy AWS, agregar a awsDeployments[]** (linea ~281):
    ```typescript
    { id: 'deploy-XXX', date: 'YYYY-MM-DD HH:mm', version: 'vX.X.X', status: 'success', duration: 'Xm Xs', triggeredBy: 'Samuel Rosales', environment: 'Production' },
    ```
+
+#### PASO 2.5: Actualizar Footer.tsx
+Archivo: `src/components/Footer.tsx`
+
+**Actualizar la version interna** (linea ~8):
+```typescript
+const version = 'BX.X.XNX.X.X';  // Formato: Backend.Patch.MinorN+FrontendVersion
+// Ejemplo: 'B6.0.3N6.0.0' para v2.1.26
+```
 
 #### PASO 3: Actualizar package.json si es release
 ```json
