@@ -256,20 +256,22 @@ class UChatService {
       const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(filters.userId);
       const ejecutivoFilter = await permissionsService.getEjecutivoFilter(filters.userId);
       const isAdmin = await permissionsService.isAdmin(filters.userId);
+      const isCoordinadorCalidad = await permissionsService.isCoordinadorCalidad(filters.userId);
 
-      if (!isAdmin) {
+      // Admin, Administrador Operativo y Coordinadores de Calidad: sin filtros (pueden ver todo)
+      if (!isAdmin && !isCoordinadorCalidad) {
         if (ejecutivoFilter) {
           // Ejecutivo: solo sus conversaciones asignadas
           query = query.eq('ejecutivo_id', ejecutivoFilter);
         } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-          // Coordinador: todas las conversaciones de sus coordinaciones (puede tener múltiples)
+          // Coordinador normal: todas las conversaciones de sus coordinaciones (puede tener múltiples)
           query = query.in('coordinacion_id', coordinacionesFilter);
         } else {
           // Si no tiene coordinaciones ni ejecutivo asignado, no mostrar nada
           query = query.eq('id', '00000000-0000-0000-0000-000000000000'); // Query que no retorna resultados
         }
       }
-      // Admin: sin filtros (muestra todo)
+      // Admin y Coordinadores de Calidad: sin filtros (muestran todo)
     }
 
     query = query

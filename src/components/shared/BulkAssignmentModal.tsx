@@ -1,6 +1,6 @@
 /**
  * Modal para reasignación masiva de prospectos
- * Solo disponible para administradores y administradores operativos
+ * Disponible para administradores, administradores operativos y coordinadores de Calidad
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { User, Users, X, Search, Loader2 } from 'lucide-react';
 import { coordinacionService, type Ejecutivo } from '../../services/coordinacionService';
 import { assignmentService } from '../../services/assignmentService';
+import { permissionsService } from '../../services/permissionsService';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -32,17 +33,33 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
   const [selectedEjecutivoId, setSelectedEjecutivoId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [coordinaciones, setCoordinaciones] = useState<any[]>([]);
+  const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
 
   const isAdmin = user?.role_name === 'admin';
   const isAdminOperativo = user?.role_name === 'administrador_operativo';
+  const isCoordinador = user?.role_name === 'coordinador';
 
-  // Cargar coordinaciones y ejecutivos
+  // Verificar si es coordinador de Calidad y cargar datos
   useEffect(() => {
-    if (isOpen && (isAdmin || isAdminOperativo)) {
-      loadCoordinaciones();
-      loadAllEjecutivos();
-    }
-  }, [isOpen, isAdmin, isAdminOperativo]);
+    const checkAndLoad = async () => {
+      if (!isOpen || !user?.id) return;
+      
+      // Verificar si es coordinador de Calidad
+      let esCoordCalidad = false;
+      if (isCoordinador && !isAdmin && !isAdminOperativo) {
+        esCoordCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+        setIsCoordinadorCalidad(esCoordCalidad);
+      }
+      
+      // Cargar datos si tiene permisos
+      if (isAdmin || isAdminOperativo || esCoordCalidad) {
+        loadCoordinaciones();
+        loadAllEjecutivos(esCoordCalidad);
+      }
+    };
+    
+    checkAndLoad();
+  }, [isOpen, user?.id, isAdmin, isAdminOperativo, isCoordinador]);
 
   const loadCoordinaciones = async () => {
     try {
@@ -54,11 +71,10 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
     }
   };
 
-  const loadAllEjecutivos = async () => {
+  const loadAllEjecutivos = async (esCoordCalidad: boolean = false) => {
     setLoading(true);
     try {
-      // IMPORTANTE: Para admin y admin operativo, obtener TODAS las coordinaciones (activas e inactivas)
-      // No filtrar por coordinaciones activas - deben poder asignar a cualquier ejecutivo/coordinación
+      // IMPORTANTE: Para admin, admin operativo y coordinadores de Calidad, obtener TODAS las coordinaciones
       let todasCoordinaciones: any[] = [];
       try {
         todasCoordinaciones = await coordinacionService.getCoordinaciones();
@@ -68,29 +84,24 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
         toast.error('Error al cargar coordinaciones. Mostrando todos los ejecutivos activos.');
       }
       
-      // Obtener todos los ejecutivos (sin filtrar por coordinaciones activas para admin/admin operativo)
+      // Obtener todos los ejecutivos
       const allEjecutivos = await coordinacionService.getAllEjecutivos();
       
-      // IMPORTANTE: Si el usuario es admin o admin operativo, también incluir coordinadores
+      // IMPORTANTE: Si el usuario es admin, admin operativo o coordinador de Calidad, también incluir coordinadores
       let allCoordinadores: Ejecutivo[] = [];
-      if (isAdmin || isAdminOperativo) {
+      if (isAdmin || isAdminOperativo || esCoordCalidad) {
         try {
-          console.log(`🔍 [BulkAssignmentModal] Cargando coordinadores para admin/admin operativo`);
+          console.log(`🔍 [BulkAssignmentModal] Cargando coordinadores para admin/admin operativo/coord. calidad`);
           
           // Intentar obtener todos los coordinadores directamente (más eficiente)
           try {
             const todosCoordinadores = await coordinacionService.getAllCoordinadores();
             console.log(`📋 [BulkAssignmentModal] getAllCoordinadores() devolvió ${todosCoordinadores.length} coordinadores`);
             
-            // IMPORTANTE: Para administradores y administradores operativos, mostrar TODOS los coordinadores activos
-            // No filtrar por coordinaciones activas - deben poder asignar a cualquier coordinador activo
-            // independientemente de si su coordinación está activa o no
+            // Mostrar TODOS los coordinadores activos con coordinación asignada
             allCoordinadores = todosCoordinadores.filter(coord => {
               const isActive = coord.is_active;
               const hasCoordinacion = !!coord.coordinacion_id;
-              
-              // Solo filtrar por activo y que tenga coordinación asignada
-              // NO filtrar por coordinaciones activas para coordinadores
               return isActive && hasCoordinacion;
             });
             
@@ -98,7 +109,7 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
           } catch (getAllError) {
             console.warn('⚠️ [BulkAssignmentModal] getAllCoordinadores() falló, intentando por coordinación:', getAllError);
             
-            // Fallback: obtener coordinadores de TODAS las coordinaciones (no solo activas)
+            // Fallback: obtener coordinadores de TODAS las coordinaciones
             const coordinadoresPromises = todasCoordinaciones.map(async (coord) => {
               try {
                 const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coord.id);
@@ -117,7 +128,7 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
               is_coordinator: true
             }));
             
-            // Eliminar duplicados por ID (un coordinador puede estar en múltiples coordinaciones)
+            // Eliminar duplicados por ID
             const uniqueCoordinadores = Array.from(
               new Map(allCoordinadores.map(coord => [coord.id, coord])).values()
             );
@@ -126,19 +137,14 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
             allCoordinadores = uniqueCoordinadores;
           }
         } catch (coordError) {
-          console.error('❌ [BulkAssignmentModal] Error cargando coordinadores para admin:', coordError);
-          // Continuar sin coordinadores si falla
+          console.error('❌ [BulkAssignmentModal] Error cargando coordinadores:', coordError);
         }
       }
       
-      // IMPORTANTE: Para admin y admin operativo, NO filtrar por coordinaciones activas
-      // Mostrar TODOS los ejecutivos activos, independientemente de si su coordinación está activa o no
+      // Filtrar ejecutivos activos con coordinación asignada
       let ejecutivosFiltrados = allEjecutivos.filter(e => {
         const isActive = e.is_active;
         const hasCoordinacion = !!e.coordinacion_id;
-        
-        // Solo filtrar por activo y que tenga coordinación asignada
-        // NO filtrar por coordinaciones activas para admin/admin operativo
         return isActive && hasCoordinacion;
       });
       
@@ -146,17 +152,41 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
       
       // Agregar coordinadores a la lista si hay
       if (allCoordinadores.length > 0) {
-        console.log(`🔍 [BulkAssignmentModal] Agregando ${allCoordinadores.length} coordinadores ya filtrados a la lista`);
+        console.log(`🔍 [BulkAssignmentModal] Agregando ${allCoordinadores.length} coordinadores a la lista`);
         
-        // Marcar coordinadores y agregar información de coordinación
         const coordinadoresMarcados = allCoordinadores.map(coord => ({
           ...coord,
           is_coordinator: true,
           coordinacion_nombre: todasCoordinaciones.find(c => c.id === coord.coordinacion_id)?.nombre || 'Sin coordinación'
         }));
         
-        console.log(`✅ [BulkAssignmentModal] ${coordinadoresMarcados.length} coordinadores agregados a la lista`);
         ejecutivosFiltrados = [...ejecutivosFiltrados, ...coordinadoresMarcados];
+      }
+      
+      // FILTRO ESPECIAL PARA COORDINADORES DE CALIDAD: Solo ejecutivos/coordinadores con id_dynamics Y teléfono
+      if (esCoordCalidad && !isAdmin && !isAdminOperativo) {
+        console.log(`🔍 [BulkAssignmentModal] Coordinador de CALIDAD - Aplicando filtro de id_dynamics y teléfono`);
+        
+        const ejecutivosConDynamicsYTelefono = ejecutivosFiltrados.filter(e => {
+          const hasIdDynamics = e.id_dynamics && typeof e.id_dynamics === 'string' && e.id_dynamics.trim() !== '';
+          const hasPhone = e.phone && typeof e.phone === 'string' && e.phone.trim() !== '';
+          
+          if (!hasIdDynamics || !hasPhone) {
+            console.log(`⚠️ [BulkAssignmentModal] Ejecutivo ${e.full_name} excluido: id_dynamics=${hasIdDynamics}, phone=${hasPhone}`);
+          }
+          
+          return hasIdDynamics && hasPhone;
+        });
+        
+        console.log(`✅ [BulkAssignmentModal] ${ejecutivosConDynamicsYTelefono.length} ejecutivos con id_dynamics y teléfono (de ${ejecutivosFiltrados.length} totales)`);
+        ejecutivosFiltrados = ejecutivosConDynamicsYTelefono;
+        
+        if (ejecutivosFiltrados.length === 0) {
+          toast('No hay ejecutivos disponibles con ID Dynamics y teléfono configurado', {
+            icon: '⚠️',
+            duration: 5000,
+          });
+        }
       }
       
       // Enriquecer ejecutivos con información de coordinación

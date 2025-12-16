@@ -27,6 +27,7 @@ export interface Prospect {
   id: string;
   nombre_completo?: string;
   nombre_whatsapp?: string;
+  titulo?: string; // Título de cortesía (Señor, Señorita, Sr., Srta., etc.)
   edad?: number;
   estado_civil?: string;
   ciudad_residencia?: string;
@@ -393,7 +394,7 @@ class ProspectsService {
 
       // Aplicar filtros de permisos si hay userId (incluye lógica de backup)
       let ejecutivosIdsParaFiltro: string[] | null = null;
-      let coordinacionIdParaFiltro: string | null = null;
+      let coordinacionesIdsParaFiltro: string[] | null = null;
       
       if (userId) {
         try {
@@ -404,7 +405,7 @@ class ProspectsService {
             
             // Guardar los filtros aplicados para usar en fallback si es necesario
             const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
-            const coordinacionFilter = await permissionsService.getCoordinacionFilter(userId);
+            const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
             
             if (ejecutivoFilter) {
               // Obtener IDs de ejecutivos donde es backup
@@ -419,8 +420,8 @@ class ProspectsService {
               if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
                 ejecutivosIdsParaFiltro.push(...ejecutivosConBackup.map(e => e.id));
               }
-            } else if (coordinacionFilter) {
-              coordinacionIdParaFiltro = coordinacionFilter;
+            } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              coordinacionesIdsParaFiltro = coordinacionesFilter;
             }
           }
         } catch (error) {
@@ -445,8 +446,8 @@ class ProspectsService {
           // Aplicar los mismos filtros que se aplicaron antes
           if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
             fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
-          } else if (coordinacionIdParaFiltro) {
-            fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionIdParaFiltro);
+          } else if (coordinacionesIdsParaFiltro && coordinacionesIdsParaFiltro.length > 0) {
+            fallbackQuery = fallbackQuery.in('coordinacion_id', coordinacionesIdsParaFiltro);
           }
           
           query = fallbackQuery

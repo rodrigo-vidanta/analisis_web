@@ -353,12 +353,12 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  {/* Estado y Prioridad */}
+                  {/* Estado, Prioridad y Asignación */}
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
-                    className="flex items-center gap-4"
+                    className="flex items-center gap-3 flex-wrap"
                   >
                     <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(prospecto.etapa || '')}`}>
                       {prospecto.etapa || 'Sin etapa'}
@@ -369,6 +369,30 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                         {prospecto.score || 'Sin score'}
                       </span>
                     </div>
+                    {/* Separador visual */}
+                    {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
+                      <div className="h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
+                    )}
+                    {/* Coordinación */}
+                    {prospecto.coordinacion_codigo && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                        <Users size={12} />
+                        {prospecto.coordinacion_codigo}
+                      </div>
+                    )}
+                    {/* Ejecutivo Asignado */}
+                    {(prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                        <User size={12} />
+                        {(() => {
+                          const nombre = prospecto.ejecutivo_nombre || prospecto.asesor_asignado || '';
+                          const partes = nombre.trim().split(/\s+/);
+                          const primerNombre = partes[0] || '';
+                          const primerApellido = partes[1] || '';
+                          return primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
+                        })()}
+                      </div>
+                    )}
                     {prospecto.requiere_atencion_humana && (
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="text-orange-600 dark:text-orange-400" size={16} />

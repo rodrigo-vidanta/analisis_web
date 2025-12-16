@@ -14,6 +14,17 @@
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 
 // ============================================
+// CONSTANTES
+// ============================================
+
+/**
+ * Código de la coordinación de Calidad
+ * Los coordinadores de esta coordinación tienen acceso completo a todos los prospectos
+ * de todas las coordinaciones (igual que los administradores)
+ */
+const COORDINACION_CALIDAD_CODIGO = 'CALIDAD';
+
+// ============================================
 // INTERFACES Y TIPOS
 // ============================================
 
@@ -67,12 +78,23 @@ class PermissionsService {
   /**
    * Verifica si un usuario puede acceder a un prospecto específico
    * Verifica tanto en prospect_assignments como directamente en prospectos
+   * Nota: Coordinadores de Calidad tienen acceso a todos los prospectos
    */
   async canUserAccessProspect(
     userId: string,
     prospectId: string
   ): Promise<PermissionCheck> {
     try {
+      // Verificar primero si es coordinador de Calidad (tiene acceso completo)
+      const isCalidad = await this.isCoordinadorCalidad(userId);
+      if (isCalidad) {
+        console.log(`✅ [canUserAccessProspect] Coordinador de CALIDAD ${userId} - acceso permitido a prospecto ${prospectId}`);
+        return {
+          canAccess: true,
+          reason: 'Coordinador de Calidad - acceso completo',
+        };
+      }
+
       // Primero intentar con la función RPC (busca en prospect_assignments de system_ui)
       // Esta es la fuente de verdad para las asignaciones
       try {
@@ -334,6 +356,12 @@ class PermissionsService {
       // Admin y Administrador Operativo no tienen filtro (pueden ver todo)
       if (permissions.role === 'admin' || permissions.role === 'administrador_operativo') return null;
 
+      // Coordinadores de Calidad no tienen filtro (pueden ver todo)
+      if (permissions.role === 'coordinador') {
+        const isCalidad = await this.isCoordinadorCalidad(userId);
+        if (isCalidad) return null;
+      }
+
       // Coordinador y ejecutivo tienen filtro por coordinación
       return permissions.coordinacion_id || null;
     } catch (error) {
@@ -345,22 +373,31 @@ class PermissionsService {
   /**
    * Obtiene todas las coordinaciones de un coordinador
    * Retorna un array de coordinacion_id si es coordinador, null si es admin, o array con una coordinación si es ejecutivo
+   * Coordinadores de Calidad retornan null (pueden ver todo)
    */
   async getCoordinacionesFilter(userId: string): Promise<string[] | null> {
     try {
       const permissions = await this.getUserPermissions(userId);
       if (!permissions) return null;
 
-      // Admin no tiene filtro
-      if (permissions.role === 'admin') return null;
+      // Admin y Administrador Operativo no tienen filtro (pueden ver todo)
+      if (permissions.role === 'admin' || permissions.role === 'administrador_operativo') return null;
 
       // Ejecutivo: retornar su coordinación única
       if (permissions.role === 'ejecutivo') {
         return permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
       }
 
-      // Coordinador: obtener todas sus coordinaciones desde tabla intermedia
+      // Coordinador: verificar si es de Calidad primero
       if (permissions.role === 'coordinador') {
+        // Coordinadores de Calidad no tienen filtro (pueden ver todo)
+        const isCalidad = await this.isCoordinadorCalidad(userId);
+        if (isCalidad) {
+          console.log(`✅ [permissionsService] Coordinador de CALIDAD ${userId} - sin filtro de coordinación`);
+          return null;
+        }
+
+        // Coordinadores normales: obtener todas sus coordinaciones desde tabla intermedia
         const { data, error } = await supabaseSystemUIAdmin
           .from('coordinador_coordinaciones')
           .select('coordinacion_id')
@@ -448,12 +485,61 @@ class PermissionsService {
     return this.hasRole(userId, 'admin');
   }
 
+  /**
+   * Verifica si un usuario es coordinador de la coordinación de Calidad
+   * Los coordinadores de Calidad tienen acceso completo a todos los prospectos
+   * de todas las coordinaciones (igual que los administradores)
+   */
+  async isCoordinadorCalidad(userId: string): Promise<boolean> {
+    try {
+      const permissions = await this.getUserPermissions(userId);
+      if (!permissions) return false;
+
+      // Solo aplica a coordinadores
+      if (permissions.role !== 'coordinador') return false;
+
+      // Obtener todas las coordinaciones del coordinador
+      const { data, error } = await supabaseSystemUIAdmin
+        .from('coordinador_coordinaciones')
+        .select(`
+          coordinacion_id,
+          coordinaciones:coordinacion_id (
+            codigo
+          )
+        `)
+        .eq('coordinador_id', userId);
+
+      if (error) {
+        console.error('Error verificando si es coordinador de calidad:', error);
+        return false;
+      }
+
+      // Verificar si alguna de sus coordinaciones es la de Calidad
+      const isCalidad = (data || []).some((row: any) => {
+        const coordinacion = Array.isArray(row.coordinaciones) 
+          ? row.coordinaciones[0] 
+          : row.coordinaciones;
+        return coordinacion?.codigo?.toUpperCase() === COORDINACION_CALIDAD_CODIGO;
+      });
+
+      if (isCalidad) {
+        console.log(`✅ [permissionsService] Usuario ${userId} es coordinador de CALIDAD - acceso completo habilitado`);
+      }
+
+      return isCalidad;
+    } catch (error) {
+      console.error('Error verificando coordinador de calidad:', error);
+      return false;
+    }
+  }
+
   // ============================================
   // FILTROS PARA QUERIES SUPABASE
   // ============================================
 
   /**
    * Aplica filtros de permisos a una query de prospectos
+   * Nota: Coordinadores de Calidad no tienen filtros (pueden ver todo)
    */
   async applyProspectFilters(
     query: any,
@@ -467,8 +553,26 @@ class PermissionsService {
         return analysisSupabase.from('prospectos').select('*');
       }
 
-      const coordinacionFilter = await this.getCoordinacionFilter(userId);
+      // Verificar primero si es coordinador de Calidad (tiene acceso completo)
+      const isCalidad = await this.isCoordinadorCalidad(userId);
+      if (isCalidad) {
+        console.log(`✅ [applyProspectFilters] Coordinador de CALIDAD ${userId} - sin filtros aplicados`);
+        return query; // Retornar query sin modificar (acceso completo)
+      }
+
+      // Obtener los permisos del usuario para determinar el rol
+      const permissions = await this.getUserPermissions(userId);
+      const isAdmin = permissions?.role === 'admin' || permissions?.role === 'administrador_operativo';
+      
+      // Admin y Administrador Operativo no tienen filtros
+      if (isAdmin) {
+        console.log(`✅ [applyProspectFilters] Admin/Operativo ${userId} - sin filtros aplicados`);
+        return query;
+      }
+
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
+      // Usar getCoordinacionesFilter para obtener TODAS las coordinaciones del coordinador
+      const coordinacionesFilter = await this.getCoordinacionesFilter(userId);
 
       // Si es ejecutivo, filtrar por ejecutivo_id + prospectos de ejecutivos donde es backup
       if (ejecutivoFilter) {
@@ -485,14 +589,22 @@ class PermissionsService {
           ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
         }
         
+        console.log(`🔍 [applyProspectFilters] Ejecutivo ${userId} - filtrando por ejecutivos: ${ejecutivosIds.join(', ')}`);
         // Aplicar filtro .in() - esto retorna una nueva query builder válida
         query = query.in('ejecutivo_id', ejecutivosIds);
       }
-      // Si es coordinador, filtrar por coordinacion_id
-      else if (coordinacionFilter) {
-        query = query.eq('coordinacion_id', coordinacionFilter);
+      // Si es coordinador (no de Calidad), filtrar por coordinaciones
+      else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+        console.log(`🔍 [applyProspectFilters] Coordinador ${userId} - filtrando por coordinaciones: ${coordinacionesFilter.join(', ')}`);
+        query = query.in('coordinacion_id', coordinacionesFilter);
       }
-      // Admin y Administrador Operativo no tienen filtros (pueden ver todo)
+      // Si no tiene ejecutivo ni coordinaciones, no debería ver nada (query vacía)
+      else if (permissions?.role === 'coordinador' || permissions?.role === 'ejecutivo') {
+        console.warn(`⚠️ [applyProspectFilters] Usuario ${userId} (${permissions?.role}) sin coordinaciones asignadas - aplicando filtro restrictivo`);
+        // Aplicar filtro que no retornará resultados
+        query = query.eq('coordinacion_id', '00000000-0000-0000-0000-000000000000');
+      }
+      // Admin, Administrador Operativo y Coordinadores de Calidad no tienen filtros (pueden ver todo)
       // La query se retorna tal cual sin modificar
 
       // Verificar que la query sigue siendo válida antes de retornarla
@@ -514,12 +626,20 @@ class PermissionsService {
   /**
    * Aplica filtros de permisos a una query de llamadas
    * Incluye lógica de backup: ejecutivos pueden ver llamadas de ejecutivos donde son backup
+   * Nota: Coordinadores de Calidad no tienen filtros (pueden ver todo)
    */
   async applyCallFilters(
     query: any,
     userId: string
   ): Promise<any> {
     try {
+      // Verificar primero si es coordinador de Calidad (tiene acceso completo)
+      const isCalidad = await this.isCoordinadorCalidad(userId);
+      if (isCalidad) {
+        console.log(`✅ [applyCallFilters] Coordinador de CALIDAD ${userId} - acceso completo a llamadas`);
+        return { tipo: 'admin' }; // Tratar como admin (sin filtros)
+      }
+
       const coordinacionFilter = await this.getCoordinacionFilter(userId);
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
 
@@ -550,11 +670,11 @@ class PermissionsService {
         // El filtrado real se hace en los servicios que llaman a este método
         return { ejecutivosIds, tipo: 'ejecutivo' };
       }
-      // Si es coordinador, filtrar por coordinacion_id del prospecto
+      // Si es coordinador (no de Calidad), filtrar por coordinacion_id del prospecto
       else if (coordinacionFilter) {
         return { coordinacionesIds: coordinacionFilter, tipo: 'coordinador' };
       }
-      // Admin y Administrador Operativo no tienen filtros
+      // Admin, Administrador Operativo y Coordinadores de Calidad no tienen filtros
       return { tipo: 'admin' };
     } catch (error) {
       console.error('Error aplicando filtros de llamadas:', error);
@@ -564,12 +684,20 @@ class PermissionsService {
 
   /**
    * Aplica filtros de permisos a una query de conversaciones
+   * Nota: Coordinadores de Calidad no tienen filtros (pueden ver todo)
    */
   async applyConversationFilters(
     query: any,
     userId: string
   ): Promise<any> {
     try {
+      // Verificar primero si es coordinador de Calidad (tiene acceso completo)
+      const isCalidad = await this.isCoordinadorCalidad(userId);
+      if (isCalidad) {
+        console.log(`✅ [applyConversationFilters] Coordinador de CALIDAD ${userId} - sin filtros aplicados`);
+        return query; // Retornar query sin modificar (acceso completo)
+      }
+
       const coordinacionFilter = await this.getCoordinacionFilter(userId);
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
 
@@ -595,11 +723,11 @@ class PermissionsService {
         
         query = query.in('ejecutivo_id', ejecutivosIds);
       }
-      // Si es coordinador, filtrar por coordinacion_id
+      // Si es coordinador (no de Calidad), filtrar por coordinacion_id
       else if (coordinacionFilter) {
         query = query.eq('coordinacion_id', coordinacionFilter);
       }
-      // Admin y Administrador Operativo no tienen filtros (pueden ver todo)
+      // Admin, Administrador Operativo y Coordinadores de Calidad no tienen filtros (pueden ver todo)
 
       return query;
     } catch (error) {

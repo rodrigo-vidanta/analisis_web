@@ -681,6 +681,22 @@ const LiveChatCanvas: React.FC = () => {
     };
     position: { x: number; y: number };
   } | null>(null);
+  
+  // Estado para verificar si el usuario es coordinador de Calidad
+  const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
+  
+  // Verificar si el usuario es coordinador de Calidad al cargar
+  useEffect(() => {
+    const checkCoordinadorCalidad = async () => {
+      if (user?.id && user?.role_name === 'coordinador') {
+        const esCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+        setIsCoordinadorCalidad(esCalidad);
+      } else {
+        setIsCoordinadorCalidad(false);
+      }
+    };
+    checkCoordinadorCalidad();
+  }, [user?.id, user?.role_name]);
 
   // Estados para modal de imágenes y cache de URLs
   const [selectedImageModal, setSelectedImageModal] = useState<{ url: string; alt: string } | null>(null);
@@ -775,6 +791,7 @@ const LiveChatCanvas: React.FC = () => {
     id_dynamics?: string | null;
     nombre_completo?: string | null;
     nombre_whatsapp?: string | null;
+    titulo?: string | null; // Título de cortesía (Sr., Srta., etc.)
     email?: string | null;
     whatsapp?: string | null;
     requiere_atencion_humana?: boolean;
@@ -1726,12 +1743,32 @@ const LiveChatCanvas: React.FC = () => {
     const isFirstInteraction = messages.filter(m => m.sender_type === 'customer').length <= 1;
     const lastMessageContent = lastCustomerMessage?.content || '';
     
+    // Obtener datos del prospecto para personalización
+    const prospectId = selectedConversation.prospecto_id || selectedConversation.metadata?.prospect_id;
+    const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+    
+    // Extraer el primer nombre del nombre completo si está disponible
+    let primerNombre: string | null = null;
+    if (prospectoData?.nombre_completo) {
+      const partes = prospectoData.nombre_completo.trim().split(' ');
+      primerNombre = partes[0] || null;
+    } else if (prospectoData?.nombre_whatsapp) {
+      const partes = prospectoData.nombre_whatsapp.trim().split(' ');
+      primerNombre = partes[0] || null;
+    }
+    
     const context = {
       lastMessage: lastMessageContent,
       messageHistory: recentMessages,
       prospectStage: selectedConversation.status || selectedConversation.estado,
       isFirstInteraction,
-      conversationType: selectedConversation.tipo === 'whatsapp' ? 'whatsapp' : 'uchat'
+      conversationType: selectedConversation.tipo === 'whatsapp' ? 'whatsapp' : 'uchat',
+      // Pasar datos del prospecto para personalización de mensajes
+      prospectData: {
+        titulo: prospectoData?.titulo || null,
+        nombre: primerNombre,
+        nombre_completo: prospectoData?.nombre_completo || prospectoData?.nombre_whatsapp || null
+      }
     };
 
     let replies = quickRepliesService.generateQuickReplies(context);
@@ -1751,6 +1788,7 @@ const LiveChatCanvas: React.FC = () => {
     selectedConversation?.status, 
     selectedConversation?.estado, 
     selectedConversation?.tipo, 
+    selectedConversation?.prospecto_id,
     user?.full_name,
     lastCustomerMessageKey, // Usar la clave calculada como dependencia
     messagesByConversation[selectedConversation?.id || '']?.length // También depender de la cantidad de mensajes
@@ -2514,7 +2552,7 @@ const LiveChatCanvas: React.FC = () => {
         prospectoIds.size > 0
           ? analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa')
               .in('id', Array.from(prospectoIds))
               .then(({ data }) => {
                 const map = new Map<string, { 
@@ -2523,6 +2561,7 @@ const LiveChatCanvas: React.FC = () => {
                   id_dynamics?: string | null;
                   nombre_completo?: string | null;
                   nombre_whatsapp?: string | null;
+                  titulo?: string | null;
                   email?: string | null;
                   whatsapp?: string | null;
                   requiere_atencion_humana?: boolean;
@@ -2536,6 +2575,7 @@ const LiveChatCanvas: React.FC = () => {
                     id_dynamics: p.id_dynamics,
                     nombre_completo: p.nombre_completo,
                     nombre_whatsapp: p.nombre_whatsapp,
+                    titulo: p.titulo || null,
                     email: p.email,
                     whatsapp: p.whatsapp,
                     requiere_atencion_humana: p.requiere_atencion_humana || false,
@@ -4757,7 +4797,8 @@ const LiveChatCanvas: React.FC = () => {
                 }}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  if (user?.role_name === 'coordinador' || user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
+                  // Permitir menú contextual para admin, administrador_operativo, coordinadores y coordinadores de Calidad
+                  if (user?.role_name === 'coordinador' || user?.role_name === 'admin' || user?.role_name === 'administrador_operativo' || isCoordinadorCalidad) {
                     const ejecutivoId = conversation.metadata?.ejecutivo_id || prospectoData?.ejecutivo_id;
                     const coordinacionId = conversation.metadata?.coordinacion_id || prospectoData?.coordinacion_id;
                     

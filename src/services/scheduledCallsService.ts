@@ -49,6 +49,8 @@ class ScheduledCallsService {
       // Verificar si es admin o administrador_operativo (ambos pueden ver todo)
       const permissions = await permissionsService.getUserPermissions(userId);
       const isAdminOrOperativo = permissions?.role === 'admin' || permissions?.role === 'administrador_operativo';
+      // Verificar si es coordinador de Calidad (también puede ver todo)
+      const isCoordinadorCalidad = await permissionsService.isCoordinadorCalidad(userId);
 
       let query = analysisSupabase
         .from('llamadas_programadas')
@@ -87,8 +89,8 @@ class ScheduledCallsService {
       // Aplicar filtros de permisos
       let filteredCallsData = callsData;
       
-      // Admin y Administrador Operativo pueden ver todo, no aplicar filtros
-      if (!isAdminOrOperativo) {
+      // Admin, Administrador Operativo y Coordinadores de Calidad pueden ver todo, no aplicar filtros
+      if (!isAdminOrOperativo && !isCoordinadorCalidad) {
         if (ejecutivoFilter) {
           // Ejecutivo: solo sus prospectos asignados + prospectos de ejecutivos donde es backup
           // Obtener IDs de ejecutivos donde este ejecutivo es backup

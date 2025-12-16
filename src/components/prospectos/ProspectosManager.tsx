@@ -628,7 +628,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
               
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Etapa Destacada */}
+                {/* Etapa Destacada y Asignación */}
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -636,12 +636,44 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
                   className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-800"
                 >
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
-                        <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
-                          {prospecto.etapa || 'Sin etapa'}
-                        </h3>
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
+                          <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
+                            {prospecto.etapa || 'Sin etapa'}
+                          </h3>
+                        </div>
+                        {/* Separador visual */}
+                        {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
+                          <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block"></div>
+                        )}
+                        {/* Asignación */}
+                        {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
+                          <div>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Asignación</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {prospecto.coordinacion_codigo && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                                  <Users size={12} />
+                                  {prospecto.coordinacion_codigo}
+                                </span>
+                              )}
+                              {(prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                  <User size={12} />
+                                  {(() => {
+                                    const nombre = prospecto.ejecutivo_nombre || prospecto.asesor_asignado || '';
+                                    const partes = nombre.trim().split(/\s+/);
+                                    const primerNombre = partes[0] || '';
+                                    const primerApellido = partes[1] || '';
+                                    return primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
+                                  })()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       {prospecto.score && (
                         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -1047,6 +1079,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   // Estado para selección múltiple (solo para admin/admin operativo en vista grid)
   const [selectedProspectIds, setSelectedProspectIds] = useState<Set<string>>(new Set());
   const [showBulkAssignmentModal, setShowBulkAssignmentModal] = useState(false);
+  
+  // Estado para coordinadores de Calidad (tienen acceso completo)
+  const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
 
   // Cargar preferencias de vista al inicio
   useEffect(() => {
@@ -1055,34 +1090,36 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     setCollapsedColumns(preferences.collapsedColumns || []);
   }, [user?.id]);
 
-  // Cargar opciones de filtros (coordinaciones y ejecutivos) para admin/admin operativo
+  // Cargar opciones de filtros (coordinaciones y ejecutivos) para todos los usuarios con acceso al módulo
   useEffect(() => {
     const loadFilterOptions = async () => {
       if (!user?.id) return;
       
-      const isAdmin = user.role_name === 'admin';
-      const isAdminOperativo = user.role_name === 'administrador_operativo';
+      // Verificar si es coordinador de Calidad (acceso completo a datos)
+      if (user.role_name === 'coordinador') {
+        const isCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+        setIsCoordinadorCalidad(isCalidad);
+      }
       
-      if (isAdmin || isAdminOperativo) {
-        try {
-          // Cargar coordinaciones (todas, sin filtrar)
-          const coordinaciones = await coordinacionService.getCoordinaciones();
-          setCoordinacionesOptions(coordinaciones.map(c => ({
-            id: c.id,
-            nombre: c.nombre,
-            codigo: c.codigo || c.nombre
-          })));
-          
-          // Cargar ejecutivos
-          const ejecutivos = await coordinacionService.getAllEjecutivos();
-          setEjecutivosOptions(ejecutivos.filter(e => e.is_active).map(e => ({
-            id: e.id,
-            full_name: e.full_name,
-            coordinacion_id: e.coordinacion_id
-          })));
-        } catch (error) {
-          console.error('Error cargando opciones de filtros:', error);
-        }
+      // Cargar opciones de filtros para todos los usuarios con acceso al módulo
+      try {
+        // Cargar coordinaciones (todas, sin filtrar)
+        const coordinaciones = await coordinacionService.getCoordinaciones();
+        setCoordinacionesOptions(coordinaciones.map(c => ({
+          id: c.id,
+          nombre: c.nombre,
+          codigo: c.codigo || c.nombre
+        })));
+        
+        // Cargar ejecutivos
+        const ejecutivos = await coordinacionService.getAllEjecutivos();
+        setEjecutivosOptions(ejecutivos.filter(e => e.is_active).map(e => ({
+          id: e.id,
+          full_name: e.full_name,
+          coordinacion_id: e.coordinacion_id
+        })));
+      } catch (error) {
+        console.error('Error cargando opciones de filtros:', error);
       }
     };
     
@@ -1183,7 +1220,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
 
       // Aplicar filtros de permisos si hay usuario (incluye lógica de backup)
       let ejecutivosIdsParaFiltro: string[] | null = null;
-      let coordinacionIdParaFiltro: string | null = null;
+      let coordinacionesIdsParaFiltro: string[] | null = null;
       
       if (user?.id) {
         try {
@@ -1194,7 +1231,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             
             // Guardar los filtros aplicados para usar en fallback si es necesario
             const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
-            const coordinacionFilter = await permissionsService.getCoordinacionFilter(user.id);
+            const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
             
             if (ejecutivoFilter) {
               // Obtener IDs de ejecutivos donde es backup
@@ -1209,8 +1246,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
                 ejecutivosIdsParaFiltro.push(...ejecutivosConBackup.map(e => e.id));
               }
-            } else if (coordinacionFilter) {
-              coordinacionIdParaFiltro = coordinacionFilter;
+            } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              coordinacionesIdsParaFiltro = coordinacionesFilter;
             }
           }
         } catch (error) {
@@ -1238,8 +1275,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           // Aplicar los mismos filtros que se aplicaron antes
           if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
             fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
-          } else if (coordinacionIdParaFiltro) {
-            fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionIdParaFiltro);
+          } else if (coordinacionesIdsParaFiltro && coordinacionesIdsParaFiltro.length > 0) {
+            fallbackQuery = fallbackQuery.in('coordinacion_id', coordinacionesIdsParaFiltro);
           }
           
           const fallbackResult = await fallbackQuery.order('created_at', { ascending: false });
@@ -1339,12 +1376,21 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(p => 
+        // Búsqueda por nombre del prospecto
         p.nombre_completo?.toLowerCase().includes(searchLower) ||
         p.nombre?.toLowerCase().includes(searchLower) ||
         p.apellido_paterno?.toLowerCase().includes(searchLower) ||
         p.apellido_materno?.toLowerCase().includes(searchLower) ||
         p.email?.toLowerCase().includes(searchLower) ||
-        p.nombre_whatsapp?.toLowerCase().includes(searchLower)
+        p.nombre_whatsapp?.toLowerCase().includes(searchLower) ||
+        // Búsqueda por teléfono
+        p.whatsapp?.toLowerCase().includes(searchLower) ||
+        p.telefono_principal?.toLowerCase().includes(searchLower) ||
+        // Búsqueda por ejecutivo asignado
+        p.ejecutivo_nombre?.toLowerCase().includes(searchLower) ||
+        // Búsqueda por coordinación
+        p.coordinacion_codigo?.toLowerCase().includes(searchLower) ||
+        p.coordinacion_nombre?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -1522,7 +1568,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="Buscar prospectos..."
+              placeholder="Buscar por nombre, teléfono, ejecutivo, coordinación..."
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
               className="w-full h-9 pl-10 pr-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -1542,19 +1588,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               ))}
             </select>
             
-            <select
-              value={filters.campana_origen}
-              onChange={(e) => setFilters(prev => ({ ...prev, campana_origen: e.target.value }))}
-              className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[100px]"
-            >
-              <option value="">Todas las campañas</option>
-              {getUniqueValues('campana_origen').map(campana => (
-                <option key={campana} value={campana}>{campana}</option>
-              ))}
-            </select>
-            
-            {/* Filtros adicionales para admin/admin operativo */}
-            {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') && (
+            {/* Filtros de coordinación y ejecutivo - disponibles para todos en vista datagrid */}
+            {viewType === 'datagrid' && (
               <>
                 <select
                   value={filters.coordinacion_id}
@@ -1607,8 +1642,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               <span className="hidden sm:inline">Limpiar</span>
             </button>
             
-            {/* Botón de reasignación masiva (solo para admin/admin operativo en vista grid) */}
-            {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') && viewType === 'datagrid' && selectedProspectIds.size > 0 && (
+            {/* Botón de reasignación masiva (admin, admin operativo y coordinadores de Calidad en vista grid) */}
+            {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo' || isCoordinadorCalidad) && viewType === 'datagrid' && selectedProspectIds.size > 0 && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -1777,8 +1812,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             <table className="w-full min-w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
-                  {/* Checkbox de selección múltiple (solo para admin/admin operativo) */}
-                  {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') && (
+                  {/* Checkbox de selección múltiple (admin, admin operativo y coordinadores de Calidad) */}
+                  {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo' || isCoordinadorCalidad) && (
                     <th className="px-3 md:px-4 lg:px-6 py-2 md:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-12">
                       <div className="flex items-center justify-center">
                         <button
@@ -1815,7 +1850,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                     { key: 'whatsapp', label: 'WhatsApp', sortable: true, responsive: false },
                     { key: 'etapa', label: 'Etapa', sortable: true, responsive: false },
                     { key: 'created_at', label: 'Creado', sortable: true, responsive: 'md' },
-                    { key: 'asignacion', label: 'Asignación', sortable: false, responsive: false }
+                    { key: 'coordinacion_codigo', label: 'Coordinación', sortable: true, responsive: false },
+                    { key: 'ejecutivo_nombre', label: 'Asignación', sortable: true, responsive: false }
                   ].map(column => (
                     <th 
                       key={column.key}
@@ -1870,8 +1906,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                           : 'cursor-pointer'
                       }`}
                     >
-                      {/* Checkbox de selección (solo para admin/admin operativo) */}
-                      {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') && (
+                      {/* Checkbox de selección (admin, admin operativo y coordinadores de Calidad) */}
+                      {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo' || isCoordinadorCalidad) && (
                         <td 
                           className="px-3 md:px-4 lg:px-6 py-3 md:py-4 align-middle"
                           onClick={(e) => {
@@ -1947,42 +1983,37 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
                         <div className="min-w-[60px]">{prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' }) : 'N/A'}</div>
                       </td>
+                      {/* Columna de Coordinación */}
+                      <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
+                        {prospecto.coordinacion_codigo ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getCoordinacionColor(prospecto.coordinacion_codigo).bg} ${getCoordinacionColor(prospecto.coordinacion_codigo).text}`}>
+                            <Users className="w-3 h-3 mr-1" />
+                            {prospecto.coordinacion_codigo}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
+                        )}
+                      </td>
+                      {/* Columna de Asignación (Ejecutivo) */}
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                         {(() => {
-                          const isAdmin = user?.role_name === 'admin';
-                          const isAdminOperativo = user?.role_name === 'administrador_operativo';
-                          const isCoordinador = user?.role_name === 'coordinador';
-                          const isEjecutivo = user?.role_name === 'ejecutivo';
-                          
-                          const canSeeEjecutivo = isAdmin || isAdminOperativo || isCoordinador;
-                          const canSeeCoordinacion = isAdmin || isAdminOperativo || isEjecutivo;
-                          
                           const ejecutivoNombre = prospecto.ejecutivo_nombre || prospecto.asesor_asignado;
-                          const coordinacionCodigo = prospecto.coordinacion_codigo;
-                          const coordinacionNombre = prospecto.coordinacion_nombre;
                           
-                          if (!canSeeEjecutivo && !canSeeCoordinacion) {
-                            return <span className="text-xs text-gray-400 dark:text-gray-500">-</span>;
+                          if (!ejecutivoNombre) {
+                            return <span className="text-xs text-gray-400 dark:text-gray-500">Sin asignar</span>;
                           }
                           
+                          // Extraer primer nombre y primer apellido
+                          const partes = ejecutivoNombre.trim().split(/\s+/);
+                          const primerNombre = partes[0] || '';
+                          const primerApellido = partes[1] || '';
+                          const nombreMostrar = primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
+                          
                           return (
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {canSeeEjecutivo && ejecutivoNombre && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                                  <User className="w-3 h-3 mr-1" />
-                                  {ejecutivoNombre.split(' ')[0]}
-                                </span>
-                              )}
-                              {canSeeCoordinacion && coordinacionCodigo && (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getCoordinacionColor(coordinacionCodigo).bg} ${getCoordinacionColor(coordinacionCodigo).text}`}>
-                                  <Users className="w-3 h-3 mr-1" />
-                                  {coordinacionCodigo}
-                                </span>
-                              )}
-                              {(!ejecutivoNombre && !coordinacionCodigo) && (
-                                <span className="text-xs text-gray-400 dark:text-gray-500">Sin asignar</span>
-                              )}
-                            </div>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                              <User className="w-3 h-3 mr-1" />
+                              {nombreMostrar}
+                            </span>
                           );
                         })()}
                       </td>
