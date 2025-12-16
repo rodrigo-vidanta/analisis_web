@@ -302,9 +302,9 @@ const awsDeployments: AWSDeployment[] = [
 
 const stats = [
   { label: 'Version', value: 'v2.1.26', highlight: true },
-  { label: 'Ultima actualizacion', value: '15 Dic 2025', highlight: false },
+  { label: 'Release', value: 'B6.0.3N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Deployments AWS', value: awsDeployments.filter(d => d.status === 'success').length.toString(), highlight: false },
+  { label: 'Ultima actualizacion', value: '15 Dic 2025', highlight: false },
 ];
 
 // ============================================
