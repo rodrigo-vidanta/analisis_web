@@ -250,6 +250,9 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '42a4996', date: '2025-12-15', author: 'Team', message: 'fix: mostrar version release en stats de documentacion', isRelease: false },
+  { hash: 'e46391e', date: '2025-12-15', author: 'Team', message: 'fix: actualizar version en Footer y agregar paso en rule', isRelease: false },
+  { hash: 'd920f10', date: '2025-12-15', author: 'Team', message: 'chore: actualizar hash de commit v2.1.26 en UI', isRelease: false },
   { hash: 'b990a6b', date: '2025-12-15', author: 'Team', message: 'v2.1.26 (B6.0.3N6.0.0): Modulo de Documentacion Tecnica y Consolidacion', isRelease: true },
   { hash: '8401042', date: '2025-12-15', author: 'Team', message: 'v2.1.25 (B6.0.2N6.0.0): Control de Sesion Unica y Mejoras de Backup', isRelease: true },
   { hash: 'a417aba', date: '2025-12-15', author: 'Team', message: 'v2.1.24 (B6.0.1N6.0.0): Correcciones de Permisos y Asignacion de Coordinadores', isRelease: true },
@@ -278,6 +281,8 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-028', date: '2025-12-15 20:45', version: 'v2.1.26', status: 'success', duration: '2m 50s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
+  { id: 'deploy-027', date: '2025-12-15 20:30', version: 'v2.1.26', status: 'success', duration: '2m 38s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-026', date: '2025-12-15 20:00', version: 'v2.1.26', status: 'success', duration: '2m 48s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-025', date: '2025-12-15 18:30', version: 'v2.1.25', status: 'success', duration: '2m 45s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-024', date: '2025-12-15 16:15', version: 'v2.1.24', status: 'success', duration: '2m 38s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
