@@ -250,6 +250,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '2612da1', date: '2025-12-17', author: 'Team', message: 'feat: unificar diseño de etapa y asignación en todos los sidebars de prospectos', isRelease: false },
   { hash: '21e5436', date: '2025-12-16', author: 'Team', message: 'v2.1.28: Optimizacion de rendimiento - Cache de permisos y eliminacion de llamadas redundantes', isRelease: true },
   { hash: '8487c9a', date: '2025-12-16', author: 'Team', message: 'v2.1.27: Columna Coordinacion y mejoras de asignacion en DataGrid y Sidebars', isRelease: true },
   { hash: '42a4996', date: '2025-12-15', author: 'Team', message: 'fix: mostrar version release en stats de documentacion', isRelease: false },
@@ -283,6 +284,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-031', date: '2025-12-17 00:45', version: 'v2.1.28', status: 'success', duration: '5m 06s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-030', date: '2025-12-17 00:30', version: 'v2.1.28', status: 'success', duration: '3m 50s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-029', date: '2025-12-16 11:30', version: 'v2.1.27', status: 'success', duration: '3m 55s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-028', date: '2025-12-15 20:45', version: 'v2.1.26', status: 'success', duration: '2m 50s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
