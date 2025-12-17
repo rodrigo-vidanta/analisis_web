@@ -44,7 +44,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     const loadCoordinacionesAndEjecutivos = async () => {
       try {
         const [coordinaciones, ejecutivos] = await Promise.all([
-          coordinacionService.getAllCoordinaciones(),
+          coordinacionService.getCoordinaciones(), // ✅ Método correcto
           coordinacionService.getAllEjecutivos()
         ]);
         
@@ -97,10 +97,10 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
 
     return {
       ...prospecto,
-      coordinacion_codigo: coordinacionInfo?.codigo,
-      coordinacion_nombre: coordinacionInfo?.nombre,
-      ejecutivo_nombre: ejecutivoNombre,
-      ejecutivo_email: ejecutivoInfo?.email,
+      coordinacion_codigo: coordinacionInfo?.codigo || prospecto.coordinacion_codigo,
+      coordinacion_nombre: coordinacionInfo?.nombre || prospecto.coordinacion_nombre,
+      ejecutivo_nombre: ejecutivoNombre || prospecto.ejecutivo_nombre,
+      ejecutivo_email: ejecutivoInfo?.email || prospecto.ejecutivo_email,
       fecha_ultimo_mensaje: fechaUltimoMensaje || prospecto.fecha_ultimo_mensaje || prospecto.updated_at || prospecto.created_at
     } as Prospect & { fecha_ultimo_mensaje: string };
   }, []);
@@ -347,6 +347,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
 
     try {
       setLoading(true);
+      
       // Obtener TODOS los prospectos asignados al usuario (sin límite)
       // Incluir el campo observaciones
       const data = await prospectsService.searchProspects(
@@ -368,6 +369,33 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
         prospectosListRef.current = [];
         return;
       }
+      
+      // ============================================
+      // OPTIMIZACIÓN: Carga en batch de coordinaciones y ejecutivos
+      // ============================================
+      // Recolectar IDs únicos de coordinaciones y ejecutivos de los prospectos
+      // que requieren atención para cargar sus datos completos de forma eficiente.
+      const coordinacionIds = new Set<string>();
+      const ejecutivoIds = new Set<string>();
+      requierenAtencion.forEach(p => {
+        if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
+        if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
+      });
+      
+      // Cargar coordinaciones y ejecutivos en batch (más eficiente que cargar uno por uno)
+      // Esto asegura que los mapas estén correctamente poblados antes de enriquecer los prospectos.
+      const [coordinacionesMapData, ejecutivosMapData] = await Promise.all([
+        coordinacionIds.size > 0
+          ? coordinacionService.getCoordinacionesByIds(Array.from(coordinacionIds))
+          : Promise.resolve(new Map()),
+        ejecutivoIds.size > 0
+          ? coordinacionService.getEjecutivosByIds(Array.from(ejecutivoIds))
+          : Promise.resolve(new Map())
+      ]);
+      
+      // Actualizar los refs con los datos cargados
+      coordinacionesMapRef.current = coordinacionesMapData;
+      ejecutivosMapRef.current = ejecutivosMapData;
       
       // Obtener fechas del último mensaje para cada prospecto
       const prospectoIds = requierenAtencion.map(p => p.id);
@@ -605,25 +633,48 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
                         );
                       })()}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p 
-                            className="text-sm font-medium text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleProspectoNameClick(e, prospecto.id);
-                            }}
-                          >
-                            {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
-                          </p>
-                          {prospecto.requiere_atencion_humana && (
-                            <Flag className="w-3 h-3 text-red-500 fill-red-500 flex-shrink-0" />
-                          )}
-                          {user?.id && prospecto.ejecutivo_id && (
-                            <BackupBadgeWrapper
-                              currentUserId={user.id}
-                              prospectoEjecutivoId={prospecto.ejecutivo_id}
-                              variant="compact"
-                            />
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p 
+                              className="text-sm font-medium text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleProspectoNameClick(e, prospecto.id);
+                              }}
+                            >
+                              {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
+                            </p>
+                            {prospecto.requiere_atencion_humana && (
+                              <Flag className="w-3 h-3 text-red-500 fill-red-500 flex-shrink-0" />
+                            )}
+                            {user?.id && prospecto.ejecutivo_id && (
+                              <BackupBadgeWrapper
+                                currentUserId={user.id}
+                                prospectoEjecutivoId={prospecto.ejecutivo_id}
+                                variant="compact"
+                              />
+                            )}
+                          </div>
+                          {/* Etiquetas de Coordinación y Ejecutivo - A la derecha del nombre */}
+                          {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre) && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {prospecto.coordinacion_codigo && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 whitespace-nowrap">
+                                  {prospecto.coordinacion_codigo}
+                                </span>
+                              )}
+                              {prospecto.ejecutivo_nombre && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 whitespace-nowrap">
+                                  {(() => {
+                                    const nombre = prospecto.ejecutivo_nombre || '';
+                                    const partes = nombre.trim().split(/\s+/);
+                                    const primerNombre = partes[0] || '';
+                                    const primerApellido = partes[1] || '';
+                                    return primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
+                                  })()}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                         {prospecto.whatsapp && (

@@ -2,6 +2,43 @@
 
 ## Historial de Versiones
 
+### v2.1.29 (2025-12-17)
+**Descripción**: B6.0.6N6.0.0: Corrección crítica de carga de datos y etiquetas de coordinación/ejecutivo
+
+---
+
+## 🎯 **RELEASE B6.0.6N6.0.0 - Corrección Crítica de Carga de Datos**
+
+### 🐛 **Corrección Crítica: Carga en Dos Pasos para Enriquecimiento de Datos**
+- **Problema identificado**: Los IDs de coordinaciones y ejecutivos se recolectaban dentro de `Promise.all()` pero los otros Promises se ejecutaban en paralelo antes de que se completaran las modificaciones a los Sets, dejándolos vacíos cuando se pasaban a las funciones de carga.
+- **Solución implementada**: División de la carga en dos pasos secuenciales:
+  1. **Paso 1**: Cargar prospectos primero y recolectar `coordinacion_ids` y `ejecutivo_ids`
+  2. **Paso 2**: Cargar coordinaciones y ejecutivos en batch con esos IDs
+- **Archivos corregidos**:
+  - `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Widget "Últimas Conversaciones"
+  - `src/components/chat/LiveChatCanvas.tsx` - Módulo WhatsApp
+  - `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Widget "Prospectos Requieren Atención"
+
+### 🏷️ **Etiquetas de Coordinación y Ejecutivo**
+- **Módulo WhatsApp**: Etiquetas de coordinación y ejecutivo asignado en cada conversación (a la derecha del contador de mensajes)
+- **Dashboard - Últimas Conversaciones**: Etiquetas de coordinación y ejecutivo en cada card (a la derecha del nombre)
+- **Dashboard - Prospectos Requieren Atención**: Etiquetas de coordinación y ejecutivo en cada card (a la derecha del nombre)
+- **Formato**: Coordinación (badge morado) y Ejecutivo (badge azul) con nombres abreviados (primer nombre + primer apellido)
+
+### 📝 **Documentación y Comentarios**
+- Comentarios detallados añadidos en todos los archivos modificados explicando:
+  - El problema original
+  - La solución implementada
+  - El flujo de carga en dos pasos
+  - La importancia de la secuencia correcta
+
+### 📁 **Archivos Modificados**
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Corrección de carga en dos pasos, comentarios detallados
+- `src/components/chat/LiveChatCanvas.tsx` - Corrección de carga en dos pasos, comentarios detallados
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Comentarios explicativos añadidos
+
+---
+
 ### v2.1.25 (2025-12-15)
 **Descripción**: B6.0.2N6.0.0: Control de Sesión Única, Mejoras en Sistema de Backup y Limpieza de Logs
 

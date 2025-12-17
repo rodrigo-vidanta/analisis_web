@@ -1,6 +1,7 @@
 import { permissionsService } from './permissionsService';
 import { automationService } from './automationService';
 import { analysisSupabase } from '../config/analysisSupabase';
+import { coordinacionService } from './coordinacionService';
 
 /**
  * ============================================
@@ -45,6 +46,13 @@ export interface Prospect {
   coordinacion_id?: string; // ID de coordinación asignada
   ejecutivo_id?: string; // ID de ejecutivo asignado
   
+  // Campos enriquecidos de coordinación y ejecutivo (obtenidos dinámicamente)
+  coordinacion_codigo?: string;
+  coordinacion_nombre?: string;
+  ejecutivo_nombre?: string;
+  ejecutivo_email?: string;
+  asesor_asignado?: string;
+  
   // Campos adicionales para Live Monitor (si existen)
   status_transferencia?: string;
   agente_asignado?: string;
@@ -59,6 +67,11 @@ export interface Prospect {
   fecha_feedback?: string;
   agente_feedback_id?: string;
   llamada_activa?: boolean;
+  
+  // Campos para alertas
+  requiere_atencion_humana?: boolean;
+  motivo_handoff?: string;
+  score?: string;
 }
 
 export interface ProspectSearchResult {
@@ -302,15 +315,55 @@ class ProspectsService {
         return null;
       }
 
+      if (!data) return null;
+
       // Verificar permisos si hay userId
-      if (userId && data) {
+      if (userId) {
         const canAccess = await permissionsService.canUserAccessProspect(userId, id);
         if (!canAccess.canAccess) {
           return null; // Usuario no tiene acceso a este prospecto
         }
       }
 
-      return data;
+      // Enriquecer con datos de coordinación y ejecutivo
+      let coordinacionInfo: { codigo?: string; nombre?: string } | null = null;
+      let ejecutivoInfo: { full_name?: string; nombre_completo?: string; nombre?: string; email?: string } | null = null;
+
+      if (data.coordinacion_id) {
+        try {
+          coordinacionInfo = await coordinacionService.getCoordinacionById(data.coordinacion_id);
+        } catch (error) {
+          console.warn('Error obteniendo coordinación:', error);
+        }
+      }
+
+      // Obtener ejecutivo: primero desde asesor_asignado (campo directo), luego desde ejecutivo_id
+      let ejecutivoNombre: string | undefined = undefined;
+      
+      // 1. Intentar desde asesor_asignado (campo directo de prospectos)
+      if (data.asesor_asignado && typeof data.asesor_asignado === 'string' && data.asesor_asignado.trim() !== '') {
+        ejecutivoNombre = data.asesor_asignado.trim();
+      }
+      // 2. Si no hay asesor_asignado, intentar desde ejecutivo_id
+      else if (data.ejecutivo_id) {
+        try {
+          ejecutivoInfo = await coordinacionService.getEjecutivoById(data.ejecutivo_id);
+          if (ejecutivoInfo) {
+            ejecutivoNombre = ejecutivoInfo.full_name || ejecutivoInfo.nombre_completo || ejecutivoInfo.nombre;
+          }
+        } catch (error) {
+          console.warn('Error obteniendo ejecutivo:', error);
+        }
+      }
+
+      // Retornar prospecto enriquecido
+      return {
+        ...data,
+        coordinacion_codigo: coordinacionInfo?.codigo,
+        coordinacion_nombre: coordinacionInfo?.nombre,
+        ejecutivo_nombre: ejecutivoNombre,
+        ejecutivo_email: ejecutivoInfo?.email
+      };
     } catch (error) {
       console.error('Error obteniendo prospecto por ID:', error);
       return null;

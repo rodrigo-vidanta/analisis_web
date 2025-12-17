@@ -30,7 +30,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { CallDetailModalSidebar } from './CallDetailModalSidebar';
 import { createPortal } from 'react-dom';
-import { AssignmentBadge } from '../analysis/AssignmentBadge';
+import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
@@ -569,49 +569,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
               </div>
             ) : prospecto ? (
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Etapa Destacada */}
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
-                  className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-800"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
-                        <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
-                          {prospecto.etapa || 'Sin etapa'}
-                        </h3>
-                      </div>
-                      {prospecto.score && (
-                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                          <Star className="text-yellow-500 dark:text-yellow-400" size={16} />
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            {prospecto.score}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {prospecto.requiere_atencion_humana && (
-                      <div className="bg-orange-50 dark:bg-orange-900/20 px-4 py-3 rounded-lg border border-orange-200 dark:border-orange-800 w-full">
-                        <div className="flex items-start gap-2">
-                          <AlertTriangle className="text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" size={16} />
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-semibold text-orange-700 dark:text-orange-300 block mb-1">
-                              Requiere atención
-                            </span>
-                            {prospecto.motivo_handoff && (
-                              <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed break-words">
-                                {prospecto.motivo_handoff}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
+                {/* Etapa Destacada y Asignación - Componente Centralizado */}
+                <ProspectoEtapaAsignacion prospecto={prospecto} />
 
                 {/* Información Personal y Contacto */}
                 <motion.div 
@@ -714,29 +673,6 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   </div>
                 </motion.div>
 
-                {/* Información de Asignación */}
-                {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.35, ease: "easeOut" }}
-                    className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 space-y-3 border border-purple-200 dark:border-purple-800"
-                  >
-                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      <Users size={18} className="text-purple-600 dark:text-purple-400" />
-                      Asignación
-                    </h3>
-                    <AssignmentBadge
-                      call={{
-                        coordinacion_codigo: prospecto.coordinacion_codigo,
-                        coordinacion_nombre: prospecto.coordinacion_nombre,
-                        ejecutivo_nombre: prospecto.ejecutivo_nombre || prospecto.asesor_asignado,
-                        ejecutivo_email: prospecto.ejecutivo_email
-                      } as any}
-                      variant="inline"
-                    />
-                  </motion.div>
-                )}
 
                 {/* Información de Viaje (si aplica) */}
                 {(prospecto.destino_preferencia || prospecto.tamano_grupo || prospecto.cantidad_menores || prospecto.viaja_con) && (

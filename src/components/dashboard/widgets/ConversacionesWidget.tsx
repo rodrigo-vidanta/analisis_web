@@ -1236,78 +1236,107 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
       const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
 
-      // Recolectar IDs de prospectos
+      // ============================================
+      // OPTIMIZACIÓN CRÍTICA: Carga en dos pasos para enriquecimiento de datos
+      // ============================================
+      // PROBLEMA ORIGINAL:
+      // Los IDs de coordinaciones y ejecutivos se recolectaban dentro del Promise.all()
+      // pero los otros Promises se ejecutaban en paralelo antes de que se completaran
+      // las modificaciones a los Sets, dejándolos vacíos cuando se pasaban a las funciones.
+      //
+      // SOLUCIÓN:
+      // Dividir la carga en dos pasos secuenciales:
+      // 1. Primero cargar prospectos y recolectar coordinacion_ids y ejecutivo_ids
+      // 2. Luego cargar coordinaciones y ejecutivos en batch con esos IDs
+      // Esto asegura que los mapas estén correctamente poblados antes de enriquecer.
+      // ============================================
+
+      // Recolectar IDs de prospectos de ambas fuentes (uchat + WhatsApp RPC)
       const prospectoIds = new Set<string>();
       const coordinacionIds = new Set<string>();
       const ejecutivoIds = new Set<string>();
 
+      // Recolectar IDs de conversaciones de uchat
       uchatConversationsRaw.forEach(conv => {
         if (conv.prospect_id) prospectoIds.add(conv.prospect_id);
       });
+      
+      // Recolectar IDs de conversaciones de WhatsApp (RPC)
       const rpcData = rpcDataResult.data || [];
       rpcData.forEach((c: any) => {
         if (c.prospecto_id) prospectoIds.add(c.prospecto_id);
       });
 
-      // Cargar datos en batch (igual que LiveChatCanvas)
-      const [prospectosDataMap, coordinacionesMapData, ejecutivosMapData] = await Promise.all([
-        prospectoIds.size > 0
-          ? analysisSupabase
-              .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, requiere_atencion_humana, motivo_handoff, nombre_completo, nombre_whatsapp, id_uchat')
-              .in('id', Array.from(prospectoIds))
-              .then(({ data, error }) => {
-                if (error) {
-                  console.error('❌ [ConversacionesWidget] Error cargando prospectos:', error);
-                  return new Map();
-                }
-                const map = new Map();
-                (data || []).forEach(p => {
-                  map.set(p.id, p);
-                  if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
-                  if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
-                });
-                
-                // Debug: verificar si el prospecto problemático está en el mapa
-                if (ejecutivoFilter) {
-                  const problemProspectId = '97c8bd6f-235e-41b5-981d-42a61880442f';
-                  if (prospectoIds.has(problemProspectId)) {
-                    const problemProspect = map.get(problemProspectId);
-                    const ejecutivosIdsParaFiltrar = ejecutivosIdsParaFiltrarRef.current;
-                    const tieneEjecutivoId = !!problemProspect?.ejecutivo_id;
-                    const ejecutivoIdCoincide = problemProspect?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(problemProspect.ejecutivo_id);
-                    
-                    console.log(`🔍 [ConversacionesWidget] Prospecto problemático ${problemProspectId}:`, {
-                      encontrado: !!problemProspect,
-                      ejecutivo_id: problemProspect?.ejecutivo_id,
-                      coordinacion_id: problemProspect?.coordinacion_id,
-                      ejecutivoFilter,
-                      ejecutivosIdsParaFiltrar,
-                      tieneEjecutivoId,
-                      ejecutivoIdCoincide,
-                      deberiaVerlo: tieneEjecutivoId && ejecutivoIdCoincide
-                    });
-                    
-                    // Verificar también con el servicio de permisos
-                    if (problemProspect) {
-                      permissionsService.canUserAccessProspect(ejecutivoFilter, problemProspectId)
-                        .then(result => {
-                          console.log(`🔍 [ConversacionesWidget] Permiso del servicio para ${problemProspectId}:`, result);
-                        })
-                        .catch(err => {
-                          console.error(`❌ [ConversacionesWidget] Error verificando permiso:`, err);
-                        });
-                    }
+      // ============================================
+      // PASO 1: Cargar prospectos primero para recolectar coordinacion_ids y ejecutivo_ids
+      // ============================================
+      // Este paso es crítico porque necesitamos los IDs de coordinaciones y ejecutivos
+      // que están almacenados en los prospectos antes de poder cargar sus datos completos.
+      const prospectosDataMap = prospectoIds.size > 0
+        ? await analysisSupabase
+            .from('prospectos')
+            .select('id, coordinacion_id, ejecutivo_id, requiere_atencion_humana, motivo_handoff, nombre_completo, nombre_whatsapp, id_uchat')
+            .in('id', Array.from(prospectoIds))
+            .then(({ data, error }) => {
+              if (error) {
+                console.error('❌ [ConversacionesWidget] Error cargando prospectos:', error);
+                return new Map();
+              }
+              const map = new Map();
+              (data || []).forEach(p => {
+                map.set(p.id, p);
+                if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
+                if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
+              });
+              
+              // Debug: verificar si el prospecto problemático está en el mapa
+              if (ejecutivoFilter) {
+                const problemProspectId = '97c8bd6f-235e-41b5-981d-42a61880442f';
+                if (prospectoIds.has(problemProspectId)) {
+                  const problemProspect = map.get(problemProspectId);
+                  const ejecutivosIdsParaFiltrar = ejecutivosIdsParaFiltrarRef.current;
+                  const tieneEjecutivoId = !!problemProspect?.ejecutivo_id;
+                  const ejecutivoIdCoincide = problemProspect?.ejecutivo_id && ejecutivosIdsParaFiltrar.includes(problemProspect.ejecutivo_id);
+                  
+                  console.log(`🔍 [ConversacionesWidget] Prospecto problemático ${problemProspectId}:`, {
+                    encontrado: !!problemProspect,
+                    ejecutivo_id: problemProspect?.ejecutivo_id,
+                    coordinacion_id: problemProspect?.coordinacion_id,
+                    ejecutivoFilter,
+                    ejecutivosIdsParaFiltrar,
+                    tieneEjecutivoId,
+                    ejecutivoIdCoincide,
+                    deberiaVerlo: tieneEjecutivoId && ejecutivoIdCoincide
+                  });
+                  
+                  // Verificar también con el servicio de permisos
+                  if (problemProspect) {
+                    permissionsService.canUserAccessProspect(ejecutivoFilter, problemProspectId)
+                      .then(result => {
+                        console.log(`🔍 [ConversacionesWidget] Permiso del servicio para ${problemProspectId}:`, result);
+                      })
+                      .catch(err => {
+                        console.error(`❌ [ConversacionesWidget] Error verificando permiso:`, err);
+                      });
                   }
                 }
-                
-                return map;
-              })
-              .catch((error) => {
-                console.error('❌ [ConversacionesWidget] Error en catch cargando prospectos:', error);
-                return new Map();
-              })
-          : Promise.resolve(new Map()),
+              }
+              
+              return map;
+            })
+            .catch((error) => {
+              console.error('❌ [ConversacionesWidget] Error en catch cargando prospectos:', error);
+              return new Map();
+            })
+        : new Map();
+
+      // ============================================
+      // PASO 2: Cargar coordinaciones y ejecutivos en batch (ahora que tenemos los IDs)
+      // ============================================
+      // En este punto, los Sets coordinacionIds y ejecutivoIds ya están poblados
+      // con todos los IDs únicos recolectados del paso anterior.
+      // Ahora podemos cargar los datos completos en paralelo de forma eficiente.
+      const [coordinacionesMapData, ejecutivosMapData] = await Promise.all([
         coordinacionIds.size > 0
           ? coordinacionService.getCoordinacionesByIds(Array.from(coordinacionIds))
           : Promise.resolve(new Map()),
@@ -1316,14 +1345,21 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           : Promise.resolve(new Map())
       ]);
 
+      // Actualizar estados y refs con los datos cargados
       setProspectosData(prospectosDataMap);
       setCoordinacionesMap(coordinacionesMapData);
       setEjecutivosMap(ejecutivosMapData);
-      // Actualizar refs también
+      // Actualizar refs también para acceso desde otros handlers
       prospectosDataRef.current = prospectosDataMap;
       coordinacionesMapRef.current = coordinacionesMapData;
       ejecutivosMapRef.current = ejecutivosMapData;
 
+      // ============================================
+      // ENRIQUECIMIENTO: Usar los mapas poblados para enriquecer conversaciones
+      // ============================================
+      // Ahora que los mapas están correctamente poblados, podemos enriquecer
+      // las conversaciones con los datos de coordinación y ejecutivo asignado.
+      
       // Adaptar conversaciones de uchat
       const uchatConversations: any[] = uchatConversationsRaw.map(conv => {
         const prospectoData = conv.prospect_id ? prospectosDataMap.get(conv.prospect_id) : null;
@@ -2035,16 +2071,39 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                           })()
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {conv.customer_name || conv.customer_phone || 'Sin nombre'}
-                            </p>
-                            {user?.id && conv.metadata?.ejecutivo_id && (
-                              <BackupBadgeWrapper
-                                currentUserId={user.id}
-                                prospectoEjecutivoId={conv.metadata.ejecutivo_id}
-                                variant="compact"
-                              />
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {conv.customer_name || conv.customer_phone || 'Sin nombre'}
+                              </p>
+                              {user?.id && conv.metadata?.ejecutivo_id && (
+                                <BackupBadgeWrapper
+                                  currentUserId={user.id}
+                                  prospectoEjecutivoId={conv.metadata.ejecutivo_id}
+                                  variant="compact"
+                                />
+                              )}
+                            </div>
+                            {/* Etiquetas de Coordinación y Ejecutivo - A la derecha del nombre */}
+                            {(conv.metadata?.coordinacion_codigo || conv.metadata?.ejecutivo_nombre) && (
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {conv.metadata?.coordinacion_codigo && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 whitespace-nowrap">
+                                    {conv.metadata.coordinacion_codigo}
+                                  </span>
+                                )}
+                                {conv.metadata?.ejecutivo_nombre && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 whitespace-nowrap">
+                                    {(() => {
+                                      const nombre = conv.metadata.ejecutivo_nombre || '';
+                                      const partes = nombre.trim().split(/\s+/);
+                                      const primerNombre = partes[0] || '';
+                                      const primerApellido = partes[1] || '';
+                                      return primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
+                                    })()}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                         {conv.last_message_at && (
@@ -2056,21 +2115,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             {conv.message_count} mensajes
                           </p>
-                        )}
-                        {/* Información de asignación - Mostrar según rol */}
-                        {(user?.role_name === 'admin' || user?.role_name === 'coordinador') && (
-                          <div className="mt-1.5">
-                            <AssignmentBadge
-                              call={{
-                                coordinacion_codigo: conv.metadata?.coordinacion_codigo,
-                                coordinacion_nombre: conv.metadata?.coordinacion_nombre,
-                                ejecutivo_id: conv.metadata?.ejecutivo_id,
-                                ejecutivo_nombre: conv.metadata?.ejecutivo_nombre,
-                                ejecutivo_email: conv.metadata?.ejecutivo_email
-                              } as any}
-                              variant="compact"
-                            />
-                          </div>
                         )}
                         </div>
                       </div>

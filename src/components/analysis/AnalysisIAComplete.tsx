@@ -35,6 +35,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { AssignmentBadge } from './AssignmentBadge';
+import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { coordinacionService } from '../../services/coordinacionService';
 
 // Sidebar del Prospecto - VERSIÓN COMPLETA como en ProspectosManager
@@ -388,81 +389,20 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
               </motion.div>
               
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Etapa Destacada y Asignación */}
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
-                  className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-800"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <div>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
-                          <h3 className={`text-xl font-bold text-gray-900 dark:text-white`}>
-                            {prospecto.etapa || 'Sin etapa'}
-                          </h3>
-                        </div>
-                        {/* Separador visual */}
-                        {(coordinacionInfo || ejecutivoInfo || prospecto.asesor_asignado) && (
-                          <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block"></div>
-                        )}
-                        {/* Asignación */}
-                        {(coordinacionInfo || ejecutivoInfo || prospecto.asesor_asignado) && (
-                          <div>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Asignación</p>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {coordinacionInfo?.codigo && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                                  <Users size={10} />
-                                  {coordinacionInfo.codigo}
-                                </span>
-                              )}
-                              {(ejecutivoInfo?.full_name || prospecto.asesor_asignado) && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                                  <User size={10} />
-                                  {(() => {
-                                    const nombre = ejecutivoInfo?.full_name || prospecto.asesor_asignado || '';
-                                    const partes = nombre.trim().split(/\s+/);
-                                    const primerNombre = partes[0] || '';
-                                    const primerApellido = partes[1] || '';
-                                    return primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
-                                  })()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      {prospecto.score && (
-                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                          <Star className="text-yellow-500 dark:text-yellow-400" size={16} />
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            {prospecto.score}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {prospecto.requiere_atencion_humana && (
-                      <div className="bg-orange-50 dark:bg-orange-900/20 px-4 py-3 rounded-lg border border-orange-200 dark:border-orange-800 w-full">
-                        <div className="flex items-start gap-2">
-                          <AlertTriangle className="text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" size={16} />
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-semibold text-orange-700 dark:text-orange-300 block mb-1">
-                              Requiere atención
-                            </span>
-                            {prospecto.motivo_handoff && (
-                              <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed break-words">
-                                {prospecto.motivo_handoff}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
+                {/* Etapa Destacada y Asignación - Componente Centralizado */}
+                <ProspectoEtapaAsignacion 
+                  prospecto={{
+                    etapa: prospecto.etapa,
+                    score: prospecto.score,
+                    coordinacion_codigo: coordinacionInfo?.codigo,
+                    coordinacion_nombre: coordinacionInfo?.nombre,
+                    ejecutivo_nombre: ejecutivoInfo?.full_name || ejecutivoInfo?.nombre_completo || ejecutivoInfo?.nombre,
+                    asesor_asignado: prospecto.asesor_asignado,
+                    ejecutivo_email: ejecutivoInfo?.email,
+                    requiere_atencion_humana: prospecto.requiere_atencion_humana,
+                    motivo_handoff: prospecto.motivo_handoff
+                  }} 
+                />
 
                 {/* Información Personal y Contacto */}
                 <motion.div 
@@ -565,29 +505,6 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                   </div>
                 </motion.div>
 
-                {/* Información de Asignación */}
-                {(coordinacionInfo || ejecutivoInfo || prospecto.coordinacion_id || prospecto.ejecutivo_id) && (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.35, ease: "easeOut" }}
-                    className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 space-y-3 border border-purple-200 dark:border-purple-800"
-                  >
-                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      <Users size={18} className="text-purple-600 dark:text-purple-400" />
-                      Asignación
-                    </h3>
-                    <AssignmentBadge
-                      call={{
-                        coordinacion_codigo: coordinacionInfo?.codigo,
-                        coordinacion_nombre: coordinacionInfo?.nombre,
-                        ejecutivo_nombre: ejecutivoInfo?.nombre_completo || ejecutivoInfo?.nombre,
-                        ejecutivo_email: ejecutivoInfo?.email
-                      } as any}
-                      variant="inline"
-                    />
-                  </motion.div>
-                )}
 
                 {/* Información de Viaje (si aplica) */}
                 {(prospecto.destino_preferencia || prospecto.tamano_grupo || prospecto.cantidad_menores || prospecto.viaja_con) && (
@@ -1776,7 +1693,41 @@ const AnalysisIAComplete: React.FC = () => {
         return;
       }
 
-      setSelectedProspecto(data);
+      // Enriquecer con datos de coordinación y ejecutivo
+      let coordinacionInfo: { codigo?: string; nombre?: string } | null = null;
+      let ejecutivoInfo: { full_name?: string; nombre_completo?: string; nombre?: string; email?: string } | null = null;
+
+      if (data.coordinacion_id) {
+        try {
+          coordinacionInfo = await coordinacionService.getCoordinacionById(data.coordinacion_id);
+        } catch (err) {
+          console.warn('Error obteniendo coordinación:', err);
+        }
+      }
+
+      // Obtener ejecutivo
+      let ejecutivoNombre: string | undefined = undefined;
+      if (data.asesor_asignado && typeof data.asesor_asignado === 'string' && data.asesor_asignado.trim() !== '') {
+        ejecutivoNombre = data.asesor_asignado.trim();
+      } else if (data.ejecutivo_id) {
+        try {
+          ejecutivoInfo = await coordinacionService.getEjecutivoById(data.ejecutivo_id);
+          if (ejecutivoInfo) {
+            ejecutivoNombre = ejecutivoInfo.full_name || ejecutivoInfo.nombre_completo || ejecutivoInfo.nombre;
+          }
+        } catch (err) {
+          console.warn('Error obteniendo ejecutivo:', err);
+        }
+      }
+
+      // Establecer prospecto enriquecido
+      setSelectedProspecto({
+        ...data,
+        coordinacion_codigo: coordinacionInfo?.codigo,
+        coordinacion_nombre: coordinacionInfo?.nombre,
+        ejecutivo_nombre: ejecutivoNombre,
+        ejecutivo_email: ejecutivoInfo?.email
+      });
       setShowProspectoSidebar(true);
     } catch (error) {
       console.error('❌ Error loading prospecto:', error);

@@ -517,23 +517,34 @@ const ConversationItem = React.memo<ConversationItemProps>(({
           <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{conversation.customer_phone}</p>
           <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{conversation.metadata?.etapa}</p>
           
-          {(userRole === 'admin' || userRole === 'coordinador') && (
-            <div className="mb-2">
-              <AssignmentBadge
-                call={{
-                  coordinacion_codigo: conversation.metadata?.coordinacion_codigo,
-                  coordinacion_nombre: conversation.metadata?.coordinacion_nombre,
-                  ejecutivo_id: conversation.metadata?.ejecutivo_id,
-                  ejecutivo_nombre: conversation.metadata?.ejecutivo_nombre,
-                  ejecutivo_email: conversation.metadata?.ejecutivo_email
-                } as any}
-                variant="compact"
-              />
-            </div>
-          )}
-          
           <div className="flex items-center justify-between text-xs text-slate-400 dark:text-gray-500">
-            <span>{Number(conversation.message_count ?? 0)} mensajes</span>
+            <div className="flex items-center gap-2">
+              <span>{Number(conversation.message_count ?? 0)} msj</span>
+              {/* Etiquetas de Coordinación y Ejecutivo - A la derecha del contador de mensajes */}
+              {(conversation.metadata?.coordinacion_codigo || conversation.metadata?.ejecutivo_nombre) && (
+                <>
+                  <span>•</span>
+                  <div className="flex items-center gap-1">
+                    {conversation.metadata?.coordinacion_codigo && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                        {conversation.metadata.coordinacion_codigo}
+                      </span>
+                    )}
+                    {conversation.metadata?.ejecutivo_nombre && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                        {(() => {
+                          const nombre = conversation.metadata.ejecutivo_nombre || '';
+                          const partes = nombre.trim().split(/\s+/);
+                          const primerNombre = partes[0] || '';
+                          const primerApellido = partes[1] || '';
+                          return primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
+                        })()}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
             <span>{formatTimeAgo(conversation.last_message_at || conversation.updated_at)}</span>
           </div>
         </div>
@@ -2527,7 +2538,22 @@ const LiveChatCanvas: React.FC = () => {
           .catch(() => ({ data: null, error: null }))
       ]);
 
-      // OPTIMIZACIÓN: Recolectar IDs únicos para consultas batch
+      // ============================================
+      // OPTIMIZACIÓN CRÍTICA: Carga en dos pasos para enriquecimiento de datos
+      // ============================================
+      // PROBLEMA ORIGINAL:
+      // Los IDs de coordinaciones y ejecutivos se recolectaban dentro del Promise.all()
+      // pero los otros Promises se ejecutaban en paralelo antes de que se completaran
+      // las modificaciones a los Sets, dejándolos vacíos cuando se pasaban a las funciones.
+      //
+      // SOLUCIÓN:
+      // Dividir la carga en dos pasos secuenciales:
+      // 1. Primero cargar prospectos y recolectar coordinacion_ids y ejecutivo_ids
+      // 2. Luego cargar coordinaciones y ejecutivos en batch con esos IDs
+      // Esto asegura que los mapas estén correctamente poblados antes de enriquecer.
+      // ============================================
+
+      // Recolectar IDs únicos para consultas batch
       const coordinacionIds = new Set<string>();
       const ejecutivoIds = new Set<string>();
       const prospectoIds = new Set<string>();
@@ -2546,58 +2572,66 @@ const LiveChatCanvas: React.FC = () => {
         if (c.prospecto_id) prospectoIds.add(c.prospecto_id);
       });
 
-      // OPTIMIZACIÓN: Cargar datos de asignación en batch
-      const [prospectosData, coordinacionesMap, ejecutivosMap] = await Promise.all([
-        // Batch 1: Obtener todos los prospectos necesarios
-        prospectoIds.size > 0
-          ? analysisSupabase
-              .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa')
-              .in('id', Array.from(prospectoIds))
-              .then(({ data }) => {
-                const map = new Map<string, { 
-                  coordinacion_id?: string; 
-                  ejecutivo_id?: string;
-                  id_dynamics?: string | null;
-                  nombre_completo?: string | null;
-                  nombre_whatsapp?: string | null;
-                  titulo?: string | null;
-                  email?: string | null;
-                  whatsapp?: string | null;
-                  requiere_atencion_humana?: boolean;
-                  motivo_handoff?: string | null;
-                  etapa?: string | null;
-                }>();
-                (data || []).forEach(p => {
-                  map.set(p.id, { 
-                    coordinacion_id: p.coordinacion_id, 
-                    ejecutivo_id: p.ejecutivo_id,
-                    id_dynamics: p.id_dynamics,
-                    nombre_completo: p.nombre_completo,
-                    nombre_whatsapp: p.nombre_whatsapp,
-                    titulo: p.titulo || null,
-                    email: p.email,
-                    whatsapp: p.whatsapp,
-                    requiere_atencion_humana: p.requiere_atencion_humana || false,
-                    motivo_handoff: p.motivo_handoff || null,
-                    etapa: p.etapa || null,
-                  });
-                  if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
-                  if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
+      // ============================================
+      // PASO 1: Cargar prospectos primero para recolectar coordinacion_ids y ejecutivo_ids
+      // ============================================
+      // Este paso es crítico porque necesitamos los IDs de coordinaciones y ejecutivos
+      // que están almacenados en los prospectos antes de poder cargar sus datos completos.
+      const prospectosData = prospectoIds.size > 0
+        ? await analysisSupabase
+            .from('prospectos')
+            .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa')
+            .in('id', Array.from(prospectoIds))
+            .then(({ data }) => {
+              const map = new Map<string, { 
+                coordinacion_id?: string; 
+                ejecutivo_id?: string;
+                id_dynamics?: string | null;
+                nombre_completo?: string | null;
+                nombre_whatsapp?: string | null;
+                titulo?: string | null;
+                email?: string | null;
+                whatsapp?: string | null;
+                requiere_atencion_humana?: boolean;
+                motivo_handoff?: string | null;
+                etapa?: string | null;
+              }>();
+              (data || []).forEach(p => {
+                map.set(p.id, { 
+                  coordinacion_id: p.coordinacion_id, 
+                  ejecutivo_id: p.ejecutivo_id,
+                  id_dynamics: p.id_dynamics,
+                  nombre_completo: p.nombre_completo,
+                  nombre_whatsapp: p.nombre_whatsapp,
+                  titulo: p.titulo || null,
+                  email: p.email,
+                  whatsapp: p.whatsapp,
+                  requiere_atencion_humana: p.requiere_atencion_humana || false,
+                  motivo_handoff: p.motivo_handoff || null,
+                  etapa: p.etapa || null,
                 });
-                // Guardar en ref para acceso desde handlers
-                prospectosDataRef.current = map;
-                // Forzar actualización del filtro cuando se carguen los prospectos
-                setProspectosDataVersion(prev => prev + 1);
-                return map;
-              })
-              .catch(() => new Map())
-          : Promise.resolve(new Map()),
-        // Batch 2: Obtener todas las coordinaciones necesarias
+                if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
+                if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
+              });
+              // Guardar en ref para acceso desde handlers
+              prospectosDataRef.current = map;
+              // Forzar actualización del filtro cuando se carguen los prospectos
+              setProspectosDataVersion(prev => prev + 1);
+              return map;
+            })
+            .catch(() => new Map())
+        : new Map();
+
+      // ============================================
+      // PASO 2: Cargar coordinaciones y ejecutivos en batch (ahora que tenemos los IDs)
+      // ============================================
+      // En este punto, los Sets coordinacionIds y ejecutivoIds ya están poblados
+      // con todos los IDs únicos recolectados del paso anterior.
+      // Ahora podemos cargar los datos completos en paralelo de forma eficiente.
+      const [coordinacionesMap, ejecutivosMap] = await Promise.all([
         coordinacionIds.size > 0
           ? coordinacionService.getCoordinacionesByIds(Array.from(coordinacionIds))
           : Promise.resolve(new Map()),
-        // Batch 3: Obtener todos los ejecutivos necesarios
         ejecutivoIds.size > 0
           ? coordinacionService.getEjecutivosByIds(Array.from(ejecutivoIds))
           : Promise.resolve(new Map())

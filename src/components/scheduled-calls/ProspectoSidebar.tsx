@@ -7,7 +7,7 @@ import {
   Clock, CheckCircle, XCircle, PhoneMissed,
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
-import { AssignmentBadge } from '../analysis/AssignmentBadge';
+import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
@@ -353,55 +353,8 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  {/* Estado, Prioridad y Asignación */}
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.2, ease: "easeOut" }}
-                    className="flex items-center gap-3 flex-wrap"
-                  >
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(prospecto.etapa || '')}`}>
-                      {prospecto.etapa || 'Sin etapa'}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Star className={getScoreColor(prospecto.score || '')} size={16} />
-                      <span className={`text-sm font-medium ${getScoreColor(prospecto.score || '').replace('bg-', 'text-').replace('-100', '-600').replace('-900/20', '-400')}`}>
-                        {prospecto.score || 'Sin score'}
-                      </span>
-                    </div>
-                    {/* Separador visual */}
-                    {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
-                      <div className="h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
-                    )}
-                    {/* Coordinación */}
-                    {prospecto.coordinacion_codigo && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                        <Users size={12} />
-                        {prospecto.coordinacion_codigo}
-                      </div>
-                    )}
-                    {/* Ejecutivo Asignado */}
-                    {(prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                        <User size={12} />
-                        {(() => {
-                          const nombre = prospecto.ejecutivo_nombre || prospecto.asesor_asignado || '';
-                          const partes = nombre.trim().split(/\s+/);
-                          const primerNombre = partes[0] || '';
-                          const primerApellido = partes[1] || '';
-                          return primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
-                        })()}
-                      </div>
-                    )}
-                    {prospecto.requiere_atencion_humana && (
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="text-orange-600 dark:text-orange-400" size={16} />
-                        <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
-                          Requiere atención humana
-                        </span>
-                      </div>
-                    )}
-                  </motion.div>
+                  {/* Etapa y Asignación - Componente Centralizado */}
+                  <ProspectoEtapaAsignacion prospecto={prospecto} />
 
                   {/* Información Personal y Contacto */}
                   <motion.div 
@@ -469,29 +422,6 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                     </div>
                   </motion.div>
 
-                  {/* Información de Asignación */}
-                  {(prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado) && (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3, delay: 0.35, ease: "easeOut" }}
-                      className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 space-y-3 border border-purple-200 dark:border-purple-800"
-                    >
-                      <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Users size={18} className="text-purple-600 dark:text-purple-400" />
-                        Asignación
-                      </h3>
-                      <AssignmentBadge
-                        call={{
-                          coordinacion_codigo: prospecto.coordinacion_codigo,
-                          coordinacion_nombre: prospecto.coordinacion_nombre,
-                          ejecutivo_nombre: prospecto.ejecutivo_nombre || prospecto.asesor_asignado,
-                          ejecutivo_email: prospecto.ejecutivo_email
-                        } as any}
-                        variant="inline"
-                      />
-                    </motion.div>
-                  )}
 
                   {/* Información Comercial */}
                   <motion.div 

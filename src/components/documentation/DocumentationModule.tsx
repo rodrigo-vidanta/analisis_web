@@ -250,6 +250,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'TBD', date: '2025-12-17', author: 'Team', message: 'v2.1.29: Corrección crítica de carga de datos y etiquetas de coordinación/ejecutivo', isRelease: true },
   { hash: '2612da1', date: '2025-12-17', author: 'Team', message: 'feat: unificar diseño de etapa y asignación en todos los sidebars de prospectos', isRelease: false },
   { hash: '21e5436', date: '2025-12-16', author: 'Team', message: 'v2.1.28: Optimizacion de rendimiento - Cache de permisos y eliminacion de llamadas redundantes', isRelease: true },
   { hash: '8487c9a', date: '2025-12-16', author: 'Team', message: 'v2.1.27: Columna Coordinacion y mejoras de asignacion en DataGrid y Sidebars', isRelease: true },
@@ -312,10 +313,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.28', highlight: true },
-  { label: 'Release', value: 'B6.0.5N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.29', highlight: true },
+  { label: 'Release', value: 'B6.0.6N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '16 Dic 2025', highlight: false },
+  { label: 'Ultima actualizacion', value: '17 Dic 2025', highlight: false },
 ];
 
 // ============================================
