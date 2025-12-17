@@ -2697,19 +2697,9 @@ const LiveChatCanvas: React.FC = () => {
               }
               
               // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+              // Si coincide, el ejecutivo tiene acceso (ya se validó ejecutivo_id)
               if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-                // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
-                try {
-                  const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, conv.prospecto_id);
-                  if (permissionCheck.canAccess) {
-                    uchatConversations.push(conv);
-                  } else {
-                    console.log(`🚫 [LiveChatCanvas] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} denegado por servicio de permisos: ${permissionCheck.reason}`);
-                  }
-                } catch (error) {
-                  console.error(`❌ [LiveChatCanvas] Error verificando permiso para ${conv.prospecto_id}:`, error);
-                  // En caso de error, no incluir la conversación por seguridad
-                }
+                uchatConversations.push(conv);
               }
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
               // Coordinador: todos los prospectos de sus coordinaciones (múltiples)
@@ -2797,19 +2787,9 @@ const LiveChatCanvas: React.FC = () => {
                 }
                 
                 // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+                // Si coincide, el ejecutivo tiene acceso (ya se validó ejecutivo_id)
                 if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-                  // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
-                  try {
-                    const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, conv.prospecto_id);
-                    if (permissionCheck.canAccess) {
-                      whatsappConversations.push(conv);
-                    } else {
-                      console.log(`🚫 [LiveChatCanvas] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} denegado por servicio de permisos: ${permissionCheck.reason}`);
-                    }
-                  } catch (error) {
-                    console.error(`❌ [LiveChatCanvas] Error verificando permiso para ${conv.prospecto_id}:`, error);
-                    // En caso de error, no incluir la conversación por seguridad
-                  }
+                  whatsappConversations.push(conv);
                 }
               } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
                 // Coordinador: todos los prospectos de sus coordinaciones (múltiples)

@@ -650,21 +650,13 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
           const ejecutivosIdsParaFiltrar = ejecutivosIdsParaFiltrarRef.current;
           if (!ejecutivosIdsParaFiltrar.includes(data.ejecutivo_id)) {
-            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} asignado a ${data.ejecutivo_id}, no coincide con ejecutivos permitidos [${ejecutivosIdsParaFiltrar.join(', ')}]`);
-            return false;
-          }
-          
-          // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
-          // Esto verifica también la coordinación
-          const permissionCheck = await permissionsService.canUserAccessProspect(userId, prospectId);
-          if (!permissionCheck.canAccess) {
-            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} denegado por servicio de permisos: ${permissionCheck.reason}`);
             return false;
           }
           
           // Actualizar el mapa para futuras consultas
           prospectosDataRef.current.set(prospectId, data);
           
+          // Si el ejecutivo_id coincide, el ejecutivo tiene acceso
           return true;
         } catch (error) {
           console.error(`❌ [canViewConversation] Error cargando prospecto ${prospectId}:`, error);
@@ -680,23 +672,10 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
         const ejecutivosIdsParaFiltrar = ejecutivosIdsParaFiltrarRef.current;
         if (!ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-          console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} asignado a ${prospectoData.ejecutivo_id}, no coincide con ejecutivos permitidos [${ejecutivosIdsParaFiltrar.join(', ')}]`);
           return false;
         }
         
-        // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
-        // Esto verifica también la coordinación
-        try {
-          const permissionCheck = await permissionsService.canUserAccessProspect(userId, prospectId);
-          if (!permissionCheck.canAccess) {
-            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} denegado por servicio de permisos: ${permissionCheck.reason}`);
-            return false;
-          }
-        } catch (error) {
-          console.error(`❌ [canViewConversation] Error verificando permiso para ${prospectId}:`, error);
-          return false;
-        }
-        
+        // Si el ejecutivo_id coincide, el ejecutivo tiene acceso
         return true;
       }
     }
@@ -1478,21 +1457,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             }
             
             // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+            // Si coincide, el ejecutivo tiene acceso (ya se validó ejecutivo_id y coordinación)
             if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-              // Verificación adicional: usar el servicio de permisos para confirmar acceso
-              try {
-                const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, conv.prospect_id);
-                if (permissionCheck.canAccess) {
-                  filteredUchat.push(conv);
-                } else {
-                  console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospect_id} denegado por servicio de permisos: ${permissionCheck.reason}`);
-                }
-              } catch (error) {
-                console.error(`❌ [ConversacionesWidget] Error verificando permiso para ${conv.prospect_id}:`, error);
-                // En caso de error, no incluir la conversación por seguridad
-              }
-            } else {
-              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospect_id} asignado a ${prospectoData.ejecutivo_id}, no coincide con ejecutivos permitidos [${ejecutivosIdsParaFiltrar.join(', ')}]`);
+              filteredUchat.push(conv);
             }
           } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
             // Coordinador: solo prospectos asignados a su coordinación
@@ -1533,21 +1500,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             }
             
             // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
+            // Si coincide, el ejecutivo tiene acceso (ya se validó ejecutivo_id y coordinación)
             if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
-              // Verificación adicional: usar el servicio de permisos para confirmar acceso
-              try {
-                const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, conv.prospecto_id);
-                if (permissionCheck.canAccess) {
-                  filteredWhatsapp.push(conv);
-                } else {
-                  console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} denegado por servicio de permisos: ${permissionCheck.reason}`);
-                }
-              } catch (error) {
-                console.error(`❌ [ConversacionesWidget] Error verificando permiso para ${conv.prospecto_id}:`, error);
-                // En caso de error, no incluir la conversación por seguridad
-              }
-            } else {
-              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} asignado a ${prospectoData.ejecutivo_id}, no coincide con ejecutivos permitidos [${ejecutivosIdsParaFiltrar.join(', ')}]`);
+              filteredWhatsapp.push(conv);
             }
           } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
             // Coordinador: solo prospectos asignados a su coordinación

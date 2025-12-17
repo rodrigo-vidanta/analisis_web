@@ -250,6 +250,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2025-12-16', author: 'Team', message: 'v2.1.28: Optimizacion de rendimiento - Cache de permisos y eliminacion de llamadas redundantes', isRelease: true },
   { hash: '8487c9a', date: '2025-12-16', author: 'Team', message: 'v2.1.27: Columna Coordinacion y mejoras de asignacion en DataGrid y Sidebars', isRelease: true },
   { hash: '42a4996', date: '2025-12-15', author: 'Team', message: 'fix: mostrar version release en stats de documentacion', isRelease: false },
   { hash: 'e46391e', date: '2025-12-15', author: 'Team', message: 'fix: actualizar version en Footer y agregar paso en rule', isRelease: false },
@@ -308,8 +309,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.27', highlight: true },
-  { label: 'Release', value: 'B6.0.4N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.28', highlight: true },
+  { label: 'Release', value: 'B6.0.5N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '16 Dic 2025', highlight: false },
 ];

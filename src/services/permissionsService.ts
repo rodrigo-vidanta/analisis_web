@@ -48,7 +48,100 @@ export interface PermissionCheck {
 // SERVICIO PRINCIPAL
 // ============================================
 
+// Interface para cache con TTL
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
 class PermissionsService {
+  
+  // ============================================
+  // SISTEMA DE CACHÉ
+  // ============================================
+  
+  // TTL del caché en milisegundos (30 segundos)
+  private readonly CACHE_TTL = 30 * 1000;
+  
+  // Cachés para diferentes datos
+  private permissionsCache = new Map<string, CacheEntry<UserPermissions | null>>();
+  private coordinacionesCache = new Map<string, CacheEntry<string[] | null>>();
+  private ejecutivoCache = new Map<string, CacheEntry<string | null>>();
+  private calidadCache = new Map<string, CacheEntry<boolean>>();
+  private accessProspectCache = new Map<string, CacheEntry<PermissionCheck>>();
+  
+  /**
+   * Verifica si una entrada de caché es válida (no ha expirado)
+   */
+  private isCacheValid<T>(entry: CacheEntry<T> | undefined): boolean {
+    if (!entry) return false;
+    return Date.now() - entry.timestamp < this.CACHE_TTL;
+  }
+  
+  /**
+   * Limpia cachés expirados periódicamente
+   */
+  private cleanExpiredCache(): void {
+    const now = Date.now();
+    
+    for (const [key, entry] of this.permissionsCache.entries()) {
+      if (now - entry.timestamp >= this.CACHE_TTL) {
+        this.permissionsCache.delete(key);
+      }
+    }
+    
+    for (const [key, entry] of this.coordinacionesCache.entries()) {
+      if (now - entry.timestamp >= this.CACHE_TTL) {
+        this.coordinacionesCache.delete(key);
+      }
+    }
+    
+    for (const [key, entry] of this.ejecutivoCache.entries()) {
+      if (now - entry.timestamp >= this.CACHE_TTL) {
+        this.ejecutivoCache.delete(key);
+      }
+    }
+    
+    for (const [key, entry] of this.calidadCache.entries()) {
+      if (now - entry.timestamp >= this.CACHE_TTL) {
+        this.calidadCache.delete(key);
+      }
+    }
+    
+    for (const [key, entry] of this.accessProspectCache.entries()) {
+      if (now - entry.timestamp >= this.CACHE_TTL) {
+        this.accessProspectCache.delete(key);
+      }
+    }
+  }
+  
+  /**
+   * Invalida todo el caché de un usuario específico
+   */
+  invalidateUserCache(userId: string): void {
+    this.permissionsCache.delete(userId);
+    this.coordinacionesCache.delete(userId);
+    this.ejecutivoCache.delete(userId);
+    this.calidadCache.delete(userId);
+    
+    // Limpiar caché de acceso a prospectos para este usuario
+    for (const key of this.accessProspectCache.keys()) {
+      if (key.startsWith(userId + ':')) {
+        this.accessProspectCache.delete(key);
+      }
+    }
+  }
+  
+  /**
+   * Invalida todo el caché
+   */
+  invalidateAllCache(): void {
+    this.permissionsCache.clear();
+    this.coordinacionesCache.clear();
+    this.ejecutivoCache.clear();
+    this.calidadCache.clear();
+    this.accessProspectCache.clear();
+  }
   
   // ============================================
   // OBTENER PERMISOS DEL USUARIO
@@ -56,15 +149,30 @@ class PermissionsService {
 
   /**
    * Obtiene todos los permisos de un usuario según su rol y coordinación
+   * Utiliza caché para evitar llamadas repetidas a la base de datos
    */
   async getUserPermissions(userId: string): Promise<UserPermissions | null> {
+    // Verificar caché primero
+    const cached = this.permissionsCache.get(userId);
+    if (this.isCacheValid(cached)) {
+      return cached!.data;
+    }
+    
     try {
       const { data, error } = await supabaseSystemUI.rpc('get_user_permissions', {
         p_user_id: userId,
       });
 
       if (error) throw error;
-      return data as UserPermissions;
+      
+      // Guardar en caché
+      const result = data as UserPermissions;
+      this.permissionsCache.set(userId, { data: result, timestamp: Date.now() });
+      
+      // Limpiar cachés expirados cada cierto tiempo
+      if (Math.random() < 0.1) this.cleanExpiredCache();
+      
+      return result;
     } catch (error) {
       console.error('Error obteniendo permisos del usuario:', error);
       return null;
@@ -79,20 +187,29 @@ class PermissionsService {
    * Verifica si un usuario puede acceder a un prospecto específico
    * Verifica tanto en prospect_assignments como directamente en prospectos
    * Nota: Coordinadores de Calidad tienen acceso a todos los prospectos
+   * Utiliza caché para evitar llamadas repetidas
    */
   async canUserAccessProspect(
     userId: string,
     prospectId: string
   ): Promise<PermissionCheck> {
+    // Verificar caché primero
+    const cacheKey = `${userId}:${prospectId}`;
+    const cached = this.accessProspectCache.get(cacheKey);
+    if (this.isCacheValid(cached)) {
+      return cached!.data;
+    }
+    
     try {
       // Verificar primero si es coordinador de Calidad (tiene acceso completo)
       const isCalidad = await this.isCoordinadorCalidad(userId);
       if (isCalidad) {
-        console.log(`✅ [canUserAccessProspect] Coordinador de CALIDAD ${userId} - acceso permitido a prospecto ${prospectId}`);
-        return {
+        const result = {
           canAccess: true,
           reason: 'Coordinador de Calidad - acceso completo',
         };
+        this.accessProspectCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
       }
 
       // Primero intentar con la función RPC (busca en prospect_assignments de system_ui)
@@ -374,18 +491,33 @@ class PermissionsService {
    * Obtiene todas las coordinaciones de un coordinador
    * Retorna un array de coordinacion_id si es coordinador, null si es admin, o array con una coordinación si es ejecutivo
    * Coordinadores de Calidad retornan null (pueden ver todo)
+   * Utiliza caché para evitar llamadas repetidas
    */
   async getCoordinacionesFilter(userId: string): Promise<string[] | null> {
+    // Verificar caché primero
+    const cached = this.coordinacionesCache.get(userId);
+    if (this.isCacheValid(cached)) {
+      return cached!.data;
+    }
+    
     try {
       const permissions = await this.getUserPermissions(userId);
-      if (!permissions) return null;
+      if (!permissions) {
+        this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
+        return null;
+      }
 
       // Admin y Administrador Operativo no tienen filtro (pueden ver todo)
-      if (permissions.role === 'admin' || permissions.role === 'administrador_operativo') return null;
+      if (permissions.role === 'admin' || permissions.role === 'administrador_operativo') {
+        this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
+        return null;
+      }
 
       // Ejecutivo: retornar su coordinación única
       if (permissions.role === 'ejecutivo') {
-        return permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+        const result = permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+        this.coordinacionesCache.set(userId, { data: result, timestamp: Date.now() });
+        return result;
       }
 
       // Coordinador: verificar si es de Calidad primero
@@ -393,7 +525,7 @@ class PermissionsService {
         // Coordinadores de Calidad no tienen filtro (pueden ver todo)
         const isCalidad = await this.isCoordinadorCalidad(userId);
         if (isCalidad) {
-          console.log(`✅ [permissionsService] Coordinador de CALIDAD ${userId} - sin filtro de coordinación`);
+          this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
           return null;
         }
 
@@ -406,17 +538,23 @@ class PermissionsService {
         if (error) {
           console.error('Error obteniendo coordinaciones del coordinador:', error);
           // Fallback: usar coordinacion_id del permiso si existe
-          return permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+          const result = permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+          this.coordinacionesCache.set(userId, { data: result, timestamp: Date.now() });
+          return result;
         }
 
         if (data && data.length > 0) {
-          return data.map(row => row.coordinacion_id);
+          const result = data.map(row => row.coordinacion_id);
+          this.coordinacionesCache.set(userId, { data: result, timestamp: Date.now() });
+          return result;
         }
 
         // Si no tiene coordinaciones asignadas, retornar null (no debería ver nada)
+        this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
         return null;
       }
 
+      this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
       return null;
     } catch (error) {
       console.error('Error obteniendo filtro de coordinaciones:', error);
@@ -427,17 +565,29 @@ class PermissionsService {
   /**
    * Obtiene el filtro de ejecutivo para un usuario
    * Retorna el user_id si es ejecutivo, null si es coordinador o admin
+   * Utiliza caché para evitar llamadas repetidas
    */
   async getEjecutivoFilter(userId: string): Promise<string | null> {
+    // Verificar caché primero
+    const cached = this.ejecutivoCache.get(userId);
+    if (this.isCacheValid(cached)) {
+      return cached!.data;
+    }
+    
     try {
       const permissions = await this.getUserPermissions(userId);
-      if (!permissions) return null;
+      if (!permissions) {
+        this.ejecutivoCache.set(userId, { data: null, timestamp: Date.now() });
+        return null;
+      }
 
       // Solo ejecutivos tienen filtro por ejecutivo
       if (permissions.role === 'ejecutivo') {
+        this.ejecutivoCache.set(userId, { data: userId, timestamp: Date.now() });
         return userId;
       }
 
+      this.ejecutivoCache.set(userId, { data: null, timestamp: Date.now() });
       return null;
     } catch (error) {
       console.error('Error obteniendo filtro de ejecutivo:', error);
@@ -489,14 +639,27 @@ class PermissionsService {
    * Verifica si un usuario es coordinador de la coordinación de Calidad
    * Los coordinadores de Calidad tienen acceso completo a todos los prospectos
    * de todas las coordinaciones (igual que los administradores)
+   * Utiliza caché para evitar llamadas repetidas
    */
   async isCoordinadorCalidad(userId: string): Promise<boolean> {
+    // Verificar caché primero
+    const cached = this.calidadCache.get(userId);
+    if (this.isCacheValid(cached)) {
+      return cached!.data;
+    }
+    
     try {
       const permissions = await this.getUserPermissions(userId);
-      if (!permissions) return false;
+      if (!permissions) {
+        this.calidadCache.set(userId, { data: false, timestamp: Date.now() });
+        return false;
+      }
 
       // Solo aplica a coordinadores
-      if (permissions.role !== 'coordinador') return false;
+      if (permissions.role !== 'coordinador') {
+        this.calidadCache.set(userId, { data: false, timestamp: Date.now() });
+        return false;
+      }
 
       // Obtener todas las coordinaciones del coordinador
       const { data, error } = await supabaseSystemUIAdmin
@@ -511,6 +674,7 @@ class PermissionsService {
 
       if (error) {
         console.error('Error verificando si es coordinador de calidad:', error);
+        this.calidadCache.set(userId, { data: false, timestamp: Date.now() });
         return false;
       }
 
@@ -522,9 +686,8 @@ class PermissionsService {
         return coordinacion?.codigo?.toUpperCase() === COORDINACION_CALIDAD_CODIGO;
       });
 
-      if (isCalidad) {
-        console.log(`✅ [permissionsService] Usuario ${userId} es coordinador de CALIDAD - acceso completo habilitado`);
-      }
+      // Guardar en caché
+      this.calidadCache.set(userId, { data: isCalidad, timestamp: Date.now() });
 
       return isCalidad;
     } catch (error) {
