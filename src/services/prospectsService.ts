@@ -498,7 +498,15 @@ class ProspectsService {
           
           // Aplicar los mismos filtros que se aplicaron antes
           if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
-            fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
+            // Para ejecutivos, también necesitamos filtrar por coordinación
+            const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId!);
+            if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              fallbackQuery = fallbackQuery
+                .in('ejecutivo_id', ejecutivosIdsParaFiltro)
+                .in('coordinacion_id', coordinacionesFilter);
+            } else {
+              fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
+            }
           } else if (coordinacionesIdsParaFiltro && coordinacionesIdsParaFiltro.length > 0) {
             fallbackQuery = fallbackQuery.in('coordinacion_id', coordinacionesIdsParaFiltro);
           }
@@ -516,9 +524,17 @@ class ProspectsService {
         
         // Aplicar los mismos filtros que se aplicaron antes
         if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
-          fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
-        } else if (coordinacionIdParaFiltro) {
-          fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionIdParaFiltro);
+          // Para ejecutivos, también necesitamos filtrar por coordinación
+          const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId!);
+          if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+            fallbackQuery = fallbackQuery
+              .in('ejecutivo_id', ejecutivosIdsParaFiltro)
+              .in('coordinacion_id', coordinacionesFilter);
+          } else {
+            fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
+          }
+        } else if (coordinacionesIdsParaFiltro && coordinacionesIdsParaFiltro.length > 0) {
+          fallbackQuery = fallbackQuery.in('coordinacion_id', coordinacionesIdsParaFiltro);
         }
         
         query = fallbackQuery

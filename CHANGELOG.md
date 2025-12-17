@@ -2,6 +2,50 @@
 
 ## Historial de Versiones
 
+### v2.1.31 (2025-12-17)
+**Descripción**: B6.0.8N6.0.0: Corrección adicional de filtros - Filtro de coordinación en cliente y fallbacks
+
+---
+
+## 🎯 **RELEASE B6.0.8N6.0.0 - Corrección Adicional de Filtros**
+
+### 🐛 **Corrección: Filtro de Coordinación en Cliente y Fallbacks**
+- **Problema identificado**: Ejecutivos seguían viendo prospectos de otras coordinaciones debido a:
+  1. Fallback en `prospectsService.ts` que usaba variable no definida (`coordinacionIdParaFiltro`)
+  2. Falta de filtro adicional en el cliente después de obtener datos
+  3. Suscripciones de realtime no verificaban coordinación antes de mostrar prospectos
+
+- **Solución implementada**:
+  1. **Corregido fallback en `prospectsService.ts`**: 
+     - Reemplazado `coordinacionIdParaFiltro` por `coordinacionesIdsParaFiltro`
+     - Añadido filtro de coordinación para ejecutivos en ambos fallbacks
+     - Ejecutivos ahora filtran por `ejecutivo_id` Y `coordinacion_id` en fallbacks
+  
+  2. **Filtro adicional en cliente (`ProspectosNuevosWidget.tsx`)**:
+     - Verificación de `coordinacion_id` directamente de la tabla `prospectos` después de obtener datos
+     - Verifica que prospectos pertenezcan a la coordinación del ejecutivo/coordinador
+     - Verifica que `ejecutivo_id` coincida con el ejecutivo actual o sus backups
+  
+  3. **Suscripciones de realtime mejoradas**:
+     - Verificación de coordinación usando `coordinacion_id` directamente del payload
+     - Prospectos que no pertenecen a la coordinación correcta se excluyen antes de mostrarse
+     - Aplicado en INSERT y UPDATE de prospectos
+
+### 📋 **Uso de `coordinacion_id` Directamente de la Tabla Prospectos**
+- Las etiquetas de coordinación ahora usan `coordinacion_id` directamente de la tabla `prospectos`
+- `enrichProspecto` obtiene `coordinacion_id` del prospecto y luego busca el código en el mapa
+- Esto asegura que las etiquetas reflejen la coordinación real del prospecto
+- Aplicado en:
+  - Módulo WhatsApp (columna de conversaciones)
+  - Módulo Inicio (box de Últimas Conversaciones)
+  - Módulo Inicio (box de Prospectos Requieren Atención)
+
+### 📁 **Archivos Modificados**
+- `src/services/prospectsService.ts` - Corregido fallback y añadido filtro de coordinación para ejecutivos
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Filtro adicional en cliente y verificación en realtime
+
+---
+
 ### v2.1.30 (2025-12-17)
 **Descripción**: B6.0.7N6.0.0: Corrección crítica de filtros de visualización - Verificación de coordinación para ejecutivos
 

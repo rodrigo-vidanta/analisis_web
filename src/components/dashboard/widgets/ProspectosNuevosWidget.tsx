@@ -154,6 +154,24 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
             permissionsService.canUserAccessProspect(userId, newProspect.id)
               .then(async (permissionCheck) => {
                 if (permissionCheck.canAccess) {
+                  // CRÍTICO: Verificación adicional de coordinación usando coordinacion_id directamente de la tabla prospectos
+                  const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+                  const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+                  
+                  // Verificar que el prospecto pertenezca a la coordinación correcta
+                  if (ejecutivoFilter) {
+                    // Ejecutivo: debe tener ejecutivo_id y pertenecer a su coordinación
+                    if (!newProspect.ejecutivo_id || !newProspect.coordinacion_id || 
+                        !coordinacionesFilter || !coordinacionesFilter.includes(newProspect.coordinacion_id)) {
+                      return; // No pertenece a la coordinación del ejecutivo, excluir
+                    }
+                  } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                    // Coordinador: debe pertenecer a su coordinación
+                    if (!newProspect.coordinacion_id || !coordinacionesFilter.includes(newProspect.coordinacion_id)) {
+                      return; // No pertenece a la coordinación del coordinador, excluir
+                    }
+                  }
+                  
                   // Obtener fecha del último mensaje
                   const fechaUltimoMensaje = await getLastMessageDate(newProspect.id);
                   
@@ -207,6 +225,24 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
             permissionsService.canUserAccessProspect(userId, updatedProspect.id)
               .then(async (permissionCheck) => {
                 if (permissionCheck.canAccess) {
+                  // CRÍTICO: Verificación adicional de coordinación usando coordinacion_id directamente de la tabla prospectos
+                  const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+                  const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+                  
+                  // Verificar que el prospecto pertenezca a la coordinación correcta
+                  if (ejecutivoFilter) {
+                    // Ejecutivo: debe tener ejecutivo_id y pertenecer a su coordinación
+                    if (!updatedProspect.ejecutivo_id || !updatedProspect.coordinacion_id || 
+                        !coordinacionesFilter || !coordinacionesFilter.includes(updatedProspect.coordinacion_id)) {
+                      return; // No pertenece a la coordinación del ejecutivo, excluir
+                    }
+                  } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                    // Coordinador: debe pertenecer a su coordinación
+                    if (!updatedProspect.coordinacion_id || !coordinacionesFilter.includes(updatedProspect.coordinacion_id)) {
+                      return; // No pertenece a la coordinación del coordinador, excluir
+                    }
+                  }
+                  
                   // Obtener fecha del último mensaje
                   const fechaUltimoMensaje = await getLastMessageDate(updatedProspect.id);
                   
@@ -252,6 +288,40 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
             permissionsService.canUserAccessProspect(userId, updatedProspect.id)
               .then(async (permissionCheck) => {
                 if (permissionCheck.canAccess) {
+                  // CRÍTICO: Verificación adicional de coordinación usando coordinacion_id directamente de la tabla prospectos
+                  const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+                  const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+                  
+                  // Verificar que el prospecto pertenezca a la coordinación correcta
+                  if (ejecutivoFilter) {
+                    // Ejecutivo: debe tener ejecutivo_id y pertenecer a su coordinación
+                    if (!updatedProspect.ejecutivo_id || !updatedProspect.coordinacion_id || 
+                        !coordinacionesFilter || !coordinacionesFilter.includes(updatedProspect.coordinacion_id)) {
+                      // Ya no pertenece a la coordinación del ejecutivo, eliminar
+                      startTransition(() => {
+                        setProspectos(prev => {
+                          const filtered = prev.filter(p => p.id !== updatedProspect.id);
+                          prospectosListRef.current = filtered;
+                          return filtered;
+                        });
+                      });
+                      return;
+                    }
+                  } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                    // Coordinador: debe pertenecer a su coordinación
+                    if (!updatedProspect.coordinacion_id || !coordinacionesFilter.includes(updatedProspect.coordinacion_id)) {
+                      // Ya no pertenece a la coordinación del coordinador, eliminar
+                      startTransition(() => {
+                        setProspectos(prev => {
+                          const filtered = prev.filter(p => p.id !== updatedProspect.id);
+                          prospectosListRef.current = filtered;
+                          return filtered;
+                        });
+                      });
+                      return;
+                    }
+                  }
+                  
                   // Obtener fecha del último mensaje
                   const fechaUltimoMensaje = await getLastMessageDate(updatedProspect.id);
                   
@@ -362,7 +432,48 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
       }
       
       // Filtrar SOLO los que requieren atención humana (sin límite)
-      const requierenAtencion = data.filter(p => p.requiere_atencion_humana === true);
+      let requierenAtencion = data.filter(p => p.requiere_atencion_humana === true);
+
+      // CRÍTICO: Filtro adicional en el cliente para asegurar que solo se muestren prospectos
+      // de la coordinación correcta (usando coordinacion_id directamente de la tabla prospectos)
+      if (userId) {
+        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+        const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+        
+        if (ejecutivoFilter) {
+          // Ejecutivo: verificar coordinación y ejecutivo_id
+          // Obtener IDs de ejecutivos donde es backup
+          const { supabaseSystemUIAdmin } = await import('../../../config/supabaseSystemUI');
+          const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+            .from('auth_users')
+            .select('id')
+            .eq('backup_id', ejecutivoFilter)
+            .eq('has_backup', true);
+          
+          const ejecutivosIdsParaFiltrar = [ejecutivoFilter];
+          if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+            ejecutivosIdsParaFiltrar.push(...ejecutivosConBackup.map(e => e.id));
+          }
+          
+          requierenAtencion = requierenAtencion.filter(p => {
+            // Debe tener ejecutivo_id asignado
+            if (!p.ejecutivo_id) return false;
+            
+            // Debe pertenecer a la coordinación del ejecutivo
+            if (!p.coordinacion_id || !coordinacionesFilter || !coordinacionesFilter.includes(p.coordinacion_id)) {
+              return false;
+            }
+            
+            // El ejecutivo_id debe coincidir con el ejecutivo actual o sus backups
+            return ejecutivosIdsParaFiltrar.includes(p.ejecutivo_id);
+          });
+        } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+          // Coordinador: verificar coordinación
+          requierenAtencion = requierenAtencion.filter(p => {
+            return p.coordinacion_id && coordinacionesFilter.includes(p.coordinacion_id);
+          });
+        }
+      }
 
       if (requierenAtencion.length === 0) {
         setProspectos([]);
