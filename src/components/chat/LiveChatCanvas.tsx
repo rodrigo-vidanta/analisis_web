@@ -2726,12 +2726,18 @@ const LiveChatCanvas: React.FC = () => {
             if (ejecutivoFilter) {
               // Ejecutivo: verificar con servicio de permisos (usa prospect_assignments como fuente de verdad)
               // Validación estricta: debe tener ejecutivo_id asignado
+              // CRÍTICO: También debe pertenecer a su coordinación
               if (!prospectoData?.ejecutivo_id) {
                 continue; // Prospecto sin ejecutivo asignado, ejecutivo NO puede verlo
               }
               
+              // CRÍTICO: Verificar que pertenezca a la coordinación del ejecutivo
+              if (!prospectoData.coordinacion_id || !coordinacionesFilter || !coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
+                continue; // Prospecto no pertenece a la coordinación del ejecutivo, excluir
+              }
+              
               // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
-              // Si coincide, el ejecutivo tiene acceso (ya se validó ejecutivo_id)
+              // Si coincide y pertenece a su coordinación, el ejecutivo tiene acceso
               if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
                 uchatConversations.push(conv);
               }
@@ -2816,12 +2822,18 @@ const LiveChatCanvas: React.FC = () => {
               if (ejecutivoFilter) {
                 // Ejecutivo: verificar con servicio de permisos (usa prospect_assignments como fuente de verdad)
                 // Validación estricta: debe tener ejecutivo_id asignado
+                // CRÍTICO: También debe pertenecer a su coordinación
                 if (!prospectoData?.ejecutivo_id) {
                   continue; // Prospecto sin ejecutivo asignado, ejecutivo NO puede verlo
                 }
                 
+                // CRÍTICO: Verificar que pertenezca a la coordinación del ejecutivo
+                if (!prospectoData.coordinacion_id || !coordinacionesFilter || !coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
+                  continue; // Prospecto no pertenece a la coordinación del ejecutivo, excluir
+                }
+                
                 // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
-                // Si coincide, el ejecutivo tiene acceso (ya se validó ejecutivo_id)
+                // Si coincide y pertenece a su coordinación, el ejecutivo tiene acceso
                 if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
                   whatsappConversations.push(conv);
                 }

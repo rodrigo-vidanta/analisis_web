@@ -1479,6 +1479,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           
           if (ejecutivoFilter) {
             // Ejecutivo: SOLO prospectos con ejecutivo_id asignado (no null) que coincida con él o sus backups
+            // CRÍTICO: También debe pertenecer a su coordinación
             if (!prospectoData) {
               // Prospecto no encontrado en el mapa, excluir
               console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospect_id} no encontrado en mapa, excluyendo`);
@@ -1492,8 +1493,15 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
               continue;
             }
             
+            // CRÍTICO: Verificar que pertenezca a la coordinación del ejecutivo
+            if (!prospectoData.coordinacion_id || !coordinacionesFilter || !coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
+              // Prospecto no pertenece a la coordinación del ejecutivo, excluir
+              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospect_id} coordinacion_id ${prospectoData.coordinacion_id} no coincide con coordinaciones del ejecutivo, excluyendo`);
+              continue;
+            }
+            
             // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
-            // Si coincide, el ejecutivo tiene acceso (ya se validó ejecutivo_id y coordinación)
+            // Si coincide y pertenece a su coordinación, el ejecutivo tiene acceso
             if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
               filteredUchat.push(conv);
             }
@@ -1522,6 +1530,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           
           if (ejecutivoFilter) {
             // Ejecutivo: SOLO prospectos con ejecutivo_id asignado (no null) que coincida con él o sus backups
+            // CRÍTICO: También debe pertenecer a su coordinación
             if (!prospectoData) {
               // Prospecto no encontrado en el mapa, excluir
               console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} no encontrado en mapa, excluyendo`);
@@ -1535,8 +1544,15 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
               continue;
             }
             
+            // CRÍTICO: Verificar que pertenezca a la coordinación del ejecutivo
+            if (!prospectoData.coordinacion_id || !coordinacionesFilter || !coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
+              // Prospecto no pertenece a la coordinación del ejecutivo, excluir
+              console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${conv.prospecto_id} coordinacion_id ${prospectoData.coordinacion_id} no coincide con coordinaciones del ejecutivo, excluyendo`);
+              continue;
+            }
+            
             // Verificar que el ejecutivo_id coincida con el ejecutivo actual o sus backups
-            // Si coincide, el ejecutivo tiene acceso (ya se validó ejecutivo_id y coordinación)
+            // Si coincide y pertenece a su coordinación, el ejecutivo tiene acceso
             if (ejecutivosIdsParaFiltrar.includes(prospectoData.ejecutivo_id)) {
               filteredWhatsapp.push(conv);
             }
@@ -1553,6 +1569,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       let allConversations = [...filteredUchat, ...filteredWhatsapp];
       
       // Filtrado adicional para ejecutivos: asegurar que todas las conversaciones tengan ejecutivo_id asignado
+      // CRÍTICO: También verificar que pertenezcan a la coordinación del ejecutivo
       if (ejecutivoFilter) {
         allConversations = allConversations.filter(conv => {
           const prospectId = conv.prospect_id || conv.prospecto_id;
@@ -1569,6 +1586,12 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           
           if (!prospectoData.ejecutivo_id) {
             console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${prospectId} sin ejecutivo_id en filtrado final, excluyendo`);
+            return false;
+          }
+          
+          // CRÍTICO: Verificar que pertenezca a la coordinación del ejecutivo
+          if (!prospectoData.coordinacion_id || !coordinacionesFilter || !coordinacionesFilter.includes(prospectoData.coordinacion_id)) {
+            console.log(`🚫 [ConversacionesWidget] Ejecutivo ${ejecutivoFilter}: Prospecto ${prospectId} coordinacion_id ${prospectoData.coordinacion_id} no coincide con coordinaciones del ejecutivo en filtrado final, excluyendo`);
             return false;
           }
           

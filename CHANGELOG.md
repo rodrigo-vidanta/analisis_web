@@ -2,6 +2,51 @@
 
 ## Historial de Versiones
 
+### v2.1.30 (2025-12-17)
+**Descripción**: B6.0.7N6.0.0: Corrección crítica de filtros de visualización - Verificación de coordinación para ejecutivos
+
+---
+
+## 🎯 **RELEASE B6.0.7N6.0.0 - Corrección Crítica de Filtros de Visualización**
+
+### 🔒 **Corrección Crítica: Verificación de Coordinación para Ejecutivos**
+- **Problema identificado**: Los ejecutivos podían ver prospectos de otras coordinaciones si el `ejecutivo_id` coincidía, violando las reglas de seguridad.
+- **Solución implementada**: Añadida verificación estricta de coordinación en todos los filtros de ejecutivos:
+  - Los ejecutivos ahora solo ven prospectos que:
+    1. Tienen `ejecutivo_id` asignado (no null)
+    2. Están asignados a ellos o a ejecutivos donde son backup
+    3. **Pertenecen a su coordinación** (o coordinaciones si tienen múltiples)
+  - Si un ejecutivo no tiene coordinación asignada, no puede ver ningún prospecto.
+
+### 📋 **Reglas de Visualización Implementadas**
+
+#### **Ejecutivos**
+- ✅ Solo ven prospectos de su coordinación
+- ✅ Solo ven prospectos asignados a su usuario (`ejecutivo_id` = su id)
+- ✅ Pueden ver prospectos de otro ejecutivo de su misma coordinación solo si son backup
+- ❌ No pueden ver prospectos sin `ejecutivo_id` asignado
+- ❌ No pueden ver prospectos de otras coordinaciones
+
+#### **Coordinadores**
+- ✅ Ven todos los prospectos asignados a su coordinación
+- ✅ Independientemente de si tienen ejecutivo asignado o no
+
+#### **Administradores, Administradores Operativos y CALIDAD**
+- ✅ Pueden ver todo
+
+### 🔄 **Realtime Subscriptions**
+- Las suscripciones de realtime ahora pre-filtran correctamente usando `canUserAccessProspect`
+- Los prospectos que no corresponden no se muestran de manera apresurada
+- Verificación de permisos antes de mostrar datos en tiempo real
+
+### 📁 **Archivos Modificados**
+- `src/services/permissionsService.ts` - `applyProspectFilters`: Añadido filtro de coordinación para ejecutivos
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Verificación de coordinación en filtros de ejecutivos
+- `src/components/chat/LiveChatCanvas.tsx` - Verificación de coordinación en filtros de ejecutivos
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Ya usa `canUserAccessProspect` que verifica coordinación
+
+---
+
 ### v2.1.29 (2025-12-17)
 **Descripción**: B6.0.6N6.0.0: Corrección crítica de carga de datos y etiquetas de coordinación/ejecutivo
 

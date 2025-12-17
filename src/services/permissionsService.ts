@@ -738,7 +738,18 @@ class PermissionsService {
       const coordinacionesFilter = await this.getCoordinacionesFilter(userId);
 
       // Si es ejecutivo, filtrar por ejecutivo_id + prospectos de ejecutivos donde es backup
+      // CRÍTICO: También debe filtrar por coordinación para asegurar que solo vea prospectos de su coordinación
       if (ejecutivoFilter) {
+        // Obtener coordinaciones del ejecutivo (debe tener al menos una)
+        const ejecutivoCoordinaciones = await this.getCoordinacionesFilter(userId);
+        
+        if (!ejecutivoCoordinaciones || ejecutivoCoordinaciones.length === 0) {
+          // Ejecutivo sin coordinación asignada, no puede ver nada
+          console.warn(`⚠️ [applyProspectFilters] Ejecutivo ${userId} sin coordinaciones asignadas - aplicando filtro restrictivo`);
+          query = query.eq('coordinacion_id', '00000000-0000-0000-0000-000000000000');
+          return query;
+        }
+        
         // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
         // Buscar ejecutivos que tienen backup_id = ejecutivoFilter
         const { data: ejecutivosConBackup, error } = await supabaseSystemUIAdmin
@@ -752,9 +763,14 @@ class PermissionsService {
           ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
         }
         
-        console.log(`🔍 [applyProspectFilters] Ejecutivo ${userId} - filtrando por ejecutivos: ${ejecutivosIds.join(', ')}`);
-        // Aplicar filtro .in() - esto retorna una nueva query builder válida
-        query = query.in('ejecutivo_id', ejecutivosIds);
+        console.log(`🔍 [applyProspectFilters] Ejecutivo ${userId} - filtrando por ejecutivos: ${ejecutivosIds.join(', ')} y coordinaciones: ${ejecutivoCoordinaciones.join(', ')}`);
+        
+        // CRÍTICO: Aplicar AMBOS filtros:
+        // 1. Solo prospectos con ejecutivo_id asignado (no null) que coincida con él o sus backups
+        // 2. Solo prospectos de su coordinación (o coordinaciones si tiene múltiples)
+        query = query
+          .in('ejecutivo_id', ejecutivosIds)
+          .in('coordinacion_id', ejecutivoCoordinaciones);
       }
       // Si es coordinador (no de Calidad), filtrar por coordinaciones
       else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
