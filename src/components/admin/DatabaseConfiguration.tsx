@@ -1,4 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  Code,
+  X,
+  Zap,
+  Clock,
+  Server,
+  Edit3,
+  Save
+} from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 interface DatabaseConfig {
@@ -17,6 +36,8 @@ interface ConnectionTest {
 }
 
 const DatabaseConfiguration: React.FC = () => {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [configs, setConfigs] = useState<Record<string, DatabaseConfig>>({
     main: {
       name: 'Base de Datos Principal (Agentes)',
@@ -80,7 +101,7 @@ const DatabaseConfiguration: React.FC = () => {
           testQuery = client.auth.getSession();
       }
 
-      const { data, error } = await testQuery;
+      const { error } = await testQuery;
       const latency = Date.now() - startTime;
 
       if (error) {
@@ -491,18 +512,49 @@ WHERE NOT EXISTS (SELECT 1 FROM call_analysis WHERE analysis_id = 'analysis-nata
   const copySchemaToClipboard = (dbKey: string) => {
     const schema = getSchemaSQL(dbKey);
     navigator.clipboard.writeText(schema).then(() => {
-      alert('Esquema copiado al portapapeles');
+      setCopiedKey(dbKey);
+      setTimeout(() => setCopiedKey(null), 2000);
     });
   };
 
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    });
+  };
+
+  const toggleKeyVisibility = (key: string) => {
+    setVisibleKeys(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
+  const maskKey = (key: string): string => {
+    if (key.length <= 20) return '••••••••••••••••••••';
+    return key.substring(0, 10) + '••••••••••••' + key.substring(key.length - 8);
+  };
+
+  const getDbIcon = (key: string) => {
+    switch (key) {
+      case 'main': return 'from-blue-500 to-indigo-600';
+      case 'pqnc': return 'from-emerald-500 to-teal-600';
+      case 'natalia': return 'from-purple-500 to-pink-600';
+      default: return 'from-gray-500 to-gray-600';
+    }
+  };
+
   const executeSchema = async (dbKey: string) => {
-    const config = configs[dbKey];
     const schema = getSchemaSQL(dbKey);
     
     try {
-      const client = createClient(config.url, config.serviceKey);
-      
-      // Aquí normalmente ejecutarías el esquema, pero por seguridad solo mostramos el SQL
+      // Por seguridad, solo copiamos el SQL sin ejecutarlo
       alert('Por seguridad, el esquema se debe ejecutar manualmente. El SQL ha sido copiado al portapapeles.');
       navigator.clipboard.writeText(schema);
     } catch (error: any) {
@@ -511,199 +563,304 @@ WHERE NOT EXISTS (SELECT 1 FROM call_analysis WHERE analysis_id = 'analysis-nata
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          Configuración de Bases de Datos
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Gestiona las conexiones y esquemas de las bases de datos del sistema.
-        </p>
-      </div>
-
-      {Object.entries(configs).map(([key, config]) => (
-        <div key={key} className="bg-white dark:bg-gray-700 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-600">
-          <div className="flex items-center justify-between mb-4">
+    <div className="space-y-6">
+      {/* Header minimalista */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <Database className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {config.name}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {config.description}
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Bases de Datos
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Conexiones y esquemas del sistema
               </p>
             </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => testConnection(key)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Probar Conexión
-              </button>
-              <button
-                onClick={() => startEditing(key)}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-              >
-                Editar
-              </button>
-              <button
-                onClick={() => generateSchema(key)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                Ver Esquema
-              </button>
+          </div>
+
+          {/* Métricas inline */}
+          <div className="hidden md:flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-gray-600 dark:text-gray-400">
+                Conexiones: <span className="font-medium text-gray-900 dark:text-white">{Object.keys(configs).length}</span>
+              </span>
+            </div>
+            <span className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+            <div className="flex items-center gap-2">
+              <Server className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-gray-600 dark:text-gray-400">Supabase</span>
             </div>
           </div>
 
-          {editingDb === key && tempConfig ? (
-            <div className="space-y-4 border-t pt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  URL de la Base de Datos
-                </label>
-                <input
-                  type="text"
-                  value={tempConfig.url}
-                  onChange={(e) => setTempConfig({ ...tempConfig, url: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                />
-              </div>
+          {/* Botón de test all */}
+          <button
+            onClick={() => Object.keys(configs).forEach(key => testConnection(key))}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            Probar Todas
+          </button>
+        </div>
+      </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Anon Key
-                </label>
-                <textarea
-                  value={tempConfig.anonKey}
-                  onChange={(e) => setTempConfig({ ...tempConfig, anonKey: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                  rows={3}
-                />
-              </div>
+      {/* Lista de bases de datos */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+          {Object.entries(configs).map(([key, config]) => {
+            const test = connectionTests.find(t => t.database === key);
+            const isEditing = editingDb === key;
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Service Role Key
-                </label>
-                <textarea
-                  value={tempConfig.serviceKey}
-                  onChange={(e) => setTempConfig({ ...tempConfig, serviceKey: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex space-x-2">
-                <button
-                  onClick={saveConfig}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                >
-                  Guardar
-                </button>
-                <button
-                  onClick={cancelEditing}
-                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="text-sm">
-                <span className="font-medium text-gray-700 dark:text-gray-300">URL:</span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">{config.url}</span>
-              </div>
-              <div className="text-sm">
-                <span className="font-medium text-gray-700 dark:text-gray-300">Anon Key:</span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400 font-mono">
-                  {config.anonKey.substring(0, 20)}...
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Estado de conexión */}
-          {connectionTests.find(t => t.database === key) && (
-            <div className="mt-4 p-3 rounded-lg border">
-              {(() => {
-                const test = connectionTests.find(t => t.database === key)!;
-                const bgColor = test.status === 'success' ? 'bg-green-50 border-green-200' :
-                               test.status === 'error' ? 'bg-red-50 border-red-200' :
-                               'bg-blue-50 border-blue-200';
-                const textColor = test.status === 'success' ? 'text-green-800' :
-                                test.status === 'error' ? 'text-red-800' :
-                                'text-blue-800';
-                
-                return (
-                  <div className={`${bgColor} ${textColor} p-3 rounded-lg`}>
-                    <div className="flex items-center space-x-2">
-                      {test.status === 'testing' && (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      )}
-                      {test.status === 'success' && (
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                      {test.status === 'error' && (
-                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
-                      <span className="font-medium">{test.message}</span>
-                      {test.latency && (
-                        <span className="text-sm">({test.latency}ms)</span>
-                      )}
+            return (
+              <motion.div
+                key={key}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-5"
+              >
+                {/* Header de la DB */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getDbIcon(key)} flex items-center justify-center shadow-lg`}>
+                      <Database className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{config.name}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{config.description}</p>
                     </div>
                   </div>
-                );
-              })()}
-            </div>
-          )}
+
+                  {/* Estado de conexión */}
+                  <div className="flex items-center gap-2">
+                    {test && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
+                          test.status === 'success' 
+                            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                            : test.status === 'error'
+                              ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                              : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                        }`}
+                      >
+                        {test.status === 'testing' && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {test.status === 'success' && <CheckCircle2 className="w-3 h-3" />}
+                        {test.status === 'error' && <XCircle className="w-3 h-3" />}
+                        <span>{test.status === 'testing' ? 'Probando...' : test.status === 'success' ? 'Conectado' : 'Error'}</span>
+                        {test.latency && <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{test.latency}ms</span>}
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Modo edición */}
+                <AnimatePresence mode="wait">
+                  {isEditing && tempConfig ? (
+                    <motion.div
+                      key="editing"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-4 mt-4"
+                    >
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">URL de la Base de Datos</label>
+                        <input
+                          type="text"
+                          value={tempConfig.url}
+                          onChange={(e) => setTempConfig({ ...tempConfig, url: e.target.value })}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Anon Key</label>
+                          <textarea
+                            value={tempConfig.anonKey}
+                            onChange={(e) => setTempConfig({ ...tempConfig, anonKey: e.target.value })}
+                            rows={2}
+                            className="w-full px-4 py-2.5 text-sm font-mono border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Service Role Key</label>
+                          <textarea
+                            value={tempConfig.serviceKey}
+                            onChange={(e) => setTempConfig({ ...tempConfig, serviceKey: e.target.value })}
+                            rows={2}
+                            className="w-full px-4 py-2.5 text-sm font-mono border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all resize-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={cancelEditing}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={saveConfig}
+                          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-700 rounded-xl hover:bg-slate-600 transition-all"
+                        >
+                          <Save className="w-4 h-4" />
+                          Guardar
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="viewing"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      {/* Info compacta */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                          <Server className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">URL</p>
+                            <p className="text-sm font-mono text-gray-900 dark:text-white truncate">{config.url}</p>
+                          </div>
+                          <button
+                            onClick={() => copyToClipboard(config.url, `${key}-url`)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {copiedKey === `${key}-url` ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                          <Database className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Anon Key</p>
+                            <p className="text-sm font-mono text-gray-900 dark:text-white truncate">
+                              {visibleKeys.has(`${key}-anon`) ? config.anonKey : maskKey(config.anonKey)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => toggleKeyVisibility(`${key}-anon`)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {visibleKeys.has(`${key}-anon`) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => copyToClipboard(config.anonKey, `${key}-anon-copy`)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {copiedKey === `${key}-anon-copy` ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Acciones */}
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                        <div className="flex items-center gap-2">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => testConnection(key)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Probar
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => generateSchema(key)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                          >
+                            <Code className="w-3.5 h-3.5" />
+                            Esquema SQL
+                          </motion.button>
+                        </div>
+                        <button
+                          onClick={() => startEditing(key)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          Editar
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
         </div>
-      ))}
+      </div>
 
       {/* Modal de esquema */}
-      {showSchemaModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl h-3/4 flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Esquema SQL - {configs[showSchemaModal].name}
-              </h3>
-              <button
-                onClick={() => setShowSchemaModal(null)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="flex-1 p-6 overflow-hidden">
-              <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg overflow-auto h-full text-sm font-mono">
-                {getSchemaSQL(showSchemaModal)}
-              </pre>
-            </div>
-            
-            <div className="flex justify-end space-x-2 p-6 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => copySchemaToClipboard(showSchemaModal)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Copiar al Portapapeles
-              </button>
-              <button
-                onClick={() => executeSchema(showSchemaModal)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                Ejecutar Esquema
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showSchemaModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={() => setShowSchemaModal(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col border border-gray-100 dark:border-gray-800 overflow-hidden"
+            >
+              {/* Header del modal */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getDbIcon(showSchemaModal)} flex items-center justify-center`}>
+                    <Code className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Esquema SQL</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{configs[showSchemaModal].name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSchemaModal(null)}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Contenido */}
+              <div className="flex-1 overflow-auto p-6">
+                <pre className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl text-sm font-mono text-gray-800 dark:text-gray-200 overflow-x-auto">
+                  {getSchemaSQL(showSchemaModal)}
+                </pre>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                <button
+                  onClick={() => copySchemaToClipboard(showSchemaModal)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  {copiedKey === showSchemaModal ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  {copiedKey === showSchemaModal ? 'Copiado!' : 'Copiar'}
+                </button>
+                <button
+                  onClick={() => executeSchema(showSchemaModal)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-700 rounded-xl hover:bg-slate-600 transition-all"
+                >
+                  <Zap className="w-4 h-4" />
+                  Ejecutar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

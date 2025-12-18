@@ -18,7 +18,7 @@ import { coordinacionService, type Coordinacion, type Ejecutivo } from '../../se
 import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
 import { 
   Building2, Plus, Edit, Trash2, Power, PowerOff, BarChart3, Users, 
-  X, Loader2, Search, Filter, CheckCircle2, XCircle 
+  X, Loader2, Search, Filter, XCircle 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -266,31 +266,6 @@ const CoordinacionesManager: React.FC = () => {
     }
   };
 
-  const handleToggleArchivado = async (coordinacion: CoordinacionWithStats) => {
-    try {
-      // Si se va a archivar, abrir modal de reasignación
-      if (!coordinacion.archivado) {
-        setSelectedCoordinacion(coordinacion);
-        await loadUsuariosParaReasignacion(coordinacion.id);
-        await loadCoordinacionesDisponibles(coordinacion.id);
-        setShowReasignacionModal(true);
-      } else {
-        // Si se va a desarchivar, solo actualizar
-        setLoading(true);
-        await coordinacionService.updateCoordinacion(coordinacion.id, {
-          archivado: false,
-        });
-        toast.success('Coordinación desarchivada exitosamente');
-        await loadCoordinaciones();
-      }
-    } catch (error: any) {
-      console.error('Error cambiando estado:', error);
-      toast.error(error.message || 'Error al cambiar estado');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadUsuariosParaReasignacion = async (coordinacionId: string) => {
     try {
       const usuarios = await coordinacionService.getUsuariosParaReasignacion(coordinacionId);
@@ -473,50 +448,88 @@ const CoordinacionesManager: React.FC = () => {
     );
   }
 
+  // Calcular métricas
+  const totalCoordinaciones = coordinaciones.length;
+  const coordinacionesActivas = coordinaciones.filter(c => !c.archivado && c.is_operativo).length;
+  const totalEjecutivos = coordinaciones.reduce((acc, c) => acc + (c.ejecutivos_count || 0), 0);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Gestión de Coordinaciones
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Administra coordinaciones, ejecutivos y analíticas
-          </p>
+      {/* Header minimalista y profesional */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Título e información */}
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Coordinaciones
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Gestión de coordinaciones y ejecutivos
+              </p>
+            </div>
+          </div>
+
+          {/* Métricas inline */}
+          <div className="hidden md:flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-gray-600 dark:text-gray-400">
+                <span className="font-semibold text-gray-900 dark:text-white">{coordinacionesActivas}</span> activas
+              </span>
+            </div>
+            <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="text-gray-600 dark:text-gray-400">
+                <span className="font-semibold text-gray-900 dark:text-white">{totalCoordinaciones}</span> total
+              </span>
+            </div>
+            <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
+            <div className="flex items-center gap-2">
+              <Users className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-gray-600 dark:text-gray-400">
+                <span className="font-semibold text-gray-900 dark:text-white">{totalEjecutivos}</span> ejecutivos
+              </span>
+            </div>
+          </div>
+
+          {/* Botón agregar */}
+          <button
+            onClick={() => {
+              resetForm();
+              setShowCreateModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-700 dark:bg-slate-600 rounded-lg hover:bg-slate-600 dark:hover:bg-slate-500 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nueva</span>
+          </button>
         </div>
-        
-        <button
-          onClick={() => {
-            resetForm();
-            setShowCreateModal(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Nueva Coordinación</span>
-        </button>
       </div>
 
-      {/* Filtros y búsqueda */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+      {/* Filtros y búsqueda - más compacto */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-4 py-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Buscar por código, nombre o descripción..."
+              placeholder="Buscar coordinación..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
           </div>
-          <div className="flex items-center space-x-2">
-            <Filter className="w-5 h-5 text-gray-400" />
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400" />
             <select
               value={filterActive}
-              onChange={(e) => setFilterActive(e.target.value as 'all' | 'active' | 'inactive')}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => setFilterActive(e.target.value as 'all' | 'active' | 'archived')}
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             >
               <option value="all">Todas</option>
               <option value="active">Activas</option>
@@ -526,194 +539,143 @@ const CoordinacionesManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid de Tarjetas de Coordinaciones */}
-      {loading && coordinaciones.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500" />
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando coordinaciones...</p>
-        </div>
-      ) : filteredCoordinaciones.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-          <Building2 className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">
-            {searchTerm || filterActive !== 'all' 
-              ? 'No se encontraron coordinaciones con los filtros aplicados'
-              : 'No hay coordinaciones registradas'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredCoordinaciones.map((coord) => {
-            // IMPORTANTE: Separar archivado de is_operativo
-            // archivado = coordinación inactiva/archivada (no se muestra normalmente)
-            // is_operativo = coordinación operativa o no (solo afecta asignaciones)
-            const archivado = coord.archivado !== undefined ? coord.archivado : !coord.is_active;
-            // Para is_operativo: si no existe la columna, asumir que es operativa por defecto (true)
-            // NO usar is_active como proxy porque eso afectaría archivado
-            const isOperativo = coord.is_operativo !== undefined ? coord.is_operativo : true;
-            
-            return (
-              <motion.div
-                key={coord.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col"
-              >
-                {/* Header compacto */}
-                <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-                        {coord.nombre}
-                      </h3>
-                      <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mt-0.5">
-                        {coord.codigo}
-                      </p>
-                    </div>
-                    {/* Botón Power para Operativo/No Operativo - SOLO cambia is_operativo, NO archivado */}
-                    {!archivado && (
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            setLoading(true);
-                            const nuevoEstado = !isOperativo;
-                            
-                            // IMPORTANTE: Solo actualizar is_operativo
-                            // NO tocar archivado ni is_active
-                            try {
-                              // Intentar actualizar is_operativo directamente
-                              const { error: updateError } = await supabaseSystemUIAdmin
-                                .from('coordinaciones')
-                                .update({
-                                  is_operativo: nuevoEstado,
-                                  updated_at: new Date().toISOString(),
-                                })
-                                .eq('id', coord.id);
-                              
-                              if (updateError) {
-                                // Si la columna no existe aún en PostgREST cache, mostrar mensaje claro
-                                if (updateError.code === 'PGRST204' || updateError.message?.includes('is_operativo') || updateError.message?.includes('column')) {
-                                  toast.error(
-                                    `La columna is_operativo aún no está disponible en PostgREST. ` +
-                                    `Las columnas fueron creadas en la base de datos, pero PostgREST necesita 1-2 minutos para actualizar su cache. ` +
-                                    `Por favor, espera unos minutos y vuelve a intentar.`,
-                                    { duration: 5000 }
-                                  );
-                                  console.warn('PostgREST cache no actualizado aún. Columna existe en BD pero no en cache.');
-                                  return;
-                                } else {
-                                  // Otro tipo de error
-                                  console.error('Error actualizando is_operativo:', updateError);
-                                  toast.error(updateError.message || 'Error al actualizar status operativo');
-                                  return;
-                                }
-                              }
-                              
-                              // Éxito
-                              toast.success(`Coordinación ${nuevoEstado ? 'operativa' : 'no operativa'}`);
-                              await loadCoordinaciones();
-                            } catch (error: any) {
-                              console.error('Error actualizando status operativo:', error);
-                              toast.error(error.message || 'Error al actualizar status');
-                            }
-                          } finally {
-                            setLoading(false);
+      {/* Lista de Coordinaciones - Diseño minimalista */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        {loading && coordinaciones.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
+            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Cargando coordinaciones...</p>
+          </div>
+        ) : filteredCoordinaciones.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <Building2 className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {searchTerm || filterActive !== 'all' 
+                ? 'No se encontraron coordinaciones'
+                : 'No hay coordinaciones registradas'}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+            {filteredCoordinaciones.map((coord) => {
+              const archivado = coord.archivado !== undefined ? coord.archivado : !coord.is_active;
+              const isOperativo = coord.is_operativo !== undefined ? coord.is_operativo : true;
+              
+              return (
+                <div
+                  key={coord.id}
+                  className={`group flex items-center gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${
+                    archivado ? 'opacity-50' : ''
+                  }`}
+                >
+                  {/* Indicador de estado */}
+                  <div className="flex-shrink-0">
+                    <button
+                      onClick={async () => {
+                        if (archivado) return;
+                        try {
+                          setLoading(true);
+                          const nuevoEstado = !isOperativo;
+                          const { error } = await supabaseSystemUIAdmin
+                            .from('coordinaciones')
+                            .update({ is_operativo: nuevoEstado, updated_at: new Date().toISOString() })
+                            .eq('id', coord.id);
+                          
+                          if (error) {
+                            toast.error(error.message || 'Error al actualizar');
+                            return;
                           }
-                        }}
-                        className={`relative p-2.5 rounded-xl transition-all duration-200 shadow-md ${
-                          isOperativo
-                            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 shadow-emerald-500/30'
-                            : 'bg-gradient-to-br from-gray-400 to-gray-500 text-white hover:from-gray-500 hover:to-gray-600 shadow-gray-400/30'
-                        }`}
-                        title={isOperativo ? 'Marcar como No Operativa' : 'Marcar como Operativa'}
-                      >
-                        {isOperativo ? (
-                          <Power className="w-5 h-5" />
-                        ) : (
-                          <PowerOff className="w-5 h-5" />
-                        )}
-                        {/* Indicador de pulso cuando está operativa */}
-                        {isOperativo && (
-                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                          </span>
-                        )}
-                      </motion.button>
+                          toast.success(`Coordinación ${nuevoEstado ? 'operativa' : 'pausada'}`);
+                          await loadCoordinaciones();
+                        } catch (error: any) {
+                          toast.error(error.message || 'Error');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      disabled={archivado}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                        archivado
+                          ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
+                          : isOperativo
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                      title={archivado ? 'Archivada' : isOperativo ? 'Operativa (clic para pausar)' : 'Pausada (clic para activar)'}
+                    >
+                      {isOperativo && !archivado ? (
+                        <Power className="w-4 h-4" />
+                      ) : (
+                        <PowerOff className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Info principal */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white truncate">
+                        {coord.nombre}
+                      </span>
+                      <span className="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                        {coord.codigo}
+                      </span>
+                      {archivado && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                          Archivada
+                        </span>
+                      )}
+                    </div>
+                    {coord.descripcion && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                        {coord.descripcion}
+                      </p>
                     )}
                   </div>
-                  
-                  {/* Descripción compacta */}
-                  {coord.descripcion && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 mt-2">
-                      {coord.descripcion}
-                    </p>
-                  )}
-                </div>
 
-                {/* Contenido compacto */}
-                <div className="px-4 py-3 flex-1">
-                  <div className="flex items-center justify-between text-xs">
+                  {/* Métricas */}
+                  <div className="hidden sm:flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                     <button
                       onClick={() => openEjecutivosModal(coord)}
-                      className="flex items-center space-x-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                      className="flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                     >
                       <Users className="w-3.5 h-3.5" />
                       <span className="font-medium">{coord.ejecutivos_count || 0}</span>
                     </button>
                     <button
                       onClick={() => openStatsModal(coord)}
-                      className="flex items-center space-x-1.5 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                      title="Analíticas"
+                      className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      title="Ver analíticas"
                     >
                       <BarChart3 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                </div>
 
-                {/* Footer compacto con acciones */}
-                <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                  {/* Etiqueta de estado operativo al lado izquierdo del botón de editar */}
-                  {!archivado && (
-                    <div className="flex items-center">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                          isOperativo
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
-                        }`}
+                  {/* Acciones */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEditModal(coord)}
+                      className="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      title="Editar"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    {!archivado && (coord.ejecutivos_count || 0) === 0 && (
+                      <button
+                        onClick={() => openDeleteModal(coord)}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        title="Eliminar"
                       >
-                        {isOperativo ? (
-                          <>
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></div>
-                            Operativa
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-2 h-2 rounded-full bg-gray-400 mr-1.5"></div>
-                            No Operativa
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  {archivado && <div></div>}
-                  <button
-                    onClick={() => openEditModal(coord)}
-                    className="px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors"
-                  >
-                    Editar
-                  </button>
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Modal de Crear/Editar Coordinación */}
       <AnimatePresence>
@@ -970,7 +932,7 @@ const CoordinacionesManager: React.FC = () => {
                     else handleUpdate();
                   }}
                   disabled={loading}
-                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25"
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-slate-700 dark:bg-slate-600 rounded-xl hover:bg-slate-600 dark:hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {loading ? (
                     <span className="flex items-center space-x-2">

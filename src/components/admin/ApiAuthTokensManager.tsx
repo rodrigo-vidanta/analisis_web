@@ -206,203 +206,262 @@ const ApiAuthTokensManager: React.FC = () => {
     }
   };
 
+  // Formatear fecha compacta
+  const formatDate = (date: string) => {
+    const d = new Date(date);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Hoy';
+    if (diffDays === 1) return 'Ayer';
+    if (diffDays < 7) return `Hace ${diffDays}d`;
+    return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  };
+
+  // Generar hash visual del token (para identificación sin revelar)
+  const getTokenFingerprint = (token: string) => {
+    const hash = token.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    return Math.abs(hash).toString(16).slice(0, 6).toUpperCase();
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-slate-600 dark:text-slate-400">Cargando tokens...</span>
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-slate-600"></div>
+        <span className="ml-3 text-sm text-slate-500 dark:text-slate-400">Cargando tokens...</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <Shield className="w-7 h-7 text-blue-600" />
-            Tokens de Autenticación API
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Gestiona los tokens de autenticación para webhooks y APIs externas
-          </p>
-        </div>
-        
-        <button
-          onClick={loadTokens}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Actualizar
-        </button>
-      </div>
+      {/* Header minimalista */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Tokens de API
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Autenticación para webhooks externos
+              </p>
+            </div>
+          </div>
 
-      {/* Advertencia de seguridad */}
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-        <div>
-          <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-            ⚠️ Información Sensible
-          </h3>
-          <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
-            Estos tokens proporcionan acceso a sistemas externos. Manéjalos con cuidado y no los compartas públicamente.
-            Los cambios afectan directamente la funcionalidad de la plataforma.
-          </p>
-        </div>
-      </div>
+          {/* Métricas inline */}
+          <div className="hidden md:flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <Key className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-gray-600 dark:text-gray-400">
+                <span className="font-semibold text-gray-900 dark:text-white">{tokens.length}</span> tokens
+              </span>
+            </div>
+            <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
+            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span className="text-xs">Datos sensibles</span>
+            </div>
+          </div>
 
-      {/* Lista de tokens */}
-      <div className="space-y-4">
-        {tokens.map((token) => (
-          <motion.div
-            key={token.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6"
+          {/* Botón refresh */}
+          <button
+            onClick={loadTokens}
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
+            title="Actualizar"
           >
-            {/* Header del token */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <Key className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
-                    {token.module_name}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {token.token_key}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="text-right text-xs text-slate-400">
-                <div>Última actualización:</div>
-                <div>{new Date(token.last_updated).toLocaleString()}</div>
-              </div>
-            </div>
-
-            {/* Descripción */}
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              {token.description}
-            </p>
-
-            {/* Endpoint URL */}
-            {token.endpoint_url && (
-              <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Endpoint:</div>
-                <code className="text-sm text-blue-600 dark:text-blue-400 break-all">
-                  {token.endpoint_url}
-                </code>
-              </div>
-            )}
-
-            {/* Campo del token */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Token de Autenticación
-              </label>
-              
-              <AnimatePresence mode="wait">
-                {editingToken === token.id ? (
-                  <motion.div
-                    key="editing"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex gap-2"
-                  >
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-white font-mono text-sm"
-                      placeholder="Ingresa el nuevo token..."
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => saveToken(token.id)}
-                      disabled={saving === token.id}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-                    >
-                      {saving === token.id ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Save className="w-4 h-4" />
-                      )}
-                      Guardar
-                    </button>
-                    <button
-                      onClick={cancelEditing}
-                      className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors"
-                    >
-                      Cancelar
-                    </button>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="viewing"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex gap-2"
-                  >
-                    <div className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-mono text-sm text-slate-700 dark:text-slate-300">
-                      {visibleTokens.has(token.id) ? token.token_value : maskToken(token.token_value)}
-                    </div>
-                    
-                    {/* Botones de acción */}
-                    <button
-                      onClick={() => toggleTokenVisibility(token.id)}
-                      className="p-2.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors"
-                      title={visibleTokens.has(token.id) ? 'Ocultar token' : 'Mostrar token'}
-                    >
-                      {visibleTokens.has(token.id) ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                    
-                    <button
-                      onClick={() => copyToken(token.token_value, token.id)}
-                      className="p-2.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors"
-                      title="Copiar token"
-                    >
-                      {copiedToken === token.id ? (
-                        <Check className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                    
-                    <button
-                      onClick={() => startEditing(token)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
-                      <Key className="w-4 h-4" />
-                      Editar
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        ))}
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Nota de uso */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-          💡 Cómo usar estos tokens
-        </h3>
-        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
-          <li>Los tokens se envían en el header de las peticiones HTTP</li>
-          <li>Cada módulo tiene su propio token de autenticación</li>
-          <li>Si un token expira o es comprometido, actualízalo inmediatamente</li>
-          <li>Los cambios se aplican de forma inmediata en la aplicación</li>
-        </ul>
+      {/* Lista de tokens - Diseño compacto y seguro */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+          {tokens.map((token) => {
+            const isEditing = editingToken === token.id;
+            const isVisible = visibleTokens.has(token.id);
+            const fingerprint = getTokenFingerprint(token.token_value);
+            
+            return (
+              <div
+                key={token.id}
+                className="group px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+              >
+                {/* Fila principal */}
+                <div className="flex items-center gap-4">
+                  {/* Indicador visual (fingerprint del token) */}
+                  <div 
+                    className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-mono text-xs font-bold"
+                    style={{ 
+                      backgroundColor: `#${fingerprint}15`,
+                      color: `#${fingerprint}`
+                    }}
+                    title={`ID: ${fingerprint}`}
+                  >
+                    {fingerprint.slice(0, 2)}
+                  </div>
+
+                  {/* Info principal */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {token.module_name}
+                      </span>
+                      <span className="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                        {token.token_key}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                      {token.description}
+                    </p>
+                  </div>
+
+                  {/* Token display compacto */}
+                  <div className="hidden sm:flex items-center gap-2">
+                    {!isEditing && (
+                      <>
+                        <div className={`px-3 py-1.5 rounded-lg font-mono text-xs transition-all ${
+                          isVisible 
+                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {isVisible ? (
+                            <span className="max-w-32 truncate inline-block align-middle">
+                              {token.token_value.length > 20 
+                                ? token.token_value.slice(0, 8) + '...' + token.token_value.slice(-8)
+                                : token.token_value
+                              }
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <span className="tracking-wider">••••••</span>
+                              <span className="text-gray-400">{token.token_value.slice(-4)}</span>
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Fecha */}
+                  <div className="hidden lg:block text-xs text-gray-400 dark:text-gray-500 w-16 text-right">
+                    {formatDate(token.last_updated)}
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex items-center gap-1">
+                    {!isEditing ? (
+                      <>
+                        <button
+                          onClick={() => toggleTokenVisibility(token.id)}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            isVisible 
+                              ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' 
+                              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          }`}
+                          title={isVisible ? 'Ocultar' : 'Mostrar'}
+                        >
+                          {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => copyToken(token.token_value, token.id)}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            copiedToken === token.id
+                              ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          }`}
+                          title="Copiar"
+                        >
+                          {copiedToken === token.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => startEditing(token)}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Editar"
+                        >
+                          <Key className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => saveToken(token.id)}
+                          disabled={saving === token.id}
+                          className="p-1.5 rounded-md text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
+                          title="Guardar"
+                        >
+                          {saving === token.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          title="Cancelar"
+                        >
+                          <AlertTriangle className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fila de edición expandida */}
+                <AnimatePresence>
+                  {isEditing && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-700">
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono transition-all"
+                          placeholder="Ingresa el nuevo token..."
+                          autoFocus
+                        />
+                        {token.endpoint_url && (
+                          <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                            <span>Endpoint:</span>
+                            <code className="text-blue-500 dark:text-blue-400">{token.endpoint_url}</code>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Expandir endpoint al hacer hover (solo si no está editando) */}
+                {!isEditing && token.endpoint_url && (
+                  <div className="hidden group-hover:block mt-2 pt-2 border-t border-gray-50 dark:border-gray-700/50">
+                    <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                      <span>→</span>
+                      <code className="text-gray-500 dark:text-gray-400 truncate">{token.endpoint_url}</code>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Nota de seguridad compacta */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl text-xs">
+        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+        <span className="text-amber-700 dark:text-amber-300">
+          Tokens sensibles • No compartir públicamente • Los cambios se aplican inmediatamente
+        </span>
       </div>
     </div>
   );

@@ -703,10 +703,18 @@ class AuthService {
   }
 
   private async updateLastLogin(userId: string): Promise<void> {
-    await supabase
+    // Usar supabaseSystemUIAdmin para bypass de RLS
+    const { error } = await supabaseSystemUIAdmin
       .from('auth_users')
-      .update({ last_login: new Date().toISOString() })
+      .update({ 
+        last_login: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
       .eq('id', userId);
+    
+    if (error) {
+      console.error('Error actualizando last_login:', error);
+    }
   }
 
   private clearSession(): void {

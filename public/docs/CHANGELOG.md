@@ -2,6 +2,92 @@
 
 ## Historial de Versiones
 
+### v2.1.32 (2025-12-18)
+**Descripción**: B6.0.9N6.0.0: UserManagementV2 - Rediseño completo del módulo de gestión de usuarios
+
+---
+
+## 🎯 **RELEASE B6.0.9N6.0.0 - UserManagementV2**
+
+### 🚀 **Nueva Versión del Módulo de Gestión de Usuarios**
+
+Rediseño completo del módulo de administración de usuarios con arquitectura modular, mejor rendimiento y UX mejorada.
+
+### ✨ **Nuevas Características**
+
+1. **TreeViewSidebar - Navegación Tipo Active Directory**
+   - Árbol jerárquico de usuarios por roles (Admin, Admin Operativo, Coordinador, Ejecutivo)
+   - Navegación por coordinaciones con visualización de ejecutivos asignados
+   - Filtros especiales: Bloqueados (Moderación), Bloqueados (Contraseña), Archivados, Operativo/No Operativo
+   - Búsqueda integrada en el árbol
+   - Estadísticas en tiempo real (activos, inactivos, bloqueados)
+   - Scrollbar invisible para diseño limpio
+
+2. **UserTable - Tabla de Usuarios Optimizada**
+   - Ordenamiento por múltiples columnas (nombre, rol, coordinación, operativo, último acceso)
+   - Paginación configurable (10, 25, 50 registros)
+   - Avatar con indicador de estado y bloqueo
+   - Columna "Operativo" prominente con toggle verde/gris
+   - Columna "Coordinación" mostrando múltiples coordinaciones para coordinadores
+   - Columna "Último Acceso" con indicador "Activo ahora" para ejecutivos operativos
+   - Clic simple para abrir panel de edición
+
+3. **UserEditPanel - Panel de Edición Embebido**
+   - Panel completo que ocupa toda el área de trabajo
+   - Diseño responsive con layout de 2 columnas
+   - Secciones: Información Personal, Roles y Permisos, Estado
+   - Selector de múltiples coordinaciones para coordinadores
+   - Toggle de Usuario Operativo y Cuenta Activa
+   - Cambio de contraseña con validación
+   - Botón de desbloqueo para usuarios bloqueados por moderación
+   - Scrollbar invisible
+
+4. **UserCreateModal - Modal de Creación de Usuarios**
+   - Modal flotante con diseño enterprise
+   - Validación de campos requeridos
+   - Selector de rol con permisos según usuario actual
+   - Selector de coordinación(es) según rol seleccionado
+   - Toggle de cuenta activa
+   - Animaciones suaves con Framer Motion
+
+5. **Optimizaciones de Rendimiento**
+   - Hook `useUserManagement` centralizado con cache de usuarios
+   - Carga de datos optimizada con consultas paralelas
+   - Filtrado y ordenamiento en cliente con `useMemo`
+   - Datos de `last_login` desde `auth_login_logs` (fuente real)
+   - Actualización correcta de `auth_users.last_login` al hacer login
+
+6. **Correcciones de Base de Datos**
+   - Sincronización correcta de `last_login` entre `auth_login_logs` y `auth_users`
+   - Manejo correcto de `coordinaciones_ids` para coordinadores
+   - Mapeo de `coordinaciones_nombres` para visualización en tabla
+   - Uso de `role_id` (UUID) en lugar de `role_name` para actualizaciones
+
+### 📐 **Mejoras de UI/UX**
+
+- Altura del área de trabajo ajustada a viewport (`calc(100vh - 118px)`)
+- Contenedor con posicionamiento absoluto para altura fija
+- Sidebar colapsable con animación
+- Diseño consistente con otros módulos (Coordinaciones, Horarios)
+- Dark mode completo
+- Animaciones de entrada/salida con Framer Motion
+
+### 📁 **Archivos Nuevos**
+- `src/components/admin/UserManagementV2/index.tsx` - Componente principal
+- `src/components/admin/UserManagementV2/types.ts` - Tipos TypeScript
+- `src/components/admin/UserManagementV2/hooks/useUserManagement.ts` - Hook de datos
+- `src/components/admin/UserManagementV2/components/TreeViewSidebar.tsx` - Sidebar jerárquico
+- `src/components/admin/UserManagementV2/components/FilterBar.tsx` - Barra de filtros
+- `src/components/admin/UserManagementV2/components/UserTable.tsx` - Tabla de usuarios
+- `src/components/admin/UserManagementV2/components/UserEditPanel.tsx` - Panel de edición
+- `src/components/admin/UserManagementV2/components/UserCreateModal.tsx` - Modal de creación
+
+### 📁 **Archivos Modificados**
+- `src/components/admin/AdminDashboardTabs.tsx` - Integración de UserManagementV2
+- `src/services/authService.ts` - Corrección de updateLastLogin
+
+---
+
 ### v2.1.31 (2025-12-17)
 **Descripción**: B6.0.8N6.0.0: Corrección adicional de filtros - Filtro de coordinación en cliente y fallbacks
 

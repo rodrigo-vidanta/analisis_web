@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, startTransition } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import UserManagement from './UserManagement';
+import UserManagementV2 from './UserManagementV2';
 import SystemPreferences from './SystemPreferences';
 import DatabaseConfiguration from './DatabaseConfiguration';
 import TokenManagement from './TokenManagement';
@@ -7,12 +9,19 @@ import EjecutivosManager from './EjecutivosManager';
 import CoordinacionesManager from './CoordinacionesManager';
 import AdminMessagesModal from './AdminMessagesModal';
 import ApiAuthTokensManager from './ApiAuthTokensManager';
+import ScheduleManager from './ScheduleManager';
 import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
 import { adminMessagesService } from '../../services/adminMessagesService';
-import { Mail } from 'lucide-react';
+import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones';
+// Feature flag para el nuevo módulo de usuarios
+const USE_NEW_USER_MANAGEMENT = true;
+
+// Key para localStorage
+const SIDEBAR_PINNED_KEY = 'admin_sidebar_pinned';
+
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios';
 
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
@@ -22,6 +31,27 @@ const AdminDashboardTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('usuarios');
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Estado del sidebar colapsable
+  const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
+    // Cargar preferencia desde localStorage
+    const saved = localStorage.getItem(SIDEBAR_PINNED_KEY);
+    return saved === 'true';
+  });
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  
+  // El sidebar está expandido si está fijado O si está en hover
+  const isSidebarExpanded = isSidebarPinned || isSidebarHovered;
+  
+  // Guardar preferencia cuando cambia
+  const toggleSidebarPin = useCallback(() => {
+    setIsSidebarPinned(prev => {
+      const newValue = !prev;
+      localStorage.setItem(SIDEBAR_PINNED_KEY, String(newValue));
+      return newValue;
+    });
+  }, []);
 
   useEffect(() => {
     const checkCoordinador = async () => {
@@ -169,9 +199,14 @@ const AdminDashboardTabs: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
         )
+      },
+      {
+        id: 'horarios' as AdminTab,
+        name: 'Horarios',
+        icon: <Clock className="w-5 h-5" />
       }
     ] : []),
-    // Tabs para Administrador Operativo: solo usuarios y coordinaciones
+    // Tabs para Administrador Operativo: usuarios, coordinaciones y horarios
     ...(isAdminOperativo ? [
       {
         id: 'usuarios' as AdminTab,
@@ -190,6 +225,11 @@ const AdminDashboardTabs: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
         )
+      },
+      {
+        id: 'horarios' as AdminTab,
+        name: 'Horarios',
+        icon: <Clock className="w-5 h-5" />
       }
     ] : []),
     // Tab solo visible para coordinadores
@@ -205,53 +245,160 @@ const AdminDashboardTabs: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="flex h-screen overflow-hidden">
-        {/* Sidebar de navegación */}
-        <div className="hidden lg:flex lg:flex-shrink-0">
-          <div className="flex flex-col w-64 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <div className="bg-gray-50 dark:bg-gray-900">
+      {/* Altura = 100vh - header - footer */}
+      <div className="flex h-[calc(100vh-118px)] overflow-hidden">
+        {/* Sidebar de navegación - Colapsable con hover */}
+        <div className="hidden lg:flex lg:flex-shrink-0 relative">
+          <motion.div
+            ref={sidebarRef}
+            initial={false}
+            animate={{
+              width: isSidebarExpanded ? 256 : 64
+            }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            onMouseEnter={() => setIsSidebarHovered(true)}
+            onMouseLeave={() => setIsSidebarHovered(false)}
+            className="flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden"
+          >
             {/* Header del sidebar */}
-            <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Administración
-              </h2>
-              {(isAdmin || isAdminOperativo) && unreadCount > 0 && (
-                <button
-                  onClick={() => setShowMessagesModal(true)}
-                  className="relative p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                >
-                  <Mail className="w-5 h-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-              )}
+            <div className="flex items-center h-16 px-4 border-b border-gray-200 dark:border-gray-700">
+              <AnimatePresence mode="wait">
+                {isSidebarExpanded ? (
+                  <motion.div
+                    key="expanded"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center justify-between w-full"
+                  >
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                      Administración
+                    </h2>
+                    <div className="flex items-center gap-1">
+                      {(isAdmin || isAdminOperativo) && unreadCount > 0 && (
+                        <button
+                          onClick={() => setShowMessagesModal(true)}
+                          className="relative p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          <Mail className="w-5 h-5" />
+                          <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        </button>
+                      )}
+                      {/* Botón para fijar/desfijar sidebar */}
+                      <button
+                        onClick={toggleSidebarPin}
+                        className={`p-2 rounded-lg transition-all duration-200 ${
+                          isSidebarPinned
+                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                            : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                        title={isSidebarPinned ? 'Desfijar menú (se colapsará automáticamente)' : 'Fijar menú (permanecerá expandido)'}
+                      >
+                        {isSidebarPinned ? (
+                          <Pin className="w-4 h-4" />
+                        ) : (
+                          <PinOff className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="collapsed"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="w-full flex justify-center"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <Menu className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Navegación de pestañas */}
-            <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
               {tabs.map((tab) => (
-                <button
+                <motion.button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  className={`w-full flex items-center rounded-lg transition-all duration-200 ${
+                    isSidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
+                  } ${
                     activeTab === tab.id
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-l-4 border-blue-500'
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                   }`}
+                  title={!isSidebarExpanded ? tab.name : undefined}
                 >
-                  <span className={`mr-3 ${
+                  <span className={`flex-shrink-0 ${
                     activeTab === tab.id ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400'
                   }`}>
                     {tab.icon}
                   </span>
-                  <span>{tab.name}</span>
-                </button>
+                  <AnimatePresence>
+                    {isSidebarExpanded && (
+                      <motion.span
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: 'auto' }}
+                        exit={{ opacity: 0, width: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden"
+                      >
+                        {tab.name}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                  {/* Indicador activo para modo colapsado */}
+                  {!isSidebarExpanded && activeTab === tab.id && (
+                    <motion.div
+                      layoutId="activeIndicator"
+                      className="absolute left-0 w-1 h-6 bg-blue-500 rounded-r"
+                    />
+                  )}
+                </motion.button>
               ))}
             </nav>
-          </div>
+            
+            {/* Footer del sidebar - indicador de estado */}
+            <div className="px-2 py-3 border-t border-gray-200 dark:border-gray-700">
+              <AnimatePresence mode="wait">
+                {isSidebarExpanded ? (
+                  <motion.div
+                    key="footer-expanded"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-between px-2"
+                  >
+                    <span className="text-xs text-gray-400">
+                      {isSidebarPinned ? 'Menú fijado' : 'Hover para expandir'}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {isSidebarPinned ? <Pin className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                    </span>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="footer-collapsed"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex justify-center"
+                  >
+                    <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
         </div>
 
         {/* Contenido principal */}
@@ -297,13 +444,25 @@ const AdminDashboardTabs: React.FC = () => {
           </div>
 
           {/* Contenido de las pestañas */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+          {/* UserManagementV2 ocupa todo el área disponible - contenedor absoluto para altura fija */}
+          {activeTab === 'usuarios' && (isAdmin || isAdminOperativo) && USE_NEW_USER_MANAGEMENT && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <UserManagementV2 />
+              </div>
+            </div>
+          )}
+          
+          {/* Otros módulos con scroll */}
+          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT ? 'hidden' : ''}`}>
+            
+            {/* Otros módulos mantienen el contenedor con padding */}
             <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
               <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
-                {activeTab === 'usuarios' && (isAdmin || isAdminOperativo) && (
-                  <div className="p-4 sm:p-5 md:p-6 lg:p-8">
-                    <UserManagement />
-                  </div>
+                {activeTab === 'usuarios' && (isAdmin || isAdminOperativo) && !USE_NEW_USER_MANAGEMENT && (
+                    <div className="p-4 sm:p-5 md:p-6 lg:p-8">
+                      <UserManagement />
+                    </div>
                 )}
                 
                 {activeTab === 'preferencias' && isAdmin && (
@@ -339,6 +498,12 @@ const AdminDashboardTabs: React.FC = () => {
                 {activeTab === 'coordinaciones' && (isAdmin || isAdminOperativo) && (
                   <div className="p-4 sm:p-5 md:p-6 lg:p-8">
                     <CoordinacionesManager />
+                  </div>
+                )}
+
+                {activeTab === 'horarios' && (isAdmin || isAdminOperativo) && (
+                  <div className="p-4 sm:p-5 md:p-6 lg:p-8">
+                    <ScheduleManager />
                   </div>
                 )}
               </div>

@@ -16,6 +16,20 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Settings, 
+  Palette, 
+  Image, 
+  Type, 
+  Upload,
+  Check,
+  Loader2,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight
+} from 'lucide-react';
 import { pqncSupabase as supabase } from '../../config/pqncSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { systemConfigEvents } from '../../utils/systemConfigEvents';
@@ -376,293 +390,338 @@ const SystemPreferences: React.FC = () => {
     }
   };
 
+  // Tabs de navegación
+  const [activeSection, setActiveSection] = useState<'branding' | 'themes'>('branding');
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-slate-600"></div>
+        <span className="ml-3 text-sm text-slate-500 dark:text-slate-400">Cargando preferencias...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Preferencias del Sistema
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Configura la apariencia y branding de la aplicación
-        </p>
-      </div>
-
-      {/* Mensajes de estado */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-          {success}
-        </div>
-      )}
-
-      {/* Configuración de Branding */}
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          🎨 Configuración de Marca
-        </h3>
-        
-        <form onSubmit={handleBrandingSave} className="space-y-6">
-          {/* Logo actual */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Logo Actual
-            </label>
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
-                {brandingConfig.logo_url ? (
-                  <img 
-                    src={brandingConfig.logo_url} 
-                    alt="Logo actual" 
-                    className="w-full h-full object-contain rounded-lg"
-                  />
-                ) : (
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                )}
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Logo actual de la aplicación
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500">
-                  Recomendado: PNG transparente, 64x64px
-                </p>
-              </div>
+    <div className="space-y-6">
+      {/* Header minimalista */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <Settings className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Preferencias
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Apariencia y branding del sistema
+              </p>
             </div>
           </div>
 
-          {/* Subir nuevo logo */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Nuevo Logo (PNG)
-            </label>
-            <div className="flex items-center space-x-4">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleLogoChange}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {logoPreview && (
-                <div className="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg p-1">
-                  <img 
-                    src={logoPreview} 
-                    alt="Preview" 
-                    className="w-full h-full object-contain rounded"
-                  />
-                </div>
-              )}
+          {/* Métricas inline */}
+          <div className="hidden md:flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-gray-600 dark:text-gray-400">
+                Tema: <span className="font-medium text-gray-900 dark:text-white">{themes.find(t => t.theme_name === activeTheme)?.display_name || 'Default'}</span>
+              </span>
             </div>
           </div>
 
-          <div className="border-t border-gray-200 dark:border-gray-600 my-6"></div>
-
-          {/* Favicon actual */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Favicon Actual
-            </label>
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center shadow-sm border border-gray-200 dark:border-gray-600">
-                {brandingConfig.favicon_url ? (
-                  <img 
-                    src={brandingConfig.favicon_url} 
-                    alt="Favicon actual" 
-                    className="w-8 h-8 object-contain"
-                  />
-                ) : (
-                  <span className="text-xs text-gray-400">N/A</span>
-                )}
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Icono de pestaña del navegador
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500">
-                  Recomendado: SVG o PNG 32x32px
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Subir nuevo favicon */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Nuevo Favicon (SVG/PNG)
-            </label>
-            <div className="flex items-center space-x-4">
-              <input
-                type="file"
-                accept="image/svg+xml,image/png,image/x-icon,image/jpeg"
-                onChange={handleFaviconChange}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {faviconPreview && (
-                <div className="w-12 h-12 border-2 border-dashed border-gray-300 rounded-lg p-1 flex items-center justify-center">
-                  <img 
-                    src={faviconPreview} 
-                    alt="Preview Favicon" 
-                    className="w-8 h-8 object-contain"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 dark:border-gray-600 my-6"></div>
-
-          {/* Nombre de la aplicación */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Nombre de la Aplicación
-            </label>
-            <input
-              type="text"
-              value={brandingConfig.app_name || ''}
-              onChange={(e) => setBrandingConfig({
-                ...brandingConfig,
-                app_name: e.target.value
-              })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="VAPI Builder"
-            />
-          </div>
-
-          {/* Descripción de login */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Descripción en Página de Login
-            </label>
-            <textarea
-              value={brandingConfig.login_description || ''}
-              onChange={(e) => setBrandingConfig({
-                ...brandingConfig,
-                login_description: e.target.value
-              })}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="Inicia sesión con tus credenciales corporativas"
-            />
-          </div>
-
-          {/* Descripción del header */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Descripción del Header
-            </label>
-            <input
-              type="text"
-              value={brandingConfig.header_description || ''}
-              onChange={(e) => setBrandingConfig({
-                ...brandingConfig,
-                header_description: e.target.value
-              })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="Construcción de agentes inteligentes"
-            />
-          </div>
-
+          {/* Refresh */}
           <button
-            type="submit"
-            disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={loadSystemConfig}
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
+            title="Actualizar"
           >
-            {saving ? 'Guardando...' : 'Guardar Configuración de Marca'}
+            <RefreshCw className="w-4 h-4" />
           </button>
-        </form>
+        </div>
       </div>
 
-      {/* Configuración de Temas */}
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          🎨 Temas de la Aplicación
-        </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          Elige entre dos estilos de diseño para toda la aplicación. Cada tema mantiene compatibilidad con modo claro/oscuro.
-        </p>
+      {/* Notificaciones flotantes */}
+      <AnimatePresence>
+        {(error || success) && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${
+              error 
+                ? 'bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-300'
+                : 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+            }`}
+          >
+            {error ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+            <span>{error || success}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {themes.map((theme) => {
-            const isThemeActive = activeTheme === theme.theme_name;
-            return (
-              <div
-                key={theme.id}
-                className={`relative border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                  isThemeActive
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                }`}
-                onClick={() => handleThemeChange(theme.id)}
-              >
-                {/* Indicador de tema activo */}
-                {isThemeActive && (
-                  <div className="absolute top-2 right-2">
-                    <div className="bg-blue-500 text-white rounded-full p-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
+      {/* Tabs de navegación */}
+      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveSection('branding')}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            activeSection === 'branding'
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <Image className="w-4 h-4" />
+          Branding
+        </button>
+        <button
+          onClick={() => setActiveSection('themes')}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            activeSection === 'themes'
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          Temas
+        </button>
+      </div>
+
+      {/* Contenido según tab activo */}
+      <AnimatePresence mode="wait">
+        {activeSection === 'branding' ? (
+          <motion.div
+            key="branding"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+          >
+            <form onSubmit={handleBrandingSave}>
+              {/* Sección: Imágenes */}
+              <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-2 mb-4">
+                  <Image className="w-4 h-4 text-gray-400" />
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Imágenes
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Logo */}
+                  <div className="group">
+                    <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors">
+                      <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center overflow-hidden">
+                        {logoPreview ? (
+                          <img src={logoPreview} alt="Preview" className="w-full h-full object-contain" />
+                        ) : brandingConfig.logo_url ? (
+                          <img src={brandingConfig.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                        ) : (
+                          <Image className="w-6 h-6 text-white/60" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">Logo</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">PNG transparente, 64×64px</p>
+                        <label className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer hover:text-blue-700">
+                          <Upload className="w-3 h-3" />
+                          Cambiar
+                          <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                        </label>
+                      </div>
                     </div>
                   </div>
-                )}
 
-              {/* Preview de colores */}
-              <div className="flex space-x-1 mb-3">
-                <div 
-                  className="w-6 h-6 rounded shadow-sm"
-                  style={{ backgroundColor: theme.theme_config?.primary || '#6366f1' }}
-                ></div>
-                <div 
-                  className="w-6 h-6 rounded shadow-sm"
-                  style={{ backgroundColor: theme.theme_config?.secondary || '#818cf8' }}
-                ></div>
-                <div 
-                  className="w-6 h-6 rounded shadow-sm"
-                  style={{ backgroundColor: theme.theme_config?.accent || '#9ca3af' }}
-                ></div>
-                <div 
-                  className="w-6 h-6 rounded shadow-sm"
-                  style={{ backgroundColor: theme.theme_config?.success || '#22c55e' }}
-                ></div>
+                  {/* Favicon */}
+                  <div className="group">
+                    <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors">
+                      <div className="flex-shrink-0 w-14 h-14 bg-gray-100 dark:bg-gray-600 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-500 overflow-hidden">
+                        {faviconPreview ? (
+                          <img src={faviconPreview} alt="Preview" className="w-8 h-8 object-contain" />
+                        ) : brandingConfig.favicon_url ? (
+                          <img src={brandingConfig.favicon_url} alt="Favicon" className="w-8 h-8 object-contain" />
+                        ) : (
+                          <span className="text-xs text-gray-400">N/A</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">Favicon</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">SVG o PNG, 32×32px</p>
+                        <label className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer hover:text-blue-700">
+                          <Upload className="w-3 h-3" />
+                          Cambiar
+                          <input type="file" accept="image/svg+xml,image/png,image/x-icon" onChange={handleFaviconChange} className="hidden" />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Información del tema */}
-              <h4 className="font-medium text-gray-900 dark:text-white">
-                {theme.display_name}
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {theme.description}
+              {/* Sección: Textos */}
+              <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-2 mb-4">
+                  <Type className="w-4 h-4 text-gray-400" />
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Textos
+                  </h3>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Nombre de la app */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                      Nombre de la Aplicación
+                    </label>
+                    <input
+                      type="text"
+                      value={brandingConfig.app_name || ''}
+                      onChange={(e) => setBrandingConfig({ ...brandingConfig, app_name: e.target.value })}
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                      placeholder="VAPI Builder"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Descripción Header */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                        Descripción del Header
+                      </label>
+                      <input
+                        type="text"
+                        value={brandingConfig.header_description || ''}
+                        onChange={(e) => setBrandingConfig({ ...brandingConfig, header_description: e.target.value })}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                        placeholder="Construcción de agentes inteligentes"
+                      />
+                    </div>
+
+                    {/* Descripción Login */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                        Descripción en Login
+                      </label>
+                      <input
+                        type="text"
+                        value={brandingConfig.login_description || ''}
+                        onChange={(e) => setBrandingConfig({ ...brandingConfig, login_description: e.target.value })}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                        placeholder="Inicia sesión con tus credenciales"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer con botón guardar */}
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-slate-700 dark:bg-slate-600 rounded-xl hover:bg-slate-600 dark:hover:bg-slate-500 disabled:opacity-50 transition-all"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Guardar Cambios
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="themes"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+          >
+            {/* Header de sección */}
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Selecciona un tema para cambiar la apariencia de toda la aplicación.
               </p>
-
-              {/* Estado */}
-              <div className="mt-3">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  isThemeActive
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200'
-                }`}>
-                  {isThemeActive ? 'Activo' : 'Disponible'}
-                </span>
-              </div>
             </div>
-            );
-          })}
-        </div>
-      </div>
+
+            {/* Lista de temas */}
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+              {themes.map((theme) => {
+                const isThemeActive = activeTheme === theme.theme_name;
+                return (
+                  <motion.div
+                    key={theme.id}
+                    onClick={() => !isThemeActive && handleThemeChange(theme.id)}
+                    className={`group flex items-center gap-4 px-6 py-4 cursor-pointer transition-colors ${
+                      isThemeActive 
+                        ? 'bg-emerald-50 dark:bg-emerald-900/10' 
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                    }`}
+                    whileHover={{ x: isThemeActive ? 0 : 4 }}
+                    whileTap={{ scale: isThemeActive ? 1 : 0.99 }}
+                  >
+                    {/* Paleta de colores */}
+                    <div className="flex-shrink-0 flex -space-x-1">
+                      <div 
+                        className="w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 shadow-sm"
+                        style={{ backgroundColor: theme.theme_config?.primary || '#6366f1' }}
+                      />
+                      <div 
+                        className="w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 shadow-sm"
+                        style={{ backgroundColor: theme.theme_config?.secondary || '#818cf8' }}
+                      />
+                      <div 
+                        className="w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 shadow-sm"
+                        style={{ backgroundColor: theme.theme_config?.accent || '#9ca3af' }}
+                      />
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {theme.display_name}
+                        </span>
+                        {isThemeActive && (
+                          <span className="px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 rounded">
+                            Activo
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                        {theme.description}
+                      </p>
+                    </div>
+
+                    {/* Indicador */}
+                    {isThemeActive ? (
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                        <Check className="w-4 h-4 text-white" />
+                      </div>
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 transition-colors" />
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Nota */}
+            <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500 dark:text-gray-400">
+              Los temas son compatibles con modo claro y oscuro. La página se recargará al cambiar de tema.
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
