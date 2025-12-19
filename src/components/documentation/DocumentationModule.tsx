@@ -251,6 +251,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'b8ee149', date: '2025-12-19', author: 'Team', message: 'v2.1.37: Optimización rendimiento LogDashboard, filtro Todos (90d), corrección payload webhook', isRelease: true },
   { hash: 'a7dd048', date: '2025-12-19', author: 'Team', message: 'v2.1.36: Clasificación granular de llamadas y mejoras en módulo de programación', isRelease: true },
   { hash: '0f2ba86', date: '2025-12-19', author: 'Team', message: 'v2.1.35: Seguridad - Prevención de mensajes duplicados y correcciones de permisos', isRelease: true },
   { hash: '397b1c5', date: '2025-12-19', author: 'Team', message: 'v2.1.34: Restricciones de llamadas - Validación CRM, horarios y límite nocturno', isRelease: true },
@@ -326,8 +327,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.36', highlight: true },
-  { label: 'Release', value: 'B6.1.3N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.37', highlight: true },
+  { label: 'Release', value: 'B6.1.4N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '19 Dic 2025', highlight: false },
 ];

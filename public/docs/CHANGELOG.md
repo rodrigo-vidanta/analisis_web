@@ -2,6 +2,65 @@
 
 ## Historial de Versiones
 
+### v2.1.37 (2025-12-19)
+**Descripción**: B6.1.4N6.0.0: Optimización rendimiento LogDashboard, filtro permanente de período, corrección payload webhook
+
+---
+
+## 🎯 **RELEASE B6.1.4N6.0.0 - Optimización de Rendimiento y Logs**
+
+### ✨ **Nuevas Características**
+
+1. **Optimización de Rendimiento en LogDashboard**
+   - Implementación de `useDebounce` para filtros (150ms) y búsqueda (300ms)
+   - Uso de `useTransition` para actualizaciones no urgentes de UI
+   - Memoización con `useMemo` para filtros de stats y timeline
+   - Componente `TimeFilterButton` memoizado con `memo()`
+   - Protección contra llamadas concurrentes con `loadingRef`
+   - Carga diferida con `requestIdleCallback` para no bloquear el main thread
+   - Handlers optimizados con `useCallback` y `startTransition`
+
+2. **Filtro de Período "Todos (90d)"**
+   - Nuevo botón verde esmeralda para ver histórico completo (90 días)
+   - Período por defecto de 7 días al iniciar el módulo
+   - Eliminado botón "Limpiar" que dejaba gráfica vacía
+   - Siempre hay un período activo para que la gráfica muestre datos
+
+3. **Tab "Todos los logs" en Dashboard**
+   - Nueva pestaña para ver todos los tipos de logs simultáneamente
+   - Filtro automático de últimas 8 horas al seleccionar
+   - Gráfica y estadísticas alineadas al período seleccionado
+   - Corrección de gráfica para períodos cortos (< 24h)
+
+### 🐛 **Correcciones**
+
+1. **Payload de Error Logging**
+   - Campo `message` renombrado a `mensaje` para compatibilidad con N8N
+   - Severidades actualizadas a masculino: `critico`, `alto`, `medio`, `bajo`
+   - Documentación actualizada en `ERROR_LOG_PAYLOAD_STRUCTURE.md`
+
+2. **Violations de Performance**
+   - Resueltos warnings "click handler took 200ms+"
+   - Optimización de re-renders en cascada al cambiar filtros
+
+3. **Filtros en Prospectos**
+   - Barra de filtros ahora visible tanto en vista tabla como Kanban
+   - Filtros de coordinación, ejecutivo y asignación unificados
+
+4. **Calendario en Programación de Llamadas**
+   - Fecha por defecto al día actual al programar o reagendar
+   - Corrección en ManualCallModal y módulos relacionados
+
+### 📁 **Archivos Modificados**
+- `src/components/admin/LogDashboard.tsx` - Optimizaciones de rendimiento
+- `src/services/errorLogService.ts` - Corrección campo mensaje
+- `src/utils/consoleInterceptors.ts` - Actualización severidades
+- `src/components/prospectos/ProspectosManager.tsx` - Unificación filtros
+- `src/components/shared/ManualCallModal.tsx` - Fecha por defecto
+- `docs/ERROR_LOG_PAYLOAD_STRUCTURE.md` - Documentación actualizada
+
+---
+
 ### v2.1.36 (2025-12-19)
 **Descripción**: B6.1.3N6.0.0: Clasificación granular de llamadas y mejoras en módulo de programación
 

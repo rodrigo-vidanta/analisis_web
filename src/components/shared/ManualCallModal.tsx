@@ -124,6 +124,14 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       setExistingCall(null);
     }
   }, [isOpen]);
+  
+  // Cuando cambia a modo 'scheduled', establecer fecha actual por defecto si no hay una
+  useEffect(() => {
+    if (isOpen && scheduleType === 'scheduled' && !scheduledDate) {
+      const today = new Date();
+      setScheduledDate(today.toISOString().split('T')[0]);
+    }
+  }, [isOpen, scheduleType, scheduledDate]);
 
   // Función para verificar si hay una llamada programada pendiente
   const checkExistingScheduledCall = async () => {
@@ -802,6 +810,10 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
                       type="button"
                       onClick={() => {
                         setScheduleType('scheduled');
+                        // Establecer fecha actual por defecto al cambiar a modo programado
+                        if (!scheduledDate) {
+                          setScheduledDate(getMinDate());
+                        }
                       }}
                       disabled={loading}
                       className={`p-4 rounded-xl border-2 transition-all duration-200 ${

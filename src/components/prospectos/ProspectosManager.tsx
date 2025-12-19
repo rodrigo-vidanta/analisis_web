@@ -1495,51 +1495,47 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               ))}
             </select>
             
-            {/* Filtros de coordinación y ejecutivo - disponibles para todos en vista datagrid */}
-            {viewType === 'datagrid' && (
-              <>
-                <select
-                  value={filters.coordinacion_id}
-                  onChange={(e) => {
-                    setFilters(prev => ({ 
-                      ...prev, 
-                      coordinacion_id: e.target.value,
-                      // Limpiar ejecutivo si cambia la coordinación
-                      ejecutivo_id: e.target.value ? prev.ejecutivo_id : ''
-                    }));
-                  }}
-                  className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
-                >
-                  <option value="">Todas las coordinaciones</option>
-                  {coordinacionesOptions.map(coord => (
-                    <option key={coord.id} value={coord.id}>{coord.codigo}</option>
-                  ))}
-                </select>
-                
-                <select
-                  value={filters.ejecutivo_id}
-                  onChange={(e) => setFilters(prev => ({ ...prev, ejecutivo_id: e.target.value }))}
-                  className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
-                >
-                  <option value="">Todos los ejecutivos</option>
-                  {ejecutivosOptions
-                    .filter(e => !filters.coordinacion_id || e.coordinacion_id === filters.coordinacion_id)
-                    .map(ejecutivo => (
-                      <option key={ejecutivo.id} value={ejecutivo.id}>{ejecutivo.full_name}</option>
-                    ))}
-                </select>
-                
-                <select
-                  value={filters.asignacion}
-                  onChange={(e) => setFilters(prev => ({ ...prev, asignacion: e.target.value as 'todos' | 'asignados' | 'no_asignados' }))}
-                  className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[100px]"
-                >
-                  <option value="todos">Todos</option>
-                  <option value="asignados">Asignados</option>
-                  <option value="no_asignados">Sin asignar</option>
-                </select>
-              </>
-            )}
+            {/* Filtros de coordinación, ejecutivo y asignación - disponibles en ambas vistas */}
+            <select
+              value={filters.coordinacion_id}
+              onChange={(e) => {
+                setFilters(prev => ({ 
+                  ...prev, 
+                  coordinacion_id: e.target.value,
+                  // Limpiar ejecutivo si cambia la coordinación
+                  ejecutivo_id: e.target.value ? prev.ejecutivo_id : ''
+                }));
+              }}
+              className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
+            >
+              <option value="">Todas las coordinaciones</option>
+              {coordinacionesOptions.map(coord => (
+                <option key={coord.id} value={coord.id}>{coord.codigo}</option>
+              ))}
+            </select>
+            
+            <select
+              value={filters.ejecutivo_id}
+              onChange={(e) => setFilters(prev => ({ ...prev, ejecutivo_id: e.target.value }))}
+              className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
+            >
+              <option value="">Todos los ejecutivos</option>
+              {ejecutivosOptions
+                .filter(e => !filters.coordinacion_id || e.coordinacion_id === filters.coordinacion_id)
+                .map(ejecutivo => (
+                  <option key={ejecutivo.id} value={ejecutivo.id}>{ejecutivo.full_name}</option>
+                ))}
+            </select>
+            
+            <select
+              value={filters.asignacion}
+              onChange={(e) => setFilters(prev => ({ ...prev, asignacion: e.target.value as 'todos' | 'asignados' | 'no_asignados' }))}
+              className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[100px]"
+            >
+              <option value="todos">Todos</option>
+              <option value="asignados">Asignados</option>
+              <option value="no_asignados">Sin asignar</option>
+            </select>
             
             <button 
               onClick={() => setFilters({ search: '', etapa: '', score: '', campana_origen: '', dateRange: '', coordinacion_id: '', ejecutivo_id: '', asignacion: 'todos' })}

@@ -15,7 +15,7 @@ export interface ErrorLogData {
   error_code?: string; // Código de error si existe
   
   // Información del error
-  message: string; // Mensaje del error
+  mensaje: string; // Mensaje del error (en español para N8N)
   stack_trace?: string; // Stack trace completo
   error_details?: Record<string, any>; // Detalles adicionales del error
   
@@ -36,7 +36,7 @@ export interface ErrorLogData {
   timestamp: string; // ISO timestamp
   
   // Metadatos adicionales
-  severity: 'critica' | 'alta' | 'media' | 'baja'; // En español - valores oficiales de BD
+  severity: 'critico' | 'alto' | 'medio' | 'bajo'; // En español masculino - valores oficiales de BD y documentación
   session_id?: string; // ID de sesión si existe
   request_id?: string; // ID de request si existe
   
@@ -278,7 +278,7 @@ class ErrorLogService {
     const keyParts = [
       errorData.error_type,
       errorData.module,
-      errorData.message.substring(0, 100) // Primeros 100 caracteres del mensaje
+      errorData.mensaje.substring(0, 100) // Primeros 100 caracteres del mensaje
     ];
     return keyParts.join('|');
   }
@@ -349,7 +349,7 @@ class ErrorLogService {
       userId?: string;
       userEmail?: string;
       userRole?: string;
-      severity?: 'critica' | 'alta' | 'media' | 'baja';
+      severity?: 'critico' | 'alto' | 'medio' | 'bajo';
       category?: string;
       tags?: string[];
       details?: Record<string, any>;
@@ -396,7 +396,7 @@ class ErrorLogService {
       userId?: string;
       userEmail?: string;
       userRole?: string;
-      severity?: 'critica' | 'alta' | 'media' | 'baja';
+      severity?: 'critico' | 'alto' | 'medio' | 'bajo';
       category?: string;
       tags?: string[];
       details?: Record<string, any>;
@@ -454,7 +454,7 @@ class ErrorLogService {
       error_id: this.generateErrorId(),
       error_type: errorType,
       error_code: errorCode,
-      message,
+      mensaje: message, // Campo renombrado a español para N8N
       stack_trace: stackTrace,
       error_details: context.details || {},
       module: context.module,
@@ -506,10 +506,10 @@ class ErrorLogService {
   }
 
   /**
-   * Infiere la severidad basándose en el tipo y mensaje del error (en español)
-   * Valores oficiales de BD: 'critica', 'alta', 'media', 'baja'
+   * Infiere la severidad basándose en el tipo y mensaje del error (en español masculino)
+   * Valores oficiales de BD y documentación: 'critico', 'alto', 'medio', 'bajo'
    */
-  private inferSeverity(errorType: string, message: string): 'critica' | 'alta' | 'media' | 'baja' {
+  private inferSeverity(errorType: string, message: string): 'critico' | 'alto' | 'medio' | 'bajo' {
     const typeLower = errorType.toLowerCase();
     const messageLower = message.toLowerCase();
 
@@ -521,7 +521,7 @@ class ErrorLogService {
       messageLower.includes('database connection') ||
       messageLower.includes('authentication failed')
     ) {
-      return 'critica';
+      return 'critico';
     }
 
     // Errores de alta severidad
@@ -530,7 +530,7 @@ class ErrorLogService {
       messageLower.includes('failed') ||
       messageLower.includes('exception')
     ) {
-      return 'alta';
+      return 'alto';
     }
 
     // Errores de severidad media
@@ -539,10 +539,10 @@ class ErrorLogService {
       messageLower.includes('warning') ||
       messageLower.includes('deprecated')
     ) {
-      return 'media';
+      return 'medio';
     }
 
-    return 'baja';
+    return 'bajo';
   }
 
   /**

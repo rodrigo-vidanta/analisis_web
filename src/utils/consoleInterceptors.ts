@@ -242,7 +242,7 @@ window.addEventListener('error', (event) => {
       module: 'global',
       component: 'ErrorHandler',
       function: 'window.onerror',
-      severity: 'alta',
+      severity: 'alto',
       category: 'aplicacion',
       details: {
         filename: event.filename,
@@ -262,7 +262,7 @@ window.addEventListener('unhandledrejection', (event) => {
       module: 'global',
       component: 'ErrorHandler',
       function: 'unhandledrejection',
-      severity: 'alta',
+      severity: 'alto',
       category: 'aplicacion',
       details: {
         reason: event.reason instanceof Error ? event.reason.message : String(event.reason)

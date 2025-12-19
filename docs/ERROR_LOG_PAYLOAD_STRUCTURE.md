@@ -9,7 +9,7 @@ Cada error enviado al webhook tiene la siguiente estructura JSON:
   "error_id": "1763490207981-5102l9l3z",
   "error_type": "STRING_ERROR",
   "error_code": null,
-  "message": "Error obteniendo workflows:",
+  "mensaje": "Error obteniendo workflows:",
   "stack_trace": "TypeError: Failed to fetch\n    at window.fetch...",
   "error_details": {
     "args": ["Error obteniendo workflows:", {...}]
@@ -41,7 +41,7 @@ Cada error enviado al webhook tiene la siguiente estructura JSON:
 |-------|------|-------------|---------|
 | `error_id` | string | ID único del error (timestamp-random) | `"1763490207981-5102l9l3z"` |
 | `error_type` | string | Tipo de error | `"STRING_ERROR"`, `"TypeError"`, `"API_ERROR"` |
-| `message` | string | Mensaje descriptivo del error | `"Error obteniendo workflows:"` |
+| `mensaje` | string | Mensaje descriptivo del error (en español para N8N) | `"Error obteniendo workflows:"` |
 | `module` | string | Módulo donde ocurrió | `"console"`, `"auth"`, `"agent-studio"` |
 | `environment` | string | Entorno: `"desarrollo"`, `"produccion"`, `"staging"` | `"desarrollo"` |
 | `timestamp` | string | ISO 8601 timestamp | `"2025-11-18T18:23:27.981Z"` |

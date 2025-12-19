@@ -12,7 +12,7 @@
  * - Vista por defecto del módulo Log Server
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, useTransition, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Chart, registerables } from 'chart.js/auto';
 import { logMonitorService, type LogFilters, type LogStats, type ErrorLog } from '../../services/logMonitorService';
@@ -20,13 +20,81 @@ import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import type { UIErrorLogAnnotation, UIErrorLogTag, UIErrorLogAIAnalysis } from '../../config/supabaseLogMonitor';
 import { supabaseLogMonitor } from '../../config/supabaseLogMonitor';
-import { Search, Filter, X, MessageSquare, Phone, Monitor, ChevronUp, ChevronDown, ChevronsUpDown, Plus, Minus, User } from 'lucide-react';
+import { Search, Filter, X, MessageSquare, Phone, Monitor, ChevronUp, ChevronDown, ChevronsUpDown, Plus, Minus, User, Layers } from 'lucide-react';
 
 Chart.register(...registerables);
+
+// ============================================
+// OPTIMIZACIÓN: Hook personalizado para debounce
+// ============================================
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 interface LogDashboardProps {
   onBackToConfig?: () => void;
 }
+
+// ============================================
+// OPTIMIZACIÓN: Componente memoizado para botones de filtro de tiempo
+// ============================================
+interface TimeFilterButtonProps {
+  label: string;
+  minutes: number;
+  currentDateFrom: string | undefined;
+  onClick: () => void;
+  isAllButton?: boolean;
+}
+
+const TimeFilterButton = memo(({ label, minutes, currentDateFrom, onClick, isAllButton }: TimeFilterButtonProps) => {
+  const isActive = useMemo(() => {
+    if (!currentDateFrom) return false;
+    const now = new Date();
+    const filterDate = new Date(currentDateFrom);
+    const expectedDate = new Date(now.getTime() - minutes * 60 * 1000);
+    return Math.abs(filterDate.getTime() - expectedDate.getTime()) < 60000;
+  }, [currentDateFrom, minutes]);
+
+  const className = useMemo(() => {
+    if (isAllButton) {
+      return `px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm ${
+        isActive
+          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-600 shadow-md'
+          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md'
+      }`;
+    }
+    return `px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm ${
+      isActive
+        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-2 border-blue-600 shadow-md'
+        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md'
+    }`;
+  }, [isActive, isAllButton]);
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className={className}
+    >
+      {label}
+    </motion.button>
+  );
+});
+
+TimeFilterButton.displayName = 'TimeFilterButton';
 
 const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
   const { user } = useAuth();
@@ -55,20 +123,36 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [groupByType, setGroupByType] = useState(true);
 
-  // Filtros
-  const [filters, setFilters] = useState<LogFilters>({
-    is_read: undefined,
-    is_archived: false
+  // OPTIMIZACIÓN: useTransition para actualizaciones no urgentes
+  const [isPending, startTransition] = useTransition();
+
+  // Filtros - Inicializar con período por defecto de 7 días para que la gráfica siempre muestre datos
+  const [filters, setFilters] = useState<LogFilters>(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return {
+      is_read: undefined,
+      is_archived: false,
+      date_from: sevenDaysAgo.toISOString(),
+      date_to: now.toISOString()
+    };
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(100); // Default 100 logs
-  const [activeTab, setActiveTab] = useState<'mensaje' | 'llamada' | 'ui' | 'mis-actividades'>('mensaje');
+  const [activeTab, setActiveTab] = useState<'todos' | 'mensaje' | 'llamada' | 'ui' | 'mis-actividades'>('todos');
   const [activityFilter, setActivityFilter] = useState<'comentarios' | 'analisis' | 'todos'>('todos');
   const [sortColumn, setSortColumn] = useState<'timestamp' | 'severidad' | 'subtipo' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const realtimeChannelRef = useRef<any>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  
+  // OPTIMIZACIÓN: Debounce de filtros para evitar múltiples llamadas
+  const debouncedFilters = useDebounce(filters, 150);
+  
+  // OPTIMIZACIÓN: Flag para evitar doble carga inicial
+  const isInitialMountRef = useRef(true);
+  const loadingRef = useRef(false);
 
   // Función para reproducir alerta sonora solo para logs críticos
   const playCriticalAlert = useCallback(() => {
@@ -94,49 +178,67 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
     }
   }, []);
 
+  // OPTIMIZACIÓN: Memoizar filtros de stats para evitar recreaciones
+  const statsFilters = useMemo(() => ({
+    date_from: debouncedFilters.date_from,
+    date_to: debouncedFilters.date_to,
+    severity: debouncedFilters.severity,
+    tipo: debouncedFilters.tipo,
+    subtipo: debouncedFilters.subtipo,
+    ambiente: debouncedFilters.ambiente
+  }), [debouncedFilters.date_from, debouncedFilters.date_to, debouncedFilters.severity, debouncedFilters.tipo, debouncedFilters.subtipo, debouncedFilters.ambiente]);
+
   const loadStats = useCallback(async () => {
     try {
-      // Pasar filtros de tiempo y otros filtros relevantes a getStats
-      const statsFilters: LogFilters = {
-        date_from: filters.date_from,
-        date_to: filters.date_to,
-        severity: filters.severity,
-        tipo: filters.tipo,
-        subtipo: filters.subtipo,
-        ambiente: filters.ambiente
-      };
       const statsData = await logMonitorService.getStats(statsFilters);
-      setStats(statsData);
+      startTransition(() => {
+        setStats(statsData);
+      });
     } catch (error) {
       console.error('Error loading stats:', error);
       toast.error('Error al cargar estadísticas');
     }
-  }, [filters.date_from, filters.date_to, filters.severity, filters.tipo, filters.subtipo, filters.ambiente]);
+  }, [statsFilters]);
+
+  // OPTIMIZACIÓN: Memoizar filtros de timeline para evitar recreaciones
+  const timelineFilters = useMemo(() => ({
+    date_from: debouncedFilters.date_from,
+    date_to: debouncedFilters.date_to,
+    severity: debouncedFilters.severity,
+    subtipo: debouncedFilters.subtipo,
+    ambiente: debouncedFilters.ambiente,
+    is_read: debouncedFilters.is_read,
+    is_archived: debouncedFilters.is_archived,
+    tipo: undefined,
+    search: undefined
+  }), [debouncedFilters.date_from, debouncedFilters.date_to, debouncedFilters.severity, debouncedFilters.subtipo, debouncedFilters.ambiente, debouncedFilters.is_read, debouncedFilters.is_archived]);
 
   // Cargar logs para la gráfica temporal (sin filtro de tipo, solo filtros de tiempo y otros)
   const loadTimelineLogs = useCallback(async () => {
     try {
-      const timelineFilters: LogFilters = {
-        ...filters,
-        // No incluir filtro de tipo para mostrar todos los tipos en la gráfica
-        tipo: undefined,
-        search: undefined // No aplicar búsqueda de texto para la gráfica
-      };
-
       const result = await logMonitorService.getLogs(timelineFilters, {
-        limit: 10000, // Límite alto para obtener todos los logs del rango
+        limit: 10000,
         offset: 0,
         orderBy: 'timestamp',
         orderDirection: 'asc'
       });
 
-      setTimelineLogs(result.data);
+      startTransition(() => {
+        setTimelineLogs(result.data);
+      });
     } catch (error) {
       console.error('Error loading timeline logs:', error);
     }
-  }, [filters.date_from, filters.date_to, filters.severity, filters.subtipo, filters.ambiente]);
+  }, [timelineFilters]);
+
+  // OPTIMIZACIÓN: Debounce de búsqueda separado
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const loadLogs = useCallback(async () => {
+    // OPTIMIZACIÓN: Evitar llamadas concurrentes
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    
     try {
       setLoading(true);
       
@@ -145,24 +247,24 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
         let result;
         if (activityFilter === 'comentarios') {
           result = await logMonitorService.getLogsWithUserAnnotations(user.id, {
-            ...filters,
-            search: searchQuery || undefined
+            ...debouncedFilters,
+            search: debouncedSearchQuery || undefined
           });
         } else if (activityFilter === 'analisis') {
           result = await logMonitorService.getLogsWithUserAIAnalysis(user.id, {
-            ...filters,
-            search: searchQuery || undefined
+            ...debouncedFilters,
+            search: debouncedSearchQuery || undefined
           });
         } else {
           // 'todos': combinar ambos
           const [comentariosResult, analisisResult] = await Promise.all([
             logMonitorService.getLogsWithUserAnnotations(user.id, {
-              ...filters,
-              search: searchQuery || undefined
+              ...debouncedFilters,
+              search: debouncedSearchQuery || undefined
             }),
             logMonitorService.getLogsWithUserAIAnalysis(user.id, {
-              ...filters,
-              search: searchQuery || undefined
+              ...debouncedFilters,
+              search: debouncedSearchQuery || undefined
             })
           ]);
           
@@ -203,18 +305,21 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
           });
         }
         
-        setLogs(paginatedLogs);
-        setTotalCount(result.count);
+        startTransition(() => {
+          setLogs(paginatedLogs);
+          setTotalCount(result.count);
+        });
       } else {
         // Cargar logs normales con filtro de tipo
         const filtersWithSearch: LogFilters = {
-          ...filters,
-          search: searchQuery || undefined
+          ...debouncedFilters,
+          search: debouncedSearchQuery || undefined
         };
 
         const filtersWithTab: LogFilters = {
           ...filtersWithSearch,
-          tipo: activeTab !== 'mis-actividades' ? [activeTab] : undefined
+          // 'todos' y 'mis-actividades' no filtran por tipo
+          tipo: (activeTab !== 'mis-actividades' && activeTab !== 'todos') ? [activeTab] : undefined
         };
 
         const result = await logMonitorService.getLogs(filtersWithTab, {
@@ -235,25 +340,73 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
           });
         }
 
-        setLogs(sortedData);
-        setTotalCount(result.count);
+        startTransition(() => {
+          setLogs(sortedData);
+          setTotalCount(result.count);
+        });
       }
     } catch (error) {
       console.error('Error loading logs:', error);
       toast.error('Error al cargar logs');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  }, [filters, searchQuery, activeTab, activityFilter, pageSize, currentPage, sortColumn, sortDirection, user?.id]);
+  }, [debouncedFilters, debouncedSearchQuery, activeTab, activityFilter, pageSize, currentPage, sortColumn, sortDirection, user?.id]);
 
-  const handleSort = (column: 'timestamp' | 'severidad' | 'subtipo') => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
-  };
+  const handleSort = useCallback((column: 'timestamp' | 'severidad' | 'subtipo') => {
+    startTransition(() => {
+      if (sortColumn === column) {
+        setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSortColumn(column);
+        setSortDirection('desc');
+      }
+    });
+  }, [sortColumn]);
+
+  // OPTIMIZACIÓN: Handler optimizado para cambios de filtro de tiempo
+  const handleTimeFilterChange = useCallback((minutes: number) => {
+    const now = new Date();
+    const dateFrom = new Date(now.getTime() - minutes * 60 * 1000);
+    startTransition(() => {
+      setFilters(prev => ({
+        ...prev,
+        date_from: dateFrom.toISOString(),
+        date_to: now.toISOString()
+      }));
+    });
+  }, []);
+
+  // OPTIMIZACIÓN: Handler optimizado para filtro "Todos" (90 días)
+  const handleAllTimeFilter = useCallback(() => {
+    const now = new Date();
+    const dateFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    startTransition(() => {
+      setFilters(prev => ({
+        ...prev,
+        date_from: dateFrom.toISOString(),
+        date_to: now.toISOString()
+      }));
+    });
+  }, []);
+
+  // OPTIMIZACIÓN: Handler genérico para cambios de filtros de select
+  const handleFilterChange = useCallback(<K extends keyof LogFilters>(key: K, value: LogFilters[K]) => {
+    startTransition(() => {
+      setFilters(prev => ({
+        ...prev,
+        [key]: value
+      }));
+    });
+  }, []);
+
+  // OPTIMIZACIÓN: Handler para cambio de tab con transición
+  const handleTabChange = useCallback((tabId: 'todos' | 'mensaje' | 'llamada' | 'ui' | 'mis-actividades') => {
+    startTransition(() => {
+      setActiveTab(tabId);
+    });
+  }, []);
 
   // Refs para evitar recrear suscripción
   const activeTabRef = useRef(activeTab);
@@ -296,8 +449,8 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
             });
           }
           
-          // Solo recargar si el nuevo log coincide con el tab activo
-          if (newLog.tipo === activeTabRef.current) {
+          // Recargar si el tab es 'todos' o si el nuevo log coincide con el tab activo
+          if (activeTabRef.current === 'todos' || newLog.tipo === activeTabRef.current) {
             await loadLogsRef.current();
           }
           await loadStatsRef.current();
@@ -312,8 +465,8 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
         },
         async (payload) => {
           const updatedLog = payload.new as ErrorLog;
-          // Solo recargar si el log actualizado coincide con el tab activo
-          if (updatedLog.tipo === activeTabRef.current) {
+          // Recargar si el tab es 'todos' o si el log actualizado coincide con el tab activo
+          if (activeTabRef.current === 'todos' || updatedLog.tipo === activeTabRef.current) {
             await loadLogsRef.current();
           }
           await loadStatsRef.current();
@@ -365,25 +518,63 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
     };
   }, []); // Solo una vez al montar - usa refs para valores actuales
 
-  // Recargar cuando cambien los filtros, tamaño de página o tab activo
+  // Cuando se selecciona la pestaña 'todos', establecer filtro de últimas 8 horas
   useEffect(() => {
-    setCurrentPage(1); // Resetear a primera página cuando cambian filtros
-  }, [filters, searchQuery, pageSize, activeTab, activityFilter]);
+    if (activeTab === 'todos') {
+      const now = new Date();
+      const eightHoursAgo = new Date(now.getTime() - 8 * 60 * 60 * 1000);
+      startTransition(() => {
+        setFilters(prev => ({
+          ...prev,
+          date_from: eightHoursAgo.toISOString(),
+          date_to: now.toISOString()
+        }));
+      });
+    }
+  }, [activeTab]);
 
-  // Recargar estadísticas cuando cambien los filtros de tiempo u otros filtros relevantes
+  // OPTIMIZACIÓN: Resetear página solo cuando cambian filtros (no en cada render)
+  const prevFiltersRef = useRef<string>('');
   useEffect(() => {
-    loadStats();
-  }, [loadStats]);
+    const filtersKey = JSON.stringify({ 
+      f: debouncedFilters, 
+      s: debouncedSearchQuery, 
+      t: activeTab, 
+      a: activityFilter 
+    });
+    if (prevFiltersRef.current && prevFiltersRef.current !== filtersKey) {
+      setCurrentPage(1);
+    }
+    prevFiltersRef.current = filtersKey;
+  }, [debouncedFilters, debouncedSearchQuery, activeTab, activityFilter]);
 
-  // Cargar logs para la gráfica temporal cuando cambien los filtros de tiempo
+  // OPTIMIZACIÓN: Cargar datos en un solo efecto combinado para evitar múltiples llamadas
   useEffect(() => {
-    loadTimelineLogs();
-  }, [loadTimelineLogs]);
+    // Evitar carga inicial duplicada
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      // Ejecutar carga inicial
+      Promise.all([loadStats(), loadTimelineLogs(), loadLogs()]);
+      return;
+    }
 
-  // Cargar logs cuando cambien los parámetros
-  useEffect(() => {
-    loadLogs();
-  }, [loadLogs]);
+    // Cargar datos de forma asíncrona sin bloquear
+    const loadAllData = async () => {
+      // Usar requestIdleCallback si está disponible para no bloquear el main thread
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => {
+          Promise.all([loadStats(), loadTimelineLogs(), loadLogs()]);
+        }, { timeout: 100 });
+      } else {
+        // Fallback: usar setTimeout para diferir la carga
+        setTimeout(() => {
+          Promise.all([loadStats(), loadTimelineLogs(), loadLogs()]);
+        }, 0);
+      }
+    };
+
+    loadAllData();
+  }, [loadStats, loadTimelineLogs, loadLogs]);
 
   const handleLogClick = async (log: ErrorLog) => {
     // Limpiar análisis previo al cambiar de log
@@ -874,11 +1065,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 value={filters.is_read === undefined ? 'all' : filters.is_read ? 'read' : 'unread'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    is_read: value === 'all' ? undefined : value === 'read'
-                  });
-                  setCurrentPage(1);
+                  handleFilterChange('is_read', value === 'all' ? undefined : value === 'read');
                 }}
                 className="px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
               >
@@ -891,11 +1078,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 value={filters.severity?.[0] || 'all'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    severity: value === 'all' ? undefined : [value as any]
-                  });
-                  setCurrentPage(1);
+                  handleFilterChange('severity', value === 'all' ? undefined : [value as any]);
                 }}
                 className="px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
               >
@@ -910,11 +1093,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 value={filters.subtipo?.[0] || 'all'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    subtipo: value === 'all' ? undefined : [value as any]
-                  });
-                  setCurrentPage(1);
+                  handleFilterChange('subtipo', value === 'all' ? undefined : [value as any]);
                 }}
                 className="px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
               >
@@ -940,11 +1119,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 value={filters.ambiente?.[0] || 'all'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    ambiente: value === 'all' ? undefined : [value as any]
-                  });
-                  setCurrentPage(1);
+                  handleFilterChange('ambiente', value === 'all' ? undefined : [value as any]);
                 }}
                 className="px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
               >
@@ -1077,12 +1252,23 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 if (filters.date_from && filters.date_to) {
                   const from = new Date(filters.date_from);
                   const to = new Date(filters.date_to);
-                  const daysDiff = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
-                  return `Errores por Tipo (${daysDiff} ${daysDiff === 1 ? 'día' : 'días'})`;
+                  const diffMs = to.getTime() - from.getTime();
+                  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+                  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                  // Mostrar en horas si es menos de 24 horas
+                  if (diffHours <= 24) {
+                    return `Errores por Tipo (últimas ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'})`;
+                  }
+                  return `Errores por Tipo (${diffDays} ${diffDays === 1 ? 'día' : 'días'})`;
                 } else if (filters.date_from) {
                   const from = new Date(filters.date_from);
-                  const daysDiff = Math.ceil((new Date().getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
-                  return `Errores por Tipo (últimos ${daysDiff} ${daysDiff === 1 ? 'día' : 'días'})`;
+                  const diffMs = new Date().getTime() - from.getTime();
+                  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+                  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                  if (diffHours <= 24) {
+                    return `Errores por Tipo (últimas ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'})`;
+                  }
+                  return `Errores por Tipo (últimos ${diffDays} ${diffDays === 1 ? 'día' : 'días'})`;
                 }
                 return 'Errores por Tipo (últimos 7 días)';
               })()}
@@ -1103,6 +1289,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
         >
           <div className="flex border-b border-gray-200 dark:border-gray-700">
             {[
+              { id: 'todos' as const, label: 'Todos', icon: Layers },
               { id: 'mensaje' as const, label: 'WhatsApp', icon: MessageSquare },
               { id: 'llamada' as const, label: 'Llamadas', icon: Phone },
               { id: 'ui' as const, label: 'System UI', icon: Monitor },
@@ -1112,7 +1299,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex-1 px-6 py-4 text-sm font-medium transition-all duration-200 relative flex items-center justify-center space-x-2 ${
                     activeTab === tab.id
                       ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
@@ -1222,11 +1409,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 value={filters.is_read === undefined ? 'all' : filters.is_read ? 'read' : 'unread'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    is_read: value === 'all' ? undefined : value === 'read'
-                  });
-                  setCurrentPage(1);
+                  handleFilterChange('is_read', value === 'all' ? undefined : value === 'read');
                 }}
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
               >
@@ -1246,11 +1429,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 value={filters.severity?.[0] || 'all'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    severity: value === 'all' ? undefined : [value as any]
-                  });
-                  setCurrentPage(1);
+                  handleFilterChange('severity', value === 'all' ? undefined : [value as any]);
                 }}
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
               >
@@ -1272,11 +1451,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 value={filters.subtipo?.[0] || 'all'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    subtipo: value === 'all' ? undefined : [value as any]
-                  });
-                  setCurrentPage(1);
+                  handleFilterChange('subtipo', value === 'all' ? undefined : [value as any]);
                 }}
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
               >
@@ -1309,11 +1484,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 value={filters.ambiente?.[0] || 'all'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    ambiente: value === 'all' ? undefined : [value as any]
-                  });
-                  setCurrentPage(1);
+                  handleFilterChange('ambiente', value === 'all' ? undefined : [value as any]);
                 }}
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
               >
@@ -1332,6 +1503,16 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
               <span>Filtros Rápidos de Tiempo</span>
             </label>
             <div className="flex flex-wrap gap-2">
+              {/* Opción "Todos" - 90 días por defecto para mostrar histórico completo */}
+              <TimeFilterButton
+                label="📊 Todos (90d)"
+                minutes={90 * 24 * 60}
+                currentDateFrom={filters.date_from}
+                onClick={handleAllTimeFilter}
+                isAllButton
+              />
+              
+              {/* Filtros de tiempo específicos */}
               {[
                 { label: '60 min', minutes: 60 },
                 { label: '3 horas', minutes: 180 },
@@ -1340,61 +1521,18 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 { label: '24 horas', minutes: 1440 },
                 { label: '36 horas', minutes: 2160 },
                 { label: '72 horas', minutes: 4320 },
-                { label: '3 días', minutes: 4320 },
                 { label: '7 días', minutes: 10080 },
                 { label: '15 días', minutes: 21600 },
                 { label: '30 días', minutes: 43200 }
-              ].map(({ label, minutes }) => {
-                const isActive = filters.date_from && (() => {
-                  const now = new Date();
-                  const filterDate = new Date(filters.date_from);
-                  const expectedDate = new Date(now.getTime() - minutes * 60 * 1000);
-                  // Comparar con margen de 1 minuto
-                  return Math.abs(filterDate.getTime() - expectedDate.getTime()) < 60000;
-                })();
-                
-                return (
-                <motion.button
-                    key={label}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                      const now = new Date();
-                      const dateFrom = new Date(now.getTime() - minutes * 60 * 1000);
-                      setFilters({
-                        ...filters,
-                        date_from: dateFrom.toISOString(),
-                        date_to: undefined
-                      });
-                    setCurrentPage(1);
-                  }}
-                    className={`px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm ${
-                      isActive
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-2 border-blue-600 shadow-md'
-                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md'
-                    }`}
-                  >
-                    {label}
-                </motion.button>
-                );
-              })}
-              {(filters.date_from || filters.date_to) && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setFilters({
-                      ...filters,
-                      date_from: undefined,
-                      date_to: undefined
-                    });
-                    setCurrentPage(1);
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-2 border-red-300 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50 transition-all duration-200"
-                >
-                  Limpiar
-                </motion.button>
-              )}
+              ].map(({ label, minutes }) => (
+                <TimeFilterButton
+                  key={label}
+                  label={label}
+                  minutes={minutes}
+                  currentDateFrom={filters.date_from}
+                  onClick={() => handleTimeFilterChange(minutes)}
+                />
+              ))}
             </div>
           </div>
 
@@ -1423,11 +1561,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                         const newTags = isSelected
                           ? currentTags.filter(t => t !== tagName)
                           : [...currentTags, tagName];
-                        setFilters({
-                          ...filters,
-                          tags: newTags.length > 0 ? newTags : undefined
-                        });
-                        setCurrentPage(1);
+                        handleFilterChange('tags', newTags.length > 0 ? newTags : undefined);
                       }}
                       className={`px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm ${
                         isSelected
@@ -2096,18 +2230,26 @@ const LogsTimelineChart: React.FC<TimelineChartProps> = ({ logs, dateFrom, dateT
           startDate.setDate(startDate.getDate() - 6);
         }
         
-        // Normalizar fechas al inicio del día
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        // Calcular diferencia en horas y días
+        const hoursDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        const daysDiff = Math.ceil(hoursDiff / 24);
         
-        // Calcular diferencia en días
-        const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        // Solo normalizar fechas al día completo si el rango es mayor a 24 horas
+        // Para rangos menores (como 8 horas), mantener las horas exactas
+        if (hoursDiff > 24) {
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
+        }
         
         // Determinar intervalo según el rango
         let interval: 'hour' | 'day' = 'day';
         let intervalHours = 24;
         
-        if (daysDiff <= 3) {
+        // Para rangos menores a 24 horas, usar intervalos de 1 hora
+        if (hoursDiff <= 24) {
+          interval = 'hour';
+          intervalHours = 1;
+        } else if (daysDiff <= 3) {
           interval = 'hour';
           intervalHours = Math.max(1, Math.floor(24 / Math.max(1, daysDiff)));
         }
@@ -2119,12 +2261,19 @@ const LogsTimelineChart: React.FC<TimelineChartProps> = ({ logs, dateFrom, dateT
         if (interval === 'hour') {
           const current = new Date(startDate);
           while (current <= endDate) {
-            const label = current.toLocaleString('es-ES', { 
-              day: 'numeric', 
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
+            // Para rangos menores a 24 horas, mostrar solo la hora
+            // Para rangos mayores, incluir también la fecha
+            const label = hoursDiff <= 24 
+              ? current.toLocaleTimeString('es-ES', { 
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+              : current.toLocaleString('es-ES', { 
+                  day: 'numeric', 
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
             labels.push(label);
             buckets.push(new Date(current));
             current.setHours(current.getHours() + intervalHours);
