@@ -1013,7 +1013,50 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
             )}
           </div>
 
-          {/* Content - Layout dividido */}
+          {/* Mostrar contenido solo si hay envíos disponibles */}
+          {sendLimits && !sendLimits.canSend ? (
+            /* Panel de límite alcanzado - Sin catálogo ni botón de enviar */
+            <div className="flex-1 flex flex-col items-center justify-center p-12 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="text-center max-w-md"
+              >
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <Ban className="w-10 h-10 text-red-500 dark:text-red-400" />
+                </div>
+                <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                  Límite de envío alcanzado
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                  {sendLimits.blockReason || 'Has alcanzado el límite de plantillas permitidas para este prospecto.'}
+                </p>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-left">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-amber-800 dark:text-amber-300">
+                      <p className="font-medium mb-1">¿Por qué existe este límite?</p>
+                      <p className="text-amber-700 dark:text-amber-400">
+                        Meta limita el número de plantillas que se pueden enviar para evitar spam. 
+                        Exceder estos límites puede resultar en el bloqueo de tu cuenta de WhatsApp Business.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onClose}
+                  className="mt-6 px-6 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                >
+                  Entendido
+                </motion.button>
+              </motion.div>
+            </div>
+          ) : (
+          <>
+          {/* Content - Layout dividido (solo si hay envíos disponibles) */}
           <div className="flex-1 flex overflow-hidden">
             {/* Panel izquierdo - Lista de plantillas */}
             <div className="w-[45%] border-r border-gray-200 dark:border-gray-800 flex flex-col">
@@ -1402,10 +1445,10 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
             </div>
           </div>
 
-          {/* Footer */}
+          {/* Footer - solo cuando hay envíos disponibles */}
           {selectedTemplate && (
             <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
-              {/* Mensaje de bloqueo de plantilla específica */}
+              {/* Mensaje de bloqueo de plantilla específica (ya no debería mostrarse pero se mantiene por compatibilidad) */}
               {selectedTemplateBlocked.blocked && selectedTemplateBlocked.reason && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -1490,6 +1533,8 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                 </AnimatePresence>
               </div>
             </div>
+          )}
+          </>
           )}
         </motion.div>
       </motion.div>

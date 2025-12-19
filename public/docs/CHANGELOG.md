@@ -2,6 +2,45 @@
 
 ## Historial de Versiones
 
+### v2.1.34 (2025-12-19)
+**Descripción**: B6.1.1N6.0.0: Restricciones de llamadas - Validación CRM, horarios del sistema y límite nocturno
+
+---
+
+## 🎯 **RELEASE B6.1.1N6.0.0 - Restricciones de Llamadas**
+
+### ✨ **Nuevas Características**
+
+1. **Restricción de Llamada "Ahora" (6am - 12am)**
+   - No se permite iniciar llamadas inmediatas fuera del horario 6:00 AM - 12:00 AM
+   - Botón "Ahora" se deshabilita y muestra en rojo con icono de bloqueo
+   - Tooltip explicativo con la hora actual
+
+2. **Validación de Horarios del Sistema para Llamadas Programadas**
+   - Las llamadas programadas se validan contra `config_horarios_base`
+   - Usa los horarios configurados en Administración > Horarios
+   - Fallback a horarios por defecto si no hay datos del sistema
+   - Nueva función `isWithinServiceHours()` en horariosService
+
+3. **Modal "Prospecto sin registro en CRM"**
+   - Se muestra cuando el prospecto no tiene `id_dynamics`
+   - Explica que la IA necesita completar el discovery básico
+   - Diseño con gradientes y iconos (Bot, Sparkles)
+   - Sugiere continuar la conversación para registro automático
+
+4. **Mejoras en Modal de Reactivación (Plantillas)**
+   - Cuando no hay envíos disponibles, se oculta el catálogo completo
+   - Solo muestra los contadores y el mensaje de bloqueo
+   - Botón "Entendido" para cerrar el modal
+
+### 📁 **Archivos Modificados**
+- `src/services/horariosService.ts` - Nuevas funciones de validación
+- `src/components/shared/ManualCallModal.tsx` - Lógica de restricciones y modal CRM
+- `src/components/chat/LiveChatCanvas.tsx` - Prop `prospectoIdDynamics`
+- `src/components/chat/ReactivateConversationModal.tsx` - Ocultar catálogo sin envíos
+
+---
+
 ### v2.1.33 (2025-12-19)
 **Descripción**: B6.1.0N6.0.0: Live Chat - Límites de plantillas WhatsApp, animación IA y búsqueda mejorada
 

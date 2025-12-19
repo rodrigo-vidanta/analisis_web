@@ -344,7 +344,8 @@ export const getTipoExcepcionColor = (tipo: HorarioExcepcion['tipo']): string =>
 };
 
 export const getStatusBloqueoColor = (status: HorarioBloqueo['status']): string => {
-  const colors = {
+  if (!status) return 'bg-gray-100 text-gray-500';
+  const colors: Record<string, string> = {
     'pendiente': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     'activo': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     'ejecutado': 'bg-gray-100 text-gray-500 dark:bg-gray-800/50 dark:text-gray-500'
@@ -353,12 +354,101 @@ export const getStatusBloqueoColor = (status: HorarioBloqueo['status']): string 
 };
 
 export const getStatusBloqueoLabel = (status: HorarioBloqueo['status']): string => {
-  const labels = {
+  if (!status) return 'Desconocido';
+  const labels: Record<string, string> = {
     'pendiente': 'Programado',
     'activo': 'En curso',
     'ejecutado': 'Completado'
   };
   return labels[status] || status;
+};
+
+// ===============================
+// VALIDACIÓN DE HORARIO PARA LLAMADAS
+// ===============================
+
+/**
+ * Verifica si una fecha/hora está dentro del horario de servicio definido
+ * @param date Fecha a validar
+ * @param time Hora en formato HH:mm
+ * @param horariosBase Array de horarios base del sistema
+ * @returns { valid: boolean, reason?: string }
+ */
+export const isWithinServiceHours = async (
+  date: Date,
+  time?: string
+): Promise<{ valid: boolean; reason?: string; horario?: HorarioBase }> => {
+  try {
+    const horariosBase = await getHorariosBase();
+    const dayOfWeek = date.getDay(); // 0 = Domingo, 6 = Sábado
+    
+    // Buscar el horario para este día
+    const horarioDia = horariosBase.find(h => h.dia_semana === dayOfWeek);
+    
+    if (!horarioDia) {
+      return { valid: false, reason: 'No hay horario definido para este día' };
+    }
+    
+    if (!horarioDia.activo) {
+      return { valid: false, reason: `El servicio no está disponible los ${horarioDia.dia_nombre}` };
+    }
+    
+    // Si no se especifica hora, solo validar que el día esté activo
+    if (!time) {
+      return { valid: true, horario: horarioDia };
+    }
+    
+    // Validar la hora
+    const [hours, minutes] = time.split(':').map(Number);
+    const hourDecimal = hours + minutes / 60;
+    
+    if (hourDecimal < horarioDia.hora_inicio || hourDecimal >= horarioDia.hora_fin) {
+      return { 
+        valid: false, 
+        reason: `Horario de servicio: ${formatHora(horarioDia.hora_inicio)} - ${formatHora(horarioDia.hora_fin)}`,
+        horario: horarioDia
+      };
+    }
+    
+    return { valid: true, horario: horarioDia };
+  } catch (error) {
+    console.error('Error validando horario de servicio:', error);
+    return { valid: false, reason: 'Error verificando horarios de servicio' };
+  }
+};
+
+/**
+ * Verifica si AHORA está dentro del horario máximo permitido (6am - 12am)
+ * Esta es una validación más permisiva para llamadas inmediatas
+ */
+export const isWithinMaxServiceHours = (): { valid: boolean; reason?: string } => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // Horario máximo: 6am (6) a 12am (24/0)
+  if (currentHour < 6) {
+    return { 
+      valid: false, 
+      reason: `Fuera de horario de servicio. Las llamadas inmediatas solo están disponibles de 6:00 AM a 12:00 AM. Hora actual: ${now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`
+    };
+  }
+  
+  return { valid: true };
+};
+
+/**
+ * Obtiene los horarios del sistema para mostrar en UI
+ */
+export const getHorariosForUI = async (): Promise<{
+  horariosBase: HorarioBase[];
+  horariosExcepciones: HorarioExcepcion[];
+}> => {
+  const [horariosBase, horariosExcepciones] = await Promise.all([
+    getHorariosBase(),
+    getHorariosExcepciones()
+  ]);
+  
+  return { horariosBase, horariosExcepciones };
 };
 
 // Exportar servicio como objeto
@@ -379,6 +469,11 @@ export const horariosService = {
   createHorarioExcepcion,
   updateHorarioExcepcion,
   deleteHorarioExcepcion,
+  
+  // Validación para llamadas
+  isWithinServiceHours,
+  isWithinMaxServiceHours,
+  getHorariosForUI,
   
   // Utilidades
   formatHora,

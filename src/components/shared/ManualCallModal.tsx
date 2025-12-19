@@ -1,15 +1,21 @@
 /**
  * Modal reutilizable para iniciar/programar llamadas manuales
  * Usado en LiveChat, LiveMonitor, Prospectos y otros módulos
+ * 
+ * RESTRICCIONES:
+ * 1. Llamada "Ahora" solo de 6am a 12am
+ * 2. Llamada programada según horarios del sistema (config_horarios_base)
+ * 3. No se puede llamar si el prospecto no tiene id_dynamics
  */
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Phone, MessageSquare, Calendar, Clock, AlertCircle, Edit } from 'lucide-react';
+import { X, Phone, MessageSquare, Calendar, Clock, AlertCircle, Edit, Ban, Sparkles, Bot } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { horariosService, type HorarioBase } from '../../services/horariosService';
 
 interface ScheduledCall {
   id: string;
@@ -27,6 +33,7 @@ interface ManualCallModalProps {
   customerPhone?: string;
   customerName?: string;
   conversationId?: string;
+  prospectoIdDynamics?: string | null; // ID en CRM Dynamics - si es null, no se puede llamar
   onSuccess?: () => void;
 }
 
@@ -40,6 +47,7 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   customerPhone,
   customerName,
   conversationId,
+  prospectoIdDynamics,
   onSuccess
 }) => {
   const { user } = useAuth();
@@ -49,6 +57,11 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   const [scheduledTime, setScheduledTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ justificacion?: string; fecha?: string; hora?: string }>({});
+  
+  // Estados para validaciones de horario y CRM
+  const [horariosBase, setHorariosBase] = useState<HorarioBase[]>([]);
+  const [showNoCrmModal, setShowNoCrmModal] = useState(false);
+  const [nowCallBlocked, setNowCallBlocked] = useState<{ blocked: boolean; reason?: string }>({ blocked: false });
 
   // Justificaciones predefinidas
   const justificacionesPredefinidas = [
@@ -69,6 +82,35 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       checkExistingScheduledCall();
     }
   }, [isOpen, prospectoId]);
+
+  // Verificar restricciones al abrir el modal
+  useEffect(() => {
+    if (isOpen) {
+      // 1. Verificar si tiene id_dynamics
+      if (!prospectoIdDynamics) {
+        setShowNoCrmModal(true);
+        return;
+      }
+      setShowNoCrmModal(false);
+      
+      // 2. Cargar horarios del sistema
+      loadHorarios();
+      
+      // 3. Verificar si "Ahora" está disponible (6am - 12am)
+      const nowCheck = horariosService.isWithinMaxServiceHours();
+      setNowCallBlocked({ blocked: !nowCheck.valid, reason: nowCheck.reason });
+    }
+  }, [isOpen, prospectoIdDynamics]);
+
+  // Cargar horarios del sistema
+  const loadHorarios = async () => {
+    try {
+      const horarios = await horariosService.getHorariosBase();
+      setHorariosBase(horarios);
+    } catch (error) {
+      console.error('Error cargando horarios:', error);
+    }
+  };
 
   // Resetear formulario al abrir/cerrar
   useEffect(() => {
@@ -154,23 +196,43 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
     }
   };
 
-  // Validar horarios según día de la semana
-  const isValidScheduleTime = (date: Date, time: string): boolean => {
+  // Validar horarios según los horarios del sistema (config_horarios_base)
+  const isValidScheduleTime = (date: Date, time: string): { valid: boolean; reason?: string } => {
     const dayOfWeek = date.getDay(); // 0 = domingo, 6 = sábado
     const [hours, minutes] = time.split(':').map(Number);
-    const hour = hours + minutes / 60;
+    const hourDecimal = hours + minutes / 60;
 
-    // Lunes a Viernes (1-5): 9am - 9pm
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      return hour >= 9 && hour <= 21;
+    // Buscar el horario para este día en los horarios del sistema
+    const horarioDia = horariosBase.find(h => h.dia_semana === dayOfWeek);
+    
+    if (!horarioDia) {
+      // Fallback si no hay horarios cargados: usar valores por defecto
+      // Lunes a Viernes (1-5): 9am - 9pm
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const valid = hourDecimal >= 9 && hourDecimal <= 21;
+        return { valid, reason: valid ? undefined : 'Lunes a Viernes: 9:00 AM - 9:00 PM' };
+      }
+      // Sábado y Domingo (0, 6): 9am - 6pm
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        const valid = hourDecimal >= 9 && hourDecimal <= 18;
+        return { valid, reason: valid ? undefined : 'Sábados y Domingos: 9:00 AM - 6:00 PM' };
+      }
+      return { valid: false, reason: 'Horario no válido' };
     }
     
-    // Sábado y Domingo (0, 6): 9am - 6pm
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return hour >= 9 && hour <= 18;
+    // Usar horarios del sistema
+    if (!horarioDia.activo) {
+      return { valid: false, reason: `El servicio no está disponible los ${horarioDia.dia_nombre}` };
     }
-
-    return false;
+    
+    if (hourDecimal < horarioDia.hora_inicio || hourDecimal >= horarioDia.hora_fin) {
+      return { 
+        valid: false, 
+        reason: `${horarioDia.dia_nombre}: ${horariosService.formatHora(horarioDia.hora_inicio)} - ${horariosService.formatHora(horarioDia.hora_fin)}`
+      };
+    }
+    
+    return { valid: true };
   };
 
   // Validar fecha seleccionada
@@ -209,14 +271,10 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
         return false;
       }
 
-      // Validar horarios según día de la semana
-      if (!isValidScheduleTime(selectedDate, scheduledTime)) {
-        const dayOfWeek = selectedDate.getDay();
-        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-          newErrors.hora = 'Lunes a Viernes: 9:00 AM - 9:00 PM';
-        } else {
-          newErrors.hora = 'Sábados y Domingos: 9:00 AM - 6:00 PM';
-        }
+      // Validar horarios según día de la semana (usando horarios del sistema)
+      const scheduleValidation = isValidScheduleTime(selectedDate, scheduledTime);
+      if (!scheduleValidation.valid) {
+        newErrors.hora = scheduleValidation.reason || 'Horario fuera del rango permitido';
         setErrors(newErrors);
         return false;
       }
@@ -370,12 +428,128 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
 
   const selectedDay = getSelectedDayOfWeek();
   const isWeekend = selectedDay === 'Sábado' || selectedDay === 'Domingo';
-  const timeRange = isWeekend ? '9:00 AM - 6:00 PM' : '9:00 AM - 9:00 PM';
+  
+  // Obtener horario del día seleccionado desde los horarios del sistema
+  const getTimeRangeFromSystem = () => {
+    if (!scheduledDate) return isWeekend ? '9:00 AM - 6:00 PM' : '9:00 AM - 9:00 PM';
+    
+    const date = new Date(scheduledDate);
+    const dayOfWeek = date.getDay();
+    const horarioDia = horariosBase.find(h => h.dia_semana === dayOfWeek);
+    
+    if (horarioDia && horarioDia.activo) {
+      return `${horariosService.formatHora(horarioDia.hora_inicio)} - ${horariosService.formatHora(horarioDia.hora_fin)}`;
+    }
+    
+    // Fallback
+    return isWeekend ? '9:00 AM - 6:00 PM' : '9:00 AM - 9:00 PM';
+  };
+  
+  const timeRange = getTimeRangeFromSystem();
+
+  // Modal de "Sin CRM" - Se muestra cuando el prospecto no tiene id_dynamics
+  const noCrmModal = (
+    <AnimatePresence mode="wait">
+      {isOpen && showNoCrmModal && (
+        <motion.div
+          key="no-crm-modal-wrapper"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4"
+          style={{ zIndex: 99999 }}
+          onClick={onClose}
+        >
+          <motion.div
+            key="no-crm-modal-content"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-gray-800"
+          >
+            {/* Header con gradiente */}
+            <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Prospecto sin registro en CRM
+                    </h3>
+                    <p className="text-sm text-amber-600 dark:text-amber-400 mt-0.5">
+                      Discovery básico incompleto
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-amber-200/50 dark:hover:bg-amber-800/30 transition-colors text-amber-600 dark:text-amber-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Contenido */}
+            <div className="px-8 py-6">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                    No se puede programar una llamada a este prospecto porque aún no ha sido registrado en el CRM (Dynamics).
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400 mt-3 leading-relaxed">
+                    La IA necesita completar el <span className="font-semibold text-purple-600 dark:text-purple-400">discovery básico</span> para obtener la información necesaria y registrar al prospecto en el sistema.
+                  </p>
+                </div>
+              </div>
+
+              {/* Información adicional */}
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-purple-700 dark:text-purple-300 mb-1">
+                      ¿Qué puedes hacer?
+                    </p>
+                    <ul className="text-purple-600 dark:text-purple-400 space-y-1">
+                      <li>• Continúa la conversación para que la IA complete el discovery</li>
+                      <li>• La IA registrará automáticamente al prospecto en CRM</li>
+                      <li>• Una vez registrado, podrás programar llamadas</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onClose}
+                className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl shadow-lg shadow-purple-500/25 transition-all duration-200"
+              >
+                Entendido
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   // Renderizar el modal usando portal para asegurar que esté por encima de todo
   const modalContent = (
     <AnimatePresence mode="wait">
-      {isOpen && (
+      {isOpen && !showNoCrmModal && (
         <motion.div
           key="manual-call-modal-wrapper"
           initial={{ opacity: 0 }}
@@ -570,34 +744,57 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
+                        if (nowCallBlocked.blocked) {
+                          toast.error(nowCallBlocked.reason || 'Fuera de horario de servicio');
+                          return;
+                        }
                         setScheduleType('now');
                         setScheduledDate('');
                         setScheduledTime('');
                         setErrors(prev => ({ ...prev, fecha: undefined, hora: undefined }));
                       }}
-                      disabled={loading}
-                      className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                        scheduleType === 'now'
+                      disabled={loading || nowCallBlocked.blocked}
+                      className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
+                        nowCallBlocked.blocked
+                          ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 opacity-70 cursor-not-allowed'
+                          : scheduleType === 'now'
                           ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      } disabled:cursor-not-allowed`}
+                      title={nowCallBlocked.blocked ? nowCallBlocked.reason : undefined}
                     >
+                      {nowCallBlocked.blocked && (
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
+                          <Ban className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 mb-2">
                         <Clock className={`w-5 h-5 ${
-                          scheduleType === 'now' 
+                          nowCallBlocked.blocked
+                            ? 'text-red-400'
+                            : scheduleType === 'now' 
                             ? 'text-green-600 dark:text-green-400' 
                             : 'text-gray-400'
                         }`} />
                         <span className={`font-medium ${
-                          scheduleType === 'now'
+                          nowCallBlocked.blocked
+                            ? 'text-red-600 dark:text-red-400'
+                            : scheduleType === 'now'
                             ? 'text-green-700 dark:text-green-300'
                             : 'text-gray-700 dark:text-gray-300'
                         }`}>
                           Ahora
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-left">
-                        Iniciar llamada inmediatamente
+                      <p className={`text-xs text-left ${
+                        nowCallBlocked.blocked
+                          ? 'text-red-500 dark:text-red-400'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {nowCallBlocked.blocked 
+                          ? 'No disponible fuera de horario (6am - 12am)'
+                          : 'Iniciar llamada inmediatamente'
+                        }
                       </p>
                     </button>
 
@@ -772,9 +969,13 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
 
   // Renderizar usando portal para asegurar que esté por encima de todo
   if (typeof document !== 'undefined') {
+    // Si no tiene id_dynamics, mostrar el modal de "Sin CRM"
+    if (showNoCrmModal) {
+      return createPortal(noCrmModal, document.body);
+    }
     return createPortal(modalContent, document.body);
   }
   
-  return modalContent;
+  return showNoCrmModal ? noCrmModal : modalContent;
 };
 

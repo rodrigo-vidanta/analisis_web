@@ -163,30 +163,11 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
         ejecutivosFiltrados = [...ejecutivosFiltrados, ...coordinadoresMarcados];
       }
       
-      // FILTRO ESPECIAL PARA COORDINADORES DE CALIDAD: Solo ejecutivos/coordinadores con id_dynamics Y teléfono
+      // NOTA: Coordinadores de Calidad pueden reasignar a CUALQUIER ejecutivo o coordinador
+      // sin restricciones de id_dynamics o teléfono (igual que admins)
       if (esCoordCalidad && !isAdmin && !isAdminOperativo) {
-        console.log(`🔍 [BulkAssignmentModal] Coordinador de CALIDAD - Aplicando filtro de id_dynamics y teléfono`);
-        
-        const ejecutivosConDynamicsYTelefono = ejecutivosFiltrados.filter(e => {
-          const hasIdDynamics = e.id_dynamics && typeof e.id_dynamics === 'string' && e.id_dynamics.trim() !== '';
-          const hasPhone = e.phone && typeof e.phone === 'string' && e.phone.trim() !== '';
-          
-          if (!hasIdDynamics || !hasPhone) {
-            console.log(`⚠️ [BulkAssignmentModal] Ejecutivo ${e.full_name} excluido: id_dynamics=${hasIdDynamics}, phone=${hasPhone}`);
-          }
-          
-          return hasIdDynamics && hasPhone;
-        });
-        
-        console.log(`✅ [BulkAssignmentModal] ${ejecutivosConDynamicsYTelefono.length} ejecutivos con id_dynamics y teléfono (de ${ejecutivosFiltrados.length} totales)`);
-        ejecutivosFiltrados = ejecutivosConDynamicsYTelefono;
-        
-        if (ejecutivosFiltrados.length === 0) {
-          toast('No hay ejecutivos disponibles con ID Dynamics y teléfono configurado', {
-            icon: '⚠️',
-            duration: 5000,
-          });
-        }
+        console.log(`🔍 [BulkAssignmentModal] Coordinador de CALIDAD - Acceso completo a todos los ejecutivos/coordinadores`);
+        console.log(`✅ [BulkAssignmentModal] ${ejecutivosFiltrados.length} ejecutivos/coordinadores disponibles para reasignación`);
       }
       
       // Enriquecer ejecutivos con información de coordinación

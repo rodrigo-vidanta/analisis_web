@@ -5996,9 +5996,10 @@ const LiveChatCanvas: React.FC = () => {
           customerPhone={selectedConversation.customer_phone || selectedConversation.numero_telefono}
           customerName={selectedConversation.customer_name || selectedConversation.nombre_contacto}
           conversationId={selectedConversation.id}
+          prospectoIdDynamics={prospectosDataRef.current.get(selectedConversation.prospecto_id)?.id_dynamics}
           onSuccess={() => {
-            // Recargar conversaciones si es necesario
-            // loadConversations();
+            // Recargar mensajes para mostrar la llamada programada
+            loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
           }}
         />
       )}
