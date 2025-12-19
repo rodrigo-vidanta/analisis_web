@@ -251,7 +251,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2025-12-19', author: 'Team', message: 'v2.1.36: Clasificación granular de llamadas y mejoras en módulo de programación', isRelease: true },
+  { hash: 'a7dd048', date: '2025-12-19', author: 'Team', message: 'v2.1.36: Clasificación granular de llamadas y mejoras en módulo de programación', isRelease: true },
   { hash: '0f2ba86', date: '2025-12-19', author: 'Team', message: 'v2.1.35: Seguridad - Prevención de mensajes duplicados y correcciones de permisos', isRelease: true },
   { hash: '397b1c5', date: '2025-12-19', author: 'Team', message: 'v2.1.34: Restricciones de llamadas - Validación CRM, horarios y límite nocturno', isRelease: true },
   { hash: '02e321f', date: '2025-12-19', author: 'Team', message: 'v2.1.33: Live Chat - Límites de plantillas WhatsApp, animación IA, búsqueda sin acentos', isRelease: true },
