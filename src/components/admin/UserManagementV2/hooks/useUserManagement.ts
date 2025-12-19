@@ -749,16 +749,38 @@ export function useUserManagement(): UseUserManagementReturn {
         }
       }
 
-      // 2. Manejar coordinaciones para coordinadores (tabla intermedia auth_user_coordinaciones)
+      // 2. Manejar coordinaciones para coordinadores
+      // ⚠️ CRÍTICO: Limpiar AMBAS tablas de coordinaciones:
+      // - auth_user_coordinaciones (nueva)
+      // - coordinador_coordinaciones (legacy, usada por permissionsService)
       const newRole = roles.find(r => r.id === updates.role_id);
-      if (newRole?.name === 'coordinador' && updates.coordinaciones_ids) {
-        // Eliminar relaciones existentes
+      
+      // Función helper para limpiar todas las relaciones de coordinador
+      const cleanAllCoordinadorRelations = async (userId: string) => {
+        // Limpiar auth_user_coordinaciones (nueva tabla)
         await supabaseSystemUIAdmin
           .from('auth_user_coordinaciones')
           .delete()
           .eq('user_id', userId);
+        
+        // ⚠️ CRÍTICO: Limpiar coordinador_coordinaciones (tabla legacy usada por permissionsService)
+        // Esta tabla usa 'coordinador_id' en lugar de 'user_id'
+        try {
+          await supabaseSystemUIAdmin
+            .from('coordinador_coordinaciones')
+            .delete()
+            .eq('coordinador_id', userId);
+        } catch (error) {
+          // La tabla puede no existir en algunos entornos, no es crítico
+          console.warn('Error limpiando coordinador_coordinaciones (no crítico):', error);
+        }
+      };
+      
+      if (newRole?.name === 'coordinador' && updates.coordinaciones_ids) {
+        // Limpiar todas las relaciones existentes primero
+        await cleanAllCoordinadorRelations(userId);
 
-        // Insertar nuevas relaciones
+        // Insertar nuevas relaciones en auth_user_coordinaciones
         if (updates.coordinaciones_ids.length > 0) {
           const relaciones = updates.coordinaciones_ids.map(coordId => ({
             user_id: userId,
@@ -773,27 +795,35 @@ export function useUserManagement(): UseUserManagementReturn {
           if (relacionesError) {
             console.error('Error actualizando coordinaciones:', relacionesError);
           }
+          
+          // ⚠️ También insertar en coordinador_coordinaciones para compatibilidad con permissionsService
+          try {
+            const relacionesLegacy = updates.coordinaciones_ids.map(coordId => ({
+              coordinador_id: userId,
+              coordinacion_id: coordId
+            }));
+
+            await supabaseSystemUIAdmin
+              .from('coordinador_coordinaciones')
+              .insert(relacionesLegacy);
+          } catch (error) {
+            console.warn('Error insertando en coordinador_coordinaciones (no crítico):', error);
+          }
         }
 
         // Actualizar flags del usuario
         updates.is_coordinator = true;
         updates.is_ejecutivo = false;
         updates.coordinacion_id = undefined; // Limpiar coordinacion_id individual
-      } else if (newRole?.name === 'ejecutivo' && updates.coordinacion_id) {
-        // Limpiar relaciones de coordinador si las hubiera
-        await supabaseSystemUIAdmin
-          .from('auth_user_coordinaciones')
-          .delete()
-          .eq('user_id', userId);
+      } else if (newRole?.name === 'ejecutivo') {
+        // ⚠️ DOWNGRADE A EJECUTIVO: Limpiar TODAS las relaciones de coordinador
+        await cleanAllCoordinadorRelations(userId);
 
         updates.is_coordinator = false;
         updates.is_ejecutivo = true;
       } else if (newRole && !['coordinador', 'ejecutivo'].includes(newRole.name)) {
         // Otros roles: limpiar todo
-        await supabaseSystemUIAdmin
-          .from('auth_user_coordinaciones')
-          .delete()
-          .eq('user_id', userId);
+        await cleanAllCoordinadorRelations(userId);
 
         updates.is_coordinator = false;
         updates.is_ejecutivo = false;

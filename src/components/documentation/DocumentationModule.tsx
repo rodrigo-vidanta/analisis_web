@@ -215,6 +215,7 @@ const documentationSections: DocSection[] = [
     icon: Icons.security,
     docs: [
       { id: 'permissions', name: 'Sistema de Permisos', path: '/docs/PERMISSIONS_SYSTEM_README.md', description: 'Sistema de roles y permisos' },
+      { id: 'duplicate-prevention', name: 'Prevención de Duplicados', path: '/docs/DUPLICATE_MESSAGE_PREVENTION.md', description: 'Sistema anti-duplicación de mensajes' },
     ]
   },
   {
@@ -250,6 +251,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2025-12-19', author: 'Team', message: 'v2.1.35: Seguridad - Prevención de mensajes duplicados y correcciones de permisos', isRelease: true },
   { hash: '397b1c5', date: '2025-12-19', author: 'Team', message: 'v2.1.34: Restricciones de llamadas - Validación CRM, horarios y límite nocturno', isRelease: true },
   { hash: '02e321f', date: '2025-12-19', author: 'Team', message: 'v2.1.33: Live Chat - Límites de plantillas WhatsApp, animación IA, búsqueda sin acentos', isRelease: true },
   { hash: 'b5239ae', date: '2025-12-18', author: 'Team', message: 'v2.1.32: UserManagementV2 - Rediseño completo del módulo de gestión de usuarios', isRelease: true },
@@ -321,8 +323,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.34', highlight: true },
-  { label: 'Release', value: 'B6.1.1N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.35', highlight: true },
+  { label: 'Release', value: 'B6.1.2N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '19 Dic 2025', highlight: false },
 ];

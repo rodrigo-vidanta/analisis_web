@@ -138,62 +138,73 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
         },
         async (payload) => {
           const newProspect = payload.new as any;
-          // Mostrar notificación del sistema si es un prospecto nuevo
-          if (newProspect.id && !processedProspectsRef.current.has(newProspect.id)) {
+          
+          // ⚠️ CRÍTICO: Verificar permisos ANTES de mostrar notificación o añadir a la lista
+          if (!newProspect.id || !userId) return;
+          
+          // Marcar como procesado para evitar duplicados
+          if (processedProspectsRef.current.has(newProspect.id)) {
+            return;
+          }
+          
+          // Verificar permisos primero
+          try {
+            const permissionCheck = await permissionsService.canUserAccessProspect(userId, newProspect.id);
+            
+            if (!permissionCheck.canAccess) {
+              // Usuario no tiene acceso a este prospecto, ignorar
+              return;
+            }
+            
+            // Verificación adicional de coordinación
+            const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+            const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+            
+            // Verificar que el prospecto pertenezca a la coordinación correcta
+            if (ejecutivoFilter) {
+              // Ejecutivo: debe tener ejecutivo_id y pertenecer a su coordinación
+              if (!newProspect.ejecutivo_id || !newProspect.coordinacion_id || 
+                  !coordinacionesFilter || !coordinacionesFilter.includes(newProspect.coordinacion_id)) {
+                return; // No pertenece a la coordinación del ejecutivo, excluir
+              }
+            } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              // Coordinador: debe pertenecer a su coordinación
+              if (!newProspect.coordinacion_id || !coordinacionesFilter.includes(newProspect.coordinacion_id)) {
+                return; // No pertenece a la coordinación del coordinador, excluir
+              }
+            }
+            
+            // ✅ PASÓ las verificaciones de permisos - ahora sí mostrar notificación y añadir
             processedProspectsRef.current.add(newProspect.id);
+            
             const prospectName = newProspect.nombre_completo || newProspect.nombre_whatsapp || 'Nuevo Prospecto';
             systemNotificationService.showNewProspectNotification({
               prospectName,
               prospectId: newProspect.id
             });
-          }
-          
-          // Si requiere atención, verificar permisos y añadirlo con animación
-          if (newProspect.requiere_atencion_humana === true && userId) {
-            // Verificar permisos directamente
-            permissionsService.canUserAccessProspect(userId, newProspect.id)
-              .then(async (permissionCheck) => {
-                if (permissionCheck.canAccess) {
-                  // CRÍTICO: Verificación adicional de coordinación usando coordinacion_id directamente de la tabla prospectos
-                  const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
-                  const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
-                  
-                  // Verificar que el prospecto pertenezca a la coordinación correcta
-                  if (ejecutivoFilter) {
-                    // Ejecutivo: debe tener ejecutivo_id y pertenecer a su coordinación
-                    if (!newProspect.ejecutivo_id || !newProspect.coordinacion_id || 
-                        !coordinacionesFilter || !coordinacionesFilter.includes(newProspect.coordinacion_id)) {
-                      return; // No pertenece a la coordinación del ejecutivo, excluir
-                    }
-                  } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-                    // Coordinador: debe pertenecer a su coordinación
-                    if (!newProspect.coordinacion_id || !coordinacionesFilter.includes(newProspect.coordinacion_id)) {
-                      return; // No pertenece a la coordinación del coordinador, excluir
-                    }
+            
+            // Si requiere atención, añadirlo con animación
+            if (newProspect.requiere_atencion_humana === true) {
+              // Obtener fecha del último mensaje
+              const fechaUltimoMensaje = await getLastMessageDate(newProspect.id);
+              
+              startTransition(() => {
+                setProspectos(prev => {
+                  // Verificar si ya existe
+                  if (prev.find(p => p.id === newProspect.id)) {
+                    return prev;
                   }
                   
-                  // Obtener fecha del último mensaje
-                  const fechaUltimoMensaje = await getLastMessageDate(newProspect.id);
-                  
-                  startTransition(() => {
-                    setProspectos(prev => {
-                      // Verificar si ya existe
-                      if (prev.find(p => p.id === newProspect.id)) {
-                        return prev;
-                      }
-                      
-                      // Enriquecer y añadir
-                      const enriched = enrichProspecto(newProspect, fechaUltimoMensaje || undefined);
-                      const updated = sortProspectosByLastMessage([...prev, enriched]);
-                      prospectosListRef.current = updated; // Actualizar ref
-                      return updated;
-                    });
-                  });
-                }
-              })
-              .catch(() => {
-                // Silenciar errores de permisos
+                  // Enriquecer y añadir
+                  const enriched = enrichProspecto(newProspect, fechaUltimoMensaje || undefined);
+                  const updated = sortProspectosByLastMessage([...prev, enriched]);
+                  prospectosListRef.current = updated; // Actualizar ref
+                  return updated;
+                });
               });
+            }
+          } catch (error) {
+            // Silenciar errores de permisos
           }
         }
       )
@@ -208,6 +219,11 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
           const updatedProspect = payload.new as any;
           const oldProspect = payload.old as any;
           
+          // ✅ DETECTAR CAMBIOS DE ASIGNACIÓN (ejecutivo_id o coordinacion_id)
+          const ejecutivoChanged = oldProspect?.ejecutivo_id !== updatedProspect.ejecutivo_id;
+          const coordinacionChanged = oldProspect?.coordinacion_id !== updatedProspect.coordinacion_id;
+          const assignmentChanged = ejecutivoChanged || coordinacionChanged;
+          
           // Verificar si requiere_atencion_humana cambió
           const nowRequiringAttention = updatedProspect?.requiere_atencion_humana === true;
           
@@ -217,6 +233,63 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
             // Si no tenemos old, verificar si ya está en la lista (significa que requería atención antes)
             const existingInList = prospectosListRef.current.find(p => p.id === updatedProspect.id);
             wasRequiringAttention = existingInList !== undefined;
+          }
+          
+          // ✅ CASO ESPECIAL: Cambio de asignación con requiere_atencion_humana = true
+          // Si el prospecto requiere atención Y cambió de asignación, verificar si ahora el usuario tiene acceso
+          if (assignmentChanged && nowRequiringAttention && userId) {
+            const existingInList = prospectosListRef.current.find(p => p.id === updatedProspect.id);
+            
+            try {
+              const permissionCheck = await permissionsService.canUserAccessProspect(userId, updatedProspect.id);
+              const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+              const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+              
+              // Verificar permisos detallados
+              let hasAccess = permissionCheck.canAccess;
+              if (hasAccess) {
+                if (ejecutivoFilter) {
+                  // Ejecutivo: verificación estricta
+                  if (!updatedProspect.ejecutivo_id || !updatedProspect.coordinacion_id || 
+                      !coordinacionesFilter || !coordinacionesFilter.includes(updatedProspect.coordinacion_id)) {
+                    hasAccess = false;
+                  }
+                } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                  // Coordinador: verificar coordinación
+                  if (!updatedProspect.coordinacion_id || !coordinacionesFilter.includes(updatedProspect.coordinacion_id)) {
+                    hasAccess = false;
+                  }
+                }
+              }
+              
+              if (hasAccess && !existingInList) {
+                // ✅ Ahora tiene acceso y no estaba en la lista - agregar
+                const fechaUltimoMensaje = await getLastMessageDate(updatedProspect.id);
+                startTransition(() => {
+                  setProspectos(prev => {
+                    if (prev.find(p => p.id === updatedProspect.id)) return prev;
+                    const enriched = enrichProspecto(updatedProspect, fechaUltimoMensaje || undefined);
+                    const updated = sortProspectosByLastMessage([...prev, enriched]);
+                    prospectosListRef.current = updated;
+                    return updated;
+                  });
+                });
+              } else if (!hasAccess && existingInList) {
+                // ❌ Ya no tiene acceso - remover
+                startTransition(() => {
+                  setProspectos(prev => {
+                    const filtered = prev.filter(p => p.id !== updatedProspect.id);
+                    prospectosListRef.current = filtered;
+                    return filtered;
+                  });
+                });
+              }
+              // Si tiene acceso y ya estaba, o no tiene acceso y no estaba, no hacer nada aquí
+              // El resto de la lógica de abajo lo manejará
+            } catch (error) {
+              // Silenciar errores
+            }
+            return; // Ya procesamos este caso, salir
           }
           
           // Si ahora requiere atención y antes no, añadirlo

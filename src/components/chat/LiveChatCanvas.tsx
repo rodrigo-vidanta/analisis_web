@@ -630,6 +630,11 @@ const LiveChatCanvas: React.FC = () => {
   const [sending, setSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sendingToConversation, setSendingToConversation] = useState<string | null>(null);
+  
+  // ⚠️ PROTECCIÓN CONTRA MENSAJES DUPLICADOS
+  // Ref para rastrear los últimos mensajes enviados y evitar duplicados
+  const lastSentMessagesRef = useRef<Map<string, number>>(new Map()); // mensaje -> timestamp
+  const isSendingRef = useRef(false); // Bloqueo adicional para evitar race conditions
   const [showImageCatalog, setShowImageCatalog] = useState(false);
   const [showProspectSidebar, setShowProspectSidebar] = useState(false);
   
@@ -825,6 +830,13 @@ const LiveChatCanvas: React.FC = () => {
     motivo_handoff?: string | null;
     etapa?: string | null;
   }>>(new Map());
+
+  // ⚠️ CRÍTICO: Refs para filtros de permisos en tiempo real
+  // Estos refs permiten verificar permisos en los handlers de realtime sin closures stale
+  const isAdminRef = useRef<boolean>(false);
+  const ejecutivoFilterRef = useRef<string | null>(null);
+  const coordinacionesFilterRef = useRef<string[] | null>(null);
+  const ejecutivosIdsRef = useRef<string[]>([]); // Incluye el ejecutivo + sus backups
 
   const [metrics, setMetrics] = useState({
     totalConversations: 0,
@@ -1236,6 +1248,50 @@ const LiveChatCanvas: React.FC = () => {
           // Validación mínima - retornar inmediatamente si no es válido
           if (!targetProspectoId || !newMessage.id) return;
 
+          // ⚠️ CRÍTICO: Verificar permisos ANTES de procesar el mensaje
+          // Esto evita que ejecutivos vean mensajes de prospectos no asignados
+          if (!isAdminRef.current) {
+            const prospectoData = prospectosDataRef.current.get(targetProspectoId);
+            
+            // Si no tenemos datos del prospecto en cache, significa que es un prospecto
+            // que no fue cargado en la lista inicial (no le corresponde ver)
+            // EXCEPCIÓN: Si es una conversación que ya está en la lista, permitir
+            const existingConversation = conversations.find(c => 
+              c.id === targetProspectoId || c.prospecto_id === targetProspectoId
+            );
+            
+            if (!prospectoData && !existingConversation) {
+              // Prospecto nuevo que no está en nuestra lista - ignorar silenciosamente
+              return;
+            }
+            
+            if (ejecutivoFilterRef.current) {
+              // Ejecutivo: verificar que el prospecto esté asignado a él o a sus backups
+              // Y que pertenezca a su coordinación
+              if (prospectoData) {
+                if (!prospectoData.ejecutivo_id) {
+                  return; // Prospecto sin ejecutivo asignado - ignorar
+                }
+                
+                if (!ejecutivosIdsRef.current.includes(prospectoData.ejecutivo_id)) {
+                  return; // No es su prospecto ni de sus backups - ignorar
+                }
+                
+                if (coordinacionesFilterRef.current && 
+                    prospectoData.coordinacion_id && 
+                    !coordinacionesFilterRef.current.includes(prospectoData.coordinacion_id)) {
+                  return; // No está en su coordinación - ignorar
+                }
+              }
+            } else if (coordinacionesFilterRef.current && coordinacionesFilterRef.current.length > 0) {
+              // Coordinador: verificar que el prospecto esté en alguna de sus coordinaciones
+              if (prospectoData && (!prospectoData.coordinacion_id || 
+                  !coordinacionesFilterRef.current.includes(prospectoData.coordinacion_id))) {
+                return; // No es de su coordinación - ignorar
+              }
+            }
+          }
+
           // Capturar refs una sola vez (evita closures)
           const currentSelectedConv = selectedConversationStateRef.current;
           const currentMessages = messagesByConversationRef.current;
@@ -1341,8 +1397,8 @@ const LiveChatCanvas: React.FC = () => {
       // ========================================
       // 🔔 SUSCRIPCIÓN 2: Cambios en tabla PROSPECTOS
       // ========================================
-      // Detectar cuando se actualiza el nombre, nombre_whatsapp o requiere_atencion_humana
-      // para refrescar la lista de conversaciones y mostrar el nombre actualizado
+      // Detectar cuando se actualiza el nombre, nombre_whatsapp, requiere_atencion_humana,
+      // O cuando se asigna ejecutivo_id/coordinacion_id (para realtime de nuevas asignaciones)
       .on(
         'postgres_changes',
         {
@@ -1353,10 +1409,119 @@ const LiveChatCanvas: React.FC = () => {
         },
         (payload) => {
           // ⚡ OPTIMIZACIÓN: Diferir todo el trabajo para no bloquear el handler
-          setTimeout(() => {
+          setTimeout(async () => {
             const updatedProspecto = payload.new as any;
             const oldProspecto = payload.old as any;
             const prospectoId = updatedProspecto.id;
+            
+            // ✅ DETECTAR CAMBIOS DE ASIGNACIÓN (ejecutivo_id o coordinacion_id)
+            const ejecutivoChanged = oldProspecto?.ejecutivo_id !== updatedProspecto.ejecutivo_id;
+            const coordinacionChanged = oldProspecto?.coordinacion_id !== updatedProspecto.coordinacion_id;
+            
+            if (ejecutivoChanged || coordinacionChanged) {
+              // El prospecto cambió de asignación - verificar si ahora el usuario tiene acceso
+              const wasInCache = prospectosDataRef.current.has(prospectoId);
+              
+              // Actualizar el cache con los nuevos datos
+              prospectosDataRef.current.set(prospectoId, {
+                id: prospectoId,
+                ejecutivo_id: updatedProspecto.ejecutivo_id,
+                coordinacion_id: updatedProspecto.coordinacion_id,
+                requiere_atencion_humana: updatedProspecto.requiere_atencion_humana || false,
+                motivo_handoff: updatedProspecto.motivo_handoff || null
+              });
+              
+              // Verificar permisos del usuario para este prospecto actualizado
+              let hasAccess = false;
+              
+              if (isAdminRef.current) {
+                hasAccess = true;
+              } else if (ejecutivoFilterRef.current) {
+                // Ejecutivo: verificar que el prospecto esté asignado a él o a sus backups
+                if (updatedProspecto.ejecutivo_id && 
+                    ejecutivosIdsRef.current.includes(updatedProspecto.ejecutivo_id) &&
+                    (!coordinacionesFilterRef.current || 
+                     (updatedProspecto.coordinacion_id && 
+                      coordinacionesFilterRef.current.includes(updatedProspecto.coordinacion_id)))) {
+                  hasAccess = true;
+                }
+              } else if (coordinacionesFilterRef.current && coordinacionesFilterRef.current.length > 0) {
+                // Coordinador: verificar que el prospecto esté en alguna de sus coordinaciones
+                if (updatedProspecto.coordinacion_id && 
+                    coordinacionesFilterRef.current.includes(updatedProspecto.coordinacion_id)) {
+                  hasAccess = true;
+                }
+              }
+              
+              const isInConversationsList = conversations.some(c => 
+                c.prospecto_id === prospectoId || c.id === prospectoId
+              );
+              
+              if (hasAccess && !isInConversationsList) {
+                // ✅ AHORA TIENE ACCESO y no está en la lista - cargar esta conversación
+                // Esto es el caso de "prospecto recién asignado a este usuario"
+                logDev(`🔔 [REALTIME] Prospecto ${prospectoId} asignado a usuario - cargando conversación...`);
+                
+                // Cargar los mensajes del prospecto para agregarlo a la lista
+                try {
+                  const { data: mensajes } = await analysisSupabase
+                    .from('mensajes_whatsapp')
+                    .select('*')
+                    .eq('prospecto_id', prospectoId)
+                    .order('fecha_hora', { ascending: false })
+                    .limit(1);
+                  
+                  if (mensajes && mensajes.length > 0) {
+                    const ultimoMensaje = mensajes[0];
+                    const newConversation: Conversation = {
+                      id: prospectoId,
+                      prospecto_id: prospectoId,
+                      customer_name: getDisplayName({
+                        nombre_completo: updatedProspecto.nombre_completo,
+                        nombre_whatsapp: updatedProspecto.nombre_whatsapp,
+                        whatsapp: updatedProspecto.whatsapp
+                      }),
+                      nombre_contacto: updatedProspecto.nombre_completo || updatedProspecto.nombre_whatsapp,
+                      customer_phone: updatedProspecto.whatsapp,
+                      last_message: ultimoMensaje.mensaje || '',
+                      last_message_at: ultimoMensaje.fecha_hora,
+                      unread_count: ultimoMensaje.rol === 'Prospecto' ? 1 : 0,
+                      mensajes_no_leidos: ultimoMensaje.rol === 'Prospecto' ? 1 : 0,
+                      source: 'whatsapp' as const
+                    };
+                    
+                    startTransition(() => {
+                      setConversations(prev => {
+                        // Verificar que no exista ya
+                        if (prev.some(c => c.prospecto_id === prospectoId || c.id === prospectoId)) {
+                          return prev;
+                        }
+                        // Agregar al inicio (más reciente)
+                        return [newConversation, ...prev];
+                      });
+                    });
+                  }
+                } catch (error) {
+                  console.warn('Error cargando conversación de prospecto recién asignado:', error);
+                }
+              } else if (!hasAccess && isInConversationsList) {
+                // ❌ YA NO TIENE ACCESO - remover de la lista
+                logDev(`🔔 [REALTIME] Prospecto ${prospectoId} ya no asignado a usuario - removiendo...`);
+                startTransition(() => {
+                  setConversations(prev => prev.filter(c => 
+                    c.prospecto_id !== prospectoId && c.id !== prospectoId
+                  ));
+                  // Si estaba seleccionado, deseleccionar
+                  const currentSelected = selectedConversationStateRef.current;
+                  if (currentSelected && 
+                      (currentSelected.prospecto_id === prospectoId || currentSelected.id === prospectoId)) {
+                    setSelectedConversation(null);
+                  }
+                });
+                // Remover del cache
+                prospectosDataRef.current.delete(prospectoId);
+              }
+            }
             
             // ✅ ACTUALIZAR: requiere_atencion_humana y motivo_handoff en el ref local
             const requiereAtencionChanged = oldProspecto?.requiere_atencion_humana !== updatedProspecto.requiere_atencion_humana;
@@ -2660,6 +2825,11 @@ const LiveChatCanvas: React.FC = () => {
       if (user?.id) {
         ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
         coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
+        
+        // ⚠️ CRÍTICO: Actualizar refs de permisos para uso en handlers realtime
+        ejecutivoFilterRef.current = ejecutivoFilter;
+        coordinacionesFilterRef.current = coordinacionesFilter;
+        isAdminRef.current = !ejecutivoFilter && !coordinacionesFilter; // Admin no tiene filtros
       }
 
       // OPTIMIZACIÓN: Enriquecer uchat conversations usando los maps
@@ -2728,6 +2898,11 @@ const LiveChatCanvas: React.FC = () => {
         } catch (error) {
           console.error('Error obteniendo ejecutivos donde es backup:', error);
         }
+        
+        // ⚠️ CRÍTICO: Actualizar ref de ejecutivos para uso en handlers realtime
+        ejecutivosIdsRef.current = ejecutivosIdsParaFiltrar;
+      } else {
+        ejecutivosIdsRef.current = [];
       }
       
       let uchatConversations: Conversation[] = [];
@@ -4176,7 +4351,34 @@ const LiveChatCanvas: React.FC = () => {
   const sendMessageWithText = async (messageText: string) => {
     if (!messageText.trim() || !selectedConversation) return;
 
+    // ⚠️ PROTECCIÓN CONTRA DUPLICADOS: Verificar si ya se está enviando
+    if (isSendingRef.current) {
+      console.warn('⚠️ Mensaje bloqueado: ya hay un envío en proceso');
+      return;
+    }
+
+    // ⚠️ PROTECCIÓN CONTRA DUPLICADOS: Verificar si el mismo mensaje se envió recientemente (5 segundos)
+    const messageKey = `${selectedConversation.id}:${messageText.trim()}`;
+    const lastSentTime = lastSentMessagesRef.current.get(messageKey);
+    const now = Date.now();
+    const DUPLICATE_WINDOW_MS = 5000; // 5 segundos de protección
+    
+    if (lastSentTime && (now - lastSentTime) < DUPLICATE_WINDOW_MS) {
+      console.warn(`⚠️ Mensaje bloqueado: "${messageText.substring(0, 30)}..." enviado hace ${now - lastSentTime}ms`);
+      return;
+    }
+
+    // Marcar como enviando ANTES de cualquier async operation
+    isSendingRef.current = true;
+    lastSentMessagesRef.current.set(messageKey, now);
     setSending(true);
+
+    // Limpiar entradas antiguas del mapa (más de 30 segundos)
+    for (const [key, timestamp] of lastSentMessagesRef.current.entries()) {
+      if (now - timestamp > 30000) {
+        lastSentMessagesRef.current.delete(key);
+      }
+    }
 
     const tempId = `temp_${Date.now()}`;
     const conversationId = selectedConversation.id;
@@ -4187,6 +4389,7 @@ const LiveChatCanvas: React.FC = () => {
     // Validar que tenemos el uchat_id necesario
     if (!uchatId) {
       console.error('❌ No se encontró id_uchat para esta conversación');
+      isSendingRef.current = false;
       setSending(false);
       return;
     }
@@ -4243,7 +4446,11 @@ const LiveChatCanvas: React.FC = () => {
         );
         return { ...prev, [conversationId]: updatedMessages };
       });
+      
+      // Si falló, eliminar del registro de mensajes enviados para permitir reintento
+      lastSentMessagesRef.current.delete(messageKey);
     } finally {
+      isSendingRef.current = false;
       setSending(false);
     }
   };
@@ -5697,20 +5904,28 @@ const LiveChatCanvas: React.FC = () => {
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: index * 0.05, duration: 0.2 }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: sending ? 1 : 1.05 }}
+                        whileTap={{ scale: sending ? 1 : 0.95 }}
+                        disabled={sending}
                         onClick={async () => {
-                        // Enviar directamente sin pasar por el filtro del LLM
-                        const uchatId = selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat || selectedConversation?.id;
-                        if (uchatId) {
-                          // Pausar el bot por 1 minuto antes de enviar quick reply (solo si no hay pausa activa)
-                          // force = false para respetar pausas existentes (indefinidas, etc.)
-                          await pauseBot(uchatId, 1, false);
-                        }
-                        await sendMessageWithText(reply.text);
-                      }}
-                        className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 border border-slate-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 rounded-lg transition-all duration-200 whitespace-nowrap shadow-sm hover:shadow"
-                        title={reply.text}
+                          // ⚠️ PROTECCIÓN: Verificar sending antes de ejecutar
+                          if (sending) return;
+                          
+                          // Enviar directamente sin pasar por el filtro del LLM
+                          const uchatId = selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat || selectedConversation?.id;
+                          if (uchatId) {
+                            // Pausar el bot por 1 minuto antes de enviar quick reply (solo si no hay pausa activa)
+                            // force = false para respetar pausas existentes (indefinidas, etc.)
+                            await pauseBot(uchatId, 1, false);
+                          }
+                          await sendMessageWithText(reply.text);
+                        }}
+                        className={`flex-shrink-0 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all duration-200 whitespace-nowrap shadow-sm ${
+                          sending 
+                            ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700' 
+                            : 'text-slate-700 dark:text-slate-200 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 border-slate-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow'
+                        }`}
+                        title={sending ? 'Enviando mensaje...' : reply.text}
                       >
                         {reply.text}
                       </motion.button>

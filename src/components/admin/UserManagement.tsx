@@ -1133,12 +1133,23 @@ const UserManagement: React.FC = () => {
         }
       } else if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id) {
         // Si es ejecutivo, actualizar una sola coordinación
+        // ⚠️ DOWNGRADE A EJECUTIVO: Limpiar TODAS las relaciones de coordinador
         try {
           // Limpiar relaciones de auth_user_coordinaciones si existían
           await supabaseSystemUIAdmin
             .from('auth_user_coordinaciones')
             .delete()
             .eq('user_id', selectedUser.id);
+          
+          // ⚠️ CRÍTICO: Limpiar coordinador_coordinaciones (tabla legacy usada por permissionsService)
+          try {
+            await supabaseSystemUIAdmin
+              .from('coordinador_coordinaciones')
+              .delete()
+              .eq('coordinador_id', selectedUser.id);
+          } catch (legacyError) {
+            console.warn('Error limpiando coordinador_coordinaciones (no crítico):', legacyError);
+          }
 
           const { error: coordUpdateError } = await supabaseSystemUIAdmin
             .from('auth_users')
@@ -1158,7 +1169,13 @@ const UserManagement: React.FC = () => {
       } else if (selectedRole && selectedRole.name !== 'coordinador' && selectedRole.name !== 'ejecutivo') {
         // Si cambió a otro rol que no es coordinador ni ejecutivo, limpiar todo
         try {
-          // Limpiar relaciones de coordinador_coordinaciones
+          // Limpiar relaciones de auth_user_coordinaciones (nueva tabla)
+          await supabaseSystemUIAdmin
+            .from('auth_user_coordinaciones')
+            .delete()
+            .eq('user_id', selectedUser.id);
+          
+          // Limpiar relaciones de coordinador_coordinaciones (legacy)
           await supabaseSystemUIAdmin
             .from('coordinador_coordinaciones')
             .delete()

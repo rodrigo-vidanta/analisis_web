@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { backupService } from '../../services/backupService';
-import type { EjecutivoBackup } from '../../services/backupService';
-import { Loader2, User, Phone, CheckCircle2, AlertCircle, Search, Users, LogOut, AlertTriangle } from 'lucide-react';
+import type { EjecutivoBackup, AvailableBackupsResult } from '../../services/backupService';
+import { Loader2, User, Phone, CheckCircle2, AlertCircle, Search, Users, LogOut, AlertTriangle, PhoneOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface BackupSelectionModalProps {
@@ -23,6 +23,7 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
   onLogoutWithoutBackup
 }) => {
   const [availableBackups, setAvailableBackups] = useState<EjecutivoBackup[]>([]);
+  const [unavailableUsers, setUnavailableUsers] = useState<AvailableBackupsResult['unavailableUsers']>([]);
   const [selectedBackupId, setSelectedBackupId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [loadingBackups, setLoadingBackups] = useState(true);
@@ -38,8 +39,9 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
   const loadAvailableBackups = async () => {
     try {
       setLoadingBackups(true);
-      const backups = await backupService.getAvailableBackups(coordinacionId, ejecutivoId);
-      setAvailableBackups(backups);
+      const result = await backupService.getAvailableBackupsWithDetails(coordinacionId, ejecutivoId);
+      setAvailableBackups(result.backups);
+      setUnavailableUsers(result.unavailableUsers);
     } catch (error) {
       console.error('Error cargando backups disponibles:', error);
       toast.error('Error al cargar ejecutivos y coordinadores disponibles');
@@ -163,7 +165,7 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
                 </p>
                 <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                   <p className="text-xs text-amber-800 dark:text-amber-300">
-                    <strong>Nota:</strong> Si un ejecutivo no aparece, verifica que tenga número de teléfono e ID de Dynamics asignado.
+                    <strong>Nota:</strong> Si un ejecutivo no aparece, verifica que tenga número de teléfono configurado y esté activo.
                   </p>
                 </div>
               </div>
@@ -211,6 +213,33 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                   Contacta a tu coordinador para más información.
                 </p>
+                
+                {/* Mostrar usuarios activos que no cumplen requisitos */}
+                {unavailableUsers.length > 0 && (
+                  <div className="mt-4 w-full p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg text-left">
+                    <div className="flex items-start space-x-2">
+                      <PhoneOff className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-orange-800 dark:text-orange-200">
+                          Usuarios activos sin configuración completa:
+                        </p>
+                        <ul className="mt-2 space-y-1">
+                          {unavailableUsers.map(user => (
+                            <li key={user.id} className="text-xs text-orange-700 dark:text-orange-300">
+                              <strong>{user.full_name}</strong>
+                              {user.reason === 'no_phone' && ' - Sin número de teléfono configurado'}
+                              {user.reason === 'no_dynamics' && ' - Sin ID Dynamics configurado'}
+                              {user.reason === 'no_phone_and_dynamics' && ' - Sin teléfono ni ID Dynamics'}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2 text-xs text-orange-600 dark:text-orange-400">
+                          Contacte a soporte técnico para habilitar estos usuarios.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : filteredBackups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -224,6 +253,31 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
               </div>
             ) : (
               <div className="space-y-2">
+                {/* Mensaje de usuarios no disponibles (cuando hay backups pero también hay usuarios sin configurar) */}
+                {unavailableUsers.length > 0 && (
+                  <div className="p-3 mb-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <PhoneOff className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-orange-800 dark:text-orange-200">
+                          Usuarios activos sin configuración completa:
+                        </p>
+                        <ul className="mt-1.5 space-y-0.5">
+                          {unavailableUsers.map(user => (
+                            <li key={user.id} className="text-xs text-orange-700 dark:text-orange-300">
+                              <strong>{user.full_name}</strong>
+                              {user.reason === 'no_phone' && ' - Sin teléfono'}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-1.5 text-xs text-orange-600 dark:text-orange-400">
+                          Contacte a soporte técnico para habilitarlos.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {filteredBackups.length < availableBackups.length && (
                   <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-2 mb-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                     Mostrando top {filteredBackups.length} de {availableBackups.length} disponibles

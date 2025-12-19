@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles, AlertTriangle, Calendar, Clock, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -47,6 +47,9 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   const [loading, setLoading] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [sending, setSending] = useState(false);
+  
+  // ⚠️ PROTECCIÓN CONTRA DUPLICADOS
+  const isSendingRef = useRef(false);
   const [sendingSuccess, setSendingSuccess] = useState(false);
   const [preview, setPreview] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -686,7 +689,14 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       return;
     }
 
+    // ⚠️ PROTECCIÓN CONTRA DUPLICADOS: Verificar si ya se está enviando
+    if (isSendingRef.current || sending) {
+      console.warn('⚠️ Plantilla bloqueada: ya hay un envío en proceso');
+      return;
+    }
+
     try {
+      isSendingRef.current = true;
       setSending(true);
       
       // Construir variables y texto resuelto (mismo código que antes)
@@ -888,6 +898,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
           }
         }
 
+        isSendingRef.current = false;
         setSending(false);
         setSendingSuccess(true);
         setTimeout(() => {
@@ -906,6 +917,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     } catch (error: any) {
       console.error('❌ Error enviando plantilla:', error);
       toast.error(error.message || 'Error al enviar la plantilla');
+      isSendingRef.current = false;
       setSending(false);
     }
   };

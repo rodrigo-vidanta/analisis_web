@@ -966,16 +966,85 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           const ejecutivoChanged = oldProspecto?.ejecutivo_id !== updatedProspecto.ejecutivo_id;
           const coordinacionChanged = oldProspecto?.coordinacion_id !== updatedProspecto.coordinacion_id;
           
-          // Si cambió la asignación, verificar permisos y remover conversación si es necesario (solo si no es admin)
+          // Si cambió la asignación, verificar permisos (solo si no es admin)
           if ((ejecutivoChanged || coordinacionChanged) && user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
-            const hasPermission = await canViewConversation({ prospect_id: prospectoId, prospecto_id: prospectoId });
-            if (!hasPermission) {
-              // Remover conversación de la lista si ya no tiene permisos
+            const isInList = conversationsRef.current.some(c => 
+              c.prospect_id === prospectoId || c.prospecto_id === prospectoId
+            );
+            const hasPermission = await canViewConversation({ 
+              prospect_id: prospectoId, 
+              prospecto_id: prospectoId,
+              ejecutivo_id: updatedProspecto.ejecutivo_id,
+              coordinacion_id: updatedProspecto.coordinacion_id
+            });
+            
+            if (!hasPermission && isInList) {
+              // ❌ Ya no tiene permisos - remover conversación de la lista
               startTransition(() => {
                 setConversations(prev => prev.filter(c => 
                   c.prospect_id !== prospectoId && c.prospecto_id !== prospectoId
                 ));
               });
+            } else if (hasPermission && !isInList) {
+              // ✅ Ahora tiene permisos y no estaba en la lista - cargar y agregar
+              try {
+                // Cargar el último mensaje para esta conversación
+                const { data: mensajes } = await analysisSupabase
+                  .from('mensajes_whatsapp')
+                  .select('*')
+                  .eq('prospecto_id', prospectoId)
+                  .order('fecha_hora', { ascending: false })
+                  .limit(1);
+                
+                if (mensajes && mensajes.length > 0) {
+                  const ultimoMensaje = mensajes[0];
+                  const prospectoData = prospectosDataRef.current.get(prospectoId);
+                  const coordinacionId = updatedProspecto.coordinacion_id || prospectoData?.coordinacion_id;
+                  const ejecutivoId = updatedProspecto.ejecutivo_id || prospectoData?.ejecutivo_id;
+                  const coordinacionInfo = coordinacionId ? coordinacionesMapRef.current.get(coordinacionId) : null;
+                  const ejecutivoInfo = ejecutivoId ? ejecutivosMapRef.current.get(ejecutivoId) : null;
+                  
+                  const newConversation: UChatConversation = {
+                    id: prospectoId,
+                    prospecto_id: prospectoId,
+                    prospect_id: prospectoId,
+                    customer_name: updatedProspecto.nombre_completo || updatedProspecto.nombre_whatsapp || ultimoMensaje.nombre_contacto || 'Sin nombre',
+                    nombre_contacto: updatedProspecto.nombre_completo || updatedProspecto.nombre_whatsapp || ultimoMensaje.nombre_contacto,
+                    customer_phone: ultimoMensaje.numero_telefono,
+                    last_message: ultimoMensaje.mensaje || '',
+                    last_message_at: ultimoMensaje.fecha_hora,
+                    updated_at: ultimoMensaje.fecha_hora,
+                    unread_count: ultimoMensaje.rol === 'Prospecto' ? 1 : 0,
+                    mensajes_no_leidos: ultimoMensaje.rol === 'Prospecto' ? 1 : 0,
+                    message_count: 1,
+                    source: 'whatsapp' as const,
+                    coordinacion_id: coordinacionId,
+                    ejecutivo_id: ejecutivoId,
+                    coordinacion_nombre: coordinacionInfo?.nombre || undefined,
+                    ejecutivo_nombre: ejecutivoInfo?.nombre || undefined
+                  };
+                  
+                  startTransition(() => {
+                    setConversations(prev => {
+                      // Verificar que no exista ya
+                      if (prev.some(c => c.prospect_id === prospectoId || c.prospecto_id === prospectoId)) {
+                        return prev;
+                      }
+                      // Agregar y ordenar por fecha
+                      const updated = [...prev, newConversation].sort((a, b) => {
+                        const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : 
+                                     a.updated_at ? new Date(a.updated_at).getTime() : 0;
+                        const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : 
+                                     b.updated_at ? new Date(b.updated_at).getTime() : 0;
+                        return dateB - dateA;
+                      });
+                      return updated.slice(0, 15);
+                    });
+                  });
+                }
+              } catch (error) {
+                console.warn('Error cargando conversación de prospecto recién asignado:', error);
+              }
             }
           }
           

@@ -2,6 +2,69 @@
 
 ## Historial de Versiones
 
+### v2.1.35 (2025-12-19)
+**Descripción**: B6.1.2N6.0.0: Seguridad - Sistema de prevención de mensajes duplicados y correcciones de permisos
+
+---
+
+## 🎯 **RELEASE B6.1.2N6.0.0 - Seguridad y Prevención de Duplicados**
+
+### ✨ **Nuevas Características**
+
+1. **Sistema de Prevención de Mensajes Duplicados**
+   - Protección multi-capa contra doble envío de mensajes
+   - Bloqueo por `useRef` para funciones asíncronas (evita race conditions)
+   - Mapa de mensajes recientes con ventana de 5 segundos
+   - Limpieza automática de entradas expiradas (30 segundos)
+   - Botones de Quick Reply deshabilitados durante envío
+   - Aplica a: mensajes de texto, plantillas WhatsApp, imágenes de catálogo
+
+2. **Correcciones de Permisos para Ejecutivos**
+   - Limpieza automática de tablas `coordinador_coordinaciones` y `auth_user_coordinaciones` al hacer downgrade de coordinador a ejecutivo
+   - Verificación de permisos en suscripciones realtime de mensajes
+   - Detección de cambios en `ejecutivo_id` y `coordinacion_id` para actualización automática de UI
+
+3. **Mejoras en Sistema de Backup**
+   - Eliminado requisito de `id_dynamics` para selección de backup
+   - Priorización: ejecutivos activos > coordinadores activos > coordinadores inactivos
+   - Mensaje informativo para usuarios activos sin configuración completa (ej: sin teléfono)
+
+4. **Documentación Técnica Detallada**
+   - Nuevo documento `DUPLICATE_MESSAGE_PREVENTION.md` con arquitectura completa
+   - Diagramas de flujo de protección
+   - Casos de prueba documentados
+
+### 🐛 **Correcciones**
+
+1. **Mensajes duplicados enviados al webhook**
+   - Problema: Usuarios reportaban mensajes enviados 2 veces (~0.2-0.4s de diferencia)
+   - Causa: Doble clic en Quick Reply + race conditions en funciones async
+   - Solución: Sistema de bloqueo con refs + mapa de mensajes recientes
+
+2. **Usuario con permisos incorrectos después de downgrade**
+   - Problema: Ejecutivo veía prospectos de otras coordinaciones temporalmente
+   - Causa: Registro residual en `coordinador_coordinaciones`
+   - Solución: Limpieza automática en funciones de actualización de usuario
+
+3. **Ejecutivo no aparecía como backup disponible**
+   - Problema: Ejecutivos activos sin teléfono no se mostraban
+   - Causa: Filtro demasiado estricto (requería `id_dynamics` + `phone`)
+   - Solución: Requisito de `phone` solamente + mensaje informativo
+
+### 📁 **Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Sistema de prevención de duplicados
+- `src/components/chat/ReactivateConversationModal.tsx` - Protección en envío de plantillas
+- `src/components/chat/ImageCatalogModal.tsx` - Protección en envío de imágenes
+- `src/services/backupService.ts` - Nueva lógica de priorización de backups
+- `src/components/auth/BackupSelectionModal.tsx` - UI para usuarios sin configuración
+- `src/components/admin/UserManagement.tsx` - Limpieza de permisos en downgrade
+- `src/components/admin/UserManagementV2/hooks/useUserManagement.ts` - Limpieza de permisos
+- `src/contexts/AuthContext.tsx` - Invalidación de cache de permisos
+- `src/services/permissionsService.ts` - Método invalidateUserCache
+- `docs/DUPLICATE_MESSAGE_PREVENTION.md` - Documentación técnica nueva
+
+---
+
 ### v2.1.34 (2025-12-19)
 **Descripción**: B6.1.1N6.0.0: Restricciones de llamadas - Validación CRM, horarios del sistema y límite nocturno
 

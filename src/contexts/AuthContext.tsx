@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { authService, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
+import { permissionsService } from '../services/permissionsService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
 import { supabaseSystemUI as supabase, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
@@ -241,6 +242,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Limpiar localStorage
     localStorage.removeItem('auth_token');
     
+    // ⚠️ CRÍTICO: Invalidar caché de permisos
+    permissionsService.invalidateAllCache();
+    
     // Pequeño delay para que el toast se renderice antes de desmontar
     setTimeout(() => {
       setAuthState({
@@ -277,6 +281,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setShowLoginAnimation(true);
       
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      // ⚠️ CRÍTICO: Invalidar caché de permisos ANTES de hacer login
+      // para asegurar que se carguen permisos frescos del nuevo usuario
+      permissionsService.invalidateAllCache();
       
       const state = await authService.login(credentials);
       
@@ -322,6 +330,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true }));
       await authService.logout(validBackupId);
+      
+      // ⚠️ CRÍTICO: Invalidar caché de permisos al cerrar sesión
+      permissionsService.invalidateAllCache();
+      
       setAuthState({
         user: null,
         permissions: [],
@@ -332,6 +344,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setShowBackupModal(false);
     } catch (error) {
       console.error('Logout error:', error);
+      
+      // ⚠️ CRÍTICO: Invalidar caché de permisos incluso si falla el logout
+      permissionsService.invalidateAllCache();
+      
       // Forzar logout local aunque falle el servidor
       setAuthState({
         user: null,

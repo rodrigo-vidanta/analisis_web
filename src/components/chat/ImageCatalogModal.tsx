@@ -3,7 +3,7 @@
 // 📝 Cambios: Documentar en src/components/chat/CHANGELOG_LIVECHAT.md
 // 📋 Verificación: Revisar CHANGELOG antes de modificar
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Search, Send, Eye, Image as ImageIcon, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { ParaphraseModal } from './ParaphraseModal';
@@ -60,6 +60,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   const [sendModalImage, setSendModalImage] = useState<ContentItem | null>(null);
   const [caption, setCaption] = useState('');
   const [sending, setSending] = useState(false);
+  const isSendingRef = useRef(false); // ⚠️ PROTECCIÓN CONTRA DUPLICADOS
   const [currentPage, setCurrentPage] = useState(1);
   const imagesPerPage = 15; // Aumentado de 8 a 15 (3 filas × 5 columnas)
   
@@ -384,6 +385,13 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       return;
     }
 
+    // ⚠️ PROTECCIÓN CONTRA DUPLICADOS: Verificar si ya se está enviando
+    if (isSendingRef.current || sending) {
+      console.warn('⚠️ Imagen bloqueada: ya hay un envío en proceso');
+      return;
+    }
+
+    isSendingRef.current = true;
     setSending(true);
     try {
       // Generar URL de la imagen para preview optimista
@@ -448,6 +456,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       console.error('❌ Error sending image:', error);
       alert(`Error al enviar la imagen: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
+      isSendingRef.current = false;
       setSending(false);
     }
   };

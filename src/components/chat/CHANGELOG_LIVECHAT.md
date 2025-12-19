@@ -17,6 +17,46 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.20.0** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🛡️ Sistema de Prevención de Mensajes Duplicados**
+- **Problema resuelto:** Mensajes enviados duplicados (~0.2-0.4s de diferencia) por doble clic
+- **Solución multi-capa implementada:**
+  - **Capa 1 - UI Blocking:** Botones Quick Reply con `disabled={sending}`
+  - **Capa 2 - Ref Guard:** `isSendingRef` para bloqueo inmediato sin race conditions
+  - **Capa 3 - Duplicate Check:** Mapa de mensajes recientes con ventana de 5 segundos
+  - **Capa 4 - Auto-cleanup:** Limpieza automática de entradas mayores a 30 segundos
+
+#### **🔐 Correcciones de Permisos Realtime**
+- **Verificación en INSERT de mensajes:** Solo se procesan mensajes si `canUserAccessProspect()` retorna true
+- **Detección de cambios de asignación:** Suscripción UPDATE detecta cambios en `ejecutivo_id` y `coordinacion_id`
+- **Actualización automática de UI:** Conversaciones se agregan/eliminan según cambios de permisos
+- **Refs de filtros:** `ejecutivoFilterRef`, `coordinacionesFilterRef` para acceso en handlers realtime
+
+#### **📝 Nuevos Refs y Funciones**
+```typescript
+// Nuevos refs para prevención de duplicados
+const isSendingRef = useRef(false);
+const lastSentMessagesRef = useRef<Map<string, number>>(new Map());
+
+// Función de hash para identificar mensajes
+const generateMessageHash = (text: string, prospectId: string): string;
+
+// Limpieza automática de cache
+const cleanupOldMessages = () => void;
+```
+
+#### **📁 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx`
+  - Agregados refs `isSendingRef` y `lastSentMessagesRef`
+  - Modificado `sendMessageWithText` con verificación multi-capa
+  - Modificados botones Quick Reply con `disabled={sending}`
+  - Agregada verificación de permisos en suscripción `mensajes_whatsapp`
+  - Modificada suscripción `prospectos` UPDATE para detectar cambios de asignación
+
+---
+
 ### **v5.19.0** - Diciembre 2025
 **Estado:** ✅ Producción
 
