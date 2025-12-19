@@ -2,6 +2,26 @@
 
 ## Historial de Versiones
 
+### v2.1.38 (2025-12-19)
+**Descripción**: B6.1.5N6.0.0: Corrección funcionalidad "Recordarme" en Login
+
+---
+
+## 🎯 **RELEASE B6.1.5N6.0.0 - Corrección Login Recordarme**
+
+### 🐛 **Correcciones**
+
+1. **Funcionalidad "Recordarme" en Login**
+   - Problema: El checkbox "Recordarme" no guardaba correctamente el email en localStorage
+   - Causa: El `useEffect` no distinguía entre cambios automáticos (carga inicial) y cambios del usuario
+   - Solución: Agregado `hasUserInteracted` ref para detectar interacción explícita del usuario
+   - El email ahora se guarda/elimina correctamente al marcar/desmarcar el checkbox
+
+### 📁 **Archivos Modificados**
+- `src/components/LoginScreen.tsx` - Lógica corregida de "Recordarme"
+
+---
+
 ### v2.1.37 (2025-12-19)
 **Descripción**: B6.1.4N6.0.0: Optimización rendimiento LogDashboard, filtro permanente de período, corrección payload webhook
 

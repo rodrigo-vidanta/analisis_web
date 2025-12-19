@@ -30,10 +30,23 @@ const LoginScreen: React.FC = () => {
   // Guardar/eliminar email cuando el usuario marca/desmarca el checkbox "Recordarme"
   // Usamos useRef para evitar ejecutar este efecto durante la carga inicial
   const isInitialMount = useRef(true);
+  const hasUserInteracted = useRef(false);
+  
+  // Marcar cuando el usuario interactúa con el checkbox
+  const handleRememberMeChange = (checked: boolean) => {
+    hasUserInteracted.current = true;
+    setRememberMe(checked);
+  };
+  
   useEffect(() => {
     // Saltar la primera ejecución (carga inicial)
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      return;
+    }
+
+    // Solo actualizar localStorage cuando el usuario ha interactuado explícitamente
+    if (!hasUserInteracted.current) {
       return;
     }
 
@@ -44,12 +57,12 @@ const LoginScreen: React.FC = () => {
         // Guardar email cuando se marca "Recordarme"
         localStorage.setItem('remembered_email', normalizedEmail);
       } else {
-        // Eliminar solo si el email actual coincide con el guardado
-        const storedEmail = localStorage.getItem('remembered_email');
-        if (storedEmail && storedEmail.toLowerCase() === normalizedEmail) {
-          localStorage.removeItem('remembered_email');
-        }
+        // Eliminar el email guardado cuando se desmarca "Recordarme"
+        localStorage.removeItem('remembered_email');
       }
+    } else if (!rememberMe) {
+      // Si no hay email y se desmarca, también limpiar
+      localStorage.removeItem('remembered_email');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rememberMe]); // Solo ejecutar cuando cambia rememberMe, no cuando cambia email
@@ -218,7 +231,7 @@ const LoginScreen: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  onChange={(e) => handleRememberMeChange(e.target.checked)}
                   className="rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
                 />
                 <span className="ml-2 text-sm text-white/70">Recordarme</span>
