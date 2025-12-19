@@ -250,7 +250,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2025-12-19', author: 'Team', message: 'v2.1.33: Live Chat - Límites de plantillas WhatsApp, animación IA, búsqueda sin acentos', isRelease: true },
+  { hash: '02e321f', date: '2025-12-19', author: 'Team', message: 'v2.1.33: Live Chat - Límites de plantillas WhatsApp, animación IA, búsqueda sin acentos', isRelease: true },
   { hash: 'b5239ae', date: '2025-12-18', author: 'Team', message: 'v2.1.32: UserManagementV2 - Rediseño completo del módulo de gestión de usuarios', isRelease: true },
   { hash: '9f8ba03', date: '2025-12-17', author: 'Team', message: 'v2.1.31: Corrección adicional de filtros - Filtro de coordinación en cliente y fallbacks', isRelease: true },
   { hash: 'd795ff1', date: '2025-12-17', author: 'Team', message: 'v2.1.30: Corrección crítica de filtros de visualización - Verificación de coordinación para ejecutivos', isRelease: true },
