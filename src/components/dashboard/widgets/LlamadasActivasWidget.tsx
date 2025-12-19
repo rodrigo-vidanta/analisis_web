@@ -12,6 +12,7 @@ import { analysisSupabase } from '../../../config/analysisSupabase';
 import { ActiveCallDetailModal } from './ActiveCallDetailModal';
 import { notificationSoundService } from '../../../services/notificationSoundService';
 import { systemNotificationService } from '../../../services/systemNotificationService';
+import { classifyCallStatus, isCallReallyActive } from '../../../services/callStatusClassifier';
 
 // Helper para parsear datos_proceso
 const parseDatosProceso = (datos: any): any => {
@@ -55,8 +56,22 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
       setLoading(true);
       const data = await liveMonitorService.getActiveCalls(userId);
       
-      // Filtrar SOLO llamadas activas (excluir finalizadas, transferidas, perdidas)
-      const soloActivas = data.filter(call => call.call_status === 'activa');
+      // Filtrar SOLO llamadas realmente activas usando el nuevo clasificador
+      // Esto verifica: sin grabación, sin razón de finalización, sin fin_llamada, etc.
+      const soloActivas = data.filter(call => {
+        // Primero verificar el status de BD
+        if (call.call_status !== 'activa') return false;
+        
+        // Luego usar el clasificador avanzado para confirmar que está realmente activa
+        return isCallReallyActive({
+          call_id: call.call_id,
+          fecha_llamada: call.fecha_llamada,
+          duracion_segundos: call.duracion_segundos,
+          audio_ruta_bucket: call.audio_ruta_bucket,
+          monitor_url: call.monitor_url,
+          datos_llamada: call.datos_llamada
+        });
+      });
       
       // Ordenar por checkpoint (más avanzadas primero)
       const sorted = soloActivas.sort((a, b) => {
@@ -207,11 +222,19 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
               
               if (exists) {
                 // Actualizar llamada existente sin recargar todo
+                // Usar clasificador centralizado para determinar si sigue activa
                 const updated = prev.map(c => 
                   c.call_id === newCall.call_id 
                     ? { ...c, ...parsedCall }
                     : c
-                ).filter(c => c.call_status === 'activa')
+                ).filter(c => isCallReallyActive({
+                  call_id: c.call_id,
+                  fecha_llamada: c.fecha_llamada,
+                  duracion_segundos: c.duracion_segundos,
+                  audio_ruta_bucket: c.audio_ruta_bucket,
+                  monitor_url: c.monitor_url,
+                  datos_llamada: c.datos_llamada
+                }))
                 .sort((a, b) => {
                   const checkpointA = getCheckpointNumber(a.checkpoint_venta_actual);
                   const checkpointB = getCheckpointNumber(b.checkpoint_venta_actual);
@@ -220,8 +243,28 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
                 return updated.slice(0, 5);
               } else {
                 // Agregar nueva llamada activa sin recargar todo
-                const updated = [...prev, parsedCall as LiveCallData]
-                  .filter(c => c.call_status === 'activa')
+                // Verificar con clasificador centralizado
+                const updatedCall = parsedCall as LiveCallData;
+                const isReallyActive = isCallReallyActive({
+                  call_id: updatedCall.call_id,
+                  fecha_llamada: updatedCall.fecha_llamada,
+                  duracion_segundos: updatedCall.duracion_segundos,
+                  audio_ruta_bucket: updatedCall.audio_ruta_bucket,
+                  monitor_url: updatedCall.monitor_url,
+                  datos_llamada: updatedCall.datos_llamada
+                });
+                
+                if (!isReallyActive) return prev;
+                
+                const updated = [...prev, updatedCall]
+                  .filter(c => isCallReallyActive({
+                    call_id: c.call_id,
+                    fecha_llamada: c.fecha_llamada,
+                    duracion_segundos: c.duracion_segundos,
+                    audio_ruta_bucket: c.audio_ruta_bucket,
+                    monitor_url: c.monitor_url,
+                    datos_llamada: c.datos_llamada
+                  }))
                   .sort((a, b) => {
                     const checkpointA = getCheckpointNumber(a.checkpoint_venta_actual);
                     const checkpointB = getCheckpointNumber(b.checkpoint_venta_actual);
@@ -231,9 +274,26 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
               }
             });
           }
-          // Si dejó de ser activa, removerla sin recargar todo
+          // Si dejó de ser activa o el clasificador determina que ya no está activa, removerla
           else if (oldCall?.call_status === 'activa' && newCall?.call_status !== 'activa') {
             setLlamadas(prev => prev.filter(c => c.call_id !== newCall.call_id));
+          }
+          // También verificar con el clasificador si la llamada ya terminó (aunque BD diga activa)
+          else if (newCall?.call_status === 'activa') {
+            const stillActive = isCallReallyActive({
+              call_id: newCall.call_id,
+              fecha_llamada: newCall.fecha_llamada,
+              duracion_segundos: newCall.duracion_segundos,
+              audio_ruta_bucket: newCall.audio_ruta_bucket,
+              monitor_url: newCall.monitor_url,
+              datos_llamada: typeof newCall.datos_llamada === 'string' 
+                ? JSON.parse(newCall.datos_llamada) 
+                : newCall.datos_llamada
+            });
+            
+            if (!stillActive) {
+              setLlamadas(prev => prev.filter(c => c.call_id !== newCall.call_id));
+            }
           }
         }
       )

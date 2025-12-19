@@ -25,6 +25,7 @@ import { automationService } from './automationService';
 import { permissionsService } from './permissionsService';
 import { coordinacionService } from './coordinacionService';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { classifyCallStatus, type CallStatusGranular } from './callStatusClassifier';
 
 // Tipos para llamadas de ventas (tabla principal)
 export interface SalesCall {
@@ -52,14 +53,15 @@ export interface SalesCall {
   transport?: string;
   provider?: string;
   account_sid?: string;
-  call_status?: 'activa' | 'transferida' | 'colgada' | 'perdida' | 'exitosa';
+  call_status?: 'activa' | 'transferida' | 'atendida' | 'no_contestada' | 'buzon' | 'perdida' | 'colgada' | 'exitosa' | 'finalizada';
 }
 
 // Tipo combinado para el Live Monitor (llamada + datos del prospecto)
 export interface LiveCallData {
   // Datos de la llamada (tabla llamadas_ventas)
   call_id: string;
-  call_status: 'activa' | 'transferida' | 'colgada' | 'perdida' | 'exitosa';
+  call_status: 'activa' | 'transferida' | 'atendida' | 'no_contestada' | 'buzon' | 'perdida' | 'colgada' | 'exitosa' | 'finalizada';
+  call_status_granular?: CallStatusGranular; // Estado clasificado por el nuevo sistema
   fecha_llamada: string;
   monitor_url?: string;
   control_url?: string;
@@ -179,14 +181,15 @@ class LiveMonitorService {
   // ============================================
   
   /**
-   * Auto-corregir llamadas que aparecen como activas pero nunca se contestaron
+   * Auto-corregir llamadas que aparecen como activas pero ya terminaron.
+   * Usa el nuevo clasificador de 6 estados.
    */
   async autoFixFailedCalls(): Promise<number> {
     try {
-      // Auto-corrección silenciosa
+      // Obtener llamadas marcadas como activas
       const { data: calls, error } = await analysisSupabase
         .from('llamadas_ventas')
-        .select('call_id, call_status, duracion_segundos, audio_ruta_bucket, fecha_llamada, datos_llamada')
+        .select('call_id, call_status, duracion_segundos, audio_ruta_bucket, fecha_llamada, datos_llamada, monitor_url')
         .eq('call_status', 'activa')
         .order('fecha_llamada', { ascending: false });
 
@@ -195,93 +198,62 @@ class LiveMonitorService {
         return 0;
       }
 
-      const now = new Date();
-      const failedCalls = [];
+      const callsToUpdate: Array<{ call_id: string; newStatus: string; reason: string }> = [];
 
       for (const call of calls) {
-        const callDate = new Date(call.fecha_llamada);
-        const minutesAgo = Math.floor((now.getTime() - callDate.getTime()) / (1000 * 60));
-        
-        let shouldMarkAsFailed = false;
-        let reason = '';
+        // Usar el nuevo clasificador
+        const classifiedStatus = classifyCallStatus({
+          call_id: call.call_id,
+          call_status: call.call_status,
+          fecha_llamada: call.fecha_llamada,
+          duracion_segundos: call.duracion_segundos,
+          audio_ruta_bucket: call.audio_ruta_bucket,
+          monitor_url: call.monitor_url,
+          datos_llamada: call.datos_llamada
+        });
 
-        // Criterio 1: Verificar razón de finalización en VAPI
-        try {
-          const datosLlamada = typeof call.datos_llamada === 'string' 
-            ? JSON.parse(call.datos_llamada) 
-            : call.datos_llamada;
-          
-          if (datosLlamada?.razon_finalizacion) {
-            const razon = datosLlamada.razon_finalizacion;
-            if (razon === 'customer-did-not-answer' || 
-                razon === 'customer-ended-call' ||
-                razon === 'no-answer' ||
-                razon.includes('not-answer')) {
-              shouldMarkAsFailed = true;
-              reason = `VAPI: ${razon}`;
-            }
-          }
-        } catch (e) {
-          // Ignorar errores de parsing
-        }
-
-        // Criterio 2: Duración cero + sin audio + más de 15 minutos
-        // Si no tiene grabación ni duración y han pasado más de 15 minutos → perdida
-        if (!shouldMarkAsFailed && 
-            (call.duracion_segundos === 0 || call.duracion_segundos === null) && 
-            !call.audio_ruta_bucket &&
-            minutesAgo > 15) {
-          shouldMarkAsFailed = true;
-          reason = `Sin duración ni audio (${minutesAgo} min)`;
-        }
-
-        // Criterio 3: Llamadas muy antiguas (más de 2 horas) - sin importar otros factores
-        if (!shouldMarkAsFailed && minutesAgo > 120) {
-          shouldMarkAsFailed = true;
-          reason = `Muy antigua (${minutesAgo} min)`;
-        }
-
-        // Criterio 4: Duración muy corta + tiempo considerable
-        if (!shouldMarkAsFailed && 
-            call.duracion_segundos > 0 && 
-            call.duracion_segundos < 30 && 
-            minutesAgo > 30) {
-          shouldMarkAsFailed = true;
-          reason = `Duración corta (${call.duracion_segundos}s, ${minutesAgo} min)`;
-        }
-
-        if (shouldMarkAsFailed) {
-          failedCalls.push({ call_id: call.call_id, reason });
+        // Si el clasificador determina que NO está activa, actualizar
+        if (classifiedStatus !== 'activa') {
+          callsToUpdate.push({
+            call_id: call.call_id,
+            newStatus: classifiedStatus,
+            reason: `Clasificado como: ${classifiedStatus}`
+          });
         }
       }
 
-      // Actualizar llamadas identificadas como fallidas
+      // Actualizar llamadas
       let correctedCount = 0;
-      for (const failedCall of failedCalls) {
+      for (const callUpdate of callsToUpdate) {
         try {
           const { error: updateError } = await analysisSupabase
             .from('llamadas_ventas')
             .update({
-              call_status: 'perdida',
+              call_status: callUpdate.newStatus,
+              // Limpiar URLs de monitoreo si ya no está activa
               monitor_url: null,
               control_url: null
             })
-            .eq('call_id', failedCall.call_id);
+            .eq('call_id', callUpdate.call_id);
 
           if (!updateError) {
             correctedCount++;
           }
 
           // Pausa breve para no sobrecargar
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => setTimeout(resolve, 30));
         } catch (e) {
-          console.warn(`⚠️ Error procesando ${failedCall.call_id.slice(-8)}:`, e);
+          console.warn(`⚠️ Error procesando ${callUpdate.call_id.slice(-8)}:`, e);
         }
+      }
+
+      if (correctedCount > 0) {
+        console.log(`✅ Auto-corrección: ${correctedCount} llamadas reclasificadas`);
       }
 
       return correctedCount;
     } catch (error) {
-      console.error('💥 Error en auto-corrección de llamadas fallidas:', error);
+      console.error('💥 Error en auto-corrección de llamadas:', error);
       return 0;
     }
   }

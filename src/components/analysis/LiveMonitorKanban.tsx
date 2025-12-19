@@ -22,6 +22,7 @@ import Chart from 'chart.js/auto';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { liveMonitorKanbanOptimized } from '../../services/liveMonitorKanbanOptimized';
+import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 import { useTheme } from '../../hooks/useTheme';
 import { FinalizationModal } from './FinalizationModal';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
@@ -1310,55 +1311,16 @@ const LiveMonitorKanban: React.FC = () => {
               console.error('Error parsing datos_proceso/datos_llamada:', e);
             }
             
-            // Determinar estado correcto de la llamada según la lógica anterior
-              let callStatus = finalLlamada?.call_status || 'finalizada';
-            const razonFinalizacion = datosLlamada?.razon_finalizacion;
-              const hasRecording = !!(finalLlamada?.audio_ruta_bucket && finalLlamada.audio_ruta_bucket.length > 0);
-              const duration = finalLlamada?.duracion_segundos || 0;
-            
-            // Razones de transferencia
-            const TRANSFER_REASONS = [
-              'assistant-forwarded-call',
-              'call.ringing.hook-executed-transfer',
-              'transfer'
-            ];
-            
-            // Razones de pérdida/no contestada
-            const FAILED_REASONS = [
-              'customer-did-not-answer',
-              'customer-busy',
-              'no-answer',
-              'busy',
-              'assistant-not-found',
-              'assistant-not-valid',
-              'assistant-not-provided',
-              'assistant-join-timed-out',
-              'twilio-failed-to-connect-call',
-              'vonage-failed-to-connect-call',
-              'vonage-rejected',
-              'voicemail'
-            ];
-            
-            if (razonFinalizacion) {
-              // Transferida a ejecutivo
-              if (TRANSFER_REASONS.some(reason => razonFinalizacion.includes(reason))) {
-                callStatus = 'transferida';
-              }
-              // Perdida
-              else if (FAILED_REASONS.some(reason => razonFinalizacion.includes(reason))) {
-                callStatus = 'perdida';
-              }
-              // Contestada no transferida (tiene grabación y duración >= 30 seg)
-              else if (hasRecording && duration >= 30) {
-                callStatus = 'contestada_no_transferida';
-              }
-            } else if (hasRecording && duration >= 30) {
-              // Si tiene grabación y duración pero no razón específica → contestada no transferida
-              callStatus = 'contestada_no_transferida';
-            } else if (hasRecording && duration < 30) {
-              // Grabación pero muy corta → perdida
-              callStatus = 'perdida';
-            }
+            // Usar clasificador centralizado para determinar el estado correcto
+            const callStatus = classifyCallStatus({
+              call_id: finalLlamada?.call_id,
+              call_status: finalLlamada?.call_status,
+              fecha_llamada: finalLlamada?.fecha_llamada || analysis.created_at,
+              duracion_segundos: finalLlamada?.duracion_segundos,
+              audio_ruta_bucket: finalLlamada?.audio_ruta_bucket,
+              monitor_url: (finalLlamada as any)?.monitor_url,
+              datos_llamada: datosLlamada
+            });
             
             return {
               ...analysis,
@@ -1633,16 +1595,13 @@ const LiveMonitorKanban: React.FC = () => {
       );
     }
 
-    // Filtro por estado
+    // Filtro por estado (usa clasificador centralizado)
     if (statusFilter) {
       filtered = filtered.filter(call => {
-        const status = call.call_status || 'finalizada';
-        if (statusFilter === 'transferida') {
-          return status === 'transferida';
-        } else if (statusFilter === 'contestada_no_transferida') {
-          return status === 'contestada_no_transferida';
-        } else if (statusFilter === 'perdida') {
-          return status === 'perdida';
+        const status = call.call_status || 'perdida';
+        // Mapear estados legacy a nuevos estados
+        if (statusFilter === 'contestada_no_transferida') {
+          return status === 'atendida' || status === 'contestada_no_transferida';
         }
         return status === statusFilter;
       });
@@ -1675,11 +1634,20 @@ const LiveMonitorKanban: React.FC = () => {
     }
 
     if (quickFilters.perdida) {
-      filtered = filtered.filter(call => call.call_status === 'perdida');
+      // Incluir perdida, no_contestada y buzon como "no exitosas"
+      filtered = filtered.filter(call => 
+        call.call_status === 'perdida' || 
+        call.call_status === 'no_contestada' || 
+        call.call_status === 'buzon'
+      );
     }
 
     if (quickFilters.noTransferida) {
-      filtered = filtered.filter(call => call.call_status === 'contestada_no_transferida');
+      // Atendidas sin transferencia (legacy: contestada_no_transferida)
+      filtered = filtered.filter(call => 
+        call.call_status === 'atendida' || 
+        call.call_status === 'contestada_no_transferida'
+      );
     }
 
     if (quickFilters.transferida) {
@@ -2759,51 +2727,35 @@ const LiveMonitorKanban: React.FC = () => {
         'voicemail'
       ];
 
-      // Clasificar llamadas por estado con nueva lógica mejorada
+      // Clasificar llamadas usando el nuevo clasificador de 6 estados
       const active: KanbanCall[] = [];
       
       finalCalls.forEach(call => {
         const hasFeedback = call.tiene_feedback === true;
-        const razonFinalizacion = getRazonFinalizacion(call);
-        const hasRecordingValue = hasRecording(call);
-        const duration = call.duracion_segundos || 0;
-        const hasEndReason = !!razonFinalizacion;
         
-        // REGLA 1: Si tiene grabación, la llamada YA TERMINÓ
-        // Si tiene grabación, clasificar según duración y razón
-        if (hasRecordingValue) {
-          // REGLA 1.1-1.3: Llamadas finalizadas (ya no se clasifican en transferred/attended/failed)
-          // Estas llamadas se moverán a allCalls cuando tengan feedback
-            if (!hasFeedback) {
-            // Las llamadas finalizadas sin feedback se mantienen en allCalls para el historial
-            return;
-          }
-        }
+        // Usar el nuevo clasificador para determinar el estado real
+        const classifiedStatus = classifyCallStatus({
+          call_id: call.call_id,
+          call_status: call.call_status,
+          fecha_llamada: call.fecha_llamada,
+          duracion_segundos: call.duracion_segundos,
+          audio_ruta_bucket: call.audio_ruta_bucket,
+          monitor_url: call.monitor_url,
+          datos_llamada: call.datos_llamada
+        });
         
-        // REGLA 2: Llamadas REALMENTE ACTIVAS
-        // Solo si NO tienen grabación, NO tienen razón de finalización, y NO tienen duración
-        // ADEMÁS: Verificar que no sean muy antiguas (más de 15 minutos sin actividad = perdida)
-        if (call.call_status === 'activa' && !hasEndReason && duration === 0 && !hasRecordingValue) {
-          // Verificar tiempo transcurrido desde fecha_llamada
-          const callDate = call.fecha_llamada ? new Date(call.fecha_llamada) : null;
-          if (callDate) {
-            const minutesAgo = Math.floor((Date.now() - callDate.getTime()) / (1000 * 60));
-            
-            // Si la llamada tiene más de 15 minutos sin grabación ni duración → considerar perdida
-            if (minutesAgo > 15) {
-              // Las llamadas perdidas se moverán a allCalls cuando tengan feedback
-              return;
-            }
-          }
-          
-          // Solo si pasa todas las verificaciones → realmente activa
+        // Agregar el estado clasificado a la llamada para uso en la UI
+        (call as any).call_status_granular = classifiedStatus;
+        
+        // REGLA: Solo las llamadas clasificadas como 'activa' van al kanban de activas
+        if (classifiedStatus === 'activa') {
           active.push(call);
           return;
         }
         
-        // REGLA 3-7: Llamadas finalizadas (ya no se clasifican en transferred/attended/failed)
-        // Estas llamadas se moverán a allCalls cuando tengan feedback
-        // Solo mantener activas las llamadas realmente en curso
+        // Las demás llamadas (transferida, atendida, no_contestada, buzon, perdida)
+        // se mantienen en allCalls para el historial cuando tengan feedback
+        // No necesitan mostrarse en el kanban de activas
       });
       
       // Actualización inteligente que detecta cambios sin re-render innecesario
@@ -4137,9 +4089,11 @@ const LiveMonitorKanban: React.FC = () => {
                       >
                         <option value="">Estado</option>
                         <option value="transferida">Transferida</option>
-                        <option value="contestada_no_transferida">No Transferida</option>
+                        <option value="atendida">Atendida</option>
+                        <option value="no_contestada">No contestó</option>
+                        <option value="buzon">Buzón de voz</option>
                         <option value="perdida">Perdida</option>
-                        <option value="activa">Activa</option>
+                        <option value="activa">En llamada</option>
                       </select>
                     </div>
                   </div>
@@ -4568,37 +4522,16 @@ const LiveMonitorKanban: React.FC = () => {
                                 </span>
                         </td>
                               
-                                {/* Estado mejorado */}
+                                {/* Estado mejorado - usa clasificador centralizado */}
                         <td className="px-2 py-3 whitespace-nowrap overflow-hidden">
                                   {(() => {
-                                    const status = call.call_status || 'finalizada';
-                                    const razonFinalizacion = call.datos_llamada?.razon_finalizacion || 
-                                                              (typeof call.datos_llamada === 'string' ? JSON.parse(call.datos_llamada || '{}')?.razon_finalizacion : null);
-                                    
-                                    // Determinar estado específico usando call_status ya corregido
-                                    let displayStatus = call.call_status || status;
-                                    let statusColor = 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-                                    
-                                    if (displayStatus === 'transferida') {
-                                      displayStatus = 'Transferida a Ejecutivo';
-                                      statusColor = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-                                    } else if (displayStatus === 'contestada_no_transferida') {
-                                      displayStatus = 'Contestada No Transferida';
-                                      statusColor = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-                                    } else if (displayStatus === 'perdida' || razonFinalizacion?.includes('no-answer') || razonFinalizacion?.includes('busy')) {
-                                      displayStatus = 'Perdida';
-                                      statusColor = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-                                    } else if (displayStatus === 'finalizada') {
-                                      displayStatus = 'Finalizada';
-                                      statusColor = 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-                                    } else if (displayStatus === 'activa') {
-                                      displayStatus = 'Activa';
-                                      statusColor = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-                                    }
+                                    // Usar configuración del clasificador centralizado
+                                    const status = (call.call_status || 'perdida') as CallStatusGranular;
+                                    const config = CALL_STATUS_CONFIG[status] || CALL_STATUS_CONFIG.perdida;
                                     
                                     return (
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
-                                        {displayStatus}
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bgColor} ${config.textColor}`}>
+                                        {config.label}
                           </span>
                                     );
                                   })()}

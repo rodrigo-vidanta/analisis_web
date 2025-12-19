@@ -1100,17 +1100,26 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                                           })
                                         : 'Fecha no disponible'}
                                     </span>
-                                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                                      call.call_status === 'transferida' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                      call.call_status === 'contestada_no_transferida' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                                      call.call_status === 'perdida' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                                      'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
-                                    }`}>
-                                      {call.call_status === 'transferida' ? 'Transferida' :
-                                       call.call_status === 'contestada_no_transferida' ? 'Contestada' :
-                                       call.call_status === 'perdida' ? 'Perdida' :
-                                       call.call_status || 'Finalizada'}
-                                    </span>
+                                    {(() => {
+                                      // Usar clasificador centralizado
+                                      const status = call.call_status || 'perdida';
+                                      const statusStyles: Record<string, { bg: string; label: string }> = {
+                                        'activa': { bg: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300', label: 'En llamada' },
+                                        'transferida': { bg: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300', label: 'Transferida' },
+                                        'atendida': { bg: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300', label: 'Atendida' },
+                                        'no_contestada': { bg: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300', label: 'No contestó' },
+                                        'buzon': { bg: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', label: 'Buzón' },
+                                        'perdida': { bg: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300', label: 'Perdida' },
+                                        'contestada_no_transferida': { bg: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300', label: 'Atendida' },
+                                        'finalizada': { bg: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300', label: 'Finalizada' }
+                                      };
+                                      const config = statusStyles[status] || statusStyles['perdida'];
+                                      return (
+                                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${config.bg}`}>
+                                          {config.label}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                   <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
                                     {call.duracion_segundos && (

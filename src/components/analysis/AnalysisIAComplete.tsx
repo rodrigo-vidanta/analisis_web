@@ -37,6 +37,7 @@ import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { AssignmentBadge } from './AssignmentBadge';
 import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { coordinacionService } from '../../services/coordinacionService';
+import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 
 // Sidebar del Prospecto - VERSIÓN COMPLETA como en ProspectosManager
 interface ProspectoSidebarProps {
@@ -214,45 +215,25 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
         return;
       }
 
-      // Filtrar llamadas "activas" que en realidad ya finalizaron
-      const llamadasFiltradas = (data || []).map(llamada => {
-        // Extraer razon_finalizacion de datos_llamada (JSONB)
-        const razonFinalizacion = llamada.datos_llamada?.razon_finalizacion || 
-                                  (typeof llamada.datos_llamada === 'string' 
-                                    ? JSON.parse(llamada.datos_llamada)?.razon_finalizacion 
-                                    : null);
+      // Usar clasificador centralizado para determinar el estado correcto de cada llamada
+      const llamadasClasificadas = (data || []).map(llamada => {
+        const statusClasificado = classifyCallStatus({
+          call_id: llamada.call_id,
+          call_status: llamada.call_status,
+          fecha_llamada: llamada.fecha_llamada,
+          duracion_segundos: llamada.duracion_segundos,
+          audio_ruta_bucket: llamada.audio_ruta_bucket,
+          monitor_url: llamada.monitor_url,
+          datos_llamada: llamada.datos_llamada
+        });
         
-        // Calcular antigüedad de la llamada (en horas)
-        const fechaLlamada = llamada.fecha_llamada ? new Date(llamada.fecha_llamada) : null;
-        const horasTranscurridas = fechaLlamada 
-          ? (Date.now() - fechaLlamada.getTime()) / (1000 * 60 * 60)
-          : 0;
-        
-        // Si tiene call_status 'activa' pero tiene razon_finalizacion o duracion_segundos > 0, 
-        // entonces ya finalizó y debe mostrarse como 'finalizada'
-        if (llamada.call_status === 'activa' && (razonFinalizacion || (llamada.duracion_segundos && llamada.duracion_segundos > 0))) {
-          return {
-            ...llamada,
-            call_status: 'finalizada'
-          };
-        }
-        
-        // Si tiene call_status 'activa' pero es muy antigua (> 2 horas) y no tiene duración ni audio,
-        // entonces probablemente falló y debe mostrarse como 'perdida'
-        if (llamada.call_status === 'activa' && 
-            horasTranscurridas > 2 && 
-            (!llamada.duracion_segundos || llamada.duracion_segundos === 0) && 
-            !llamada.audio_ruta_bucket) {
-          return {
-            ...llamada,
-            call_status: 'perdida'
-          };
-        }
-        
-        return llamada;
+        return {
+          ...llamada,
+          call_status: statusClasificado
+        };
       });
 
-      setLlamadas(llamadasFiltradas);
+      setLlamadas(llamadasClasificadas);
     } catch (error) {
       console.error('Error loading llamadas:', error);
     }

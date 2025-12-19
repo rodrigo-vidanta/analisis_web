@@ -1,12 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Phone, User, Users, Trash2 } from 'lucide-react';
+import { Clock, Phone, User, Users, Trash2, PhoneForwarded, PhoneCall, Voicemail, PhoneMissed, PhoneOff, Calendar } from 'lucide-react';
 import type { ScheduledCall } from '../../../services/scheduledCallsService';
 import { ProspectAvatar } from '../../analysis/ProspectAvatar';
 import { DeleteCallConfirmationModal } from '../../shared/DeleteCallConfirmationModal';
 import { scheduledCallsService } from '../../../services/scheduledCallsService';
 import { useAuth } from '../../../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { analysisSupabase } from '../../../config/analysisSupabase';
+import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../../services/callStatusClassifier';
 
 interface DailyViewProps {
   calls: ScheduledCall[];
@@ -104,6 +106,127 @@ export const DailyView: React.FC<DailyViewProps> = ({
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  // Estado para almacenar el call_status real de llamadas ejecutadas
+  const [callStatusMap, setCallStatusMap] = useState<Record<string, CallStatusGranular>>({});
+
+  // Cargar call_status real de las llamadas ejecutadas
+  useEffect(() => {
+    const loadCallStatuses = async () => {
+      const executedCalls = dayCalls.filter(c => 
+        (c.estatus === 'ejecutada' || c.estatus === 'no_contesto' || c.estatus?.toLowerCase() === 'no contesto') && 
+        c.llamada_ejecutada
+      );
+      
+      if (executedCalls.length === 0) return;
+      
+      const callIds = executedCalls.map(c => c.llamada_ejecutada).filter(Boolean);
+      
+      try {
+        const { data: callsData } = await analysisSupabase
+          .from('llamadas_ventas')
+          .select('call_id, call_status, duracion_segundos, audio_ruta_bucket, monitor_url, datos_llamada, fecha_llamada')
+          .in('call_id', callIds);
+        
+        if (callsData) {
+          const statusMap: Record<string, CallStatusGranular> = {};
+          callsData.forEach(call => {
+            const status = classifyCallStatus({
+              call_id: call.call_id,
+              call_status: call.call_status,
+              fecha_llamada: call.fecha_llamada,
+              duracion_segundos: call.duracion_segundos,
+              audio_ruta_bucket: call.audio_ruta_bucket,
+              monitor_url: call.monitor_url,
+              datos_llamada: typeof call.datos_llamada === 'string' 
+                ? JSON.parse(call.datos_llamada) 
+                : call.datos_llamada
+            });
+            statusMap[call.call_id] = status;
+          });
+          setCallStatusMap(statusMap);
+        }
+      } catch (error) {
+        console.error('Error loading call statuses:', error);
+      }
+    };
+    
+    loadCallStatuses();
+  }, [dayCalls]);
+
+  // Obtener estado visual para una llamada
+  const getCallDisplayStatus = (call: ScheduledCall): { status: string; config: typeof CALL_STATUS_CONFIG[CallStatusGranular] } => {
+    // Si está programada o cancelada, usar estado original
+    if (call.estatus === 'programada') {
+      return { 
+        status: 'programada', 
+        config: { 
+          label: 'Programada', 
+          color: 'bg-blue-500', 
+          bgLight: 'bg-blue-100 dark:bg-blue-900/20',
+          textColor: 'text-blue-700 dark:text-blue-300',
+          description: 'Llamada pendiente de ejecutar'
+        }
+      };
+    }
+    if (call.estatus === 'cancelada') {
+      return { 
+        status: 'cancelada', 
+        config: { 
+          label: 'Cancelada', 
+          color: 'bg-gray-500', 
+          bgLight: 'bg-gray-100 dark:bg-gray-900/20',
+          textColor: 'text-gray-700 dark:text-gray-300',
+          description: 'Llamada cancelada'
+        }
+      };
+    }
+    
+    // Si fue ejecutada, obtener estado real
+    if (call.llamada_ejecutada && callStatusMap[call.llamada_ejecutada]) {
+      const realStatus = callStatusMap[call.llamada_ejecutada];
+      return { status: realStatus, config: CALL_STATUS_CONFIG[realStatus] };
+    }
+    
+    // Fallback basado en estatus original
+    if (call.estatus === 'ejecutada') {
+      return { status: 'atendida', config: CALL_STATUS_CONFIG.atendida };
+    }
+    if (call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto') {
+      return { status: 'no_contestada', config: CALL_STATUS_CONFIG.no_contestada };
+    }
+    
+    return { 
+      status: call.estatus || 'desconocido', 
+      config: { 
+        label: call.estatus || 'Desconocido', 
+        color: 'bg-gray-500', 
+        bgLight: 'bg-gray-100 dark:bg-gray-900/20',
+        textColor: 'text-gray-700 dark:text-gray-300',
+        description: ''
+      }
+    };
+  };
+
+  // Icono según estado
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'programada':
+        return <Calendar className="w-3.5 h-3.5" />;
+      case 'transferida':
+        return <PhoneForwarded className="w-3.5 h-3.5" />;
+      case 'atendida':
+        return <PhoneCall className="w-3.5 h-3.5" />;
+      case 'buzon':
+        return <Voicemail className="w-3.5 h-3.5" />;
+      case 'no_contestada':
+        return <PhoneMissed className="w-3.5 h-3.5" />;
+      case 'perdida':
+        return <PhoneOff className="w-3.5 h-3.5" />;
+      default:
+        return <Phone className="w-3.5 h-3.5" />;
+    }
   };
 
   const getStatusColor = (estatus: string) => {
@@ -236,7 +359,29 @@ export const DailyView: React.FC<DailyViewProps> = ({
                   {/* Cards de llamadas */}
                   {hourCalls.length > 0 && (
                     <div className="space-y-4">
-                      {hourCalls.map((call, index) => (
+                      {hourCalls.map((call, index) => {
+                        const displayStatus = getCallDisplayStatus(call);
+                        const isExecuted = call.estatus === 'ejecutada' || call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto';
+                        
+                        // Colores para el gradiente de hover según estado real
+                        const getHoverGradient = () => {
+                          switch (displayStatus.status) {
+                            case 'transferida':
+                              return 'linear-gradient(to left, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.15) 30%, transparent 60%)'; // blue
+                            case 'atendida':
+                              return 'linear-gradient(to left, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.15) 30%, transparent 60%)'; // amber
+                            case 'buzon':
+                              return 'linear-gradient(to left, rgba(168, 85, 247, 0.25) 0%, rgba(168, 85, 247, 0.15) 30%, transparent 60%)'; // purple
+                            case 'no_contestada':
+                              return 'linear-gradient(to left, rgba(249, 115, 22, 0.25) 0%, rgba(249, 115, 22, 0.15) 30%, transparent 60%)'; // orange
+                            case 'perdida':
+                              return 'linear-gradient(to left, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.15) 30%, transparent 60%)'; // red
+                            default:
+                              return 'linear-gradient(to left, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 30%, transparent 60%)'; // green
+                          }
+                        };
+                        
+                        return (
                         <motion.div
                           key={call.id}
                           initial={{ opacity: 0, y: 10 }}
@@ -246,14 +391,10 @@ export const DailyView: React.FC<DailyViewProps> = ({
                           className="group cursor-pointer relative"
                         >
                           <div className="relative overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg bg-white dark:bg-gray-800 group">
-                            {(call.estatus === 'ejecutada' || call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto') && (
+                            {isExecuted && (
                               <div
                                 className="absolute inset-0 rounded-xl pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out transform translate-x-full group-hover:translate-x-0"
-                                style={{
-                                  background: call.estatus === 'ejecutada'
-                                    ? 'linear-gradient(to left, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 30%, transparent 60%)'
-                                    : 'linear-gradient(to left, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.15) 30%, transparent 60%)',
-                                }}
+                                style={{ background: getHoverGradient() }}
                               />
                             )}
                             <div className="p-4 relative z-0">
@@ -290,9 +431,18 @@ export const DailyView: React.FC<DailyViewProps> = ({
                                       {call.prospecto_nombre}
                                     </h3>
                                     <div className="flex items-center gap-2">
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium relative z-30 ${getStatusColor(call.estatus)}`}>
-                                        {call.estatus}
-                                      </span>
+                                      {(() => {
+                                        const displayStatus = getCallDisplayStatus(call);
+                                        return (
+                                          <span 
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium relative z-30 ${displayStatus.config.bgLight} ${displayStatus.config.textColor}`}
+                                            title={displayStatus.config.description}
+                                          >
+                                            {getStatusIcon(displayStatus.status)}
+                                            {displayStatus.config.label}
+                                          </span>
+                                        );
+                                      })()}
                                       {call.estatus === 'programada' && (
                                         <motion.button
                                           initial={{ opacity: 0, scale: 0.8 }}
@@ -356,7 +506,8 @@ export const DailyView: React.FC<DailyViewProps> = ({
                             </div>
                           </div>
                         </motion.div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </motion.div>

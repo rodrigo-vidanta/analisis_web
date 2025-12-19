@@ -12,6 +12,7 @@ import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
 import toast from 'react-hot-toast';
+import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 
 interface CallHistory {
   call_id: string;
@@ -182,38 +183,25 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
         return;
       }
 
-      const llamadasFiltradas = (data || []).map((llamada: any) => {
-        const razonFinalizacion = llamada.datos_llamada?.razon_finalizacion || 
-                                  (typeof llamada.datos_llamada === 'string' 
-                                    ? JSON.parse(llamada.datos_llamada)?.razon_finalizacion 
-                                    : null);
+      // Usar clasificador centralizado para todos los estados
+      const llamadasClasificadas = (data || []).map((llamada: any) => {
+        const statusClasificado = classifyCallStatus({
+          call_id: llamada.call_id,
+          call_status: llamada.call_status,
+          fecha_llamada: llamada.fecha_llamada,
+          duracion_segundos: llamada.duracion_segundos,
+          audio_ruta_bucket: llamada.audio_ruta_bucket,
+          monitor_url: llamada.monitor_url,
+          datos_llamada: llamada.datos_llamada
+        });
         
-        const fechaLlamada = llamada.fecha_llamada ? new Date(llamada.fecha_llamada) : null;
-        const horasTranscurridas = fechaLlamada 
-          ? (Date.now() - fechaLlamada.getTime()) / (1000 * 60 * 60)
-          : 0;
-        
-        if (llamada.call_status === 'activa' && (razonFinalizacion || (llamada.duracion_segundos && llamada.duracion_segundos > 0))) {
-          return {
-            ...llamada,
-            call_status: 'finalizada'
-          };
-        }
-        
-        if (llamada.call_status === 'activa' && 
-            horasTranscurridas > 2 && 
-            (!llamada.duracion_segundos || llamada.duracion_segundos === 0) && 
-            !llamada.audio_ruta_bucket) {
-          return {
-            ...llamada,
-            call_status: 'perdida'
-          };
-        }
-        
-        return llamada;
+        return {
+          ...llamada,
+          call_status: statusClasificado
+        };
       });
 
-      setLlamadas(llamadasFiltradas);
+      setLlamadas(llamadasClasificadas);
     } catch (error) {
       // Error silenciado
     }
@@ -618,13 +606,15 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                                   {Math.floor(llamada.duracion_segundos / 60)}:{(llamada.duracion_segundos % 60).toString().padStart(2, '0')}
                                 </td>
                                 <td className="py-2 px-2">
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                    llamada.call_status === 'finalizada' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                                    llamada.call_status === 'activa' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                                  }`}>
-                                    {llamada.call_status}
-                                  </span>
+                                  {(() => {
+                                    const status = (llamada.call_status || 'perdida') as CallStatusGranular;
+                                    const config = CALL_STATUS_CONFIG[status] || CALL_STATUS_CONFIG.perdida;
+                                    return (
+                                      <span className={`px-2 py-1 rounded text-xs font-medium ${config.bgColor} ${config.textColor}`}>
+                                        {config.label}
+                                      </span>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="py-2 px-2 text-gray-900 dark:text-white">
                                   {llamada.nivel_interes}

@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, User, Users, Trash2 } from 'lucide-react';
+import { Clock, User, Users, Trash2, PhoneForwarded, PhoneCall, Voicemail, PhoneMissed, PhoneOff, Calendar, Phone } from 'lucide-react';
 import type { ScheduledCall } from '../../../services/scheduledCallsService';
 import { DeleteCallConfirmationModal } from '../../shared/DeleteCallConfirmationModal';
 import { scheduledCallsService } from '../../../services/scheduledCallsService';
 import { useAuth } from '../../../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { analysisSupabase } from '../../../config/analysisSupabase';
+import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../../services/callStatusClassifier';
 
 interface WeeklyViewProps {
   calls: ScheduledCall[];
@@ -136,6 +138,135 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
     return date.toDateString() === today.toDateString();
   };
 
+  // Estado para almacenar el call_status real de llamadas ejecutadas
+  const [callStatusMap, setCallStatusMap] = useState<Record<string, CallStatusGranular>>({});
+
+  // Cargar call_status real de las llamadas ejecutadas
+  useEffect(() => {
+    const loadCallStatuses = async () => {
+      const executedCalls = calls.filter(c => 
+        (c.estatus === 'ejecutada' || c.estatus === 'no_contesto' || c.estatus?.toLowerCase() === 'no contesto') && 
+        c.llamada_ejecutada
+      );
+      
+      if (executedCalls.length === 0) return;
+      
+      const callIds = executedCalls.map(c => c.llamada_ejecutada).filter(Boolean);
+      
+      try {
+        const { data: callsData } = await analysisSupabase
+          .from('llamadas_ventas')
+          .select('call_id, call_status, duracion_segundos, audio_ruta_bucket, monitor_url, datos_llamada, fecha_llamada')
+          .in('call_id', callIds);
+        
+        if (callsData) {
+          const statusMap: Record<string, CallStatusGranular> = {};
+          callsData.forEach(call => {
+            const status = classifyCallStatus({
+              call_id: call.call_id,
+              call_status: call.call_status,
+              fecha_llamada: call.fecha_llamada,
+              duracion_segundos: call.duracion_segundos,
+              audio_ruta_bucket: call.audio_ruta_bucket,
+              monitor_url: call.monitor_url,
+              datos_llamada: typeof call.datos_llamada === 'string' 
+                ? JSON.parse(call.datos_llamada) 
+                : call.datos_llamada
+            });
+            statusMap[call.call_id] = status;
+          });
+          setCallStatusMap(statusMap);
+        }
+      } catch (error) {
+        console.error('Error loading call statuses:', error);
+      }
+    };
+    
+    loadCallStatuses();
+  }, [calls]);
+
+  // Obtener estado visual para una llamada
+  const getCallDisplayStatus = (call: ScheduledCall): { status: string; config: typeof CALL_STATUS_CONFIG[CallStatusGranular]; letter: string } => {
+    if (call.estatus === 'programada') {
+      return { 
+        status: 'programada', 
+        config: { 
+          label: 'Programada', 
+          color: 'bg-blue-500', 
+          bgLight: 'bg-blue-100 dark:bg-blue-900/20',
+          textColor: 'text-blue-700 dark:text-blue-300',
+          description: 'Llamada pendiente'
+        },
+        letter: 'P'
+      };
+    }
+    if (call.estatus === 'cancelada') {
+      return { 
+        status: 'cancelada', 
+        config: { 
+          label: 'Cancelada', 
+          color: 'bg-gray-500', 
+          bgLight: 'bg-gray-100 dark:bg-gray-900/20',
+          textColor: 'text-gray-700 dark:text-gray-300',
+          description: 'Llamada cancelada'
+        },
+        letter: 'C'
+      };
+    }
+    
+    // Si fue ejecutada, obtener estado real
+    if (call.llamada_ejecutada && callStatusMap[call.llamada_ejecutada]) {
+      const realStatus = callStatusMap[call.llamada_ejecutada];
+      const config = CALL_STATUS_CONFIG[realStatus];
+      const letter = realStatus === 'transferida' ? 'T' : 
+                     realStatus === 'atendida' ? 'A' : 
+                     realStatus === 'buzon' ? 'B' : 
+                     realStatus === 'no_contestada' ? 'N' : 
+                     realStatus === 'perdida' ? 'X' : 'E';
+      return { status: realStatus, config, letter };
+    }
+    
+    // Fallback
+    if (call.estatus === 'ejecutada') {
+      return { status: 'atendida', config: CALL_STATUS_CONFIG.atendida, letter: 'A' };
+    }
+    if (call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto') {
+      return { status: 'no_contestada', config: CALL_STATUS_CONFIG.no_contestada, letter: 'N' };
+    }
+    
+    return { 
+      status: call.estatus || 'desconocido', 
+      config: { 
+        label: call.estatus || 'Desconocido', 
+        color: 'bg-gray-500', 
+        bgLight: 'bg-gray-100 dark:bg-gray-900/20',
+        textColor: 'text-gray-700 dark:text-gray-300',
+        description: ''
+      },
+      letter: '?'
+    };
+  };
+
+  // Icono según estado (versión pequeña para weekly)
+  const getStatusIconSmall = (status: string) => {
+    switch (status) {
+      case 'programada':
+        return <Calendar className="w-2 h-2" />;
+      case 'transferida':
+        return <PhoneForwarded className="w-2 h-2" />;
+      case 'atendida':
+        return <PhoneCall className="w-2 h-2" />;
+      case 'buzon':
+        return <Voicemail className="w-2 h-2" />;
+      case 'no_contestada':
+        return <PhoneMissed className="w-2 h-2" />;
+      case 'perdida':
+        return <PhoneOff className="w-2 h-2" />;
+      default:
+        return <Phone className="w-2 h-2" />;
+    }
+  };
+
   const getStatusColor = (estatus: string) => {
     switch (estatus) {
       case 'programada':
@@ -202,7 +333,29 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
                     Sin llamadas
                   </div>
                 ) : (
-                  dayCalls.map((call, index) => (
+                  dayCalls.map((call, index) => {
+                    const displayStatus = getCallDisplayStatus(call);
+                    const isExecuted = call.estatus === 'ejecutada' || call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto';
+                    
+                    // Colores para el gradiente de hover según estado real
+                    const getHoverGradient = () => {
+                      switch (displayStatus.status) {
+                        case 'transferida':
+                          return 'linear-gradient(to left, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.15) 30%, transparent 60%)';
+                        case 'atendida':
+                          return 'linear-gradient(to left, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.15) 30%, transparent 60%)';
+                        case 'buzon':
+                          return 'linear-gradient(to left, rgba(168, 85, 247, 0.25) 0%, rgba(168, 85, 247, 0.15) 30%, transparent 60%)';
+                        case 'no_contestada':
+                          return 'linear-gradient(to left, rgba(249, 115, 22, 0.25) 0%, rgba(249, 115, 22, 0.15) 30%, transparent 60%)';
+                        case 'perdida':
+                          return 'linear-gradient(to left, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.15) 30%, transparent 60%)';
+                        default:
+                          return 'linear-gradient(to left, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 30%, transparent 60%)';
+                      }
+                    };
+                    
+                    return (
                     <motion.div
                       key={call.id}
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -212,14 +365,10 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
                       className="group cursor-pointer relative"
                     >
                       <div className="bg-white dark:bg-gray-800 rounded transition-colors transition-all duration-200 hover:shadow-sm p-0.5 sm:p-1 md:p-1.5 relative group">
-                        {(call.estatus === 'ejecutada' || call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto') && (
+                        {isExecuted && (
                           <div
                             className="absolute inset-0 rounded pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out transform translate-x-full group-hover:translate-x-0"
-                            style={{
-                              background: call.estatus === 'ejecutada'
-                                ? 'linear-gradient(to left, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 30%, transparent 60%)'
-                                : 'linear-gradient(to left, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.15) 30%, transparent 60%)',
-                            }}
+                            style={{ background: getHoverGradient() }}
                           />
                         )}
                         {/* Hora y estatus en una línea ultra compacta */}
@@ -231,8 +380,12 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
                             </span>
                           </div>
                           <div className="flex items-center gap-0.5">
-                            <span className={`inline-flex items-center px-0.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium border flex-shrink-0 relative z-30 ${getStatusColor(call.estatus)}`}>
-                              {call.estatus === 'programada' ? 'P' : call.estatus === 'ejecutada' ? 'E' : call.estatus === 'cancelada' ? 'C' : 'N'}
+                            <span 
+                              className={`inline-flex items-center gap-0.5 px-0.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium border flex-shrink-0 relative z-30 ${displayStatus.config.bgLight} ${displayStatus.config.textColor} border-current/20`}
+                              title={displayStatus.config.label}
+                            >
+                              {getStatusIconSmall(displayStatus.status)}
+                              {displayStatus.letter}
                             </span>
                             {call.estatus === 'programada' && (
                               <motion.button
@@ -265,7 +418,8 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
                         </h4>
                       </div>
                     </motion.div>
-                  ))
+                    );
+                  })
                 )}
                 </div>
               </div>

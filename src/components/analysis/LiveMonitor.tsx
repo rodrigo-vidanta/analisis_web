@@ -29,6 +29,7 @@ import { AssignmentBadge } from './AssignmentBadge';
 import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { ProspectAvatar } from './ProspectAvatar';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
+import { CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 
 // Extender interfaz Prospect para incluir campos de llamada
 interface ExtendedProspect extends Prospect {
@@ -1404,13 +1405,15 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                                 {Math.floor(llamada.duracion_segundos / 60)}:{(llamada.duracion_segundos % 60).toString().padStart(2, '0')}
                               </td>
                               <td className="py-2 px-2">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  llamada.call_status === 'finalizada' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                                  llamada.call_status === 'activa' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                                  'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                                }`}>
-                                  {llamada.call_status}
-                                </span>
+                                {(() => {
+                                  const status = (llamada.call_status || 'perdida') as CallStatusGranular;
+                                  const config = CALL_STATUS_CONFIG[status] || CALL_STATUS_CONFIG.perdida;
+                                  return (
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${config.bgColor} ${config.textColor}`}>
+                                      {config.label}
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="py-2 px-2 text-gray-900 dark:text-white">
                                 {llamada.nivel_interes}

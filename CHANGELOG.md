@@ -2,6 +2,72 @@
 
 ## Historial de Versiones
 
+### v2.1.36 (2025-12-19)
+**Descripción**: B6.1.3N6.0.0: Clasificación granular de llamadas y mejoras en módulo de programación
+
+---
+
+## 🎯 **RELEASE B6.1.3N6.0.0 - Clasificación Granular de Llamadas**
+
+### ✨ **Nuevas Características**
+
+1. **Sistema de Clasificación Granular de Llamadas**
+   - Nuevo servicio centralizado `callStatusClassifier.ts`
+   - 6 estados granulares: `activa`, `transferida`, `atendida`, `no_contestada`, `buzon`, `perdida`
+   - Clasificación basada en múltiples criterios: `razon_finalizacion`, `duracion_segundos`, `numero_turnos`, `audio_ruta_bucket`, `monitor_url`
+   - Configuración visual por estado: color, icono, etiqueta, descripción
+
+2. **Cards de Llamadas en WhatsApp Mejorados**
+   - Iconos diferenciados por estado (PhoneForwarded, PhoneCall, Voicemail, PhoneMissed, PhoneOff)
+   - Información adicional: duración, checkpoint alcanzado, nivel de interés
+   - Colores por estado: azul (transferida), ámbar (atendida), púrpura (buzón), naranja (no contestó), rojo (perdida)
+
+3. **Módulo de Programación Actualizado**
+   - Vista diaria con estados clasificados en tiempo real
+   - Vista semanal con badges compactos (icono + letra: T, A, B, N, X)
+   - Gradientes de hover según estado real de la llamada
+   - Lógica inteligente de clic:
+     - Llamadas programadas → Modal de programación
+     - Transferidas/Atendidas → CallDetailModalSidebar (detalle)
+     - Buzón/No contestó/Perdida → Modal de reprogramación
+
+4. **Corrección de Validación de CRM**
+   - Obtención automática de `id_dynamics` del prospecto al abrir modal
+   - Validación correcta para prospectos ya registrados en Dynamics
+
+### 🐛 **Correcciones**
+
+1. **Llamadas stuck como activas**
+   - Problema: Llamadas finalizadas aparecían como activas indefinidamente
+   - Solución: Clasificación en tiempo real + auto-corrección cada 30 segundos
+
+2. **Clasificación incorrecta de buzón**
+   - Problema: Llamadas a buzón marcadas como `no_contestada`
+   - Solución: Regla mejorada: grabación + 15-50s + hasta 2 turnos = buzón
+
+3. **Error "Prospecto sin registro en CRM"**
+   - Problema: Prospectos con id_dynamics mostraban error de CRM
+   - Causa: No se pasaba `prospectoIdDynamics` al modal
+   - Solución: Obtención previa del id_dynamics antes de abrir modal
+
+### 📁 **Archivos Modificados**
+
+- `src/services/callStatusClassifier.ts` (NUEVO)
+- `src/components/chat/LiveChatCanvas.tsx`
+- `src/components/scheduled-calls/ScheduledCallsManager.tsx`
+- `src/components/scheduled-calls/views/DailyView.tsx`
+- `src/components/scheduled-calls/views/WeeklyView.tsx`
+- `src/components/analysis/LiveMonitorKanban.tsx`
+- `src/components/analysis/LiveMonitor.tsx`
+- `src/components/analysis/AnalysisIAComplete.tsx`
+- `src/components/linear/LinearLiveMonitor.tsx`
+- `src/components/prospectos/ProspectosManager.tsx`
+- `src/services/liveMonitorService.ts`
+- `scripts/reclasificar_llamadas.sql`
+- `scripts/reclasificar_buzon.sql` (NUEVO)
+
+---
+
 ### v2.1.35 (2025-12-19)
 **Descripción**: B6.1.2N6.0.0: Seguridad - Sistema de prevención de mensajes duplicados y correcciones de permisos
 

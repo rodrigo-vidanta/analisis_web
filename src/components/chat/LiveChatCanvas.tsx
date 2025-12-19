@@ -45,13 +45,19 @@ import {
   Check,
   Bot,
   FileText,
-  Sparkles
+  Sparkles,
+  PhoneForwarded,
+  PhoneCall,
+  PhoneMissed,
+  PhoneOff,
+  Voicemail
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { uchatService } from '../../services/uchatService';
 import { permissionsService } from '../../services/permissionsService';
+import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 import { automationService } from '../../services/automationService';
 import { MultimediaMessage, needsBubble } from './MultimediaMessage';
 import { ImageCatalogModal } from './ImageCatalogModal';
@@ -176,6 +182,13 @@ interface Message {
     programada_por_nombre?: string;
     duracion_segundos?: number;
     call_status?: string;
+    // Campos adicionales de llamadas_ventas para info detallada
+    nivel_interes?: string;
+    checkpoint_alcanzado?: number;
+    datos_llamada?: {
+      razon_finalizacion?: string;
+      numero_turnos?: number;
+    };
   };
 }
 
@@ -3262,7 +3275,7 @@ const LiveChatCanvas: React.FC = () => {
           try {
             const { data: callDetails } = await analysisSupabase
               .from('llamadas_ventas')
-              .select('call_id, duracion_segundos, call_status')
+              .select('call_id, duracion_segundos, call_status, nivel_interes, checkpoint_venta_actual, datos_llamada')
               .in('call_id', callIds);
 
             if (callDetails) {
@@ -3293,7 +3306,12 @@ const LiveChatCanvas: React.FC = () => {
               llamada_ejecutada: call.llamada_ejecutada,
               programada_por_nombre: call.programada_por_nombre,
               duracion_segundos: callDetail?.duracion_segundos,
-              call_status: callDetail?.call_status
+              call_status: callDetail?.call_status,
+              nivel_interes: callDetail?.nivel_interes,
+              checkpoint_alcanzado: callDetail?.checkpoint_venta_actual ? parseInt(callDetail.checkpoint_venta_actual.replace('checkpoint #', '')) : undefined,
+              datos_llamada: typeof callDetail?.datos_llamada === 'string' 
+                ? JSON.parse(callDetail.datos_llamada) 
+                : callDetail?.datos_llamada
             }
           } as Message;
         });
@@ -5472,94 +5490,208 @@ const LiveChatCanvas: React.FC = () => {
                       {isCall && message.call_data ? (
                         <div className="flex justify-center px-4">
                           <div className="w-full max-w-2xl">
-                            <div className={`relative px-5 py-4 rounded-2xl shadow-md border ${
-                              message.call_data.estatus === 'ejecutada' 
-                                ? 'bg-gradient-to-r from-emerald-500/10 to-green-500/10 dark:from-emerald-900/40 dark:to-green-900/40 border-emerald-300/50 dark:border-emerald-700/50' 
-                                : message.call_data.estatus === 'no contesto'
-                                ? 'bg-gradient-to-r from-red-500/10 to-rose-500/10 dark:from-red-900/40 dark:to-rose-900/40 border-red-300/50 dark:border-red-700/50'
-                                : 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10 dark:from-blue-900/40 dark:to-cyan-900/40 border-blue-300/50 dark:border-blue-700/50'
-                            }`}>
-                              <div className="flex items-center gap-4">
-                                {/* Icono de llamada */}
-                                <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
-                                  message.call_data.estatus === 'ejecutada' 
-                                    ? 'bg-emerald-100 dark:bg-emerald-900/50' 
-                                    : message.call_data.estatus === 'no contesto'
-                                    ? 'bg-red-100 dark:bg-red-900/50'
-                                    : 'bg-blue-100 dark:bg-blue-900/50'
-                                }`}>
-                                  <Phone className={`w-6 h-6 ${
-                                    message.call_data.estatus === 'ejecutada'
-                                      ? 'text-emerald-600 dark:text-emerald-400'
-                                      : message.call_data.estatus === 'no contesto'
-                                      ? 'text-red-600 dark:text-red-400'
-                                      : 'text-blue-600 dark:text-blue-400'
-                                  }`} />
-                                </div>
-                                
-                                {/* Información de la llamada */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className={`text-sm font-bold ${
-                                      message.call_data.estatus === 'ejecutada'
-                                        ? 'text-emerald-800 dark:text-emerald-200'
-                                        : message.call_data.estatus === 'no contesto'
-                                        ? 'text-red-800 dark:text-red-200'
-                                        : 'text-blue-800 dark:text-blue-200'
-                                    }`}>
-                                      {message.call_data.estatus === 'ejecutada' 
-                                        ? 'Llamada realizada' 
-                                        : message.call_data.estatus === 'no contesto'
-                                        ? 'Llamada no contestada'
-                                        : 'Llamada programada'}
-                                    </span>
-                                    {message.call_data.estatus === 'programada' && (
-                                      <motion.button
-                                        initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedCallForDelete({
-                                            id: message.call_data.id,
-                                            prospecto_nombre: selectedConversation?.customer_name,
-                                            prospecto_whatsapp: selectedConversation?.customer_phone,
-                                            fecha_programada: message.call_data.fecha_programada,
-                                            justificacion_llamada: undefined
-                                          });
-                                          setDeleteCallModalOpen(true);
-                                        }}
-                                        disabled={isDeletingCall}
-                                        className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Eliminar llamada programada"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </motion.button>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Duración si está disponible */}
-                                  {message.call_data.duracion_segundos && message.call_data.duracion_segundos > 0 && (
-                                    <div className="text-sm text-slate-600 dark:text-gray-300 mb-1 flex items-center gap-1">
-                                      <span className="font-medium">Duración:</span> {Math.floor(message.call_data.duracion_segundos / 60)}:{(message.call_data.duracion_segundos % 60).toString().padStart(2, '0')}
+                            {(() => {
+                              // Determinar el estado real de la llamada usando clasificador centralizado
+                              const isExecuted = message.call_data.estatus === 'ejecutada' || message.call_data.estatus === 'no contesto';
+                              let callStatusGranular: CallStatusGranular = 'activa';
+                              let statusConfig = CALL_STATUS_CONFIG.activa;
+                              
+                              if (isExecuted && message.call_data.call_status) {
+                                // Usar el call_status de la BD (ya reclasificado) o clasificar en tiempo real
+                                const status = message.call_data.call_status as CallStatusGranular;
+                                if (CALL_STATUS_CONFIG[status]) {
+                                  callStatusGranular = status;
+                                  statusConfig = CALL_STATUS_CONFIG[status];
+                                } else {
+                                  // Clasificar si el estado no está en el nuevo formato
+                                  callStatusGranular = classifyCallStatus({
+                                    call_status: message.call_data.call_status,
+                                    fecha_llamada: message.call_data.fecha_programada,
+                                    duracion_segundos: message.call_data.duracion_segundos,
+                                    datos_llamada: message.call_data.datos_llamada
+                                  });
+                                  statusConfig = CALL_STATUS_CONFIG[callStatusGranular];
+                                }
+                              }
+                              
+                              // Determinar colores y estilos según estado
+                              const getCardStyles = () => {
+                                if (message.call_data.estatus === 'programada') {
+                                  return {
+                                    bg: 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10 dark:from-blue-900/40 dark:to-cyan-900/40 border-blue-300/50 dark:border-blue-700/50',
+                                    iconBg: 'bg-blue-100 dark:bg-blue-900/50',
+                                    iconColor: 'text-blue-600 dark:text-blue-400',
+                                    titleColor: 'text-blue-800 dark:text-blue-200'
+                                  };
+                                }
+                                // Para llamadas ejecutadas, usar colores del clasificador
+                                switch (callStatusGranular) {
+                                  case 'transferida':
+                                    return {
+                                      bg: 'bg-gradient-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-900/40 dark:to-indigo-900/40 border-blue-300/50 dark:border-blue-700/50',
+                                      iconBg: 'bg-blue-100 dark:bg-blue-900/50',
+                                      iconColor: 'text-blue-600 dark:text-blue-400',
+                                      titleColor: 'text-blue-800 dark:text-blue-200'
+                                    };
+                                  case 'atendida':
+                                    return {
+                                      bg: 'bg-gradient-to-r from-amber-500/10 to-yellow-500/10 dark:from-amber-900/40 dark:to-yellow-900/40 border-amber-300/50 dark:border-amber-700/50',
+                                      iconBg: 'bg-amber-100 dark:bg-amber-900/50',
+                                      iconColor: 'text-amber-600 dark:text-amber-400',
+                                      titleColor: 'text-amber-800 dark:text-amber-200'
+                                    };
+                                  case 'buzon':
+                                    return {
+                                      bg: 'bg-gradient-to-r from-purple-500/10 to-violet-500/10 dark:from-purple-900/40 dark:to-violet-900/40 border-purple-300/50 dark:border-purple-700/50',
+                                      iconBg: 'bg-purple-100 dark:bg-purple-900/50',
+                                      iconColor: 'text-purple-600 dark:text-purple-400',
+                                      titleColor: 'text-purple-800 dark:text-purple-200'
+                                    };
+                                  case 'no_contestada':
+                                    return {
+                                      bg: 'bg-gradient-to-r from-orange-500/10 to-amber-500/10 dark:from-orange-900/40 dark:to-amber-900/40 border-orange-300/50 dark:border-orange-700/50',
+                                      iconBg: 'bg-orange-100 dark:bg-orange-900/50',
+                                      iconColor: 'text-orange-600 dark:text-orange-400',
+                                      titleColor: 'text-orange-800 dark:text-orange-200'
+                                    };
+                                  case 'perdida':
+                                    return {
+                                      bg: 'bg-gradient-to-r from-red-500/10 to-rose-500/10 dark:from-red-900/40 dark:to-rose-900/40 border-red-300/50 dark:border-red-700/50',
+                                      iconBg: 'bg-red-100 dark:bg-red-900/50',
+                                      iconColor: 'text-red-600 dark:text-red-400',
+                                      titleColor: 'text-red-800 dark:text-red-200'
+                                    };
+                                  default:
+                                    return {
+                                      bg: 'bg-gradient-to-r from-emerald-500/10 to-green-500/10 dark:from-emerald-900/40 dark:to-green-900/40 border-emerald-300/50 dark:border-emerald-700/50',
+                                      iconBg: 'bg-emerald-100 dark:bg-emerald-900/50',
+                                      iconColor: 'text-emerald-600 dark:text-emerald-400',
+                                      titleColor: 'text-emerald-800 dark:text-emerald-200'
+                                    };
+                                }
+                              };
+                              
+                              const styles = getCardStyles();
+                              
+                              // Icono según estado
+                              const getIcon = () => {
+                                if (message.call_data.estatus === 'programada') {
+                                  return <Calendar className={`w-6 h-6 ${styles.iconColor}`} />;
+                                }
+                                switch (callStatusGranular) {
+                                  case 'transferida':
+                                    return <PhoneForwarded className={`w-6 h-6 ${styles.iconColor}`} />;
+                                  case 'atendida':
+                                    return <PhoneCall className={`w-6 h-6 ${styles.iconColor}`} />;
+                                  case 'buzon':
+                                    return <Voicemail className={`w-6 h-6 ${styles.iconColor}`} />;
+                                  case 'no_contestada':
+                                    return <PhoneMissed className={`w-6 h-6 ${styles.iconColor}`} />;
+                                  case 'perdida':
+                                    return <PhoneOff className={`w-6 h-6 ${styles.iconColor}`} />;
+                                  default:
+                                    return <Phone className={`w-6 h-6 ${styles.iconColor}`} />;
+                                }
+                              };
+                              
+                              // Título según estado
+                              const getTitle = () => {
+                                if (message.call_data.estatus === 'programada') {
+                                  return 'Llamada programada';
+                                }
+                                return statusConfig.label;
+                              };
+                              
+                              return (
+                                <div className={`relative px-5 py-4 rounded-2xl shadow-md border ${styles.bg}`}>
+                                  <div className="flex items-center gap-4">
+                                    {/* Icono de llamada */}
+                                    <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${styles.iconBg}`}>
+                                      {getIcon()}
                                     </div>
-                                  )}
-                                  
-                                  {/* Programada por */}
-                                  {message.call_data.programada_por_nombre && (
-                                    <div className="text-xs text-slate-500 dark:text-gray-400">
-                                      Por: {message.call_data.programada_por_nombre}
+                                    
+                                    {/* Información de la llamada */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className={`text-sm font-bold ${styles.titleColor}`}>
+                                          {getTitle()}
+                                        </span>
+                                        {message.call_data.estatus === 'programada' && (
+                                          <motion.button
+                                            initial={{ opacity: 0, scale: 0.8 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedCallForDelete({
+                                                id: message.call_data!.id,
+                                                prospecto_nombre: selectedConversation?.customer_name,
+                                                prospecto_whatsapp: selectedConversation?.customer_phone,
+                                                fecha_programada: message.call_data!.fecha_programada,
+                                                justificacion_llamada: undefined
+                                              });
+                                              setDeleteCallModalOpen(true);
+                                            }}
+                                            disabled={isDeletingCall}
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title="Eliminar llamada programada"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </motion.button>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Info detallada para llamadas ejecutadas */}
+                                      {isExecuted && (
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-gray-300">
+                                          {/* Duración */}
+                                          {message.call_data.duracion_segundos && message.call_data.duracion_segundos > 0 && (
+                                            <div className="flex items-center gap-1">
+                                              <Clock className="w-3 h-3" />
+                                              <span>{Math.floor(message.call_data.duracion_segundos / 60)}:{(message.call_data.duracion_segundos % 60).toString().padStart(2, '0')}</span>
+                                            </div>
+                                          )}
+                                          
+                                          {/* Checkpoint alcanzado */}
+                                          {message.call_data.checkpoint_alcanzado && message.call_data.checkpoint_alcanzado > 0 && (
+                                            <div className="flex items-center gap-1">
+                                              <Flag className="w-3 h-3" />
+                                              <span>Checkpoint {message.call_data.checkpoint_alcanzado}/5</span>
+                                            </div>
+                                          )}
+                                          
+                                          {/* Nivel de interés */}
+                                          {message.call_data.nivel_interes && (
+                                            <div className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                              message.call_data.nivel_interes.toLowerCase().includes('alto') 
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                : message.call_data.nivel_interes.toLowerCase().includes('medio')
+                                                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+                                            }`}>
+                                              {message.call_data.nivel_interes}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      
+                                      {/* Programada por */}
+                                      {message.call_data.programada_por_nombre && (
+                                        <div className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                                          Por: {message.call_data.programada_por_nombre}
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
 
-                                {/* Timestamp a la derecha */}
-                                <div className="text-xs text-slate-400 dark:text-gray-500 self-end">
-                                  {formatTime(message.created_at)}
+                                    {/* Timestamp a la derecha */}
+                                    <div className="text-xs text-slate-400 dark:text-gray-500 self-end">
+                                      {formatTime(message.created_at)}
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       ) : null}

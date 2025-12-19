@@ -415,7 +415,9 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
     // Agregar eventos de llamadas (clickeables solo si tienen grabación y están finalizadas)
     llamadas.forEach(call => {
       const hasRecording = !!(call.audio_ruta_bucket && call.audio_ruta_bucket.length > 0);
-      const isFinalized = call.call_status === 'finalizada' || call.call_status === 'transferida' || call.call_status === 'contestada_no_transferida';
+      // Estados que indican llamada finalizada (usando clasificador centralizado)
+      const finalizedStatuses = ['transferida', 'atendida', 'no_contestada', 'buzon', 'perdida', 'finalizada', 'contestada_no_transferida'];
+      const isFinalized = finalizedStatuses.includes(call.call_status || '');
       events.push({
         id: `call-${call.call_id}`,
         type: 'call',

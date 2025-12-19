@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
+import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 
 // Definición de checkpoints con diseño Linear
 const LINEAR_CHECKPOINTS = {
@@ -203,20 +204,29 @@ const LinearLiveMonitor: React.FC = () => {
       allCallsData.forEach(call => {
         const hasFeedback = call.tiene_feedback === true;
         
-        if (call.call_status === 'activa') {
+        // Usar clasificador centralizado
+        const classifiedStatus = classifyCallStatus({
+          call_id: call.call_id,
+          call_status: call.call_status,
+          fecha_llamada: call.fecha_llamada,
+          duracion_segundos: call.duracion_segundos,
+          audio_ruta_bucket: call.audio_ruta_bucket,
+          monitor_url: call.monitor_url,
+          datos_llamada: call.datos_llamada
+        });
+        
+        // Actualizar el status en el objeto
+        call.call_status = classifiedStatus;
+        
+        if (classifiedStatus === 'activa') {
           active.push(call);
         }
-        else if (
-          call.call_status === 'finalizada' || 
-          call.call_status === 'transferida' || 
-          call.call_status === 'colgada' ||
-          call.call_status === 'exitosa'
-        ) {
+        else if (classifiedStatus === 'transferida' || classifiedStatus === 'atendida') {
           if (!hasFeedback) {
             finished.push(call);
           }
         }
-        else if (call.call_status === 'perdida' || (call.duracion_segundos === 0 && !call.audio_ruta_bucket)) {
+        else if (classifiedStatus === 'perdida' || classifiedStatus === 'no_contestada' || classifiedStatus === 'buzon') {
           if (!hasFeedback) {
             failed.push(call);
           }
@@ -225,7 +235,7 @@ const LinearLiveMonitor: React.FC = () => {
 
       const completedCalls = allCallsData.filter(call => {
         const hasFeedback = call.tiene_feedback === true;
-        const isCompleted = ['finalizada', 'transferida', 'colgada', 'exitosa', 'perdida'].includes(call.call_status || '');
+        const isCompleted = ['transferida', 'atendida', 'no_contestada', 'buzon', 'perdida'].includes(call.call_status || '');
         return hasFeedback && isCompleted;
       });
 
@@ -503,12 +513,15 @@ const LinearLiveMonitor: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    call.call_status === 'transferida' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                    'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
-                  }`}>
-                    {call.call_status}
-                  </span>
+                  {(() => {
+                    const status = (call.call_status || 'perdida') as CallStatusGranular;
+                    const config = CALL_STATUS_CONFIG[status] || CALL_STATUS_CONFIG.perdida;
+                    return (
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bgColor} ${config.textColor}`}>
+                        {config.label}
+                      </span>
+                    );
+                  })()}
                   
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     Requiere feedback
@@ -593,14 +606,15 @@ const LinearLiveMonitor: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        call.call_status === 'activa' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
-                        call.call_status === 'transferida' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                        call.call_status === 'finalizada' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300' :
-                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                      }`}>
-                        {call.call_status}
-                      </span>
+                      {(() => {
+                        const status = (call.call_status || 'perdida') as CallStatusGranular;
+                        const config = CALL_STATUS_CONFIG[status] || CALL_STATUS_CONFIG.perdida;
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bgColor} ${config.textColor}`}>
+                            {config.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {call.checkpoint_venta_actual || 'checkpoint #1'}

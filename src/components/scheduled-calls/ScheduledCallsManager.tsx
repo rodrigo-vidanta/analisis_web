@@ -11,6 +11,8 @@ import { CallDetailModalSidebar } from '../chat/CallDetailModalSidebar';
 import { createPortal } from 'react-dom';
 import { ManualCallModal } from '../shared/ManualCallModal';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { classifyCallStatus, type CallStatusGranular } from '../../services/callStatusClassifier';
+import toast from 'react-hot-toast';
 
 type ViewMode = 'daily' | 'weekly';
 
@@ -29,6 +31,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   const [selectedProspecto, setSelectedProspecto] = useState<any>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedCallForSchedule, setSelectedCallForSchedule] = useState<ScheduledCall | null>(null);
+  const [selectedProspectoIdDynamics, setSelectedProspectoIdDynamics] = useState<string | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   // Estados para el modal de detalle de llamada
@@ -193,9 +196,91 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
     }
   };
 
-  const handleOpenScheduleModal = (call: ScheduledCall) => {
-    setSelectedCallForSchedule(call);
-    setShowScheduleModal(true);
+  /**
+   * Obtiene el id_dynamics del prospecto y abre el modal de programación
+   */
+  const openScheduleModalWithProspecto = async (call: ScheduledCall) => {
+    try {
+      // Obtener id_dynamics del prospecto
+      const { data: prospecto } = await analysisSupabase
+        .from('prospectos')
+        .select('id_dynamics')
+        .eq('id', call.prospecto)
+        .single();
+      
+      setSelectedProspectoIdDynamics(prospecto?.id_dynamics || null);
+      setSelectedCallForSchedule(call);
+      setShowScheduleModal(true);
+    } catch (error) {
+      console.error('Error obteniendo id_dynamics:', error);
+      // Abrir modal de todas formas, pasando null
+      setSelectedProspectoIdDynamics(null);
+      setSelectedCallForSchedule(call);
+      setShowScheduleModal(true);
+    }
+  };
+
+  /**
+   * Maneja el clic en una llamada programada/ejecutada
+   * - Si está programada: abre modal de programación
+   * - Si fue ejecutada y contestó (transferida/atendida): abre CallDetailModalSidebar
+   * - Si fue ejecutada pero no contestó (buzón/no_contestada/perdida): abre modal de reprogramación
+   */
+  const handleCallClick = async (call: ScheduledCall) => {
+    // Si está programada, abrir modal de programación
+    if (call.estatus === 'programada' || call.estatus === 'cancelada') {
+      await openScheduleModalWithProspecto(call);
+      return;
+    }
+    
+    // Si fue ejecutada, verificar el resultado real de la llamada
+    if (call.estatus === 'ejecutada' || call.estatus === 'no_contesto' || call.estatus?.toLowerCase() === 'no contesto') {
+      // Si tiene llamada_ejecutada, obtener el call_status real de llamadas_ventas
+      if (call.llamada_ejecutada) {
+        try {
+          const { data: callData, error } = await analysisSupabase
+            .from('llamadas_ventas')
+            .select('call_id, call_status, duracion_segundos, audio_ruta_bucket, monitor_url, datos_llamada, fecha_llamada')
+            .eq('call_id', call.llamada_ejecutada)
+            .single();
+          
+          if (error || !callData) {
+            // Si no se encuentra la llamada, abrir modal de reprogramación
+            await openScheduleModalWithProspecto(call);
+            return;
+          }
+          
+          // Clasificar el estado real de la llamada
+          const realStatus: CallStatusGranular = classifyCallStatus({
+            call_id: callData.call_id,
+            call_status: callData.call_status,
+            fecha_llamada: callData.fecha_llamada,
+            duracion_segundos: callData.duracion_segundos,
+            audio_ruta_bucket: callData.audio_ruta_bucket,
+            monitor_url: callData.monitor_url,
+            datos_llamada: typeof callData.datos_llamada === 'string' 
+              ? JSON.parse(callData.datos_llamada) 
+              : callData.datos_llamada
+          });
+          
+          // Si contestó (transferida o atendida), abrir detalle de llamada
+          if (realStatus === 'transferida' || realStatus === 'atendida') {
+            setSelectedCallId(call.llamada_ejecutada);
+            setCallDetailModalOpen(true);
+          } else {
+            // Si no contestó (buzón, no_contestada, perdida), abrir modal de reprogramación
+            await openScheduleModalWithProspecto(call);
+          }
+        } catch (error) {
+          console.error('Error obteniendo estado de llamada:', error);
+          // En caso de error, abrir modal de reprogramación
+          await openScheduleModalWithProspecto(call);
+        }
+      } else {
+        // Si no tiene llamada_ejecutada, abrir modal de reprogramación
+        await openScheduleModalWithProspecto(call);
+      }
+    }
   };
 
   return (
@@ -303,7 +388,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
               <DailyView
                 calls={calls}
                 selectedDate={selectedDate}
-                onCallClick={handleOpenScheduleModal}
+                onCallClick={handleCallClick}
                 onProspectClick={handleNavigateToProspect}
                 onDateChange={setSelectedDate}
                 showNavigation={false}
@@ -313,7 +398,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
               <WeeklyView
                 calls={calls}
                 selectedDate={selectedDate}
-                onCallClick={handleOpenScheduleModal}
+                onCallClick={handleCallClick}
                 onProspectClick={handleNavigateToProspect}
                 onCallDeleted={loadCalls}
               />
@@ -355,13 +440,16 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
           onClose={() => {
             setShowScheduleModal(false);
             setSelectedCallForSchedule(null);
+            setSelectedProspectoIdDynamics(null);
           }}
           prospectoId={selectedCallForSchedule.prospecto}
           prospectoNombre={selectedCallForSchedule.prospecto_nombre}
+          prospectoIdDynamics={selectedProspectoIdDynamics}
           onSuccess={() => {
             loadCalls();
             setShowScheduleModal(false);
             setSelectedCallForSchedule(null);
+            setSelectedProspectoIdDynamics(null);
           }}
         />
       )}
