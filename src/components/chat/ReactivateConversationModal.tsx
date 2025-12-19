@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles } from 'lucide-react';
+import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles, AlertTriangle, Calendar, Clock, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { whatsappTemplatesService } from '../../services/whatsappTemplatesService';
+import { whatsappTemplatesService, type TemplateSendLimits } from '../../services/whatsappTemplatesService';
 import type { WhatsAppTemplate } from '../../types/whatsappTemplates';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 interface ReactivateConversationModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onTemplateSent?: () => void; // Callback para refrescar mensajes después de enviar
   conversation: {
     id: string;
     customer_name?: string;
@@ -28,6 +29,7 @@ interface ReactivateConversationModalProps {
 export const ReactivateConversationModal: React.FC<ReactivateConversationModalProps> = ({
   isOpen,
   onClose,
+  onTemplateSent,
   conversation,
   prospectoData,
 }) => {
@@ -51,6 +53,11 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   const [destinos, setDestinos] = useState<Array<{ id: string; nombre: string }>>([]);
   const [resorts, setResorts] = useState<Array<{ id: string; nombre: string; nombre_completo: string }>>([]);
   
+  // Límites de envío
+  const [sendLimits, setSendLimits] = useState<TemplateSendLimits | null>(null);
+  const [loadingLimits, setLoadingLimits] = useState(false);
+  const [selectedTemplateBlocked, setSelectedTemplateBlocked] = useState<{ blocked: boolean; reason: string | null }>({ blocked: false, reason: null });
+  
   // Variables personalizadas
   const [customVariables, setCustomVariables] = useState<Record<number, {
     value: string;
@@ -58,6 +65,21 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     destinoId?: string;
     resortId?: string;
   }>>({});
+
+  // Cargar límites de envío
+  const loadSendLimits = async () => {
+    if (!prospectoData?.id) return;
+    
+    try {
+      setLoadingLimits(true);
+      const limits = await whatsappTemplatesService.checkTemplateSendLimits(prospectoData.id);
+      setSendLimits(limits);
+    } catch (error) {
+      console.error('Error cargando límites de envío:', error);
+    } finally {
+      setLoadingLimits(false);
+    }
+  };
 
   // Cargar plantillas y audiencias al abrir el modal
   useEffect(() => {
@@ -67,11 +89,14 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       setPreview('');
       setSearchTerm('');
       setSendingSuccess(false);
+      setSendLimits(null);
+      setSelectedTemplateBlocked({ blocked: false, reason: null });
       loadTemplates();
       loadAudiences();
       loadDestinos();
+      loadSendLimits();
     }
-  }, [isOpen]);
+  }, [isOpen, prospectoData?.id]);
 
   // Cargar resorts cuando se selecciona un destino
   useEffect(() => {
@@ -85,6 +110,28 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       });
     }
   }, [customVariables, selectedTemplate]);
+
+  // Verificar si la plantilla seleccionada está bloqueada
+  useEffect(() => {
+    const checkSelectedTemplateBlock = async () => {
+      if (!selectedTemplate || !prospectoData?.id) {
+        setSelectedTemplateBlocked({ blocked: false, reason: null });
+        return;
+      }
+
+      const result = await whatsappTemplatesService.canSendTemplateToProspect(
+        prospectoData.id,
+        selectedTemplate.id
+      );
+      
+      setSelectedTemplateBlocked({ 
+        blocked: !result.canSend, 
+        reason: result.reason 
+      });
+    };
+
+    checkSelectedTemplateBlock();
+  }, [selectedTemplate, prospectoData?.id, sendLimits]);
 
   const loadTemplates = async () => {
     try {
@@ -769,44 +816,93 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         prospecto_id: prospectoData.id,
         variables: variables,
         resolved_text: resolvedText.trim(),
-        triggered_by: 'MANUAL' as const
+        triggered_by: 'MANUAL' as const,
+        triggered_by_user: user?.id || null,
+        triggered_by_user_name: user?.full_name || null
       };
+
+      console.log('📤 Enviando plantilla:', { template_name: selectedTemplate.name, prospecto_id: prospectoData.id });
 
       const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates-send';
       const authToken = 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV';
       
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Auth': authToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      // Timeout de 30 segundos para evitar colgarse indefinidamente
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      const responseText = await response.text();
-      let result;
-      if (responseText && responseText.trim()) {
-        try {
-          result = JSON.parse(responseText);
-        } catch {
-          throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
+      try {
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Auth': authToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        console.log('📥 Respuesta recibida:', response.status);
+
+        const responseText = await response.text();
+        console.log('📄 Respuesta texto:', responseText.substring(0, 200));
+        
+        let result;
+        if (responseText && responseText.trim()) {
+          try {
+            result = JSON.parse(responseText);
+          } catch {
+            throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
+          }
+        } else {
+          result = response.ok ? { success: true } : { success: false };
         }
-      } else {
-        result = response.ok ? { success: true } : { success: false };
-      }
 
-      if (!response.ok || (result && !result.success)) {
-        const errorMessage = result?.error || result?.message || `Error ${response.status}: ${response.statusText}`;
-        throw new Error(errorMessage);
-      }
+        if (!response.ok || (result && !result.success)) {
+          const errorMessage = result?.error || result?.message || `Error ${response.status}: ${response.statusText}`;
+          throw new Error(errorMessage);
+        }
 
-      // Éxito - mostrar animación
-      setSendingSuccess(true);
-      setTimeout(() => {
-      toast.success('Plantilla enviada exitosamente');
-      onClose();
-      }, 1500);
+        // Éxito - actualizar triggered_by_user en la BD (el webhook no lo guarda)
+        console.log('✅ Plantilla enviada exitosamente');
+        
+        // Actualizar el registro más reciente de whatsapp_template_sends para este prospecto
+        if (user?.id) {
+          try {
+            const { error: updateError } = await analysisSupabase
+              .from('whatsapp_template_sends')
+              .update({ triggered_by_user: user.id })
+              .eq('prospecto_id', prospectoData.id)
+              .eq('template_id', selectedTemplate.id)
+              .is('triggered_by_user', null)
+              .order('sent_at', { ascending: false })
+              .limit(1);
+            
+            if (updateError) {
+              console.warn('⚠️ No se pudo actualizar triggered_by_user:', updateError);
+            } else {
+              console.log('✅ triggered_by_user actualizado correctamente');
+            }
+          } catch (updateErr) {
+            console.warn('⚠️ Error actualizando triggered_by_user:', updateErr);
+          }
+        }
+
+        setSending(false);
+        setSendingSuccess(true);
+        setTimeout(() => {
+          toast.success('Plantilla enviada exitosamente');
+          onTemplateSent?.(); // Notificar para refrescar mensajes
+          onClose();
+        }, 1500);
+        return; // Salir exitosamente
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Tiempo de espera agotado. Por favor, intenta de nuevo.');
+        }
+        throw fetchError;
+      }
     } catch (error: any) {
       console.error('❌ Error enviando plantilla:', error);
       toast.error(error.message || 'Error al enviar la plantilla');
@@ -852,6 +948,69 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Indicadores de Límites de Envío */}
+            {sendLimits && (
+              <div className="mt-4">
+                {/* Banner de bloqueo si aplica */}
+                {!sendLimits.canSend && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                  >
+                    <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                      <Ban className="w-5 h-5 flex-shrink-0" />
+                      <span className="text-sm font-medium">{sendLimits.blockReason}</span>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Indicadores de límites */}
+                <div className="flex flex-wrap gap-3">
+                  {/* Límite diario */}
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                    sendLimits.dailyLimit.blocked 
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' 
+                      : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                  }`}>
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Hoy: {sendLimits.dailyLimit.remaining}/{sendLimits.dailyLimit.max}</span>
+                  </div>
+
+                  {/* Límite semanal */}
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                    sendLimits.weeklyLimit.blocked 
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' 
+                      : sendLimits.weeklyLimit.remaining <= 1
+                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                      : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                  }`}>
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Semana: {sendLimits.weeklyLimit.remaining}/{sendLimits.weeklyLimit.max} plantillas únicas</span>
+                  </div>
+
+                  {/* Límite mensual */}
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                    sendLimits.monthlyLimit.blocked 
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' 
+                      : sendLimits.monthlyLimit.remaining <= 2
+                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                      : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                  }`}>
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Mes: {sendLimits.monthlyLimit.remaining}/{sendLimits.monthlyLimit.max} plantillas únicas</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {loadingLimits && (
+              <div className="mt-4 flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-xs">Verificando límites...</span>
+              </div>
+            )}
           </div>
 
           {/* Content - Layout dividido */}
@@ -889,25 +1048,40 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                     const templateEtapas = getTemplateEtapas(template);
                     const matchScore = getTemplateMatchScore(template);
                     
+                    // Verificar si esta plantilla ya fue enviada
+                    const alreadySentThisMonth = sendLimits?.sentTemplateIds.includes(template.id) || false;
+                    const alreadySentThisWeek = sendLimits?.weeklyLimit.usedTemplateIds.includes(template.id) || false;
+                    
                     return (
                       <motion.button
                         key={template.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.03 }}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        whileHover={{ scale: alreadySentThisMonth ? 1 : 1.02 }}
+                        whileTap={{ scale: alreadySentThisMonth ? 1 : 0.98 }}
                         onClick={() => handleSelectTemplate(template)}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all relative ${
-                          isSelected
+                          alreadySentThisMonth
+                            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-60 cursor-not-allowed'
+                            : isSelected
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                             : isRecommended
                             ? 'border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 hover:border-green-300 dark:hover:border-green-700'
                             : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
                         }`}
                       >
+                        {/* Icono de ya enviada */}
+                        {alreadySentThisMonth && (
+                          <div className="absolute top-3 right-3">
+                            <div className="flex items-center justify-center w-6 h-6 bg-gray-400 dark:bg-gray-600 rounded-full">
+                              <Ban className="w-3.5 h-3.5 text-white" />
+                            </div>
+                          </div>
+                        )}
+
                         {/* Icono de mejor opción para plantillas sugeridas */}
-                        {isRecommended && !isSelected && (
+                        {isRecommended && !isSelected && !alreadySentThisMonth && (
                           <div className="absolute top-3 right-3">
                             <motion.div
                               initial={{ scale: 0 }}
@@ -923,10 +1097,23 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                         <div className="flex items-start justify-between mb-2 pr-8">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className={`font-semibold ${isSelected ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'}`}>
+                              <h4 className={`font-semibold ${
+                                alreadySentThisMonth 
+                                  ? 'text-gray-500 dark:text-gray-500 line-through' 
+                                  : isSelected 
+                                  ? 'text-blue-900 dark:text-blue-100' 
+                                  : 'text-gray-900 dark:text-white'
+                              }`}>
                                 {template.name}
                               </h4>
-                              {isRecommended && !isSelected && (
+                              {/* Badge de ya enviada */}
+                              {alreadySentThisMonth && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded font-medium">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  {alreadySentThisWeek ? 'Enviada esta semana' : 'Enviada este mes'}
+                                </span>
+                              )}
+                              {isRecommended && !isSelected && !alreadySentThisMonth && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded font-medium">
                                   <Sparkles className="w-3 h-3" />
                                   Recomendada {matchScore > 0 && `(${Math.round(matchScore)}%)`}
@@ -1217,53 +1404,91 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
 
           {/* Footer */}
           {selectedTemplate && (
-            <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-end space-x-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={onClose}
-                className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-              >
-                Cancelar
-              </motion.button>
-              <AnimatePresence mode="wait">
-                {sendingSuccess ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center space-x-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Enviado</span>
-                  </motion.div>
-                ) : (
-              <motion.button
-                    key="send-button"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSend}
-                disabled={sending || !prospectoData?.id || !areAllVariablesComplete}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center space-x-2"
-                title={!areAllVariablesComplete ? 'Completa todas las variables antes de enviar' : ''}
-              >
-                {sending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Enviando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>Enviar Plantilla</span>
-                  </>
-                )}
-              </motion.button>
-                )}
-              </AnimatePresence>
+            <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+              {/* Mensaje de bloqueo de plantilla específica */}
+              {selectedTemplateBlocked.blocked && selectedTemplateBlocked.reason && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+                >
+                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm">{selectedTemplateBlocked.reason}</span>
+                  </div>
+                </motion.div>
+              )}
+
+              <div className="flex justify-end space-x-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onClose}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                >
+                  Cancelar
+                </motion.button>
+                <AnimatePresence mode="wait">
+                  {sendingSuccess ? (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center space-x-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Enviado</span>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="send-button"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleSend}
+                      disabled={sending || !prospectoData?.id || !areAllVariablesComplete || selectedTemplateBlocked.blocked || !sendLimits?.canSend}
+                      className={`px-5 py-2.5 text-sm font-medium text-white rounded-xl transition-all duration-200 shadow-lg flex items-center space-x-2 ${
+                        selectedTemplateBlocked.blocked || !sendLimits?.canSend
+                          ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed shadow-none'
+                          : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-blue-500/25'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title={
+                        selectedTemplateBlocked.blocked 
+                          ? selectedTemplateBlocked.reason || 'Plantilla no disponible'
+                          : !sendLimits?.canSend 
+                          ? sendLimits?.blockReason || 'Límite de envío alcanzado'
+                          : !areAllVariablesComplete 
+                          ? 'Completa todas las variables antes de enviar' 
+                          : ''
+                      }
+                    >
+                      {sending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Enviando...</span>
+                        </>
+                      ) : selectedTemplateBlocked.blocked ? (
+                        <>
+                          <Ban className="w-4 h-4" />
+                          <span>Plantilla no disponible</span>
+                        </>
+                      ) : !sendLimits?.canSend ? (
+                        <>
+                          <Ban className="w-4 h-4" />
+                          <span>Límite alcanzado</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>Enviar Plantilla</span>
+                        </>
+                      )}
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           )}
         </motion.div>

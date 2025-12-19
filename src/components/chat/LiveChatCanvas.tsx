@@ -42,7 +42,10 @@ import {
   Loader2,
   Trash2,
   Filter,
-  Check
+  Check,
+  Bot,
+  FileText,
+  Sparkles
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
@@ -96,6 +99,18 @@ const logErrThrottled = (key: string, ...args: any[]) => {
   }
 };
 
+/**
+ * Normaliza texto para búsqueda: elimina acentos y convierte a minúsculas
+ * Ejemplo: "José María" -> "jose maria"
+ */
+const normalizeText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ''); // Elimina diacríticos (acentos)
+};
+
 // Utilidad para debounce simple (sin dependencias externas)
 const debounce = <T extends (...args: any[]) => any>(
   func: T,
@@ -145,7 +160,7 @@ interface Message {
   id: string;
   message_id: string;
   conversation_id: string;
-  sender_type: 'customer' | 'bot' | 'agent' | 'call';
+  sender_type: 'customer' | 'bot' | 'agent' | 'call' | 'template';
   sender_name?: string;
   id_sender?: string; // ID del usuario que envió el mensaje
   sender_user_name?: string; // Nombre completo del usuario que envió el mensaje
@@ -628,6 +643,7 @@ const LiveChatCanvas: React.FC = () => {
   // Estado para modal de reactivación con plantilla
   const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [prospectoForReactivate, setProspectoForReactivate] = useState<any>(null);
+  const [loadingReactivate, setLoadingReactivate] = useState(false);
   
   // Estado para bloqueo de moderación
   const [isUserBlocked, setIsUserBlocked] = useState(false);
@@ -2862,13 +2878,14 @@ const LiveChatCanvas: React.FC = () => {
         return dateB - dateA;
       });
 
-      // Filtrado por búsqueda en el cliente
+      // Filtrado por búsqueda en el cliente (insensible a mayúsculas/minúsculas y acentos)
       let filtered = uniqueConversations;
       if (searchTerm) {
+        const normalizedSearch = normalizeText(searchTerm);
         filtered = filtered.filter(c => 
-          c.nombre_contacto?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          c.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          c.numero_telefono?.includes(searchTerm)
+          normalizeText(c.nombre_contacto).includes(normalizedSearch) ||
+          normalizeText(c.customer_name).includes(normalizedSearch) ||
+          c.numero_telefono?.includes(searchTerm) // Teléfono sin normalizar (solo dígitos)
         );
       }
 
@@ -2928,12 +2945,20 @@ const LiveChatCanvas: React.FC = () => {
       // El conversationId de la UI es el prospecto_id. Usamos este para la consulta.
       const queryId = conversationId; 
 
-      // Cargar mensajes y llamadas en paralelo
+      // Cargar mensajes, llamadas y plantillas en paralelo
       const messagesPromise = analysisSupabase
         .from('mensajes_whatsapp')
         .select('*')
         .eq('prospecto_id', queryId)
         .order('fecha_hora', { ascending: true });
+
+      // Cargar mensajes enviados por plantilla para este prospecto (incluye info del usuario que envió)
+      const templateSendsPromise = prospectoId ? analysisSupabase
+        .from('whatsapp_template_sends')
+        .select('mensaje_id, triggered_by_user')
+        .eq('prospecto_id', prospectoId)
+        .eq('status', 'SENT')
+        : Promise.resolve({ data: null, error: null });
 
       let callsResult: { data: any[] | null; error: any } = { data: null, error: null };
       if (prospectoId) {
@@ -2950,49 +2975,104 @@ const LiveChatCanvas: React.FC = () => {
         }
       }
 
-      const messagesResult = await messagesPromise;
+      const [messagesResult, templateSendsResult] = await Promise.all([messagesPromise, templateSendsPromise]);
 
       const { data: conversationMessages, error: messagesError } = messagesResult;
+      const { data: templateSends } = templateSendsResult;
       const { data: scheduledCalls } = callsResult;
+
+      // Crear map de IDs de mensajes enviados por plantilla con info del usuario
+      const templateMessageMap = new Map<string, { triggered_by_user: string | null }>(
+        (templateSends || []).map((ts: any) => [ts.mensaje_id, { triggered_by_user: ts.triggered_by_user }])
+      );
+      const templateMessageIds = new Set(templateMessageMap.keys());
 
       let adaptedMessages: Message[] = [];
       if (conversationMessages) {
-        // Obtener nombres de usuarios para mensajes con id_sender
+        // Obtener IDs de usuarios: de mensajes con id_sender Y de plantillas con triggered_by_user
         const senderIds = conversationMessages
           .filter((msg: any) => msg.id_sender)
           .map((msg: any) => msg.id_sender);
         
+        // Agregar IDs de usuarios que enviaron plantillas
+        const templateUserIds = Array.from(templateMessageMap.values())
+          .filter(v => v.triggered_by_user)
+          .map(v => v.triggered_by_user as string);
+        
+        const allUserIds = [...new Set([...senderIds, ...templateUserIds])];
+        
+        // Debug: mostrar IDs que se van a buscar
+        if (templateUserIds.length > 0) {
+          console.log('🔍 Template user IDs para buscar nombres:', templateUserIds);
+        }
+        
         const senderNamesMap: Record<string, string> = {};
-        if (senderIds.length > 0) {
+        if (allUserIds.length > 0) {
           try {
-            const { data: usersData } = await supabaseSystemUI
+            const { data: usersData, error: usersError } = await supabaseSystemUI
               .from('auth_users')
               .select('id, full_name, first_name, last_name')
-              .in('id', senderIds);
+              .in('id', allUserIds);
+            
+            if (usersError) {
+              console.error('❌ Error en query auth_users:', usersError);
+            }
             
             if (usersData) {
+              console.log('👥 Usuarios encontrados:', usersData.map(u => ({ id: u.id, name: u.full_name })));
               usersData.forEach(user => {
                 senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
               });
+            }
+            
+            // Verificar si faltan usuarios
+            const foundIds = new Set(usersData?.map(u => u.id) || []);
+            const missingIds = allUserIds.filter(id => !foundIds.has(id));
+            if (missingIds.length > 0) {
+              console.warn('⚠️ Usuarios no encontrados en auth_users:', missingIds);
             }
           } catch (error) {
             console.error('❌ Error obteniendo nombres de usuarios:', error);
           }
         }
 
-        adaptedMessages = conversationMessages.map((msg: any) => ({
-          id: msg.id,
-          message_id: `real_${msg.id}`,
-          conversation_id: conversationId,
-          sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
-          sender_name: msg.rol || 'Desconocido',
-          id_sender: msg.id_sender || undefined,
-          sender_user_name: msg.id_sender ? senderNamesMap[msg.id_sender] : undefined,
-          content: msg.mensaje,
-          is_read: msg.leido ?? true,
-          created_at: msg.fecha_hora,
-          adjuntos: msg.adjuntos, // ✅ Incluir adjuntos multimedia
-        } as any));
+        adaptedMessages = conversationMessages.map((msg: any) => {
+          // Determinar si es mensaje de plantilla (por tabla o por rol)
+          const isTemplateMessage = templateMessageIds.has(msg.id) || msg.rol === 'Plantilla';
+          const templateInfo = templateMessageMap.get(msg.id);
+          
+          // Determinar sender_type
+          let senderType: 'customer' | 'bot' | 'agent' | 'template' = 'agent';
+          if (msg.rol === 'Prospecto') {
+            senderType = 'customer';
+          } else if (isTemplateMessage) {
+            senderType = 'template';
+          } else if (msg.rol === 'AI') {
+            senderType = 'bot';
+          }
+          
+          // Obtener nombre del usuario que envió (id_sender o triggered_by_user para plantillas)
+          let senderUserName: string | undefined;
+          if (msg.id_sender) {
+            senderUserName = senderNamesMap[msg.id_sender];
+          } else if (isTemplateMessage && templateInfo?.triggered_by_user) {
+            senderUserName = senderNamesMap[templateInfo.triggered_by_user];
+          }
+          
+          return {
+            id: msg.id,
+            message_id: `real_${msg.id}`,
+            conversation_id: conversationId,
+            sender_type: senderType,
+            sender_name: isTemplateMessage ? 'Plantilla' : (msg.rol || 'Desconocido'),
+            id_sender: msg.id_sender || (templateInfo?.triggered_by_user) || undefined,
+            sender_user_name: senderUserName,
+            content: msg.mensaje,
+            is_read: msg.leido ?? true,
+            created_at: msg.fecha_hora,
+            adjuntos: msg.adjuntos, // ✅ Incluir adjuntos multimedia
+          } as any;
+        });
       }
 
       // Agregar llamadas como mensajes especiales
@@ -5432,6 +5512,24 @@ const LiveChatCanvas: React.FC = () => {
                                 // CON GLOBO: Texto, imágenes, videos, documentos
                                 return (
                                   <div className="relative">
+                                    {/* Etiqueta de Plantilla encima del globo */}
+                                    {message.sender_type === 'template' && (
+                                      <div className="flex items-center justify-end gap-1.5 mb-1">
+                                        <FileText className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                        <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                          Plantilla enviada por: {(() => {
+                                            const fullName = message.sender_user_name || '';
+                                            if (!fullName) return 'Usuario';
+                                            const parts = fullName.trim().split(/\s+/);
+                                            if (parts.length >= 2) {
+                                              return `${parts[0]} ${parts[1]}`;
+                                            }
+                                            return parts[0] || 'Usuario';
+                                          })()}
+                                        </span>
+                                      </div>
+                                    )}
+
                                     {/* Pico del globo - Cliente (izquierda) */}
                                     {isCustomer && (
                                       <div className="absolute -left-2 bottom-2 w-3 h-3 overflow-hidden">
@@ -5440,11 +5538,13 @@ const LiveChatCanvas: React.FC = () => {
                                       </div>
                                     )}
                                     
-                                    {/* Pico del globo - Bot/Agente (derecha) */}
+                                    {/* Pico del globo - Bot/Agente/Plantilla (derecha) */}
                                     {!isCustomer && (
                                       <div className="absolute -right-2 bottom-2 w-3 h-3 overflow-hidden">
                                         <div className={`absolute transform rotate-45 w-3 h-3 ${
-                                          isBot 
+                                          message.sender_type === 'template'
+                                            ? 'bg-teal-500'
+                                            : isBot 
                                             ? 'bg-cyan-600' 
                                             : message.message_id.startsWith('cache_')
                                               ? 'bg-slate-500'
@@ -5457,7 +5557,9 @@ const LiveChatCanvas: React.FC = () => {
                                     <div className={`relative px-3 py-2 shadow-sm backdrop-blur-sm ${
                                       isCustomer 
                                         ? 'bg-white/95 dark:bg-slate-600/95 border border-gray-200/50 dark:border-slate-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md' 
-                                        : isBot
+                                        : message.sender_type === 'template'
+                                          ? 'bg-gradient-to-br from-emerald-500/95 to-teal-500/95 text-white rounded-2xl rounded-br-md shadow-md border border-emerald-400/30'
+                                          : isBot
                                           ? 'bg-gradient-to-br from-blue-600/95 to-cyan-600/95 text-white rounded-2xl rounded-br-md shadow-md'
                                           : message.message_id.startsWith('cache_')
                                             ? 'bg-slate-500/90 text-white border-2 border-dashed border-slate-400 dark:border-slate-400 rounded-2xl rounded-br-md'
@@ -5514,45 +5616,52 @@ const LiveChatCanvas: React.FC = () => {
                             })()}
                           </div>
 
-                          {/* Avatar - Bot/Agente a la derecha */}
+                          {/* Avatar - Bot/Agente/Plantilla a la derecha */}
                           {!isCustomer && (
                             <div 
                               className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
-                                isBot
+                                message.sender_type === 'template'
+                                  ? 'bg-gradient-to-br from-emerald-400 to-teal-500'
+                                  : isBot
                                   ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
                                   : 'bg-gradient-to-br from-violet-500 to-purple-600'
                               }`}
                               title={(() => {
-                                if (isBot) {
+                                if (message.sender_type === 'template') {
+                                  return 'Mensaje de Plantilla';
+                                } else if (isBot) {
                                   return 'Bot Vidanta';
                                 } else {
                                   return message.sender_user_name || message.sender_name || 'Agente';
                                 }
                               })()}
                             >
-                              <span className="text-xs font-semibold text-white">
-                                {isBot 
-                                  ? 'B'
-                                  : (() => {
-                                      if (message.sender_user_name) {
-                                        return getInitials(message.sender_user_name);
-                                      }
-                                      const conversationId = selectedConversation?.id || '';
-                                      const prospectId = selectedConversation?.prospecto_id || '';
-                                      const agentName = agentNamesById[conversationId] 
-                                        || agentNamesById[prospectId]
-                                        || selectedConversation?.metadata?.ejecutivo_nombre
-                                        || user?.full_name;
-                                      if (agentName) {
-                                        return getInitials(agentName);
-                                      }
-                                      if (conversationId && !agentNamesById[conversationId] && !agentNamesById[prospectId]) {
-                                        getAssignedAgentName(conversationId).catch(() => {});
-                                      }
-                                      return 'A';
-                                    })()
-                                }
-                              </span>
+                              {message.sender_type === 'template' ? (
+                                <FileText className="w-4 h-4 text-white" />
+                              ) : isBot ? (
+                                <Bot className="w-4 h-4 text-white" />
+                              ) : (
+                                <span className="text-xs font-semibold text-white">
+                                  {(() => {
+                                    if (message.sender_user_name) {
+                                      return getInitials(message.sender_user_name);
+                                    }
+                                    const conversationId = selectedConversation?.id || '';
+                                    const prospectId = selectedConversation?.prospecto_id || '';
+                                    const agentName = agentNamesById[conversationId] 
+                                      || agentNamesById[prospectId]
+                                      || selectedConversation?.metadata?.ejecutivo_nombre
+                                      || user?.full_name;
+                                    if (agentName) {
+                                      return getInitials(agentName);
+                                    }
+                                    if (conversationId && !agentNamesById[conversationId] && !agentNamesById[prospectId]) {
+                                      getAssignedAgentName(conversationId).catch(() => {});
+                                    }
+                                    return 'A';
+                                  })()}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -5635,12 +5744,14 @@ const LiveChatCanvas: React.FC = () => {
                   </div>
                 </div>
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: loadingReactivate ? 1 : 1.02 }}
+                  whileTap={{ scale: loadingReactivate ? 1 : 0.98 }}
+                  disabled={loadingReactivate}
                   onClick={async () => {
                     const prospectId = selectedConversation?.metadata?.prospect_id || selectedConversation?.prospecto_id;
                     if (prospectId) {
                       try {
+                        setLoadingReactivate(true);
                         // Cargar datos del prospecto
                         const { data: prospectoData, error } = await analysisSupabase
                           .from('prospectos')
@@ -5654,15 +5765,51 @@ const LiveChatCanvas: React.FC = () => {
                       } catch (error) {
                         console.error('Error cargando prospecto:', error);
                         toast.error('Error al cargar información del prospecto');
+                      } finally {
+                        setLoadingReactivate(false);
                       }
                     } else {
                       toast.error('No se encontró información del prospecto');
                     }
                   }}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center space-x-2"
+                  className={`px-4 py-2 text-white text-sm font-medium rounded-xl transition-all duration-200 shadow-lg flex items-center space-x-2 ${
+                    loadingReactivate 
+                      ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 bg-[length:200%_100%] animate-gradient-x cursor-wait'
+                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-blue-500/25'
+                  }`}
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Reactivar con Plantilla</span>
+                  {loadingReactivate ? (
+                    <>
+                      {/* Animación de estrellas IA */}
+                      <div className="relative w-4 h-4">
+                        <Sparkles className="w-4 h-4 absolute animate-ping opacity-75" />
+                        <Sparkles className="w-4 h-4 absolute animate-pulse" />
+                      </div>
+                      <span className="animate-pulse">Preparando IA...</span>
+                      <div className="flex space-x-0.5">
+                        <motion.span
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                          className="w-1 h-1 bg-white rounded-full"
+                        />
+                        <motion.span
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                          className="w-1 h-1 bg-white rounded-full"
+                        />
+                        <motion.span
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                          className="w-1 h-1 bg-white rounded-full"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Reactivar con Plantilla</span>
+                    </>
+                  )}
                 </motion.button>
               </div>
             ) : isUserBlocked ? (
@@ -5972,6 +6119,15 @@ const LiveChatCanvas: React.FC = () => {
           onClose={() => {
             setShowReactivateModal(false);
             setProspectoForReactivate(null);
+          }}
+          onTemplateSent={() => {
+            // Refrescar mensajes después de enviar plantilla para que se muestre con el estilo correcto
+            if (selectedConversation) {
+              console.log('🔄 Refrescando mensajes después de enviar plantilla...');
+              setTimeout(() => {
+                loadMessagesAndBlocks(selectedConversation.id);
+              }, 2000); // Esperar 2s para que el mensaje se guarde en la BD
+            }
           }}
           conversation={selectedConversation}
           prospectoData={prospectoForReactivate}

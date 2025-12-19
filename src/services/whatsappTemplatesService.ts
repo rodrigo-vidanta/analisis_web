@@ -30,6 +30,20 @@ export type {
 } from '../types/whatsappTemplates';
 
 // ============================================
+// TIPOS PARA LÍMITES DE ENVÍO
+// ============================================
+
+export interface TemplateSendLimits {
+  canSend: boolean;
+  dailyLimit: { used: number; max: number; remaining: number; blocked: boolean };
+  weeklyLimit: { used: number; max: number; remaining: number; blocked: boolean; usedTemplateIds: string[] };
+  monthlyLimit: { used: number; max: number; remaining: number; blocked: boolean; usedTemplateIds: string[] };
+  alreadySentToday: boolean;
+  sentTemplateIds: string[]; // IDs de plantillas ya enviadas al prospecto (para filtrar)
+  blockReason: string | null;
+}
+
+// ============================================
 // CONFIGURACIÓN DEL WEBHOOK
 // ============================================
 
@@ -1483,6 +1497,213 @@ class WhatsAppTemplatesService {
     } catch (error: any) {
       console.error(`Error sincronizando plantilla individual ${templateId}:`, error);
       throw error;
+    }
+  }
+
+  // ============================================
+  // LÍMITES DE ENVÍO DE PLANTILLAS
+  // ============================================
+
+  /**
+   * Verificar límites de envío de plantillas para un prospecto
+   * 
+   * Reglas:
+   * - Máximo 1 plantilla por día
+   * - Máximo 3 plantillas diferentes por semana
+   * - Máximo 8 plantillas diferentes por mes
+   * 
+   * @param prospectoId - ID del prospecto
+   * @returns Objeto con información de límites y si puede enviar
+   */
+  async checkTemplateSendLimits(prospectoId: string): Promise<TemplateSendLimits> {
+    try {
+      const now = new Date();
+      
+      // Calcular fechas de corte
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Consultar envíos del prospecto
+      const { data: sends, error } = await analysisSupabase
+        .from('whatsapp_template_sends')
+        .select('id, template_id, sent_at, status')
+        .eq('prospecto_id', prospectoId)
+        .eq('status', 'SENT')
+        .gte('sent_at', monthAgo)
+        .order('sent_at', { ascending: false });
+
+      if (error) {
+        console.error('Error consultando límites de envío:', error);
+        throw error;
+      }
+
+      const allSends = sends || [];
+      
+      // Filtrar por período
+      const todaySends = allSends.filter(s => s.sent_at >= todayStart);
+      const weeklySends = allSends.filter(s => s.sent_at >= weekAgo);
+      const monthlySends = allSends; // Ya está filtrado por monthAgo
+
+      // Obtener plantillas únicas por período
+      const weeklyUniqueTemplates = [...new Set(weeklySends.map(s => s.template_id))];
+      const monthlyUniqueTemplates = [...new Set(monthlySends.map(s => s.template_id))];
+
+      // Límites configurados
+      const DAILY_MAX = 1;
+      const WEEKLY_MAX = 3;
+      const MONTHLY_MAX = 8;
+
+      // Calcular límites
+      const dailyUsed = todaySends.length;
+      const weeklyUsed = weeklyUniqueTemplates.length;
+      const monthlyUsed = monthlyUniqueTemplates.length;
+
+      const dailyBlocked = dailyUsed >= DAILY_MAX;
+      const weeklyBlocked = weeklyUsed >= WEEKLY_MAX;
+      const monthlyBlocked = monthlyUsed >= MONTHLY_MAX;
+
+      // Determinar razón de bloqueo
+      let blockReason: string | null = null;
+      if (dailyBlocked) {
+        blockReason = `Ya se envió 1 plantilla hoy. Límite diario alcanzado.`;
+      } else if (weeklyBlocked) {
+        blockReason = `Ya se enviaron ${weeklyUsed} plantillas diferentes esta semana. Límite semanal: ${WEEKLY_MAX}.`;
+      } else if (monthlyBlocked) {
+        blockReason = `Ya se enviaron ${monthlyUsed} plantillas diferentes este mes. Límite mensual: ${MONTHLY_MAX}.`;
+      }
+
+      return {
+        canSend: !dailyBlocked && !weeklyBlocked && !monthlyBlocked,
+        dailyLimit: {
+          used: dailyUsed,
+          max: DAILY_MAX,
+          remaining: Math.max(0, DAILY_MAX - dailyUsed),
+          blocked: dailyBlocked,
+        },
+        weeklyLimit: {
+          used: weeklyUsed,
+          max: WEEKLY_MAX,
+          remaining: Math.max(0, WEEKLY_MAX - weeklyUsed),
+          blocked: weeklyBlocked,
+          usedTemplateIds: weeklyUniqueTemplates,
+        },
+        monthlyLimit: {
+          used: monthlyUsed,
+          max: MONTHLY_MAX,
+          remaining: Math.max(0, MONTHLY_MAX - monthlyUsed),
+          blocked: monthlyBlocked,
+          usedTemplateIds: monthlyUniqueTemplates,
+        },
+        alreadySentToday: dailyUsed > 0,
+        sentTemplateIds: monthlyUniqueTemplates, // Todas las plantillas enviadas en el mes
+        blockReason,
+      };
+    } catch (error: any) {
+      console.error('Error verificando límites de envío:', error);
+      // En caso de error, permitir envío pero loguear
+      return {
+        canSend: true,
+        dailyLimit: { used: 0, max: 1, remaining: 1, blocked: false },
+        weeklyLimit: { used: 0, max: 3, remaining: 3, blocked: false, usedTemplateIds: [] },
+        monthlyLimit: { used: 0, max: 8, remaining: 8, blocked: false, usedTemplateIds: [] },
+        alreadySentToday: false,
+        sentTemplateIds: [],
+        blockReason: null,
+      };
+    }
+  }
+
+  /**
+   * Verificar si una plantilla específica puede ser enviada a un prospecto
+   * Considera que no se puede repetir la misma plantilla en el período
+   * 
+   * @param prospectoId - ID del prospecto
+   * @param templateId - ID de la plantilla a enviar
+   * @returns { canSend: boolean, reason: string | null }
+   */
+  async canSendTemplateToProspect(
+    prospectoId: string, 
+    templateId: string
+  ): Promise<{ canSend: boolean; reason: string | null }> {
+    try {
+      const limits = await this.checkTemplateSendLimits(prospectoId);
+
+      // Verificar límites generales
+      if (!limits.canSend) {
+        return { canSend: false, reason: limits.blockReason };
+      }
+
+      // Verificar si la plantilla ya fue enviada esta semana
+      if (limits.weeklyLimit.usedTemplateIds.includes(templateId)) {
+        return { 
+          canSend: false, 
+          reason: 'Esta plantilla ya fue enviada a este prospecto esta semana. Selecciona una diferente.' 
+        };
+      }
+
+      // Verificar si la plantilla ya fue enviada este mes
+      if (limits.monthlyLimit.usedTemplateIds.includes(templateId)) {
+        return { 
+          canSend: false, 
+          reason: 'Esta plantilla ya fue enviada a este prospecto este mes. Selecciona una diferente.' 
+        };
+      }
+
+      return { canSend: true, reason: null };
+    } catch (error: any) {
+      console.error('Error verificando si puede enviar plantilla:', error);
+      return { canSend: true, reason: null };
+    }
+  }
+
+  /**
+   * Obtener historial de envíos de plantillas para un prospecto
+   * 
+   * @param prospectoId - ID del prospecto
+   * @param limit - Número máximo de registros
+   * @returns Array de envíos con información de plantilla
+   */
+  async getProspectoTemplateSendHistory(prospectoId: string, limit: number = 10): Promise<Array<{
+    id: string;
+    template_id: string;
+    template_name?: string;
+    sent_at: string;
+    status: string;
+    replied: boolean;
+  }>> {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('whatsapp_template_sends')
+        .select(`
+          id,
+          template_id,
+          sent_at,
+          status,
+          replied
+        `)
+        .eq('prospecto_id', prospectoId)
+        .order('sent_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      // Obtener nombres de plantillas
+      const templateIds = [...new Set((data || []).map(s => s.template_id))];
+      const { data: templates } = await analysisSupabase
+        .from('whatsapp_templates')
+        .select('id, name')
+        .in('id', templateIds);
+
+      const templateMap = new Map((templates || []).map(t => [t.id, t.name]));
+
+      return (data || []).map(send => ({
+        ...send,
+        template_name: templateMap.get(send.template_id) || 'Plantilla desconocida',
+      }));
+    } catch (error) {
+      console.error('Error obteniendo historial de envíos:', error);
+      return [];
     }
   }
 }

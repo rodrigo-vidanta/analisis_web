@@ -89,6 +89,36 @@
   }
 }
 
+/* Animación de gradiente para botón de IA */
+@keyframes gradient-x {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient-x {
+  animation: gradient-x 1.5s ease-in-out infinite;
+}
+
+/* Animación de estrellas IA brillantes */
+@keyframes sparkle-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.8));
+    opacity: 1;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 1));
+    opacity: 0.7;
+  }
+}
+
+.animate-sparkle {
+  animation: sparkle-glow 0.8s ease-in-out infinite;
+}
+
 .plasma-gradient-header {
   background: linear-gradient(
     135deg,

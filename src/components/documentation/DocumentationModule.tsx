@@ -250,6 +250,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2025-12-19', author: 'Team', message: 'v2.1.33: Live Chat - Límites de plantillas WhatsApp, animación IA, búsqueda sin acentos', isRelease: true },
   { hash: 'b5239ae', date: '2025-12-18', author: 'Team', message: 'v2.1.32: UserManagementV2 - Rediseño completo del módulo de gestión de usuarios', isRelease: true },
   { hash: '9f8ba03', date: '2025-12-17', author: 'Team', message: 'v2.1.31: Corrección adicional de filtros - Filtro de coordinación en cliente y fallbacks', isRelease: true },
   { hash: 'd795ff1', date: '2025-12-17', author: 'Team', message: 'v2.1.30: Corrección crítica de filtros de visualización - Verificación de coordinación para ejecutivos', isRelease: true },
@@ -288,6 +289,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-033', date: '2025-12-19 00:30', version: 'v2.1.33', status: 'success', duration: 'pending', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-032', date: '2025-12-18 16:30', version: 'v2.1.32', status: 'success', duration: '5m 45s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-031', date: '2025-12-17 00:45', version: 'v2.1.28', status: 'success', duration: '5m 06s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-030', date: '2025-12-17 00:30', version: 'v2.1.28', status: 'success', duration: '3m 50s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -317,10 +319,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.32', highlight: true },
-  { label: 'Release', value: 'B6.0.9N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.33', highlight: true },
+  { label: 'Release', value: 'B6.1.0N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '18 Dic 2025', highlight: false },
+  { label: 'Ultima actualizacion', value: '19 Dic 2025', highlight: false },
 ];
 
 // ============================================

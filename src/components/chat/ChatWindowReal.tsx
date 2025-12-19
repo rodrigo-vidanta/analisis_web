@@ -23,7 +23,8 @@ import {
   Phone,
   Clock,
   Check,
-  CheckCheck
+  CheckCheck,
+  Bot
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 
@@ -292,17 +293,18 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
             isCustomer 
               ? 'bg-slate-200 text-slate-600' 
               : isBot
-                ? 'bg-blue-100 text-blue-600'
-                : 'bg-slate-800 text-white'
+                ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
+                : 'bg-gradient-to-br from-violet-500 to-purple-600'
           }`}>
-            <span className="text-xs font-medium">
-              {isCustomer 
-                ? (conversation.customer_name?.charAt(0).toUpperCase() || 'C')
-                : isBot 
-                  ? 'B'
-                  : 'A'
-              }
-            </span>
+            {isCustomer ? (
+              <span className="text-xs font-medium">
+                {conversation.customer_name?.charAt(0).toUpperCase() || 'C'}
+              </span>
+            ) : isBot ? (
+              <Bot className="w-4 h-4 text-white" />
+            ) : (
+              <span className="text-xs font-medium text-white">A</span>
+            )}
           </div>
         </div>
       </div>

@@ -2,6 +2,59 @@
 
 ## Historial de Versiones
 
+### v2.1.33 (2025-12-19)
+**Descripción**: B6.1.0N6.0.0: Live Chat - Límites de plantillas WhatsApp, animación IA y búsqueda mejorada
+
+---
+
+## 🎯 **RELEASE B6.1.0N6.0.0 - Mejoras Live Chat WhatsApp**
+
+### ✨ **Nuevas Características**
+
+1. **Sistema de Límites de Plantillas WhatsApp**
+   - Máximo 1 plantilla por día por prospecto
+   - Máximo 3 plantillas únicas por semana
+   - Máximo 8 plantillas únicas por mes
+   - Indicadores visuales en modal de reactivación (verde/amarillo/rojo)
+   - Plantillas ya enviadas marcadas con badge y opacidad reducida
+   - Bloqueo automático del botón de envío cuando se alcanzan límites
+   - Servicio `whatsappTemplatesService` con funciones de validación
+
+2. **Animación de Estrellas IA en Botón de Reactivar**
+   - Animación de carga con estrellas (Sparkles) mientras carga el modal
+   - Gradiente animado horizontal (`animate-gradient-x`)
+   - Texto "Preparando IA..." con puntos animados
+   - Botón deshabilitado durante la carga para evitar doble-click
+
+3. **Búsqueda Insensible a Mayúsculas y Acentos**
+   - Función `normalizeText()` que elimina diacríticos
+   - Búsqueda de "jose" encuentra "José", "JOSÉ", etc.
+   - Búsqueda de "garcia" encuentra "García", "GARCÍA", etc.
+
+4. **Mejoras en Visualización de Plantillas**
+   - Avatar con icono `FileText` para mensajes de plantilla
+   - Globo de mensaje verde esmeralda (diferenciado de bot y agente)
+   - Etiqueta "Plantilla enviada por: [Nombre]" sobre el mensaje
+   - Registro de `triggered_by_user` en BD después de envío exitoso
+   - Callback `onTemplateSent` para refrescar mensajes automáticamente
+
+### 🐛 **Correcciones**
+
+1. **Botón "Enviando..." quedaba cargando indefinidamente**
+   - Agregado `AbortController` con timeout de 30 segundos
+   - `finally` block para siempre resetear estado de loading
+
+2. **Plantillas no se mostraban con estilo correcto sin recargar**
+   - Callback de refresh 2s después de envío exitoso
+
+### 📁 **Archivos Modificados**
+- `src/services/whatsappTemplatesService.ts` - Funciones de validación de límites
+- `src/components/chat/ReactivateConversationModal.tsx` - UI de límites y envío
+- `src/components/chat/LiveChatCanvas.tsx` - Animación IA, búsqueda normalizada, callback refresh
+- `src/index.css` - Animaciones CSS (`animate-gradient-x`, `animate-sparkle`)
+
+---
+
 ### v2.1.32 (2025-12-18)
 **Descripción**: B6.0.9N6.0.0: UserManagementV2 - Rediseño completo del módulo de gestión de usuarios
 
