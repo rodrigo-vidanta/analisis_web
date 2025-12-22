@@ -17,6 +17,7 @@ import {
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { type LiveCallData } from '../../../services/liveMonitorService';
 import { Avatar } from '../../shared/Avatar';
+import { convertUTCToMexicoTime } from '../../../utils/timezoneHelper';
 
 // ============================================
 // CONSTANTES DE CONFIGURACIÓN DE AUDIO
@@ -567,10 +568,12 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
         const match = line.match(/^\[(.+?)\]\s+(\w+):\s+(.+)$/);
         if (match) {
           const [, timestamp, speaker, message] = match;
+          // Convertir timestamp de UTC a hora de México (UTC-6)
+          const mexicoTimestamp = convertUTCToMexicoTime(timestamp.trim());
           messages.push({
             speaker: speaker.toLowerCase(),
             message: message.trim(),
-            timestamp: timestamp.trim()
+            timestamp: mexicoTimestamp
           });
         }
       }

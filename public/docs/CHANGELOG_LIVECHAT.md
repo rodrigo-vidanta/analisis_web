@@ -17,6 +17,22 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.20.1** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🕐 Corrección de Zona Horaria en Transcripciones de Llamadas**
+- **Problema resuelto:** Los timestamps de las transcripciones de llamadas se mostraban en hora UTC en lugar de hora local de México (UTC-6)
+- **Solución implementada:** Integración de función utilitaria `convertUTCToMexicoTime` en los modales de detalle de llamada
+
+#### **📁 Archivos Modificados**
+- `src/components/chat/CallDetailModalSidebar.tsx` - Conversión de timestamps en `parseConversationToSegments`
+- `src/components/chat/CallDetailModal.tsx` - Conversión de timestamps en `parseConversation`
+
+#### **🔗 Dependencia Nueva**
+- `src/utils/timezoneHelper.ts` - Función utilitaria compartida para conversión UTC → México
+
+---
+
 ### **v5.20.0** - Diciembre 2025
 **Estado:** ✅ Producción
 

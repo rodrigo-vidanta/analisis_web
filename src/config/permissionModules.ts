@@ -334,7 +334,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
         id: 'assign_conversation',
         name: 'Asignar conversación',
         description: 'Reasignar conversación a otro ejecutivo',
-        defaultRoles: ['admin', 'coordinador'],
+        defaultRoles: ['admin', 'administrador_operativo', 'coordinador'],
         scopeRestricted: true
       }
     ]

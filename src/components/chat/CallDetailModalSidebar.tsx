@@ -24,6 +24,7 @@ import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import toast from 'react-hot-toast';
+import { convertUTCToMexicoTime } from '../../utils/timezoneHelper';
 
 /**
  * ============================================
@@ -418,13 +419,19 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
           const segmentStartTime = accumulatedTime;
           accumulatedTime += speechTime;
           
+          // Convertir timestamp de UTC a hora de México (UTC-6)
+          const rawTimestamp = timestamp.trim();
+          const mexicoTimestamp = rawTimestamp 
+            ? convertUTCToMexicoTime(rawTimestamp) 
+            : `${Math.floor(segmentStartTime / 60)}:${Math.floor(segmentStartTime % 60).toString().padStart(2, '0')}`;
+          
           segments.push({
             id: `${callId}-${index}`,
             call_id: callId,
             segment_index: index,
             speaker: speaker.toLowerCase(),
             content: content.trim(),
-            timestamp: timestamp.trim() || `${Math.floor(segmentStartTime / 60)}:${Math.floor(segmentStartTime % 60).toString().padStart(2, '0')}`,
+            timestamp: mexicoTimestamp,
             confidence: 1.0,
             startTime: segmentStartTime,
             endTime: accumulatedTime,

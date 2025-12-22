@@ -30,6 +30,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import Chart from 'chart.js/auto';
 // import DetailedCallView from './DetailedCallView'; // Comentado por incompatibilidad
 import { motion, AnimatePresence } from 'framer-motion';
+import { convertUTCToMexicoTime } from '../../utils/timezoneHelper';
 
 // Importar el sidebar original del módulo Prospectos
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
@@ -1457,13 +1458,15 @@ const AnalysisIAComplete: React.FC = () => {
         const match = line.match(/^\[(.+?)\]\s+(\w+):\s+(.+)$/);
         if (match) {
           const [, timestamp, speaker, content] = match;
+          // Convertir timestamp de UTC a hora de México (UTC-6)
+          const mexicoTimestamp = convertUTCToMexicoTime(timestamp.trim());
           segments.push({
             id: `${callId}-${index}`,
             call_id: callId,
             segment_index: index,
             speaker: speaker.toLowerCase(),
             content: content.trim(),
-            timestamp: timestamp.trim(),
+            timestamp: mexicoTimestamp,
             confidence: 1.0
           });
         }

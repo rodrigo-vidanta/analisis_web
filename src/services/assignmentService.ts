@@ -9,11 +9,17 @@
  * 2. Usa funciones RPC de System_UI para la lógica de asignación
  * 3. Sincroniza asignaciones con la base de análisis cuando es necesario
  * 4. Cualquier cambio debe documentarse en docs/ROLES_PERMISOS_README.md
+ * 
+ * ⚠️ IMPORTANTE (Diciembre 2024):
+ * Las reasignaciones manuales ahora se envían vía webhook a N8N/Dynamics
+ * en lugar de actualizar directamente la base de datos.
+ * Ver: dynamicsReasignacionService.ts
  */
 
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 import { analysisSupabase } from '../config/analysisSupabase';
 import { coordinacionService, type ProspectAssignment } from './coordinacionService';
+import { dynamicsReasignacionService } from './dynamicsReasignacionService';
 
 // ============================================
 // INTERFACES Y TIPOS
@@ -284,6 +290,12 @@ class AssignmentService {
 
   /**
    * Asigna manualmente un prospecto a un ejecutivo
+   * 
+   * ⚠️ IMPORTANTE (Diciembre 2024):
+   * Esta función ahora envía la reasignación vía webhook a N8N/Dynamics
+   * en lugar de actualizar directamente la base de datos.
+   * 
+   * El webhook actualizará Dynamics y luego actualizamos localmente.
    */
   async assignProspectManuallyToEjecutivo(
     prospectId: string,
@@ -293,7 +305,7 @@ class AssignmentService {
     reason?: string
   ): Promise<AssignmentResult> {
     try {
-      console.log('🔍 Iniciando asignación manual:', {
+      console.log('🔍 Iniciando asignación manual vía webhook Dynamics:', {
         prospectId,
         coordinacionId,
         ejecutivoId,
@@ -301,91 +313,40 @@ class AssignmentService {
         reason
       });
 
-      // Actualizar o crear asignación
-      const { data: existingAssignment, error: checkError } = await supabaseSystemUIAdmin
-        .from('prospect_assignments')
-        .select('id')
-        .eq('prospect_id', prospectId)
-        .eq('is_active', true)
-        .maybeSingle();
+      // 1. Enriquecer datos para el webhook
+      const requestData = await dynamicsReasignacionService.enriquecerDatosReasignacion(
+        prospectId,
+        ejecutivoId,
+        coordinacionId,
+        assignedBy,
+        reason
+      );
 
-      if (checkError) {
-        console.error('Error verificando asignación existente:', checkError);
-        throw checkError;
+      console.log('📦 Datos enriquecidos para webhook:', {
+        id_dynamics: requestData.id_dynamics,
+        nuevo_ejecutivo_nombre: requestData.nuevo_ejecutivo_nombre,
+        nueva_coordinacion_nombre: requestData.nueva_coordinacion_nombre
+      });
+
+      // 2. Enviar al webhook de N8N/Dynamics
+      const result = await dynamicsReasignacionService.reasignarProspecto(requestData);
+
+      if (!result.success) {
+        console.error('❌ Error en reasignación vía webhook:', result.error);
+        return {
+          success: false,
+          message: result.message || 'Error al reasignar prospecto vía Dynamics',
+          error: result.error,
+        };
       }
 
-      if (existingAssignment) {
-        console.log('📝 Actualizando asignación existente:', existingAssignment.id);
-        // Actualizar asignación existente (incluyendo coordinación si cambió)
-        const { error: updateError } = await supabaseSystemUIAdmin
-          .from('prospect_assignments')
-          .update({
-            coordinacion_id: coordinacionId, // Actualizar coordinación también
-            ejecutivo_id: ejecutivoId,
-            assigned_by: assignedBy,
-            assignment_type: 'manual',
-            assignment_reason: reason || 'Asignación manual',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingAssignment.id);
-
-        if (updateError) {
-          console.error('Error actualizando asignación:', updateError);
-          throw updateError;
-        }
-        console.log('✅ Asignación actualizada exitosamente');
-      } else {
-        console.log('➕ Creando nueva asignación');
-        // Crear nueva asignación
-        const { error: insertError } = await supabaseSystemUIAdmin.from('prospect_assignments').insert({
-          prospect_id: prospectId,
-          coordinacion_id: coordinacionId,
-          ejecutivo_id: ejecutivoId,
-          assigned_by: assignedBy,
-          assignment_type: 'manual',
-          assignment_reason: reason || 'Asignación manual',
-        });
-
-        if (insertError) {
-          console.error('Error creando asignación:', insertError);
-          throw insertError;
-        }
-        console.log('✅ Asignación creada exitosamente');
-      }
-
-      // Registrar en logs (no crítico si falla)
-      try {
-        await supabaseSystemUIAdmin.from('assignment_logs').insert({
-          prospect_id: prospectId,
-          coordinacion_id: coordinacionId,
-          ejecutivo_id: ejecutivoId,
-          action: 'assigned',
-          assigned_by: assignedBy,
-          reason: reason || 'Asignación manual',
-        });
-        console.log('✅ Log de asignación registrado');
-      } catch (logError) {
-        console.warn('⚠️ Error registrando log (no crítico):', logError);
-      }
-
-      // Sincronizar con base de análisis (tanto coordinación como ejecutivo)
-      // No crítico si falla, solo loguear
-      try {
-        await Promise.all([
-          this.syncProspectoCoordinacion(prospectId, coordinacionId),
-          this.syncProspectoEjecutivo(prospectId, ejecutivoId)
-        ]);
-        console.log('✅ Sincronización con base de análisis completada');
-      } catch (syncError) {
-        console.warn('⚠️ Error en sincronización (no crítico):', syncError);
-        // Continuar aunque falle la sincronización
-      }
+      console.log('✅ Reasignación completada exitosamente vía webhook');
 
       return {
         success: true,
         coordinacion_id: coordinacionId,
         ejecutivo_id: ejecutivoId,
-        message: 'Prospecto asignado manualmente a ejecutivo',
+        message: 'Prospecto reasignado exitosamente vía Dynamics',
       };
     } catch (error) {
       console.error('❌ Error asignando prospecto manualmente a ejecutivo:', error);

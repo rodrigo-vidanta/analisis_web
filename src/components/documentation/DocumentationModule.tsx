@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'e1b2c3d', date: '2025-12-22', author: 'Team', message: 'v2.1.40: Reasignación de prospectos vía webhook N8N/Dynamics', isRelease: true },
   { hash: 'd0a1b2c', date: '2025-12-22', author: 'Team', message: 'v2.1.39: Sistema de Permisos por Grupos + Rol Supervisor Completo', isRelease: true },
   { hash: 'c9ff250', date: '2025-12-19', author: 'Team', message: 'v2.1.38: Corrección Recordarme en Login - guardado correcto de email en localStorage', isRelease: true },
   { hash: 'b8ee149', date: '2025-12-19', author: 'Team', message: 'v2.1.37: Optimización rendimiento LogDashboard, filtro Todos (90d), corrección payload webhook', isRelease: true },
@@ -297,6 +298,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-038', date: '2025-12-22 16:00', version: 'v2.1.40', status: 'success', duration: '5m 30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-037', date: '2025-12-22 15:00', version: 'v2.1.39', status: 'success', duration: '5m 00s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-036', date: '2025-12-19 15:30', version: 'v2.1.36', status: 'success', duration: '4m 30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-035', date: '2025-12-19 10:30', version: 'v2.1.35', status: 'success', duration: '4m 52s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -331,8 +333,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.39', highlight: true },
-  { label: 'Release', value: 'B6.2.0N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.40', highlight: true },
+  { label: 'Release', value: 'B6.2.1N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '22 Dic 2025', highlight: false },
 ];

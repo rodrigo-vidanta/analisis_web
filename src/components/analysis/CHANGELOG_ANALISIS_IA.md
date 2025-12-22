@@ -17,6 +17,27 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.7.1** - Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **🕐 Corrección de Zona Horaria en Transcripciones**
+- **Problema resuelto:** Los timestamps de las transcripciones de llamadas se mostraban en hora UTC en lugar de hora local de México (UTC-6)
+- **Solución implementada:** Nueva función utilitaria `convertUTCToMexicoTime` para convertir timestamps de formato `H:MM:SS a.m./p.m.`
+
+#### **📁 Archivos Modificados**
+- `src/utils/timezoneHelper.ts` - **NUEVO** - Función utilitaria para conversión de zona horaria
+- `src/components/analysis/AnalysisIAComplete.tsx` - Conversión de timestamps en `parseConversationToSegments`
+- `src/components/analysis/LiveMonitorKanban.tsx` - Conversión de timestamps en `parseConversationToSegments`
+
+#### **🔧 Ejemplos de Conversión**
+| UTC (Original) | México (Convertido) |
+|---------------|---------------------|
+| 7:06:43 p.m.  | 1:06:43 p.m.       |
+| 10:00:25 p.m. | 4:00:25 p.m.       |
+| 6:00:00 a.m.  | 12:00:00 a.m.      |
+
+---
+
 ### **v5.7.0** - Octubre 2025
 **Estado:** ✅ Producción
 

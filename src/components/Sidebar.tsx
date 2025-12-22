@@ -80,6 +80,58 @@ const sidebarLogoStyles = `
     }
   }
 
+  /* Animación de foquitos individuales - pequeños con blur al desaparecer */
+  @keyframes light-blink-1 {
+    0%, 40%, 100% { opacity: 0; transform: scale(0.5); filter: blur(2px); }
+    45%, 55% { opacity: 1; transform: scale(1); filter: blur(0); }
+  }
+  @keyframes light-blink-2 {
+    0%, 100% { opacity: 0; transform: scale(0.5); filter: blur(2px); }
+    20%, 30% { opacity: 1; transform: scale(1); filter: blur(0); }
+    70%, 80% { opacity: 1; transform: scale(1); filter: blur(0); }
+  }
+  @keyframes light-blink-3 {
+    0%, 30%, 100% { opacity: 0; transform: scale(0.5); filter: blur(2px); }
+    35%, 45% { opacity: 1; transform: scale(1); filter: blur(0); }
+    85%, 95% { opacity: 1; transform: scale(1); filter: blur(0); }
+  }
+  @keyframes light-blink-4 {
+    0%, 55%, 100% { opacity: 0; transform: scale(0.5); filter: blur(2px); }
+    10%, 20% { opacity: 1; transform: scale(1); filter: blur(0); }
+    60%, 70% { opacity: 1; transform: scale(1); filter: blur(0); }
+  }
+
+  .christmas-light {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .christmas-light.yellow {
+    background: #FFD700;
+    box-shadow: 0 0 2px 1px #FFD700, 0 0 4px 2px rgba(255, 215, 0, 0.6);
+  }
+  .christmas-light.red {
+    background: #FF4444;
+    box-shadow: 0 0 2px 1px #FF4444, 0 0 4px 2px rgba(255, 68, 68, 0.6);
+  }
+  .christmas-light.green {
+    background: #44FF44;
+    box-shadow: 0 0 2px 1px #44FF44, 0 0 4px 2px rgba(68, 255, 68, 0.6);
+  }
+  .christmas-light.orange {
+    background: #FF8800;
+    box-shadow: 0 0 2px 1px #FF8800, 0 0 4px 2px rgba(255, 136, 0, 0.6);
+  }
+
+  .christmas-light.anim-1 { animation: light-blink-1 2.8s ease-in-out infinite; }
+  .christmas-light.anim-2 { animation: light-blink-2 3.2s ease-in-out infinite; }
+  .christmas-light.anim-3 { animation: light-blink-3 3.6s ease-in-out infinite; }
+  .christmas-light.anim-4 { animation: light-blink-4 3.0s ease-in-out infinite; }
+
   .sidebar-logo-container {
     position: relative;
   }
@@ -118,6 +170,12 @@ const sidebarLogoStyles = `
             drop-shadow(0 0 4px rgba(74, 222, 128, 0.8))
             drop-shadow(0 0 6px rgba(74, 222, 128, 0.6));
   }
+
+  /* Contenedor del logo navideño con luces */
+  .christmas-text-container {
+    position: relative;
+    display: inline-block;
+  }
 `;
 
 // Inyectar estilos en el head
@@ -152,6 +210,48 @@ interface SubMenuItemProps {
   onClick?: () => void;
   disabled?: boolean;
 }
+
+// Componente de luces navideñas - 15 foquitos distribuidos
+const christmasLights = [
+  // Letra P - 2 luces
+  { x: 15, y: 32, color: 'yellow', anim: 1 },
+  { x: 17, y: 42, color: 'green', anim: 2 },
+  // Entre P y Q - 2 luces
+  { x: 24, y: 36, color: 'red', anim: 3 },
+  { x: 29, y: 40, color: 'orange', anim: 4 },
+  // Letra Q - 2 luces
+  { x: 34, y: 34, color: 'yellow', anim: 1 },
+  { x: 36, y: 44, color: 'green', anim: 2 },
+  // Entre Q y N - 2 luces
+  { x: 43, y: 36, color: 'red', anim: 3 },
+  { x: 50, y: 30, color: 'orange', anim: 4 },
+  // Letra N - 2 luces
+  { x: 56, y: 28, color: 'yellow', anim: 1 },
+  { x: 62, y: 34, color: 'green', anim: 2 },
+  // Entre N y C - 2 luces
+  { x: 69, y: 28, color: 'red', anim: 3 },
+  { x: 76, y: 24, color: 'orange', anim: 4 },
+  // Letra C - 3 luces
+  { x: 82, y: 26, color: 'yellow', anim: 1 },
+  { x: 86, y: 32, color: 'green', anim: 2 },
+  { x: 88, y: 40, color: 'red', anim: 3 },
+];
+
+const ChristmasLightsOverlay: React.FC = () => (
+  <div className="absolute inset-0 pointer-events-none overflow-visible">
+    {christmasLights.map((light, index) => (
+      <div
+        key={index}
+        className={`christmas-light ${light.color} anim-${light.anim}`}
+        style={{
+          left: `${light.x}%`,
+          top: `${light.y}%`,
+          transform: 'translate(-50%, -50%)',
+        }}
+      />
+    ))}
+  </div>
+);
 
 const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, submenu, hasSubmenu, isCollapsed }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -606,14 +706,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
               </button>
             </div>
           ) : (
-            // Modo expandido: logo + texto + botón
+            // Modo expandido: logo + imagen navideña con luces + botón
             <>
               <button
                 onClick={() => setAppMode('operative-dashboard')}
-                className="flex items-center space-x-2 hover:opacity-80 transition-opacity cursor-pointer"
+                className="flex items-center space-x-1 hover:opacity-90 transition-opacity cursor-pointer"
                 title="Ir al Dashboard"
+                style={{ marginTop: '2px', marginLeft: '2px' }}
               >
-                <div className="w-8 h-8 flex items-center justify-center sidebar-logo-container">
+                <div className="w-8 h-8 flex items-center justify-center sidebar-logo-container flex-shrink-0">
                   {faviconUrl ? (
                     <img 
                       src={faviconUrl} 
@@ -639,7 +740,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                     </svg>
                   )}
                 </div>
-                <span className="font-semibold text-slate-900 dark:text-white">PQNC AI</span>
+                {/* Imagen navideña con capa de luces animadas */}
+                <div className="christmas-text-container" style={{ marginTop: '2px', marginLeft: '8px' }}>
+                  <img 
+                    src="/assets/pqnc-christmas-text-final.png" 
+                    alt="PQNC" 
+                    className="w-auto object-contain"
+                    style={{ height: '46px' }}
+                  />
+                  <ChristmasLightsOverlay />
+                </div>
               </button>
               
               <button

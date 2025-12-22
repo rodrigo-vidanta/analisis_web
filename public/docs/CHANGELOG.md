@@ -2,6 +2,79 @@
 
 ## Historial de Versiones
 
+### v2.1.41 (2025-12-22)
+**Descripción**: B6.2.2N6.0.0: Corrección de Zona Horaria en Transcripciones
+
+---
+
+## 🕐 **RELEASE B6.2.2N6.0.0 - Corrección de Zona Horaria**
+
+### 🐛 **Correcciones**
+
+#### 1. **Timestamps de Transcripciones en Hora de México**
+   - **Problema:** Los timestamps de las transcripciones de llamadas se mostraban en hora UTC
+   - **Solución:** Nueva función utilitaria `convertUTCToMexicoTime` que convierte de UTC a hora de México (UTC-6)
+   - **Alcance:** Afecta todos los modales de detalle de llamada en el sistema
+
+### 📁 **Archivos Modificados**
+
+- `src/utils/timezoneHelper.ts` - **NUEVO** - Función utilitaria para conversión de zona horaria
+- `src/components/chat/CallDetailModalSidebar.tsx` - Integración de conversión de timestamps
+- `src/components/chat/CallDetailModal.tsx` - Integración de conversión de timestamps
+- `src/components/analysis/AnalysisIAComplete.tsx` - Integración de conversión de timestamps
+- `src/components/analysis/LiveMonitorKanban.tsx` - Integración de conversión de timestamps
+- `src/components/dashboard/widgets/ActiveCallDetailModal.tsx` - Integración de conversión de timestamps
+
+### 🔧 **Detalles Técnicos**
+
+**Función convertUTCToMexicoTime:**
+- Parsea timestamps en formato `H:MM:SS a.m./p.m.`
+- Convierte de UTC a hora de México (UTC-6)
+- Maneja correctamente el cruce de medianoche
+
+---
+
+### v2.1.40 (2025-12-22)
+**Descripción**: B6.2.1N6.0.0: Logo Navideño PQNC con Animación de Luces
+
+---
+
+## 🎄 **RELEASE B6.2.1N6.0.0 - Logo Navideño PQNC**
+
+### ✨ **Nuevas Características**
+
+#### 1. **Logo Navideño en Sidebar**
+   - Nuevo logo navideño "PQNC" con decoración festiva reemplaza el texto en el sidebar
+   - Imagen recortada y optimizada: `/public/assets/pqnc-christmas-text-final.png`
+   - El logo de la hoja (favicon) se mantiene con todas sus animaciones originales
+   - Posicionamiento ajustado: más grande, desplazado hacia la derecha
+
+#### 2. **Animación de Luces Navideñas**
+   - 15 foquitos individuales superpuestos sobre la imagen del logo
+   - Colores: amarillo (#FFD700), rojo (#FF4444), verde (#44FF44), naranja (#FF8800)
+   - 4 patrones de animación diferentes con velocidades variadas (2.8s - 3.6s)
+   - Efecto blur al desaparecer para transición suave
+   - Posiciones mapeadas para coincidir con la serie de luces de la imagen
+
+### 🎨 **Detalles Técnicos**
+
+**Componente ChristmasLightsOverlay:**
+- Renderiza 15 puntos luminosos en posiciones específicas (porcentajes)
+- Cada luz tiene animación independiente con delay aleatorio
+- Box-shadow para efecto de brillo: `0 0 2px 1px` + `0 0 4px 2px`
+
+**Animaciones CSS:**
+- `light-blink-1` a `light-blink-4`: parpadeo intermitente con blur
+- Estado apagado: `opacity: 0`, `scale: 0.5`, `filter: blur(2px)`
+- Estado encendido: `opacity: 1`, `scale: 1`, `filter: blur(0)`
+
+### 📁 **Archivos Modificados**
+
+- `src/components/Sidebar.tsx` - Logo navideño + componente de luces animadas
+- `public/assets/pqnc-christmas-text-final.png` - Imagen del logo navideño (nuevo)
+
+---
+
 ### v2.1.39 (2025-12-22)
 **Descripción**: B6.2.0N6.0.0: Sistema de Permisos por Grupos + Rol Supervisor Completo
 

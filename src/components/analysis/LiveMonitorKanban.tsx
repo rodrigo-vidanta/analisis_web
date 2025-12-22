@@ -41,6 +41,7 @@ import ReactMarkdown from 'react-markdown';
 import { CallDetailModalSidebar } from '../chat/CallDetailModalSidebar';
 import { ProspectoSidebar } from '../prospectos/ProspectosManager';
 import { createPortal } from 'react-dom';
+import { convertUTCToMexicoTime } from '../../utils/timezoneHelper';
 
 /**
  * ============================================
@@ -918,13 +919,16 @@ const LiveMonitorKanban: React.FC = () => {
           const segmentStartTime = accumulatedTime;
           accumulatedTime += speechTime;
           
+          // Convertir timestamp de UTC a hora de México (UTC-6)
+          const mexicoTimestamp = convertUTCToMexicoTime(timestamp.trim());
+          
           segments.push({
             id: `${callId}-${index}`,
             call_id: callId,
             segment_index: index,
             speaker: speaker.toLowerCase(),
             content: content.trim(),
-            timestamp: timestamp.trim(),
+            timestamp: mexicoTimestamp,
             confidence: 1.0,
             startTime: segmentStartTime,
             endTime: accumulatedTime,
