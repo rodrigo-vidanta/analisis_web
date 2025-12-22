@@ -2,6 +2,45 @@
 
 ## Historial de Versiones
 
+### v2.1.43 (2025-12-22)
+**Descripción**: B6.2.3N6.0.0: Permisos Coordinadores de Calidad - Acceso Completo a Historial de Llamadas
+
+---
+
+## 🔐 **RELEASE B6.2.3N6.0.0 - Permisos Coordinadores de Calidad**
+
+### 🐛 **Correcciones**
+
+#### 1. **Coordinadores de Calidad Ahora Ven Todo el Historial**
+   - **Problema:** Los coordinadores de la coordinación CALIDAD no podían ver el historial completo de llamadas
+   - **Causa:** Los componentes de análisis verificaban `isAdmin` pero no `isCoordinadorCalidad`
+   - **Solución:** Agregada verificación `isCoordinadorCalidad` en todos los módulos de análisis
+   - **Alcance:** AnalysisIAComplete, LiveMonitorKanban, AnalysisDashboard
+
+### 📁 **Archivos Modificados**
+
+- `src/components/analysis/AnalysisIAComplete.tsx` - Verificación isCoordinadorCalidad para acceso completo
+- `src/components/analysis/LiveMonitorKanban.tsx` - Verificación isCoordinadorCalidad en permisos y filtros
+- `src/components/analysis/AnalysisDashboard.tsx` - Verificación isCoordinadorCalidad para acceso completo
+
+### 🔧 **Detalles Técnicos**
+
+**Lógica corregida:**
+```typescript
+// Antes (incorrecto)
+if (!isAdmin) { /* aplicar filtros */ }
+
+// Después (correcto)
+const isCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+if (!isAdmin && !isCalidad) { /* aplicar filtros */ }
+```
+
+**Usuarios afectados:**
+- Coordinadores miembros de la coordinación con código `CALIDAD`
+- Ahora tienen acceso completo igual que administradores
+
+---
+
 ### v2.1.41 (2025-12-22)
 **Descripción**: B6.2.2N6.0.0: Corrección de Zona Horaria en Transcripciones
 

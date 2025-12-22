@@ -283,11 +283,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
       let ejecutivoFilter: string | null = null;
       let isAdmin = false;
       
+      let isCalidad = false;
       if (user?.id) {
         const { permissionsService } = await import('../../services/permissionsService');
         ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
         coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
         isAdmin = await permissionsService.isAdmin(user.id);
+        isCalidad = await permissionsService.isCoordinadorCalidad(user.id);
       }
 
       // Cargar análisis
@@ -299,10 +301,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
 
       if (error) throw error;
 
-      // Si no es admin, filtrar por coordinación/ejecutivo
+      // Si no es admin ni coordinador de calidad, filtrar por coordinación/ejecutivo
       let filteredData = analysisData || [];
       
-      if (!isAdmin && (ejecutivoFilter || (coordinacionesFilter && coordinacionesFilter.length > 0))) {
+      if (!isAdmin && !isCalidad && (ejecutivoFilter || (coordinacionesFilter && coordinacionesFilter.length > 0))) {
         // Obtener llamadas_ventas para filtrar por prospectos
         const callIds = filteredData.map(a => a.call_id);
         

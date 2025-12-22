@@ -1026,8 +1026,10 @@ const LiveMonitorKanban: React.FC = () => {
         if (!isAdminCheck) {
           ejecutivoFilter = await permissionsServiceModule.permissionsService.getEjecutivoFilter(user.id);
           coordinacionesFilter = await permissionsServiceModule.permissionsService.getCoordinacionesFilter(user.id);
+          const esCoordinadorCalidad = await permissionsServiceModule.permissionsService.isCoordinadorCalidad(user.id);
           setIsEjecutivo(!!ejecutivoFilter);
-          setIsCoordinador(!!coordinacionesFilter && coordinacionesFilter.length > 0);
+          // Coordinador de Calidad también se considera coordinador (pero con acceso completo)
+          setIsCoordinador((!!coordinacionesFilter && coordinacionesFilter.length > 0) || esCoordinadorCalidad);
           
           // Si es ejecutivo, verificar si tiene prospectos asignados ANTES de cargar llamadas
           // Incluir prospectos de ejecutivos donde es backup
@@ -1155,14 +1157,15 @@ const LiveMonitorKanban: React.FC = () => {
             if (user?.id) {
               const permissionsServiceModule = await import('../../services/permissionsService');
               const permissions = await permissionsServiceModule.permissionsService.getUserPermissions(user.id);
+              const isCalidad = await permissionsServiceModule.permissionsService.isCoordinadorCalidad(user.id);
               
               // Administrador Operativo NO puede ver historial - ya se bloqueó arriba, pero por seguridad
               if (permissions?.role === 'administrador_operativo') {
                 prospectosQuery = prospectosQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Query imposible
               } else {
                 // Usar los filtros ya obtenidos arriba (ejecutivoFilter, coordinacionesFilter, isAdminCheck)
-                // Admin puede ver todo (sin filtros)
-                if (!isAdminCheck) {
+                // Admin y Coordinadores de Calidad pueden ver todo (sin filtros)
+                if (!isAdminCheck && !isCalidad) {
                   if (ejecutivoFilter) {
                     // Ejecutivo: solo prospectos asignados a él + prospectos de ejecutivos donde es backup
                     // Obtener IDs de ejecutivos donde este ejecutivo es backup
@@ -1185,10 +1188,10 @@ const LiveMonitorKanban: React.FC = () => {
                     // Filtrar por todos los ejecutivos (propios + backups)
                     prospectosQuery = prospectosQuery.in('ejecutivo_id', ejecutivosIds).not('ejecutivo_id', 'is', null);
                   } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-                    // Coordinador: solo prospectos de sus coordinaciones (debe tener coordinacion_id asignado)
+                    // Coordinador normal: solo prospectos de sus coordinaciones (debe tener coordinacion_id asignado)
                     prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
                   } else {
-                    // Si no es admin, ejecutivo ni coordinador, no mostrar nada
+                    // Si no es admin, ejecutivo, coordinador ni coord. calidad, no mostrar nada
                     prospectosQuery = prospectosQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Query imposible
                   }
                 }

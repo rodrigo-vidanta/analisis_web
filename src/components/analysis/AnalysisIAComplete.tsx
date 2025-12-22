@@ -1095,13 +1095,15 @@ const AnalysisIAComplete: React.FC = () => {
               const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
               const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
               const isAdmin = await permissionsService.isAdmin(user.id);
+              const isCalidad = await permissionsService.isCoordinadorCalidad(user.id);
               
-              if (!isAdmin) {
+              // Admin y Coordinadores de Calidad tienen acceso completo (sin filtros)
+              if (!isAdmin && !isCalidad) {
                 if (ejecutivoFilter) {
                   // Ejecutivo: solo prospectos asignados a él
                   prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter);
                 } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-                  // Coordinador: solo prospectos de sus coordinaciones
+                  // Coordinador normal: solo prospectos de sus coordinaciones
                   prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
                 }
               }
