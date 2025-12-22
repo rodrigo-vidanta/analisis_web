@@ -6,6 +6,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import useAnalysisPermissions from '../hooks/useAnalysisPermissions';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useNotificationStore } from '../stores/notificationStore';
+import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import type { TokenLimits } from '../services/tokenService';
 
@@ -317,6 +318,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const [tokenInfo, setTokenInfo] = useState<TokenLimits | null>(null);
   const { natalia, pqnc, liveMonitor } = useAnalysisPermissions();
   const [analysisMode, setAnalysisMode] = useState<'natalia' | 'pqnc'>('natalia');
+  
+  // Permisos efectivos (rol base + grupos asignados)
+  const { isAdmin } = useEffectivePermissions();
   const { config } = useSystemConfig();
   const { activeCallNotification, clearCallNotification } = useNotificationStore();
   const [isRinging, setIsRinging] = useState(false);
@@ -485,7 +489,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     }] : []),
 
     // 7. Modelos LLM (AI Models)
-    ...((user?.role_name === 'admin' || user?.role_name === 'productor' || user?.role_name === 'developer') ? [{
+    ...((isAdmin || user?.role_name === 'productor' || user?.role_name === 'developer') ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -498,33 +502,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 
   ];
 
-  // Logs (Log Server Manager) - Solo para Admin
-  const logServerItem: MenuItemProps | null = user?.role_name === 'admin' ? {
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-    label: 'Logs',
-    active: appMode === 'log-server',
-    onClick: () => setAppMode('log-server')
-  } : null;
-
-  // Administración AWS (AWS Manager) - Para Admin y Developer
-  const awsItem: MenuItemProps | null = canAccessModule('aws-manager') ? {
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4" />
-      </svg>
-    ),
-    label: 'Administración AWS',
-    active: appMode === 'aws-manager',
-    onClick: () => setAppMode('aws-manager')
-  } : null;
+  // Logs, AWS y Documentación ahora están dentro del módulo de Administración como pestañas
 
   // Campañas - Solo para Admin
-  const campaignsItem: MenuItemProps | null = user?.role_name === 'admin' ? {
+  const campaignsItem: MenuItemProps | null = isAdmin ? {
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
@@ -533,18 +514,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     label: 'Campañas',
     active: appMode === 'campaigns',
     onClick: () => setAppMode('campaigns')
-  } : null;
-
-  // Documentación Técnica - Para Admin y Developer
-  const documentationItem: MenuItemProps | null = (user?.role_name === 'admin' || user?.role_name === 'developer') ? {
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-      </svg>
-    ),
-    label: 'Documentación',
-    active: appMode === 'documentation',
-    onClick: () => setAppMode('documentation')
   } : null;
 
   // Admin al final - Usar canAccessModule para incluir administrador_operativo
@@ -698,19 +667,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           ))}
         </motion.nav>
 
-        {/* Logs - Solo para Admin */}
-        {logServerItem && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-            <MenuItem {...logServerItem} isCollapsed={isCollapsed} />
-          </div>
-        )}
-
-        {/* Administración AWS - Para Admin y Developer */}
-        {awsItem && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-            <MenuItem {...awsItem} isCollapsed={isCollapsed} />
-          </div>
-        )}
 
         {/* Campañas - Solo para Admin */}
         {campaignsItem && (
@@ -719,12 +675,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           </div>
         )}
 
-        {/* Documentación Técnica - Para Admin y Developer */}
-        {documentationItem && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-            <MenuItem {...documentationItem} isCollapsed={isCollapsed} />
-          </div>
-        )}
 
         {/* Admin al final */}
         {adminItem && (
@@ -762,7 +712,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 </div>
                 
                 {/* Indicador de tokens alrededor del avatar */}
-                {(user.role_name === 'productor' || user.role_name === 'admin') && (
+                {(user.role_name === 'productor' || isAdmin) && (
                   <div className="absolute -inset-2 flex items-center justify-center">
                     <TokenUsageIndicator size="lg" onTokenInfoChange={handleTokenInfoChange} />
                   </div>
@@ -776,7 +726,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                   <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
                     {user.role_name}
                   </p>
-                  {(user.role_name === 'productor' || user.role_name === 'admin') && getRemainingTokens() && (
+                  {(user.role_name === 'productor' || isAdmin) && getRemainingTokens() && (
                     <span className="text-xs text-slate-400 dark:text-slate-500">
                       • {getRemainingTokens()} tokens
                     </span>

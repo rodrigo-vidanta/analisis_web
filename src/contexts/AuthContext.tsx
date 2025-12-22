@@ -20,7 +20,7 @@ interface AuthContextType extends AuthState {
   canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null;
+  getFirstAvailableModule: () => 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null;
   refreshUser: () => Promise<void>;
 }
 
@@ -316,12 +316,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       ? backupId 
       : undefined;
     
-    // Si es ejecutivo y no se proporcionó backupId válido, verificar si es backup o tiene prospectos propios
+    // Si es ejecutivo o supervisor y no se proporcionó backupId válido, mostrar modal de backup
     const isEjecutivo = authState.user?.role_name === 'ejecutivo';
+    const isSupervisor = authState.user?.role_name === 'supervisor';
     const hasCoordinacion = !!authState.user?.coordinacion_id;
+    const hasCoordinacionesIds = authState.user?.coordinaciones_ids && authState.user.coordinaciones_ids.length > 0;
     
-    // Mostrar modal de backup si es ejecutivo sin backup preseleccionado
-    if (isEjecutivo && !validBackupId && hasCoordinacion) {
+    // Mostrar modal de backup si es ejecutivo o supervisor sin backup preseleccionado
+    // Ejecutivos usan coordinacion_id, supervisores usan coordinaciones_ids
+    const shouldShowBackupModal = !validBackupId && (
+      (isEjecutivo && hasCoordinacion) ||
+      (isSupervisor && (hasCoordinacion || hasCoordinacionesIds))
+    );
+    
+    if (shouldShowBackupModal) {
       setShowBackupModal(true);
       return;
     }
@@ -582,7 +590,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'constructor' | 'plantillas' | 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null => {
+  const getFirstAvailableModule = (): 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null => {
     if (!authState.user) return null;
 
     // Si el usuario tiene rol direccion, solo puede acceder al módulo direccion
@@ -597,10 +605,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return 'operative-dashboard';
       }
     }
-
-    // Orden de prioridad de módulos
-    if (canAccessModule('constructor')) return 'constructor';
-    if (canAccessModule('plantillas')) return 'plantillas';
     
     // AI Models para productor, admin y developer
     if (['productor', 'admin', 'developer'].includes(authState.user.role_name)) {
@@ -614,7 +618,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     // Live Chat disponible para todos los usuarios autenticados
     if (canAccessModule('live-chat')) return 'live-chat';
-    
     
     if (authState.user.role_name === 'admin') return 'admin';
 
@@ -648,12 +651,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         type="login"
       />
 
-      {/* Modal de selección de backup para ejecutivos */}
-      {showBackupModal && authState.user?.role_name === 'ejecutivo' && authState.user?.coordinacion_id && (
+      {/* Modal de selección de backup para ejecutivos y supervisores */}
+      {showBackupModal && (authState.user?.role_name === 'ejecutivo' || authState.user?.role_name === 'supervisor') && (
         <BackupSelectionModal
           isOpen={showBackupModal}
           ejecutivoId={authState.user.id}
-          coordinacionId={authState.user.coordinacion_id}
+          coordinacionId={
+            // Para ejecutivos: usar coordinacion_id directamente
+            // Para supervisores: usar primera coordinación de coordinaciones_ids, o coordinacion_id como fallback
+            authState.user.role_name === 'ejecutivo'
+              ? authState.user.coordinacion_id!
+              : (authState.user.coordinaciones_ids?.[0] || authState.user.coordinacion_id || '')
+          }
           onBackupSelected={handleBackupSelected}
           onCancel={handleCancelBackupSelection}
           onLogoutWithoutBackup={handleLogoutWithoutBackup}
@@ -814,9 +823,14 @@ const AccessDenied: React.FC<AccessDeniedProps> = ({ permission, module, subModu
 // HOOKS DE UTILIDAD
 // ============================================
 
-// Hook para verificar si el usuario es admin
+/**
+ * Hook para verificar si el usuario es admin
+ * @deprecated Usar useEffectivePermissions().isAdmin en su lugar para considerar grupos
+ */
 export const useIsAdmin = (): boolean => {
   const { user } = useAuth();
+  // NOTA: Este hook solo verifica el rol base
+  // Para permisos efectivos (rol + grupos), usar useEffectivePermissions().isAdmin
   return user?.role_name === 'admin';
 };
 

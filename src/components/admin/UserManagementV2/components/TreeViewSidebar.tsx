@@ -18,6 +18,7 @@ import {
   Code,
   Building2,
   User,
+  UserCheck,
   Search,
   Folder,
   FolderOpen,
@@ -28,8 +29,12 @@ import {
   Lock,
   Archive,
   CheckCircle,
-  XCircle
+  XCircle,
+  Radio,
+  Plus,
+  Unlock
 } from 'lucide-react';
+import { groupsService, type PermissionGroup } from '../../../../services/groupsService';
 import type { TreeNode, RoleName, ViewMode, Coordinacion } from '../types';
 
 // ============================================
@@ -44,7 +49,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ClipboardCheck,
   Code,
   Building2,
-  User
+  User,
+  UserCheck
 };
 
 // ============================================
@@ -69,6 +75,12 @@ interface TreeViewSidebarProps {
   onViewModeChange: (mode: ViewMode) => void;
   currentStatusFilter?: string;
   onStatusFilterChange?: (status: string) => void;
+  // Grupos de permisos
+  groups?: PermissionGroup[];
+  selectedGroupId?: string | null;
+  onSelectGroup?: (groupId: string | null) => void;
+  onManageGroups?: () => void;
+  canManageGroups?: boolean;
 }
 
 interface TreeNodeItemProps {
@@ -243,7 +255,12 @@ const TreeViewSidebar: React.FC<TreeViewSidebarProps> = ({
   viewMode,
   onViewModeChange,
   currentStatusFilter = 'all',
-  onStatusFilterChange
+  onStatusFilterChange,
+  groups = [],
+  selectedGroupId,
+  onSelectGroup,
+  onManageGroups,
+  canManageGroups = false
 }) => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
@@ -427,6 +444,57 @@ const TreeViewSidebar: React.FC<TreeViewSidebarProps> = ({
             ))}
           </div>
 
+          {/* Grupos de Permisos */}
+          {groups.length > 0 && (
+            <div className="mb-2">
+              <div className="flex items-center justify-between px-2 mb-1">
+                <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Grupos de Permisos
+                </span>
+                {canManageGroups && onManageGroups && (
+                  <button
+                    onClick={onManageGroups}
+                    className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-purple-500 transition-colors"
+                    title="Gestionar grupos"
+                  >
+                    <Settings className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              {groups.map(group => (
+                <button
+                  key={group.id}
+                  onClick={() => onSelectGroup?.(selectedGroupId === group.id ? null : group.id)}
+                  className={`
+                    w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors text-left
+                    ${selectedGroupId === group.id
+                      ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }
+                  `}
+                >
+                  <div className={`w-5 h-5 rounded bg-gradient-to-br ${group.color || 'from-purple-500 to-indigo-600'} flex items-center justify-center`}>
+                    {group.is_system ? (
+                      <Lock className="w-2.5 h-2.5 text-white" />
+                    ) : (
+                      <Shield className="w-2.5 h-2.5 text-white" />
+                    )}
+                  </div>
+                  <span className="text-xs flex-1 truncate">{group.display_name}</span>
+                  {(group.users_count || 0) > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      selectedGroupId === group.id
+                        ? 'bg-purple-100 dark:bg-purple-800 text-purple-600 dark:text-purple-300'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                    }`}>
+                      {group.users_count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Filtros rápidos de estado */}
           {onStatusFilterChange && (
             <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">
@@ -497,6 +565,28 @@ const TreeViewSidebar: React.FC<TreeViewSidebarProps> = ({
 
               {/* Separador - Operativos */}
               <div className="my-2 border-t border-gray-100 dark:border-gray-800"></div>
+
+              {/* Activo Ahora - Ejecutivos operativos activos */}
+              <button
+                onClick={() => onStatusFilterChange(currentStatusFilter === 'online' ? 'all' : 'online')}
+                className={`
+                  w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors text-left
+                  ${currentStatusFilter === 'online'
+                    ? 'bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }
+                `}
+              >
+                <div className="w-5 h-5 rounded bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center relative">
+                  <Radio className="w-3 h-3 text-cyan-500" />
+                  {/* Punto pulsante para indicar "en vivo" */}
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                  </span>
+                </div>
+                <span className="text-xs flex-1">Activo Ahora</span>
+              </button>
 
               {/* Operativo */}
               <button

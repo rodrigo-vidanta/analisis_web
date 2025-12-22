@@ -6,6 +6,7 @@
 import React from 'react';
 import { Users, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { getCoordinacionColor } from '../../utils/coordinacionColors';
 import type { LiveCallData } from '../../services/liveMonitorService';
 
@@ -21,10 +22,7 @@ export const AssignmentBadge: React.FC<AssignmentBadgeProps> = ({
   className = '' 
 }) => {
   const { user } = useAuth();
-  const isAdmin = user?.role_name === 'admin';
-  const isAdminOperativo = user?.role_name === 'administrador_operativo';
-  const isCoordinador = user?.role_name === 'coordinador';
-  const isEjecutivo = user?.role_name === 'ejecutivo';
+  const { isAdmin, isAdminOperativo, isCoordinador, isEjecutivo } = useEffectivePermissions();
 
   // Determinar qué mostrar según el rol
   // Administrador: ve ambas (coordinación y ejecutivo)

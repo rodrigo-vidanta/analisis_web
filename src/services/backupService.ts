@@ -28,6 +28,7 @@ export interface EjecutivoBackup {
   phone?: string;
   is_operativo?: boolean;
   is_coordinator?: boolean; // Indica si es coordinador
+  is_supervisor?: boolean; // Indica si es supervisor
 }
 
 export interface AvailableBackupsResult {
@@ -192,13 +193,25 @@ class BackupService {
   /**
    * Obtiene el backup automático siguiendo el orden de prioridad:
    * 1. Ejecutivos operativos con teléfono de la misma coordinación
-   * 2. Si no hay ejecutivos operativos, coordinadores operativos con teléfono
-   * 3. Si no hay coordinadores operativos, coordinadores con teléfono (aunque no estén operativos)
+   * 2. Supervisores operativos con teléfono de la misma coordinación
+   * 3. Coordinadores operativos con teléfono
+   * 4. Supervisores con teléfono (aunque no estén operativos)
+   * 5. Coordinadores con teléfono (aunque no estén operativos)
    * 
    * NOTA: Este orden coincide con getAvailableBackups() para mantener consistencia
    */
   async getAutomaticBackup(coordinacionId: string, excludeId?: string): Promise<string | null> {
     try {
+      // Helper para ordenar por último login o nombre
+      const sortByLoginOrName = (a: any, b: any) => {
+        if (a.last_login && b.last_login) {
+          return new Date(b.last_login).getTime() - new Date(a.last_login).getTime();
+        }
+        if (a.last_login) return -1;
+        if (b.last_login) return 1;
+        return a.full_name.localeCompare(b.full_name);
+      };
+
       // PRIORIDAD 1: Ejecutivos operativos con teléfono
       try {
         const ejecutivos = await coordinacionService.getEjecutivosByCoordinacion(coordinacionId);
@@ -211,22 +224,33 @@ class BackupService {
         );
 
         if (ejecutivosOperativos.length > 0) {
-          // Ordenar por último login o nombre
-          ejecutivosOperativos.sort((a, b) => {
-            if (a.last_login && b.last_login) {
-              return new Date(b.last_login).getTime() - new Date(a.last_login).getTime();
-            }
-            if (a.last_login) return -1;
-            if (b.last_login) return 1;
-            return a.full_name.localeCompare(b.full_name);
-          });
+          ejecutivosOperativos.sort(sortByLoginOrName);
           return ejecutivosOperativos[0].id;
         }
       } catch (ejecError) {
         console.error('Error obteniendo ejecutivos para backup automático:', ejecError);
       }
 
-      // PRIORIDAD 2: Coordinadores operativos con teléfono
+      // PRIORIDAD 2: Supervisores operativos con teléfono
+      try {
+        const supervisores = await coordinacionService.getSupervisoresByCoordinacion(coordinacionId);
+        const supervisoresOperativos = supervisores.filter(sup => 
+          sup.id !== excludeId &&
+          sup.is_active &&
+          sup.is_operativo !== false &&
+          sup.phone &&
+          sup.phone.trim() !== ''
+        );
+
+        if (supervisoresOperativos.length > 0) {
+          supervisoresOperativos.sort(sortByLoginOrName);
+          return supervisoresOperativos[0].id;
+        }
+      } catch (supError) {
+        console.error('Error obteniendo supervisores para backup automático:', supError);
+      }
+
+      // PRIORIDAD 3: Coordinadores operativos con teléfono
       try {
         const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
         const coordinadoresOperativos = coordinadores.filter(coord => 
@@ -238,41 +262,43 @@ class BackupService {
         );
 
         if (coordinadoresOperativos.length > 0) {
-          // Ordenar por último login o nombre
-          coordinadoresOperativos.sort((a, b) => {
-            if (a.last_login && b.last_login) {
-              return new Date(b.last_login).getTime() - new Date(a.last_login).getTime();
-            }
-            if (a.last_login) return -1;
-            if (b.last_login) return 1;
-            return a.full_name.localeCompare(b.full_name);
-          });
+          coordinadoresOperativos.sort(sortByLoginOrName);
           return coordinadoresOperativos[0].id;
         }
       } catch (coordError) {
         console.error('Error obteniendo coordinadores para backup automático:', coordError);
       }
 
-      // PRIORIDAD 3: Coordinadores con teléfono (aunque no estén operativos)
+      // PRIORIDAD 4: Supervisores con teléfono (aunque no estén operativos)
+      try {
+        const supervisores = await coordinacionService.getSupervisoresByCoordinacion(coordinacionId);
+        const supervisoresConTelefono = supervisores.filter(sup => 
+          sup.id !== excludeId &&
+          sup.is_active &&
+          sup.phone &&
+          sup.phone.trim() !== ''
+        );
+
+        if (supervisoresConTelefono.length > 0) {
+          supervisoresConTelefono.sort(sortByLoginOrName);
+          return supervisoresConTelefono[0].id;
+        }
+      } catch (supError) {
+        console.error('Error obteniendo supervisores (no operativos) para backup automático:', supError);
+      }
+
+      // PRIORIDAD 5: Coordinadores con teléfono (aunque no estén operativos)
       try {
         const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
         const coordinadoresConTelefono = coordinadores.filter(coord => 
           coord.id !== excludeId &&
-          coord.is_active && // Deben estar activos en el sistema
+          coord.is_active &&
           coord.phone &&
           coord.phone.trim() !== ''
         );
 
         if (coordinadoresConTelefono.length > 0) {
-          // Ordenar por último login o nombre
-          coordinadoresConTelefono.sort((a, b) => {
-            if (a.last_login && b.last_login) {
-              return new Date(b.last_login).getTime() - new Date(a.last_login).getTime();
-            }
-            if (a.last_login) return -1;
-            if (b.last_login) return 1;
-            return a.full_name.localeCompare(b.full_name);
-          });
+          coordinadoresConTelefono.sort(sortByLoginOrName);
           return coordinadoresConTelefono[0].id;
         }
       } catch (coordError) {
@@ -329,12 +355,14 @@ class BackupService {
   }
 
   /**
-   * Obtiene ejecutivos y coordinadores disponibles para backup en una coordinación
+   * Obtiene ejecutivos, supervisores y coordinadores disponibles para backup en una coordinación
    * Orden de prioridad:
    * 1. Ejecutivos operativos con teléfono (de la misma coordinación)
-   * 2. Si no hay ejecutivos operativos válidos, coordinadores operativos con teléfono
-   * 3. Si no hay coordinadores operativos, coordinadores con teléfono (aunque no estén operativos)
-   * 4. Si no hay coordinadores con teléfono, coordinadores sin teléfono (última opción)
+   * 2. Supervisores operativos con teléfono (de la misma coordinación)
+   * 3. Coordinadores operativos con teléfono
+   * 4. Supervisores con teléfono (aunque no estén operativos)
+   * 5. Coordinadores con teléfono (aunque no estén operativos)
+   * 6. Coordinadores sin teléfono (última opción)
    * 
    * También retorna información sobre usuarios activos que no cumplen requisitos
    * para mostrar mensaje informativo
@@ -390,7 +418,8 @@ class BackupService {
           full_name: ejecutivo.full_name,
           phone: ejecutivo.phone!,
           is_operativo: true,
-          is_coordinator: false
+          is_coordinator: false,
+          is_supervisor: false
         }));
 
       // Si hay ejecutivos válidos, retornarlos junto con los no disponibles
@@ -398,11 +427,40 @@ class BackupService {
         return { backups: ejecutivosConTelefono, unavailableUsers };
       }
 
-      // PRIORIDAD 2-4: Coordinadores (fallback cuando no hay ejecutivos disponibles)
+      // PRIORIDAD 2: Supervisores operativos con teléfono
+      try {
+        const supervisores = await coordinacionService.getSupervisoresByCoordinacion(coordinacionId);
+        
+        const supervisoresOperativosConTelefono = supervisores
+          .filter(sup => {
+            if (sup.id === excludeEjecutivoId) return false;
+            if (!sup.is_active) return false;
+            if (sup.is_operativo === false) return false;
+            
+            const hasPhone = sup.phone && sup.phone.trim() !== '';
+            return hasPhone;
+          })
+          .map(sup => ({
+            id: sup.id,
+            email: sup.email,
+            full_name: sup.full_name,
+            phone: sup.phone!,
+            is_operativo: true,
+            is_coordinator: false,
+            is_supervisor: true
+          }));
+
+        if (supervisoresOperativosConTelefono.length > 0) {
+          return { backups: supervisoresOperativosConTelefono, unavailableUsers };
+        }
+      } catch (supError) {
+        console.error('Error obteniendo supervisores para backup:', supError);
+      }
+
+      // PRIORIDAD 3: Coordinadores operativos con teléfono
       try {
         const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
         
-        // PRIORIDAD 2: Coordinadores operativos con teléfono
         const coordinadoresOperativosConTelefono = coordinadores
           .filter(coord => {
             if (coord.id === excludeEjecutivoId) return false;
@@ -418,14 +476,50 @@ class BackupService {
             full_name: coord.full_name,
             phone: coord.phone!,
             is_operativo: true,
-            is_coordinator: true
+            is_coordinator: true,
+            is_supervisor: false
           }));
 
         if (coordinadoresOperativosConTelefono.length > 0) {
           return { backups: coordinadoresOperativosConTelefono, unavailableUsers };
         }
+      } catch (coordError) {
+        console.error('Error obteniendo coordinadores para backup:', coordError);
+      }
 
-        // PRIORIDAD 3: Coordinadores con teléfono (no necesariamente operativos)
+      // PRIORIDAD 4: Supervisores con teléfono (no necesariamente operativos)
+      try {
+        const supervisores = await coordinacionService.getSupervisoresByCoordinacion(coordinacionId);
+        
+        const supervisoresConTelefono = supervisores
+          .filter(sup => {
+            if (sup.id === excludeEjecutivoId) return false;
+            if (!sup.is_active) return false;
+            
+            const hasPhone = sup.phone && sup.phone.trim() !== '';
+            return hasPhone;
+          })
+          .map(sup => ({
+            id: sup.id,
+            email: sup.email,
+            full_name: sup.full_name,
+            phone: sup.phone!,
+            is_operativo: sup.is_operativo !== false,
+            is_coordinator: false,
+            is_supervisor: true
+          }));
+
+        if (supervisoresConTelefono.length > 0) {
+          return { backups: supervisoresConTelefono, unavailableUsers };
+        }
+      } catch (supError) {
+        console.error('Error obteniendo supervisores (no operativos) para backup:', supError);
+      }
+
+      // PRIORIDAD 5: Coordinadores con teléfono (no necesariamente operativos)
+      try {
+        const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
+        
         const coordinadoresConTelefono = coordinadores
           .filter(coord => {
             if (coord.id === excludeEjecutivoId) return false;
@@ -440,14 +534,15 @@ class BackupService {
             full_name: coord.full_name,
             phone: coord.phone!,
             is_operativo: coord.is_operativo !== false,
-            is_coordinator: true
+            is_coordinator: true,
+            is_supervisor: false
           }));
 
         if (coordinadoresConTelefono.length > 0) {
           return { backups: coordinadoresConTelefono, unavailableUsers };
         }
 
-        // PRIORIDAD 4: Coordinadores sin teléfono (última opción, solo para emergencias)
+        // PRIORIDAD 6: Coordinadores sin teléfono (última opción, solo para emergencias)
         const coordinadoresSinTelefono = coordinadores
           .filter(coord => {
             if (coord.id === excludeEjecutivoId) return false;
@@ -460,7 +555,8 @@ class BackupService {
             full_name: coord.full_name,
             phone: coord.phone || '',
             is_operativo: coord.is_operativo !== false,
-            is_coordinator: true
+            is_coordinator: true,
+            is_supervisor: false
           }));
 
         if (coordinadoresSinTelefono.length > 0) {

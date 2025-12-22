@@ -53,6 +53,7 @@ const ROLE_OPTIONS: { value: RoleName | 'all'; label: string }[] = [
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
+  { value: 'online', label: '🟢 Activo Ahora' },
   { value: 'active', label: 'Activos' },
   { value: 'inactive', label: 'Inactivos' },
   { value: 'blocked', label: 'Bloqueados (Moderación)' },

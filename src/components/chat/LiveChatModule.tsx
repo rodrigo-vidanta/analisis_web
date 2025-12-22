@@ -22,6 +22,7 @@ import AgentAssignmentModal from './AgentAssignmentModal';
 import LiveChatAnalytics from './LiveChatAnalytics';
 import { uchatService, type UChatConversation } from '../../services/uchatService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { useNotifications } from '../../hooks/useNotifications';
 
 interface LiveChatModuleProps {
@@ -30,6 +31,7 @@ interface LiveChatModuleProps {
 
 const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
   const { user } = useAuth();
+  const { isAdmin } = useEffectivePermissions();
   const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'analytics'>('dashboard');
   const [selectedConversation, setSelectedConversation] = useState<UChatConversation | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -43,7 +45,7 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
   });
   
   // Determinar si el usuario puede ver configuración (solo admin)
-  const canViewSettings = user?.role_name === 'admin';
+  const canViewSettings = isAdmin;
 
   // Marcar notificaciones de Live Chat como leídas al entrar al módulo
   useNotifications({ currentModule: 'live-chat' });

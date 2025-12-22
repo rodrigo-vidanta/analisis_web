@@ -214,7 +214,8 @@ const documentationSections: DocSection[] = [
     title: 'Seguridad',
     icon: Icons.security,
     docs: [
-      { id: 'permissions', name: 'Sistema de Permisos', path: '/docs/PERMISSIONS_SYSTEM_README.md', description: 'Sistema de roles y permisos' },
+      { id: 'permission-groups', name: 'Sistema de Grupos de Permisos', path: '/docs/PERMISSION_GROUPS_SYSTEM.md', description: 'Sistema de grupos tipo Active Directory (Nuevo)' },
+      { id: 'permissions', name: 'Sistema de Permisos (Legacy)', path: '/docs/PERMISSIONS_SYSTEM_README.md', description: 'Sistema de roles y permisos original' },
       { id: 'duplicate-prevention', name: 'Prevención de Duplicados', path: '/docs/DUPLICATE_MESSAGE_PREVENTION.md', description: 'Sistema anti-duplicación de mensajes' },
     ]
   },
@@ -251,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'd0a1b2c', date: '2025-12-22', author: 'Team', message: 'v2.1.39: Sistema de Permisos por Grupos + Rol Supervisor Completo', isRelease: true },
   { hash: 'c9ff250', date: '2025-12-19', author: 'Team', message: 'v2.1.38: Corrección Recordarme en Login - guardado correcto de email en localStorage', isRelease: true },
   { hash: 'b8ee149', date: '2025-12-19', author: 'Team', message: 'v2.1.37: Optimización rendimiento LogDashboard, filtro Todos (90d), corrección payload webhook', isRelease: true },
   { hash: 'a7dd048', date: '2025-12-19', author: 'Team', message: 'v2.1.36: Clasificación granular de llamadas y mejoras en módulo de programación', isRelease: true },
@@ -295,6 +297,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-037', date: '2025-12-22 15:00', version: 'v2.1.39', status: 'success', duration: '5m 00s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-036', date: '2025-12-19 15:30', version: 'v2.1.36', status: 'success', duration: '4m 30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-035', date: '2025-12-19 10:30', version: 'v2.1.35', status: 'success', duration: '4m 52s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-034', date: '2025-12-19 01:00', version: 'v2.1.34', status: 'success', duration: '5m 10s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -328,10 +331,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.38', highlight: true },
-  { label: 'Release', value: 'B6.1.5N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.39', highlight: true },
+  { label: 'Release', value: 'B6.2.0N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '19 Dic 2025', highlight: false },
+  { label: 'Ultima actualizacion', value: '22 Dic 2025', highlight: false },
 ];
 
 // ============================================

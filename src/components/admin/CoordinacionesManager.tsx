@@ -14,6 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { coordinacionService, type Coordinacion, type Ejecutivo } from '../../services/coordinacionService';
 import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
 import { 
@@ -30,7 +31,7 @@ interface CoordinacionWithStats extends Coordinacion {
 
 const CoordinacionesManager: React.FC = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role_name === 'admin';
+  const { isAdmin } = useEffectivePermissions();
   
   const [coordinaciones, setCoordinaciones] = useState<CoordinacionWithStats[]>([]);
   const [loading, setLoading] = useState(true);

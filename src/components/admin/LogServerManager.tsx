@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { errorLogService, type LogServerConfig } from '../../services/errorLogService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import toast from 'react-hot-toast';
 import LogDashboard from './LogDashboard';
 
@@ -9,7 +10,7 @@ type LogServerTab = 'dashboard' | 'log-server';
 
 const LogServerManager: React.FC = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role_name === 'admin';
+  const { isAdmin } = useEffectivePermissions();
   const [activeTab, setActiveTab] = useState<LogServerTab>('dashboard');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

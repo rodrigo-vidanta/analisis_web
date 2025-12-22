@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 import { tokenService, type TokenLimits } from '../services/tokenService';
 
 interface TokenUsageIndicatorProps {
@@ -14,6 +15,7 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
   onTokenInfoChange
 }) => {
   const { user } = useAuth();
+  const { isAdmin } = useEffectivePermissions();
   const [tokenInfo, setTokenInfo] = useState<TokenLimits | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,15 +53,15 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
       onTokenInfoChange?.(info);
       } catch (error) {
         console.error('Error cargando info de tokens:', error);
-        // Datos dummy para desarrollo
+        // Datos dummy para desarrollo (usando permisos efectivos)
         const dummyInfo = {
           user_id: user.id,
-          monthly_limit: user.role_name === 'admin' ? -1 : 10000,
-          daily_limit: user.role_name === 'admin' ? -1 : 500,
-          current_month_usage: user.role_name === 'admin' ? 0 : 2500,
-          current_day_usage: user.role_name === 'admin' ? 0 : 150,
-          monthly_usage_percentage: user.role_name === 'admin' ? 0 : 25,
-          daily_usage_percentage: user.role_name === 'admin' ? 0 : 30,
+          monthly_limit: isAdmin ? -1 : 10000,
+          daily_limit: isAdmin ? -1 : 500,
+          current_month_usage: isAdmin ? 0 : 2500,
+          current_day_usage: isAdmin ? 0 : 150,
+          monthly_usage_percentage: isAdmin ? 0 : 25,
+          daily_usage_percentage: isAdmin ? 0 : 30,
           warning_threshold: 80
         };
         setTokenInfo(dummyInfo);

@@ -45,6 +45,7 @@ export interface User {
   id_colaborador?: string;
   id_dynamics?: string;
   coordinacion_id?: string; // ID de coordinación para ejecutivos
+  coordinaciones_ids?: string[]; // IDs de coordinaciones para coordinadores y supervisores
 }
 
 export interface Permission {
@@ -346,18 +347,20 @@ class AuthService {
   // Cerrar sesión
   async logout(backupId?: string): Promise<void> {
     try {
-      // Si es ejecutivo, manejar backup y actualizar is_operativo
-      if (this.currentUser && this.currentUser.role_name === 'ejecutivo') {
+      // Si es ejecutivo o supervisor, manejar backup y actualizar is_operativo
+      const isEjecutivoOrSupervisor = this.currentUser && 
+        (this.currentUser.role_name === 'ejecutivo' || this.currentUser.role_name === 'supervisor');
+      
+      if (isEjecutivoOrSupervisor) {
         try {
           // Si se proporciona un backupId válido (string no vacío), asignar backup
           if (backupId && typeof backupId === 'string' && backupId.trim() !== '') {
             const { backupService } = await import('./backupService');
-            const result = await backupService.assignBackup(this.currentUser.id, backupId);
+            const result = await backupService.assignBackup(this.currentUser!.id, backupId);
             if (!result.success) {
               console.error('Error asignando backup:', result.error);
               // Continuar con el logout aunque falle la asignación de backup
             }
-          } else {
           }
 
           // Actualizar is_operativo a false
@@ -367,13 +370,13 @@ class AuthService {
               is_operativo: false,
               updated_at: new Date().toISOString()
             })
-            .eq('id', this.currentUser.id);
+            .eq('id', this.currentUser!.id);
           
           if (updateError) {
             throw updateError;
           }
         } catch (error) {
-          console.error('Error actualizando ejecutivo en logout:', error);
+          console.error(`Error actualizando ${this.currentUser?.role_name} en logout:`, error);
           // Continuar con el logout aunque falle la actualización
         }
       }
@@ -405,14 +408,6 @@ class AuthService {
     
     // Lógica específica por módulo con nuevos roles
     switch (module) {
-      case 'constructor':
-        // Solo Admin puede acceder al constructor
-        return role === 'admin';
-      
-      case 'plantillas':
-        // Solo Admin puede ver plantillas
-        return role === 'admin';
-      
       case 'analisis':
         // Admin: acceso completo
         // Administrador Operativo: NO tiene acceso
@@ -433,37 +428,41 @@ class AuthService {
         // Administrador Operativo: solo lectura (ver todos, no puede enviar mensajes/imágenes/programar llamadas)
         // Coordinador: acceso a su coordinación, puede enviar mensajes/imágenes/programar llamadas
         // Ejecutivo: acceso solo a sus prospectos, puede enviar mensajes/imágenes
+        // Supervisor: acceso a su coordinación, puede VER pero NO puede reasignar
         // Dirección: NO tiene acceso
         if (role === 'direccion') return false;
-        return ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo', 'evaluator', 'developer'].includes(role);
+        return ['admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluator', 'developer'].includes(role);
       
       case 'live-monitor':
         // Admin: acceso completo
         // Administrador Operativo: acceso a todos los prospectos
         // Coordinador: acceso solo a su coordinación
+        // Supervisor: acceso a su coordinación, puede VER todos los prospectos
         // Ejecutivo: acceso solo a sus prospectos
         // Evaluator, Developer: acceso completo
         // Dirección: NO tiene acceso
         if (role === 'direccion') return false;
-        return ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo', 'evaluator', 'developer'].includes(role);
+        return ['admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluator', 'developer'].includes(role);
       
       case 'prospectos':
         // Admin: acceso completo
         // Administrador Operativo: puede ver todos, cambiar coordinación (con razón documentada)
         // Coordinador: acceso a su coordinación, puede reasignar entre ejecutivos/coordinadores de su coordinación
+        // Supervisor: acceso a su coordinación, puede VER todos los prospectos pero NO puede reasignar
         // Ejecutivo: acceso solo a sus prospectos, NO puede cambiar propietario
         // Dirección: NO tiene acceso
         if (role === 'direccion') return false;
-        return ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo', 'evaluator', 'developer'].includes(role);
+        return ['admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluator', 'developer'].includes(role);
       
       case 'scheduled-calls':
         // Admin: acceso completo
         // Administrador Operativo: puede ver todas las llamadas programadas
         // Coordinador: puede ver llamadas de su coordinación
+        // Supervisor: puede ver llamadas de su coordinación
         // Ejecutivo: puede ver llamadas de sus prospectos
         // Dirección: NO tiene acceso
         if (role === 'direccion') return false;
-        return ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo'].includes(role);
+        return ['admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo'].includes(role);
       
       case 'direccion':
         // Dirección: acceso completo para direccion y admin
@@ -494,10 +493,9 @@ class AuthService {
         // Admin tiene acceso completo
         if (role === 'admin') return true;
         
-        // Developer puede acceder a todo excepto módulos restringidos
+        // Developer puede acceder a todo excepto admin
         if (role === 'developer') {
-          const restrictedModules = ['admin', 'constructor', 'plantillas'];
-          return !restrictedModules.includes(module);
+          return module !== 'admin';
         }
         
         // Para otros roles, usar verificación de permisos si existe
@@ -671,6 +669,23 @@ class AuthService {
       .eq('id', sessionData.user_id)
       .single();
 
+    // Para coordinadores y supervisores, cargar sus coordinaciones desde coordinador_coordinaciones
+    let coordinacionesIds: string[] | undefined;
+    if (userData.role_name === 'coordinador' || userData.role_name === 'supervisor') {
+      try {
+        const { data: coordinacionesData } = await supabase
+          .from('coordinador_coordinaciones')
+          .select('coordinacion_id')
+          .eq('coordinador_id', sessionData.user_id);
+        
+        if (coordinacionesData && coordinacionesData.length > 0) {
+          coordinacionesIds = coordinacionesData.map(c => c.coordinacion_id);
+        }
+      } catch (coordError) {
+        console.warn('Error cargando coordinaciones del usuario:', coordError);
+      }
+    }
+
     // Combinar datos
     this.currentUser = {
       ...userData,
@@ -679,6 +694,7 @@ class AuthService {
       id_dynamics: additionalData?.id_dynamics,
       is_operativo: additionalData?.is_operativo !== undefined ? additionalData.is_operativo : true, // Por defecto true si no está definido
       coordinacion_id: additionalData?.coordinacion_id,
+      coordinaciones_ids: coordinacionesIds,
     } as User;
 
     // Cargar permisos del usuario

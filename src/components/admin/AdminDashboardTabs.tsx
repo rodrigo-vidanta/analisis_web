@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, startTransition } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserManagement from './UserManagement';
 import UserManagementV2 from './UserManagementV2';
@@ -10,10 +10,14 @@ import CoordinacionesManager from './CoordinacionesManager';
 import AdminMessagesModal from './AdminMessagesModal';
 import ApiAuthTokensManager from './ApiAuthTokensManager';
 import ScheduleManager from './ScheduleManager';
+import LogServerManager from './LogServerManager';
+import DocumentationModule from '../documentation/DocumentationModule';
+import AWSManager from '../aws/AWSManager';
 import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
 import { adminMessagesService } from '../../services/adminMessagesService';
-import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { groupsService } from '../../services/groupsService';
+import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen } from 'lucide-react';
 
 // Feature flag para el nuevo módulo de usuarios
 const USE_NEW_USER_MANAGEMENT = true;
@@ -21,16 +25,50 @@ const USE_NEW_USER_MANAGEMENT = true;
 // Key para localStorage
 const SIDEBAR_PINNED_KEY = 'admin_sidebar_pinned';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios';
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'documentacion';
 
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role_name === 'admin';
-  const isAdminOperativo = user?.role_name === 'administrador_operativo';
   const [isCoordinador, setIsCoordinador] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('usuarios');
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Estado para grupos del usuario actual (para permisos efectivos)
+  const [userGroupNames, setUserGroupNames] = useState<string[]>([]);
+  
+  // Cargar grupos del usuario actual
+  useEffect(() => {
+    const loadUserGroups = async () => {
+      if (user?.id) {
+        try {
+          const groups = await groupsService.getGroups(true);
+          const userAssignments = await groupsService.getUserGroups(user.id);
+          const userGroupIds = userAssignments.map(a => a.group_id);
+          const names = groups
+            .filter(g => userGroupIds.includes(g.id))
+            .map(g => g.name);
+          setUserGroupNames(names);
+        } catch {
+          setUserGroupNames([]);
+        }
+      }
+    };
+    loadUserGroups();
+  }, [user?.id]);
+  
+  // Permisos efectivos: rol base O grupos asignados
+  const hasAdminGroup = useMemo(() => {
+    return userGroupNames.some(name => ['system_admin', 'full_admin'].includes(name));
+  }, [userGroupNames]);
+  
+  const hasAdminOperativoGroup = useMemo(() => {
+    return userGroupNames.includes('system_admin_operativo');
+  }, [userGroupNames]);
+  
+  // isAdmin y isAdminOperativo consideran tanto el rol base como los grupos
+  const isAdmin = user?.role_name === 'admin' || hasAdminGroup;
+  const isAdminOperativo = (user?.role_name === 'administrador_operativo' || hasAdminOperativoGroup) && !isAdmin;
   
   // Estado del sidebar colapsable
   const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
@@ -70,6 +108,21 @@ const AdminDashboardTabs: React.FC = () => {
     };
     checkCoordinador();
   }, [user?.id, isAdmin]);
+
+  // Listener para navegación directa a pestañas desde el Header
+  useEffect(() => {
+    const handleNavigateTab = (event: CustomEvent<AdminTab>) => {
+      const tab = event.detail;
+      if (tab && isAdmin) {
+        setActiveTab(tab);
+      }
+    };
+
+    window.addEventListener('admin-navigate-tab', handleNavigateTab as EventListener);
+    return () => {
+      window.removeEventListener('admin-navigate-tab', handleNavigateTab as EventListener);
+    };
+  }, [isAdmin]);
 
   // Ref para almacenar la función de carga (evita recrear en cada render)
   const loadUnreadCountRef = useRef<(() => Promise<void>) | null>(null);
@@ -204,6 +257,21 @@ const AdminDashboardTabs: React.FC = () => {
         id: 'horarios' as AdminTab,
         name: 'Horarios',
         icon: <Clock className="w-5 h-5" />
+      },
+      {
+        id: 'logs' as AdminTab,
+        name: 'Logs',
+        icon: <FileText className="w-5 h-5" />
+      },
+      {
+        id: 'aws' as AdminTab,
+        name: 'AWS',
+        icon: <Cloud className="w-5 h-5" />
+      },
+      {
+        id: 'documentacion' as AdminTab,
+        name: 'Documentación',
+        icon: <BookOpen className="w-5 h-5" />
       }
     ] : []),
     // Tabs para Administrador Operativo: usuarios, coordinaciones y horarios
@@ -452,9 +520,9 @@ const AdminDashboardTabs: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           {/* Otros módulos con scroll */}
-          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT ? 'hidden' : ''}`}>
+          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'documentacion' ? 'hidden' : ''}`}>
             
             {/* Otros módulos mantienen el contenedor con padding */}
             <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
@@ -509,6 +577,33 @@ const AdminDashboardTabs: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Logs - Ocupa todo el espacio disponible */}
+          {activeTab === 'logs' && isAdmin && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <LogServerManager />
+              </div>
+            </div>
+          )}
+
+          {/* AWS Manager - Ocupa todo el espacio disponible */}
+          {activeTab === 'aws' && isAdmin && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <AWSManager darkMode={true} onToggleDarkMode={() => {}} />
+              </div>
+            </div>
+          )}
+
+          {/* Documentación - Ocupa todo el espacio disponible */}
+          {activeTab === 'documentacion' && isAdmin && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <DocumentationModule />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

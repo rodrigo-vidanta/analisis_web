@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ArrowUpDown,
   Mail,
+  Phone,
   Building2,
   AlertTriangle,
   CheckCircle,
@@ -253,6 +254,11 @@ const UserTable: React.FC<UserTableProps> = ({
                   Coordinación
                 </span>
               </th>
+              <th className="px-3 py-2 text-left hidden md:table-cell">
+                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  Teléfono
+                </span>
+              </th>
               <th className="px-3 py-2 text-center">
                 <SortButton column="operativo" currentSort={sortConfig} onSort={onSortChange}>
                   Operativo
@@ -415,6 +421,20 @@ const UserTable: React.FC<UserTableProps> = ({
                           {user.coordinaciones_nombres.length}
                         </span>
                       )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">-</span>
+                  )}
+                </td>
+
+                {/* Teléfono */}
+                <td className="px-3 py-2 hidden md:table-cell">
+                  {user.phone ? (
+                    <div className="flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                        {user.phone}
+                      </span>
                     </div>
                   ) : (
                     <span className="text-xs text-gray-400">-</span>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { useAppStore } from '../../stores/appStore';
 import { timelineService } from '../../services/timelineService';
 import type { TimelineActivity, ProcessedActivity, DuplicateCheck } from '../../services/timelineTypes';
@@ -22,6 +23,7 @@ type Theme = 'dark' | 'light' | 'indigo';
 // Timeline Component v2.6 - Single Column Layout (Left Axis, Right Cards)
 const Timeline: React.FC = () => {
   const { user, logout } = useAuth();
+  const { isAdmin } = useEffectivePermissions();
   const { setAppMode } = useAppStore();
   const [activities, setActivities] = useState<TimelineActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1355,8 +1357,8 @@ const Timeline: React.FC = () => {
                 </button>
               )}
               
-              <button onClick={() => { if (user?.role_name === 'admin') window.location.href = '/'; else logout(); }} className="px-4 py-2 transition-colors text-sm text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white">
-                  {user?.role_name === 'admin' ? 'Salir' : 'Cerrar Sesión'}
+              <button onClick={() => { if (isAdmin) window.location.href = '/'; else logout(); }} className="px-4 py-2 transition-colors text-sm text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white">
+                  {isAdmin ? 'Salir' : 'Cerrar Sesión'}
               </button>
           </div>
         </div>

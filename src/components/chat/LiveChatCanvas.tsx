@@ -69,6 +69,7 @@ import toast from 'react-hot-toast';
 import ModerationService from '../../services/moderationService';
 import ParaphraseLogService from '../../services/paraphraseLogService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useState as useReactState } from 'react';
 import { getDisplayName } from '../../utils/conversationNameHelper';
@@ -141,11 +142,12 @@ const debounce = <T extends (...args: any[]) => any>(
 interface Conversation {
   id: string;
   prospecto_id: string;
+  conversation_id?: string; // ✅ ID real de UChat (ej: f190385u343660219) - viene de uchat_conversations
   numero_telefono?: string;
   nombre_contacto?: string;
   customer_name?: string;
   customer_phone?: string;
-  id_uchat?: string; // ✅ ID de UChat para enviar imágenes
+  id_uchat?: string; // ✅ ID de UChat para enviar imágenes (alternativo, viene de prospectos)
   status?: string;
   estado?: string;
   mensajes_no_leidos?: number;
@@ -587,6 +589,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
 
 const LiveChatCanvas: React.FC = () => {
   const { user } = useAuth();
+  const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
   const { setAppMode } = useAppStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -4402,7 +4405,9 @@ const LiveChatCanvas: React.FC = () => {
     const conversationId = selectedConversation.id;
     const messageContent = messageText;
     // Obtener uchatId de múltiples fuentes posibles
-    const uchatId = selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat || selectedConversation.id;
+    // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
+    // El fallback a selectedConversation.id enviaba UUIDs incorrectos al webhook
+    const uchatId = selectedConversation.conversation_id || selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat;
 
     // Validar que tenemos el uchat_id necesario
     if (!uchatId) {
@@ -5104,7 +5109,8 @@ const LiveChatCanvas: React.FC = () => {
             // Pre-calcular valores fuera del componente para memoización efectiva
             const prospectId = conversation.prospecto_id || conversation.id;
             const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
-            const uchatId = conversation.metadata?.id_uchat || conversation.id_uchat;
+            // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
+            const uchatId = conversation.conversation_id || conversation.metadata?.id_uchat || conversation.id_uchat;
             const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
             
             return (
@@ -5129,7 +5135,7 @@ const LiveChatCanvas: React.FC = () => {
                 onContextMenu={(e) => {
                   e.preventDefault();
                   // Permitir menú contextual para admin, administrador_operativo, coordinadores y coordinadores de Calidad
-                  if (user?.role_name === 'coordinador' || user?.role_name === 'admin' || user?.role_name === 'administrador_operativo' || isCoordinadorCalidad) {
+                  if (isCoordinador || isAdmin || isAdminOperativo || isCoordinadorCalidad) {
                     const ejecutivoId = conversation.metadata?.ejecutivo_id || prospectoData?.ejecutivo_id;
                     const coordinacionId = conversation.metadata?.coordinacion_id || prospectoData?.coordinacion_id;
                     
@@ -5394,10 +5400,11 @@ const LiveChatCanvas: React.FC = () => {
                 })()}
                 
                 {(() => {
-                  // Obtener uchatId de manera consistente (mismo que en handleInitiateCall)
-                  const uchatId = selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat || selectedConversation.id;
-                  const status = botPauseStatus[uchatId];
-                  const timeRemaining = getBotPauseTimeRemaining(uchatId);
+                  // Obtener uchatId de manera consistente
+                  // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
+                  const uchatId = selectedConversation.conversation_id || selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat;
+                  const status = uchatId ? botPauseStatus[uchatId] : undefined;
+                  const timeRemaining = uchatId ? getBotPauseTimeRemaining(uchatId) : null;
                   const isPaused = status?.isPaused && (timeRemaining === null || timeRemaining > 0);
                   
                   return (
@@ -6044,7 +6051,8 @@ const LiveChatCanvas: React.FC = () => {
                           if (sending) return;
                           
                           // Enviar directamente sin pasar por el filtro del LLM
-                          const uchatId = selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat || selectedConversation?.id;
+                          // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
+                          const uchatId = selectedConversation?.conversation_id || selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat;
                           if (uchatId) {
                             // Pausar el bot por 1 minuto antes de enviar quick reply (solo si no hay pausa activa)
                             // force = false para respetar pausas existentes (indefinidas, etc.)

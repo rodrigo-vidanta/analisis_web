@@ -34,6 +34,7 @@ import FilterBar from './components/FilterBar';
 import UserTable from './components/UserTable';
 import UserEditPanel from './components/UserEditPanel';
 import UserCreateModal from './components/UserCreateModal';
+import GroupManagementPanel from './components/GroupManagementPanel';
 import type { TreeNode, ViewMode, UserV2 } from './types';
 
 // Key para localStorage del sidebar interno
@@ -54,6 +55,7 @@ const UserManagementV2: React.FC = () => {
     filteredUsers,
     roles,
     coordinaciones,
+    groups,
     loading,
     error,
     filters,
@@ -69,6 +71,7 @@ const UserManagementV2: React.FC = () => {
     hierarchyTree,
     stats,
     refreshUsers,
+    refreshGroups,
     updateUserStatus,
     unblockUser
   } = useUserManagement();
@@ -122,10 +125,14 @@ const UserManagementV2: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserV2 | null>(null);
+  
+  // Estado para gestión de grupos
+  const [showGroupManagement, setShowGroupManagement] = useState(false);
 
   // Permissions
   const canView = isAdmin || isAdminOperativo;
   const canCreate = isAdmin || isAdminOperativo;
+  const canManageGroups = isAdmin;
 
   // ============================================
   // HANDLERS
@@ -264,8 +271,24 @@ const UserManagementV2: React.FC = () => {
               onStatusFilterChange={(status) => {
                 setEditingUser(null); // Cerrar panel al cambiar filtro
                 setSelectedNode(null); // Limpiar selección de nodo
-                setFilters(prev => ({ ...prev, status: status as typeof prev.status, role: 'all', coordinacion_id: 'all' }));
+                setFilters(prev => ({ ...prev, status: status as typeof prev.status, role: 'all', coordinacion_id: 'all', group_id: 'all' }));
               }}
+              // Grupos de permisos
+              groups={groups}
+              selectedGroupId={filters.group_id !== 'all' ? filters.group_id : null}
+              onSelectGroup={(groupId) => {
+                setEditingUser(null);
+                setSelectedNode(null);
+                setFilters(prev => ({ 
+                  ...prev, 
+                  group_id: groupId || 'all',
+                  role: 'all',
+                  coordinacion_id: 'all',
+                  status: 'all'
+                }));
+              }}
+              onManageGroups={() => setShowGroupManagement(true)}
+              canManageGroups={canManageGroups}
             />
           </motion.div>
         )}
@@ -343,10 +366,27 @@ const UserManagementV2: React.FC = () => {
           />
         </div>
 
-        {/* Content Area - Muestra lista O panel de edición (no ambos) */}
+        {/* Content Area - Muestra lista, panel de edición, o gestión de grupos */}
         <div className="flex-1 min-h-0 overflow-hidden">
           <AnimatePresence mode="wait">
-            {editingUser ? (
+            {showGroupManagement ? (
+              /* Panel de gestión de grupos - Ocupa toda el área de trabajo */
+              <motion.div
+                key="group-management"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="h-full min-h-0 bg-white dark:bg-gray-900 overflow-hidden flex flex-col"
+              >
+                <GroupManagementPanel
+                  onClose={() => {
+                    setShowGroupManagement(false);
+                    refreshGroups();
+                  }}
+                />
+              </motion.div>
+            ) : editingUser ? (
               /* Panel de edición - Ocupa toda el área de trabajo */
               <motion.div
                 key="edit-panel"
@@ -447,6 +487,7 @@ const UserManagementV2: React.FC = () => {
         currentUserId={currentUser?.id}
         onSuccess={refreshUsers}
       />
+
     </div>
   );
 };

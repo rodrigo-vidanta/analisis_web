@@ -147,8 +147,6 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
 
   const getModuleTitle = () => {
     switch (currentMode) {
-      case 'constructor': return 'Constructor de Agentes';
-      case 'plantillas': return 'Plantillas';
       case 'natalia': return 'Natalia IA';
       case 'pqnc': return 'Llamadas PQNC';
       case 'live-monitor': return 'Llamadas IA';

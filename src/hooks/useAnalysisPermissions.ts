@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabaseSystemUI as supabase } from '../config/supabaseSystemUI';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffectivePermissions } from './useEffectivePermissions';
 
 interface AnalysisPermissions {
   natalia: boolean;
@@ -11,6 +12,7 @@ interface AnalysisPermissions {
 
 export const useAnalysisPermissions = () => {
   const { user } = useAuth();
+  const { isAdmin, isDeveloper } = useEffectivePermissions();
   const [permissions, setPermissions] = useState<AnalysisPermissions>({
     natalia: false,
     pqnc: false,
@@ -24,14 +26,14 @@ export const useAnalysisPermissions = () => {
       return;
     }
 
-    // Admins tienen acceso completo
-    if (user.role_name === 'admin') {
+    // Admins tienen acceso completo (usando permisos efectivos)
+    if (isAdmin) {
       setPermissions({ natalia: true, pqnc: true, liveMonitor: true, loading: false });
       return;
     }
 
-    // Developers tienen acceso a análisis y live monitor, pero NO a admin/constructor/plantillas
-    if (user.role_name === 'developer') {
+    // Developers tienen acceso a análisis y live monitor
+    if (isDeveloper) {
       setPermissions({ natalia: true, pqnc: true, liveMonitor: true, loading: false });
       return;
     }

@@ -14,6 +14,7 @@
  * - Sistema de preferencias en localStorage
  * - Suscripciones realtime
  * - Modales reutilizados de módulos existentes
+ * - Verificación de permisos por widget (v2.2.0)
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -25,6 +26,36 @@ import { ConversacionesWidget } from './widgets/ConversacionesWidget';
 import { LlamadasActivasWidget } from './widgets/LlamadasActivasWidget';
 import { LlamadasProgramadasWidget } from './widgets/LlamadasProgramadasWidget';
 import { DashboardConfigModal } from './DashboardConfigModal';
+
+// ============================================
+// MAPEO DE PERMISOS POR WIDGET
+// ============================================
+// Define qué módulo/acción se requiere para ver cada widget
+// Esto permite control granular desde el sistema de permisos
+
+interface WidgetPermissionConfig {
+  moduleId: string;  // ID del módulo asociado
+  fallbackRoles?: string[];  // Roles que siempre tienen acceso (retrocompatibilidad)
+}
+
+const WIDGET_PERMISSIONS: Record<string, WidgetPermissionConfig> = {
+  'prospectos': {
+    moduleId: 'prospectos',
+    fallbackRoles: ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo']
+  },
+  'conversaciones': {
+    moduleId: 'live-chat',
+    fallbackRoles: ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo']
+  },
+  'llamadas-activas': {
+    moduleId: 'live-monitor',
+    fallbackRoles: ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo', 'evaluador']
+  },
+  'llamadas-programadas': {
+    moduleId: 'scheduled-calls',
+    fallbackRoles: ['admin', 'administrador_operativo', 'coordinador', 'ejecutivo']
+  }
+};
 
 // ============================================
 // TIPOS E INTERFACES
@@ -54,7 +85,7 @@ const DEFAULT_WIDGETS: WidgetConfig[] = [
 // ============================================
 
 export const OperativeDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, canAccessModule } = useAuth();
   // Configuración fija - siempre usar DEFAULT_WIDGETS
   const [widgets, setWidgets] = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -70,30 +101,41 @@ export const OperativeDashboard: React.FC = () => {
     };
   }, []);
 
-  // Configuración fija - No cargar desde localStorage
-  // useEffect(() => {
-  //   const saved = localStorage.getItem('operative-dashboard-config');
-  //   if (saved) {
-  //     try {
-  //       const parsed = JSON.parse(saved);
-  //       setWidgets(parsed);
-  //     } catch (error) {
-  //       console.error('Error cargando configuración del dashboard:', error);
-  //     }
-  //   }
-  // }, []);
+  // ============================================
+  // VERIFICACIÓN DE PERMISOS POR WIDGET
+  // ============================================
+  // Determina si el usuario actual puede ver un widget específico
+  // Primero verifica permisos del nuevo sistema, si no, usa fallback por rol
+  
+  const canViewWidget = useMemo(() => {
+    const checkPermission = (widgetId: string): boolean => {
+      const permConfig = WIDGET_PERMISSIONS[widgetId];
+      if (!permConfig) return true; // Sin configuración = visible para todos
+      
+      // Verificar acceso al módulo asociado usando el sistema existente
+      const hasModuleAccess = canAccessModule(permConfig.moduleId);
+      if (hasModuleAccess) return true;
+      
+      // Fallback: verificar por rol (retrocompatibilidad)
+      if (permConfig.fallbackRoles && user?.role_name) {
+        return permConfig.fallbackRoles.includes(user.role_name);
+      }
+      
+      return false;
+    };
 
-  // Configuración fija - No guardar en localStorage
-  // useEffect(() => {
-  //   localStorage.setItem('operative-dashboard-config', JSON.stringify(widgets));
-  // }, [widgets]);
+    // Crear mapa de permisos para cada widget
+    return new Map<string, boolean>(
+      DEFAULT_WIDGETS.map(w => [w.id, checkPermission(w.id)])
+    );
+  }, [user?.role_name, canAccessModule]);
 
-  // Widgets visibles ordenados
+  // Widgets visibles ordenados - ahora también filtra por permisos
   const visibleWidgets = useMemo(() => {
     return widgets
-      .filter(w => w.visible)
+      .filter(w => w.visible && canViewWidget.get(w.id) !== false)
       .sort((a, b) => a.order - b.order);
-  }, [widgets]);
+  }, [widgets, canViewWidget]);
 
   // Actualizar configuración de widget (solo visibilidad, tamaño es fijo)
   const updateWidgetConfig = (widgetId: WidgetType, updates: Partial<WidgetConfig>) => {

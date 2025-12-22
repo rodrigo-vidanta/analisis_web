@@ -5,12 +5,13 @@ import CampanasManager from './campanas/CampanasManager';
 import BasesDatosManager from './bases-datos/BasesDatosManager';
 import SecuenciasManager from './secuencias/SecuenciasManager';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 
 type CampaignTab = 'plantillas' | 'audiencias' | 'campanas' | 'bases-datos' | 'secuencias';
 
 const CampaignsDashboardTabs: React.FC = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role_name === 'admin';
+  const { isAdmin } = useEffectivePermissions();
   const [activeTab, setActiveTab] = useState<CampaignTab>('plantillas');
 
   // Solo administradores pueden acceder

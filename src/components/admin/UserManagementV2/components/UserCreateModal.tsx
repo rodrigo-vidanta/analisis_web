@@ -5,7 +5,7 @@
  * Modal para crear nuevos usuarios siguiendo el diseño enterprise.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -18,12 +18,16 @@ import {
   Loader2,
   UserPlus,
   Eye,
-  EyeOff
+  EyeOff,
+  Shield,
+  Users,
+  Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { Role, Coordinacion } from '../types';
 import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
 import { pqncSupabaseAdmin } from '../../../../config/pqncSupabase';
+import { groupsService, type PermissionGroup } from '../../../../services/groupsService';
 
 // ============================================
 // TYPES
@@ -50,6 +54,7 @@ interface FormData {
   coordinaciones_ids: string[];
   is_active: boolean;
   analysis_sources: string[];
+  group_ids: string[];
 }
 
 const initialFormData: FormData = {
@@ -62,7 +67,8 @@ const initialFormData: FormData = {
   coordinacion_id: '',
   coordinaciones_ids: [],
   is_active: true,
-  analysis_sources: []
+  analysis_sources: [],
+  group_ids: []
 };
 
 // ============================================
@@ -84,9 +90,31 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Estados para grupos de permisos
+  const [availableGroups, setAvailableGroups] = useState<PermissionGroup[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
 
   // Obtener el rol seleccionado
   const selectedRole = roles.find(r => r.id === formData.role_id);
+  
+  // Cargar grupos de permisos disponibles
+  useEffect(() => {
+    const loadGroups = async () => {
+      setLoadingGroups(true);
+      try {
+        const groups = await groupsService.getGroups(true);
+        setAvailableGroups(groups);
+      } catch {
+        setAvailableGroups([]);
+      } finally {
+        setLoadingGroups(false);
+      }
+    };
+    if (isOpen) {
+      loadGroups();
+    }
+  }, [isOpen]);
 
   // Filtrar roles según permisos del usuario actual
   const availableRoles = roles.filter(role => {
@@ -132,9 +160,9 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       return;
     }
 
-    // Validar coordinaciones para coordinadores
-    if (selectedRole?.name === 'coordinador' && formData.coordinaciones_ids.length === 0) {
-      toast.error('Debes seleccionar al menos una coordinación para el coordinador');
+    // Validar coordinaciones para coordinadores y supervisores
+    if ((selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && formData.coordinaciones_ids.length === 0) {
+      toast.error('Debes seleccionar al menos una coordinación');
       return;
     }
 
@@ -165,18 +193,18 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
         throw new Error('No se pudo obtener el ID del usuario creado');
       }
 
-      // Si es coordinador, asignar múltiples coordinaciones
-      if (selectedRole?.name === 'coordinador' && formData.coordinaciones_ids.length > 0) {
+      // Si es coordinador o supervisor, asignar múltiples coordinaciones
+      if ((selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && formData.coordinaciones_ids.length > 0) {
         // Actualizar flags del usuario
         await supabaseSystemUIAdmin
           .from('auth_users')
           .update({
-            is_coordinator: true,
+            is_coordinator: selectedRole?.name === 'coordinador',
             is_ejecutivo: false,
           })
           .eq('id', userId);
 
-        // Insertar relaciones en tabla intermedia
+        // Insertar relaciones en tabla intermedia (auth_user_coordinaciones - nueva)
         const relaciones = formData.coordinaciones_ids.map(coordId => ({
           user_id: userId,
           coordinacion_id: coordId,
@@ -188,7 +216,22 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
           .insert(relaciones);
 
         if (relacionesError) {
-          console.error('Error asignando coordinaciones:', relacionesError);
+          console.error('Error asignando coordinaciones (auth_user_coordinaciones):', relacionesError);
+        }
+
+        // ⚠️ CRÍTICO: También insertar en coordinador_coordinaciones (tabla legacy usada por permissionsService)
+        // Esta tabla es la que usa el servicio de permisos para filtrar prospectos
+        try {
+          const relacionesLegacy = formData.coordinaciones_ids.map(coordId => ({
+            coordinador_id: userId,
+            coordinacion_id: coordId
+          }));
+
+          await supabaseSystemUIAdmin
+            .from('coordinador_coordinaciones')
+            .insert(relacionesLegacy);
+        } catch (legacyError) {
+          console.warn('Error insertando en coordinador_coordinaciones (no crítico):', legacyError);
         }
       }
 
@@ -211,6 +254,17 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       // Si es evaluador, asignar permisos de análisis
       if (selectedRole?.name === 'evaluator' && formData.analysis_sources.length > 0) {
         // TODO: Implementar asignación de permisos de análisis
+      }
+
+      // Asignar grupos de permisos
+      if (formData.group_ids.length > 0) {
+        for (const groupId of formData.group_ids) {
+          try {
+            await groupsService.assignUserToGroup(userId, groupId);
+          } catch (err) {
+            console.error(`Error asignando grupo ${groupId}:`, err);
+          }
+        }
       }
 
       toast.success('Usuario creado exitosamente');
@@ -470,9 +524,9 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
                   )}
                 </AnimatePresence>
 
-                {/* Coordinaciones para Coordinadores (múltiples) */}
+                {/* Coordinaciones para Coordinadores/Supervisores (múltiples) */}
                 <AnimatePresence>
-                  {selectedRole?.name === 'coordinador' && (
+                  {(selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -539,6 +593,100 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* Sección: Grupos de Permisos */}
+                {availableGroups.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-full" />
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Grupos de Permisos
+                      </h4>
+                      {loadingGroups && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                    </div>
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Asigna grupos de permisos predefinidos para este usuario (opcional)
+                    </p>
+
+                    <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
+                      {availableGroups
+                        .filter(g => !selectedRole || g.base_role === selectedRole.name || !g.base_role)
+                        .map((group) => {
+                          const isChecked = formData.group_ids.includes(group.id);
+                          const isMatchingRole = selectedRole && group.base_role === selectedRole.name;
+                          
+                          return (
+                            <label
+                              key={group.id}
+                              className={`relative flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                                isChecked
+                                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                                  : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const ids = e.target.checked
+                                    ? [...formData.group_ids, group.id]
+                                    : formData.group_ids.filter(id => id !== group.id);
+                                  setFormData(prev => ({ ...prev, group_ids: ids }));
+                                }}
+                              />
+                              <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all flex-shrink-0 ${
+                                isChecked
+                                  ? 'bg-indigo-500 border-indigo-500'
+                                  : 'border-gray-300 dark:border-gray-600'
+                              }`}>
+                                {isChecked && (
+                                  <Check className="w-3 h-3 text-white" />
+                                )}
+                              </div>
+                              
+                              {/* Group Icon */}
+                              <div 
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mr-3 bg-gradient-to-br ${group.color || 'from-gray-500 to-gray-600'}`}
+                              >
+                                <Shield className="w-4 h-4 text-white" />
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm font-medium ${
+                                    isChecked
+                                      ? 'text-indigo-700 dark:text-indigo-300'
+                                      : 'text-gray-700 dark:text-gray-300'
+                                  }`}>
+                                    {group.display_name}
+                                  </span>
+                                  {isMatchingRole && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded flex items-center gap-1">
+                                      <Users className="w-3 h-3" />
+                                      Recomendado
+                                    </span>
+                                  )}
+                                </div>
+                                {group.description && (
+                                  <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                    {group.description}
+                                  </p>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </motion.div>
+                )}
               </motion.div>
 
               {/* Sección: Estado */}

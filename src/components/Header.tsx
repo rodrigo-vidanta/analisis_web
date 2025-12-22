@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useUserProfile } from '../hooks/useUserProfile';
+import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 import { AssignmentBadge } from './analysis/AssignmentBadge';
 import UserProfileModal from './shared/UserProfileModal';
 import AdminMessagesModal from './admin/AdminMessagesModal';
@@ -210,10 +211,10 @@ interface HeaderProps {
   progress?: number;
   progressText?: string;
   darkMode: boolean;
-  appMode?: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard' | 'campaigns';
+  appMode?: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'direccion' | 'live-chat' | 'ai-models' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard' | 'campaigns';
   onToggleDarkMode: () => void;
   onReset?: () => void;
-  onModeChange?: (mode: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'aws-manager' | 'direccion' | 'live-chat' | 'ai-models' | 'log-server' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard' | 'campaigns') => void;
+  onModeChange?: (mode: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'direccion' | 'live-chat' | 'ai-models' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard' | 'campaigns') => void;
   simplified?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -249,8 +250,8 @@ const Header = ({
     };
   }, []);
   
-  const isAdmin = user?.role_name === 'admin';
-  const isAdminOperativo = user?.role_name === 'administrador_operativo';
+  // Permisos efectivos (rol base + grupos asignados)
+  const { isAdmin, isAdminOperativo } = useEffectivePermissions();
 
   // Cargar contador de mensajes no leídos
   useEffect(() => {
@@ -329,8 +330,6 @@ const Header = ({
                      appMode === 'admin' ? 'Administración' :
                      appMode === 'live-chat' ? 'WhatsApp' :
                      appMode === 'ai-models' ? 'Modelos LLM' :
-                     appMode === 'aws-manager' ? 'Administración AWS' :
-                     appMode === 'log-server' ? 'Logs' :
                      appMode === 'prospectos' ? 'Prospectos' :
                      appMode === 'scheduled-calls' ? 'Programación' :
                      appMode === 'operative-dashboard' ? 'Inicio' :
@@ -387,16 +386,6 @@ const Header = ({
                     Gestión avanzada de modelos de IA para voz e imágenes
                   </p>
                 )}
-                {appMode === 'aws-manager' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Gestión y monitoreo de infraestructura AWS
-                  </p>
-                )}
-                {appMode === 'log-server' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Configuración del sistema de logging de errores críticos
-                  </p>
-                )}
                 {appMode === 'admin' && (
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Administración de plantillas y configuración del sistema
@@ -444,23 +433,38 @@ const Header = ({
               )}
               
               {/* Botones de navegación para admin */}
-              {user?.role_name === 'admin' && (
+              {isAdmin && (
                 <div className="hidden md:flex items-center space-x-2">
+                  {/* Botón CRM - En desarrollo */}
                   <button 
-                    onClick={() => onModeChange?.('aws-manager')}
-                    className={`relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium ${
-                      appMode === 'aws-manager'
-                        ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md'
-                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
-                    title="Administración AWS - Gestión de Infraestructura"
+                    disabled
+                    className="relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60"
+                    title="CRM - Próximamente"
                   >
                     <div className="flex items-center space-x-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
-                      <span>AWS</span>
+                      <span>CRM</span>
+                      <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">Próx</span>
                     </div>
+                  </button>
+
+                  {/* Botón Logs - Solo icono */}
+                  <button 
+                    onClick={() => {
+                      onModeChange?.('admin');
+                      // Disparar evento para cambiar a pestaña logs después de navegar
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('admin-navigate-tab', { detail: 'logs' }));
+                      }, 100);
+                    }}
+                    className="relative p-2 rounded-lg transition-all duration-300 group bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400"
+                    title="Logs del Sistema"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                   </button>
                   
                   <button 
@@ -730,26 +734,24 @@ const Header = ({
                 </button>
               )}
               
-              {user?.role_name === 'admin' && (
+              {/* Botón CRM - En desarrollo */}
+              {isAdmin && (
                 <button 
-                  onClick={() => onModeChange?.('aws-manager')}
-                  className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
-                    appMode === 'aws-manager'
-                      ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}
-                  title="AWS Manager - Gestión de Infraestructura"
+                  disabled
+                  className="relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60"
+                  title="CRM - Próximamente"
                 >
                   <div className="flex items-center space-x-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span>AWS</span>
+                    <span>CRM</span>
+                    <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">Próx</span>
                   </div>
                 </button>
               )}
               
-              {user?.role_name === 'admin' && (
+              {isAdmin && (
                 <button 
                   onClick={() => onModeChange?.('admin')}
                   className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
@@ -882,7 +884,7 @@ const Header = ({
               <button
                 onClick={onReset}
                 className="relative p-3 rounded-xl bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-800/50 transition-all duration-300 group"
-                title="Reiniciar constructor"
+                title="Reiniciar"
               >
                 <svg className="w-4 h-4 text-red-600 dark:text-red-400 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

@@ -16,6 +16,7 @@ import { coordinacionService } from '../../../services/coordinacionService';
 import { prospectsService } from '../../../services/prospectsService';
 import { useAppStore } from '../../../stores/appStore';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions';
 import { AssignmentBadge } from '../../analysis/AssignmentBadge';
 import { BackupBadgeWrapper } from '../../shared/BackupBadgeWrapper';
 import { MultimediaMessage, needsBubble } from '../../chat/MultimediaMessage';
@@ -47,6 +48,7 @@ interface ConversacionesWidgetProps {
 
 export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ userId }) => {
   const { user } = useAuth();
+  const { isAdmin, isAdminOperativo } = useEffectivePermissions();
   const { setAppMode } = useAppStore();
   const [conversations, setConversations] = useState<UChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -602,7 +604,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     if (!userId) return false;
     
     // Administradores y administradores operativos pueden ver todas las conversaciones
-    if (user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
+    if (isAdmin || isAdminOperativo) {
       return true;
     }
     
@@ -1678,7 +1680,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       );
 
       // Debug logs para administradores
-      if (user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
+      if (isAdmin || isAdminOperativo) {
         console.log('🔍 [ConversacionesWidget] Debug Admin:', {
           uchatConversationsRaw: uchatConversationsRaw.length,
           rpcData: rpcData.length,

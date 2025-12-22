@@ -10,6 +10,7 @@ import { coordinacionService, type Ejecutivo } from '../../services/coordinacion
 import { assignmentService } from '../../services/assignmentService';
 import { permissionsService } from '../../services/permissionsService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import toast from 'react-hot-toast';
 
 interface BulkAssignmentModalProps {
@@ -35,9 +36,8 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
   const [coordinaciones, setCoordinaciones] = useState<any[]>([]);
   const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
 
-  const isAdmin = user?.role_name === 'admin';
-  const isAdminOperativo = user?.role_name === 'administrador_operativo';
-  const isCoordinador = user?.role_name === 'coordinador';
+  // Usar permisos efectivos (rol base + grupos asignados)
+  const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
 
   // Verificar si es coordinador de Calidad y cargar datos
   useEffect(() => {

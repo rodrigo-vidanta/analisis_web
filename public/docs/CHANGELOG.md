@@ -2,6 +2,88 @@
 
 ## Historial de Versiones
 
+### v2.1.39 (2025-12-22)
+**Descripción**: B6.2.0N6.0.0: Sistema de Permisos por Grupos + Rol Supervisor Completo
+
+---
+
+## 🎯 **RELEASE B6.2.0N6.0.0 - Sistema de Permisos por Grupos + Rol Supervisor**
+
+### ✨ **Nuevas Características**
+
+#### 1. **Sistema de Permisos por Grupos (estilo Active Directory)**
+   - Nuevo sistema de grupos de permisos similar a Active Directory
+   - Grupos predefinidos: `system_admin`, `administrador_operativo`, `coordinador`, `supervisor`, `ejecutivo`, `evaluador`, `developer`, `full_admin`
+   - Los usuarios pueden tener múltiples grupos asignados
+   - Los permisos efectivos combinan el rol base + grupos asignados
+   - Interfaz embebida en UserManagementV2 para gestión de grupos
+   - Hook `useEffectivePermissions` para verificar permisos en todo el sistema
+
+#### 2. **Rol Supervisor Completamente Funcional**
+   - Nuevo rol `supervisor` con permisos similares a coordinador
+   - Filtro de prospectos por coordinación (igual que coordinador)
+   - Modal de backup al cerrar sesión
+   - Prioridad en sistema de backup: Ejecutivo → Supervisor → Coordinador
+   - Inserción en `coordinador_coordinaciones` al crear/editar supervisor
+   - Carga de `coordinaciones_ids` al login
+
+#### 3. **Permisos Efectivos en Todo el Sistema**
+   - 26+ archivos actualizados para usar `useEffectivePermissions`
+   - Un usuario con grupo `admin` tiene permisos de admin aunque su rol base sea otro
+   - Verificaciones en: Header, Sidebar, MainApp, AdminDashboardTabs, LiveChatCanvas, ProspectosManager, etc.
+
+### 📁 **Archivos Modificados**
+
+**Nuevo Hook:**
+- `src/hooks/useEffectivePermissions.ts` - Hook centralizado para permisos efectivos
+
+**Sistema de Grupos:**
+- `src/services/groupsService.ts` - CRUD de grupos
+- `src/config/permissionModules.ts` - Catálogo de permisos por módulo
+- `src/components/admin/UserManagementV2/components/GroupManagementPanel.tsx` - UI de gestión
+- `scripts/sql/create_permission_groups.sql` - Tablas de grupos
+- `scripts/sql/create_supervisor_role.sql` - Creación del rol supervisor
+
+**Permisos Efectivos (26 archivos):**
+- `src/components/Header.tsx`
+- `src/components/Sidebar.tsx`
+- `src/components/MainApp.tsx`
+- `src/components/linear/LinearSidebar.tsx`
+- `src/components/admin/AdminDashboardTabs.tsx`
+- `src/components/admin/UserManagement.tsx`
+- `src/components/admin/UserManagementV2/hooks/useUserManagement.ts`
+- `src/components/admin/CoordinacionesManager.tsx`
+- `src/components/admin/LogServerManager.tsx`
+- `src/components/chat/LiveChatCanvas.tsx`
+- `src/components/chat/LiveChatModule.tsx`
+- `src/components/chat/CallDetailModalSidebar.tsx`
+- `src/components/prospectos/ProspectosManager.tsx`
+- `src/components/shared/AssignmentContextMenu.tsx`
+- `src/components/shared/BulkAssignmentModal.tsx`
+- `src/components/analysis/AssignmentBadge.tsx`
+- `src/components/analysis/AnalysisDashboard.tsx`
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx`
+- `src/components/campaigns/CampaignsDashboardTabs.tsx`
+- `src/components/direccion/Timeline.tsx`
+- `src/components/TokenUsageIndicator.tsx`
+- `src/hooks/useAnalysisPermissions.ts`
+
+**Rol Supervisor:**
+- `src/services/coordinacionService.ts` - Método `getSupervisoresByCoordinacion`
+- `src/services/backupService.ts` - Prioridad de backup actualizada
+- `src/services/permissionsService.ts` - Filtros para supervisor
+- `src/services/authService.ts` - Carga de `coordinaciones_ids`
+- `src/contexts/AuthContext.tsx` - Modal de backup para supervisor
+- `src/hooks/useInactivityTimeout.ts` - Backup por inactividad
+- `src/components/auth/BackupSelectionModal.tsx` - Badge de supervisor
+- `src/components/admin/UserManagementV2/components/UserCreateModal.tsx` - Inserción en tablas
+- `src/components/admin/UserManagementV2/components/TreeViewSidebar.tsx` - Icono supervisor
+
+**Documentación:**
+- `docs/PERMISSION_GROUPS_SYSTEM.md` - Documentación completa del sistema
+
+---
+
 ### v2.1.38 (2025-12-19)
 **Descripción**: B6.1.5N6.0.0: Corrección funcionalidad "Recordarme" en Login
 

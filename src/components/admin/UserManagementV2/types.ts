@@ -102,9 +102,10 @@ export interface RoleNode extends TreeNode {
 export interface UserFilters {
   search: string;
   role: RoleName | 'all';
-  status: 'all' | 'active' | 'inactive' | 'blocked' | 'blocked_password' | 'archived' | 'operativo' | 'no_operativo';
+  status: 'all' | 'active' | 'inactive' | 'blocked' | 'blocked_password' | 'archived' | 'operativo' | 'no_operativo' | 'online';
   operativo: 'all' | 'operativo' | 'no_operativo';
   coordinacion_id: string | 'all';
+  group_id: string | 'all'; // Filtro por grupo de permisos
   dateRange?: {
     start: string;
     end: string;
@@ -244,6 +245,7 @@ export const ROLE_HIERARCHY: Role[] = [
 
 export const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos los estados', color: 'gray' },
+  { value: 'online', label: '🟢 Activo Ahora', color: 'emerald' },
   { value: 'active', label: 'Activos', color: 'emerald' },
   { value: 'inactive', label: 'Inactivos', color: 'gray' },
   { value: 'blocked', label: 'Bloqueados (Moderación)', color: 'red' },

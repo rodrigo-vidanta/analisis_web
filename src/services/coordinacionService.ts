@@ -698,6 +698,133 @@ class CoordinacionService {
   }
 
   /**
+   * Obtiene todos los supervisores de una coordinación específica
+   * IMPORTANTE: Solo obtiene supervisores que están asignados a esta coordinación específica
+   * a través de la tabla coordinador_coordinaciones (misma tabla que coordinadores)
+   */
+  async getSupervisoresByCoordinacion(coordinacionId: string): Promise<Ejecutivo[]> {
+    try {
+      // Primero obtener la coordinación para tener su información
+      const coordinacion = await this.getCoordinacionById(coordinacionId);
+      
+      // Obtener supervisores a través de la tabla intermedia coordinador_coordinaciones
+      // Nota: Supervisores usan la misma tabla que coordinadores
+      const { data: supervisorCoordinaciones, error: scError } = await supabaseSystemUI
+        .from('coordinador_coordinaciones')
+        .select(`
+          coordinador_id,
+          coordinacion_id,
+          coordinaciones:coordinacion_id (
+            codigo,
+            nombre
+          )
+        `)
+        .eq('coordinacion_id', coordinacionId);
+
+      if (scError) {
+        throw scError;
+      }
+
+      if (!supervisorCoordinaciones || supervisorCoordinaciones.length === 0) {
+        return [];
+      }
+
+      // Extraer IDs de supervisores potenciales
+      const potentialSupervisorIds = supervisorCoordinaciones
+        .map(sc => sc.coordinador_id)
+        .filter((id): id is string => id !== null && id !== undefined);
+
+      if (potentialSupervisorIds.length === 0) {
+        return [];
+      }
+
+      // Obtener datos de usuarios que son SUPERVISORES (role_name = 'supervisor')
+      // Necesitamos hacer join con auth_roles para filtrar solo supervisores
+      const { data: usersData, error: usersError } = await supabaseSystemUI
+        .from('auth_users')
+        .select(`
+          id,
+          email,
+          full_name,
+          first_name,
+          last_name,
+          phone,
+          coordinacion_id,
+          is_active,
+          is_operativo,
+          id_dynamics,
+          email_verified,
+          last_login,
+          created_at,
+          role_id,
+          auth_roles:role_id (
+            name
+          )
+        `)
+        .in('id', potentialSupervisorIds)
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (usersError) {
+        throw usersError;
+      }
+
+      // Filtrar solo usuarios con rol 'supervisor'
+      const supervisores = (usersData || [])
+        .filter((user: any) => {
+          // Verificar que el usuario es supervisor
+          const role = Array.isArray(user.auth_roles) ? user.auth_roles[0] : user.auth_roles;
+          if (role?.name !== 'supervisor') {
+            return false;
+          }
+
+          // Verificar que el usuario realmente pertenece a esta coordinación específica
+          const relacion = supervisorCoordinaciones.find(sc => 
+            sc.coordinador_id === user.id && 
+            sc.coordinacion_id === coordinacionId
+          );
+          
+          return !!relacion;
+        })
+        .map((user: any) => {
+          const relacion = supervisorCoordinaciones.find(sc => 
+            sc.coordinador_id === user.id && 
+            sc.coordinacion_id === coordinacionId
+          );
+          
+          const coordinacionData = relacion?.coordinaciones;
+          const coordInfo = Array.isArray(coordinacionData) 
+            ? coordinacionData[0] 
+            : coordinacionData;
+          
+          return {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            phone: user.phone,
+            coordinacion_id: coordinacionId,
+            coordinacion_codigo: coordInfo?.codigo || coordinacion?.codigo,
+            coordinacion_nombre: coordInfo?.nombre || coordinacion?.nombre,
+            is_active: user.is_active,
+            is_operativo: user.is_operativo,
+            id_dynamics: user.id_dynamics,
+            email_verified: user.email_verified,
+            last_login: user.last_login,
+            created_at: user.created_at,
+            is_supervisor: true, // Marca para identificar supervisores
+          };
+        });
+      
+      return supervisores;
+    } catch (error) {
+      console.error('Error obteniendo supervisores:', error);
+      return []; // Retornar array vacío en lugar de throw para no romper el flujo
+    }
+  }
+
+  /**
    * Obtiene todos los coordinadores de una coordinación específica
    * IMPORTANTE: Solo obtiene coordinadores que están asignados a esta coordinación específica
    * a través de la tabla coordinador_coordinaciones

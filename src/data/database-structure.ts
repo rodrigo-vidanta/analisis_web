@@ -6,7 +6,7 @@
 // ============== TIPOS BASE ==============
 export type AgentCategory = 'atencion_clientes' | 'ventas' | 'cobranza' | 'soporte_tecnico';
 export type ProjectType = 'individual' | 'squad' | '';
-export type AppMode = 'constructor' | 'admin';
+export type AppMode = 'admin';
 
 // ============== INTERFACES PRINCIPALES ==============
 

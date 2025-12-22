@@ -21,6 +21,7 @@ import { supabaseSystemUI, supabaseSystemUIAdmin } from '../../config/supabaseSy
 import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import AvatarUpload from './AvatarUpload';
 import AvatarCropModal from './AvatarCropModal';
 import ParaphraseLogService from '../../services/paraphraseLogService';
@@ -138,11 +139,9 @@ const UserManagement: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'department' | 'last_login' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Verificar permisos según nuevo sistema de roles
+  // Verificar permisos según nuevo sistema de roles (usando permisos efectivos)
   const { user: currentUser } = useAuth();
-  const isAdmin = currentUser?.role_name === 'admin';
-  const isAdminOperativo = currentUser?.role_name === 'administrador_operativo';
-  const isCoordinador = currentUser?.role_name === 'coordinador';
+  const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
   
   // Permisos de visualización
   const canView = hasPermission('admin.users.view') || isAdmin || isAdminOperativo || isCoordinador;
@@ -3421,16 +3420,17 @@ const UserManagement: React.FC = () => {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {['constructor', 'plantillas', 'analisis', 'admin'].map(module => {
+                    {['analisis', 'admin', 'live-chat', 'live-monitor', 'prospectos'].map(module => {
                       const modulePermissions = userPermissions.filter(p => p.module === module);
                       if (modulePermissions.length === 0) return null;
                       
                       return (
                         <div key={module} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
                           <h5 className="font-medium text-gray-900 dark:text-white mb-2 capitalize">
-                            {module === 'plantillas' ? 'Plantillas' : 
-                             module === 'analisis' ? 'Análisis' : 
-                             module === 'constructor' ? 'Constructor' : 'Administración'}
+                            {module === 'analisis' ? 'Análisis' : 
+                             module === 'live-chat' ? 'Live Chat' :
+                             module === 'live-monitor' ? 'Live Monitor' :
+                             module === 'prospectos' ? 'Prospectos' : 'Administración'}
                           </h5>
                           <div className="grid grid-cols-1 gap-1">
                             {modulePermissions.map(permission => (

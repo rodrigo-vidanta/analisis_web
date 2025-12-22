@@ -22,6 +22,7 @@ import Chart from 'chart.js/auto';
 import { ProspectAvatar } from '../analysis/ProspectAvatar';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import toast from 'react-hot-toast';
 
 /**
@@ -100,11 +101,8 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
 }) => {
   const { user } = useAuth();
   
-  // Verificar roles del usuario para mostrar información condicionalmente
-  const isAdmin = user?.role_name === 'admin';
-  const isAdminOperativo = user?.role_name === 'administrador_operativo';
-  const isCoordinador = user?.role_name === 'coordinador';
-  const isEjecutivo = user?.role_name === 'ejecutivo';
+  // Verificar roles del usuario para mostrar información condicionalmente (usando permisos efectivos)
+  const { isAdmin, isAdminOperativo, isCoordinador, isEjecutivo } = useEffectivePermissions();
   
   // Determinar qué información mostrar según el rol
   const canSeeEjecutivo = isAdmin || isAdminOperativo || isCoordinador;

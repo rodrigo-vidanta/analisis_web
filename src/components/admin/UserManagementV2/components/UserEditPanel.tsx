@@ -26,11 +26,15 @@ import {
   Archive,
   ShieldAlert,
   Eye,
-  EyeOff
+  EyeOff,
+  Shield,
+  Users,
+  Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { UserV2, Role, Coordinacion } from '../types';
 import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
+import { groupsService, type PermissionGroup } from '../../../../services/groupsService';
 
 // ============================================
 // TYPES
@@ -88,6 +92,11 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Estados para grupos de permisos
+  const [availableGroups, setAvailableGroups] = useState<PermissionGroup[]>([]);
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  
   // Form data
   const [formData, setFormData] = useState<FormData>({
     email: user.email || '',
@@ -120,6 +129,26 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
     });
     setIsEditingPassword(false);
     setError(null);
+    
+    // Cargar grupos de permisos
+    const loadGroups = async () => {
+      setLoadingGroups(true);
+      try {
+        const groups = await groupsService.getGroups(true);
+        setAvailableGroups(groups);
+        
+        // Cargar grupos asignados al usuario
+        const assignedGroups = await groupsService.getUserGroups(user.id);
+        setUserGroups(assignedGroups.map(g => g.group_id));
+      } catch {
+        // Tablas de grupos no existen aún
+        setAvailableGroups([]);
+        setUserGroups([]);
+      } finally {
+        setLoadingGroups(false);
+      }
+    };
+    loadGroups();
   }, [user]);
 
   // Get selected role
@@ -169,7 +198,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
       // Agregar coordinación según el rol
       if (selectedRole?.name === 'ejecutivo') {
         updates.coordinacion_id = formData.coordinacion_id || undefined;
-      } else if (selectedRole?.name === 'coordinador') {
+      } else if (selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') {
         updates.coordinaciones_ids = formData.coordinaciones_ids;
       }
 
@@ -239,6 +268,39 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
     setFormData(prev => ({ ...prev, is_operativo: !prev.is_operativo }));
     setError(null);
   }, [user.role_name, user.id_dynamics, formData.is_operativo]);
+
+  // Manejar toggle de grupos de permisos
+  const handleToggleGroup = useCallback(async (groupId: string) => {
+    const isCurrentlyAssigned = userGroups.includes(groupId);
+    
+    // Guardar estado anterior para posible revert
+    const previousGroups = [...userGroups];
+    
+    // Actualizar estado local inmediatamente para feedback visual
+    const newGroups = isCurrentlyAssigned 
+      ? userGroups.filter(id => id !== groupId)
+      : [...userGroups, groupId];
+    setUserGroups(newGroups);
+    
+    try {
+      if (isCurrentlyAssigned) {
+        // Remover de user_permission_groups
+        await groupsService.removeUserFromGroup(user.id, groupId);
+        toast.success('Grupo removido');
+      } else {
+        // Agregar a user_permission_groups
+        await groupsService.assignUserToGroup(user.id, groupId);
+        toast.success('Grupo asignado');
+      }
+      // Refrescar lista de usuarios en el sidebar
+      onRefresh();
+    } catch (err) {
+      console.error('Error toggling group:', err);
+      // Revertir el cambio local si falló (usando copia del estado anterior)
+      setUserGroups(previousGroups);
+      toast.error('Error al modificar grupo');
+    }
+  }, [user.id, userGroups, onRefresh]);
 
   // ============================================
   // RENDER
@@ -536,8 +598,8 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                   </select>
                 </div>
 
-                {/* Coordinaciones for Coordinador (Multiple) */}
-                {selectedRole?.name === 'coordinador' && (
+                {/* Coordinaciones for Coordinador/Supervisor (Multiple) */}
+                {(selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -614,6 +676,92 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
               </select>
             </motion.div>
           )}
+
+                {/* Section: Grupos de Permisos */}
+                {availableGroups.length > 0 && (
+                  <div className="space-y-4 mt-6">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-full" />
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Grupos de Permisos
+                      </h4>
+                      {loadingGroups && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                    </div>
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Asigna grupos de permisos predefinidos para este usuario
+                    </p>
+
+                    <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                      {availableGroups.map(group => {
+                        const isAssigned = userGroups.includes(group.id);
+                        const isMatchingRole = group.base_role === user.role_name;
+                        
+                        return (
+                          <label
+                            key={group.id}
+                            className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all group ${
+                              isAssigned
+                                ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600'
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                              isAssigned 
+                                ? 'bg-indigo-500 border-indigo-500' 
+                                : 'border-gray-300 dark:border-gray-600 group-hover:border-indigo-400'
+                            }`}>
+                              {isAssigned && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={isAssigned}
+                              onChange={() => handleToggleGroup(group.id)}
+                            />
+                            
+                            {/* Group Icon */}
+                            <div 
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${group.color || 'from-gray-500 to-gray-600'}`}
+                            >
+                              <Shield className="w-4 h-4 text-white" />
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-medium truncate ${
+                                  isAssigned
+                                    ? 'text-indigo-700 dark:text-indigo-300'
+                                    : 'text-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {group.display_name}
+                                </span>
+                                {isMatchingRole && (
+                                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded flex items-center gap-1 flex-shrink-0">
+                                    <Users className="w-3 h-3" />
+                                    Recomendado
+                                  </span>
+                                )}
+                                {group.is_system && (
+                                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded flex-shrink-0">
+                                    Sistema
+                                  </span>
+                                )}
+                              </div>
+                              {group.description && (
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                  {group.description}
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Section: Status Toggles */}

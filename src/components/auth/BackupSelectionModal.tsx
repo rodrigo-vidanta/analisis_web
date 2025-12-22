@@ -52,7 +52,7 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
 
   const handleConfirm = async () => {
     if (!selectedBackupId) {
-      toast.error('Por favor selecciona un ejecutivo o coordinador como backup');
+      toast.error('Por favor selecciona un ejecutivo, supervisor o coordinador como backup');
       return;
     }
 
@@ -111,12 +111,19 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
       });
     }
 
-    // Ordenar: primero ejecutivos operativos, luego coordinadores
-    // PRIORIDAD: Ejecutivos primero, luego coordinadores
+    // Ordenar: primero ejecutivos, luego supervisores, luego coordinadores
+    // PRIORIDAD: Ejecutivos > Supervisores > Coordinadores
     filtered.sort((a, b) => {
-      // Ejecutivos primero (is_coordinator = false)
-      if (!a.is_coordinator && b.is_coordinator) return -1;
-      if (a.is_coordinator && !b.is_coordinator) return 1;
+      // Ejecutivos primero (ni supervisor ni coordinador)
+      const aIsEjecutivo = !a.is_coordinator && !a.is_supervisor;
+      const bIsEjecutivo = !b.is_coordinator && !b.is_supervisor;
+      if (aIsEjecutivo && !bIsEjecutivo) return -1;
+      if (!aIsEjecutivo && bIsEjecutivo) return 1;
+      
+      // Supervisores antes que coordinadores
+      if (a.is_supervisor && b.is_coordinator) return -1;
+      if (a.is_coordinator && b.is_supervisor) return 1;
+      
       // Si ambos son del mismo tipo, ordenar alfabéticamente
       return a.full_name.localeCompare(b.full_name);
     });
@@ -161,7 +168,7 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
                   Seleccionar Backup
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Elige un ejecutivo o coordinador que atenderá tus prospectos mientras estés fuera
+                  Elige un ejecutivo, supervisor o coordinador que atenderá tus prospectos mientras estés fuera
                 </p>
                 <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                   <p className="text-xs text-amber-800 dark:text-amber-300">
@@ -208,7 +215,7 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <AlertCircle className="w-12 h-12 text-yellow-500 mb-4" />
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  No hay ejecutivos operativos ni coordinadores con teléfono disponibles en tu coordinación para asignar como backup.
+                  No hay ejecutivos, supervisores ni coordinadores con teléfono disponibles en tu coordinación para asignar como backup.
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                   Contacta a tu coordinador para más información.
@@ -322,7 +329,12 @@ const BackupSelectionModal: React.FC<BackupSelectionModalProps> = ({
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                           {backup.full_name}
                         </span>
-                        {backup.is_coordinator && (
+                        {backup.is_supervisor && (
+                          <span className="text-xs px-2 py-0.5 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 rounded-full font-medium">
+                            Supervisor
+                          </span>
+                        )}
+                        {backup.is_coordinator && !backup.is_supervisor && (
                           <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full font-medium">
                             Coordinador
                           </span>

@@ -30,6 +30,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import Chart from 'chart.js/auto';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { permissionsService } from '../../services/permissionsService';
 import { prospectsViewPreferencesService } from '../../services/prospectsViewPreferencesService';
 import type { ViewType } from '../../services/prospectsViewPreferencesService';
@@ -928,6 +929,7 @@ interface ProspectosManagerProps {
 
 const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveChat, onNavigateToNatalia }) => {
   const { user } = useAuth();
+  const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
   const [prospectos, setProspectos] = useState<Prospecto[]>([]);
   const [allProspectos, setAllProspectos] = useState<Prospecto[]>([]); // Todos los prospectos cargados
   const [loading, setLoading] = useState(true);
@@ -1546,7 +1548,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             </button>
             
             {/* Botón de reasignación masiva (admin, admin operativo y coordinadores de Calidad en vista grid) */}
-            {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo' || isCoordinadorCalidad) && viewType === 'datagrid' && selectedProspectIds.size > 0 && (
+            {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && viewType === 'datagrid' && selectedProspectIds.size > 0 && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -1603,7 +1605,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             prospectos={filteredAndSortedProspectos}
             onProspectoClick={handleProspectoClick}
             onProspectoContextMenu={(e, prospecto) => {
-              if (user?.role_name === 'coordinador' || user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
+              if (isCoordinador || isAdmin || isAdminOperativo) {
                 setAssignmentContextMenu({
                   prospectId: prospecto.id,
                   coordinacionId: prospecto.coordinacion_id,
@@ -1716,7 +1718,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   {/* Checkbox de selección múltiple (admin, admin operativo y coordinadores de Calidad) */}
-                  {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo' || isCoordinadorCalidad) && (
+                  {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
                     <th className="px-3 md:px-4 lg:px-6 py-2 md:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-12">
                       <div className="flex items-center justify-center">
                         <button
@@ -1787,7 +1789,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       onClick={() => handleProspectoClick(prospecto)}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        if (user?.role_name === 'coordinador' || user?.role_name === 'admin' || user?.role_name === 'administrador_operativo') {
+                        if (isCoordinador || isAdmin || isAdminOperativo) {
                           setAssignmentContextMenu({
                             prospectId: prospecto.id,
                             coordinacionId: prospecto.coordinacion_id,
@@ -1810,7 +1812,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       }`}
                     >
                       {/* Checkbox de selección (admin, admin operativo y coordinadores de Calidad) */}
-                      {(user?.role_name === 'admin' || user?.role_name === 'administrador_operativo' || isCoordinadorCalidad) && (
+                      {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
                         <td 
                           className="px-3 md:px-4 lg:px-6 py-3 md:py-4 align-middle"
                           onClick={(e) => {

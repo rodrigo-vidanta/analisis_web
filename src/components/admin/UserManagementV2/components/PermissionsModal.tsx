@@ -3,9 +3,10 @@
  * PERMISSIONS MODAL
  * ============================================
  * Modal para gestionar permisos y grupos de seguridad de usuarios
+ * Actualizado para soportar grupos de permisos
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -19,17 +20,16 @@ import {
   Users,
   Settings,
   Eye,
-  Edit,
-  Trash2,
-  Plus,
   ChevronRight,
   ChevronDown,
   Search,
-  Info
+  Layers,
+  UserCheck
 } from 'lucide-react';
 import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
 import type { UserV2, Permission, UserPermission } from '../types';
 import toast from 'react-hot-toast';
+import { groupsService, type PermissionGroup as GroupType } from '../../../../services/groupsService';
 
 // ============================================
 // TYPES
@@ -42,7 +42,7 @@ interface PermissionsModalProps {
   onPermissionsUpdated: () => void;
 }
 
-interface PermissionGroup {
+interface PermissionGroupUI {
   module: string;
   displayName: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -77,10 +77,16 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
-  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set(['admin']));
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set(['groups']));
   const [searchTerm, setSearchTerm] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Map<string, boolean>>(new Map());
+  
+  // Estados para grupos de permisos
+  const [groups, setGroups] = useState<GroupType[]>([]);
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [pendingGroupChanges, setPendingGroupChanges] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'groups' | 'individual'>('groups');
 
   // ============================================
   // LOAD DATA
@@ -91,6 +97,22 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
     try {
       setLoading(true);
+
+      // Cargar grupos de permisos disponibles
+      try {
+        const allGroups = await groupsService.getGroups(true);
+        setGroups(allGroups);
+        
+        // Cargar grupos asignados al usuario
+        const assignedGroups = await groupsService.getUserGroups(user.id);
+        const groupIds = assignedGroups.map(g => g.group_id);
+        setUserGroups(groupIds);
+        setPendingGroupChanges(new Set(groupIds));
+      } catch {
+        // Tablas de grupos no existen aún
+        setGroups([]);
+        setUserGroups([]);
+      }
 
       // Cargar todos los permisos disponibles
       const { data: allPermissions, error: permError } = await supabaseSystemUIAdmin
@@ -159,13 +181,61 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
     setHasChanges(true);
   }, []);
 
+  const toggleGroup = useCallback((groupId: string) => {
+    setPendingGroupChanges(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+    setHasChanges(true);
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (!user || !hasChanges) return;
 
     try {
       setSaving(true);
 
-      // Determinar qué permisos añadir y cuáles eliminar
+      // === GUARDAR CAMBIOS EN GRUPOS ===
+      const currentGroupIds = new Set(userGroups);
+      const groupsToAdd: string[] = [];
+      const groupsToRemove: string[] = [];
+
+      pendingGroupChanges.forEach(groupId => {
+        if (!currentGroupIds.has(groupId)) {
+          groupsToAdd.push(groupId);
+        }
+      });
+
+      currentGroupIds.forEach(groupId => {
+        if (!pendingGroupChanges.has(groupId)) {
+          groupsToRemove.push(groupId);
+        }
+      });
+
+      // Asignar nuevos grupos
+      for (const groupId of groupsToAdd) {
+        try {
+          await groupsService.assignUserToGroup(user.id, groupId);
+        } catch (err) {
+          console.error(`Error asignando grupo ${groupId}:`, err);
+        }
+      }
+
+      // Quitar grupos
+      for (const groupId of groupsToRemove) {
+        try {
+          await groupsService.removeUserFromGroup(user.id, groupId);
+        } catch (err) {
+          console.error(`Error removiendo grupo ${groupId}:`, err);
+        }
+      }
+
+      // === GUARDAR CAMBIOS EN PERMISOS INDIVIDUALES ===
       const currentPermNames = new Set(userPermissions.map(up => up.permission_name));
       const toAdd: string[] = [];
       const toRemove: string[] = [];
@@ -220,7 +290,7 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [user, hasChanges, userPermissions, pendingChanges, permissions, onPermissionsUpdated, onClose]);
+  }, [user, hasChanges, userPermissions, pendingChanges, permissions, userGroups, pendingGroupChanges, onPermissionsUpdated, onClose]);
 
   const handleClose = useCallback(() => {
     if (hasChanges) {
@@ -236,8 +306,8 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
   // GROUP PERMISSIONS BY MODULE
   // ============================================
 
-  const groupedPermissions = React.useMemo(() => {
-    const groups: PermissionGroup[] = [];
+  const groupedPermissions = useMemo(() => {
+    const result: PermissionGroupUI[] = [];
     const searchLower = searchTerm.toLowerCase();
 
     PERMISSION_GROUPS.forEach(group => {
@@ -251,15 +321,26 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
       });
 
       if (modulePerms.length > 0) {
-        groups.push({
+        result.push({
           ...group,
           permissions: modulePerms
         });
       }
     });
 
-    return groups;
+    return result;
   }, [permissions, searchTerm]);
+
+  // Filtrar grupos de permisos por búsqueda
+  const filteredGroups = useMemo(() => {
+    if (!searchTerm) return groups;
+    const searchLower = searchTerm.toLowerCase();
+    return groups.filter(g => 
+      g.name.toLowerCase().includes(searchLower) ||
+      g.display_name.toLowerCase().includes(searchLower) ||
+      g.description?.toLowerCase().includes(searchLower)
+    );
+  }, [groups, searchTerm]);
 
   // ============================================
   // RENDER
@@ -327,13 +408,51 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
               </div>
             </div>
 
-            {/* Search Bar */}
-            <div className="px-8 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+            {/* Tabs + Search */}
+            <div className="px-8 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 space-y-3">
+              {/* Tabs */}
+              <div className="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('groups')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                    activeTab === 'groups'
+                      ? 'bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Layers className="w-4 h-4" />
+                  Grupos de Permisos
+                  {groups.length > 0 && (
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+                      activeTab === 'groups'
+                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                        : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                    }`}>
+                      {pendingGroupChanges.size}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('individual')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                    activeTab === 'individual'
+                      ? 'bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Key className="w-4 h-4" />
+                  Permisos Individuales
+                </button>
+              </div>
+
+              {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar permisos..."
+                  placeholder={activeTab === 'groups' ? 'Buscar grupos...' : 'Buscar permisos...'}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
@@ -347,12 +466,111 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
                 </div>
+              ) : activeTab === 'groups' ? (
+                /* === TAB: GRUPOS DE PERMISOS === */
+                filteredGroups.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Layers className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-2">No hay grupos de permisos disponibles</p>
+                    <p className="text-xs text-gray-400">
+                      Los grupos de permisos permiten asignar conjuntos de permisos predefinidos
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                      Selecciona los grupos de permisos que deseas asignar a este usuario. 
+                      Cada grupo incluye un conjunto predefinido de permisos.
+                    </p>
+                    {filteredGroups.map(group => {
+                      const isAssigned = pendingGroupChanges.has(group.id);
+                      
+                      return (
+                        <label
+                          key={group.id}
+                          className={`
+                            flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all border-2
+                            ${isAssigned 
+                              ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700' 
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-700'
+                            }
+                          `}
+                        >
+                          {/* Checkbox */}
+                          <div className={`
+                            w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0
+                            ${isAssigned 
+                              ? 'bg-purple-500 border-purple-500' 
+                              : 'border-gray-300 dark:border-gray-600'
+                            }
+                          `}>
+                            {isAssigned && (
+                              <Check className="w-4 h-4 text-white" />
+                            )}
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={() => toggleGroup(group.id)}
+                            className="sr-only"
+                          />
+
+                          {/* Group Icon */}
+                          <div 
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${group.color || 'from-gray-500 to-gray-600'}`}
+                          >
+                            <Users className="w-5 h-5 text-white" />
+                          </div>
+
+                          {/* Group Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-medium ${
+                                isAssigned 
+                                  ? 'text-purple-700 dark:text-purple-300' 
+                                  : 'text-gray-900 dark:text-white'
+                              }`}>
+                                {group.display_name}
+                              </span>
+                              {group.is_system && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
+                                  Sistema
+                                </span>
+                              )}
+                              {group.base_role === user?.role_name && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded flex items-center gap-1">
+                                  <UserCheck className="w-3 h-3" />
+                                  Rol Base
+                                </span>
+                              )}
+                            </div>
+                            {group.description && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                                {group.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* User Count */}
+                          <div className="text-right flex-shrink-0">
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                              {group.users_count || 0}
+                            </span>
+                            <p className="text-xs text-gray-400">usuarios</p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )
               ) : groupedPermissions.length === 0 ? (
+                /* === TAB: PERMISOS INDIVIDUALES (vacío) === */
                 <div className="text-center py-16">
                   <Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">No se encontraron permisos</p>
                 </div>
               ) : (
+                /* === TAB: PERMISOS INDIVIDUALES === */
                 <div className="space-y-4">
                   {groupedPermissions.map(group => {
                     const isExpanded = expandedModules.has(group.module);

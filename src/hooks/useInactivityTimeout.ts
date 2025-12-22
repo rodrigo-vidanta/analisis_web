@@ -40,21 +40,38 @@ export const useInactivityTimeout = () => {
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT && currentUser) {
         console.log('⏰ Timeout de inactividad alcanzado (2 horas). Cerrando sesión...');
         
-        // Si es ejecutivo, asignar backup automáticamente y actualizar is_operativo
-        if (currentUser.role_name === 'ejecutivo' && currentUser.id) {
+        // Si es ejecutivo o supervisor, asignar backup automáticamente y actualizar is_operativo
+        const isEjecutivoOrSupervisor = currentUser.role_name === 'ejecutivo' || currentUser.role_name === 'supervisor';
+        
+        if (isEjecutivoOrSupervisor && currentUser.id) {
           try {
-            // Obtener coordinación del ejecutivo
-            const { data: ejecutivoData } = await supabaseSystemUIAdmin
-              .from('auth_users')
-              .select('coordinacion_id')
-              .eq('id', currentUser.id)
-              .single();
+            // Obtener coordinación del usuario
+            // Para ejecutivos: usar coordinacion_id directamente
+            // Para supervisores: obtener primera coordinación de coordinador_coordinaciones
+            let coordinacionId: string | null = null;
+            
+            if (currentUser.role_name === 'ejecutivo') {
+              const { data: ejecutivoData } = await supabaseSystemUIAdmin
+                .from('auth_users')
+                .select('coordinacion_id')
+                .eq('id', currentUser.id)
+                .single();
+              coordinacionId = ejecutivoData?.coordinacion_id || null;
+            } else {
+              // Supervisor: obtener primera coordinación de coordinador_coordinaciones
+              const { data: coordData } = await supabaseSystemUIAdmin
+                .from('coordinador_coordinaciones')
+                .select('coordinacion_id')
+                .eq('coordinador_id', currentUser.id)
+                .limit(1);
+              coordinacionId = coordData?.[0]?.coordinacion_id || null;
+            }
 
-            if (ejecutivoData?.coordinacion_id) {
-              // Obtener siguiente ejecutivo operativo como backup automático
+            if (coordinacionId) {
+              // Obtener siguiente backup disponible
               const { backupService } = await import('../services/backupService');
               const backupId = await backupService.getAutomaticBackup(
-                ejecutivoData.coordinacion_id,
+                coordinacionId,
                 currentUser.id
               );
 
@@ -84,9 +101,9 @@ export const useInactivityTimeout = () => {
               throw updateError;
             }
             
-            console.log('✅ Ejecutivo marcado como no operativo por inactividad');
+            console.log(`✅ ${currentUser.role_name} marcado como no operativo por inactividad`);
           } catch (error) {
-            console.error('Error actualizando ejecutivo por inactividad:', error);
+            console.error(`Error actualizando ${currentUser.role_name} por inactividad:`, error);
           }
         }
 

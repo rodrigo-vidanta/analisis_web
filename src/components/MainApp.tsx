@@ -13,6 +13,7 @@ import { useAuth, ProtectedRoute } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
 import { errorLogService } from '../services/errorLogService';
 import { useTheme } from '../hooks/useTheme';
+import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 // Componentes Linear
 import LinearLayout from './linear/LinearLayout';
 import LinearLiveMonitor from './linear/LinearLiveMonitor';
@@ -21,12 +22,6 @@ import AIModelsManager from './ai-models/AIModelsManager';
 
 // Live Chat
 import LiveChatModule from './chat/LiveChatModule';
-
-// AWS Manager
-import AWSManager from './aws/AWSManager';
-
-// Log Server Manager
-import LogServerManager from './admin/LogServerManager';
 
 // Prospectos Manager
 import ProspectosManager from './prospectos/ProspectosManager';
@@ -46,8 +41,6 @@ import AnalysisIAComplete from './analysis/AnalysisIAComplete';
 import ChangePasswordModal from './auth/ChangePasswordModal';
 // Timeline Dirección
 import Timeline from './direccion/Timeline';
-// Documentation Module
-import DocumentationModule from './documentation/DocumentationModule';
 // Hook de inactividad
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 
@@ -86,6 +79,9 @@ function MainApp() {
   } = useAppStore();
   const [localDarkMode, setLocalDarkMode] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Por defecto abierto
+  
+  // Permisos efectivos (rol base + grupos asignados)
+  const { isAdmin } = useEffectivePermissions();
   
   // Hook para detectar inactividad y hacer logout automático después de 2 horas
   useInactivityTimeout();
@@ -135,7 +131,7 @@ function MainApp() {
     
     setLocalDarkMode(shouldBeDark);
     
-    // También actualizar el store global para constructor
+    // Sincronizar store global
     if (shouldBeDark !== darkMode) {
       toggleDarkMode();
     }
@@ -166,8 +162,7 @@ function MainApp() {
       return;
     }
     
-    // Para constructor, usar darkMode del store
-    // Para otros módulos, usar localDarkMode
+    // Usar localDarkMode para todos los módulos
     const shouldBeDark = localDarkMode;
     
     // Sincronizar tema globalmente entre módulos
@@ -289,7 +284,7 @@ function MainApp() {
   };
 
   // Función para manejar cambio de modo
-  const handleModeChange = (mode: 'constructor' | 'plantillas' | 'analisis' | 'admin' | 'live-chat' | 'aws-manager' | 'log-server' | 'direccion' | 'campaigns' | 'documentation') => {
+  const handleModeChange = (mode: 'analisis' | 'admin' | 'live-chat' | 'direccion' | 'campaigns') => {
     // Bloquear cambio de módulo para usuarios con rol direccion
     if (user?.role_name === 'direccion' && mode !== 'direccion') {
       return; // No permitir cambiar de módulo
@@ -313,10 +308,7 @@ function MainApp() {
     }
     
     setAppMode(mode);
-    // Resetear steps cuando cambies de modo para evitar problemas
-    if (mode !== 'constructor') {
-      setCurrentStep(1);
-    }
+    setCurrentStep(1);
   };
 
   // Mostrar loading
@@ -397,45 +389,6 @@ function MainApp() {
             </div>
           )
         );
-      case 'aws-manager':
-        return (
-          canAccessModule('aws-manager') ? (
-            <AWSManager 
-              darkMode={localDarkMode}
-              onToggleDarkMode={handleToggleDarkMode}
-            />
-          ) : (
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  Acceso Denegado
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  No tienes permisos para acceder al AWS Manager
-                </p>
-              </div>
-            </div>
-          )
-        );
-
-      case 'log-server':
-        return (
-          user?.role_name === 'admin' ? (
-            <LogServerManager />
-          ) : (
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  Acceso Denegado
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Solo administradores pueden acceder al Log Server Manager
-                </p>
-              </div>
-            </div>
-          )
-        );
-
       case 'prospectos':
         return (
           canAccessModule('prospectos') ? (
@@ -517,7 +470,7 @@ function MainApp() {
 
       case 'campaigns':
         return (
-          user?.role_name === 'admin' ? (
+          isAdmin ? (
             <CampaignsDashboardTabs />
           ) : (
             <div className="min-h-screen flex items-center justify-center">
@@ -527,24 +480,6 @@ function MainApp() {
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
                   Solo administradores pueden acceder al módulo de Campañas
-                </p>
-              </div>
-            </div>
-          )
-        );
-
-      case 'documentation':
-        return (
-          user?.role_name === 'admin' || user?.role_name === 'developer' ? (
-            <DocumentationModule />
-          ) : (
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  Acceso Denegado
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Solo administradores y desarrolladores pueden acceder a la documentación técnica
                 </p>
               </div>
             </div>
@@ -600,7 +535,7 @@ function MainApp() {
   // Layout original para tema corporativo
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
-      (appMode === 'constructor' ? darkMode : localDarkMode) ? 'dark' : ''
+      localDarkMode ? 'dark' : ''
     }`} data-module={appMode}>
       {/* <NotificationListener /> */}
       <div className={`min-h-screen ${themeClasses.background} flex transition-all duration-300`}>

@@ -20,6 +20,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import Chart from 'chart.js/auto';
 import PQNCDashboard from './PQNCDashboard';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 
 interface AnalysisRecord {
   analysis_id: string;
@@ -43,6 +44,7 @@ interface AnalysisDashboardProps {
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
   const { user, canAccessSubModule, checkAnalysisPermissions } = useAuth();
+  const { isAdmin, isDeveloper } = useEffectivePermissions();
   
   // Estado de la aplicación
   const [loading, setLoading] = useState(false);
@@ -69,7 +71,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
     
     if (!user) return 'natalia';
     
-    // Admin ve por defecto Natalia
+    // Admin ve por defecto Natalia (considera permisos efectivos)
+    // Nota: isAdmin/isDeveloper del hook se inicializa después, así que mantenemos la verificación directa aquí
     if (user.role_name === 'admin') return 'natalia';
     
     // Developer no debe ver análisis, pero en caso de que llegue aquí

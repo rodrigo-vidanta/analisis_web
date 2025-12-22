@@ -10,6 +10,7 @@ import { coordinacionService, type Ejecutivo } from '../../services/coordinacion
 import { assignmentService } from '../../services/assignmentService';
 import { prospectsService } from '../../services/prospectsService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { ProspectValidationModal } from './ProspectValidationModal';
 import toast from 'react-hot-toast';
 
@@ -57,10 +58,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   // Estado local para el ejecutivo asignado (se actualiza después de asignar)
   const [currentEjecutivoId, setCurrentEjecutivoId] = useState<string | undefined>(initialEjecutivoId);
   
-  // Verificar si el usuario es administrador, administrador operativo o coordinador
-  const isAdmin = user?.role_name === 'admin';
-  const isAdminOperativo = user?.role_name === 'administrador_operativo';
-  const isCoordinador = user?.role_name === 'coordinador';
+  // Verificar si el usuario es administrador, administrador operativo o coordinador (usando permisos efectivos)
+  const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
   
   // Estado para verificar si es coordinador de Calidad
   const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);

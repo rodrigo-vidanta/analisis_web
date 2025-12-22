@@ -357,6 +357,24 @@ class PermissionsService {
         };
       }
 
+      // Supervisor: puede ver todos los prospectos de sus coordinaciones (igual que coordinador)
+      // Nota: Supervisores NO pueden reasignar prospectos (eso se controla en el módulo de prospectos)
+      if (permissions.role === 'supervisor') {
+        if (userCoordinaciones && userCoordinaciones.length > 0) {
+          const canAccess = userCoordinaciones.includes(prospectCoordinacionId);
+          return {
+            canAccess,
+            reason: canAccess ? undefined : 'El prospecto no está asignado a ninguna de tus coordinaciones',
+          };
+        }
+        // Fallback: usar coordinacion_id del permiso si no hay múltiples coordinaciones
+        const canAccess = permissions.coordinacion_id === prospectCoordinacionId;
+        return {
+          canAccess,
+          reason: canAccess ? undefined : 'El prospecto no está asignado a tu coordinación',
+        };
+      }
+
       // Ejecutivo: solo puede ver si el prospecto está asignado a él y a su coordinación
       // O si es backup del ejecutivo asignado
       // IMPORTANTE: Este es un fallback solo si la función RPC falló técnicamente
@@ -520,23 +538,26 @@ class PermissionsService {
         return result;
       }
 
-      // Coordinador: verificar si es de Calidad primero
-      if (permissions.role === 'coordinador') {
+      // Coordinador y Supervisor: verificar si es de Calidad primero, luego obtener coordinaciones
+      if (permissions.role === 'coordinador' || permissions.role === 'supervisor') {
         // Coordinadores de Calidad no tienen filtro (pueden ver todo)
-        const isCalidad = await this.isCoordinadorCalidad(userId);
-        if (isCalidad) {
-          this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
-          return null;
+        if (permissions.role === 'coordinador') {
+          const isCalidad = await this.isCoordinadorCalidad(userId);
+          if (isCalidad) {
+            this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
+            return null;
+          }
         }
 
-        // Coordinadores normales: obtener todas sus coordinaciones desde tabla intermedia
+        // Coordinadores y Supervisores: obtener todas sus coordinaciones desde tabla intermedia
+        // Nota: Supervisores usan la misma tabla coordinador_coordinaciones
         const { data, error } = await supabaseSystemUIAdmin
           .from('coordinador_coordinaciones')
           .select('coordinacion_id')
           .eq('coordinador_id', userId);
 
         if (error) {
-          console.error('Error obteniendo coordinaciones del coordinador:', error);
+          console.error(`Error obteniendo coordinaciones del ${permissions.role}:`, error);
           // Fallback: usar coordinacion_id del permiso si existe
           const result = permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
           this.coordinacionesCache.set(userId, { data: result, timestamp: Date.now() });
@@ -564,7 +585,8 @@ class PermissionsService {
 
   /**
    * Obtiene el filtro de ejecutivo para un usuario
-   * Retorna el user_id si es ejecutivo, null si es coordinador o admin
+   * Retorna el user_id si es ejecutivo, null si es coordinador, supervisor o admin
+   * Nota: Supervisores NO tienen filtro de ejecutivo - pueden ver todos los prospectos de su coordinación
    * Utiliza caché para evitar llamadas repetidas
    */
   async getEjecutivoFilter(userId: string): Promise<string | null> {
@@ -582,6 +604,7 @@ class PermissionsService {
       }
 
       // Solo ejecutivos tienen filtro por ejecutivo
+      // Supervisores NO tienen filtro de ejecutivo (ven todos los prospectos de su coordinación)
       if (permissions.role === 'ejecutivo') {
         this.ejecutivoCache.set(userId, { data: userId, timestamp: Date.now() });
         return userId;
@@ -772,13 +795,13 @@ class PermissionsService {
           .in('ejecutivo_id', ejecutivosIds)
           .in('coordinacion_id', ejecutivoCoordinaciones);
       }
-      // Si es coordinador (no de Calidad), filtrar por coordinaciones
+      // Si es coordinador o supervisor (no de Calidad), filtrar por coordinaciones
       else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-        console.log(`🔍 [applyProspectFilters] Coordinador ${userId} - filtrando por coordinaciones: ${coordinacionesFilter.join(', ')}`);
+        console.log(`🔍 [applyProspectFilters] ${permissions?.role} ${userId} - filtrando por coordinaciones: ${coordinacionesFilter.join(', ')}`);
         query = query.in('coordinacion_id', coordinacionesFilter);
       }
       // Si no tiene ejecutivo ni coordinaciones, no debería ver nada (query vacía)
-      else if (permissions?.role === 'coordinador' || permissions?.role === 'ejecutivo') {
+      else if (permissions?.role === 'coordinador' || permissions?.role === 'supervisor' || permissions?.role === 'ejecutivo') {
         console.warn(`⚠️ [applyProspectFilters] Usuario ${userId} (${permissions?.role}) sin coordinaciones asignadas - aplicando filtro restrictivo`);
         // Aplicar filtro que no retornará resultados
         query = query.eq('coordinacion_id', '00000000-0000-0000-0000-000000000000');
@@ -819,7 +842,15 @@ class PermissionsService {
         return { tipo: 'admin' }; // Tratar como admin (sin filtros)
       }
 
-      const coordinacionFilter = await this.getCoordinacionFilter(userId);
+      // Obtener permisos del usuario para verificar rol
+      const permissions = await this.getUserPermissions(userId);
+      const isAdmin = permissions?.role === 'admin' || permissions?.role === 'administrador_operativo';
+      
+      if (isAdmin) {
+        return { tipo: 'admin' };
+      }
+
+      const coordinacionesFilter = await this.getCoordinacionesFilter(userId);
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
 
       // Si es ejecutivo, filtrar por ejecutivo_id del prospecto + prospectos de ejecutivos donde es backup
@@ -849,9 +880,15 @@ class PermissionsService {
         // El filtrado real se hace en los servicios que llaman a este método
         return { ejecutivosIds, tipo: 'ejecutivo' };
       }
-      // Si es coordinador (no de Calidad), filtrar por coordinacion_id del prospecto
-      else if (coordinacionFilter) {
-        return { coordinacionesIds: coordinacionFilter, tipo: 'coordinador' };
+      // Si es coordinador o supervisor (no de Calidad), filtrar por coordinacion_id del prospecto
+      else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+        console.log(`🔍 [applyCallFilters] ${permissions?.role} ${userId} - filtrando por coordinaciones: ${coordinacionesFilter.join(', ')}`);
+        return { coordinacionesIds: coordinacionesFilter, tipo: 'coordinador' };
+      }
+      // Si es coordinador o supervisor sin coordinaciones, no debería ver nada
+      else if (permissions?.role === 'coordinador' || permissions?.role === 'supervisor') {
+        console.warn(`⚠️ [applyCallFilters] ${permissions?.role} ${userId} sin coordinaciones asignadas`);
+        return { coordinacionesIds: [], tipo: 'coordinador' };
       }
       // Admin, Administrador Operativo y Coordinadores de Calidad no tienen filtros
       return { tipo: 'admin' };
@@ -877,7 +914,15 @@ class PermissionsService {
         return query; // Retornar query sin modificar (acceso completo)
       }
 
-      const coordinacionFilter = await this.getCoordinacionFilter(userId);
+      // Obtener permisos del usuario para verificar rol
+      const permissions = await this.getUserPermissions(userId);
+      const isAdmin = permissions?.role === 'admin' || permissions?.role === 'administrador_operativo';
+      
+      if (isAdmin) {
+        return query;
+      }
+
+      const coordinacionesFilter = await this.getCoordinacionesFilter(userId);
       const ejecutivoFilter = await this.getEjecutivoFilter(userId);
 
       // Si es ejecutivo, filtrar por ejecutivo_id + prospectos de ejecutivos donde es backup
@@ -902,9 +947,15 @@ class PermissionsService {
         
         query = query.in('ejecutivo_id', ejecutivosIds);
       }
-      // Si es coordinador (no de Calidad), filtrar por coordinacion_id
-      else if (coordinacionFilter) {
-        query = query.eq('coordinacion_id', coordinacionFilter);
+      // Si es coordinador o supervisor (no de Calidad), filtrar por coordinacion_id
+      else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+        console.log(`🔍 [applyConversationFilters] ${permissions?.role} ${userId} - filtrando por coordinaciones: ${coordinacionesFilter.join(', ')}`);
+        query = query.in('coordinacion_id', coordinacionesFilter);
+      }
+      // Si es coordinador o supervisor sin coordinaciones, aplicar filtro restrictivo
+      else if (permissions?.role === 'coordinador' || permissions?.role === 'supervisor') {
+        console.warn(`⚠️ [applyConversationFilters] ${permissions?.role} ${userId} sin coordinaciones asignadas - aplicando filtro restrictivo`);
+        query = query.eq('coordinacion_id', '00000000-0000-0000-0000-000000000000');
       }
       // Admin, Administrador Operativo y Coordinadores de Calidad no tienen filtros (pueden ver todo)
 

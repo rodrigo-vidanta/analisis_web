@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
 import { coordinacionService, type Coordinacion } from '../../../../services/coordinacionService';
+import { groupsService, type PermissionGroup } from '../../../../services/groupsService';
 import { useAuth } from '../../../../contexts/AuthContext';
 import type { 
   UserV2, 
@@ -30,6 +31,8 @@ interface UseUserManagementReturn {
   filteredUsers: UserV2[];
   roles: Role[];
   coordinaciones: Coordinacion[];
+  groups: PermissionGroup[];
+  userGroupAssignments: Map<string, string[]>; // userId -> groupIds
   loading: boolean;
   error: string | null;
   
@@ -62,6 +65,7 @@ interface UseUserManagementReturn {
   
   // Actions
   refreshUsers: () => Promise<void>;
+  refreshGroups: () => Promise<void>;
   updateUserStatus: (userId: string, updates: Partial<UserV2>) => Promise<boolean>;
   unblockUser: (user: UserV2) => Promise<boolean>;
 }
@@ -75,7 +79,8 @@ const DEFAULT_FILTERS: UserFilters = {
   role: 'all',
   status: 'all',
   operativo: 'all',
-  coordinacion_id: 'all'
+  coordinacion_id: 'all',
+  group_id: 'all'
 };
 
 const DEFAULT_SORT: SortConfig = {
@@ -87,6 +92,7 @@ const ROLE_HIERARCHY_DATA: Role[] = [
   { id: 'admin', name: 'admin', display_name: 'Administrador', description: 'Acceso completo', level: 1, icon: 'Shield', color: 'from-red-500 to-rose-600' },
   { id: 'administrador_operativo', name: 'administrador_operativo', display_name: 'Admin Operativo', description: 'Gestión operativa', level: 2, icon: 'Settings', color: 'from-purple-500 to-violet-600' },
   { id: 'coordinador', name: 'coordinador', display_name: 'Coordinador', description: 'Coordinación de equipos', level: 3, icon: 'Users', color: 'from-blue-500 to-indigo-600' },
+  { id: 'supervisor', name: 'supervisor', display_name: 'Supervisor', description: 'Supervisión de equipos', level: 3, icon: 'UserCheck', color: 'from-cyan-500 to-teal-600' },
   { id: 'ejecutivo', name: 'ejecutivo', display_name: 'Ejecutivo', description: 'Ejecución de operaciones', level: 4, icon: 'Briefcase', color: 'from-emerald-500 to-teal-600' },
   { id: 'evaluador', name: 'evaluador', display_name: 'Evaluador', description: 'Evaluación de calidad', level: 4, icon: 'ClipboardCheck', color: 'from-amber-500 to-orange-600' },
   { id: 'developer', name: 'developer', display_name: 'Desarrollador', description: 'Acceso técnico', level: 2, icon: 'Code', color: 'from-gray-600 to-slate-700' }
@@ -98,16 +104,38 @@ const ROLE_HIERARCHY_DATA: Role[] = [
 
 export function useUserManagement(): UseUserManagementReturn {
   const { user: currentUser } = useAuth();
-  const isAdmin = currentUser?.role_name === 'admin';
-  const isAdminOperativo = currentUser?.role_name === 'administrador_operativo';
-  const isCoordinador = currentUser?.role_name === 'coordinador';
   
   // Core state
   const [users, setUsers] = useState<UserV2[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [coordinaciones, setCoordinaciones] = useState<Coordinacion[]>([]);
+  const [groups, setGroups] = useState<PermissionGroup[]>([]);
+  const [userGroupAssignments, setUserGroupAssignments] = useState<Map<string, string[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Estado para grupos del usuario actual
+  const [currentUserGroups, setCurrentUserGroups] = useState<string[]>([]);
+  
+  // Determinar permisos efectivos considerando rol base Y grupos asignados
+  // Un usuario con grupo 'system_admin' obtiene permisos de admin aunque su rol base sea diferente
+  const hasAdminGroup = useMemo(() => {
+    const adminGroupNames = ['system_admin', 'full_admin'];
+    return groups.some(g => 
+      adminGroupNames.includes(g.name) && currentUserGroups.includes(g.id)
+    );
+  }, [groups, currentUserGroups]);
+  
+  const hasAdminOperativoGroup = useMemo(() => {
+    return groups.some(g => 
+      g.name === 'system_admin_operativo' && currentUserGroups.includes(g.id)
+    );
+  }, [groups, currentUserGroups]);
+  
+  // Permisos efectivos: rol base O grupos asignados
+  const isAdmin = currentUser?.role_name === 'admin' || hasAdminGroup;
+  const isAdminOperativo = (currentUser?.role_name === 'administrador_operativo' || hasAdminOperativoGroup) && !isAdmin;
+  const isCoordinador = currentUser?.role_name === 'coordinador' && !isAdmin && !isAdminOperativo;
   
   // Filters & Sort
   const [filters, setFilters] = useState<UserFilters>(DEFAULT_FILTERS);
@@ -349,6 +377,50 @@ export function useUserManagement(): UseUserManagementReturn {
     }
   }, []);
 
+  // Cargar grupos de permisos y asignaciones de usuarios
+  const loadGroups = useCallback(async () => {
+    try {
+      // Cargar grupos (puede fallar si las tablas no existen)
+      const groupsData = await groupsService.getGroups(true);
+      setGroups(groupsData);
+    } catch {
+      // Tablas de grupos no existen aún, usar grupos vacíos
+      setGroups([]);
+    }
+    
+    // Cargar grupos del usuario actual para determinar permisos efectivos
+    if (currentUser?.id) {
+      try {
+        const userGroups = await groupsService.getUserGroups(currentUser.id);
+        setCurrentUserGroups(userGroups.map(g => g.group_id));
+      } catch {
+        setCurrentUserGroups([]);
+      }
+    }
+    
+    // Cargar asignaciones usuario-grupo (la tabla puede no existir aún)
+    // Envuelto en try-catch separado para no detener la ejecución
+    try {
+      const { data: assignments, error: assignError } = await supabaseSystemUIAdmin
+        .from('user_permission_groups')
+        .select('user_id, group_id');
+      
+      if (!assignError && assignments && Array.isArray(assignments)) {
+        const assignmentMap = new Map<string, string[]>();
+        assignments.forEach((a: { user_id: string; group_id: string }) => {
+          const current = assignmentMap.get(a.user_id) || [];
+          current.push(a.group_id);
+          assignmentMap.set(a.user_id, current);
+        });
+        setUserGroupAssignments(assignmentMap);
+      } else if (assignError) {
+        console.warn('Error cargando asignaciones de grupos:', assignError.message);
+      }
+    } catch {
+      // Tabla no existe aún, ignorar silenciosamente
+    }
+  }, [currentUser?.id]);
+
   const loadRoles = useCallback(async () => {
     try {
       const { data, error: rolesError } = await supabaseSystemUIAdmin
@@ -386,7 +458,8 @@ export function useUserManagement(): UseUserManagementReturn {
     loadRoles();
     loadUsers();
     loadCoordinaciones();
-  }, [loadRoles, loadUsers, loadCoordinaciones]);
+    loadGroups();
+  }, [loadRoles, loadUsers, loadCoordinaciones, loadGroups]);
 
   // ============================================
   // FILTERED & SORTED USERS (MEMOIZED)
@@ -429,6 +502,12 @@ export function useUserManagement(): UseUserManagementReturn {
     // Filtro de estado
     if (filters.status !== 'all') {
       switch (filters.status) {
+        case 'online':
+          // "Activo Ahora" - Ejecutivos operativos y activos
+          result = result.filter(u => 
+            u.role_name === 'ejecutivo' && u.is_operativo === true && u.is_active === true
+          );
+          break;
         case 'active':
           result = result.filter(u => u.is_active && !u.is_blocked && !u.archivado);
           break;
@@ -477,6 +556,15 @@ export function useUserManagement(): UseUserManagementReturn {
         // Para coordinadores: verificar si tienen esa coordinación en su lista
         if (u.coordinaciones_ids && u.coordinaciones_ids.includes(filters.coordinacion_id)) return true;
         return false;
+      });
+    }
+
+    // Filtro por grupo de permisos
+    if (filters.group_id !== 'all') {
+      result = result.filter(u => {
+        // Solo verificar asignaciones directas (tabla user_permission_groups)
+        const userGroups = userGroupAssignments.get(u.id);
+        return userGroups?.includes(filters.group_id) || false;
       });
     }
 
@@ -532,7 +620,7 @@ export function useUserManagement(): UseUserManagementReturn {
     });
 
     return result;
-  }, [users, filters, sortConfig, isCoordinador, isAdminOperativo, currentUser?.coordinacion_id]);
+  }, [users, filters, sortConfig, isCoordinador, isAdminOperativo, currentUser?.coordinacion_id, userGroupAssignments, groups]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -776,7 +864,7 @@ export function useUserManagement(): UseUserManagementReturn {
         }
       };
       
-      if (newRole?.name === 'coordinador' && updates.coordinaciones_ids) {
+      if ((newRole?.name === 'coordinador' || newRole?.name === 'supervisor') && updates.coordinaciones_ids) {
         // Limpiar todas las relaciones existentes primero
         await cleanAllCoordinadorRelations(userId);
 
@@ -796,7 +884,8 @@ export function useUserManagement(): UseUserManagementReturn {
             console.error('Error actualizando coordinaciones:', relacionesError);
           }
           
-          // ⚠️ También insertar en coordinador_coordinaciones para compatibilidad con permissionsService
+          // ⚠️ CRÍTICO: También insertar en coordinador_coordinaciones para compatibilidad con permissionsService
+          // Esta tabla es la que usa el servicio de permisos para filtrar prospectos
           try {
             const relacionesLegacy = updates.coordinaciones_ids.map(coordId => ({
               coordinador_id: userId,
@@ -812,7 +901,7 @@ export function useUserManagement(): UseUserManagementReturn {
         }
 
         // Actualizar flags del usuario
-        updates.is_coordinator = true;
+        updates.is_coordinator = newRole?.name === 'coordinador'; // true solo para coordinadores
         updates.is_ejecutivo = false;
         updates.coordinacion_id = undefined; // Limpiar coordinacion_id individual
       } else if (newRole?.name === 'ejecutivo') {
@@ -821,8 +910,8 @@ export function useUserManagement(): UseUserManagementReturn {
 
         updates.is_coordinator = false;
         updates.is_ejecutivo = true;
-      } else if (newRole && !['coordinador', 'ejecutivo'].includes(newRole.name)) {
-        // Otros roles: limpiar todo
+      } else if (newRole && !['coordinador', 'supervisor', 'ejecutivo'].includes(newRole.name)) {
+        // Otros roles (admin, admin_operativo, evaluador, etc.): limpiar todo
         await cleanAllCoordinadorRelations(userId);
 
         updates.is_coordinator = false;
@@ -922,11 +1011,18 @@ export function useUserManagement(): UseUserManagementReturn {
   // RETURN
   // ============================================
 
+  // Refrescar grupos
+  const refreshGroups = useCallback(async () => {
+    await loadGroups();
+  }, [loadGroups]);
+
   return {
     users,
     filteredUsers,
     roles, // Roles cargados desde la BD con UUIDs reales
     coordinaciones,
+    groups,
+    userGroupAssignments,
     loading,
     error,
     
@@ -946,6 +1042,7 @@ export function useUserManagement(): UseUserManagementReturn {
     stats,
     
     refreshUsers,
+    refreshGroups,
     updateUserStatus,
     unblockUser
   };
