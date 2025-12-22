@@ -158,16 +158,31 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
   );
 
   // Filter roles based on current user permissions
+  // Admin Operativo puede asignar: coordinador, supervisor, ejecutivo
   const availableRoles = useMemo(() => 
     roles.filter(role => {
       if (isAdminOperativo) {
-        return ['coordinador', 'ejecutivo'].includes(role.name);
+        return ['coordinador', 'supervisor', 'ejecutivo'].includes(role.name);
       }
       if (isAdmin) return true;
       return false;
     }),
     [roles, isAdmin, isAdminOperativo]
   );
+
+  // Filtrar grupos según permisos del usuario actual
+  // Admin Operativo solo puede asignar grupos de nivel administrador_operativo o inferior
+  const filteredGroups = useMemo(() => {
+    if (isAdmin) return availableGroups;
+    if (isAdminOperativo) {
+      // Admin Operativo puede asignar grupos: administrador_operativo, coordinador, supervisor, ejecutivo, evaluador
+      const allowedBaseRoles = ['administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluador', 'calidad'];
+      return availableGroups.filter(g => 
+        !g.base_role || allowedBaseRoles.includes(g.base_role)
+      );
+    }
+    return [];
+  }, [availableGroups, isAdmin, isAdminOperativo]);
 
   // Active coordinaciones
   const activeCoordinaciones = useMemo(() => 
@@ -678,7 +693,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
           )}
 
                 {/* Section: Grupos de Permisos */}
-                {availableGroups.length > 0 && (
+                {filteredGroups.length > 0 && (
                   <div className="space-y-4 mt-6">
                     <div className="flex items-center gap-2">
                       <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-full" />
@@ -693,7 +708,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                     </p>
 
                     <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-                      {availableGroups.map(group => {
+                      {filteredGroups.map(group => {
                         const isAssigned = userGroups.includes(group.id);
                         const isMatchingRole = group.base_role === user.role_name;
                         

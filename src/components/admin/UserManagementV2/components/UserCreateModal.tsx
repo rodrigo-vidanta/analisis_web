@@ -5,7 +5,7 @@
  * Modal para crear nuevos usuarios siguiendo el diseño enterprise.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -117,15 +117,30 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
   }, [isOpen]);
 
   // Filtrar roles según permisos del usuario actual
+  // Admin Operativo puede asignar: coordinador, supervisor, ejecutivo
   const availableRoles = roles.filter(role => {
     if (isAdminOperativo) {
-      return ['coordinador', 'ejecutivo'].includes(role.name);
+      return ['coordinador', 'supervisor', 'ejecutivo'].includes(role.name);
     }
     if (isAdmin) {
       return true;
     }
     return false;
   });
+
+  // Filtrar grupos según permisos del usuario actual
+  // Admin Operativo solo puede asignar grupos de nivel administrador_operativo o inferior
+  const filteredGroups = useMemo(() => {
+    if (isAdmin) return availableGroups;
+    if (isAdminOperativo) {
+      // Admin Operativo puede asignar grupos: administrador_operativo, coordinador, supervisor, ejecutivo, evaluador
+      const allowedBaseRoles = ['administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluador', 'calidad'];
+      return availableGroups.filter(g => 
+        !g.base_role || allowedBaseRoles.includes(g.base_role)
+      );
+    }
+    return [];
+  }, [availableGroups, isAdmin, isAdminOperativo]);
 
   // Reset form
   const resetForm = useCallback(() => {
@@ -595,7 +610,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
                 </AnimatePresence>
 
                 {/* Sección: Grupos de Permisos */}
-                {availableGroups.length > 0 && (
+                {filteredGroups.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -616,7 +631,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
                     </p>
 
                     <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
-                      {availableGroups
+                      {filteredGroups
                         .filter(g => !selectedRole || g.base_role === selectedRole.name || !g.base_role)
                         .map((group) => {
                           const isChecked = formData.group_ids.includes(group.id);

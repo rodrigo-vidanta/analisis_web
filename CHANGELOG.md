@@ -82,6 +82,14 @@
 **Documentación:**
 - `docs/PERMISSION_GROUPS_SYSTEM.md` - Documentación completa del sistema
 
+### 🔐 **Permisos Específicos de Administrador Operativo**
+
+1. **Roles asignables:** `coordinador`, `supervisor`, `ejecutivo`
+2. **Grupos visibles/asignables:** 
+   - `administrador_operativo`, `coordinador`, `supervisor`, `ejecutivo`, `evaluador`, `calidad`
+3. **Usuarios visibles:** Solo coordinadores, supervisores y ejecutivos
+4. **Módulos:** Coordinaciones, gestión de usuarios (restringida)
+
 ---
 
 ### v2.1.38 (2025-12-19)

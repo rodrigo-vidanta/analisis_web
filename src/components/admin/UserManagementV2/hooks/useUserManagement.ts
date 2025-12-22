@@ -475,9 +475,9 @@ export function useUserManagement(): UseUserManagementReturn {
         u.role_name === 'ejecutivo' && u.coordinacion_id === currentUser.coordinacion_id
       );
     } else if (isAdminOperativo) {
-      // Admin operativo ve coordinadores y ejecutivos
+      // Admin operativo ve coordinadores, supervisores y ejecutivos
       result = result.filter(u => 
-        ['coordinador', 'ejecutivo'].includes(u.role_name)
+        ['coordinador', 'supervisor', 'ejecutivo'].includes(u.role_name)
       );
     }
     // Admin ve todos

@@ -219,6 +219,45 @@ El rol **Supervisor** fue agregado con las siguientes características:
 - **Icono:** `UserCheck`
 - **Color:** `from-cyan-500 to-teal-600`
 
+### Permisos del Administrador Operativo
+
+El rol **Administrador Operativo** tiene permisos específicos y restringidos:
+
+#### Roles que puede asignar:
+- ✅ `coordinador`
+- ✅ `supervisor`
+- ✅ `ejecutivo`
+- ❌ `admin`
+- ❌ `administrador_operativo`
+- ❌ `developer`
+- ❌ `evaluador`
+
+#### Grupos que puede ver y asignar:
+- ✅ `administrador_operativo`
+- ✅ `coordinador`
+- ✅ `supervisor`
+- ✅ `ejecutivo`
+- ✅ `evaluador`
+- ✅ `calidad`
+- ❌ `admin` / `system_admin`
+- ❌ `full_admin`
+- ❌ `developer`
+
+#### Usuarios que puede ver:
+- ✅ Coordinadores
+- ✅ Supervisores
+- ✅ Ejecutivos
+- ❌ Administradores
+- ❌ Otros Administradores Operativos
+- ❌ Developers
+
+#### Módulos y funciones:
+- ✅ Ver todos los filtros en gestión de usuarios
+- ✅ Crear y editar usuarios (solo roles permitidos)
+- ✅ Ver e interactuar con módulo de Coordinaciones
+- ✅ Asignar grupos de permisos (solo grupos permitidos)
+- ✅ Ver grupos de su nivel o inferior
+
 ---
 
 ## 📚 Catálogo de Permisos por Módulo
@@ -755,6 +794,7 @@ const isCoordinador = currentUser?.role_name === 'coordinador' &&
 | 22 Dic 2024 | 1.0.4 | Implementado sistema de permisos efectivos (rol + grupos) |
 | 22 Dic 2024 | 1.0.5 | Creado hook `useEffectivePermissions` para uso global |
 | 22 Dic 2024 | 1.0.6 | Actualizado Header, Sidebar, MainApp, AdminDashboardTabs, LiveChatCanvas, ProspectosManager |
+| 22 Dic 2024 | 1.0.7 | Permisos específicos de Admin Operativo: roles y grupos asignables |
 
 ---
 

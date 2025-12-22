@@ -249,6 +249,7 @@ const GroupManagementPanel: React.FC<GroupManagementPanelProps> = ({
 }) => {
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role_name === 'admin';
+  const isAdminOperativo = currentUser?.role_name === 'administrador_operativo';
 
   // Estados principales
   const [groups, setGroups] = useState<PermissionGroup[]>([]);
@@ -273,9 +274,22 @@ const GroupManagementPanel: React.FC<GroupManagementPanelProps> = ({
   });
   const [selectedActions, setSelectedActions] = useState<Set<string>>(new Set());
 
-  // Permisos
-  const canEdit = isAdmin;
-  const canDelete = isAdmin;
+  // Permisos - Admin puede editar todo, Admin Operativo solo grupos de su nivel o inferior
+  const canEdit = isAdmin || isAdminOperativo;
+  const canDelete = isAdmin; // Solo admin puede eliminar grupos
+
+  // Roles permitidos para Admin Operativo
+  const allowedBaseRolesForAdminOp = ['administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluador', 'calidad'];
+
+  // Verificar si puede editar un grupo específico
+  const canEditGroup = useCallback((group: PermissionGroup) => {
+    if (isAdmin) return true;
+    if (isAdminOperativo) {
+      // Admin Operativo puede editar grupos que NO sean system_admin o admin
+      return !group.is_system || allowedBaseRolesForAdminOp.includes(group.base_role || '');
+    }
+    return false;
+  }, [isAdmin, isAdminOperativo]);
 
   // Colores disponibles
   const colorOptions = [
@@ -337,13 +351,26 @@ const GroupManagementPanel: React.FC<GroupManagementPanelProps> = ({
   // ============================================
 
   const filteredGroups = useMemo(() => {
-    if (!searchQuery) return groups;
-    const query = searchQuery.toLowerCase();
-    return groups.filter(g =>
-      g.display_name.toLowerCase().includes(query) ||
-      g.name.toLowerCase().includes(query)
-    );
-  }, [groups, searchQuery]);
+    let result = groups;
+    
+    // Admin Operativo solo ve grupos de su nivel o inferior
+    if (isAdminOperativo && !isAdmin) {
+      result = result.filter(g => 
+        !g.base_role || allowedBaseRolesForAdminOp.includes(g.base_role)
+      );
+    }
+    
+    // Aplicar búsqueda
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(g =>
+        g.display_name.toLowerCase().includes(query) ||
+        g.name.toLowerCase().includes(query)
+      );
+    }
+    
+    return result;
+  }, [groups, searchQuery, isAdmin, isAdminOperativo]);
 
   // ============================================
   // HANDLERS
@@ -659,7 +686,7 @@ const GroupManagementPanel: React.FC<GroupManagementPanelProps> = ({
                     </div>
                   </div>
 
-                  {canEdit && (
+                  {canEditGroup(selectedGroup) && (
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => handleDuplicate(selectedGroup)}
@@ -712,7 +739,7 @@ const GroupManagementPanel: React.FC<GroupManagementPanelProps> = ({
                 </div>
 
                 {/* Botón de editar */}
-                {canEdit && (
+                {canEditGroup(selectedGroup) && (
                   <button
                     onClick={() => setViewState('edit')}
                     className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium shadow-lg shadow-purple-500/25 hover:from-purple-700 hover:to-indigo-700 transition-all"
