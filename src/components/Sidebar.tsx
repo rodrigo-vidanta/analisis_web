@@ -176,6 +176,65 @@ const sidebarLogoStyles = `
     position: relative;
     display: inline-block;
   }
+
+  /* Animación de copos de nieve cayendo */
+  @keyframes snowfall {
+    0% {
+      top: -3px;
+      opacity: 0;
+      transform: translateX(0) rotate(0deg);
+    }
+    10% {
+      opacity: 0.8;
+    }
+    50% {
+      opacity: 0.9;
+      transform: translateX(2px) rotate(180deg);
+    }
+    90% {
+      opacity: 0.5;
+    }
+    100% {
+      top: 110px;
+      opacity: 0;
+      transform: translateX(-1px) rotate(360deg);
+    }
+  }
+
+  /* Contenedor de nieve */
+  .snowfall-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 250px;
+    height: 110px;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 15;
+    animation: snowfall-visibility 8s ease-in-out forwards;
+  }
+
+  @keyframes snowfall-visibility {
+    0% { opacity: 0; }
+    5% { opacity: 1; }
+    88% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  .snowflake {
+    position: absolute;
+    top: -3px;
+    width: 2px;
+    height: 2px;
+    background: white;
+    border-radius: 50%;
+    opacity: 0;
+    box-shadow: 0 0 2px 1px rgba(255, 255, 255, 0.5);
+  }
+
+  .snowflake.size-1 { width: 1px; height: 1px; }
+  .snowflake.size-2 { width: 2px; height: 2px; }
+  .snowflake.size-3 { width: 3px; height: 3px; box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.6); }
 `;
 
 // Inyectar estilos en el head
@@ -237,21 +296,57 @@ const christmasLights = [
   { x: 88, y: 40, color: 'red', anim: 3 },
 ];
 
-const ChristmasLightsOverlay: React.FC = () => (
-  <div className="absolute inset-0 pointer-events-none overflow-visible">
-    {christmasLights.map((light, index) => (
-      <div
-        key={index}
-        className={`christmas-light ${light.color} anim-${light.anim}`}
-        style={{
-          left: `${light.x}%`,
-          top: `${light.y}%`,
-          transform: 'translate(-50%, -50%)',
-        }}
-      />
-    ))}
-  </div>
-);
+// Copos de nieve generados aleatoriamente
+const generateSnowflakes = () => {
+  const flakes = [];
+  for (let i = 0; i < 25; i++) {
+    flakes.push({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 8,
+      duration: 2 + Math.random() * 3,
+      size: Math.floor(Math.random() * 3) + 1,
+    });
+  }
+  return flakes;
+};
+
+const ChristmasLightsOverlay: React.FC<{ showSnow?: boolean }> = ({ showSnow = false }) => {
+  const [snowflakes] = useState(() => generateSnowflakes());
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-visible">
+      {/* Foquitos de luces */}
+      {christmasLights.map((light, index) => (
+        <div
+          key={index}
+          className={`christmas-light ${light.color} anim-${light.anim}`}
+          style={{
+            left: `${light.x}%`,
+            top: `${light.y}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      ))}
+      
+      {/* Copos de nieve - solo cuando showSnow es true */}
+      {showSnow && (
+        <div className="snowfall-container">
+          {snowflakes.map((flake) => (
+            <div
+              key={flake.id}
+              className={`snowflake size-${flake.size}`}
+              style={{
+                left: `${flake.left}%`,
+                animation: `snowfall ${flake.duration}s linear ${flake.delay}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, submenu, hasSubmenu, isCollapsed }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -427,6 +522,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const processedCallsRef = useRef<Set<string>>(new Set());
   
   const faviconUrl = config.app_branding?.favicon_url;
+  
+  // Estado para animación de nieve y audio navideño
+  const [showSnow, setShowSnow] = useState(false);
+  const christmasAudioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Función para reproducir jingle y mostrar nieve al hacer clic en el logo PQNC
+  const handleChristmasLogoClick = () => {
+    setAppMode('operative-dashboard');
+    
+    // Reproducir jingle navideño
+    if (!christmasAudioRef.current) {
+      christmasAudioRef.current = new Audio('/assets/christmas-jingle.mp3');
+      christmasAudioRef.current.volume = 0.5;
+    }
+    christmasAudioRef.current.currentTime = 0;
+    christmasAudioRef.current.play().catch(() => {
+      // Silenciar error si el navegador bloquea autoplay
+    });
+    
+    // Mostrar copos de nieve por 8 segundos
+    setShowSnow(true);
+    setTimeout(() => {
+      setShowSnow(false);
+    }, 8000);
+  };
 
   // Escuchar notificaciones de llamadas y activar animación
   useEffect(() => {
@@ -706,50 +826,54 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
               </button>
             </div>
           ) : (
-            // Modo expandido: logo + imagen navideña con luces + botón
+            // Modo expandido: logo de hoja + imagen navideña PQNC con luces + botón
             <>
+              {/* Logo de la hoja (favicon) - navega al dashboard */}
               <button
                 onClick={() => setAppMode('operative-dashboard')}
-                className="flex items-center space-x-1 hover:opacity-90 transition-opacity cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center sidebar-logo-container flex-shrink-0 hover:opacity-90 transition-opacity cursor-pointer"
                 title="Ir al Dashboard"
                 style={{ marginTop: '2px', marginLeft: '2px' }}
               >
-                <div className="w-8 h-8 flex items-center justify-center sidebar-logo-container flex-shrink-0">
-                  {faviconUrl ? (
-                    <img 
-                      src={faviconUrl} 
-                      alt="Logo" 
-                      className={`w-full h-full object-contain sidebar-logo ${isRinging ? 'ringing' : ''}`}
-                      onError={(e) => {
-                        // Fallback al icono SVG si el favicon falla
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const parent = target.parentElement;
-                        if (parent) {
-                          parent.innerHTML = `
-                            <svg class="w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                          `;
-                        }
-                      }}
-                    />
-                  ) : (
-                    <svg className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  )}
-                </div>
-                {/* Imagen navideña con capa de luces animadas */}
-                <div className="christmas-text-container" style={{ marginTop: '2px', marginLeft: '8px' }}>
+                {faviconUrl ? (
                   <img 
-                    src="/assets/pqnc-christmas-text-final.png" 
-                    alt="PQNC" 
-                    className="w-auto object-contain"
-                    style={{ height: '46px' }}
+                    src={faviconUrl} 
+                    alt="Logo" 
+                    className={`w-full h-full object-contain sidebar-logo ${isRinging ? 'ringing' : ''}`}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.innerHTML = `
+                          <svg class="w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        `;
+                      }
+                    }}
                   />
-                  <ChristmasLightsOverlay />
-                </div>
+                ) : (
+                  <svg className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                )}
+              </button>
+              
+              {/* Imagen navideña PQNC - reproduce jingle y muestra nieve */}
+              <button
+                onClick={handleChristmasLogoClick}
+                className="christmas-text-container hover:opacity-90 transition-opacity cursor-pointer"
+                style={{ marginTop: '2px', marginLeft: '8px' }}
+                title="¡Feliz Navidad! 🎄"
+              >
+                <img 
+                  src="/assets/pqnc-christmas-text-final.png" 
+                  alt="PQNC" 
+                  className="w-auto object-contain"
+                  style={{ height: '46px' }}
+                />
+                <ChristmasLightsOverlay showSnow={showSnow} />
               </button>
               
               <button

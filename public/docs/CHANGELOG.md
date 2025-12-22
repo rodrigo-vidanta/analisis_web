@@ -35,11 +35,11 @@
 ---
 
 ### v2.1.40 (2025-12-22)
-**Descripción**: B6.2.1N6.0.0: Logo Navideño PQNC con Animación de Luces
+**Descripción**: B6.2.1N6.0.0: Logo Navideño PQNC con Animación de Luces, Jingle y Copos de Nieve
 
 ---
 
-## 🎄 **RELEASE B6.2.1N6.0.0 - Logo Navideño PQNC**
+## 🎄 **RELEASE B6.2.1N6.0.0 - Logo Navideño PQNC Completo**
 
 ### ✨ **Nuevas Características**
 
@@ -56,22 +56,34 @@
    - Efecto blur al desaparecer para transición suave
    - Posiciones mapeadas para coincidir con la serie de luces de la imagen
 
+#### 3. **Jingle Navideño al Hacer Clic**
+   - Al hacer clic en el logo PQNC se reproduce un jingle navideño
+   - Archivo: `/public/assets/christmas-jingle.mp3`
+   - Volumen al 50% para no ser intrusivo
+
+#### 4. **Animación de Copos de Nieve**
+   - 25 copos diminutos (1-3px) cayendo desde el borde superior
+   - Duración: 8 segundos con fade in/out
+   - Cada copo tiene posición, delay y duración aleatorios
+   - Efecto de brillo sutil con box-shadow blanco
+
 ### 🎨 **Detalles Técnicos**
 
 **Componente ChristmasLightsOverlay:**
 - Renderiza 15 puntos luminosos en posiciones específicas (porcentajes)
+- Renderiza 25 copos de nieve cuando `showSnow={true}`
 - Cada luz tiene animación independiente con delay aleatorio
-- Box-shadow para efecto de brillo: `0 0 2px 1px` + `0 0 4px 2px`
 
 **Animaciones CSS:**
 - `light-blink-1` a `light-blink-4`: parpadeo intermitente con blur
-- Estado apagado: `opacity: 0`, `scale: 0.5`, `filter: blur(2px)`
-- Estado encendido: `opacity: 1`, `scale: 1`, `filter: blur(0)`
+- `snowfall`: copos cayendo con rotación y movimiento lateral
+- `snowfall-visibility`: fade in/out del contenedor de nieve
 
 ### 📁 **Archivos Modificados**
 
-- `src/components/Sidebar.tsx` - Logo navideño + componente de luces animadas
+- `src/components/Sidebar.tsx` - Logo navideño + luces + jingle + copos de nieve
 - `public/assets/pqnc-christmas-text-final.png` - Imagen del logo navideño (nuevo)
+- `public/assets/christmas-jingle.mp3` - Jingle navideño (nuevo)
 
 ---
 
