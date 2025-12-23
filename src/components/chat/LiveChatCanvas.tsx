@@ -421,6 +421,361 @@ const GlobalAnimationStyles = React.memo(() => (
   `}</style>
 ));
 
+// ============================================
+// COMPONENTE CRM DATA MODAL
+// ============================================
+
+interface CRMDataInfo {
+  id_dynamics: string | null;
+  nombre: string | null;
+  coordinacion: string | null;
+  propietario: string | null;
+  fecha_ultima_llamada: string | null;
+  status_crm: string | null;
+  estado: string | null;
+  pais?: string;
+}
+
+interface CRMDataModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  prospectoId: string;
+  prospectoIdDynamics?: string | null;
+}
+
+const CRMDataModal: React.FC<CRMDataModalProps> = ({ isOpen, onClose, prospectoId, prospectoIdDynamics }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [crmData, setCrmData] = useState<CRMDataInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const fetchCRMData = async () => {
+      setIsLoading(true);
+      setError(null);
+      setCrmData(null);
+      
+      try {
+        // Primero intentar buscar por id_dynamics si existe
+        let query = analysisSupabase
+          .from('crm_data')
+          .select('id_dynamics, nombre, coordinacion, propietario, fecha_ultima_llamada, status_crm, estado');
+        
+        if (prospectoIdDynamics) {
+          query = query.eq('id_dynamics', prospectoIdDynamics);
+        } else {
+          query = query.eq('prospecto_id', prospectoId);
+        }
+        
+        const { data, error: queryError } = await query.maybeSingle();
+        
+        if (queryError) throw queryError;
+        
+        if (data) {
+          setCrmData({
+            ...data,
+            pais: 'MEXICO' // Por defecto, ajustar si hay campo en la tabla
+          });
+        } else {
+          setError('No se encontraron datos de CRM para este prospecto');
+        }
+      } catch (err) {
+        console.error('Error fetching CRM data:', err);
+        setError('Error al obtener datos de CRM');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchCRMData();
+  }, [isOpen, prospectoId, prospectoIdDynamics]);
+
+  // Formatear fecha de última llamada
+  const formatFechaUltimaLlamada = (fecha: string | null): string => {
+    if (!fecha) return 'Sin registro';
+    try {
+      return new Date(fecha).toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return fecha;
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100]"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-white/20 dark:border-gray-700/50"
+          >
+            {/* Header con gradiente */}
+            <div className="relative px-6 pt-6 pb-4 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                    <Search className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Datos CRM
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Microsoft Dynamics
+                    </p>
+                  </div>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Contenido */}
+            <div className="px-6 py-5">
+              {isLoading ? (
+                /* Animación de carga asombrosa */
+                <div className="flex flex-col items-center justify-center py-12 space-y-6">
+                  {/* Orbe animado central */}
+                  <div className="relative w-24 h-24">
+                    {/* Anillos orbitales */}
+                    <motion.div
+                      className="absolute inset-0 rounded-full border-2 border-dashed border-blue-400/30"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                    />
+                    <motion.div
+                      className="absolute inset-2 rounded-full border-2 border-dashed border-purple-400/40"
+                      animate={{ rotate: -360 }}
+                      transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                    />
+                    <motion.div
+                      className="absolute inset-4 rounded-full border-2 border-dashed border-pink-400/50"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                    />
+                    
+                    {/* Núcleo brillante */}
+                    <motion.div
+                      className="absolute inset-6 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-xl"
+                      animate={{ 
+                        scale: [1, 1.15, 1],
+                        boxShadow: [
+                          '0 0 20px rgba(139, 92, 246, 0.3)',
+                          '0 0 40px rgba(139, 92, 246, 0.6)',
+                          '0 0 20px rgba(139, 92, 246, 0.3)'
+                        ]
+                      }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    
+                    {/* Partículas flotantes */}
+                    {[...Array(6)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-2 h-2 rounded-full bg-gradient-to-r from-blue-400 to-purple-500"
+                        style={{
+                          top: '50%',
+                          left: '50%',
+                        }}
+                        animate={{
+                          x: [0, Math.cos(i * 60 * Math.PI / 180) * 40, 0],
+                          y: [0, Math.sin(i * 60 * Math.PI / 180) * 40, 0],
+                          opacity: [0.3, 1, 0.3],
+                          scale: [0.5, 1, 0.5]
+                        }}
+                        transition={{
+                          duration: 3,
+                          repeat: Infinity,
+                          delay: i * 0.2,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    ))}
+                  </div>
+                  
+                  {/* Texto con efecto de tipeo */}
+                  <div className="text-center space-y-2">
+                    <motion.p
+                      className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      Conectando con Dynamics CRM...
+                    </motion.p>
+                    <div className="flex items-center justify-center gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <motion.div
+                          key={i}
+                          className="w-2 h-2 rounded-full bg-purple-500"
+                          animate={{ 
+                            y: [0, -8, 0],
+                            opacity: [0.3, 1, 0.3]
+                          }}
+                          transition={{
+                            duration: 0.8,
+                            repeat: Infinity,
+                            delay: i * 0.15
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Barra de progreso estilizada */}
+                  <div className="w-48 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full"
+                      animate={{ x: ['-100%', '100%'] }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                      style={{ width: '50%' }}
+                    />
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                  <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <AlertTriangle className="w-7 h-7 text-amber-500" />
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center">{error}</p>
+                </div>
+              ) : crmData ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="space-y-4"
+                >
+                  {/* ID Dynamics */}
+                  {crmData.id_dynamics && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.15 }}
+                      className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50"
+                    >
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">ID Dynamics</span>
+                      <p className="text-xs font-mono text-gray-700 dark:text-gray-300 mt-1 break-all">
+                        {crmData.id_dynamics}
+                      </p>
+                    </motion.div>
+                  )}
+                  
+                  {/* Grid de información */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Coordinación */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30"
+                    >
+                      <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Coordinación Dynamics</span>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
+                        {crmData.coordinacion || 'Sin asignar'}
+                      </p>
+                    </motion.div>
+                    
+                    {/* Propietario */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 }}
+                      className="p-3 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30"
+                    >
+                      <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Propietario Dynamics</span>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
+                        {crmData.propietario || 'Sin asignar'}
+                      </p>
+                    </motion.div>
+                    
+                    {/* Última Llamada */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50"
+                    >
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Última Llamada</span>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
+                        {formatFechaUltimaLlamada(crmData.fecha_ultima_llamada)}
+                      </p>
+                    </motion.div>
+                    
+                    {/* País */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.35 }}
+                      className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50"
+                    >
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">País</span>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
+                        {crmData.pais || 'MEXICO'}
+                      </p>
+                    </motion.div>
+                  </div>
+                  
+                  {/* Status CRM */}
+                  {crmData.status_crm && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30"
+                    >
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Status CRM</span>
+                      <div className="mt-1.5">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                          {crmData.status_crm}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </motion.div>
+              ) : null}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50/50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-700/50">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onClose}
+                className="w-full px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cerrar
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 // ⚡ OPTIMIZADO V5: Componente de Avatar de Conversación memoizado
 interface ConversationAvatarProps {
   hasActiveCall: boolean;
@@ -660,6 +1015,9 @@ const LiveChatCanvas: React.FC = () => {
   
   // Estado para modal de llamada
   const [showCallModal, setShowCallModal] = useState(false);
+  
+  // Estado para modal de datos CRM
+  const [showCRMDataModal, setShowCRMDataModal] = useState(false);
   
   // Estado para modal de reactivación con plantilla
   const [showReactivateModal, setShowReactivateModal] = useState(false);
@@ -5324,15 +5682,13 @@ const LiveChatCanvas: React.FC = () => {
                   size="lg"
                   showIcon={false}
                 />
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
                     {selectedConversation.customer_name}
                   </h3>
-                  <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-300 flex-wrap gap-2">
-                    <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
-                      {selectedConversation.metadata?.etapa}
-                    </span>
-                    {/* Información de asignación según rol */}
+                  {/* Segunda línea: Coordinación + Ejecutivo + Teléfono | ID */}
+                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                    {/* Badges de asignación inline */}
                     <AssignmentBadge
                       call={{
                         coordinacion_codigo: selectedConversation.metadata?.coordinacion_codigo,
@@ -5342,9 +5698,7 @@ const LiveChatCanvas: React.FC = () => {
                       } as any}
                       variant="compact"
                     />
-                  </div>
-                  {/* Información secundaria: Teléfono | Prospecto ID (clickeable para copiar) */}
-                  <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-gray-400 mt-1">
+                    {/* Teléfono clickeable */}
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
@@ -5363,9 +5717,10 @@ const LiveChatCanvas: React.FC = () => {
                     >
                       {selectedConversation.customer_phone || selectedConversation.numero_telefono || 'Sin teléfono'}
                     </button>
+                    {/* Separador y Prospecto ID */}
                     {selectedConversation.prospecto_id && (
                       <>
-                        <span>|</span>
+                        <span className="text-slate-300 dark:text-gray-600">|</span>
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
@@ -5378,7 +5733,7 @@ const LiveChatCanvas: React.FC = () => {
                               }
                             }
                           }}
-                          className="hover:text-slate-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer font-mono"
+                          className="hover:text-slate-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer font-mono text-[11px]"
                           title="Click para copiar ID del prospecto"
                         >
                           {selectedConversation.prospecto_id}
@@ -5391,6 +5746,18 @@ const LiveChatCanvas: React.FC = () => {
 
               {/* Controles del Bot */}
               <div className="flex items-center space-x-3">
+                {/* Botón CRM - Consultar datos de Dynamics */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowCRMDataModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg text-xs font-medium shadow-lg shadow-blue-500/25 transition-all duration-300"
+                  title="Ver datos de CRM"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>CRM</span>
+                </motion.button>
+
                 {/* Indicador de requiere atención humana */}
                 {(() => {
                   const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
@@ -6507,6 +6874,16 @@ const LiveChatCanvas: React.FC = () => {
           }}
           conversation={selectedConversation}
           prospectoData={prospectoForReactivate}
+        />
+      )}
+
+      {/* Modal de Datos CRM (Dynamics) */}
+      {selectedConversation && (
+        <CRMDataModal
+          isOpen={showCRMDataModal}
+          onClose={() => setShowCRMDataModal(false)}
+          prospectoId={selectedConversation.prospecto_id || selectedConversation.id}
+          prospectoIdDynamics={prospectosDataRef.current.get(selectedConversation.prospecto_id)?.id_dynamics}
         />
       )}
     </div>

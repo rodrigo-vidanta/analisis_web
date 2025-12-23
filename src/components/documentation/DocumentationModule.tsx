@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'j6g7h8i', date: '2025-12-23', author: 'Team', message: 'v2.1.46: CRM Modal en WhatsApp, mejoras Dynamics CRM y botón CRM en Header', isRelease: true },
   { hash: 'i5f6g7h', date: '2025-12-23', author: 'Team', message: 'v2.1.45: LogDashboard - Búsqueda inteligente, filtros unificados y rediseño de tabs', isRelease: true },
   { hash: 'h4e5f6g', date: '2025-12-22', author: 'Team', message: 'v2.1.44: Dynamics CRM Manager - Vista completa de campos y datos desde System_UI', isRelease: true },
   { hash: 'g3d4e5f', date: '2025-12-22', author: 'Team', message: 'v2.1.43: Permisos Coordinadores de Calidad - Acceso Completo a Historial', isRelease: true },
@@ -302,6 +303,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-042', date: '2025-12-23 14:30', version: 'v2.1.46', status: 'success', duration: '5m 10s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-041', date: '2025-12-22 21:00', version: 'v2.1.44', status: 'success', duration: '5m 15s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-040', date: '2025-12-22 18:30', version: 'v2.1.43', status: 'success', duration: '5m 20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-039', date: '2025-12-22 17:45', version: 'v2.1.42', status: 'success', duration: '5m 15s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -340,8 +342,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.45', highlight: true },
-  { label: 'Release', value: 'B6.2.5N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.46', highlight: true },
+  { label: 'Release', value: 'B6.2.6N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '23 Dic 2025', highlight: false },
 ];

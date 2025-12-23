@@ -2,6 +2,53 @@
 
 ## Historial de Versiones
 
+### v2.1.46 (2025-12-23)
+**Descripción**: B6.2.6N6.0.0: CRM Modal en WhatsApp, Mejoras Dynamics CRM y Botón CRM en Header
+
+---
+
+## 🔗 **RELEASE B6.2.6N6.0.0 - Integración CRM en Múltiples Módulos**
+
+### ✨ **Nuevas Funcionalidades**
+
+#### 1. **Modal CRM en Live Chat (WhatsApp)**
+   - **Nuevo botón "CRM"** con icono de lupa junto al botón "Requiere Atención"
+   - **Modal elegante** con animación de entrada/salida y bordes suaves
+   - **Animación de carga espectacular** mientras consulta Dynamics (~8 segundos):
+     - Orbe central con 3 anillos orbitales girando
+     - Núcleo brillante con efecto de pulso y glow
+     - 6 partículas flotantes animadas
+     - Barra de progreso con gradiente deslizante
+   - **Ficha de datos CRM**: ID Dynamics, Coordinación, Propietario, Última Llamada, País, Status CRM
+   - Consulta automática a tabla `crm_data` por `id_dynamics` o `prospecto_id`
+
+#### 2. **Mejoras en Dynamics CRM Manager (Administración)**
+   - **Etiquetas actualizadas**: "ID" → "ID Dynamics", "Coordinación" → "Coordinación Dynamics", "Propietario" → "Propietario Dynamics"
+   - **Nuevo campo Status CRM**: Se muestra con badge azul si existe en `crm_data`
+   - **Consulta automática** del status_crm al cargar datos de Dynamics
+
+#### 3. **Botón CRM en Header**
+   - **Habilitado** el botón CRM que estaba en construcción
+   - Navega directamente al módulo de Administración → pestaña Dynamics CRM
+   - Disponible en ambas ubicaciones (desktop compacto y navegación principal)
+
+### 🎨 **Mejoras de UI/UX**
+
+#### Live Chat - Header de Conversación Reorganizado
+- **Distribución optimizada en 2 líneas**:
+  - Línea 1: Nombre del prospecto
+  - Línea 2: Coordinación + Ejecutivo + Teléfono | ID (todo en una sola línea)
+- **Texto truncable** para evitar desbordamiento
+- **Espaciado consistente** con `flex-wrap` para responsive
+
+### 📁 **Archivos Modificados**
+
+- `src/components/chat/LiveChatCanvas.tsx` - Modal CRM, botón CRM, reorganización header
+- `src/components/admin/DynamicsCRMManager.tsx` - Etiquetas Dynamics, campo status_crm
+- `src/components/Header.tsx` - Habilitación botón CRM con navegación a módulo Dynamics
+
+---
+
 ### v2.1.45 (2025-12-23)
 **Descripción**: B6.2.5N6.0.0: LogDashboard - Búsqueda Inteligente, Filtros Unificados y Rediseño de Tabs
 

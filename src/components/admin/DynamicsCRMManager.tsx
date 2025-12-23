@@ -131,6 +131,9 @@ const DynamicsCRMManager: React.FC = () => {
   const [isReassigning, setIsReassigning] = useState(false);
   const [reassignProgress, setReassignProgress] = useState(0);
 
+  // Estado de status_crm desde tabla crm_data
+  const [statusCrm, setStatusCrm] = useState<string | null>(null);
+
   // Determinar si el usuario tiene acceso al módulo
   const isAdmin = user?.role_name === 'admin';
   const isAdminOperativo = user?.role_name === 'administrador_operativo';
@@ -331,6 +334,7 @@ const DynamicsCRMManager: React.FC = () => {
     setIsLoadingDynamics(true);
     setDynamicsData(null);
     setComparisonResult(null);
+    setStatusCrm(null);
 
     try {
       // ============================================
@@ -403,6 +407,24 @@ const DynamicsCRMManager: React.FC = () => {
         });
       } else {
         setDynamicsData(searchResult.data);
+
+        // ============================================
+        // 5. BUSCAR STATUS_CRM EN TABLA CRM_DATA
+        // ============================================
+        // Usar el LeadID de Dynamics para buscar el status_crm
+        try {
+          const { data: crmDataResult } = await analysisSupabase
+            .from('crm_data')
+            .select('status_crm')
+            .eq('id_dynamics', searchResult.data.LeadID)
+            .maybeSingle();
+          
+          if (crmDataResult?.status_crm) {
+            setStatusCrm(crmDataResult.status_crm);
+          }
+        } catch (crmError) {
+          console.warn('No se pudo obtener status_crm:', crmError);
+        }
 
         // Comparar datos (ahora con el id_dynamics del ejecutivo)
         const comparison = dynamicsLeadService.compareLeadData(localDataEnriched, searchResult.data);
@@ -855,7 +877,7 @@ const DynamicsCRMManager: React.FC = () => {
                           {dynamicsData.Nombre}
                         </h3>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          ID: {dynamicsData.LeadID}
+                          ID Dynamics: {dynamicsData.LeadID}
                         </p>
                       </div>
                       <div className="ml-auto">
@@ -867,11 +889,11 @@ const DynamicsCRMManager: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">Coordinación</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Coordinación Dynamics</span>
                         <p className="font-medium text-gray-900 dark:text-white">{dynamicsData.Coordinacion}</p>
                       </div>
                       <div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">Propietario</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Propietario Dynamics</span>
                         <p className="font-medium text-gray-900 dark:text-white">{dynamicsData.Propietario}</p>
                       </div>
                       <div>
@@ -884,6 +906,19 @@ const DynamicsCRMManager: React.FC = () => {
                         <span className="text-xs text-gray-500 dark:text-gray-400">País</span>
                         <p className="font-medium text-gray-900 dark:text-white">{dynamicsData.Pais}</p>
                       </div>
+                      {/* Status CRM desde tabla crm_data */}
+                      {statusCrm && (
+                        <>
+                          <div className="col-span-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Status CRM</span>
+                            <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                {statusCrm}
+                              </span>
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 )}
