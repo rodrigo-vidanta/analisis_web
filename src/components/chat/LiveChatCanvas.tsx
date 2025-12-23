@@ -4802,6 +4802,19 @@ const LiveChatCanvas: React.FC = () => {
     return phone.replace(/[\s\-\(\)\+]/g, '').replace(/^52/, ''); // Quitar espacios, guiones, paréntesis, + y prefijo 52
   };
 
+  // Función helper para normalizar texto (quitar acentos, diéresis, ñ → n, etc.)
+  // Permite búsquedas como "lulu" para encontrar "Lulú", "jose" para "José", etc.
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize('NFD') // Descomponer caracteres acentuados (é → e + ́)
+      .replace(/[\u0300-\u036f]/g, '') // Eliminar marcas diacríticas (acentos, diéresis, etc.)
+      .replace(/ñ/g, 'n') // ñ → n (por si no se descompone correctamente)
+      .replace(/ç/g, 'c') // ç → c
+      .replace(/[''`]/g, '') // Eliminar apóstrofes y comillas simples
+      .trim();
+  };
+
   // Guardar preferencia de etapas en localStorage cuando cambie
   useEffect(() => {
     if (selectedEtapas.size > 0) {
@@ -4826,10 +4839,11 @@ const LiveChatCanvas: React.FC = () => {
       });
     }
     
-    // 2. Filtro por búsqueda (nombre, teléfono mejorado, email)
+    // 2. Filtro por búsqueda (nombre sin acentos, teléfono mejorado, email)
     if (debouncedSearchTerm.trim()) {
       const searchLower = debouncedSearchTerm.toLowerCase().trim();
-      const searchNormalized = normalizePhone(debouncedSearchTerm); // Normalizar búsqueda también
+      const searchNoAccents = normalizeText(debouncedSearchTerm); // Búsqueda sin acentos
+      const searchPhoneNormalized = normalizePhone(debouncedSearchTerm); // Normalizar búsqueda de teléfono
       
       try {
         filtered = filtered.filter(conv => {
@@ -4838,14 +4852,20 @@ const LiveChatCanvas: React.FC = () => {
           const customerPhone = conv.customer_phone || conv.telefono || conv.numero_telefono || '';
           const customerEmail = conv.customer_email || conv.email || '';
           
+          // Normalizar nombre para búsqueda sin acentos (lulu → lulú, jose → josé, etc.)
+          const nameNoAccents = normalizeText(customerName);
           // Normalizar teléfono para búsqueda
           const phoneNormalized = normalizePhone(customerPhone);
+          // Normalizar email para búsqueda sin acentos
+          const emailNoAccents = normalizeText(customerEmail);
           
           return (
-            customerName.toLowerCase().includes(searchLower) ||
-            customerPhone.includes(searchLower) || // Búsqueda original
-            phoneNormalized.includes(searchNormalized) || // Búsqueda normalizada (cualquier parte)
-            customerEmail.toLowerCase().includes(searchLower)
+            customerName.toLowerCase().includes(searchLower) || // Búsqueda exacta
+            nameNoAccents.includes(searchNoAccents) || // Búsqueda sin acentos (lulu → Lulú)
+            customerPhone.includes(searchLower) || // Búsqueda original teléfono
+            phoneNormalized.includes(searchPhoneNormalized) || // Búsqueda normalizada teléfono
+            customerEmail.toLowerCase().includes(searchLower) || // Búsqueda exacta email
+            emailNoAccents.includes(searchNoAccents) // Búsqueda sin acentos email
           );
         });
       } catch (error) {

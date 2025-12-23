@@ -13,11 +13,12 @@ import ScheduleManager from './ScheduleManager';
 import LogServerManager from './LogServerManager';
 import DocumentationModule from '../documentation/DocumentationModule';
 import AWSManager from '../aws/AWSManager';
+import DynamicsCRMManager from './DynamicsCRMManager';
 import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
 import { adminMessagesService } from '../../services/adminMessagesService';
 import { groupsService } from '../../services/groupsService';
-import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen } from 'lucide-react';
+import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare } from 'lucide-react';
 
 // Feature flag para el nuevo módulo de usuarios
 const USE_NEW_USER_MANAGEMENT = true;
@@ -25,11 +26,12 @@ const USE_NEW_USER_MANAGEMENT = true;
 // Key para localStorage
 const SIDEBAR_PINNED_KEY = 'admin_sidebar_pinned';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'documentacion';
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion';
 
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
   const [isCoordinador, setIsCoordinador] = useState(false);
+  const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('usuarios');
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -97,6 +99,13 @@ const AdminDashboardTabs: React.FC = () => {
         try {
           const isCoord = await permissionsService.isCoordinador(user.id);
           setIsCoordinador(isCoord);
+          
+          // Verificar si es Coordinador de Calidad
+          if (isCoord) {
+            const isCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+            setIsCoordinadorCalidad(isCalidad);
+          }
+          
           // Si es coordinador y no admin, establecer tab inicial a ejecutivos
           if (isCoord && !isAdmin) {
             setActiveTab('ejecutivos');
@@ -272,6 +281,14 @@ const AdminDashboardTabs: React.FC = () => {
         id: 'documentacion' as AdminTab,
         name: 'Documentación',
         icon: <BookOpen className="w-5 h-5" />
+      }
+    ] : []),
+    // Tab de Dynamics CRM - visible para admin, admin operativo y coordinadores de calidad
+    ...((isAdmin || isAdminOperativo || isCoordinadorCalidad) ? [
+      {
+        id: 'dynamics' as AdminTab,
+        name: 'Dynamics CRM',
+        icon: <GitCompare className="w-5 h-5" />
       }
     ] : []),
     // Tabs para Administrador Operativo: usuarios, coordinaciones y horarios
@@ -522,7 +539,7 @@ const AdminDashboardTabs: React.FC = () => {
           )}
 
           {/* Otros módulos con scroll */}
-          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'documentacion' ? 'hidden' : ''}`}>
+          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' ? 'hidden' : ''}`}>
             
             {/* Otros módulos mantienen el contenedor con padding */}
             <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
@@ -592,6 +609,16 @@ const AdminDashboardTabs: React.FC = () => {
             <div className="flex-1 relative">
               <div className="absolute inset-0 overflow-hidden">
                 <AWSManager darkMode={true} onToggleDarkMode={() => {}} />
+              </div>
+            </div>
+          )}
+
+          {/* Dynamics CRM Manager - Ocupa todo el espacio disponible */}
+          {/* Visible para: admin, admin operativo, coordinadores de calidad */}
+          {activeTab === 'dynamics' && (isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <DynamicsCRMManager />
               </div>
             </div>
           )}

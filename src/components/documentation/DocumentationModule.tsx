@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'h4e5f6g', date: '2025-12-22', author: 'Team', message: 'v2.1.44: Dynamics CRM Manager - Vista completa de campos y datos desde System_UI', isRelease: true },
   { hash: 'g3d4e5f', date: '2025-12-22', author: 'Team', message: 'v2.1.43: Permisos Coordinadores de Calidad - Acceso Completo a Historial', isRelease: true },
   { hash: 'f2c3d4e', date: '2025-12-22', author: 'Team', message: 'v2.1.42: Logo Navideño PQNC - Jingle, Copos de Nieve y Luces Animadas', isRelease: true },
   { hash: 'e1b2c3d', date: '2025-12-22', author: 'Team', message: 'v2.1.40: Reasignación de prospectos vía webhook N8N/Dynamics', isRelease: true },
@@ -300,6 +301,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-041', date: '2025-12-22 21:00', version: 'v2.1.44', status: 'success', duration: '5m 15s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-040', date: '2025-12-22 18:30', version: 'v2.1.43', status: 'success', duration: '5m 20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-039', date: '2025-12-22 17:45', version: 'v2.1.42', status: 'success', duration: '5m 15s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-038', date: '2025-12-22 16:00', version: 'v2.1.40', status: 'success', duration: '5m 30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -337,8 +339,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.43', highlight: true },
-  { label: 'Release', value: 'B6.2.3N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.44', highlight: true },
+  { label: 'Release', value: 'B6.2.4N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '22 Dic 2025', highlight: false },
 ];
