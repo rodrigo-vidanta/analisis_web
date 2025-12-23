@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'i5f6g7h', date: '2025-12-23', author: 'Team', message: 'v2.1.45: LogDashboard - Búsqueda inteligente, filtros unificados y rediseño de tabs', isRelease: true },
   { hash: 'h4e5f6g', date: '2025-12-22', author: 'Team', message: 'v2.1.44: Dynamics CRM Manager - Vista completa de campos y datos desde System_UI', isRelease: true },
   { hash: 'g3d4e5f', date: '2025-12-22', author: 'Team', message: 'v2.1.43: Permisos Coordinadores de Calidad - Acceso Completo a Historial', isRelease: true },
   { hash: 'f2c3d4e', date: '2025-12-22', author: 'Team', message: 'v2.1.42: Logo Navideño PQNC - Jingle, Copos de Nieve y Luces Animadas', isRelease: true },
@@ -339,10 +340,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.1.44', highlight: true },
-  { label: 'Release', value: 'B6.2.4N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.1.45', highlight: true },
+  { label: 'Release', value: 'B6.2.5N6.0.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '22 Dic 2025', highlight: false },
+  { label: 'Ultima actualizacion', value: '23 Dic 2025', highlight: false },
 ];
 
 // ============================================

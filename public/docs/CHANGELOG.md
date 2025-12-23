@@ -2,6 +2,50 @@
 
 ## Historial de Versiones
 
+### v2.1.45 (2025-12-23)
+**Descripción**: B6.2.5N6.0.0: LogDashboard - Búsqueda Inteligente, Filtros Unificados y Rediseño de Tabs
+
+---
+
+## 🔍 **RELEASE B6.2.5N6.0.0 - Mejoras LogDashboard**
+
+### ✨ **Nuevas Funcionalidades**
+
+#### 1. **Búsqueda Inteligente con Parsing Automático**
+   - **Severidades reconocidas**: `critica`, `crítica`, `critical`, `alta`, `high`, `media`, `medium`, `warning`, `baja`, `low`, `info`
+   - **Subtipos reconocidos**: `dynamics`, `crm`, `http`, `request`, `llm`, `llms`, `ai`, `openai`, `vapi`, `voice`, `twilio`, `whatsapp`, `wha`, `tools`, `tool`, `herramientas`, `db`, `database`, `bd`, `supabase`
+   - **Fechas en texto (ES/EN)**: `hoy`, `ayer`, `antier`, `hace X días/horas/semanas`, `este mes`, `esta semana`, `today`, `yesterday`, `X days/hours ago`, `this week`, `this month`
+   - **Fechas numéricas**: `DD/MM/YYYY`, `DD-MM-YYYY`, `DD.MM.YYYY`, `YYYY-MM-DD`, `YYYY/MM/DD`
+   - **Combinable**: Ejemplo: `critica vapi ayer` → Logs críticos de VAPI de ayer
+
+#### 2. **Barra de Filtros Unificada**
+   - Todos los filtros en una sola línea responsiva
+   - Barra de búsqueda expandible (flex-1) que ocupa espacio disponible
+   - Contadores visibles (total, 24h, críticos, llamadas, mensajes, UI)
+   - Dropdowns compactos: Estado, Severidad, Subtipo, Ambiente
+   - Filtros de tiempo a la derecha: 90d, 1h, 8h, 24h, 3d, 7d, 30d
+   - Placeholder descriptivo con ejemplos de uso
+
+#### 3. **Rediseño de Pestañas con Mayor Protagonismo**
+   - Tab activo con fondo blanco y sombra suave
+   - Borde superior azul como indicador principal
+   - Icono escalado y texto semibold en tab activo
+   - Indicador inferior con gradiente tricolor animado
+   - Transiciones suaves con spring animation
+
+### 🎨 **Mejoras de UI/UX**
+
+- **Elementos más grandes**: Texto `text-sm`, padding `py-1.5`, iconos `w-4 h-4`
+- **Bordes redondeados**: `rounded-lg` en todos los elementos
+- **Gaps consistentes**: `gap-4` entre secciones principales
+- **Responsivo**: `flex-wrap` para adaptarse a diferentes tamaños de pantalla
+
+### 📁 **Archivos Modificados**
+
+- `src/components/admin/LogDashboard.tsx` - Búsqueda inteligente, filtros unificados, tabs rediseñados
+
+---
+
 ### v2.1.43 (2025-12-22)
 **Descripción**: B6.2.3N6.0.0: Permisos Coordinadores de Calidad - Acceso Completo a Historial de Llamadas
 

@@ -55,10 +55,9 @@ interface TimeFilterButtonProps {
   minutes: number;
   currentDateFrom: string | undefined;
   onClick: () => void;
-  isAllButton?: boolean;
 }
 
-const TimeFilterButton = memo(({ label, minutes, currentDateFrom, onClick, isAllButton }: TimeFilterButtonProps) => {
+const TimeFilterButton = memo(({ label, minutes, currentDateFrom, onClick }: TimeFilterButtonProps) => {
   const isActive = useMemo(() => {
     if (!currentDateFrom) return false;
     const now = new Date();
@@ -67,30 +66,17 @@ const TimeFilterButton = memo(({ label, minutes, currentDateFrom, onClick, isAll
     return Math.abs(filterDate.getTime() - expectedDate.getTime()) < 60000;
   }, [currentDateFrom, minutes]);
 
-  const className = useMemo(() => {
-    if (isAllButton) {
-      return `px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm ${
-        isActive
-          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-600 shadow-md'
-          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md'
-      }`;
-    }
-    return `px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm ${
-      isActive
-        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-2 border-blue-600 shadow-md'
-        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md'
-    }`;
-  }, [isActive, isAllButton]);
-
   return (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+    <button
       onClick={onClick}
-      className={className}
+      className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
+        isActive
+          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+      }`}
     >
       {label}
-    </motion.button>
+    </button>
   );
 });
 
@@ -153,6 +139,130 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
   // OPTIMIZACIÓN: Flag para evitar doble carga inicial
   const isInitialMountRef = useRef(true);
   const loadingRef = useRef(false);
+
+  // ============================================
+  // Función de parsing inteligente para búsqueda
+  // ============================================
+  const parseSearchQuery = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return { textSearch: '', parsedFilters: {} };
+
+    const parsedFilters: Partial<LogFilters> = {};
+    let remainingText = query;
+
+    // Mapeo de severidades
+    const severityMap: Record<string, 'critica' | 'alta' | 'media' | 'baja'> = {
+      'critica': 'critica', 'crítica': 'critica', 'critical': 'critica',
+      'alta': 'alta', 'high': 'alta',
+      'media': 'media', 'medium': 'media', 'warning': 'media',
+      'baja': 'baja', 'low': 'baja', 'info': 'baja'
+    };
+
+    // Detectar severidad
+    for (const [keyword, severity] of Object.entries(severityMap)) {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+      if (regex.test(remainingText)) {
+        parsedFilters.severity = [severity];
+        remainingText = remainingText.replace(regex, '').trim();
+        break;
+      }
+    }
+
+    // Mapeo de subtipos
+    const subtipoMap: Record<string, string> = {
+      'dynamics': 'dynamics', 'crm': 'dynamics',
+      'http': 'http_request_servicio', 'request': 'http_request_servicio',
+      'llm': 'llms_json_schema', 'llms': 'llms_json_schema', 'ai': 'llms_json_schema', 'openai': 'llms_json_schema',
+      'vapi': 'vapi', 'voice': 'vapi',
+      'twilio': 'twilio', 'whatsapp': 'twilio', 'wha': 'twilio',
+      'tools': 'tools', 'tool': 'tools', 'herramientas': 'tools',
+      'db': 'base_de_datos', 'database': 'base_de_datos', 'bd': 'base_de_datos', 'supabase': 'base_de_datos'
+    };
+
+    // Detectar subtipo
+    for (const [keyword, subtipo] of Object.entries(subtipoMap)) {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+      if (regex.test(remainingText)) {
+        parsedFilters.subtipo = [subtipo as any];
+        remainingText = remainingText.replace(regex, '').trim();
+        break;
+      }
+    }
+
+    // Detectar fechas en texto
+    const now = new Date();
+    const datePatterns: { pattern: RegExp; getDate: () => Date }[] = [
+      // Español
+      { pattern: /\bhoy\b/i, getDate: () => new Date(now.getFullYear(), now.getMonth(), now.getDate()) },
+      { pattern: /\bayer\b/i, getDate: () => new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      { pattern: /\bantier\b/i, getDate: () => new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) },
+      { pattern: /\bhace\s*(\d+)\s*d[ií]as?\b/i, getDate: (match?: RegExpMatchArray) => new Date(now.getTime() - parseInt(match?.[1] || '1') * 24 * 60 * 60 * 1000) },
+      { pattern: /\bhace\s*(\d+)\s*horas?\b/i, getDate: (match?: RegExpMatchArray) => new Date(now.getTime() - parseInt(match?.[1] || '1') * 60 * 60 * 1000) },
+      { pattern: /\bhace\s*(\d+)\s*semanas?\b/i, getDate: (match?: RegExpMatchArray) => new Date(now.getTime() - parseInt(match?.[1] || '1') * 7 * 24 * 60 * 60 * 1000) },
+      { pattern: /\beste\s*mes\b/i, getDate: () => new Date(now.getFullYear(), now.getMonth(), 1) },
+      { pattern: /\besta\s*semana\b/i, getDate: () => { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); return d; } },
+      // English
+      { pattern: /\btoday\b/i, getDate: () => new Date(now.getFullYear(), now.getMonth(), now.getDate()) },
+      { pattern: /\byesterday\b/i, getDate: () => new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      { pattern: /\b(\d+)\s*days?\s*ago\b/i, getDate: (match?: RegExpMatchArray) => new Date(now.getTime() - parseInt(match?.[1] || '1') * 24 * 60 * 60 * 1000) },
+      { pattern: /\b(\d+)\s*hours?\s*ago\b/i, getDate: (match?: RegExpMatchArray) => new Date(now.getTime() - parseInt(match?.[1] || '1') * 60 * 60 * 1000) },
+      { pattern: /\bthis\s*week\b/i, getDate: () => { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); return d; } },
+      { pattern: /\bthis\s*month\b/i, getDate: () => new Date(now.getFullYear(), now.getMonth(), 1) },
+    ];
+
+    // Buscar patrones de fecha
+    for (const { pattern, getDate } of datePatterns) {
+      const match = remainingText.match(pattern);
+      if (match) {
+        const dateFrom = getDate(match);
+        parsedFilters.date_from = dateFrom.toISOString();
+        parsedFilters.date_to = now.toISOString();
+        remainingText = remainingText.replace(pattern, '').trim();
+        break;
+      }
+    }
+
+    // Detectar formatos de fecha numéricos: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY, DD.MM.YYYY
+    const numericDatePatterns = [
+      { pattern: /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/, parse: (m: RegExpMatchArray) => new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1])) },
+      { pattern: /\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/, parse: (m: RegExpMatchArray) => new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3])) },
+    ];
+
+    for (const { pattern, parse } of numericDatePatterns) {
+      const match = remainingText.match(pattern);
+      if (match) {
+        const date = parse(match);
+        if (!isNaN(date.getTime())) {
+          parsedFilters.date_from = date.toISOString();
+          const nextDay = new Date(date);
+          nextDay.setDate(nextDay.getDate() + 1);
+          parsedFilters.date_to = nextDay.toISOString();
+          remainingText = remainingText.replace(pattern, '').trim();
+          break;
+        }
+      }
+    }
+
+    return {
+      textSearch: remainingText.replace(/\s+/g, ' ').trim(),
+      parsedFilters
+    };
+  }, [searchQuery]);
+
+  // Combinar filtros parseados con filtros UI
+  const effectiveFilters = useMemo(() => {
+    const { parsedFilters } = parseSearchQuery;
+    return {
+      ...debouncedFilters,
+      // Los filtros parseados de búsqueda tienen prioridad sobre los filtros UI (solo si se detectaron)
+      ...(parsedFilters.severity ? { severity: parsedFilters.severity } : {}),
+      ...(parsedFilters.subtipo ? { subtipo: parsedFilters.subtipo } : {}),
+      ...(parsedFilters.date_from ? { date_from: parsedFilters.date_from, date_to: parsedFilters.date_to } : {}),
+    };
+  }, [debouncedFilters, parseSearchQuery]);
+
+  // Texto de búsqueda limpio (sin los filtros detectados)
+  const cleanSearchQuery = useMemo(() => parseSearchQuery.textSearch, [parseSearchQuery]);
 
   // Función para reproducir alerta sonora solo para logs críticos
   const playCriticalAlert = useCallback(() => {
@@ -232,7 +342,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
   }, [timelineFilters]);
 
   // OPTIMIZACIÓN: Debounce de búsqueda separado
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const debouncedSearchQuery = useDebounce(cleanSearchQuery, 300);
 
   const loadLogs = useCallback(async () => {
     // OPTIMIZACIÓN: Evitar llamadas concurrentes
@@ -247,23 +357,23 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
         let result;
         if (activityFilter === 'comentarios') {
           result = await logMonitorService.getLogsWithUserAnnotations(user.id, {
-            ...debouncedFilters,
+            ...effectiveFilters,
             search: debouncedSearchQuery || undefined
           });
         } else if (activityFilter === 'analisis') {
           result = await logMonitorService.getLogsWithUserAIAnalysis(user.id, {
-            ...debouncedFilters,
+            ...effectiveFilters,
             search: debouncedSearchQuery || undefined
           });
         } else {
           // 'todos': combinar ambos
           const [comentariosResult, analisisResult] = await Promise.all([
             logMonitorService.getLogsWithUserAnnotations(user.id, {
-              ...debouncedFilters,
+              ...effectiveFilters,
               search: debouncedSearchQuery || undefined
             }),
             logMonitorService.getLogsWithUserAIAnalysis(user.id, {
-              ...debouncedFilters,
+              ...effectiveFilters,
               search: debouncedSearchQuery || undefined
             })
           ]);
@@ -312,7 +422,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
       } else {
         // Cargar logs normales con filtro de tipo
         const filtersWithSearch: LogFilters = {
-          ...debouncedFilters,
+          ...effectiveFilters,
           search: debouncedSearchQuery || undefined
         };
 
@@ -352,7 +462,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [debouncedFilters, debouncedSearchQuery, activeTab, activityFilter, pageSize, currentPage, sortColumn, sortDirection, user?.id]);
+  }, [effectiveFilters, debouncedSearchQuery, activeTab, activityFilter, pageSize, currentPage, sortColumn, sortDirection, user?.id]);
 
   const handleSort = useCallback((column: 'timestamp' | 'severidad' | 'subtipo') => {
     startTransition(() => {
@@ -537,7 +647,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
   const prevFiltersRef = useRef<string>('');
   useEffect(() => {
     const filtersKey = JSON.stringify({ 
-      f: debouncedFilters, 
+      f: effectiveFilters, 
       s: debouncedSearchQuery, 
       t: activeTab, 
       a: activityFilter 
@@ -546,7 +656,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
       setCurrentPage(1);
     }
     prevFiltersRef.current = filtersKey;
-  }, [debouncedFilters, debouncedSearchQuery, activeTab, activityFilter]);
+  }, [effectiveFilters, debouncedSearchQuery, activeTab, activityFilter]);
 
   // OPTIMIZACIÓN: Cargar datos en un solo efecto combinado para evitar múltiples llamadas
   useEffect(() => {
@@ -996,258 +1106,46 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
+  // Función para manejar clic en estadísticas (aplicar filtro directo, sin toggle)
+  const handleStatsFilterClick = (filterType: 'all' | 'recent' | 'critical' | 'llamada' | 'mensaje' | 'ui') => {
+    if (filterType === 'critical') {
+      handleFilterChange('severity', ['critica']);
+      handleTabChange('todos');
+    } else if (filterType === 'llamada') {
+      handleFilterChange('severity', undefined);
+      handleTabChange('llamada');
+    } else if (filterType === 'mensaje') {
+      handleFilterChange('severity', undefined);
+      handleTabChange('mensaje');
+    } else if (filterType === 'ui') {
+      handleFilterChange('severity', undefined);
+      handleTabChange('ui');
+    } else if (filterType === 'recent') {
+      // Últimas 24 horas
+      handleFilterChange('severity', undefined);
+      handleTabChange('todos');
+      handleTimeFilterChange(1440);
+    } else if (filterType === 'all') {
+      // Mostrar todos - 90 días
+      handleFilterChange('severity', undefined);
+      handleTabChange('todos');
+      handleAllTimeFilter();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                Dashboard de Logs
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Monitoreo y gestión de errores del sistema
-              </p>
-            </div>
-            {onBackToConfig && (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={onBackToConfig}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-              >
-                Configuración
-              </motion.button>
-            )}
-          </div>
-        </div>
-
-        {/* Filtros y Búsqueda Avanzada - Optimizado y Compacto */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6 border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Búsqueda */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Buscar..."
-                  className="w-full pl-10 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      setCurrentPage(1);
-                    }}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Filtros en fila */}
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={filters.is_read === undefined ? 'all' : filters.is_read ? 'read' : 'unread'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange('is_read', value === 'all' ? undefined : value === 'read');
-                }}
-                className="px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
-              >
-                <option value="all">Leído</option>
-                <option value="read">Leídos</option>
-                <option value="unread">No leídos</option>
-              </select>
-
-              <select
-                value={filters.severity?.[0] || 'all'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange('severity', value === 'all' ? undefined : [value as any]);
-                }}
-                className="px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
-              >
-                <option value="all">Severidad</option>
-                <option value="critica">Crítica</option>
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="baja">Baja</option>
-              </select>
-
-              <select
-                value={filters.subtipo?.[0] || 'all'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange('subtipo', value === 'all' ? undefined : [value as any]);
-                }}
-                className="px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
-              >
-                <option value="all">Subtipo</option>
-                <option value="tools">Tools</option>
-                <option value="dynamics">Dynamics</option>
-                <option value="base_de_datos">Base de Datos</option>
-                <option value="http_request_servicio">HTTP Request</option>
-                <option value="llms_falla_servicio">LLMs Falla</option>
-                <option value="llms_json_schema">LLMs JSON</option>
-                <option value="vapi">VAPI</option>
-                <option value="guardrail_salida">Guardrail Salida</option>
-                <option value="guardrail_entrada">Guardrail Entrada</option>
-                <option value="twilio">Twilio</option>
-                <option value="rate_limit">Rate Limit</option>
-                <option value="uchat">UChat</option>
-                <option value="redis">Redis</option>
-                <option value="airtable">Airtable</option>
-                <option value="s3">S3</option>
-              </select>
-
-              <select
-                value={filters.ambiente?.[0] || 'all'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange('ambiente', value === 'all' ? undefined : [value as any]);
-                }}
-                className="px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white"
-              >
-                <option value="all">Entorno</option>
-                <option value="desarrollo">Desarrollo</option>
-                <option value="produccion">Producción</option>
-                <option value="preproduccion">Preproducción</option>
-              </select>
-            </div>
-          </div>
-
-        </motion.div>
-
-        {/* Estadísticas */}
+    <div className="h-[calc(100vh-200px)] flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      {/* Parte superior fija */}
+      <div className="flex-shrink-0 p-4 pb-2 space-y-3">
+        {/* Gráfica Temporal (ancho completo) */}
         {stats && (
-          <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total de Logs</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                    {stats.total}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-              </div>
-            </motion.div>
-
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Últimas 24h</p>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
-                    {stats.recent_errors}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Críticos</p>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
-                    {stats.by_severity.critica || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Contadores por Tipo en un solo recuadro */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
-            >
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Por Tipo</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center">
-                  <div className="flex items-center justify-center mb-1">
-                    <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              </div>
-                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                    {stats.by_tipo.llamada || 0}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Llamada</p>
-              </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center mb-1">
-                    <MessageSquare className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  </div>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                    {stats.by_tipo.mensaje || 0}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">WhatsApp</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center mb-1">
-                    <Monitor className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                    {stats.by_tipo.ui || 0}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">UI</p>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Gráfica Temporal (ancho completo) */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 mb-8"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 border border-gray-200 dark:border-gray-700"
           >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               {(() => {
                 if (filters.date_from && filters.date_to) {
                   const from = new Date(filters.date_from);
@@ -1255,7 +1153,6 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                   const diffMs = to.getTime() - from.getTime();
                   const diffHours = Math.round(diffMs / (1000 * 60 * 60));
                   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                  // Mostrar en horas si es menos de 24 horas
                   if (diffHours <= 24) {
                     return `Errores por Tipo (últimas ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'})`;
                   }
@@ -1270,24 +1167,24 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                   }
                   return `Errores por Tipo (últimos ${diffDays} ${diffDays === 1 ? 'día' : 'días'})`;
                 }
-                return 'Errores por Tipo (últimos 7 días)';
+                return 'Errores por Tipo (últimas 8 horas)';
               })()}
             </h3>
-              <div className="h-64">
+            <div className="h-48">
               <LogsTimelineChart logs={timelineLogs} dateFrom={filters.date_from} dateTo={filters.date_to} />
               </div>
             </motion.div>
-          </>
         )}
 
-        {/* Pestañas de Tipo */}
+        {/* Bloque unificado: Tabs + Búsqueda Avanzada */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 border border-gray-200 dark:border-gray-700 overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
         >
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
+          {/* Pestañas de Tipo */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-900/20">
             {[
               { id: 'todos' as const, label: 'Todos', icon: Layers },
               { id: 'mensaje' as const, label: 'WhatsApp', icon: MessageSquare },
@@ -1296,24 +1193,25 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
               { id: 'mis-actividades' as const, label: 'Mis Actividades', icon: User }
             ].map((tab) => {
               const IconComponent = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`flex-1 px-6 py-4 text-sm font-medium transition-all duration-200 relative flex items-center justify-center space-x-2 ${
-                    activeTab === tab.id
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  className={`flex-1 px-4 py-3.5 text-sm font-medium transition-all duration-200 relative flex items-center justify-center space-x-2 ${
+                    isActive
+                      ? 'text-blue-700 dark:text-blue-300 bg-white dark:bg-gray-800 shadow-sm border-t-2 border-t-blue-500 -mb-px'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-800/50'
                   }`}
                 >
-                  <IconComponent className={`w-4 h-4 ${activeTab === tab.id ? 'text-blue-600 dark:text-blue-400' : ''}`} />
-                  <span>{tab.label}</span>
-                  {activeTab === tab.id && (
+                  <IconComponent className={`w-4 h-4 transition-transform ${isActive ? 'text-blue-600 dark:text-blue-400 scale-110' : ''}`} />
+                  <span className={isActive ? 'font-semibold' : ''}>{tab.label}</span>
+                  {isActive && (
                     <motion.div
-                      layoutId="activeTab"
-                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600"
+                      layoutId="activeTabIndicator"
+                      className="absolute bottom-0 left-2 right-2 h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 rounded-full"
                       initial={false}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
                     />
                   )}
                 </button>
@@ -1323,9 +1221,9 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
           
           {/* Filtro de actividad para pestaña "Mis Actividades" */}
           {activeTab === 'mis-actividades' && (
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
               <div className="flex items-center space-x-4">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filtrar por:</span>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Filtrar por:</span>
                 <div className="flex space-x-2">
                   {[
                     { id: 'todos' as const, label: 'Todos' },
@@ -1335,7 +1233,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                     <button
                       key={filter.id}
                       onClick={() => setActivityFilter(filter.id)}
-                      className={`px-4 py-2 text-xs font-medium rounded-lg transition-all ${
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                         activityFilter === filter.id
                           ? 'bg-blue-600 text-white'
                           : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -1348,243 +1246,139 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
               </div>
             </div>
           )}
-        </motion.div>
 
-        {/* Filtros y Búsqueda Mejorados - Diseño Moderno */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-8 border border-gray-100 dark:border-gray-700"
-        >
-          {/* Búsqueda Avanzada con diseño moderno */}
-          <div className="mb-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Búsqueda Avanzada
-              </h3>
-            </div>
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div className="relative">
-                <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+          {/* Barra compacta unificada: Búsqueda + Contadores + Dropdowns + Tiempo */}
+          <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30">
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Búsqueda - flex-1 para ocupar espacio restante, con min y max */}
+              <div className="relative flex-1 min-w-[120px] max-w-xs lg:max-w-md xl:max-w-lg">
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Buscar en mensajes, descripciones, workflow IDs..."
-                  className="w-full pl-14 pr-12 py-4 text-sm border-2 border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 dark:bg-gray-900/50 dark:text-white transition-all duration-300 shadow-lg hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-600"
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                  placeholder="Buscar: severidad, subtipo, fecha (ej: critica, vapi, ayer, 23/12/2025)..."
+                  className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
                 />
                 {searchQuery && (
-                  <motion.button
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => {
-                      setSearchQuery('');
-                      setCurrentPage(1);
-                    }}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
-                  >
+                  <button onClick={() => { setSearchQuery(''); setCurrentPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                     <X className="w-4 h-4" />
-                  </motion.button>
+                  </button>
                 )}
               </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Filtro de lectura */}
-            <div>
-              <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                <Filter className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                <span>Estado de Lectura</span>
-              </label>
+              {/* Contadores */}
+              {stats && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500 dark:text-gray-400" title="Total">{stats.total}</span>
+                  <span className="text-red-500" title="24h">{stats.recent_errors}</span>
+                  <span className="text-red-600 font-medium" title="Críticos">{stats.by_severity.critica || 0}</span>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <span className="text-blue-500" title="Llamadas"><Phone className="w-3.5 h-3.5 inline mr-0.5" />{stats.by_tipo.llamada || 0}</span>
+                  <span className="text-green-500" title="WhatsApp"><MessageSquare className="w-3.5 h-3.5 inline mr-0.5" />{stats.by_tipo.mensaje || 0}</span>
+                  <span className="text-purple-500" title="UI"><Monitor className="w-3.5 h-3.5 inline mr-0.5" />{stats.by_tipo.ui || 0}</span>
+            </div>
+              )}
+
+              {/* Separador */}
+              <span className="text-gray-300 dark:text-gray-600 hidden lg:inline">|</span>
+
+              {/* Filtros dropdown */}
+              <div className="flex items-center gap-1.5">
               <select
                 value={filters.is_read === undefined ? 'all' : filters.is_read ? 'read' : 'unread'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange('is_read', value === 'all' ? undefined : value === 'read');
-                }}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
-              >
-                <option value="all">Todos</option>
+                  onChange={(e) => handleFilterChange('is_read', e.target.value === 'all' ? undefined : e.target.value === 'read')}
+                  className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="all">Estado</option>
                 <option value="read">Leídos</option>
                 <option value="unread">No leídos</option>
               </select>
-            </div>
-
-            {/* Filtro de severidad */}
-            <div>
-              <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                <Filter className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                <span>Severidad</span>
-              </label>
               <select
                 value={filters.severity?.[0] || 'all'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange('severity', value === 'all' ? undefined : [value as any]);
-                }}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
-              >
-                <option value="all">Todas</option>
+                  onChange={(e) => handleFilterChange('severity', e.target.value === 'all' ? undefined : [e.target.value as any])}
+                  className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="all">Severidad</option>
                 <option value="critica">Crítica</option>
                 <option value="alta">Alta</option>
                 <option value="media">Media</option>
                 <option value="baja">Baja</option>
               </select>
-            </div>
-
-            {/* Filtro de subtipo */}
-            <div>
-              <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                <Filter className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                <span>Subtipo</span>
-              </label>
               <select
                 value={filters.subtipo?.[0] || 'all'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange('subtipo', value === 'all' ? undefined : [value as any]);
-                }}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
-              >
-                <option value="all">Todos</option>
-                <option value="tools">Tools</option>
+                  onChange={(e) => handleFilterChange('subtipo', e.target.value === 'all' ? undefined : [e.target.value as any])}
+                  className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="all">Subtipo</option>
                 <option value="dynamics">Dynamics</option>
-                <option value="base_de_datos">Base de Datos</option>
-                <option value="http_request_servicio">HTTP Request</option>
-                <option value="llms_falla_servicio">LLMs Falla</option>
-                <option value="llms_json_schema">LLMs JSON</option>
+                  <option value="http_request_servicio">HTTP</option>
+                  <option value="llms_json_schema">LLMs</option>
                 <option value="vapi">VAPI</option>
-                <option value="guardrail_salida">Guardrail Salida</option>
-                <option value="guardrail_entrada">Guardrail Entrada</option>
                 <option value="twilio">Twilio</option>
-                <option value="rate_limit">Rate Limit</option>
-                <option value="uchat">UChat</option>
-                <option value="redis">Redis</option>
-                <option value="airtable">Airtable</option>
-                <option value="s3">S3</option>
+                  <option value="tools">Tools</option>
+                  <option value="base_de_datos">BD</option>
               </select>
-          </div>
-
-            {/* Filtro de ambiente */}
-            <div>
-              <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                <Filter className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                <span>Ambiente</span>
-              </label>
               <select
                 value={filters.ambiente?.[0] || 'all'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange('ambiente', value === 'all' ? undefined : [value as any]);
-                }}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
-              >
-                <option value="all">Todos</option>
-                <option value="desarrollo">Desarrollo</option>
-                <option value="produccion">Producción</option>
-                <option value="preproduccion">Preproducción</option>
+                  onChange={(e) => handleFilterChange('ambiente', e.target.value === 'all' ? undefined : [e.target.value as any])}
+                  className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="all">Env</option>
+                  <option value="produccion">Prod</option>
+                  <option value="desarrollo">Dev</option>
               </select>
-            </div>
           </div>
 
-          {/* Filtros Rápidos de Tiempo */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <span>Filtros Rápidos de Tiempo</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {/* Opción "Todos" - 90 días por defecto para mostrar histórico completo */}
-              <TimeFilterButton
-                label="📊 Todos (90d)"
-                minutes={90 * 24 * 60}
-                currentDateFrom={filters.date_from}
-                onClick={handleAllTimeFilter}
-                isAllButton
-              />
-              
-              {/* Filtros de tiempo específicos */}
-              {[
-                { label: '60 min', minutes: 60 },
-                { label: '3 horas', minutes: 180 },
-                { label: '6 horas', minutes: 360 },
-                { label: '8 horas', minutes: 480 },
-                { label: '24 horas', minutes: 1440 },
-                { label: '36 horas', minutes: 2160 },
-                { label: '72 horas', minutes: 4320 },
-                { label: '7 días', minutes: 10080 },
-                { label: '15 días', minutes: 21600 },
-                { label: '30 días', minutes: 43200 }
-              ].map(({ label, minutes }) => (
-                <TimeFilterButton
+              {/* Separador */}
+              <span className="text-gray-300 dark:text-gray-600 hidden lg:inline">|</span>
+
+              {/* Filtros de tiempo - AHORA A LA DERECHA */}
+              <div className="flex items-center gap-1">
+                {[
+                  { label: '90d', minutes: 90 * 24 * 60, isAll: true },
+                  { label: '1h', minutes: 60 },
+                  { label: '8h', minutes: 480 },
+                  { label: '24h', minutes: 1440 },
+                  { label: '3d', minutes: 4320 },
+                  { label: '7d', minutes: 10080 },
+                  { label: '30d', minutes: 43200 }
+                ].map(({ label, minutes, isAll }) => (
+                  <button
                   key={label}
-                  label={label}
-                  minutes={minutes}
-                  currentDateFrom={filters.date_from}
-                  onClick={() => handleTimeFilterChange(minutes)}
-                />
-              ))}
-            </div>
+                    onClick={() => isAll ? handleAllTimeFilter() : handleTimeFilterChange(minutes)}
+                    className={`px-2.5 py-1 text-sm rounded-lg transition-colors ${
+                      (isAll && !filters.date_from) || (!isAll && filters.date_from && Math.abs(new Date().getTime() - new Date(filters.date_from).getTime() - minutes * 60 * 1000) < 60000)
+                        ? 'bg-blue-500 text-white'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
           </div>
 
-          {/* Filtro por etiquetas */}
-          {availableTags.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                <Filter className="w-4 h-4 text-gray-400" />
-                <span>Filtrar por Etiquetas</span>
-                {filters.tags && filters.tags.length > 0 && (
-                  <span className="ml-2 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                    {filters.tags.length} seleccionada{filters.tags.length > 1 ? 's' : ''}
-                  </span>
-                )}
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {availableTags.map(tagName => {
-                  const isSelected = filters.tags?.includes(tagName);
-                  return (
-                    <motion.button
-                      key={tagName}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        const currentTags = filters.tags || [];
-                        const newTags = isSelected
-                          ? currentTags.filter(t => t !== tagName)
-                          : [...currentTags, tagName];
-                        handleFilterChange('tags', newTags.length > 0 ? newTags : undefined);
-                      }}
-                      className={`px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm ${
-                        isSelected
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-2 border-blue-600 shadow-md'
-                          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md'
-                      }`}
-                    >
-                      {tagName}
-                    </motion.button>
-                  );
-                })}
+              {/* Config button */}
+              {onBackToConfig && (
+                <button onClick={onBackToConfig} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-auto" title="Configuración">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
+              )}
               </div>
             </div>
-          )}
-
         </motion.div>
+      </div>
 
-        {/* Lista de Logs */}
+      {/* Lista de Logs - Área con scroll independiente */}
+      <div className="flex-1 min-h-0 overflow-hidden px-4 pb-20 flex flex-col">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+          className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col"
         >
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64">
@@ -1600,10 +1394,10 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
             </div>
           ) : (
             <>
-              {/* Tabla de Logs (ya filtrada por tab activo) */}
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+              {/* Tabla de Logs (ya filtrada por tab activo) - Con scroll */}
+              <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Estado
@@ -1759,8 +1553,8 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                 </table>
               </div>
 
-              {/* Paginación y Controles */}
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+              {/* Paginación y Controles - Fijo en la parte inferior */}
+              <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
                   {/* Información y Vistas por Página */}
                   <div className="flex flex-col sm:flex-row items-center gap-4">
