@@ -6,19 +6,25 @@
  * Maneja el estado de pausa del bot en la base de datos
  * para persistencia entre sesiones de usuarios
  * 
- * ⚠️ NOTA DE SEGURIDAD:
- * Este servicio usa HTTP requests directos con service key.
- * - Las service keys están expuestas en el frontend (práctica establecida en el proyecto)
- * - Las políticas RLS deben estar correctamente configuradas como capa adicional de seguridad
- * - En producción ideal, estas operaciones deberían ejecutarse desde un backend
+ * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+ * - Las keys DEBEN estar en variables de entorno (.env)
+ * - NO usar fallbacks hardcodeados
+ * - Este servicio requiere service_key para bypass RLS
  * 
- * Usa HTTP requests directos para evitar problemas con RLS y cache de PostgREST
+ * ✅ CONFIGURACIÓN REQUERIDA EN .env:
+ * VITE_SYSTEM_UI_SUPABASE_URL=https://zbylezfyagwrxoecioup.supabase.co
+ * VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY=<tu_service_key>
+ * 
+ * ⚠️ TODO FUTURO: Migrar a Edge Function autenticada
  */
 
-// Importar las constantes directamente desde el archivo de configuración
-// Usar import.meta.env directamente para evitar problemas de resolución en build
-const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || 'https://zbylezfyagwrxoecioup.supabase.co';
-const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTMzNjI3MSwiZXhwIjoyMDc0OTEyMjcxfQ.2Btqq8cGSmr4OMKUae8zsHLxQMfs2JJ1ZFgmZYQPFQY';
+const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY || '';
+
+// Validación de configuración
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error('⚠️ BotPauseService: Faltan variables de entorno VITE_SYSTEM_UI_SUPABASE_URL o VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY');
+}
 
 export interface BotPauseStatus {
   id?: string;

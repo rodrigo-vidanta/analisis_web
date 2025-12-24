@@ -41,23 +41,23 @@ const DatabaseConfiguration: React.FC = () => {
   const [configs, setConfigs] = useState<Record<string, DatabaseConfig>>({
     main: {
       name: 'Base de Datos Principal (Agentes)',
-      url: import.meta.env.VITE_MAIN_SUPABASE_URL || 'https://rnhejbuubpbnojalljso.supabase.co',
-      anonKey: import.meta.env.VITE_MAIN_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaGVqYnV1YnBibm9qYWxsanNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzQzNTksImV4cCI6MjA3MjQ1MDM1OX0.MsTwi2IAHXk_kphl_QYDwOujJhNFbYrZPOx_a40v_YI',
-      serviceKey: import.meta.env.VITE_MAIN_SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaGVqYnV1YnBibm9qYWxsanNvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Njg3NDM1OSwiZXhwIjoyMDcyNDUwMzU5fQ.9f0eu5qyAxAWW8BDSb1xOagkPwG3dLlaLRcgtSuycWE',
+      url: import.meta.env.VITE_MAIN_SUPABASE_URL || '',
+      anonKey: import.meta.env.VITE_MAIN_SUPABASE_ANON_KEY || '',
+      serviceKey: import.meta.env.VITE_MAIN_SUPABASE_SERVICE_KEY || '',
       description: 'Almacena plantillas de agentes, categorías, prompts del sistema y herramientas.'
     },
     pqnc: {
       name: 'Base de Datos PQNC (Auth & Analysis)',
-      url: import.meta.env.VITE_PQNC_SUPABASE_URL || 'https://hmmfuhqgvsehkizlfzga.supabase.co',
-      anonKey: import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1MTM1ODcsImV4cCI6MjA2MTA4OTU4N30.vhmMcmE9l_VJCPI0S_72XCgQycM2LemTG0OgyLsoqk4',
-      serviceKey: import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUxMzU4NywiZXhwIjoyMDYxMDg5NTg3fQ.mTnTOpkXi19xu1l-cZKx_f5RbqSg6zzH8mGdBOY3MZg',
+      url: import.meta.env.VITE_PQNC_SUPABASE_URL || '',
+      anonKey: import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || '',
+      serviceKey: import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || '',
       description: 'Maneja autenticación, usuarios, permisos y análisis PQNC.'
     },
     natalia: {
       name: 'Base de Datos Natalia (Analysis)',
-      url: import.meta.env.VITE_NATALIA_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co',
-      anonKey: import.meta.env.VITE_NATALIA_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E',
-      serviceKey: import.meta.env.VITE_NATALIA_SUPABASE_SERVICE_KEY || 'service-key-placeholder',
+      url: import.meta.env.VITE_NATALIA_SUPABASE_URL || '',
+      anonKey: import.meta.env.VITE_NATALIA_SUPABASE_ANON_KEY || '',
+      serviceKey: import.meta.env.VITE_NATALIA_SUPABASE_SERVICE_KEY || '',
       description: 'Almacena análisis y llamadas de Natalia.'
     }
   });

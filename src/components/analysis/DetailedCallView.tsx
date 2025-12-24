@@ -509,32 +509,76 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
     }
   };
 
-  // Función para resaltar momentos clave
-  const highlightKeyMoments = (text: string, segment: SegmentRecord) => {
-    let highlightedText = text;
+  /**
+   * Función segura para resaltar momentos clave (XSS-safe)
+   * 🔒 SEGURIDAD (Actualizado 2025-12-23): Usa React nodes en lugar de innerHTML
+   */
+  const escapeRegexChars = (str: string): string => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+
+  const highlightKeyMomentsSecure = (text: string, segment: SegmentRecord): React.ReactNode => {
+    // Recopilar todos los términos a resaltar con sus clases
+    const highlights: Array<{ term: string; className: string }> = [];
 
     if (segment.elementos_obligatorios) {
       segment.elementos_obligatorios.forEach(elemento => {
-        const regex = new RegExp(`(${elemento.replace('_', ' ')})`, 'gi');
-        highlightedText = highlightedText.replace(regex, '<mark class="bg-blue-200 dark:bg-blue-800">$1</mark>');
+        highlights.push({ 
+          term: elemento.replace(/_/g, ' '), 
+          className: 'bg-blue-200 dark:bg-blue-800 px-0.5 rounded' 
+        });
       });
     }
 
     if (segment.tecnicas_rapport) {
       segment.tecnicas_rapport.forEach(tecnica => {
-        const regex = new RegExp(`(${tecnica.replace('_', ' ')})`, 'gi');
-        highlightedText = highlightedText.replace(regex, '<mark class="bg-green-200 dark:bg-green-800">$1</mark>');
+        highlights.push({ 
+          term: tecnica.replace(/_/g, ' '), 
+          className: 'bg-green-200 dark:bg-green-800 px-0.5 rounded' 
+        });
       });
     }
 
     if (segment.tipos_objeciones) {
       segment.tipos_objeciones.forEach(objecion => {
-        const regex = new RegExp(`(${objecion.replace('_', ' ')})`, 'gi');
-        highlightedText = highlightedText.replace(regex, '<mark class="bg-red-200 dark:bg-red-800">$1</mark>');
+        highlights.push({ 
+          term: objecion.replace(/_/g, ' '), 
+          className: 'bg-red-200 dark:bg-red-800 px-0.5 rounded' 
+        });
       });
     }
 
-    return highlightedText;
+    // Si no hay nada que resaltar, retornar texto plano
+    if (highlights.length === 0) {
+      return text;
+    }
+
+    // Crear patrón combinado para todos los términos
+    const pattern = highlights
+      .map(h => `(${escapeRegexChars(h.term)})`)
+      .join('|');
+    
+    const regex = new RegExp(pattern, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, index) => {
+      if (!part) return null;
+      
+      // Buscar si esta parte coincide con algún highlight
+      const matchedHighlight = highlights.find(h => 
+        h.term.toLowerCase() === part.toLowerCase()
+      );
+
+      if (matchedHighlight) {
+        return (
+          <mark key={index} className={matchedHighlight.className}>
+            {part}
+          </mark>
+        );
+      }
+      
+      return <span key={index}>{part}</span>;
+    });
   };
 
   const renderPerformanceChart = () => {
@@ -663,12 +707,9 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                                   <div className="text-xs font-medium mb-1 opacity-75">
                                     {conv.isAgent ? 'Agente' : 'Cliente'}
                                   </div>
-                                  <div 
-                                    className="text-sm leading-relaxed"
-                                    dangerouslySetInnerHTML={{ 
-                                      __html: highlightKeyMoments(conv.content, segment) 
-                                    }}
-                                  />
+                                  <div className="text-sm leading-relaxed">
+                                    {highlightKeyMomentsSecure(conv.content, segment)}
+                                  </div>
                                 </div>
                               </div>
                             ))}

@@ -1,47 +1,85 @@
 import { createClient } from '@supabase/supabase-js';
 
-// CONFIGURACIÓN SEGURA PARA PRODUCTION - Alpha 1.0
+/**
+ * ============================================
+ * CONFIGURACIÓN SUPABASE - MULTI-DATABASE
+ * ============================================
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+ * - Todas las keys DEBEN estar en variables de entorno (.env)
+ * - NO usar fallbacks hardcodeados en código
+ * - Service keys solo para operaciones que requieren bypass de RLS
+ * 
+ * ✅ CONFIGURACIÓN REQUERIDA EN .env:
+ * # Main DB (plantillas y agentes)
+ * VITE_MAIN_SUPABASE_URL=https://rnhejbuubpbnojalljso.supabase.co
+ * VITE_MAIN_SUPABASE_ANON_KEY=<tu_anon_key>
+ * VITE_MAIN_SUPABASE_SERVICE_KEY=<tu_service_key>
+ * 
+ * # PQNC DB (autenticación y análisis)
+ * VITE_PQNC_SUPABASE_URL=https://hmmfuhqgvsehkizlfzga.supabase.co
+ * VITE_PQNC_SUPABASE_ANON_KEY=<tu_anon_key>
+ * VITE_PQNC_SUPABASE_SERVICE_KEY=<tu_service_key>
+ */
+
 // Base de datos principal para plantillas y agentes
-const mainSupabaseUrl = import.meta.env.VITE_MAIN_SUPABASE_URL || 'https://rnhejbuubpbnojalljso.supabase.co';
-const mainSupabaseAnonKey = import.meta.env.VITE_MAIN_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaGVqYnV1YnBibm9qYWxsanNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzQzNTksImV4cCI6MjA3MjQ1MDM1OX0.MsTwi2IAHXk_kphl_QYDwOujJhNFbYrZPOx_a40v_YI';
-const mainSupabaseServiceKey = import.meta.env.VITE_MAIN_SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaGVqYnV1YnBibm9qYWxsanNvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Njg3NDM1OSwiZXhwIjoyMDcyNDUwMzU5fQ.9f0eu5qyAxAWW8BDSb1xOagkPwG3dLlaLRcgtSuycWE';
+const mainSupabaseUrl = import.meta.env.VITE_MAIN_SUPABASE_URL || '';
+const mainSupabaseAnonKey = import.meta.env.VITE_MAIN_SUPABASE_ANON_KEY || '';
+const mainSupabaseServiceKey = import.meta.env.VITE_MAIN_SUPABASE_SERVICE_KEY || '';
 
 // Base de datos PQNC para autenticación y análisis
-const pqncSupabaseUrl = import.meta.env.VITE_PQNC_SUPABASE_URL || 'https://hmmfuhqgvsehkizlfzga.supabase.co';
-const pqncSupabaseAnonKey = import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1MTM1ODcsImV4cCI6MjA2MTA4OTU4N30.vhmMcmE9l_VJCPI0S_72XCgQycM2LemTG0OgyLsoqk4';
-const pqncSupabaseServiceKey = import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUxMzU4NywiZXhwIjoyMDYxMDg5NTg3fQ.mTnTOpkXi19xu1l-cZKx_f5RbqSg6zzH8mGdBOY3MZg';
+const pqncSupabaseUrl = import.meta.env.VITE_PQNC_SUPABASE_URL || '';
+const pqncSupabaseAnonKey = import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || '';
+const pqncSupabaseServiceKey = import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || '';
+
+// Validación en desarrollo
+if (!mainSupabaseUrl || !mainSupabaseAnonKey) {
+  console.warn('⚠️ MAIN_SUPABASE: Faltan variables de entorno VITE_MAIN_SUPABASE_URL o VITE_MAIN_SUPABASE_ANON_KEY');
+}
+if (!pqncSupabaseUrl || !pqncSupabaseAnonKey) {
+  console.warn('⚠️ PQNC_SUPABASE: Faltan variables de entorno VITE_PQNC_SUPABASE_URL o VITE_PQNC_SUPABASE_ANON_KEY');
+}
 
 // Cliente principal para plantillas y agentes
-export const supabaseMain = createClient(mainSupabaseUrl, mainSupabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+// Solo crear si tenemos credenciales
+export const supabaseMain = mainSupabaseUrl && mainSupabaseAnonKey
+  ? createClient(mainSupabaseUrl, mainSupabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : null;
 
-export const supabaseMainAdmin = createClient(mainSupabaseUrl, mainSupabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+export const supabaseMainAdmin = mainSupabaseUrl && mainSupabaseServiceKey
+  ? createClient(mainSupabaseUrl, mainSupabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : null;
 
 // ⚠️ DEPRECATED: Usar pqncSupabase desde src/config/pqncSupabase.ts
 // Cliente PQNC para autenticación y análisis
-export const supabase = createClient(pqncSupabaseUrl, pqncSupabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    storageKey: 'pqnc-auth-deprecated'
-  }
-});
+export const supabase = pqncSupabaseUrl && pqncSupabaseAnonKey
+  ? createClient(pqncSupabaseUrl, pqncSupabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        storageKey: 'pqnc-auth-deprecated'
+      }
+    })
+  : null;
 
-export const supabaseAdmin = createClient(pqncSupabaseUrl, pqncSupabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+export const supabaseAdmin = pqncSupabaseUrl && pqncSupabaseServiceKey
+  ? createClient(pqncSupabaseUrl, pqncSupabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : null;
 
 // Tipos TypeScript para las tablas
 export interface AgentCategory {

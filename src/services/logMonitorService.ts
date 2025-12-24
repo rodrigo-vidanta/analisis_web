@@ -28,8 +28,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // URL del proxy Edge Function para análisis de IA (evita problemas de CORS)
 // Proyecto: Log Monitor (dffuwdzybhypxfzrmdcz)
-const AI_ANALYSIS_PROXY_URL = 'https://dffuwdzybhypxfzrmdcz.supabase.co/functions/v1/error-analisis-proxy';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZnV3ZHp5Ymh5cHhmenJtZGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4NTgxNTksImV4cCI6MjA3NTQzNDE1OX0.dduh8ZV_vxWcC3u63DGjPG0U5DDjBpZTs3yjT3clkRc';
+const AI_ANALYSIS_PROXY_URL = import.meta.env.VITE_LOGMONITOR_PROXY_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_LOGMONITOR_SUPABASE_ANON_KEY || '';
 
 export interface LogFilters {
   severity?: ErrorSeverity[];
@@ -64,6 +64,13 @@ export interface AIAnalysisRequest {
 
 class LogMonitorService {
   /**
+   * Verificar si el cliente de LogMonitor está disponible
+   */
+  private isClientAvailable(): boolean {
+    return supabaseLogMonitorAdmin !== null;
+  }
+
+  /**
    * Obtener logs con filtros avanzados
    */
   async getLogs(
@@ -76,6 +83,12 @@ class LogMonitorService {
     } = {}
   ): Promise<{ data: ErrorLog[]; count: number }> {
     try {
+      // Verificar disponibilidad del cliente
+      if (!this.isClientAvailable()) {
+        console.warn('⚠️ LogMonitorService: Cliente no disponible - credenciales no configuradas');
+        return { data: [], count: 0 };
+      }
+
       const {
         limit = 50,
         offset = 0,
@@ -84,7 +97,7 @@ class LogMonitorService {
       } = options;
 
       // Construir query base - usar admin client para evitar problemas de RLS con tablas UI
-      let query = supabaseLogMonitorAdmin
+      let query = supabaseLogMonitorAdmin!
         .from('error_log')
         .select(`
           *,
@@ -936,8 +949,23 @@ class LogMonitorService {
    */
   async getStats(filters?: LogFilters): Promise<LogStats> {
     try {
+      // Verificar disponibilidad del cliente
+      if (!this.isClientAvailable()) {
+        console.warn('⚠️ LogMonitorService: Cliente no disponible - credenciales no configuradas');
+        return {
+          total: 0,
+          unread: 0,
+          archived: 0,
+          by_severity: { baja: 0, media: 0, alta: 0, critica: 0 },
+          by_tipo: { mensaje: 0, llamada: 0, ui: 0 },
+          by_ambiente: { desarrollo: 0, produccion: 0, preproduccion: 0 },
+          by_priority: { low: 0, medium: 0, high: 0, critical: 0 },
+          recent_errors: 0
+        };
+      }
+
       // Obtener todos los logs con estado UI (usar admin client para evitar problemas de RLS)
-      let query = supabaseLogMonitorAdmin
+      let query = supabaseLogMonitorAdmin!
         .from('error_log')
         .select(`
           *,

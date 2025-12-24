@@ -7,7 +7,7 @@
  * Incluye caché local para rendimiento
  */
 
-import { supabaseAdmin } from '../config/supabase';
+import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 
 // Tokens por defecto (se usan cuando no hay BD disponible)
 const DEFAULT_TOKENS: Record<string, string> = {
@@ -36,7 +36,7 @@ export const getApiToken = async (tokenKey: string): Promise<string> => {
 
   try {
     // Intentar cargar desde BD
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseSystemUIAdmin
       .from('api_auth_tokens')
       .select('token_key, token_value')
       .eq('token_key', tokenKey)
@@ -75,7 +75,7 @@ export const getAllApiTokens = async (): Promise<Record<string, string>> => {
   }
 
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseSystemUIAdmin
       .from('api_auth_tokens')
       .select('token_key, token_value');
 

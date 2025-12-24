@@ -27,6 +27,7 @@ import { notificationSoundService } from '../../../services/notificationSoundSer
 import { systemNotificationService } from '../../../services/systemNotificationService';
 import { botPauseService } from '../../../services/botPauseService';
 import { getAvatarGradient } from '../../../utils/avatarGradient';
+import { getApiToken } from '../../../services/apiTokensService';
 
 interface Message {
   id: string;
@@ -1831,12 +1832,13 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
+        const authToken = await getApiToken('pause_bot_auth');
         const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'livechat_auth': '2025_livechat_auth'
+            'livechat_auth': authToken
           },
           body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec }),
           signal: controller.signal
@@ -1915,12 +1917,13 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
+        const authToken = await getApiToken('pause_bot_auth');
         const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'livechat_auth': '2025_livechat_auth'
+            'livechat_auth': authToken
           },
           body: JSON.stringify({ uchat_id: uchatId, ttl: 0 }),
           signal: controller.signal

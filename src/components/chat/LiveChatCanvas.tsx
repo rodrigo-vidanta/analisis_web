@@ -86,6 +86,7 @@ import { Avatar } from '../shared/Avatar';
 import { ReactivateConversationModal } from './ReactivateConversationModal';
 import { DeleteCallConfirmationModal } from '../shared/DeleteCallConfirmationModal';
 import { scheduledCallsService } from '../../services/scheduledCallsService';
+import { getApiToken } from '../../services/apiTokensService';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -4297,12 +4298,13 @@ const LiveChatCanvas: React.FC = () => {
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
+        const authToken = await getApiToken('pause_bot_auth');
         const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'livechat_auth': '2025_livechat_auth'
+            'livechat_auth': authToken
           },
           body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec }),
           signal: controller.signal
@@ -4396,12 +4398,13 @@ const LiveChatCanvas: React.FC = () => {
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
+        const authToken = await getApiToken('pause_bot_auth');
         const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'livechat_auth': '2025_livechat_auth'
+            'livechat_auth': authToken
           },
           body: JSON.stringify({ uchat_id: uchatId, ttl: 0 }),
           signal: controller.signal
@@ -4628,7 +4631,7 @@ const LiveChatCanvas: React.FC = () => {
 
   const sendMessageToUChat = async (message: string, uchatId: string, idSender?: string): Promise<boolean> => {
     try {
-      
+      const authToken = await getApiToken('send_message_auth');
       const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/send-message';
       const payload: any = {
         message: message,
@@ -4648,7 +4651,7 @@ const LiveChatCanvas: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'livechat_auth': '2025_livechat_auth'
+          'livechat_auth': authToken
         },
         body: JSON.stringify(payload)
       });

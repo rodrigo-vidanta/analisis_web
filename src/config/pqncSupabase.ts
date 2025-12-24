@@ -1,36 +1,65 @@
 import { createClient } from '@supabase/supabase-js';
 
-// CONFIGURACIÓN SEGURA PARA PRODUCTION - PQNC Database
-const pqncSupabaseUrl = import.meta.env.VITE_PQNC_SUPABASE_URL || 'https://hmmfuhqgvsehkizlfzga.supabase.co';
-const pqncSupabaseServiceRoleKey = import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUxMzU4NywiZXhwIjoyMDYxMDg5NTg3fQ.mTnTOpkXi19xu1l-cZKx_f5RbqSg6zzH8mGdBOY3MZg';
-const pqncSupabaseAnonKey = import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbWZ1aHFndnNlaGtpemxmemdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1MTM1ODcsImV4cCI6MjA2MTA4OTU4N30.vhmMcmE9l_VJCPI0S_72XCgQycM2LemTG0OgyLsoqk4';
+/**
+ * ============================================
+ * CONFIGURACIÓN SUPABASE - PQNC DATABASE
+ * ============================================
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+ * - Todas las keys DEBEN estar en variables de entorno (.env)
+ * - NO usar fallbacks hardcodeados en código
+ * - Service key solo para operaciones admin específicas
+ * 
+ * ✅ CONFIGURACIÓN REQUERIDA EN .env:
+ * VITE_PQNC_SUPABASE_URL=https://hmmfuhqgvsehkizlfzga.supabase.co
+ * VITE_PQNC_SUPABASE_ANON_KEY=<tu_anon_key>
+ * VITE_PQNC_SUPABASE_SERVICE_KEY=<tu_service_key>
+ */
+
+const pqncSupabaseUrl = import.meta.env.VITE_PQNC_SUPABASE_URL || '';
+const pqncSupabaseServiceRoleKey = import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || '';
+const pqncSupabaseAnonKey = import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || '';
+
+// Validación en desarrollo
+if (!pqncSupabaseUrl || !pqncSupabaseAnonKey) {
+  console.warn('⚠️ PQNC: Faltan variables de entorno VITE_PQNC_SUPABASE_URL o VITE_PQNC_SUPABASE_ANON_KEY');
+}
+if (!pqncSupabaseServiceRoleKey) {
+  console.warn('⚠️ PQNC: VITE_PQNC_SUPABASE_SERVICE_KEY no configurada - operaciones admin no funcionarán');
+}
 
 // Cliente principal para operaciones normales
-export const pqncSupabase = createClient(pqncSupabaseUrl, pqncSupabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    storageKey: 'pqnc-supabase-auth'
-  },
-  global: {
-    headers: {
-      'x-client-info': 'pqnc-frontend'
-    }
-  }
-});
+// Solo crear si tenemos credenciales
+export const pqncSupabase = pqncSupabaseUrl && pqncSupabaseAnonKey
+  ? createClient(pqncSupabaseUrl, pqncSupabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        storageKey: 'pqnc-supabase-auth'
+      },
+      global: {
+        headers: {
+          'x-client-info': 'pqnc-frontend'
+        }
+      }
+    })
+  : null;
 
 // Cliente admin que puede acceder a todas las tablas sin restricciones RLS
-export const pqncSupabaseAdmin = createClient(pqncSupabaseUrl, pqncSupabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    storageKey: 'pqnc-admin-auth' // Clave diferente para evitar conflictos
-  },
-  global: {
-    headers: {
-      'x-client-info': 'pqnc-admin'
-    }
-  }
-});
+// Solo crear si tenemos service key
+export const pqncSupabaseAdmin = pqncSupabaseUrl && pqncSupabaseServiceRoleKey
+  ? createClient(pqncSupabaseUrl, pqncSupabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        storageKey: 'pqnc-admin-auth'
+      },
+      global: {
+        headers: {
+          'x-client-info': 'pqnc-admin'
+        }
+      }
+    })
+  : null;
 
 export { pqncSupabaseUrl, pqncSupabaseAnonKey, pqncSupabaseServiceRoleKey };

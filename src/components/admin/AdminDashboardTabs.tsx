@@ -246,7 +246,7 @@ const AdminDashboardTabs: React.FC = () => {
       },
       {
         id: 'api-tokens' as AdminTab,
-        name: 'Auth Tokens',
+        name: 'Credenciales',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -538,8 +538,17 @@ const AdminDashboardTabs: React.FC = () => {
             </div>
           )}
 
+          {/* Credenciales - Ocupa todo el espacio disponible */}
+          {activeTab === 'api-tokens' && isAdmin && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <ApiAuthTokensManager />
+              </div>
+            </div>
+          )}
+
           {/* Otros módulos con scroll */}
-          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' ? 'hidden' : ''}`}>
+          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'api-tokens' || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' ? 'hidden' : ''}`}>
             
             {/* Otros módulos mantienen el contenedor con padding */}
             <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
@@ -568,12 +577,6 @@ const AdminDashboardTabs: React.FC = () => {
                   </div>
                 )}
 
-                {activeTab === 'api-tokens' && isAdmin && (
-                  <div className="p-4 sm:p-5 md:p-6 lg:p-8">
-                    <ApiAuthTokensManager />
-                  </div>
-                )}
-                
                 {activeTab === 'ejecutivos' && isCoordinador && (
                   <div className="p-4 sm:p-5 md:p-6 lg:p-8">
                     <EjecutivosManager />

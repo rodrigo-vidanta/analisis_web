@@ -12,32 +12,55 @@
  * 3. Tablas UI (prefijo ui_): Estado de lectura, anotaciones, etiquetas, análisis IA
  * 4. Usar cliente admin para operaciones de escritura
  * 5. Usar cliente público para operaciones de lectura
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+ * - Las keys DEBEN estar en variables de entorno (.env)
+ * - NO usar fallbacks hardcodeados
+ * 
+ * ✅ CONFIGURACIÓN REQUERIDA EN .env:
+ * VITE_LOGMONITOR_SUPABASE_URL=https://dffuwdzybhypxfzrmdcz.supabase.co
+ * VITE_LOGMONITOR_SUPABASE_ANON_KEY=<tu_anon_key>
+ * VITE_LOGMONITOR_SUPABASE_SERVICE_KEY=<tu_service_key>
  */
 
 import { createClient } from '@supabase/supabase-js';
 
 // Configuración para la base de datos Log Monitor
-const logMonitorSupabaseUrl = 'https://dffuwdzybhypxfzrmdcz.supabase.co';
-const logMonitorAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZnV3ZHp5Ymh5cHhmenJtZGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4NTgxNTksImV4cCI6MjA3NTQzNDE1OX0.dduh8ZV_vxWcC3u63DGjPG0U5DDjBpZTs3yjT3clkRc';
-const logMonitorServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZnV3ZHp5Ymh5cHhmenJtZGN6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTg1ODE1OSwiZXhwIjoyMDc1NDM0MTU5fQ.GplT_sFvgkLjNDNg50MaXVI759u8LAMeS9SbJ6pf2yc';
+const logMonitorSupabaseUrl = import.meta.env.VITE_LOGMONITOR_SUPABASE_URL || '';
+const logMonitorAnonKey = import.meta.env.VITE_LOGMONITOR_SUPABASE_ANON_KEY || '';
+const logMonitorServiceKey = import.meta.env.VITE_LOGMONITOR_SUPABASE_SERVICE_KEY || '';
+
+// Validación en desarrollo
+if (!logMonitorSupabaseUrl || !logMonitorAnonKey) {
+  console.error('⚠️ LOGMONITOR: Faltan variables de entorno VITE_LOGMONITOR_SUPABASE_URL o VITE_LOGMONITOR_SUPABASE_ANON_KEY');
+}
+if (!logMonitorServiceKey) {
+  console.warn('⚠️ LOGMONITOR: VITE_LOGMONITOR_SUPABASE_SERVICE_KEY no configurada - operaciones admin no funcionarán');
+}
 
 // Cliente público para operaciones normales (lectura)
-export const supabaseLogMonitor = createClient(logMonitorSupabaseUrl, logMonitorAnonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    storageKey: 'logmonitor-auth'
-  }
-});
+// Solo crear si tenemos las credenciales necesarias
+export const supabaseLogMonitor = logMonitorSupabaseUrl && logMonitorAnonKey
+  ? createClient(logMonitorSupabaseUrl, logMonitorAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        storageKey: 'logmonitor-auth'
+      }
+    })
+  : null;
 
 // Cliente admin para operaciones administrativas (escritura)
-export const supabaseLogMonitorAdmin = createClient(logMonitorSupabaseUrl, logMonitorServiceKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    storageKey: 'logmonitor-admin'
-  }
-});
+// Solo crear si tenemos service key configurada
+export const supabaseLogMonitorAdmin = logMonitorSupabaseUrl && logMonitorServiceKey
+  ? createClient(logMonitorSupabaseUrl, logMonitorServiceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        storageKey: 'logmonitor-admin'
+      }
+    })
+  : null;
 
 // Tipos para error_log
 export type ErrorType = 'mensaje' | 'llamada' | 'ui';

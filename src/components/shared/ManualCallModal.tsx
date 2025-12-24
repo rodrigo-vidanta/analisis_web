@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { horariosService, type HorarioBase } from '../../services/horariosService';
+import { getApiToken } from '../../services/apiTokensService';
 
 interface ScheduledCall {
   id: string;
@@ -363,13 +364,16 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
         payload.llamada_programada_id = existingCall.id;
       }
 
+      // Obtener token de autenticación del servicio centralizado
+      const authToken = await getApiToken('manual_call_auth');
+      
       // Enviar al webhook
       const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/trigger-manual', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Auth': 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV'
+          'Auth': authToken
         },
         body: JSON.stringify(payload)
       });

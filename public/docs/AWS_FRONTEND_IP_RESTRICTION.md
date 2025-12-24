@@ -1,6 +1,7 @@
 # 🔒 Restricción de IPs para Frontend CloudFront
 
 **Fecha de configuración:** 16 de Diciembre, 2025  
+**Última actualización:** 16 de Diciembre, 2025 (IP drosales agregada)  
 **Estado:** ✅ Configurado y activo
 
 ---
@@ -17,6 +18,7 @@ Se ha configurado AWS WAF para restringir el acceso al frontend CloudFront solo 
 | 2 | `187.210.107.179` | Telmex |
 | 3 | `189.178.124.238` | IP del usuario 1 |
 | 4 | `189.177.138.158` | IP del usuario 2 |
+| 5 | `189.203.97.130` | drosales |
 
 ---
 
@@ -26,7 +28,7 @@ Se ha configurado AWS WAF para restringir el acceso al frontend CloudFront solo 
 - **Nombre:** `frontend-allowed-ips`
 - **ARN:** `arn:aws:wafv2:us-east-1:307621978585:global/ipset/frontend-allowed-ips/9ed33da4-fb8e-498e-baf7-ff0b672d7725`
 - **Scope:** `CLOUDFRONT`
-- **IPs:** 4 direcciones IPv4 (/32)
+- **IPs:** 5 direcciones IPv4 (/32)
 
 ### Web ACL:
 - **Nombre:** `frontend-ip-restriction`

@@ -145,7 +145,23 @@ class DynamicsLeadService {
       // El webhook devuelve un array, tomamos el primer elemento
       const leadData = Array.isArray(data) ? data[0] : data;
 
-      if (!leadData || !leadData.LeadID) {
+      // El webhook puede retornar LeadID o ID_Dynamics dependiendo del tipo de búsqueda
+      const leadId = leadData?.LeadID || leadData?.ID_Dynamics;
+
+      if (!leadData || !leadId) {
+        // Verificar si hay algún dato válido (ej: status_crm solamente)
+        if (leadData && Object.keys(leadData).length > 0 && leadData.Nombre !== undefined) {
+          // Normalizar el campo LeadID si viene como ID_Dynamics
+          const normalizedData = {
+            ...leadData,
+            LeadID: leadId || leadData.ID_Dynamics || '',
+          };
+          return {
+            success: true,
+            data: normalizedData as DynamicsLeadInfo,
+            searchType,
+          };
+        }
         return {
           success: true,
           data: null,
@@ -154,9 +170,15 @@ class DynamicsLeadService {
         };
       }
 
+      // Normalizar el campo LeadID si viene como ID_Dynamics
+      const normalizedData = {
+        ...leadData,
+        LeadID: leadId,
+      };
+
       return {
         success: true,
-        data: leadData as DynamicsLeadInfo,
+        data: normalizedData as DynamicsLeadInfo,
         searchType,
       };
     } catch (error) {

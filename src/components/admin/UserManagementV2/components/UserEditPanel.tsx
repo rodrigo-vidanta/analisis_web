@@ -423,7 +423,11 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
       </AnimatePresence>
 
       {/* Content with Scroll - Responsive 2-column layout */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 scrollbar-hide">
+      <form 
+        id="user-edit-form"
+        onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+        className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 scrollbar-hide"
+      >
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
             {/* Left Column - Personal & Professional Info */}
@@ -876,7 +880,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </form>
 
       {/* Footer - Responsivo */}
       <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
@@ -905,7 +909,8 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
               Cancelar
             </button>
             <button
-              onClick={handleSave}
+              type="submit"
+              form="user-edit-form"
               disabled={isSaving}
               className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/25"
             >

@@ -7,6 +7,7 @@ import { analysisSupabase } from '../config/analysisSupabase';
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 import { permissionsService } from './permissionsService';
 import { coordinacionService } from './coordinacionService';
+import { getApiToken } from './apiTokensService';
 
 export interface ScheduledCall {
   id: string;
@@ -337,13 +338,16 @@ class ScheduledCallsService {
       const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       try {
+        // Obtener token de autenticación del servicio centralizado
+        const authToken = await getApiToken('manual_call_auth');
+        
         // Enviar al webhook
         const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/trigger-manual', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Auth': 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV'
+            'Auth': authToken
           },
           body: JSON.stringify(payload),
           signal: controller.signal

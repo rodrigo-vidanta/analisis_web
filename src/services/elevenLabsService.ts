@@ -83,12 +83,24 @@ export interface VoiceSettings {
   use_speaker_boost?: boolean;
 }
 
+/**
+ * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+ * - API key DEBE estar en variables de entorno (.env)
+ * - NO usar fallbacks hardcodeados
+ * 
+ * ✅ CONFIGURACIÓN REQUERIDA EN .env:
+ * VITE_ELEVENLABS_API_KEY=<tu_api_key>
+ */
 class ElevenLabsService {
   private apiKey: string;
   private baseUrl = 'https://api.elevenlabs.io/v1';
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || 'sk_9f6a9d41ceeca6766de6fb27a9b8b1ddd678b1f738db6d65';
+    this.apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
+    
+    if (!this.apiKey) {
+      console.warn('⚠️ ElevenLabsService: VITE_ELEVENLABS_API_KEY no configurada - funcionalidades de voz no disponibles');
+    }
   }
 
   private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {

@@ -4,18 +4,19 @@
  * Usa AWS WAF para crear una whitelist de IPs permitidas
  */
 
-import { WAFV2Client, CreateIPSetCommand, CreateWebACLCommand, AssociateWebACLCommand, GetWebACLCommand, ListIPSetsCommand, GetIPSetCommand } from '@aws-sdk/client-wafv2';
+import { WAFV2Client, CreateIPSetCommand, CreateWebACLCommand, AssociateWebACLCommand, GetWebACLCommand, ListIPSetsCommand, GetIPSetCommand, UpdateIPSetCommand, ListWebACLsCommand } from '@aws-sdk/client-wafv2';
 import { CloudFrontClient, GetDistributionConfigCommand, UpdateDistributionCommand } from '@aws-sdk/client-cloudfront';
 
 const wafClient = new WAFV2Client({ region: 'us-east-1' }); // WAF debe estar en us-east-1 para CloudFront
 const cloudfrontClient = new CloudFrontClient({ region: 'us-east-1' });
 
-// IPs permitidas
+// IPs permitidas con etiquetas/notas
 const ALLOWED_IPS = [
-  '189.203.238.35',  // Total Play
-  '187.210.107.179', // Telmex
-  '189.178.124.238', // IP del usuario 1
-  '189.177.138.158', // IP del usuario 2
+  { ip: '189.203.238.35', label: 'Total Play' },
+  { ip: '187.210.107.179', label: 'Telmex' },
+  { ip: '189.178.124.238', label: 'IP del usuario 1' },
+  { ip: '189.177.138.158', label: 'IP del usuario 2' },
+  { ip: '189.203.97.130', label: 'drosales' },
 ];
 
 const CLOUDFRONT_DISTRIBUTION_ID = 'E19ZID7TVR08JG';
@@ -44,14 +45,36 @@ async function getOrCreateIPSet(): Promise<string> {
       }));
 
       const currentIPs = ipSetDetails.IPSet?.Addresses || [];
-      const expectedIPs = ALLOWED_IPS.map(ip => `${ip}/32`).sort();
+      const expectedIPs = ALLOWED_IPS.map(item => `${item.ip}/32`).sort();
       const currentIPsSorted = currentIPs.sort();
 
       if (JSON.stringify(currentIPsSorted) !== JSON.stringify(expectedIPs)) {
         console.log('⚠️  Las IPs en el IP Set no coinciden. Actualizando...');
+        
+        // Obtener el LockToken necesario para actualizar
+        const lockToken = ipSetDetails.LockToken;
+        if (!lockToken) {
+          throw new Error('No se pudo obtener el LockToken para actualizar el IP Set');
+        }
+
         // Actualizar el IP Set con las nuevas IPs
-        // Nota: Necesitaríamos UpdateIPSetCommand, pero por ahora creamos uno nuevo
-        console.log('💡 Por favor actualiza manualmente el IP Set desde AWS Console o elimínalo para recrearlo');
+        await wafClient.send(new UpdateIPSetCommand({
+          Scope: 'CLOUDFRONT',
+          Id: existingIPSet.Id!,
+          Name: IP_SET_NAME,
+          Addresses: expectedIPs,
+          LockToken: lockToken,
+        }));
+
+        console.log('✅ IP Set actualizado exitosamente');
+        console.log(`   IPs actualizadas: ${ALLOWED_IPS.length}`);
+        ALLOWED_IPS.forEach((item, index) => {
+          console.log(`   ${index + 1}. ${item.ip} (${item.label})`);
+        });
+        
+        // Esperar un momento para que AWS propague el cambio
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
         return existingIPSet.ARN;
       }
 
@@ -65,7 +88,7 @@ async function getOrCreateIPSet(): Promise<string> {
       Name: IP_SET_NAME,
       Scope: 'CLOUDFRONT',
       Description: 'IPs permitidas para acceder al frontend',
-      Addresses: ALLOWED_IPS.map(ip => `${ip}/32`),
+      Addresses: ALLOWED_IPS.map(item => `${item.ip}/32`),
       IPAddressVersion: 'IPV4',
     }));
 
@@ -153,18 +176,21 @@ async function createWebACL(ipSetArn: string): Promise<string> {
   } catch (error: any) {
     if (error.name === 'WAFDuplicateItemException') {
       console.log('⚠️  El Web ACL ya existe. Obteniendo ARN...');
-      const existingAcl = await wafClient.send(new GetWebACLCommand({
+      
+      // Listar Web ACLs para obtener el ID
+      const listResponse = await wafClient.send(new ListWebACLsCommand({
         Scope: 'CLOUDFRONT',
-        Name: WEB_ACL_NAME,
       }));
       
-      const webAclArn = existingAcl.WebACL?.ARN;
-      if (!webAclArn) {
-        throw new Error('No se pudo obtener el ARN del Web ACL existente');
+      const existingAcl = listResponse.WebACLs?.find(acl => acl.Name === WEB_ACL_NAME);
+      
+      if (existingAcl && existingAcl.ARN) {
+        console.log(`✅ Web ACL existente encontrado: ${existingAcl.ARN}`);
+        return existingAcl.ARN;
       }
       
-      console.log(`✅ Web ACL existente encontrado: ${webAclArn}`);
-      return webAclArn;
+      // Si no se encuentra en la lista, intentar obtenerlo directamente con el ID si lo tenemos
+      throw new Error('Web ACL ya existe pero no se pudo obtener su ARN');
     }
     if (error.message?.includes('couldn\'t retrieve the resource')) {
       console.log('⚠️  Error al acceder al recurso. Esperando y reintentando...');
@@ -222,9 +248,8 @@ async function main() {
   console.log('🔒 Configurando Restricción de IPs para Frontend\n');
   console.log('='.repeat(60));
   console.log('\n📋 IPs Permitidas:');
-  ALLOWED_IPS.forEach((ip, index) => {
-    const labels = ['Total Play', 'Telmex', 'Tu IP 1', 'Tu IP 2'];
-    console.log(`   ${index + 1}. ${ip} (${labels[index]})`);
+  ALLOWED_IPS.forEach((item, index) => {
+    console.log(`   ${index + 1}. ${item.ip} (${item.label})`);
   });
   console.log('\n' + '='.repeat(60));
 

@@ -96,13 +96,23 @@ class AdminMessagesService {
   }
 
   /**
-   * Crear mensaje usando HTTP directo con SQL ejecutado mediante función RPC exec_sql
-   * Usa las credenciales de System UI almacenadas en el proyecto
+   * Crear mensaje usando HTTP directo con SQL ejecutado mediante función RPC
+   * 
+   * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+   * - Las keys se leen de variables de entorno
+   * - NO usar fallbacks hardcodeados
+   * 
+   * ⚠️ TODO FUTURO: Migrar a Edge Function autenticada
    */
   private async createMessageViaHTTP(params: CreateAdminMessageParams): Promise<AdminMessage | null> {
     try {
-      const SUPABASE_URL = 'https://zbylezfyagwrxoecioup.supabase.co';
-      const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTMzNjI3MSwiZXhwIjoyMDc0OTEyMjcxfQ.2Btqq8cGSmr4OMKUae8zsHLxQMfs2JJ1ZFgmZYQPFQY';
+      const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || '';
+      const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY || '';
+      
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        console.error('⚠️ AdminMessagesService: Variables de entorno no configuradas');
+        return null;
+      }
 
       // Escapar valores para SQL seguro
       const escapeSQL = (str: string) => (str || '').replace(/'/g, "''").replace(/\\/g, '\\\\');

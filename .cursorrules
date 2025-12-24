@@ -113,6 +113,65 @@ public/docs/        # Documentacion servida para la UI
 
 ---
 
+## MCP (MODEL CONTEXT PROTOCOL) - CONEXIONES A SERVICIOS
+
+### MCPs DISPONIBLES
+
+| MCP | Proyecto/Servicio | Cuándo usar |
+|-----|-------------------|-------------|
+| `SupaVidanta` | Analysis DB (glsmifhkoaifvaegsozd) | Llamadas, prospectos, Live Monitor, WhatsApp |
+| `SupaSystemUI` | System UI DB (zbylezfyagwrxoecioup) | Usuarios, auth, config, bot pause |
+| `SupaPQNC` | PQNC DB (hmmfuhqgvsehkizlfzga) | Ejecutivos, roles, feedback PQNC |
+| `aws-infrastructure` | AWS us-west-2 | ECS, RDS, S3, CloudWatch |
+| `N8N` | Railway N8N | Workflows, ejecuciones |
+| `vapi` | VAPI | Agentes de voz |
+
+### ⛔ MCP PROHIBIDO
+
+**NUNCA usar `SupaClever`** - Es de otro proyecto (clever-ideas-ai-platform)
+- Proyecto: rnhejbuubpbnojalljso
+- Contamina datos y documentación
+- Ha sido removido de la configuración
+
+### REGLAS DE USO POR CONTEXTO
+
+```
+Análisis de llamadas     → SupaVidanta
+Live Monitor             → SupaVidanta
+Prospectos               → SupaVidanta
+Conversaciones WhatsApp  → SupaVidanta
+
+Usuarios del sistema     → SupaSystemUI
+Sesiones y auth          → SupaSystemUI
+Mensajes admin           → SupaSystemUI
+Bot pause status         → SupaSystemUI
+
+Ejecutivos PQNC          → SupaPQNC
+Roles y permisos         → SupaPQNC
+Feedback de calidad      → SupaPQNC
+
+ECS/RDS/S3               → aws-infrastructure
+Workflows                → N8N
+Agentes de voz           → vapi
+```
+
+### DOCUMENTACIÓN MCP
+
+- Catálogo completo: `docs/MCP_CATALOG.md`
+- Servicios AWS: `docs/AWS_SERVICES_CATALOG.md`
+- Changelog AWS: `docs/AWS_CHANGELOG.md`
+
+### ARCHIVOS DE SERVIDORES MCP
+
+```
+mcp-supavidanta-server.ts      → SupaVidanta
+mcp-supa-system-ui-server.ts   → SupaSystemUI
+mcp-supa-pqnc-server.ts        → SupaPQNC
+~/.cursor/mcp.json             → Configuración global
+```
+
+---
+
 ## PROCESO DE DESPLIEGUE (GIT + AWS)
 
 ### Cuando el usuario solicite PUSH A GIT y/o DEPLOY A AWS, ejecutar:
@@ -400,6 +459,10 @@ Para agregar un nuevo documento, agregar entrada en la seccion correspondiente:
 - No crear recursos AWS sin autorizacion
 - Verificar costos antes de crear recursos
 - Usar scripts de despliegue existentes
+- **SIEMPRE** documentar cambios en `docs/AWS_CHANGELOG.md`
+- Consultar `docs/AWS_SERVICES_CATALOG.md` para comandos disponibles
+- Operaciones de ALTO RIESGO: delete_*, stop_instance
+- Operaciones SEGURAS: list_*, describe_*, get_*, create_snapshot
 
 ### N8N
 

@@ -2,6 +2,195 @@
 
 ## Historial de Versiones
 
+### v2.2.0 (2025-12-24)
+**Descripción**: B7.0.0N6.0.0: 🔐 RELEASE DE SEGURIDAD MAYOR - Remediación de Credenciales y Nuevo Módulo de Gestión de Tokens
+
+---
+
+## 🔐 **RELEASE B7.0.0N6.0.0 - Seguridad y Gestión Centralizada de Credenciales**
+
+### ⚠️ **BREAKING CHANGES - Configuración de Variables de Entorno**
+
+Este release **requiere** configurar las siguientes variables de entorno antes del deploy:
+
+```env
+# System UI (zbylezfyagwrxoecioup)
+VITE_SYSTEM_UI_SUPABASE_URL=
+VITE_SYSTEM_UI_SUPABASE_ANON_KEY=
+VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY=
+
+# PQNC AI (glsmifhkoaifvaegsozd)
+VITE_PQNC_SUPABASE_URL=
+VITE_PQNC_SUPABASE_ANON_KEY=
+VITE_PQNC_SUPABASE_SERVICE_KEY=
+
+# Analysis/Natalia (hmmfuhqgvsehkizlfzga)
+VITE_ANALYSIS_SUPABASE_URL=
+VITE_ANALYSIS_SUPABASE_ANON_KEY=
+
+# Main DB
+VITE_MAIN_SUPABASE_URL=
+VITE_MAIN_SUPABASE_ANON_KEY=
+VITE_MAIN_SUPABASE_SERVICE_KEY=
+
+# N8N
+VITE_N8N_API_URL=
+VITE_N8N_API_TOKEN=
+
+# ElevenLabs
+VITE_ELEVENLABS_API_KEY=
+```
+
+### 🔒 **Seguridad - Remediación de Vulnerabilidades**
+
+#### 1. **Eliminación de Credenciales Hardcodeadas (CRÍTICO)**
+   - **supabaseSystemUI.ts**: Eliminados fallbacks de ANON_KEY y SERVICE_KEY
+   - **supabase.ts**: Eliminados fallbacks de mainSupabaseAnonKey, mainSupabaseServiceKey, pqncSupabaseAnonKey, pqncSupabaseServiceKey
+   - **pqncSupabase.ts**: Eliminados fallbacks de pqncSupabaseServiceRoleKey y pqncSupabaseAnonKey
+   - **analysisSupabase.ts**: Eliminado fallback de analysisSupabaseAnonKey
+   - **supabaseLogMonitor.ts**: Eliminados fallbacks de logMonitorAnonKey y logMonitorServiceKey
+   - **botPauseService.ts**: Eliminado fallback de SUPABASE_SERVICE_KEY
+   - **adminMessagesService.ts**: Eliminado fallback de SUPABASE_SERVICE_KEY
+   - **n8nService.ts**: Eliminado hardcoded apiToken
+   - **ImageCatalogModal.tsx**: Reemplazado Bearer token hardcodeado por variable de entorno
+   - **DatabaseConfiguration.tsx**: Eliminados fallback URLs y keys
+
+#### 2. **Protección contra XSS (ALTO)**
+   - **DetailedCallView.tsx**: Reemplazado `dangerouslySetInnerHTML` con renderizado seguro React
+   - **JsonViewer.tsx**: Reemplazado `dangerouslySetInnerHTML` con array de React elements
+   - **Sidebar.tsx**: Reemplazado `innerHTML` con renderizado condicional React
+
+#### 3. **Inicialización Robusta de Clientes Supabase**
+   - Todos los clientes Supabase ahora verifican la existencia de credenciales antes de crear
+   - Si faltan credenciales, el cliente retorna `null` con warning en consola
+   - Previene crashes por `supabaseKey is required`
+
+### ✨ **Nuevo Módulo: Gestión de Credenciales y Tokens**
+
+#### Características:
+- **Diseño Enterprise** basado en UserManagementV2
+- **Sidebar colapsable** con filtros por tipo:
+  - Todas las credenciales
+  - Webhooks N8N
+  - APIs Externas
+  - Activas / Inactivas
+- **Tabla compacta** con columnas: Credencial, Token (enmascarado), Endpoint, Modificado, Por, Acciones
+- **Búsqueda en tiempo real** por nombre, key o URL
+- **Panel de edición** que reemplaza la tabla (como usuarios)
+- **Auditoría completa**: Usuario, fecha, versión, motivo del cambio
+- **Historial de cambios** en tabla `api_auth_tokens_history`
+- **Paginación** configurable (10/25/50)
+
+#### Tokens Migrados a Base de Datos:
+| Módulo | Token Key | Descripción |
+|--------|-----------|-------------|
+| Llamadas Manuales | manual_call_auth | Programar llamadas |
+| Enviar Mensaje WhatsApp | send_message_auth | Webhook UChat |
+| Pausar/Reanudar Bot | pause_bot_auth | Control bot UChat |
+| Enviar Imagen | send_img_auth | Imágenes WhatsApp |
+| Plantillas WhatsApp | whatsapp_templates_auth | Reactivación |
+| Error Logs | error_log_auth | Logs centralizados |
+| URL Media | media_url_auth | URLs firmadas |
+| ElevenLabs | elevenlabs_api_key | API de voz IA |
+
+### 🗄️ **Base de Datos - Nuevas Tablas**
+
+#### `api_auth_tokens` (System_UI)
+```sql
+- id: UUID PRIMARY KEY
+- module_name: TEXT NOT NULL
+- service_name: TEXT NOT NULL
+- token_key: TEXT UNIQUE NOT NULL
+- token_value: TEXT NOT NULL
+- description: TEXT
+- endpoint_url: TEXT
+- is_active: BOOLEAN DEFAULT TRUE
+- expires_at: TIMESTAMPTZ
+- version: INTEGER DEFAULT 1
+- updated_by_id: UUID
+- updated_by_name: TEXT
+- updated_by_email: TEXT
+- previous_value: TEXT
+- change_reason: TEXT
+- ip_address: TEXT
+- user_agent: TEXT
+- created_at, updated_at: TIMESTAMPTZ
+```
+
+#### `api_auth_tokens_history` (System_UI)
+```sql
+- id: UUID PRIMARY KEY
+- token_id: UUID REFERENCES api_auth_tokens
+- module_name, service_name, token_key, token_value
+- version: INTEGER NOT NULL
+- changed_at: TIMESTAMPTZ
+- changed_by_id, changed_by_name, changed_by_email
+- change_type: TEXT ('CREATE', 'UPDATE', 'DELETE', 'ROLLBACK')
+- change_reason: TEXT
+```
+
+### 📝 **Servicios Actualizados para Usar Tokens Centralizados**
+
+- `apiTokensService.ts` - Servicio central con caché de 5 minutos
+- `scheduledCallsService.ts` - Usa apiTokensService para manual_call_auth
+- `LiveChatCanvas.tsx` - Usa apiTokensService para pause_bot y send_message
+- `ConversacionesWidget.tsx` - Usa apiTokensService para pause_bot
+- `errorLogService.ts` - Usa apiTokensService para error_log_auth
+- `ReactivateConversationModal.tsx` - Usa apiTokensService para whatsapp_templates_auth
+- `ManualCallModal.tsx` - Usa apiTokensService para manual_call_auth
+
+### 🔧 **MCPs Configurados**
+
+| MCP | Proyecto | Base de Datos |
+|-----|----------|---------------|
+| SupaVidanta | Analysis | glsmifhkoaifvaegsozd |
+| SupaSystemUI | System UI | zbylezfyagwrxoecioup |
+| SupaPQNC | PQNC | hmmfuhqgvsehkizlfzga |
+| aws-infrastructure | AWS us-west-2 | - |
+| N8N | Railway N8N | - |
+
+### 📁 **Archivos Modificados**
+
+#### Configuración Supabase (6 archivos):
+- `src/config/supabaseSystemUI.ts`
+- `src/config/supabase.ts`
+- `src/config/pqncSupabase.ts`
+- `src/config/analysisSupabase.ts`
+- `src/config/supabaseLogMonitor.ts`
+- `src/components/admin/DatabaseConfiguration.tsx`
+
+#### Servicios (8 archivos):
+- `src/services/botPauseService.ts`
+- `src/services/adminMessagesService.ts`
+- `src/services/n8nService.ts`
+- `src/services/elevenLabsService.ts`
+- `src/services/logMonitorService.ts`
+- `src/services/dynamicsLeadService.ts`
+- `src/services/errorLogService.ts`
+- `src/services/apiTokensService.ts` (NUEVO)
+
+#### Componentes (10 archivos):
+- `src/components/analysis/DetailedCallView.tsx`
+- `src/components/JsonViewer.tsx`
+- `src/components/Sidebar.tsx`
+- `src/components/chat/ImageCatalogModal.tsx`
+- `src/components/admin/ApiAuthTokensManager.tsx` (REDISEÑADO)
+- `src/components/admin/AdminDashboardTabs.tsx`
+- `src/components/admin/UserManagementV2/components/UserEditPanel.tsx`
+- `src/components/chat/LiveChatCanvas.tsx`
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx`
+- `src/components/chat/ReactivateConversationModal.tsx`
+
+#### Documentación:
+- `docs/SECURITY_REMEDIATION_PLAN_2025-12-23.md` (NUEVO)
+- `docs/ENV_VARIABLES_REQUIRED.md` (NUEVO)
+- `docs/MCP_CATALOG.md` (NUEVO)
+- `docs/AWS_SERVICES_CATALOG.md` (NUEVO)
+- `docs/AWS_CHANGELOG.md` (NUEVO)
+- `.cursorrules` - Actualizado con reglas de MCPs
+
+---
+
 ### v2.1.46 (2025-12-23)
 **Descripción**: B6.2.6N6.0.0: CRM Modal en WhatsApp, Mejoras Dynamics CRM y Botón CRM en Header
 

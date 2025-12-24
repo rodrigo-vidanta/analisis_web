@@ -1,13 +1,19 @@
 /**
  * ============================================
- * GESTIÓN DE TOKENS DE AUTENTICACIÓN API
+ * GESTIÓN DE CREDENCIALES Y TOKENS
  * ============================================
  * 
- * Permite gestionar tokens de autenticación para webhooks y APIs externas
- * Los tokens se muestran encriptados (solo últimos 8 caracteres visibles)
+ * Módulo centralizado para gestionar credenciales de APIs y webhooks.
+ * Diseño basado en UserManagementV2 para máximo aprovechamiento del espacio.
+ * 
+ * Incluye:
+ * - Sidebar con filtros por tipo
+ * - Tabla compacta con edición inline
+ * - Historial de cambios y auditoría
+ * - Búsqueda en tiempo real
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Key, 
@@ -18,120 +24,300 @@ import {
   RefreshCw, 
   Save,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  Search,
+  X,
+  Plus,
+  Webhook,
+  Mic2,
+  Phone,
+  MessageSquare,
+  Bot,
+  Image,
+  Link2,
+  User,
+  Clock,
+  History,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  Trash2,
+  Filter,
+  ArrowUpDown,
+  ExternalLink,
+  PanelLeftClose,
+  PanelLeft,
+  AlertCircle,
+  Settings
 } from 'lucide-react';
-import { supabaseAdmin } from '../../config/supabase';
+import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
 import toast from 'react-hot-toast';
+
+// ============================================
+// TYPES
+// ============================================
 
 interface ApiToken {
   id: string;
   module_name: string;
+  service_name?: string;
   token_key: string;
+  token_type?: string;
   token_value: string;
   description: string;
   endpoint_url?: string;
-  last_updated: string;
-  updated_by?: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  updated_by_id?: string;
+  updated_by_name?: string;
+  updated_by_email?: string;
+  previous_value?: string;
+  change_reason?: string;
+  version?: number;
 }
 
-// Configuración de tokens por defecto (se cargarán desde BD si existen)
-const DEFAULT_TOKENS: Omit<ApiToken, 'id' | 'last_updated' | 'updated_by'>[] = [
-  {
-    module_name: 'Programar Llamadas',
-    token_key: 'manual_call_auth',
-    token_value: 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV',
-    description: 'Token de autenticación para el webhook de programar llamadas manuales',
-    endpoint_url: 'https://primary-dev-d75a.up.railway.app/webhook/trigger-manual'
-  },
-  {
-    module_name: 'Enviar Mensaje',
-    token_key: 'send_message_auth',
-    token_value: '2025_livechat_auth',
-    description: 'Token para enviar mensajes a través del webhook de UChat',
-    endpoint_url: 'https://primary-dev-d75a.up.railway.app/webhook/send-message'
-  },
-  {
-    module_name: 'Pausar Bot',
-    token_key: 'pause_bot_auth',
-    token_value: '2025_livechat_auth',
-    description: 'Token para pausar/reanudar el bot de UChat',
-    endpoint_url: 'https://primary-dev-d75a.up.railway.app/webhook/pause-bot'
-  },
-  {
-    module_name: 'Generar URL Media',
-    token_key: 'media_url_auth',
-    token_value: '93fbcfc4-ccc9-4023-b820-86ef98f10122',
-    description: 'Token para generar URLs firmadas de archivos multimedia',
-    endpoint_url: 'https://function-bun-dev-6d8e.up.railway.app/generar-url'
-  }
+interface TokenHistory {
+  id: string;
+  token_id: string;
+  module_name: string;
+  token_value: string;
+  version: number;
+  changed_at: string;
+  changed_by_name?: string;
+  change_type: string;
+  change_reason?: string;
+}
+
+type FilterType = 'all' | 'webhooks' | 'apis' | 'active' | 'inactive';
+type SortField = 'module_name' | 'updated_at' | 'version';
+type SortDirection = 'asc' | 'desc';
+
+// ============================================
+// CONSTANTS
+// ============================================
+
+const SIDEBAR_KEY = 'credentials_sidebar_visible';
+
+const FILTER_OPTIONS: { id: FilterType; name: string; icon: React.ReactNode; color: string }[] = [
+  { id: 'all', name: 'Todas', icon: <Key className="w-4 h-4" />, color: 'text-gray-600' },
+  { id: 'webhooks', name: 'Webhooks N8N', icon: <Webhook className="w-4 h-4" />, color: 'text-pink-500' },
+  { id: 'apis', name: 'APIs Externas', icon: <Settings className="w-4 h-4" />, color: 'text-purple-500' },
+  { id: 'active', name: 'Activas', icon: <Check className="w-4 h-4" />, color: 'text-emerald-500' },
+  { id: 'inactive', name: 'Inactivas', icon: <X className="w-4 h-4" />, color: 'text-red-500' },
 ];
 
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+const getTokenType = (token: ApiToken): 'webhook' | 'api' => {
+  if (token.endpoint_url?.includes('railway') || token.token_type === 'bearer') {
+    return 'webhook';
+  }
+  return 'api';
+};
+
+const getTokenIcon = (token: ApiToken) => {
+  const module = token.module_name.toLowerCase();
+  
+  if (module.includes('elevenlabs')) return <Mic2 className="w-4 h-4" />;
+  if (module.includes('llamada')) return <Phone className="w-4 h-4" />;
+  if (module.includes('mensaje') || module.includes('whatsapp') || module.includes('plantilla')) return <MessageSquare className="w-4 h-4" />;
+  if (module.includes('bot') || module.includes('pausar')) return <Bot className="w-4 h-4" />;
+  if (module.includes('imagen') || module.includes('media')) return <Image className="w-4 h-4" />;
+  if (module.includes('log') || module.includes('error')) return <AlertCircle className="w-4 h-4" />;
+  return <Webhook className="w-4 h-4" />;
+};
+
+const getTokenColor = (token: ApiToken): string => {
+  const module = token.module_name.toLowerCase();
+  
+  if (module.includes('elevenlabs')) return 'bg-gradient-to-br from-gray-800 to-gray-900';
+  if (module.includes('llamada')) return 'bg-gradient-to-br from-green-500 to-emerald-600';
+  if (module.includes('whatsapp') || module.includes('mensaje') || module.includes('plantilla')) return 'bg-gradient-to-br from-green-400 to-green-600';
+  if (module.includes('bot')) return 'bg-gradient-to-br from-purple-500 to-indigo-600';
+  if (module.includes('imagen') || module.includes('media')) return 'bg-gradient-to-br from-blue-500 to-cyan-500';
+  if (module.includes('log') || module.includes('error')) return 'bg-gradient-to-br from-orange-500 to-red-500';
+  return 'bg-gradient-to-br from-pink-500 to-rose-600';
+};
+
+const maskToken = (value: string): string => {
+  if (!value || value.length <= 8) return '••••••••';
+  return '••••' + value.slice(-4);
+};
+
+const formatDate = (date: string | undefined): string => {
+  if (!date) return '-';
+  const d = new Date(date);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return 'Hoy';
+  if (diffDays === 1) return 'Ayer';
+  if (diffDays < 7) return `Hace ${diffDays}d`;
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
 const ApiAuthTokensManager: React.FC = () => {
+  // State
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [sortField, setSortField] = useState<SortField>('module_name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  
+  // UI State
+  const [showSidebar, setShowSidebar] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_KEY);
+    return saved === null ? window.innerWidth >= 1024 : saved === 'true';
+  });
   const [visibleTokens, setVisibleTokens] = useState<Set<string>>(new Set());
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
-  const [editingToken, setEditingToken] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
+  
+  // Edit State
+  const [editingToken, setEditingToken] = useState<ApiToken | null>(null);
+  const [editForm, setEditForm] = useState({
+    token_value: '',
+    description: '',
+    endpoint_url: '',
+    change_reason: ''
+  });
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
-  useEffect(() => {
-    loadTokens();
-  }, []);
+  // ============================================
+  // DATA LOADING
+  // ============================================
 
-  const loadTokens = async () => {
+  const loadTokens = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Intentar cargar desde BD
-      const { data, error } = await supabaseAdmin
+      if (!supabaseSystemUIAdmin) {
+        console.warn('⚠️ Supabase client not available');
+        setTokens([]);
+        return;
+      }
+      
+      const { data, error } = await supabaseSystemUIAdmin
         .from('api_auth_tokens')
         .select('*')
         .order('module_name');
       
       if (error) {
-        // Si la tabla no existe, usar defaults
         if (error.code === '42P01') {
-          console.log('📋 Tabla api_auth_tokens no existe, usando valores por defecto');
-          const defaultData = DEFAULT_TOKENS.map((t, i) => ({
-            ...t,
-            id: `default_${i}`,
-            last_updated: new Date().toISOString()
-          }));
-          setTokens(defaultData);
+          console.log('📋 Tabla api_auth_tokens no existe');
+          setTokens([]);
         } else {
           throw error;
         }
-      } else if (data && data.length > 0) {
-        setTokens(data);
       } else {
-        // Tabla existe pero vacía, usar defaults
-        const defaultData = DEFAULT_TOKENS.map((t, i) => ({
-          ...t,
-          id: `default_${i}`,
-          last_updated: new Date().toISOString()
-        }));
-        setTokens(defaultData);
+        setTokens(data || []);
       }
     } catch (error) {
       console.error('❌ Error cargando tokens:', error);
-      toast.error('Error al cargar tokens');
-      // Usar defaults en caso de error
-      const defaultData = DEFAULT_TOKENS.map((t, i) => ({
-        ...t,
-        id: `default_${i}`,
-        last_updated: new Date().toISOString()
-      }));
-      setTokens(defaultData);
+      toast.error('Error al cargar credenciales');
+      setTokens([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const maskToken = (token: string): string => {
-    if (token.length <= 8) return '••••••••';
-    return '••••••••' + token.slice(-8);
-  };
+  useEffect(() => {
+    loadTokens();
+  }, [loadTokens]);
+
+  // ============================================
+  // FILTERING & SORTING
+  // ============================================
+
+  const filteredTokens = useMemo(() => {
+    let result = [...tokens];
+    
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(t => 
+        t.module_name.toLowerCase().includes(query) ||
+        t.token_key.toLowerCase().includes(query) ||
+        t.description?.toLowerCase().includes(query) ||
+        t.endpoint_url?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Type filter
+    switch (filterType) {
+      case 'webhooks':
+        result = result.filter(t => getTokenType(t) === 'webhook');
+        break;
+      case 'apis':
+        result = result.filter(t => getTokenType(t) === 'api');
+        break;
+      case 'active':
+        result = result.filter(t => t.is_active !== false);
+        break;
+      case 'inactive':
+        result = result.filter(t => t.is_active === false);
+        break;
+    }
+    
+    // Sorting
+    result.sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'module_name':
+          comparison = a.module_name.localeCompare(b.module_name);
+          break;
+        case 'updated_at':
+          comparison = new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+          break;
+        case 'version':
+          comparison = (b.version || 1) - (a.version || 1);
+          break;
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    return result;
+  }, [tokens, searchQuery, filterType, sortField, sortDirection]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTokens.length / itemsPerPage);
+  const paginatedTokens = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredTokens.slice(start, start + itemsPerPage);
+  }, [filteredTokens, currentPage, itemsPerPage]);
+
+  // Stats
+  const stats = useMemo(() => ({
+    total: tokens.length,
+    webhooks: tokens.filter(t => getTokenType(t) === 'webhook').length,
+    apis: tokens.filter(t => getTokenType(t) === 'api').length,
+    active: tokens.filter(t => t.is_active !== false).length
+  }), [tokens]);
+
+  // ============================================
+  // HANDLERS
+  // ============================================
+
+  const toggleSidebar = useCallback(() => {
+    setShowSidebar(prev => {
+      const newValue = !prev;
+      localStorage.setItem(SIDEBAR_KEY, String(newValue));
+      return newValue;
+    });
+  }, []);
 
   const toggleTokenVisibility = (tokenId: string) => {
     setVisibleTokens(prev => {
@@ -145,327 +331,621 @@ const ApiAuthTokensManager: React.FC = () => {
     });
   };
 
-  const copyToken = async (token: string, tokenId: string) => {
+  const copyToken = async (value: string, tokenId: string) => {
     try {
-      await navigator.clipboard.writeText(token);
+      await navigator.clipboard.writeText(value);
       setCopiedToken(tokenId);
-      toast.success('Token copiado al portapapeles');
+      toast.success('Copiado');
       setTimeout(() => setCopiedToken(null), 2000);
-    } catch (error) {
-      toast.error('Error al copiar token');
+    } catch {
+      toast.error('Error al copiar');
     }
   };
 
   const startEditing = (token: ApiToken) => {
-    setEditingToken(token.id);
-    setEditValue(token.token_value);
+    setEditingToken(token);
+    setEditForm({
+      token_value: token.token_value,
+      description: token.description || '',
+      endpoint_url: token.endpoint_url || '',
+      change_reason: ''
+    });
   };
 
   const cancelEditing = () => {
     setEditingToken(null);
-    setEditValue('');
+    setEditForm({ token_value: '', description: '', endpoint_url: '', change_reason: '' });
   };
 
-  const saveToken = async (tokenId: string) => {
-    if (!editValue.trim()) {
+  const saveToken = async () => {
+    if (!editingToken || !editForm.token_value.trim()) {
       toast.error('El token no puede estar vacío');
       return;
     }
 
     try {
-      setSaving(tokenId);
-      
-      // Actualizar en estado local primero
-      setTokens(prev => prev.map(t => 
-        t.id === tokenId 
-          ? { ...t, token_value: editValue.trim(), last_updated: new Date().toISOString() }
-          : t
-      ));
+      setSaving(editingToken.id);
+      const newVersion = (editingToken.version || 1) + 1;
+      const now = new Date().toISOString();
 
-      // Intentar guardar en BD si no es un token por defecto
-      if (!tokenId.startsWith('default_')) {
-        const { error } = await supabaseAdmin
-          .from('api_auth_tokens')
-          .update({ 
-            token_value: editValue.trim(),
-            last_updated: new Date().toISOString()
-          })
-          .eq('id', tokenId);
+      // Save to history
+      await supabaseSystemUIAdmin
+        ?.from('api_auth_tokens_history')
+        .insert({
+          token_id: editingToken.id,
+          module_name: editingToken.module_name,
+          service_name: editingToken.service_name || '',
+          token_key: editingToken.token_key,
+          token_value: editingToken.token_value,
+          description: editingToken.description,
+          endpoint_url: editingToken.endpoint_url,
+          version: editingToken.version || 1,
+          change_type: 'UPDATE',
+          change_reason: editForm.change_reason || 'Actualización desde UI'
+        });
 
-        if (error) throw error;
-      }
+      // Update token
+      const { error } = await supabaseSystemUIAdmin!
+        .from('api_auth_tokens')
+        .update({
+          token_value: editForm.token_value.trim(),
+          description: editForm.description.trim(),
+          endpoint_url: editForm.endpoint_url.trim(),
+          previous_value: editingToken.token_value,
+          updated_at: now,
+          version: newVersion,
+          change_reason: editForm.change_reason || 'Actualización desde UI'
+        })
+        .eq('id', editingToken.id);
 
-      toast.success('Token actualizado correctamente');
-      setEditingToken(null);
-      setEditValue('');
+      if (error) throw error;
+
+      toast.success('Credencial actualizada');
+      cancelEditing();
+      await loadTokens();
     } catch (error) {
-      console.error('❌ Error guardando token:', error);
-      toast.error('Error al guardar token');
+      console.error('❌ Error guardando:', error);
+      toast.error('Error al guardar');
     } finally {
       setSaving(null);
     }
   };
 
-  // Formatear fecha compacta
-  const formatDate = (date: string) => {
-    const d = new Date(date);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Hoy';
-    if (diffDays === 1) return 'Ayer';
-    if (diffDays < 7) return `Hace ${diffDays}d`;
-    return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
   };
 
-  // Generar hash visual del token (para identificación sin revelar)
-  const getTokenFingerprint = (token: string) => {
-    const hash = token.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    return Math.abs(hash).toString(16).slice(0, 6).toUpperCase();
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-slate-600"></div>
-        <span className="ml-3 text-sm text-slate-500 dark:text-slate-400">Cargando tokens...</span>
-      </div>
-    );
-  }
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
-    <div className="space-y-6">
-      {/* Header minimalista */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+    <div className="flex w-full h-full bg-white dark:bg-gray-900 overflow-hidden">
+      {/* Sidebar */}
+      <AnimatePresence mode="wait">
+        {showSidebar && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 180, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="flex-shrink-0 border-r border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900 overflow-hidden"
+          >
+            <div className="p-2 h-full flex flex-col">
+              {/* Sidebar Header */}
+              <div className="flex items-center gap-2 mb-3 px-0.5">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
+                  <Key className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Directorio
+                </span>
+              </div>
+
+              {/* Filter Options */}
+              <div className="space-y-0.5 flex-1">
+                {FILTER_OPTIONS.map(option => {
+                  const count = option.id === 'all' ? stats.total :
+                    option.id === 'webhooks' ? stats.webhooks :
+                    option.id === 'apis' ? stats.apis :
+                    option.id === 'active' ? stats.active :
+                    tokens.filter(t => t.is_active === false).length;
+                    
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => {
+                        setFilterType(option.id);
+                        setCurrentPage(1);
+                      }}
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-all text-xs ${
+                        filterType === option.id
+                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <span className={option.color}>{option.icon}</span>
+                      <span className="flex-1">{option.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                        filterType === option.id
+                          ? 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Stats Footer */}
+              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 px-1">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                    {stats.webhooks} webhooks
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    {stats.apis} APIs
+                  </span>
+                </div>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Tokens de API
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Autenticación para webhooks externos
-              </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-white dark:bg-gray-900">
+        {/* Header */}
+        <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100/50 dark:border-gray-800/50">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={toggleSidebar}
+              className={`p-1 rounded transition-colors flex-shrink-0 ${
+                showSidebar 
+                  ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' 
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+              title={showSidebar ? 'Ocultar filtros' : 'Mostrar filtros'}
+            >
+              {showSidebar ? <PanelLeftClose className="w-3.5 h-3.5" /> : <PanelLeft className="w-3.5 h-3.5" />}
+            </button>
+
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Shield className="w-3.5 h-3.5 text-pink-600 flex-shrink-0" />
+              <h1 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                Credenciales y Tokens
+              </h1>
             </div>
           </div>
 
-          {/* Métricas inline */}
-          <div className="hidden md:flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <Key className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-gray-600 dark:text-gray-400">
-                <span className="font-semibold text-gray-900 dark:text-white">{tokens.length}</span> tokens
-              </span>
-            </div>
-            <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
-            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span className="text-xs">Datos sensibles</span>
+          {/* Stats inline */}
+          <div className="flex items-center gap-3 text-[11px] flex-shrink-0">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="font-medium text-gray-900 dark:text-white">{stats.active}</span>
+              <span className="text-gray-500 hidden sm:inline">activas</span>
+            </span>
+            <span className="text-gray-300 dark:text-gray-700">•</span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              <span className="font-medium text-gray-900 dark:text-white">{stats.total}</span>
+              <span className="text-gray-500 hidden sm:inline">total</span>
+            </span>
+            <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="w-3 h-3" />
+              <span className="text-[10px] font-medium hidden sm:inline">Sensible</span>
             </div>
           </div>
+        </div>
 
-          {/* Botón refresh */}
+        {/* Filter Bar */}
+        <div className="flex items-center gap-2 px-2 py-1 border-b border-gray-100/50 dark:border-gray-800/50">
+          {/* Search */}
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Buscar por nombre, key, url..."
+              className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Refresh */}
           <button
             onClick={loadTokens}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
-            title="Actualizar"
+            disabled={loading}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+
+          {/* Results count */}
+          <span className="text-[11px] text-gray-500 hidden sm:inline">
+            {filteredTokens.length} resultado{filteredTokens.length !== 1 ? 's' : ''}
+          </span>
         </div>
-      </div>
 
-      {/* Lista de tokens - Diseño compacto y seguro */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-          {tokens.map((token) => {
-            const isEditing = editingToken === token.id;
-            const isVisible = visibleTokens.has(token.id);
-            const fingerprint = getTokenFingerprint(token.token_value);
-            
-            return (
-              <div
-                key={token.id}
-                className="group px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+        {/* Content Area */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <AnimatePresence mode="wait">
+            {editingToken ? (
+              /* Edit Panel */
+              <motion.div
+                key="edit-panel"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="h-full overflow-auto p-3 pb-[120px]"
               >
-                {/* Fila principal */}
-                <div className="flex items-center gap-4">
-                  {/* Indicador visual (fingerprint del token) */}
-                  <div 
-                    className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-mono text-xs font-bold"
-                    style={{ 
-                      backgroundColor: `#${fingerprint}15`,
-                      color: `#${fingerprint}`
-                    }}
-                    title={`ID: ${fingerprint}`}
-                  >
-                    {fingerprint.slice(0, 2)}
-                  </div>
-
-                  {/* Info principal */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {token.module_name}
-                      </span>
-                      <span className="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                        {token.token_key}
-                      </span>
+                <div className="max-w-2xl">
+                  {/* Edit Header */}
+                  <div className="flex items-center gap-3 mb-6">
+                    <button
+                      onClick={cancelEditing}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className={`w-10 h-10 rounded-xl ${getTokenColor(editingToken)} flex items-center justify-center text-white`}>
+                      {getTokenIcon(editingToken)}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                      {token.description}
-                    </p>
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {editingToken.module_name}
+                      </h2>
+                      <p className="text-xs text-gray-500">{editingToken.token_key}</p>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      {editingToken.version && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                          v{editingToken.version}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Token display compacto */}
-                  <div className="hidden sm:flex items-center gap-2">
-                    {!isEditing && (
-                      <>
-                        <div className={`px-3 py-1.5 rounded-lg font-mono text-xs transition-all ${
-                          isVisible 
-                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {isVisible ? (
-                            <span className="max-w-32 truncate inline-block align-middle">
-                              {token.token_value.length > 20 
-                                ? token.token_value.slice(0, 8) + '...' + token.token_value.slice(-8)
-                                : token.token_value
-                              }
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1">
-                              <span className="tracking-wider">••••••</span>
-                              <span className="text-gray-400">{token.token_value.slice(-4)}</span>
-                            </span>
+                  {/* Edit Form */}
+                  <div className="space-y-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    {/* Token Value */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                        <Key className="w-3.5 h-3.5" />
+                        Token / API Key
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.token_value}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, token_value: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm font-mono border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        placeholder="Token o API Key"
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Descripción
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.description}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        placeholder="Descripción de la credencial"
+                      />
+                    </div>
+
+                    {/* Endpoint URL */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                        <Link2 className="w-3.5 h-3.5" />
+                        Endpoint URL
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.endpoint_url}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, endpoint_url: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm font-mono border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        placeholder="https://..."
+                      />
+                    </div>
+
+                    {/* Change Reason */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                        <History className="w-3.5 h-3.5" />
+                        Motivo del cambio
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.change_reason}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, change_reason: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        placeholder="Ej: Rotación de credenciales, actualización de token..."
+                      />
+                    </div>
+
+                    {/* Audit Info */}
+                    {editingToken.updated_by_name && (
+                      <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <User className="w-3.5 h-3.5" />
+                            {editingToken.updated_by_name}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatDate(editingToken.updated_at)}
+                          </span>
+                          {editingToken.change_reason && (
+                            <span className="italic truncate">"{editingToken.change_reason}"</span>
                           )}
                         </div>
-                      </>
+                      </div>
                     )}
                   </div>
 
-                  {/* Fecha */}
-                  <div className="hidden lg:block text-xs text-gray-400 dark:text-gray-500 w-16 text-right">
-                    {formatDate(token.last_updated)}
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex items-center gap-1">
-                    {!isEditing ? (
-                      <>
-                        <button
-                          onClick={() => toggleTokenVisibility(token.id)}
-                          className={`p-1.5 rounded-md transition-colors ${
-                            isVisible 
-                              ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' 
-                              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
-                          }`}
-                          title={isVisible ? 'Ocultar' : 'Mostrar'}
-                        >
-                          {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => copyToken(token.token_value, token.id)}
-                          className={`p-1.5 rounded-md transition-colors ${
-                            copiedToken === token.id
-                              ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
-                          }`}
-                          title="Copiar"
-                        >
-                          {copiedToken === token.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => startEditing(token)}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors opacity-0 group-hover:opacity-100"
-                          title="Editar"
-                        >
-                          <Key className="w-4 h-4" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => saveToken(token.id)}
-                          disabled={saving === token.id}
-                          className="p-1.5 rounded-md text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
-                          title="Guardar"
-                        >
-                          {saving === token.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={cancelEditing}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          title="Cancelar"
-                        >
-                          <AlertTriangle className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-2 mt-4">
+                    <button
+                      onClick={cancelEditing}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={saveToken}
+                      disabled={saving === editingToken.id}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all"
+                    >
+                      {saving === editingToken.id ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                      Guardar
+                    </button>
                   </div>
                 </div>
-
-                {/* Fila de edición expandida */}
-                <AnimatePresence>
-                  {isEditing && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-700">
-                        <input
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono transition-all"
-                          placeholder="Ingresa el nuevo token..."
-                          autoFocus
-                        />
-                        {token.endpoint_url && (
-                          <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                            <span>Endpoint:</span>
-                            <code className="text-blue-500 dark:text-blue-400">{token.endpoint_url}</code>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Expandir endpoint al hacer hover (solo si no está editando) */}
-                {!isEditing && token.endpoint_url && (
-                  <div className="hidden group-hover:block mt-2 pt-2 border-t border-gray-50 dark:border-gray-700/50">
-                    <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                      <span>→</span>
-                      <code className="text-gray-500 dark:text-gray-400 truncate">{token.endpoint_url}</code>
-                    </div>
+              </motion.div>
+            ) : (
+              /* Token Table */
+              <motion.div
+                key="table"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full flex flex-col"
+              >
+                {loading && tokens.length === 0 ? (
+                  <div className="flex items-center justify-center h-48">
+                    <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+                    <span className="ml-2 text-sm text-gray-500">Cargando credenciales...</span>
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                ) : filteredTokens.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+                    <Key className="w-12 h-12 mb-3 text-gray-300" />
+                    <p className="text-sm">No se encontraron credenciales</p>
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="mt-2 text-xs text-blue-500 hover:text-blue-600"
+                      >
+                        Limpiar búsqueda
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Table */}
+                    <div className="flex-1 overflow-auto pb-[120px]">
+                      <table className="w-full">
+                        <thead className="bg-gray-50/80 dark:bg-gray-800/30 sticky top-0 z-10">
+                          <tr className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <th className="text-left px-2 py-1.5">
+                              <button
+                                onClick={() => handleSort('module_name')}
+                                className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200"
+                              >
+                                Credencial
+                                <ArrowUpDown className="w-3 h-3" />
+                              </button>
+                            </th>
+                            <th className="text-left px-2 py-1.5 hidden md:table-cell">Token</th>
+                            <th className="text-left px-2 py-1.5 hidden lg:table-cell">Endpoint</th>
+                            <th className="text-left px-2 py-1.5 hidden sm:table-cell">
+                              <button
+                                onClick={() => handleSort('updated_at')}
+                                className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200"
+                              >
+                                Modificado
+                                <ArrowUpDown className="w-3 h-3" />
+                              </button>
+                            </th>
+                            <th className="text-left px-2 py-1.5 hidden xl:table-cell">Por</th>
+                            <th className="text-right px-2 py-1.5 w-20">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {paginatedTokens.map((token) => {
+                            const isVisible = visibleTokens.has(token.id);
+                            const isCopied = copiedToken === token.id;
+                            
+                            return (
+                              <tr
+                                key={token.id}
+                                className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group"
+                              >
+                                {/* Credential Info */}
+                                <td className="px-2 py-1.5">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className={`w-8 h-8 rounded-lg ${getTokenColor(token)} flex items-center justify-center text-white flex-shrink-0`}>
+                                      {getTokenIcon(token)}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                          {token.module_name}
+                                        </span>
+                                        {token.version && token.version > 1 && (
+                                          <span className="text-[10px] px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                                            v{token.version}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[11px] font-mono text-gray-400 dark:text-gray-500">
+                                          {token.token_key}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
 
-      {/* Nota de seguridad compacta */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl text-xs">
-        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-        <span className="text-amber-700 dark:text-amber-300">
-          Tokens sensibles • No compartir públicamente • Los cambios se aplican inmediatamente
-        </span>
+                                {/* Token Value */}
+                                <td className="px-2 py-1.5 hidden md:table-cell">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`font-mono text-xs px-2 py-1 rounded ${
+                                      isVisible 
+                                        ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                                    }`}>
+                                      {isVisible ? token.token_value.slice(0, 20) + '...' : maskToken(token.token_value)}
+                                    </span>
+                                    <button
+                                      onClick={() => toggleTokenVisibility(token.id)}
+                                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                    >
+                                      {isVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    </button>
+                                    <button
+                                      onClick={() => copyToken(token.token_value, token.id)}
+                                      className={`p-1 transition-colors ${
+                                        isCopied ? 'text-emerald-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                                      }`}
+                                    >
+                                      {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </div>
+                                </td>
+
+                                {/* Endpoint */}
+                                <td className="px-2 py-1.5 hidden lg:table-cell">
+                                  {token.endpoint_url ? (
+                                    <a
+                                      href={token.endpoint_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 font-mono truncate max-w-[200px]"
+                                    >
+                                      {token.endpoint_url.replace('https://', '').slice(0, 30)}...
+                                      <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">-</span>
+                                  )}
+                                </td>
+
+                                {/* Modified Date */}
+                                <td className="px-2 py-1.5 hidden sm:table-cell">
+                                  <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                    {formatDate(token.updated_at)}
+                                  </span>
+                                </td>
+
+                                {/* Modified By */}
+                                <td className="px-2 py-1.5 hidden xl:table-cell">
+                                  <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                    {token.updated_by_name || '-'}
+                                  </span>
+                                </td>
+
+                                {/* Actions */}
+                                <td className="px-2 py-1.5 text-right">
+                                  <button
+                                    onClick={() => startEditing(token)}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">Editar</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between px-2 py-1.5 border-t border-gray-100/50 dark:border-gray-800/50">
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span>{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredTokens.length)}/{filteredTokens.length}</span>
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800"
+                        >
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs text-gray-600 dark:text-gray-400 px-2">
+                          {currentPage} / {totalPages || 1}
+                        </span>
+                        <button
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage >= totalPages}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
 };
 
 export default ApiAuthTokensManager;
-

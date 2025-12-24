@@ -13,20 +13,36 @@
  *
  * 3. Cualquier ajuste se debe verificar en el CHANGELOG: src/components/analysis/CHANGELOG_LIVEMONITOR.md
  *    para ver si no se realizó antes, en caso de que sea nuevo debe documentarse correctamente
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+ * - Las keys DEBEN estar en variables de entorno (.env)
+ * - NO usar fallbacks hardcodeados
+ * 
+ * ✅ CONFIGURACIÓN REQUERIDA EN .env:
+ * VITE_ANALYSIS_SUPABASE_URL=https://glsmifhkoaifvaegsozd.supabase.co
+ * VITE_ANALYSIS_SUPABASE_ANON_KEY=<tu_anon_key>
  */
 
 import { createClient } from '@supabase/supabase-js';
 
 // Configuración para la base de datos de análisis de llamadas
-const analysisSupabaseUrl = 'https://glsmifhkoaifvaegsozd.supabase.co';
-const analysisSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E';
+const analysisSupabaseUrl = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || '';
+const analysisSupabaseAnonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '';
 
-export const analysisSupabase = createClient(analysisSupabaseUrl, analysisSupabaseAnonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    storageKey: 'analysis-auth'
-  }
-});
+// Validación en desarrollo
+if (!analysisSupabaseUrl || !analysisSupabaseAnonKey) {
+  console.warn('⚠️ ANALYSIS_SUPABASE: Faltan variables de entorno VITE_ANALYSIS_SUPABASE_URL o VITE_ANALYSIS_SUPABASE_ANON_KEY');
+}
+
+// Solo crear cliente si tenemos credenciales
+export const analysisSupabase = analysisSupabaseUrl && analysisSupabaseAnonKey
+  ? createClient(analysisSupabaseUrl, analysisSupabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        storageKey: 'analysis-auth'
+      }
+    })
+  : null;
 
 export default analysisSupabase;

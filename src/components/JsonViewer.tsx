@@ -48,29 +48,53 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const formatJsonWithSyntaxHighlighting = (json: string) => {
+  /**
+   * Renderizado seguro de JSON con syntax highlighting (XSS-safe)
+   * 🔒 SEGURIDAD (Actualizado 2025-12-23): Usa React nodes en lugar de innerHTML
+   */
+  const renderJsonWithSyntaxHighlighting = (json: string): React.ReactNode => {
     if (!isValid) {
       return <span className="text-red-500 dark:text-red-400">{json}</span>;
     }
 
-    return json
-      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
-        let className = '';
-        if (/^"/.test(match)) {
-          if (/:$/.test(match)) {
-            className = 'text-blue-600 dark:text-blue-400 font-semibold'; // Keys
-          } else {
-            className = 'text-green-600 dark:text-green-400'; // Strings
-          }
-        } else if (/true|false/.test(match)) {
-          className = 'text-purple-600 dark:text-purple-400'; // Booleans
-        } else if (/null/.test(match)) {
-          className = 'text-gray-500 dark:text-gray-400'; // Null
+    const tokenRegex = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+    let key = 0;
+
+    while ((match = tokenRegex.exec(json)) !== null) {
+      // Texto antes del match (espacios, llaves, corchetes, comas)
+      if (match.index > lastIndex) {
+        parts.push(<span key={key++}>{json.slice(lastIndex, match.index)}</span>);
+      }
+
+      // Determinar clase según tipo de token
+      let className = '';
+      if (/^"/.test(match[0])) {
+        if (/:$/.test(match[0])) {
+          className = 'text-blue-600 dark:text-blue-400 font-semibold'; // Keys
         } else {
-          className = 'text-orange-600 dark:text-orange-400'; // Numbers
+          className = 'text-green-600 dark:text-green-400'; // Strings
         }
-        return `<span class="${className}">${match}</span>`;
-      });
+      } else if (/^(true|false)$/.test(match[0])) {
+        className = 'text-purple-600 dark:text-purple-400'; // Booleans
+      } else if (/^null$/.test(match[0])) {
+        className = 'text-gray-500 dark:text-gray-400'; // Null
+      } else {
+        className = 'text-orange-600 dark:text-orange-400'; // Numbers
+      }
+
+      parts.push(<span key={key++} className={className}>{match[0]}</span>);
+      lastIndex = tokenRegex.lastIndex;
+    }
+
+    // Texto restante
+    if (lastIndex < json.length) {
+      parts.push(<span key={key++}>{json.slice(lastIndex)}</span>);
+    }
+
+    return parts;
   };
 
   return (
@@ -138,11 +162,9 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
       {/* JSON Content */}
       <div className="relative">
         <pre className="p-4 text-sm font-mono overflow-x-auto bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 leading-relaxed">
-          <code 
-            dangerouslySetInnerHTML={{ 
-              __html: formatJsonWithSyntaxHighlighting(formattedJson) 
-            }}
-          />
+          <code>
+            {renderJsonWithSyntaxHighlighting(formattedJson)}
+          </code>
         </pre>
         
         {/* Line numbers */}

@@ -1,13 +1,30 @@
-// Servicio para interactuar con la API de n8n
-// Documentación: https://docs.n8n.io/api/api-reference/
+/**
+ * ============================================
+ * SERVICIO N8N API
+ * ============================================
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+ * - El token API DEBE estar en variables de entorno (.env)
+ * - NO usar fallbacks hardcodeados
+ * 
+ * ✅ CONFIGURACIÓN REQUERIDA EN .env:
+ * VITE_N8N_API_URL=https://primary-dev-d75a.up.railway.app/api/v1
+ * VITE_N8N_API_KEY=<tu_api_token>
+ * 
+ * Documentación: https://docs.n8n.io/api/api-reference/
+ */
 
 class N8nService {
   private apiToken: string;
   private baseUrl: string;
 
   constructor() {
-    this.apiToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMmE1MDZkMS1hZDM4LTQ3MGYtOTEzOS02MzAwM2NiMjQzZGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzU5MzU3ODgzfQ.7z0FtziI-eFleJr4pLvP5GgRVptllCw26Losrxf_Qpo';
-    this.baseUrl = import.meta.env.VITE_N8N_API_URL || 'https://primary-dev-d75a.up.railway.app/api/v1';
+    this.apiToken = import.meta.env.VITE_N8N_API_KEY || '';
+    this.baseUrl = import.meta.env.VITE_N8N_API_URL || '';
+    
+    if (!this.apiToken || !this.baseUrl) {
+      console.error('⚠️ N8nService: Faltan variables de entorno VITE_N8N_API_KEY o VITE_N8N_API_URL');
+    }
   }
 
   // Verificar si estamos en modo desarrollo sin n8n configurado

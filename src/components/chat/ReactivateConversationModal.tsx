@@ -6,6 +6,7 @@ import { whatsappTemplatesService, type TemplateSendLimits } from '../../service
 import type { WhatsAppTemplate } from '../../types/whatsappTemplates';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { getApiToken } from '../../services/apiTokensService';
 
 interface ReactivateConversationModalProps {
   isOpen: boolean;
@@ -834,7 +835,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       console.log('📤 Enviando plantilla:', { template_name: selectedTemplate.name, prospecto_id: prospectoData.id });
 
       const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates-send';
-      const authToken = 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV';
+      const authToken = await getApiToken('whatsapp_templates_auth');
       
       // Timeout de 30 segundos para evitar colgarse indefinidamente
       const controller = new AbortController();

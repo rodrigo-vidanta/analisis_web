@@ -796,24 +796,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                     alt="Logo" 
                     className={`w-full h-full object-contain sidebar-logo ${isRinging ? 'ringing' : ''}`}
                     onError={(e) => {
-                      // Fallback al icono SVG si el favicon falla
+                      // 🔒 SEGURIDAD: Simplemente ocultar la imagen, el SVG de fallback se renderiza condicionalmente
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = `
-                          <svg class="w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        `;
+                      // Mostrar el SVG de fallback que está junto a la imagen
+                      const fallbackSvg = target.nextElementSibling;
+                      if (fallbackSvg) {
+                        (fallbackSvg as HTMLElement).style.display = 'block';
                       }
                     }}
                   />
-                ) : (
-                  <svg className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                )}
+                ) : null}
+                {/* SVG Fallback - siempre presente pero oculto si hay favicon */}
+                <svg 
+                  className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  style={{ display: faviconUrl ? 'none' : 'block' }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
               </button>
               <button
                 onClick={onToggle}
@@ -841,23 +844,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                     alt="Logo" 
                     className={`w-full h-full object-contain sidebar-logo ${isRinging ? 'ringing' : ''}`}
                     onError={(e) => {
+                      // 🔒 SEGURIDAD: Simplemente ocultar la imagen
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = `
-                          <svg class="w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        `;
+                      const fallbackSvg = target.nextElementSibling;
+                      if (fallbackSvg) {
+                        (fallbackSvg as HTMLElement).style.display = 'block';
                       }
                     }}
                   />
-                ) : (
-                  <svg className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                )}
+                ) : null}
+                {/* SVG Fallback - siempre presente pero oculto si hay favicon */}
+                <svg 
+                  className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  style={{ display: faviconUrl ? 'none' : 'block' }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
               </button>
               
               {/* Imagen navideña PQNC - reproduce jingle y muestra nieve */}
