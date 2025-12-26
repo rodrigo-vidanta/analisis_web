@@ -9,6 +9,8 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import type { TokenLimits } from '../services/tokenService';
+import { getLogoComponent, getSuggestedLogo, type LogoType } from './logos/LogoCatalog';
+import { pqncSupabase } from '../config/pqncSupabase';
 
 // Estilos para el logo con animación y glow
 const sidebarLogoStyles = `
@@ -523,29 +525,49 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   
   const faviconUrl = config.app_branding?.favicon_url;
   
-  // Estado para animación de nieve y audio navideño
-  const [showSnow, setShowSnow] = useState(false);
-  const christmasAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Estado para logo seleccionado
+  const [currentLogoType, setCurrentLogoType] = useState<LogoType>('default');
   
-  // Función para reproducir jingle y mostrar nieve al hacer clic en el logo PQNC
-  const handleChristmasLogoClick = () => {
+  // Cargar logo seleccionado desde BD
+  useEffect(() => {
+    const loadSelectedLogo = async () => {
+      try {
+        const { data } = await pqncSupabase
+          .from('system_config')
+          .select('config_value')
+          .eq('config_key', 'selected_logo')
+          .single();
+
+        if (data && data.config_value?.logo_type) {
+          setCurrentLogoType(data.config_value.logo_type);
+        } else {
+          // Si no hay configuración, usar sugerido
+          setCurrentLogoType(getSuggestedLogo());
+        }
+      } catch (error) {
+        // Si hay error, usar sugerido
+        setCurrentLogoType(getSuggestedLogo());
+      }
+    };
+
+    loadSelectedLogo();
+
+    // Escuchar cambios de logo desde SystemPreferences
+    const handleLogoChanged = (event: CustomEvent) => {
+      const { logoType } = event.detail;
+      setCurrentLogoType(logoType);
+    };
+
+    window.addEventListener('logo-changed', handleLogoChanged as EventListener);
+
+    return () => {
+      window.removeEventListener('logo-changed', handleLogoChanged as EventListener);
+    };
+  }, []);
+  
+  // Función para manejar clic en logo (navegar a dashboard)
+  const handleLogoClick = () => {
     setAppMode('operative-dashboard');
-    
-    // Reproducir jingle navideño
-    if (!christmasAudioRef.current) {
-      christmasAudioRef.current = new Audio('/assets/christmas-jingle.mp3');
-      christmasAudioRef.current.volume = 0.5;
-    }
-    christmasAudioRef.current.currentTime = 0;
-    christmasAudioRef.current.play().catch(() => {
-      // Silenciar error si el navegador bloquea autoplay
-    });
-    
-    // Mostrar copos de nieve por 8 segundos
-    setShowSnow(true);
-    setTimeout(() => {
-      setShowSnow(false);
-    }, 8000);
   };
 
   // Escuchar notificaciones de llamadas y activar animación
@@ -866,21 +888,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 </svg>
               </button>
               
-              {/* Imagen navideña PQNC - reproduce jingle y muestra nieve */}
-              <button
-                onClick={handleChristmasLogoClick}
-                className="christmas-text-container hover:opacity-90 transition-opacity cursor-pointer"
-                style={{ marginTop: '2px', marginLeft: '8px' }}
-                title="¡Feliz Navidad! 🎄"
-              >
-                <img 
-                  src="/assets/pqnc-christmas-text-final.png" 
-                  alt="PQNC" 
-                  className="w-auto object-contain"
-                  style={{ height: '46px' }}
-                />
-                <ChristmasLightsOverlay showSnow={showSnow} />
-              </button>
+              {/* Logo dinámico según selección en Admin */}
+              {(() => {
+                const LogoComponent = getLogoComponent(currentLogoType);
+                return (
+                  <LogoComponent 
+                    onClick={handleLogoClick}
+                    isCollapsed={isCollapsed}
+                  />
+                );
+              })()}
               
               <button
                 onClick={onToggle}

@@ -28,11 +28,13 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { pqncSupabase as supabase } from '../../config/pqncSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { systemConfigEvents } from '../../utils/systemConfigEvents';
+import { LOGO_CATALOG, type LogoType, getSuggestedLogo, isLogoAvailable } from '../logos/LogoCatalog';
 
 /**
  * Actualiza el favicon en el documento HTML
@@ -91,6 +93,7 @@ const SystemPreferences: React.FC = () => {
   const [brandingConfig, setBrandingConfig] = useState<any>({});
   const [themes, setThemes] = useState<AppTheme[]>([]);
   const [activeTheme, setActiveTheme] = useState<string>('default');
+  const [selectedLogo, setSelectedLogo] = useState<LogoType>('default');
   
   // Estados para forms
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -197,6 +200,21 @@ const SystemPreferences: React.FC = () => {
 
       if (themeConfigData) {
         setActiveTheme(themeConfigData.config_value.active_theme);
+      }
+
+      // Cargar logo seleccionado
+      const { data: logoConfigData } = await supabase
+        .from('system_config')
+        .select('*')
+        .eq('config_key', 'selected_logo')
+        .single();
+
+      if (logoConfigData && logoConfigData.config_value?.logo_type) {
+        setSelectedLogo(logoConfigData.config_value.logo_type as LogoType);
+      } else {
+        // Si no hay configuración, sugerir logo según fecha
+        const suggested = getSuggestedLogo();
+        setSelectedLogo(suggested);
       }
 
     } catch (err: any) {
@@ -556,6 +574,151 @@ const SystemPreferences: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Sección: Logos Personalizados (Estilo Google Doodles) */}
+              <div className="px-6 py-5 border-b border-neutral-100 dark:border-neutral-700">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
+                  <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
+                    Logos Personalizados
+                  </h3>
+                </div>
+
+                <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+                  Selecciona el logo del sidebar. Los logos de temporada incluyen animaciones especiales.
+                </p>
+
+                {/* Grid de logos estilo Google (interactivos con preview) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {Object.values(LOGO_CATALOG).map((logo) => {
+                    const isSelected = selectedLogo === logo.id;
+                    const available = !logo.isSeasonallogo || isLogoAvailable(logo.id);
+                    const suggested = getSuggestedLogo() === logo.id;
+                    const LogoPreviewComponent = logo.component;
+
+                    return (
+                      <div key={logo.id} className="relative">
+                        <motion.button
+                          type="button"
+                          onClick={() => setSelectedLogo(logo.id)}
+                          disabled={!available}
+                          className={`w-full relative p-4 rounded-xl border-2 transition-all ${
+                            isSelected
+                              ? 'border-primary-500 dark:border-primary-400 bg-white dark:bg-neutral-800 shadow-lg shadow-primary-500/20'
+                              : available
+                              ? 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-neutral-800'
+                              : 'border-neutral-100 dark:border-neutral-800 opacity-50 cursor-not-allowed bg-neutral-50 dark:bg-neutral-900'
+                          }`}
+                          whileHover={available ? { scale: 1.02, y: -2 } : undefined}
+                          whileTap={available ? { scale: 0.98 } : undefined}
+                        >
+                          {/* Badge de seleccionado */}
+                          {isSelected && (
+                            <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center shadow-lg z-10">
+                              <Check className="w-4 h-4 text-white" />
+                            </div>
+                          )}
+
+                          {/* Badge de sugerido */}
+                          {suggested && !isSelected && available && (
+                            <div className="absolute -top-2 -right-2 w-6 h-6 bg-warning-500 rounded-full flex items-center justify-center shadow-lg animate-pulse z-10">
+                              <Sparkles className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+
+                          {/* Preview interactivo del logo */}
+                          <div className="h-16 flex items-center justify-center mb-3 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg overflow-visible relative">
+                            {available ? (
+                              <div className="scale-75 transform-gpu pointer-events-auto">
+                                <LogoPreviewComponent 
+                                  onClick={(e: any) => {
+                                    e?.stopPropagation?.();
+                                  }} 
+                                  isCollapsed={false}
+                                />
+                              </div>
+                            ) : (
+                              <img 
+                                src={logo.preview} 
+                                alt={logo.name}
+                                className="max-h-12 max-w-full object-contain opacity-30"
+                              />
+                            )}
+                          </div>
+
+                          {/* Nombre */}
+                          <h4 className="text-sm font-semibold text-neutral-900 dark:text-white mb-1">
+                            {logo.name}
+                          </h4>
+
+                          {/* Descripción */}
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2">
+                            {logo.description}
+                          </p>
+
+                          {/* Badges */}
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {logo.isSeasonallogo && available && (
+                              <div className="inline-flex items-center gap-1 px-2 py-1 bg-accent-500/10 dark:bg-accent-500/20 text-accent-600 dark:text-accent-400 rounded-full text-xs font-medium border border-accent-200 dark:border-accent-700">
+                                <Sparkles className="w-3 h-3" />
+                                Temporada
+                              </div>
+                            )}
+
+                            {!available && (
+                              <div className="inline-flex items-center px-2 py-1 bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 rounded-full text-xs font-medium">
+                                No disponible
+                              </div>
+                            )}
+                          </div>
+                        </motion.button>
+
+                        {/* Hint de interactividad */}
+                        {available && (
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 text-center italic">
+                            Click en el logo para ver animación
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Botón para guardar logo seleccionado */}
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setSaving(true);
+                        await supabase.rpc('update_system_config', {
+                          p_config_key: 'selected_logo',
+                          p_new_value: { logo_type: selectedLogo }
+                        });
+                        setSuccess('Logo actualizado correctamente');
+                        // Disparar evento para que Sidebar se actualice
+                        window.dispatchEvent(new CustomEvent('logo-changed', { detail: { logoType: selectedLogo } }));
+                      } catch (error) {
+                        console.error('Error guardando logo:', error);
+                        setError('Error al guardar logo');
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={saving}
+                    className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                        Guardando...
+                      </>
+                    ) : (
+                      'Aplicar Logo'
+                    )}
+                  </button>
                 </div>
               </div>
 

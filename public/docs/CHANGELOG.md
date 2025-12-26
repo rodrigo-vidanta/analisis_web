@@ -1,5 +1,50 @@
 # 📋 CHANGELOG - PQNC QA AI Platform
 
+## [v2.2.1] - 2025-01-26
+
+### 🎊 Sistema de Logos Personalizados
+
+#### ✨ Nuevas Características
+
+**Catálogo de Logos Intercambiables:**
+- ✅ 3 logos disponibles: Default, Christmas, NewYear
+- ✅ Selector visual estilo Google Doodles
+- ✅ Preview interactivo con animaciones
+- ✅ Guardado en system_config
+- ✅ Actualización en tiempo real sin recargar
+
+**Logo de Año Nuevo:**
+- ✅ Contador regresivo hasta Año Nuevo 2026
+- ✅ Fuegos artificiales al hacer clic (10 explosiones, 16 partículas c/u)
+- ✅ Audio de fuegos artificiales
+- ✅ Partículas diminutas como polvo (1.5px)
+- ✅ Duración: 8 segundos
+
+**Logo Navideño:**
+- ✅ 15 luces titilantes en 4 colores
+- ✅ 25 copos de nieve cayendo
+- ✅ Jingle navideño al hacer clic
+
+**Logo Estándar:**
+- ✅ Texto "PQNC" con gradiente indigo→purple
+- ✅ Sin animaciones
+
+#### 🔄 Mejoras
+
+**Selector en Administración:**
+- ✅ Responsive al dark mode (todos los colores adaptados)
+- ✅ Badge "Temporada" visible en dark mode
+- ✅ Badge "Sugerido" con animación pulse
+- ✅ Preview interactivo (click para animar)
+- ✅ Texto siempre legible en ambos modos
+
+**Integración:**
+- ✅ Sidebar carga logo dinámicamente desde BD
+- ✅ Evento `logo-changed` para actualización en tiempo real
+- ✅ Sugerencias automáticas según fecha
+
+---
+
 ## [v2.2.0] - 2025-01-26
 
 ### 🎨 REDISEÑO COMPLETO - Sistema de Diseño Minimalista
