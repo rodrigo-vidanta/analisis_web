@@ -1344,22 +1344,44 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       // ============================================
       // Este paso es crítico porque necesitamos los IDs de coordinaciones y ejecutivos
       // que están almacenados en los prospectos antes de poder cargar sus datos completos.
-      const prospectosDataMap = prospectoIds.size > 0
-        ? await analysisSupabase
-            .from('prospectos')
-            .select('id, coordinacion_id, ejecutivo_id, requiere_atencion_humana, motivo_handoff, nombre_completo, nombre_whatsapp, id_uchat')
-            .in('id', Array.from(prospectoIds))
-            .then(({ data, error }) => {
-              if (error) {
-                console.error('❌ [ConversacionesWidget] Error cargando prospectos:', error);
-                return new Map();
-              }
-              const map = new Map();
-              (data || []).forEach(p => {
-                map.set(p.id, p);
-                if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
-                if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
-              });
+      // IMPORTANTE: Dividir en batches para evitar error 400 por URL demasiado larga
+      const BATCH_SIZE = 100; // Máximo de IDs por query para evitar límite de URL
+      const prospectoIdsArray = Array.from(prospectoIds);
+      
+      const loadProspectosInBatches = async (ids: string[]): Promise<Map<string, any>> => {
+        const map = new Map();
+        
+        // Dividir IDs en batches
+        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+          const batch = ids.slice(i, i + BATCH_SIZE);
+          
+          try {
+            const { data, error } = await analysisSupabase
+              .from('prospectos')
+              .select('id, coordinacion_id, ejecutivo_id, requiere_atencion_humana, motivo_handoff, nombre_completo, nombre_whatsapp, id_uchat')
+              .in('id', batch);
+            
+            if (error) {
+              console.error(`❌ [ConversacionesWidget] Error cargando prospectos batch ${i / BATCH_SIZE + 1}:`, error);
+              continue;
+            }
+            
+            (data || []).forEach(p => {
+              map.set(p.id, p);
+              if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
+              if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
+            });
+          } catch (err) {
+            console.error(`❌ [ConversacionesWidget] Error en batch ${i / BATCH_SIZE + 1}:`, err);
+          }
+        }
+        
+        return map;
+      };
+      
+      const prospectosDataMap = prospectoIdsArray.length > 0
+        ? await loadProspectosInBatches(prospectoIdsArray)
+            .then(map => {
               
               // Debug: verificar si el prospecto problemático está en el mapa
               if (ejecutivoFilter) {

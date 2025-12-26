@@ -1146,61 +1146,74 @@ const LiveMonitorKanban: React.FC = () => {
           let prospectosData: any[] = [];
         
           if (prospectoIds.length > 0) {
-            // Aplicar filtros de permisos según rol del usuario (igual que AnalysisIAComplete)
-            // Cargar TODOS los campos del prospecto para el modal de detalle
-            let prospectosQuery = analysisSupabase
-              .from('prospectos')
-              .select('*')
-              .in('id', prospectoIds);
+            // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+            const BATCH_SIZE = 100;
+            const loadProspectosInBatches = async (ids: string[]): Promise<any[]> => {
+              const results: any[] = [];
+              for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+                const batch = ids.slice(i, i + BATCH_SIZE);
+                const { data, error } = await analysisSupabase
+                  .from('prospectos')
+                  .select('*')
+                  .in('id', batch);
+                if (!error && data) {
+                  results.push(...data);
+                } else if (error) {
+                  console.error(`❌ [LiveMonitorKanban] Error cargando prospectos batch ${i / BATCH_SIZE + 1}:`, error);
+                }
+              }
+              return results;
+            };
             
-            // Obtener filtros de permisos (usar los ya obtenidos arriba)
+            // Cargar todos los prospectos en batches
+            const allProspectosLoaded = await loadProspectosInBatches(prospectoIds);
+            console.log(`✅ [LiveMonitorKanban] Cargados ${allProspectosLoaded.length} prospectos en batches de ${BATCH_SIZE}`);
+            
+            // FIX: Usar los prospectos ya cargados en batches en lugar de ejecutar una query con muchos IDs
+            // Los filtros de permisos se aplican sobre allProspectosLoaded
+            let prospectosResult = allProspectosLoaded;
+            let prospectosError = null;
+            
+            // Aplicar filtros de permisos manualmente sobre los datos ya cargados
             if (user?.id) {
               const permissionsServiceModule = await import('../../services/permissionsService');
               const permissions = await permissionsServiceModule.permissionsService.getUserPermissions(user.id);
               const isCalidad = await permissionsServiceModule.permissionsService.isCoordinadorCalidad(user.id);
               
-              // Administrador Operativo NO puede ver historial - ya se bloqueó arriba, pero por seguridad
               if (permissions?.role === 'administrador_operativo') {
-                prospectosQuery = prospectosQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Query imposible
-              } else {
-                // Usar los filtros ya obtenidos arriba (ejecutivoFilter, coordinacionesFilter, isAdminCheck)
-                // Admin y Coordinadores de Calidad pueden ver todo (sin filtros)
-                if (!isAdminCheck && !isCalidad) {
-                  if (ejecutivoFilter) {
-                    // Ejecutivo: solo prospectos asignados a él + prospectos de ejecutivos donde es backup
-                    // Obtener IDs de ejecutivos donde este ejecutivo es backup
-                    const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
-                    const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUIAdmin
-                      .from('auth_users')
-                      .select('id')
-                      .eq('backup_id', ejecutivoFilter)
-                      .eq('has_backup', true);
-                    
-                    if (backupError) {
-                      console.error('❌ Error obteniendo ejecutivos donde es backup:', backupError);
-                    }
-                    
-                    const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
-                    if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
-                      ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
-                    }
-                    
-                    // Filtrar por todos los ejecutivos (propios + backups)
-                    prospectosQuery = prospectosQuery.in('ejecutivo_id', ejecutivosIds).not('ejecutivo_id', 'is', null);
-                  } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-                    // Coordinador normal: solo prospectos de sus coordinaciones (debe tener coordinacion_id asignado)
-                    prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
-                  } else {
-                    // Si no es admin, ejecutivo, coordinador ni coord. calidad, no mostrar nada
-                    prospectosQuery = prospectosQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Query imposible
+                prospectosResult = []; // Admin operativo no puede ver historial
+              } else if (!isAdminCheck && !isCalidad) {
+                if (ejecutivoFilter) {
+                  // Ejecutivo: obtener IDs de ejecutivos donde es backup
+                  const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
+                  const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+                    .from('auth_users')
+                    .select('id')
+                    .eq('backup_id', ejecutivoFilter)
+                    .eq('has_backup', true);
+                  
+                  const ejecutivosIds = [ejecutivoFilter];
+                  if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+                    ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
                   }
+                  
+                  // Filtrar por ejecutivo_id en memoria
+                  prospectosResult = prospectosResult.filter((p: any) => 
+                    p.ejecutivo_id && ejecutivosIds.includes(p.ejecutivo_id)
+                  );
+                } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                  // Coordinador: filtrar por coordinacion_id en memoria
+                  prospectosResult = prospectosResult.filter((p: any) => 
+                    p.coordinacion_id && coordinacionesFilter.includes(p.coordinacion_id)
+                  );
+                } else {
+                  prospectosResult = []; // Sin permisos válidos
                 }
               }
+              // Admin y Coordinadores de Calidad: sin filtros adicionales
             }
             
-            const { data: prospectosResult, error: prospectosError } = await prospectosQuery;
-            
-            if (!prospectosError && prospectosResult) {
+            if (!prospectosError && prospectosResult && prospectosResult.length > 0) {
               // Filtrar adicionalmente en el código para asegurar que ejecutivos solo vean prospectos con ejecutivo_id asignado
               // Incluir prospectos de ejecutivos donde es backup
               // IMPORTANTE: Usar canUserAccessProspect para verificar permisos basándose en prospect_assignments

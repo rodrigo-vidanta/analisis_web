@@ -118,10 +118,22 @@ class ScheduledCallsService {
             return [];
           }
           
-          const { data: prospectosData } = await analysisSupabase
-            .from('prospectos')
-            .select('id, ejecutivo_id')
-            .in('id', prospectoIds);
+          // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+          const BATCH_SIZE = 100;
+          const loadProspectosBatch1 = async (ids: string[]): Promise<any[]> => {
+            const results: any[] = [];
+            for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+              const batch = ids.slice(i, i + BATCH_SIZE);
+              const { data } = await analysisSupabase
+                .from('prospectos')
+                .select('id, ejecutivo_id')
+                .in('id', batch);
+              if (data) results.push(...data);
+            }
+            return results;
+          };
+          
+          const prospectosData = await loadProspectosBatch1(prospectoIds);
 
           const prospectosMap = new Map(
             (prospectosData || []).map(p => [p.id, p])
@@ -176,10 +188,22 @@ class ScheduledCallsService {
             return [];
           }
           
-          const { data: prospectosData } = await analysisSupabase
-            .from('prospectos')
-            .select('id, coordinacion_id')
-            .in('id', prospectoIds);
+          // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+          const BATCH_SIZE_COORD = 100;
+          const loadProspectosBatch2 = async (ids: string[]): Promise<any[]> => {
+            const results: any[] = [];
+            for (let i = 0; i < ids.length; i += BATCH_SIZE_COORD) {
+              const batch = ids.slice(i, i + BATCH_SIZE_COORD);
+              const { data } = await analysisSupabase
+                .from('prospectos')
+                .select('id, coordinacion_id')
+                .in('id', batch);
+              if (data) results.push(...data);
+            }
+            return results;
+          };
+          
+          const prospectosData = await loadProspectosBatch2(prospectoIds);
 
           const prospectosMap = new Map(
             (prospectosData || []).map(p => [p.id, p])
@@ -205,22 +229,37 @@ class ScheduledCallsService {
 
       const prospectoIds = [...new Set(filteredCallsData.map(call => call.prospecto))];
 
-      const { data: prospectosData, error: prospectosError } = await analysisSupabase
-        .from('prospectos')
-        .select(`
-          id,
-          nombre_completo,
-          nombre_whatsapp,
-          whatsapp,
-          email,
-          ejecutivo_id,
-          coordinacion_id
-        `)
-        .in('id', prospectoIds);
+      // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+      const BATCH_SIZE_FINAL = 100;
+      const loadProspectosFinalBatch = async (ids: string[]): Promise<any[]> => {
+        const results: any[] = [];
+        for (let i = 0; i < ids.length; i += BATCH_SIZE_FINAL) {
+          const batch = ids.slice(i, i + BATCH_SIZE_FINAL);
+          const { data, error } = await analysisSupabase
+            .from('prospectos')
+            .select(`
+              id,
+              nombre_completo,
+              nombre_whatsapp,
+              whatsapp,
+              email,
+              ejecutivo_id,
+              coordinacion_id
+            `)
+            .in('id', batch);
+          if (!error && data) {
+            results.push(...data);
+          } else if (error) {
+            console.error(`Error en batch ${i / BATCH_SIZE_FINAL + 1}:`, error);
+          }
+        }
+        return results;
+      };
 
-      if (prospectosError) {
-        console.error('Error obteniendo prospectos:', prospectosError);
-        throw prospectosError;
+      const prospectosData = await loadProspectosFinalBatch(prospectoIds);
+
+      if (prospectosData.length === 0 && prospectoIds.length > 0) {
+        console.error('Error obteniendo prospectos: no se cargaron datos');
       }
 
       const prospectosMap = new Map(

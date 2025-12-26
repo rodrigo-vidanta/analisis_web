@@ -3133,49 +3133,92 @@ const LiveChatCanvas: React.FC = () => {
       // ============================================
       // Este paso es crítico porque necesitamos los IDs de coordinaciones y ejecutivos
       // que están almacenados en los prospectos antes de poder cargar sus datos completos.
-      const prospectosData = prospectoIds.size > 0
-        ? await analysisSupabase
-            .from('prospectos')
-            .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa')
-            .in('id', Array.from(prospectoIds))
-            .then(({ data }) => {
-              const map = new Map<string, { 
-                coordinacion_id?: string; 
-                ejecutivo_id?: string;
-                id_dynamics?: string | null;
-                nombre_completo?: string | null;
-                nombre_whatsapp?: string | null;
-                titulo?: string | null;
-                email?: string | null;
-                whatsapp?: string | null;
-                requiere_atencion_humana?: boolean;
-                motivo_handoff?: string | null;
-                etapa?: string | null;
-              }>();
-              (data || []).forEach(p => {
-                map.set(p.id, { 
-                  coordinacion_id: p.coordinacion_id, 
-                  ejecutivo_id: p.ejecutivo_id,
-                  id_dynamics: p.id_dynamics,
-                  nombre_completo: p.nombre_completo,
-                  nombre_whatsapp: p.nombre_whatsapp,
-                  titulo: p.titulo || null,
-                  email: p.email,
-                  whatsapp: p.whatsapp,
-                  requiere_atencion_humana: p.requiere_atencion_humana || false,
-                  motivo_handoff: p.motivo_handoff || null,
-                  etapa: p.etapa || null,
-                });
-                if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
-                if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
+      // 
+      // FIX: Usar batches para evitar error 400 por URL demasiado larga
+      // cuando hay más de ~200 IDs en la cláusula IN()
+      const BATCH_SIZE = 100;
+      const prospectosIdsArray = Array.from(prospectoIds);
+      
+      const loadProspectosInBatches = async (ids: string[]): Promise<Map<string, {
+        coordinacion_id?: string;
+        ejecutivo_id?: string;
+        id_dynamics?: string | null;
+        nombre_completo?: string | null;
+        nombre_whatsapp?: string | null;
+        titulo?: string | null;
+        email?: string | null;
+        whatsapp?: string | null;
+        requiere_atencion_humana?: boolean;
+        motivo_handoff?: string | null;
+        etapa?: string | null;
+      }>> => {
+        const resultMap = new Map<string, {
+          coordinacion_id?: string;
+          ejecutivo_id?: string;
+          id_dynamics?: string | null;
+          nombre_completo?: string | null;
+          nombre_whatsapp?: string | null;
+          titulo?: string | null;
+          email?: string | null;
+          whatsapp?: string | null;
+          requiere_atencion_humana?: boolean;
+          motivo_handoff?: string | null;
+          etapa?: string | null;
+        }>();
+        
+        // Procesar en batches para evitar URL demasiado larga
+        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+          const batch = ids.slice(i, i + BATCH_SIZE);
+          try {
+            const { data, error } = await analysisSupabase
+              .from('prospectos')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa')
+              .in('id', batch);
+            
+            if (error) {
+              console.error(`❌ [LiveChatCanvas] Error cargando prospectos batch ${i / BATCH_SIZE + 1}:`, error);
+              continue;
+            }
+            
+            (data || []).forEach(p => {
+              resultMap.set(p.id, {
+                coordinacion_id: p.coordinacion_id,
+                ejecutivo_id: p.ejecutivo_id,
+                id_dynamics: p.id_dynamics,
+                nombre_completo: p.nombre_completo,
+                nombre_whatsapp: p.nombre_whatsapp,
+                titulo: p.titulo || null,
+                email: p.email,
+                whatsapp: p.whatsapp,
+                requiere_atencion_humana: p.requiere_atencion_humana || false,
+                motivo_handoff: p.motivo_handoff || null,
+                etapa: p.etapa || null,
               });
+              if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
+              if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
+            });
+          } catch (err) {
+            console.error(`❌ [LiveChatCanvas] Exception cargando prospectos batch ${i / BATCH_SIZE + 1}:`, err);
+          }
+        }
+        
+        return resultMap;
+      };
+      
+      const prospectosData = prospectosIdsArray.length > 0
+        ? await loadProspectosInBatches(prospectosIdsArray)
+            .then(map => {
+              console.log(`✅ [LiveChatCanvas] Cargados ${map.size} prospectos en batches de ${BATCH_SIZE}`);
               // Guardar en ref para acceso desde handlers
               prospectosDataRef.current = map;
               // Forzar actualización del filtro cuando se carguen los prospectos
               setProspectosDataVersion(prev => prev + 1);
               return map;
             })
-            .catch(() => new Map())
+            .catch((err) => {
+              console.error('❌ [LiveChatCanvas] Error general cargando prospectos:', err);
+              return new Map();
+            })
         : new Map();
 
       // ============================================

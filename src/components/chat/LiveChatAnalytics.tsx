@@ -225,12 +225,26 @@ const LiveChatAnalytics: React.FC = () => {
         return;
       }
       
-      const { data: prospectos, error: prospectosError } = await analysisSupabase
-        .from('prospectos')
-        .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa, created_at')
-        .in('id', prospectoIds);
+      // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+      const BATCH_SIZE = 100;
+      const loadProspectosInBatches = async (ids: string[]): Promise<any[]> => {
+        const results: any[] = [];
+        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+          const batch = ids.slice(i, i + BATCH_SIZE);
+          const { data, error } = await analysisSupabase
+            .from('prospectos')
+            .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa, created_at')
+            .in('id', batch);
+          if (!error && data) {
+            results.push(...data);
+          } else if (error) {
+            console.error(`❌ [LiveChatAnalytics] Error en batch ${i / BATCH_SIZE + 1}:`, error);
+          }
+        }
+        return results;
+      };
 
-      if (prospectosError) throw prospectosError;
+      const prospectos = await loadProspectosInBatches(prospectoIds);
       
       // Crear mapa de prospectos para acceso rápido
       const prospectosMap = new Map(prospectos?.map((p: any) => [p.id, p]) || []);

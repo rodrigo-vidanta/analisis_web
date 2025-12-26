@@ -1084,13 +1084,26 @@ const AnalysisIAComplete: React.FC = () => {
           // Cargar datos de prospectos
           let prospectosData: any[] = [];
           if (prospectoIds.length > 0) {
-            // Aplicar filtros de permisos según rol del usuario
-            let prospectosQuery = analysisSupabase
-              .from('prospectos')
-              .select('id, nombre_completo, nombre, apellido_paterno, apellido_materno, whatsapp, ciudad_residencia, coordinacion_id, ejecutivo_id')
-              .in('id', prospectoIds);
+            // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+            const BATCH_SIZE = 100;
+            const loadProspectosInBatches = async (ids: string[]): Promise<any[]> => {
+              const results: any[] = [];
+              for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+                const batch = ids.slice(i, i + BATCH_SIZE);
+                const { data, error } = await analysisSupabase
+                  .from('prospectos')
+                  .select('id, nombre_completo, nombre, apellido_paterno, apellido_materno, whatsapp, ciudad_residencia, coordinacion_id, ejecutivo_id')
+                  .in('id', batch);
+                if (!error && data) {
+                  results.push(...data);
+                }
+              }
+              return results;
+            };
             
-            // Obtener filtros de permisos
+            let allProspectos = await loadProspectosInBatches(prospectoIds);
+            
+            // Aplicar filtros de permisos en memoria
             if (user?.id) {
               const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
               const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
@@ -1101,19 +1114,15 @@ const AnalysisIAComplete: React.FC = () => {
               if (!isAdmin && !isCalidad) {
                 if (ejecutivoFilter) {
                   // Ejecutivo: solo prospectos asignados a él
-                  prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter);
+                  allProspectos = allProspectos.filter(p => p.ejecutivo_id === ejecutivoFilter);
                 } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
                   // Coordinador normal: solo prospectos de sus coordinaciones
-                  prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+                  allProspectos = allProspectos.filter(p => p.coordinacion_id && coordinacionesFilter.includes(p.coordinacion_id));
                 }
               }
             }
             
-            const { data: prospectosResult, error: prospectosError } = await prospectosQuery;
-            
-            if (!prospectosError && prospectosResult) {
-              prospectosData = prospectosResult;
-            }
+            prospectosData = allProspectos;
           }
           
           // Filtrar análisis para incluir solo los que tienen prospectos permitidos

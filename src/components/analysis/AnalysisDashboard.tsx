@@ -318,18 +318,32 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
             // Obtener prospectos permitidos
             const prospectoIds = llamadasData.map(l => l.prospecto).filter(Boolean);
             
-            let prospectosQuery = analysisSupabase
-              .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id')
-              .in('id', prospectoIds);
+            // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+            const BATCH_SIZE = 100;
+            const loadProspectosInBatches = async (ids: string[]): Promise<any[]> => {
+              const results: any[] = [];
+              for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+                const batch = ids.slice(i, i + BATCH_SIZE);
+                const { data, error } = await analysisSupabase
+                  .from('prospectos')
+                  .select('id, coordinacion_id, ejecutivo_id')
+                  .in('id', batch);
+                if (!error && data) {
+                  results.push(...data);
+                }
+              }
+              return results;
+            };
             
+            let prospectosData = await loadProspectosInBatches(prospectoIds);
+            
+            // Aplicar filtros de permisos en memoria
             if (ejecutivoFilter) {
-              prospectosQuery = prospectosQuery.eq('ejecutivo_id', ejecutivoFilter);
+              prospectosData = prospectosData.filter(p => p.ejecutivo_id === ejecutivoFilter);
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-              prospectosQuery = prospectosQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+              prospectosData = prospectosData.filter(p => p.coordinacion_id && coordinacionesFilter.includes(p.coordinacion_id));
             }
             
-            const { data: prospectosData } = await prospectosQuery;
             const allowedProspectoIds = new Set(prospectosData?.map(p => p.id) || []);
             
             // Filtrar análisis por prospectos permitidos

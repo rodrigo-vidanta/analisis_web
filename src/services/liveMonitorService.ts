@@ -369,33 +369,40 @@ class LiveMonitorService {
 
       let prospectosData: any[] = [];
       if (prospectIds.length > 0) {
-        // Optimizar: seleccionar solo campos necesarios en lugar de '*'
-        // Nota: temperatura_prospecto no existe en la tabla, se elimina de la consulta
-        let prospectQuery = analysisSupabase
-          .from('prospectos')
-          .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa, observaciones, tamano_grupo, destino_preferencia, ciudad_residencia, email, edad, viaja_con, cantidad_menores, updated_at, estado_civil, interes_principal, campana_origen, coordinacion_id, ejecutivo_id')
-          .in('id', prospectIds as string[]);
+        // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+        const BATCH_SIZE = 100;
+        const loadProspectosInBatches = async (ids: string[]): Promise<any[]> => {
+          const results: any[] = [];
+          for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+            const batch = ids.slice(i, i + BATCH_SIZE);
+            const { data: batchData, error } = await analysisSupabase
+              .from('prospectos')
+              .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa, observaciones, tamano_grupo, destino_preferencia, ciudad_residencia, email, edad, viaja_con, cantidad_menores, updated_at, estado_civil, interes_principal, campana_origen, coordinacion_id, ejecutivo_id')
+              .in('id', batch);
+            if (!error && batchData) {
+              results.push(...batchData);
+            } else if (error) {
+              console.warn(`⚠️ Error en batch ${i / BATCH_SIZE + 1}:`, error);
+            }
+          }
+          return results;
+        };
 
-        // Aplicar filtros de permisos usando cache
+        let allProspectos = await loadProspectosInBatches(prospectIds as string[]);
+
+        // Aplicar filtros de permisos en memoria
         if (userId) {
           if (ejecutivoFilter) {
             // Ejecutivo: solo sus prospectos asignados
-            prospectQuery = prospectQuery.eq('ejecutivo_id', ejecutivoFilter);
+            allProspectos = allProspectos.filter(p => p.ejecutivo_id === ejecutivoFilter);
           } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
             // Coordinador: todos los prospectos de sus coordinaciones (múltiples)
-            // Excluir prospectos sin coordinación asignada
-            prospectQuery = prospectQuery.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+            allProspectos = allProspectos.filter(p => p.coordinacion_id && coordinacionesFilter.includes(p.coordinacion_id));
           }
           // Admin: sin filtros
         }
 
-        const { data: pData, error: prospectError } = await prospectQuery;
-
-        if (prospectError) {
-          console.warn('⚠️ Continuando sin datos de prospectos por error:', prospectError);
-        } else {
-          prospectosData = pData || [];
-        }
+        prospectosData = allProspectos;
       } else {
         console.warn('⚠️ No hay IDs de prospectos válidos; se devolverán llamadas con datos mínimos');
       }
@@ -1150,13 +1157,30 @@ class LiveMonitorService {
         return [];
       }
 
-      const { data: prospectosData, error: prospectError } = await analysisSupabase
-        .from('prospectos')
-        .select('*')
-        .in('id', prospectIds);
+      // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
+      const BATCH_SIZE_HISTORY = 100;
+      const loadProspectosHistoryBatch = async (ids: (string | null | undefined)[]): Promise<any[]> => {
+        const validIds = ids.filter((id): id is string => id !== null && id !== undefined);
+        const results: any[] = [];
+        for (let i = 0; i < validIds.length; i += BATCH_SIZE_HISTORY) {
+          const batch = validIds.slice(i, i + BATCH_SIZE_HISTORY);
+          const { data: batchData, error } = await analysisSupabase
+            .from('prospectos')
+            .select('*')
+            .in('id', batch);
+          if (!error && batchData) {
+            results.push(...batchData);
+          } else if (error) {
+            console.error(`❌ Error en batch historial ${i / BATCH_SIZE_HISTORY + 1}:`, error);
+          }
+        }
+        return results;
+      };
 
-      if (prospectError) {
-        console.error('❌ Error obteniendo datos de prospectos para historial:', prospectError);
+      const prospectosData = await loadProspectosHistoryBatch(prospectIds);
+
+      if (prospectosData.length === 0 && prospectIds.length > 0) {
+        console.error('❌ Error obteniendo datos de prospectos para historial: no se cargaron prospectos');
         return [];
       }
 

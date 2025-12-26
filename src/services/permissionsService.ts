@@ -155,18 +155,31 @@ class PermissionsService {
     // Verificar caché primero
     const cached = this.permissionsCache.get(userId);
     if (this.isCacheValid(cached)) {
+      console.log(`🔍 [getUserPermissions] Usuario ${userId} - usando caché:`, {
+        role: cached!.data?.role,
+        coordinacion_id: cached!.data?.coordinacion_id
+      });
       return cached!.data;
     }
     
     try {
+      console.log(`🔍 [getUserPermissions] Usuario ${userId} - consultando RPC get_user_permissions...`);
       const { data, error } = await supabaseSystemUI.rpc('get_user_permissions', {
         p_user_id: userId,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error(`❌ [getUserPermissions] Error RPC para usuario ${userId}:`, error);
+        throw error;
+      }
       
       // Guardar en caché
       const result = data as UserPermissions;
+      console.log(`✅ [getUserPermissions] Usuario ${userId} - permisos obtenidos:`, {
+        role: result?.role,
+        coordinacion_id: result?.coordinacion_id,
+        permissions_count: result?.permissions?.length || 0
+      });
       this.permissionsCache.set(userId, { data: result, timestamp: Date.now() });
       
       // Limpiar cachés expirados cada cierto tiempo
@@ -534,6 +547,7 @@ class PermissionsService {
       // Ejecutivo: retornar su coordinación única
       if (permissions.role === 'ejecutivo') {
         const result = permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+        console.log(`🔍 [getCoordinacionesFilter] Ejecutivo ${userId} - coordinacion_id desde permisos: ${permissions.coordinacion_id}, resultado: ${result ? result.join(', ') : 'null'}`);
         this.coordinacionesCache.set(userId, { data: result, timestamp: Date.now() });
         return result;
       }
@@ -593,12 +607,20 @@ class PermissionsService {
     // Verificar caché primero
     const cached = this.ejecutivoCache.get(userId);
     if (this.isCacheValid(cached)) {
+      console.log(`🔍 [getEjecutivoFilter] Usuario ${userId} - usando caché: ${cached!.data}`);
       return cached!.data;
     }
     
     try {
       const permissions = await this.getUserPermissions(userId);
+      console.log(`🔍 [getEjecutivoFilter] Usuario ${userId} - permisos obtenidos:`, {
+        role: permissions?.role,
+        coordinacion_id: permissions?.coordinacion_id,
+        permissions_count: permissions?.permissions?.length || 0
+      });
+      
       if (!permissions) {
+        console.warn(`⚠️ [getEjecutivoFilter] Usuario ${userId} - sin permisos, retornando null`);
         this.ejecutivoCache.set(userId, { data: null, timestamp: Date.now() });
         return null;
       }
@@ -606,10 +628,12 @@ class PermissionsService {
       // Solo ejecutivos tienen filtro por ejecutivo
       // Supervisores NO tienen filtro de ejecutivo (ven todos los prospectos de su coordinación)
       if (permissions.role === 'ejecutivo') {
+        console.log(`✅ [getEjecutivoFilter] Usuario ${userId} es ejecutivo - retornando userId como filtro`);
         this.ejecutivoCache.set(userId, { data: userId, timestamp: Date.now() });
         return userId;
       }
 
+      console.log(`ℹ️ [getEjecutivoFilter] Usuario ${userId} (${permissions.role}) - no es ejecutivo, retornando null`);
       this.ejecutivoCache.set(userId, { data: null, timestamp: Date.now() });
       return null;
     } catch (error) {

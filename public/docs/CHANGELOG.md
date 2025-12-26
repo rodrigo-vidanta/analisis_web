@@ -2,6 +2,62 @@
 
 ## Historial de Versiones
 
+### v2.2.1 (2025-12-26)
+**Descripción**: B7.0.1N6.0.0: 🔧 Fix Batching Queries - Corrección error 400 por URL muy larga en múltiples módulos
+
+---
+
+## 🔧 **RELEASE B7.0.1N6.0.0 - Fix Batching para Queries con Muchos IDs**
+
+### 🐛 **Problema Resuelto**
+
+Los ejecutivos no podían ver sus prospectos asignados en la UI debido a un **error 400 (Bad Request)** causado por URLs demasiado largas cuando se usaba `.in('id', arrayDeMuchosIds)` con más de ~200 UUIDs.
+
+**Causa raíz**: Supabase usa GET requests con parámetros en la URL. Cuando el array de IDs es muy grande (800+ UUIDs), la URL excede el límite permitido.
+
+### ✅ **Solución Implementada**
+
+Se implementó **batching** en todas las queries que cargan prospectos por IDs:
+
+```typescript
+const BATCH_SIZE = 100;
+for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+  const batch = ids.slice(i, i + BATCH_SIZE);
+  const { data } = await supabase.from('prospectos').select('*').in('id', batch);
+  results.push(...data);
+}
+```
+
+### 📁 **Archivos Corregidos**
+
+| Archivo | Descripción |
+|---------|-------------|
+| `ConversacionesWidget.tsx` | Widget de conversaciones en dashboard |
+| `LiveChatCanvas.tsx` | Módulo principal de WhatsApp/Chat |
+| `LiveMonitorKanban.tsx` | Kanban de monitoreo en vivo |
+| `AnalysisDashboard.tsx` | Dashboard de análisis de llamadas |
+| `AnalysisIAComplete.tsx` | Análisis IA completo |
+| `liveMonitorService.ts` | Servicio de monitoreo (2 lugares) |
+| `LiveChatAnalytics.tsx` | Analytics de chat |
+| `scheduledCallsService.ts` | Servicio de llamadas programadas (3 lugares) |
+
+### 🎯 **Impacto**
+
+- ✅ **Ejecutivos** ahora pueden ver todos sus prospectos asignados
+- ✅ **Coordinadores** pueden ver prospectos de sus coordinaciones
+- ✅ **Supervisores** pueden ver prospectos según permisos
+- ✅ No afecta realtime ni WebSockets
+- ⚠️ Ligero incremento en tiempo de carga inicial (~200-400ms adicionales)
+
+### 📊 **Métricas**
+
+- **8 archivos** corregidos
+- **11 lugares** con batching aplicado
+- **Batch size**: 100 IDs por request
+- **Compatibilidad**: Todos los roles y niveles de permisos
+
+---
+
 ### v2.2.0 (2025-12-24)
 **Descripción**: B7.0.0N6.0.0: 🔐 RELEASE DE SEGURIDAD MAYOR - Remediación de Credenciales y Nuevo Módulo de Gestión de Tokens
 
