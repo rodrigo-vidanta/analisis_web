@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, ChevronRight, Loader2, X, Flag, Pause, Play } from 'lucide-react';
+import { MessageSquare, Send, ChevronRight, Loader2, X, Flag, Pause, Play, Bot, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BotPauseButton from '../../chat/BotPauseButton';
 import { supabaseSystemUI } from '../../../config/supabaseSystemUI';
@@ -33,7 +33,7 @@ interface Message {
   id: string;
   message_id: string;
   conversation_id: string;
-  sender_type: 'customer' | 'bot' | 'agent';
+  sender_type: 'customer' | 'bot' | 'agent' | 'template'; // ✅ Agregado 'template'
   sender_name?: string;
   id_sender?: string; // ID del usuario que envió el mensaje
   sender_user_name?: string; // Nombre completo del usuario que envió el mensaje
@@ -1756,49 +1756,142 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     try {
       // Si tiene prospect_id, cargar desde mensajes_whatsapp (igual que LiveChatCanvas)
       if (conversation.prospect_id) {
-        const { data: messagesData, error } = await analysisSupabase
+        // ✅ CARGAR MENSAJES Y PLANTILLAS EN PARALELO (igual que LiveChatCanvas)
+        const messagesPromise = analysisSupabase
           .from('mensajes_whatsapp')
           .select('*')
           .eq('prospecto_id', conversation.prospect_id)
           .order('fecha_hora', { ascending: true });
 
+        // ✅ USAR TABLA CORRECTA: whatsapp_template_sends (no logs)
+        const templateSendsPromise = analysisSupabase
+          .from('whatsapp_template_sends')
+          .select('mensaje_id, triggered_by_user')
+          .eq('prospecto_id', conversation.prospect_id)
+          .eq('status', 'SENT');
+
+        const [messagesResult, templateSendsResult] = await Promise.all([messagesPromise, templateSendsPromise]);
+
+        const { data: messagesData, error } = messagesResult;
+        const { data: templateSends } = templateSendsResult;
+
         if (error) throw error;
 
-        // Obtener nombres de usuarios para mensajes con id_sender (igual que LiveChatCanvas)
+        // ✅ CREAR MAP DE PLANTILLAS (igual que LiveChatCanvas)
+        const templateMessageMap = new Map<string, { triggered_by_user: string | null }>(
+          (templateSends || []).map((ts: any) => [
+            ts.mensaje_id, 
+            { triggered_by_user: ts.triggered_by_user }
+          ])
+        );
+        const templateMessageIds = new Set(templateMessageMap.keys());
+
+        console.log('📄 [ConversacionesWidget] Template sends encontrados:', templateSends?.length || 0);
+        if (templateSends && templateSends.length > 0) {
+          console.log('📄 [ConversacionesWidget] Template sends detalle:', templateSends);
+        }
+        console.log('📄 [ConversacionesWidget] Template message IDs:', Array.from(templateMessageIds));
+
+        // ✅ OBTENER IDS DE USUARIOS: mensajes normales Y plantillas (igual que LiveChatCanvas)
         const senderIds = (messagesData || [])
           .filter((msg: any) => msg.id_sender)
           .map((msg: any) => msg.id_sender);
         
+        // Agregar IDs de usuarios que enviaron plantillas
+        const templateUserIds = Array.from(templateMessageMap.values())
+          .filter(v => v.triggered_by_user)
+          .map(v => v.triggered_by_user as string);
+        
+        const allUserIds = [...new Set([...senderIds, ...templateUserIds])];
+        
+        console.log('👥 [ConversacionesWidget] IDs de usuarios a buscar:', allUserIds);
+        console.log('📄 [ConversacionesWidget] Template user IDs:', templateUserIds);
+        
         const senderNamesMap: Record<string, string> = {};
-        if (senderIds.length > 0) {
+        if (allUserIds.length > 0) {
           try {
-            const { data: usersData } = await supabaseSystemUI
+            // ✅ USAR supabaseSystemUI porque auth_users está en System UI DB
+            const { data: usersData, error: usersError } = await supabaseSystemUI
               .from('auth_users')
               .select('id, full_name, first_name, last_name')
-              .in('id', senderIds);
+              .in('id', allUserIds);
+            
+            console.log('👥 [ConversacionesWidget] Usuarios encontrados:', usersData?.map(u => ({ id: u.id, name: u.full_name })));
+            
+            if (usersError) {
+              console.error('❌ Error en query auth_users:', usersError);
+            }
             
             if (usersData) {
               usersData.forEach(user => {
                 senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
               });
             }
+            
+            console.log('📝 [ConversacionesWidget] Sender names map:', senderNamesMap);
+            
+            // Verificar si faltan usuarios
+            const foundIds = new Set(usersData?.map(u => u.id) || []);
+            const missingIds = allUserIds.filter(id => !foundIds.has(id));
+            if (missingIds.length > 0) {
+              console.warn('⚠️ Usuarios no encontrados en auth_users:', missingIds);
+            }
           } catch (error) {
+            console.error('❌ Error obteniendo nombres de usuarios:', error);
           }
         }
 
-        const adaptedMessages: Message[] = (messagesData || []).map((msg: any) => ({
-          id: msg.id,
-          message_id: `real_${msg.id}`,
-          conversation_id: conversation.id,
-          sender_type: msg.rol === 'Prospecto' ? 'customer' : msg.rol === 'AI' ? 'bot' : 'agent',
-          sender_name: msg.rol || 'Desconocido',
-          id_sender: msg.id_sender || undefined,
-          sender_user_name: msg.id_sender ? senderNamesMap[msg.id_sender] : undefined,
-          content: msg.mensaje,
-          is_read: msg.leido ?? true,
-          created_at: msg.fecha_hora,
-          adjuntos: msg.adjuntos // Incluir adjuntos multimedia
-        }));
+        // ✅ MAPEAR MENSAJES CON DETECCIÓN DE PLANTILLAS (igual que LiveChatCanvas)
+        const adaptedMessages: Message[] = (messagesData || []).map((msg: any) => {
+          // Determinar si es mensaje de plantilla (por tabla o por rol)
+          const isTemplateMessage = templateMessageIds.has(msg.id) || msg.rol === 'Plantilla';
+          const templateInfo = templateMessageMap.get(msg.id);
+          
+          // Determinar sender_type
+          let senderType: 'customer' | 'bot' | 'agent' | 'template' = 'agent';
+          if (msg.rol === 'Prospecto') {
+            senderType = 'customer';
+          } else if (isTemplateMessage) {
+            senderType = 'template';
+          } else if (msg.rol === 'AI') {
+            senderType = 'bot';
+          }
+          
+          // Obtener nombre del usuario que envió (id_sender o triggered_by_user para plantillas)
+          let senderUserName: string | undefined;
+          if (msg.id_sender) {
+            senderUserName = senderNamesMap[msg.id_sender];
+          } else if (isTemplateMessage && templateInfo?.triggered_by_user) {
+            senderUserName = senderNamesMap[templateInfo.triggered_by_user];
+            console.log('📄 [Template] msg.id:', msg.id, 'triggered_by_user:', templateInfo.triggered_by_user, 'nombre:', senderUserName);
+          }
+          
+          // Debug para plantillas
+          if (isTemplateMessage) {
+            console.log('📄 [Template Message]', {
+              msg_id: msg.id,
+              rol: msg.rol,
+              templateInfo,
+              triggered_by_user: templateInfo?.triggered_by_user,
+              senderUserName,
+              available_names: Object.keys(senderNamesMap)
+            });
+          }
+          
+          return {
+            id: msg.id,
+            message_id: `real_${msg.id}`,
+            conversation_id: conversation.id,
+            sender_type: senderType,
+            sender_name: isTemplateMessage ? 'Plantilla' : (msg.rol || 'Desconocido'),
+            id_sender: msg.id_sender || (templateInfo?.triggered_by_user) || undefined,
+            sender_user_name: senderUserName,
+            content: msg.mensaje,
+            is_read: msg.leido ?? true,
+            created_at: msg.fecha_hora,
+            adjuntos: msg.adjuntos
+          };
+        });
 
         setMessages(adaptedMessages);
       } else {
@@ -2443,6 +2536,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
               const isCustomer = msg.sender_type === 'customer';
               const isBot = msg.sender_type === 'bot';
               const isAgent = msg.sender_type === 'agent';
+              const isTemplate = msg.sender_type === 'template';
               
               // Parsear adjuntos si existen
               let adjuntos = null;
@@ -2511,7 +2605,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     <div className={`text-[10px] text-gray-400 dark:text-gray-500 mb-0.5 px-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
                       {isCustomer 
                         ? 'Cliente'
-                        : isBot 
+                        : isTemplate
+                          ? (msg.sender_user_name || msg.sender_name || 'Agente')
+                          : isBot 
                           ? 'Bot Vidanta'
                           : (msg.sender_user_name || msg.sender_name || 'Agente')
                       }
@@ -2618,6 +2714,24 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     {/* CASO NORMAL: Todos los demás mensajes */}
                     {!(isBot && hasImages) && (
                       <>
+                        {/* Etiqueta de Plantilla encima del globo */}
+                        {isTemplate && (
+                          <div className="flex items-center justify-end gap-1.5 mb-1">
+                            <FileText className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                              Plantilla enviada por: {(() => {
+                                const fullName = msg.sender_user_name || '';
+                                if (!fullName) return 'Usuario';
+                                const parts = fullName.trim().split(/\s+/);
+                                if (parts.length >= 2) {
+                                  return `${parts[0]} ${parts[1]}`;
+                                }
+                                return parts[0] || 'Usuario';
+                              })()}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Burbuja del mensaje con pico */}
                         {(shouldHaveBubble || isAgent) ? (
                           <div className="relative">
@@ -2629,11 +2743,13 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                               </div>
                             )}
                             
-                            {/* Pico del globo - Bot/Agente (derecha) */}
+                            {/* Pico del globo - Bot/Agente/Plantilla (derecha) */}
                             {!isCustomer && (
                               <div className="absolute -right-2 bottom-2 w-3 h-3 overflow-hidden">
                                 <div className={`absolute transform rotate-45 w-3 h-3 ${
-                                  isBot 
+                                  isTemplate
+                                    ? 'bg-teal-500'
+                                    : isBot 
                                     ? 'bg-cyan-600' 
                                     : 'bg-purple-600'
                                 }`} 
@@ -2646,7 +2762,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                               className={`relative px-3 py-2 shadow-sm backdrop-blur-sm ${
                                 isCustomer
                                   ? 'bg-white/95 dark:bg-slate-600/95 border border-gray-200/50 dark:border-slate-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md'
-                                  : isBot
+                                  : isTemplate
+                                    ? 'bg-gradient-to-br from-emerald-500/95 to-teal-500/95 text-white rounded-2xl rounded-br-md shadow-md border border-emerald-400/30'
+                                    : isBot
                                     ? 'bg-gradient-to-br from-blue-600/95 to-cyan-600/95 text-white rounded-2xl rounded-br-md shadow-md'
                                     : 'bg-gradient-to-br from-violet-600/95 to-purple-600/95 text-white rounded-2xl rounded-br-md shadow-md'
                               }`}
@@ -2702,19 +2820,31 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     )}
                   </div>
                   
-                  {/* Avatar derecha - Bot/Agente */}
+                  {/* Avatar derecha - Bot/Agente/Plantilla */}
                   {!isCustomer && (
                     <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium text-white shadow-md ${
-                        isBot 
+                      className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 shadow-md ${
+                        msg.sender_type === 'template'
+                          ? 'bg-gradient-to-br from-emerald-400 to-teal-500'
+                          : isBot 
                           ? 'bg-gradient-to-br from-blue-500 to-cyan-600' 
                           : 'bg-gradient-to-br from-violet-500 to-purple-600'
                       }`}
-                      title={isBot ? 'Bot Vidanta' : (msg.sender_user_name || msg.sender_name || 'Agente')}
+                      title={
+                        msg.sender_type === 'template' 
+                          ? 'Mensaje de Plantilla' 
+                          : isBot 
+                            ? 'Bot Vidanta' 
+                            : (msg.sender_user_name || msg.sender_name || 'Agente')
+                      }
                     >
-                      {isBot 
-                        ? 'B'
-                        : (() => {
+                      {msg.sender_type === 'template' ? (
+                        <FileText className="w-4 h-4 text-white" />
+                      ) : isBot ? (
+                        <Bot className="w-4 h-4 text-white" />
+                      ) : (
+                        <span className="text-xs font-semibold text-white">
+                          {(() => {
                             if (msg.sender_user_name) {
                               const parts = msg.sender_user_name.trim().split(' ');
                               if (parts.length >= 2) {
@@ -2723,8 +2853,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                               return msg.sender_user_name.substring(0, 2).toUpperCase();
                             }
                             return (msg.sender_name?.charAt(0).toUpperCase() || 'A');
-                          })()
-                      }
+                          })()}
+                        </span>
+                      )}
                     </div>
                   )}
                 </motion.div>

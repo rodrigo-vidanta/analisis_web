@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { pqncSupabase as supabase } from '../config/pqncSupabase';
 
+export type ThemeMode = 'light' | 'twilight' | 'dark';
+
 export interface ThemeConfig {
   theme_name: string;
   display_name: string;
@@ -11,6 +13,7 @@ export interface ThemeConfig {
 
 export const useTheme = () => {
   const [currentTheme, setCurrentTheme] = useState<string>('default');
+  const [themeMode, setThemeMode] = useState<ThemeMode>('dark'); // Tema de color (light/twilight/dark)
   const [availableThemes, setAvailableThemes] = useState<ThemeConfig[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -134,13 +137,61 @@ export const useTheme = () => {
     };
   }, []);
 
+  // Cambiar modo de tema (light/twilight/dark)
+  const changeThemeMode = (mode: ThemeMode) => {
+    console.log('🎨 Cambiando tema a:', mode);
+    setThemeMode(mode);
+    
+    // Guardar en localStorage
+    localStorage.setItem('theme-mode', mode);
+    
+    // Aplicar al documento
+    if (mode === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.body.style.backgroundColor = '#0f172a';
+    } else if (mode === 'twilight') {
+      // Twilight usa dark class para activar algunos estilos pero con data-theme="twilight"
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'twilight');
+      document.body.style.backgroundColor = '#1a202e';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.body.style.backgroundColor = '#f8fafc';
+    }
+    
+    console.log('✅ Tema aplicado:', {
+      mode,
+      'data-theme': document.documentElement.getAttribute('data-theme'),
+      'has dark class': document.documentElement.classList.contains('dark'),
+      'body bg': document.body.style.backgroundColor
+    });
+  };
+
+  // Cargar tema mode desde localStorage al iniciar
+  useEffect(() => {
+    const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
+    if (savedMode && ['light', 'twilight', 'dark'].includes(savedMode)) {
+      changeThemeMode(savedMode);
+    } else {
+      // Default: dark mode
+      changeThemeMode('dark');
+    }
+  }, []);
+
   return {
     currentTheme,
+    themeMode,
     availableThemes,
     loading,
     changeTheme,
+    changeThemeMode,
     getThemeClasses,
-    isLinearTheme: currentTheme === 'linear_theme'
+    isLinearTheme: currentTheme === 'linear_theme',
+    isDark: themeMode === 'dark',
+    isTwilight: themeMode === 'twilight',
+    isLight: themeMode === 'light',
   };
 };
 

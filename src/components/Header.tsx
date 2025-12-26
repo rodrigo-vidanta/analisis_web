@@ -10,6 +10,7 @@ import AdminMessagesModal from './admin/AdminMessagesModal';
 import { adminMessagesService } from '../services/adminMessagesService';
 import { Mail, Wrench } from 'lucide-react';
 import { NotificationControl } from './dashboard/NotificationControl';
+import { ThemeSelector, type ThemeMode } from './ThemeSelector';
 
 // ============================================
 // COMPONENTES DE ANIMACIÓN PARA THEME TOGGLE
@@ -238,6 +239,70 @@ const Header = ({
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [prospectCount, setProspectCount] = useState<{filtered: number, total: number} | null>(null);
+  
+  // Estado del tema (light, twilight, dark)
+  const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>('dark');
+
+  // Cargar tema al iniciar
+  useEffect(() => {
+    const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
+    if (savedMode && ['light', 'twilight', 'dark'].includes(savedMode)) {
+      setCurrentThemeMode(savedMode);
+      applyThemeMode(savedMode);
+    } else {
+      setCurrentThemeMode('dark');
+      applyThemeMode('dark');
+    }
+  }, []);
+
+  // Aplicar modo de tema
+  const applyThemeMode = (mode: ThemeMode) => {
+    if (mode === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.removeAttribute('data-theme');
+    } else if (mode === 'twilight') {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'twilight');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.removeAttribute('data-theme');
+    }
+  };
+
+  // Manejar cambio de tema
+  const handleThemeChange = (mode: ThemeMode) => {
+    console.log('🎨 Header: Cambiando tema a:', mode);
+    setCurrentThemeMode(mode);
+    
+    // Aplicar directamente al documento
+    if (mode === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.body.style.backgroundColor = '#0f172a';
+    } else if (mode === 'twilight') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'twilight');
+      document.body.style.backgroundColor = '#1a202e';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.body.style.backgroundColor = '#f8fafc';
+    }
+    
+    localStorage.setItem('theme-mode', mode);
+    
+    console.log('✅ Tema aplicado desde Header:', {
+      mode,
+      'data-theme': document.documentElement.getAttribute('data-theme'),
+      'dark class': document.documentElement.classList.contains('dark')
+    });
+    
+    // Mantener compatibilidad con código legacy (onToggleDarkMode)
+    const shouldBeDark = mode !== 'light';
+    if (shouldBeDark !== darkMode) {
+      onToggleDarkMode();
+    }
+  };
 
   // Escuchar eventos para actualizar contador de prospectos
   useEffect(() => {
@@ -492,10 +557,11 @@ const Header = ({
                 </div>
               )}
               
-              {/* Toggle tema con animación divertida */}
-              <ThemeToggleButton 
-                darkMode={darkMode} 
-                onToggle={onToggleDarkMode} 
+              {/* Selector de tema con 3 opciones */}
+              <ThemeSelector 
+                currentTheme={currentThemeMode}
+                onThemeChange={handleThemeChange}
+                variant="default"
               />
 
               {/* Usuario y logout */}
@@ -882,11 +948,11 @@ const Header = ({
               </div>
             )}
 
-            {/* Toggle dark mode con animación divertida */}
-            <ThemeToggleButton 
-              darkMode={darkMode} 
-              onToggle={onToggleDarkMode}
-              variant="large"
+            {/* Selector de tema con 3 opciones */}
+            <ThemeSelector 
+              currentTheme={currentThemeMode}
+              onThemeChange={handleThemeChange}
+              variant="default"
             />
 
             {/* Reset button minimalista */}

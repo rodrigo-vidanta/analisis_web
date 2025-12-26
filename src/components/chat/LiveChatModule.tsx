@@ -24,6 +24,7 @@ import { uchatService, type UChatConversation } from '../../services/uchatServic
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { useNotifications } from '../../hooks/useNotifications';
+import { Tabs, Card, Input, type Tab } from '../base';
 
 interface LiveChatModuleProps {
   className?: string;
@@ -90,61 +91,57 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
       
       case 'settings':
         return (
-          <div className="p-6 bg-slate-25 dark:bg-gray-900">
+          <div className="p-6 bg-neutral-50 dark:bg-neutral-900">
             <div className="max-w-4xl">
               <div className="mb-6">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Configuración</h2>
-                <p className="text-sm text-slate-600 dark:text-gray-400">Gestiona la configuración del sistema de chat</p>
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">Configuración</h2>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">Gestiona la configuración del sistema de chat</p>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-6">
+              <Card variant="elevated" size="lg">
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-sm font-medium text-slate-900 dark:text-white mb-3">API de UChat</h3>
+                    <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-3">API de UChat</h3>
                     <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">API Key</label>
-                        <input 
-                          type="password" 
-                          value="hBOeQll3yFUY6Br6jHL3OPJ0fVdCXWMhRM7F3Za4AD21WCAl3Q0LEEu2nbj5"
-                          readOnly
-                          className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-700 text-slate-900 dark:text-white rounded-md"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">URL de la API</label>
-                        <input 
-                          type="text" 
-                          value="https://www.uchat.com.au/api"
-                          readOnly
-                          className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-700 text-slate-900 dark:text-white rounded-md"
-                        />
-                      </div>
+                      <Input 
+                        type="password" 
+                        label="API Key"
+                        value="hBOeQll3yFUY6Br6jHL3OPJ0fVdCXWMhRM7F3Za4AD21WCAl3Q0LEEu2nbj5"
+                        readOnly
+                        size="sm"
+                      />
+                      <Input 
+                        type="text" 
+                        label="URL de la API"
+                        value="https://www.uchat.com.au/api"
+                        readOnly
+                        size="sm"
+                      />
                     </div>
                   </div>
                   
-                  <div className="border-t border-slate-100 dark:border-gray-700 pt-6">
-                    <h3 className="text-sm font-medium text-slate-900 dark:text-white mb-3">Handoff Automático</h3>
+                  <div className="border-t border-neutral-100 dark:border-neutral-700 pt-6">
+                    <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-3">Handoff Automático</h3>
                     <div className="space-y-3">
                       <label className="flex items-center">
-                        <input type="checkbox" checked readOnly className="rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700" />
-                        <span className="ml-2 text-sm text-slate-700 dark:text-gray-300">Activar transferencia automática</span>
+                        <input type="checkbox" checked readOnly className="rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700" />
+                        <span className="ml-2 text-sm text-neutral-700 dark:text-neutral-300">Activar transferencia automática</span>
                       </label>
                       <label className="flex items-center">
-                        <input type="checkbox" checked readOnly className="rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700" />
-                        <span className="ml-2 text-sm text-slate-700 dark:text-gray-300">Deshabilitar bot al recibir mensaje</span>
+                        <input type="checkbox" checked readOnly className="rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700" />
+                        <span className="ml-2 text-sm text-neutral-700 dark:text-neutral-300">Deshabilitar bot al recibir mensaje</span>
                       </label>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
           </div>
         );
       
       case 'analytics':
         return (
-          <div className="p-6 bg-slate-50 dark:bg-gray-900 min-h-screen">
+          <div className="p-6 bg-neutral-50 dark:bg-neutral-900 min-h-screen">
             <div className="max-w-7xl mx-auto">
               <LiveChatAnalytics />
             </div>
@@ -156,53 +153,30 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
     }
   };
 
+  // Configurar tabs para el módulo
+  const tabs: Tab[] = [
+    { id: 'dashboard', label: 'Conversaciones', icon: <MessageCircle className="w-4 h-4" /> },
+    { id: 'analytics', label: 'Analíticas', icon: <BarChart3 className="w-4 h-4" /> },
+    ...(canViewSettings ? [{ id: 'settings' as const, label: 'Configuración', icon: <Settings className="w-4 h-4" /> }] : []),
+  ];
+
   return (
-    <div className={`h-full flex flex-col bg-white dark:bg-gray-900 ${className}`}>
-      {/* Navigation FIJA - No se mueve con scroll */}
-      <div className="border-b border-slate-100 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-800 sticky top-0 z-20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-slate-900 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 text-white" />
-              </div>
-            </div>
-            
-            <nav className="flex space-x-1">
-              <button
-                onClick={() => setActiveView('dashboard')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeView === 'dashboard'
-                    ? 'bg-slate-100 dark:bg-gray-700 text-slate-900 dark:text-white'
-                    : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                Conversaciones
-              </button>
-              <button
-                onClick={() => setActiveView('analytics')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeView === 'analytics'
-                    ? 'bg-slate-100 dark:bg-gray-700 text-slate-900 dark:text-white'
-                    : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                Analíticas
-              </button>
-              {canViewSettings && (
-                <button
-                  onClick={() => setActiveView('settings')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    activeView === 'settings'
-                      ? 'bg-slate-100 dark:bg-gray-700 text-slate-900 dark:text-white'
-                      : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  Configuración
-                </button>
-              )}
-            </nav>
+    <div className={`h-full flex flex-col bg-white dark:bg-neutral-900 ${className}`}>
+      {/* Navigation SLIM - Sin título, solo icono y tabs */}
+      <div className="border-b border-neutral-100 dark:border-neutral-700 px-6 py-2.5 bg-white dark:bg-neutral-800 sticky top-0 z-20">
+        <div className="flex items-center space-x-4">
+          {/* Icono del módulo WhatsApp - vectorizado sin título */}
+          <div className="w-8 h-8 bg-success-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <MessageCircle className="w-5 h-5 text-white" />
           </div>
+          
+          {/* Tabs homologadas */}
+          <Tabs 
+            tabs={tabs}
+            activeTab={activeView}
+            onChange={(tabId) => setActiveView(tabId as 'dashboard' | 'settings' | 'analytics')}
+            variant="default"
+          />
         </div>
       </div>
 
