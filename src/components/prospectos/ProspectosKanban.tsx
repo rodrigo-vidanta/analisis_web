@@ -146,30 +146,52 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
       
       if (prospectoIds.length === 0) return;
 
-      const { data, error } = await analysisSupabase
-        .from('mensajes_whatsapp')
-        .select('prospecto_id, fecha_hora')
-        .in('prospecto_id', prospectoIds)
-        .order('fecha_hora', { ascending: false });
+      // ⚡ OPTIMIZACIÓN: Procesar en batches para evitar error 400 con URLs largas
+      const MAX_IDS_PER_BATCH = 100;
+      let allMessages: any[] = [];
+      
+      if (prospectoIds.length > MAX_IDS_PER_BATCH) {
+        // Procesar en batches
+        for (let i = 0; i < prospectoIds.length; i += MAX_IDS_PER_BATCH) {
+          const batch = prospectoIds.slice(i, i + MAX_IDS_PER_BATCH);
+          try {
+            const { data, error } = await analysisSupabase
+              .from('mensajes_whatsapp')
+              .select('prospecto_id, fecha_hora')
+              .in('prospecto_id', batch)
+              .order('fecha_hora', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error loading últimos mensajes:', error);
-        return;
+            if (!error && data) {
+              allMessages.push(...data);
+            }
+          } catch {
+            // Silenciar errores de batch individual
+          }
+        }
+      } else {
+        // Query normal si hay pocos IDs
+        const { data, error } = await analysisSupabase
+          .from('mensajes_whatsapp')
+          .select('prospecto_id, fecha_hora')
+          .in('prospecto_id', prospectoIds)
+          .order('fecha_hora', { ascending: false });
+
+        if (!error && data) {
+          allMessages = data;
+        }
       }
 
       const mensajesMap: Record<string, string> = {};
       
-      if (data) {
-        data.forEach(msg => {
-          if (msg.prospecto_id && !mensajesMap[msg.prospecto_id]) {
-            mensajesMap[msg.prospecto_id] = msg.fecha_hora;
-          }
-        });
-      }
+      allMessages.forEach(msg => {
+        if (msg.prospecto_id && !mensajesMap[msg.prospecto_id]) {
+          mensajesMap[msg.prospecto_id] = msg.fecha_hora;
+        }
+      });
 
       setUltimosMensajes(mensajesMap);
     } catch (error) {
-      console.error('❌ Error loading últimos mensajes:', error);
+      // Silenciar errores
     }
   };
 

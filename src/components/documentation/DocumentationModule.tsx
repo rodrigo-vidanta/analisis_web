@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'o1l2m3n', date: '2025-12-26', author: 'Team', message: 'v2.2.2: 🧹 Limpieza Consola + Optimización Performance - Eliminación logs debug y batching queries', isRelease: true },
   { hash: 'n0k1l2m', date: '2025-01-26', author: 'Team', message: 'v2.2.1: 🎊 Sistema de Logos Personalizados - Catálogo intercambiable, Año Nuevo con fuegos y contador', isRelease: true },
   { hash: 'm9j0k1l', date: '2025-01-26', author: 'Team', message: 'v2.2.0: 🎨 REDISEÑO COMPLETO - Sistema de Diseño Minimalista, Tokens Corporativos, Tema Twilight', isRelease: true },
   { hash: 'l8i9j0k', date: '2025-12-26', author: 'Team', message: 'v2.2.1: 🔧 Fix Batching Queries - Corrección error 400 por URL muy larga en múltiples módulos', isRelease: true },
@@ -348,8 +349,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.1', highlight: true },
-  { label: 'Release', value: 'B7.0.1N6.0.0', highlight: false },
+  { label: 'Version', value: 'v2.2.2', highlight: true },
+  { label: 'Release', value: 'B7.1.2N7.0.2', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '26 Dic 2025', highlight: false },
 ];

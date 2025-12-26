@@ -832,8 +832,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         triggered_by_user_name: user?.full_name || null
       };
 
-      console.log('📤 Enviando plantilla:', { template_name: selectedTemplate.name, prospecto_id: prospectoData.id });
-
       const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates-send';
       const authToken = await getApiToken('whatsapp_templates_auth');
       
@@ -853,10 +851,8 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         });
 
         clearTimeout(timeoutId);
-        console.log('📥 Respuesta recibida:', response.status);
 
         const responseText = await response.text();
-        console.log('📄 Respuesta texto:', responseText.substring(0, 200));
         
         let result;
         if (responseText && responseText.trim()) {
@@ -875,8 +871,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         }
 
         // Éxito - actualizar triggered_by_user en la BD (el webhook no lo guarda)
-        console.log('✅ Plantilla enviada exitosamente');
-        
         // Actualizar el registro más reciente de whatsapp_template_sends para este prospecto
         if (user?.id) {
           try {
@@ -891,8 +885,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
             
             if (updateError) {
               console.warn('⚠️ No se pudo actualizar triggered_by_user:', updateError);
-            } else {
-              console.log('✅ triggered_by_user actualizado correctamente');
             }
           } catch (updateErr) {
             console.warn('⚠️ Error actualizando triggered_by_user:', updateErr);

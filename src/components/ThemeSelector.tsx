@@ -20,7 +20,7 @@ import { ANIMATION_DURATIONS, SPRING_PHYSICS } from '../styles/tokens';
 // TIPOS
 // ============================================
 
-export type ThemeMode = 'light' | 'twilight' | 'dark';
+export type ThemeMode = 'light' | 'dark';
 
 export interface ThemeSelectorProps {
   currentTheme: ThemeMode;
@@ -245,14 +245,6 @@ const THEMES = [
     color: 'text-amber-500',
     bgActive: 'bg-amber-50 dark:bg-amber-900/20',
     borderActive: 'border-amber-200 dark:border-amber-700',
-  },
-  {
-    id: 'twilight' as const,
-    label: 'Crepúsculo',
-    icon: AnimatedTwilightIcon,
-    color: 'text-indigo-400',
-    bgActive: 'bg-indigo-50 dark:bg-indigo-900/20',
-    borderActive: 'border-indigo-200 dark:border-indigo-700',
   },
   {
     id: 'dark' as const,

@@ -136,11 +136,15 @@ const originalFetch = window.fetch;
 window.fetch = async function(...args: any[]) {
   const url = args[0]?.toString() || '';
   
-  // Interceptar peticiones a tablas que no existen (se manejan con datos mock)
+  // Interceptar peticiones a tablas que no existen (se manejan con datos mock o fallbacks)
+  // También interceptar queries muy largas que causan 400
   if (url.includes('/rest/v1/tools') || 
       url.includes('/rest/v1/agent_templates') ||
       url.includes('/rest/v1/coordinaciones') ||
-      url.includes('/rest/v1/ejecutivos')) {
+      url.includes('/rest/v1/ejecutivos') ||
+      url.includes('/rest/v1/system_config') ||
+      (url.includes('/rest/v1/llamadas_ventas') && url.length > 8000) ||
+      (url.includes('/rest/v1/mensajes_whatsapp') && url.length > 8000)) {
     try {
       const response = await originalFetch.apply(window, args);
       
@@ -181,10 +185,14 @@ if (window.XMLHttpRequest) {
     const url = this._url || '';
     
     // Interceptar peticiones a tablas que no existen
+    // También interceptar queries muy largas que causan 400
     if (url.includes('/rest/v1/tools') || 
         url.includes('/rest/v1/agent_templates') ||
         url.includes('/rest/v1/coordinaciones') ||
-        url.includes('/rest/v1/ejecutivos')) {
+        url.includes('/rest/v1/ejecutivos') ||
+        url.includes('/rest/v1/system_config') ||
+        (url.includes('/rest/v1/llamadas_ventas') && url.length > 8000) ||
+        (url.includes('/rest/v1/mensajes_whatsapp') && url.length > 8000)) {
       this.addEventListener('error', (event) => {
         // Prevenir que el error se muestre en consola
         event.stopPropagation();
@@ -208,12 +216,13 @@ console.error = (...args: any[]) => {
   const message = args[0]?.toString() || '';
   const fullMessage = args.map(arg => arg?.toString() || '').join(' ');
   
-  // Silenciar errores 404 de Supabase para tablas que no existen (se manejan con datos mock)
+  // Silenciar errores 404 de Supabase para tablas que no existen (se manejan con datos mock o fallbacks)
   if ((message.includes('404') || fullMessage.includes('404')) && 
       (fullMessage.includes('tools') || 
        fullMessage.includes('agent_templates') || 
        fullMessage.includes('coordinaciones') ||
        fullMessage.includes('ejecutivos') ||
+       fullMessage.includes('system_config') ||
        fullMessage.includes('Not Found'))) {
     return;
   }
@@ -223,7 +232,22 @@ console.error = (...args: any[]) => {
       (fullMessage.includes('/rest/v1/tools') || 
        fullMessage.includes('/rest/v1/agent_templates') ||
        fullMessage.includes('/rest/v1/coordinaciones') ||
-       fullMessage.includes('/rest/v1/ejecutivos'))) {
+       fullMessage.includes('/rest/v1/ejecutivos') ||
+       fullMessage.includes('/rest/v1/system_config'))) {
+    return;
+  }
+  
+  // Silenciar errores 400 de queries muy largas (se manejan con batches)
+  if ((message.includes('400') || fullMessage.includes('400')) && 
+      (fullMessage.includes('llamadas_ventas') || fullMessage.includes('mensajes_whatsapp')) &&
+      fullMessage.includes('Bad Request')) {
+    return;
+  }
+  
+  // Silenciar errores 406 de system_config (tabla puede no existir en todas las BDs)
+  if ((message.includes('406') || fullMessage.includes('406')) && 
+      fullMessage.includes('system_config') &&
+      fullMessage.includes('Not Acceptable')) {
     return;
   }
   

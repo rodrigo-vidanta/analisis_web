@@ -279,10 +279,6 @@ const Header = ({
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
       document.body.style.backgroundColor = '#0f172a';
-    } else if (mode === 'twilight') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'twilight');
-      document.body.style.backgroundColor = '#1a202e';
     } else {
       document.documentElement.classList.remove('dark');
       document.documentElement.setAttribute('data-theme', 'light');
@@ -291,14 +287,8 @@ const Header = ({
     
     localStorage.setItem('theme-mode', mode);
     
-    console.log('✅ Tema aplicado desde Header:', {
-      mode,
-      'data-theme': document.documentElement.getAttribute('data-theme'),
-      'dark class': document.documentElement.classList.contains('dark')
-    });
-    
     // Mantener compatibilidad con código legacy (onToggleDarkMode)
-    const shouldBeDark = mode !== 'light';
+    const shouldBeDark = mode === 'dark';
     if (shouldBeDark !== darkMode) {
       onToggleDarkMode();
     }

@@ -1863,19 +1863,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             senderUserName = senderNamesMap[msg.id_sender];
           } else if (isTemplateMessage && templateInfo?.triggered_by_user) {
             senderUserName = senderNamesMap[templateInfo.triggered_by_user];
-            console.log('📄 [Template] msg.id:', msg.id, 'triggered_by_user:', templateInfo.triggered_by_user, 'nombre:', senderUserName);
-          }
-          
-          // Debug para plantillas
-          if (isTemplateMessage) {
-            console.log('📄 [Template Message]', {
-              msg_id: msg.id,
-              rol: msg.rol,
-              templateInfo,
-              triggered_by_user: templateInfo?.triggered_by_user,
-              senderUserName,
-              available_names: Object.keys(senderNamesMap)
-            });
           }
           
           return {

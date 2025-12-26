@@ -4,6 +4,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Importar sistema de temas global */
+@import './styles/theme-system.css';
+
 /* Estilos de gradiente plasma para headers de sidebars */
 @keyframes plasma-move-x {
   0% {
@@ -379,41 +382,84 @@
   --tw-info: rgba(59, 130, 246, 0.9);
 }
 
-/* Aplicar colores Twilight globalmente */
-[data-theme="twilight"] {
+/* ============================================
+   TEMA TWILIGHT - APLICACIÓN GLOBAL
+   ============================================ */
+
+/* Aplicar clase twilight (NO dark) */
+.twilight {
   background-color: var(--tw-bg-primary) !important;
 }
 
-[data-theme="twilight"] .bg-white,
-[data-theme="twilight"] .dark\:bg-neutral-900,
-[data-theme="twilight"] .dark\:bg-gray-900 {
-  background-color: var(--tw-bg-primary) !important;
+/* Backgrounds */
+.twilight .bg-white,
+.twilight .bg-neutral-50,
+.twilight .bg-gray-50,
+.twilight .bg-slate-50 {
+  background-color: var(--tw-bg-secondary) !important;
 }
 
-[data-theme="twilight"] .bg-neutral-50,
-[data-theme="twilight"] .bg-neutral-100,
-[data-theme="twilight"] .dark\:bg-neutral-800,
-[data-theme="twilight"] .dark\:bg-gray-800 {
+.twilight .bg-neutral-100,
+.twilight .bg-gray-100,
+.twilight .bg-slate-100 {
   background-color: var(--tw-bg-tertiary) !important;
 }
 
-[data-theme="twilight"] .text-neutral-900,
-[data-theme="twilight"] .dark\:text-white {
+.twilight .bg-neutral-800,
+.twilight .bg-gray-800,
+.twilight .bg-slate-800,
+.twilight .bg-neutral-900,
+.twilight .bg-gray-900,
+.twilight .bg-slate-900 {
+  background-color: var(--tw-bg-tertiary) !important;
+}
+
+/* Textos */
+.twilight .text-neutral-900,
+.twilight .text-gray-900,
+.twilight .text-slate-900 {
   color: var(--tw-text-primary) !important;
 }
 
-[data-theme="twilight"] .text-neutral-600,
-[data-theme="twilight"] .text-neutral-500,
-[data-theme="twilight"] .dark\:text-neutral-400,
-[data-theme="twilight"] .dark\:text-gray-400 {
+.twilight .text-neutral-600,
+.twilight .text-neutral-500,
+.twilight .text-gray-600,
+.twilight .text-gray-500,
+.twilight .text-slate-600,
+.twilight .text-slate-500 {
   color: var(--tw-text-secondary) !important;
 }
 
-[data-theme="twilight"] .border-neutral-100,
-[data-theme="twilight"] .border-neutral-200,
-[data-theme="twilight"] .dark\:border-neutral-700,
-[data-theme="twilight"] .dark\:border-gray-700 {
+.twilight .text-neutral-400,
+.twilight .text-gray-400,
+.twilight .text-slate-400 {
+  color: var(--tw-text-muted) !important;
+}
+
+.twilight .text-white {
+  color: var(--tw-text-primary) !important;
+}
+
+/* Borders */
+.twilight .border-neutral-100,
+.twilight .border-neutral-200,
+.twilight .border-gray-100,
+.twilight .border-gray-200,
+.twilight .border-slate-100,
+.twilight .border-slate-200 {
   border-color: var(--tw-border-light) !important;
+}
+
+.twilight .border-neutral-700,
+.twilight .border-gray-700,
+.twilight .border-slate-700 {
+  border-color: var(--tw-border-normal) !important;
+}
+
+/* Sidebar específico */
+.twilight .bg-slate-700,
+.twilight .bg-gray-700 {
+  background-color: var(--tw-bg-hover) !important;
 }
 
 /* Tema Linear - Inspirado en Linear.app */

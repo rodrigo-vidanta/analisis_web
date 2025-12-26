@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { pqncSupabase as supabase } from '../config/pqncSupabase';
 
-export type ThemeMode = 'light' | 'twilight' | 'dark';
+export type ThemeMode = 'light' | 'dark';
 
 export interface ThemeConfig {
   theme_name: string;
@@ -137,9 +137,8 @@ export const useTheme = () => {
     };
   }, []);
 
-  // Cambiar modo de tema (light/twilight/dark)
+  // Cambiar modo de tema (light/dark)
   const changeThemeMode = (mode: ThemeMode) => {
-    console.log('🎨 Cambiando tema a:', mode);
     setThemeMode(mode);
     
     // Guardar en localStorage
@@ -150,29 +149,17 @@ export const useTheme = () => {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
       document.body.style.backgroundColor = '#0f172a';
-    } else if (mode === 'twilight') {
-      // Twilight usa dark class para activar algunos estilos pero con data-theme="twilight"
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'twilight');
-      document.body.style.backgroundColor = '#1a202e';
     } else {
       document.documentElement.classList.remove('dark');
       document.documentElement.setAttribute('data-theme', 'light');
       document.body.style.backgroundColor = '#f8fafc';
     }
-    
-    console.log('✅ Tema aplicado:', {
-      mode,
-      'data-theme': document.documentElement.getAttribute('data-theme'),
-      'has dark class': document.documentElement.classList.contains('dark'),
-      'body bg': document.body.style.backgroundColor
-    });
   };
 
   // Cargar tema mode desde localStorage al iniciar
   useEffect(() => {
     const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
-    if (savedMode && ['light', 'twilight', 'dark'].includes(savedMode)) {
+    if (savedMode && ['light', 'dark'].includes(savedMode)) {
       changeThemeMode(savedMode);
     } else {
       // Default: dark mode
@@ -190,7 +177,6 @@ export const useTheme = () => {
     getThemeClasses,
     isLinearTheme: currentTheme === 'linear_theme',
     isDark: themeMode === 'dark',
-    isTwilight: themeMode === 'twilight',
     isLight: themeMode === 'light',
   };
 };

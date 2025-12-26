@@ -17,12 +17,12 @@ export const NotificationControl: React.FC = () => {
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>('default');
 
   useEffect(() => {
-    // Actualizar preferencias cuando cambien
+    // Actualizar preferencias cuando cambien (optimizado: cada 2 segundos en vez de 100ms)
     const interval = setInterval(() => {
       setSoundPreferences(notificationSoundService.getPreferences());
       setSystemPreferences(systemNotificationService.getPreferences());
       setPermissionStatus(systemNotificationService.getPermissionStatus());
-    }, 100);
+    }, 2000);
 
     // Verificar permisos al montar
     setPermissionStatus(systemNotificationService.getPermissionStatus());

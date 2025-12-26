@@ -1167,7 +1167,6 @@ const LiveMonitorKanban: React.FC = () => {
             
             // Cargar todos los prospectos en batches
             const allProspectosLoaded = await loadProspectosInBatches(prospectoIds);
-            console.log(`✅ [LiveMonitorKanban] Cargados ${allProspectosLoaded.length} prospectos en batches de ${BATCH_SIZE}`);
             
             // FIX: Usar los prospectos ya cargados en batches en lugar de ejecutar una query con muchos IDs
             // Los filtros de permisos se aplican sobre allProspectosLoaded

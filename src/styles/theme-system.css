@@ -1,0 +1,307 @@
+/**
+ * ============================================
+ * SISTEMA DE TEMAS GLOBAL - VARIABLES CSS
+ * ============================================
+ * 
+ * Sistema centralizado de estilos que permite:
+ * - Gestionar colores desde un solo lugar
+ * - Agregar nuevos temas fácilmente
+ * - Grupos de estilos predefinidos
+ * - Escalable y mantenible
+ */
+
+/* ============================================
+   VARIABLES GLOBALES POR TEMA
+   ============================================ */
+
+:root {
+  /* LIGHT MODE - Tema Claro */
+  --app-bg-primary: #f8fafc;        /* Fondo principal */
+  --app-bg-secondary: #ffffff;      /* Cards, modales */
+  --app-bg-tertiary: #f1f5f9;       /* Hover, disabled */
+  --app-bg-sidebar: #ffffff;        /* Sidebar background */
+  --app-bg-header: #ffffff;         /* Header background */
+  
+  --app-text-primary: #0f172a;      /* Texto principal */
+  --app-text-secondary: #475569;    /* Texto secundario */
+  --app-text-muted: #94a3b8;        /* Texto desactivado */
+  --app-text-inverse: #ffffff;      /* Texto en fondos oscuros */
+  
+  --app-border-light: #f1f5f9;      /* Borders sutiles */
+  --app-border-normal: #e2e8f0;     /* Borders normales */
+  --app-border-strong: #cbd5e1;     /* Borders destacados */
+  
+  --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --app-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --app-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.dark {
+  /* DARK MODE - Tema Oscuro */
+  --app-bg-primary: #0f172a;
+  --app-bg-secondary: #1e293b;
+  --app-bg-tertiary: #334155;
+  --app-bg-sidebar: #1e293b;
+  --app-bg-header: #1e293b;
+  
+  --app-text-primary: #f8fafc;
+  --app-text-secondary: #cbd5e1;
+  --app-text-muted: #94a3b8;
+  --app-text-inverse: #0f172a;
+  
+  --app-border-light: #334155;
+  --app-border-normal: #475569;
+  --app-border-strong: #64748b;
+  
+  --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --app-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --app-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+}
+
+.twilight {
+  /* TWILIGHT MODE - Tema Crepúsculo (Punto Medio)
+     Approach: Dark mode + filtros para aclarar */
+  --app-bg-primary: #1a202e;
+  --app-bg-secondary: #232936;
+  --app-bg-tertiary: #2d3748;
+  --app-bg-sidebar: #232936;
+  --app-bg-header: #232936;
+  
+  --app-text-primary: #e8eaf0;
+  --app-text-secondary: #b8bcc8;
+  --app-text-muted: #8a8fa0;
+  --app-text-inverse: #1a202e;
+  
+  --app-border-light: #3a4556;
+  --app-border-normal: #4a556b;
+  --app-border-strong: #5a657b;
+  
+  --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --app-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25);
+  --app-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.35);
+}
+
+/* Twilight: Aplicar filtro global para aclarar dark mode */
+html.twilight {
+  filter: brightness(1.15) contrast(0.95);
+}
+
+html.twilight body {
+  background-color: #1a202e !important;
+}
+
+/* ============================================
+   GRUPOS DE ESTILOS PREDEFINIDOS
+   ============================================ */
+
+/* GRUPO: Backgrounds */
+.theme-bg-primary {
+  background-color: var(--app-bg-primary) !important;
+}
+
+.theme-bg-secondary {
+  background-color: var(--app-bg-secondary) !important;
+}
+
+.theme-bg-tertiary {
+  background-color: var(--app-bg-tertiary) !important;
+}
+
+.theme-bg-sidebar {
+  background-color: var(--app-bg-sidebar) !important;
+}
+
+.theme-bg-header {
+  background-color: var(--app-bg-header) !important;
+}
+
+/* GRUPO: Textos */
+.theme-text-primary {
+  color: var(--app-text-primary) !important;
+}
+
+.theme-text-secondary {
+  color: var(--app-text-secondary) !important;
+}
+
+.theme-text-muted {
+  color: var(--app-text-muted) !important;
+}
+
+.theme-text-inverse {
+  color: var(--app-text-inverse) !important;
+}
+
+/* GRUPO: Borders */
+.theme-border-light {
+  border-color: var(--app-border-light) !important;
+}
+
+.theme-border-normal {
+  border-color: var(--app-border-normal) !important;
+}
+
+.theme-border-strong {
+  border-color: var(--app-border-strong) !important;
+}
+
+/* GRUPO: Shadows */
+.theme-shadow-sm {
+  box-shadow: var(--app-shadow-sm) !important;
+}
+
+.theme-shadow-md {
+  box-shadow: var(--app-shadow-md) !important;
+}
+
+.theme-shadow-lg {
+  box-shadow: var(--app-shadow-lg) !important;
+}
+
+/* ============================================
+   MAPEO DE CLASES DE TAILWIND A VARIABLES
+   NOTA: Solo se aplica cuando NO es light ni dark
+   ============================================ */
+
+/* TWILIGHT: Sobrescribir TODAS las clases */
+html.twilight .bg-white,
+html.twilight .bg-gray-50,
+html.twilight .bg-slate-50,
+html.twilight .bg-neutral-50 {
+  background-color: var(--app-bg-secondary) !important;
+}
+
+html.twilight .bg-gray-100,
+html.twilight .bg-slate-100,
+html.twilight .bg-neutral-100,
+html.twilight .bg-gray-200,
+html.twilight .bg-slate-200,
+html.twilight .bg-neutral-200 {
+  background-color: var(--app-bg-tertiary) !important;
+}
+
+html.twilight .bg-gray-800,
+html.twilight .bg-slate-800,
+html.twilight .bg-neutral-800,
+html.twilight .bg-gray-900,
+html.twilight .bg-slate-900,
+html.twilight .bg-neutral-900 {
+  background-color: var(--app-bg-secondary) !important;
+}
+
+html.twilight .text-gray-900,
+html.twilight .text-slate-900,
+html.twilight .text-neutral-900,
+html.twilight .text-white {
+  color: var(--app-text-primary) !important;
+}
+
+html.twilight .text-gray-600,
+html.twilight .text-slate-600,
+html.twilight .text-neutral-600,
+html.twilight .text-gray-500,
+html.twilight .text-slate-500,
+html.twilight .text-neutral-500 {
+  color: var(--app-text-secondary) !important;
+}
+
+html.twilight .text-gray-400,
+html.twilight .text-slate-400,
+html.twilight .text-neutral-400 {
+  color: var(--app-text-muted) !important;
+}
+
+html.twilight .border-gray-100,
+html.twilight .border-slate-100,
+html.twilight .border-neutral-100,
+html.twilight .border-gray-200,
+html.twilight .border-slate-200,
+html.twilight .border-neutral-200 {
+  border-color: var(--app-border-light) !important;
+}
+
+html.twilight .border-gray-300,
+html.twilight .border-slate-300,
+html.twilight .border-neutral-300,
+html.twilight .border-gray-700,
+html.twilight .border-slate-700,
+html.twilight .border-neutral-700 {
+  border-color: var(--app-border-normal) !important;
+}
+
+/* ============================================
+   COMPONENTES ESPECÍFICOS
+   ============================================ */
+
+/* Sidebar */
+.sidebar-container {
+  background-color: var(--app-bg-sidebar) !important;
+  border-right-color: var(--app-border-normal) !important;
+}
+
+/* Header */
+.header-container {
+  background-color: var(--app-bg-header) !important;
+  border-bottom-color: var(--app-border-normal) !important;
+}
+
+/* Cards */
+.card-base {
+  background-color: var(--app-bg-secondary) !important;
+  border-color: var(--app-border-normal) !important;
+  box-shadow: var(--app-shadow-md) !important;
+}
+
+/* Modales */
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.modal-content {
+  background-color: var(--app-bg-secondary) !important;
+  border-color: var(--app-border-light) !important;
+}
+
+/* Inputs */
+.input-base {
+  background-color: var(--app-bg-secondary) !important;
+  border-color: var(--app-border-normal) !important;
+  color: var(--app-text-primary) !important;
+}
+
+.input-base::placeholder {
+  color: var(--app-text-muted) !important;
+}
+
+/* Buttons */
+.button-secondary {
+  background-color: var(--app-bg-tertiary) !important;
+  color: var(--app-text-primary) !important;
+  border-color: var(--app-border-normal) !important;
+}
+
+/* ============================================
+   UTILIDADES DE HOVER
+   ============================================ */
+
+.hover-bg-subtle:hover {
+  background-color: var(--app-bg-tertiary) !important;
+}
+
+.hover-border-emphasis:hover {
+  border-color: var(--app-border-strong) !important;
+}
+
+/* ============================================
+   ESTADOS
+   ============================================ */
+
+.disabled-opacity {
+  opacity: 0.5;
+}
+
+.focus-ring {
+  outline: 2px solid var(--app-border-strong);
+  outline-offset: 2px;
+}
+

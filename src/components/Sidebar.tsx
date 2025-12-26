@@ -10,7 +10,7 @@ import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import type { TokenLimits } from '../services/tokenService';
 import { getLogoComponent, getSuggestedLogo, type LogoType } from './logos/LogoCatalog';
-import { pqncSupabase } from '../config/pqncSupabase';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // Estilos para el logo con animación y glow
 const sidebarLogoStyles = `
@@ -532,7 +532,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   useEffect(() => {
     const loadSelectedLogo = async () => {
       try {
-        const { data } = await pqncSupabase
+        const { data } = await supabaseSystemUI
           .from('system_config')
           .select('config_value')
           .eq('config_key', 'selected_logo')

@@ -1442,15 +1442,42 @@ const LiveChatCanvas: React.FC = () => {
         
         if (prospectIds.length === 0) return;
         
-        const { data: activeCalls, error } = await analysisSupabase
-          .from('llamadas_ventas')
-          .select('prospecto, call_status, fecha_llamada, duracion_segundos, datos_llamada')
-          .in('prospecto', prospectIds)
-          .eq('call_status', 'activa');
+        // ⚡ OPTIMIZACIÓN: Si hay demasiados IDs (>100), procesar en batches para evitar error 400
+        const MAX_IDS_PER_BATCH = 100;
+        let allActiveCalls: any[] = [];
         
-        if (error) return;
+        if (prospectIds.length > MAX_IDS_PER_BATCH) {
+          // Procesar en batches
+          for (let i = 0; i < prospectIds.length; i += MAX_IDS_PER_BATCH) {
+            const batch = prospectIds.slice(i, i + MAX_IDS_PER_BATCH);
+            try {
+              const { data, error } = await analysisSupabase
+                .from('llamadas_ventas')
+                .select('prospecto, call_status, fecha_llamada, duracion_segundos, datos_llamada')
+                .in('prospecto', batch)
+                .eq('call_status', 'activa');
+              
+              if (!error && data) {
+                allActiveCalls.push(...data);
+              }
+            } catch {
+              // Silenciar errores de batch individual
+            }
+          }
+        } else {
+          // Query normal si hay pocos IDs
+          const { data, error } = await analysisSupabase
+            .from('llamadas_ventas')
+            .select('prospecto, call_status, fecha_llamada, duracion_segundos, datos_llamada')
+            .in('prospecto', prospectIds)
+            .eq('call_status', 'activa');
+          
+          if (!error && data) {
+            allActiveCalls = data;
+          }
+        }
         
-        const reallyActiveCalls = (activeCalls || []).filter(call => {
+        const reallyActiveCalls = allActiveCalls.filter(call => {
           const razonFinalizacion = call.datos_llamada?.razon_finalizacion || 
             (typeof call.datos_llamada === 'string' 
               ? JSON.parse(call.datos_llamada)?.razon_finalizacion 
@@ -3208,7 +3235,6 @@ const LiveChatCanvas: React.FC = () => {
       const prospectosData = prospectosIdsArray.length > 0
         ? await loadProspectosInBatches(prospectosIdsArray)
             .then(map => {
-              console.log(`✅ [LiveChatCanvas] Cargados ${map.size} prospectos en batches de ${BATCH_SIZE}`);
               // Guardar en ref para acceso desde handlers
               prospectosDataRef.current = map;
               // Forzar actualización del filtro cuando se carguen los prospectos
@@ -3594,11 +3620,6 @@ const LiveChatCanvas: React.FC = () => {
         
         const allUserIds = [...new Set([...senderIds, ...templateUserIds])];
         
-        // Debug: mostrar IDs que se van a buscar
-        if (templateUserIds.length > 0) {
-          console.log('🔍 Template user IDs para buscar nombres:', templateUserIds);
-        }
-        
         const senderNamesMap: Record<string, string> = {};
         if (allUserIds.length > 0) {
           try {
@@ -3612,7 +3633,6 @@ const LiveChatCanvas: React.FC = () => {
             }
             
             if (usersData) {
-              console.log('👥 Usuarios encontrados:', usersData.map(u => ({ id: u.id, name: u.full_name })));
               usersData.forEach(user => {
                 senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
               });
@@ -4324,7 +4344,6 @@ const LiveChatCanvas: React.FC = () => {
           
           // Si la pausa aún no ha expirado, NO sobreescribir
           if (pausedUntil > now) {
-            console.log(`⏸️ Bot ya está pausado hasta ${pausedUntil.toLocaleString()}. No se sobreescribirá la pausa existente.`);
             return true; // Retornar true porque el bot ya está pausado (objetivo cumplido)
           }
         }
@@ -6912,7 +6931,6 @@ const LiveChatCanvas: React.FC = () => {
           onTemplateSent={() => {
             // Refrescar mensajes después de enviar plantilla para que se muestre con el estilo correcto
             if (selectedConversation) {
-              console.log('🔄 Refrescando mensajes después de enviar plantilla...');
               setTimeout(() => {
                 loadMessagesAndBlocks(selectedConversation.id);
               }, 2000); // Esperar 2s para que el mensaje se guarde en la BD
