@@ -30,6 +30,19 @@ Migración quirúrgica completa en 2 horas:
 
 ## 📂 DOCUMENTACIÓN DISPONIBLE
 
+### 0. 🔴 HOTFIX: Loop Infinito (29-12-2025 14:00)
+**Archivo:** `docs/HOTFIX_LOOP_INFINITO_20251229.md` (230 líneas)
+
+**Contenido:**
+- Loop infinito de consultas `ERR_INSUFFICIENT_RESOURCES`
+- Caché de backups implementado (99% reducción queries)
+- Fix coordinación visible para coordinadores
+- Deploy: commit 88c5aee, deploy-046
+
+**Cuándo leer:** Para entender el hotfix crítico aplicado inmediatamente después de la migración
+
+---
+
 ### 1. 🔍 POST-MORTEM (Análisis Completo)
 **Archivo:** `docs/POSTMORTEM_DUAL_TABLES.md` (467 líneas)
 
@@ -165,10 +178,10 @@ Migración quirúrgica completa en 2 horas:
 ## 📊 ESTADÍSTICAS
 
 ### Documentación Generada
-- **Total de archivos:** 6 documentos
-- **Total de líneas:** 1,654 líneas
-- **Promedio por doc:** 275 líneas
-- **Tiempo de escritura:** ~2 horas (incluye análisis)
+- **Total de archivos:** 7 documentos
+- **Total de líneas:** 1,884 líneas
+- **Promedio por doc:** 269 líneas
+- **Tiempo de escritura:** ~2.5 horas (incluye análisis + hotfix)
 
 ### Cobertura Documental
 - ✅ Historia completa del problema

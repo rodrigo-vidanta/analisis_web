@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 🔴 HOTFIX CRÍTICO: Loop Infinito + Coordinación Visible [29-12-2025]
+
+#### Problema 1: ERR_INSUFFICIENT_RESOURCES (Loop Infinito)
+- **Archivo:** `src/services/permissionsService.ts`
+- **Síntoma:** 100+ consultas simultáneas a `auth_users.backup_id` causando `ERR_INSUFFICIENT_RESOURCES`
+- **Causa:** Función `canAccessProspect()` consultaba BD sin caché por cada prospecto
+- **Impacto:** Módulo WhatsApp inutilizable con admin, navegador colapsaba
+- **Solución:** Agregado `backupCache` con TTL de 30 segundos
+- **Resultado:** Reducción de queries ~99%, performance restaurada
+
+#### Problema 2: Coordinación No Visible en Kanban
+- **Archivo:** `src/components/analysis/AssignmentBadge.tsx`
+- **Síntoma:** Coordinadores (incluyendo CALIDAD) no veían etiqueta de coordinación en cards de prospectos
+- **Causa:** `showCoordinacion` no incluía rol `isCoordinador`
+- **Impacto:** Coordinadores no podían ver a qué coordinación pertenecía cada prospecto
+- **Solución:** `showCoordinacion` ahora incluye `isCoordinador`
+- **Resultado:** Coordinadores ven coordinación + ejecutivo en todos los cards
+
+#### Archivos Modificados
+- `src/services/permissionsService.ts` (caché de backups)
+- `src/components/analysis/AssignmentBadge.tsx` (lógica de display)
+
+---
+
 ### 🔴 CRÍTICO: Corrección de Desincronización de Datos [29-12-2025]
 
 #### Problema Identificado y Resuelto

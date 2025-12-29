@@ -252,7 +252,8 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'XXXXXXX', date: '2025-12-29', author: 'Team', message: 'v2.1.27: 🔴 CRÍTICO - Migración coordinador_coordinaciones → auth_user_coordinaciones (7 archivos, 15 registros)', isRelease: true },
+  { hash: '88c5aee', date: '2025-12-29', author: 'Team', message: 'fix: ERR_INSUFFICIENT_RESOURCES loop infinito + coordinación visible para coordinadores', isRelease: false },
+  { hash: 'ff40be6', date: '2025-12-29', author: 'Team', message: 'v2.1.27: 🔴 CRÍTICO - Migración coordinador_coordinaciones → auth_user_coordinaciones (7 archivos, 15 registros)', isRelease: true },
   { hash: 'o1l2m3n', date: '2025-12-26', author: 'Team', message: 'v2.2.2: 🧹 Limpieza Consola + Optimización Performance - Eliminación logs debug y batching queries', isRelease: true },
   { hash: 'n0k1l2m', date: '2025-01-26', author: 'Team', message: 'v2.2.1: 🎊 Sistema de Logos Personalizados - Catálogo intercambiable, Año Nuevo con fuegos y contador', isRelease: true },
   { hash: 'm9j0k1l', date: '2025-01-26', author: 'Team', message: 'v2.2.0: 🎨 REDISEÑO COMPLETO - Sistema de Diseño Minimalista, Tokens Corporativos, Tema Twilight', isRelease: true },
@@ -309,6 +310,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-046', date: '2025-12-29 13:45', version: 'v2.1.27-hotfix', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-045', date: '2025-12-29 13:36', version: 'v2.1.27', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-044', date: '2025-12-26 14:00', version: 'v2.2.1', status: 'success', duration: '5m 20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-043', date: '2025-12-24 12:00', version: 'v2.2.0', status: 'success', duration: '5m 30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
