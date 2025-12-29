@@ -68,6 +68,9 @@ class PermissionsService {
   // TTL del caché en milisegundos (30 segundos)
   private readonly CACHE_TTL = 30 * 1000;
   
+  // Caché para verificación de backups (evitar loop infinito de consultas)
+  private backupCache = new Map<string, { data: { backup_id: string | null; has_backup: boolean } | null; timestamp: number }>();
+  
   // Cachés para diferentes datos
   private permissionsCache = new Map<string, CacheEntry<UserPermissions | null>>();
   private coordinacionesCache = new Map<string, CacheEntry<string[] | null>>();
@@ -409,14 +412,29 @@ class PermissionsService {
 
         // Verificar si es backup del ejecutivo asignado
         if (prospectEjecutivoId && userEjecutivoId) {
-          // Verificar directamente en la BD si el ejecutivo asignado tiene como backup al usuario actual
-          const { data: ejecutivoData, error: backupError } = await supabaseSystemUIAdmin
-            .from('auth_users')
-            .select('backup_id, has_backup')
-            .eq('id', prospectEjecutivoId)
-            .single();
+          // ⚡ OPTIMIZACIÓN: Usar caché para evitar consultas repetitivas (loop infinito)
+          const cacheKey = prospectEjecutivoId;
+          const cached = this.backupCache.get(cacheKey);
+          const now = Date.now();
           
-          if (!backupError && ejecutivoData) {
+          let ejecutivoData: { backup_id: string | null; has_backup: boolean } | null = null;
+          
+          if (cached && (now - cached.timestamp) < this.CACHE_TTL) {
+            // Usar datos cacheados
+            ejecutivoData = cached.data;
+          } else {
+            // Consultar BD solo si no está en caché o expiró
+            const { data, error: backupError } = await supabaseSystemUIAdmin
+              .from('auth_users')
+              .select('backup_id, has_backup')
+              .eq('id', prospectEjecutivoId)
+              .single();
+            
+            ejecutivoData = !backupError && data ? data : null;
+            this.backupCache.set(cacheKey, { data: ejecutivoData, timestamp: now });
+          }
+          
+          if (ejecutivoData) {
             if (ejecutivoData.backup_id === userEjecutivoId && ejecutivoData.has_backup === true) {
               // Verificar también que estén en la misma coordinación
               if (sameCoordinacion) {

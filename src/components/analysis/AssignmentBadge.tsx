@@ -27,9 +27,9 @@ export const AssignmentBadge: React.FC<AssignmentBadgeProps> = ({
   // Determinar qué mostrar según el rol
   // Administrador: ve ambas (coordinación y ejecutivo)
   // Administrador Operativo: ve ambas (coordinación y ejecutivo)
-  // Coordinador: ve solo ejecutivo
+  // Coordinador: ve AMBAS (coordinación y ejecutivo) - especialmente CALIDAD que ve todas las coordinaciones
   // Ejecutivo: ve solo coordinación
-  const showCoordinacion = isAdmin || isAdminOperativo || isEjecutivo;
+  const showCoordinacion = isAdmin || isAdminOperativo || isEjecutivo || isCoordinador;
   const showEjecutivo = isAdmin || isAdminOperativo || isCoordinador;
 
   // Si no hay información de asignación, no mostrar nada
