@@ -1,5 +1,51 @@
 # 📋 CHANGELOG - PQNC QA AI Platform
 
+## [Unreleased]
+
+### 🔴 CRÍTICO: Corrección de Desincronización de Datos [29-12-2025]
+
+#### Problema Identificado y Resuelto
+- **Issue:** Dos tablas idénticas (`coordinador_coordinaciones` y `auth_user_coordinaciones`) almacenando las mismas coordinaciones
+- **Causa:** Migración incompleta en Diciembre 2025 - se creó tabla nueva sin migrar código legacy
+- **Impacto:** Desincronización de datos (caso detectado: Barbara Paola con permisos incorrectos)
+- **Duración:** ~3-4 semanas sin detectar
+- **Resolución:** Migración quirúrgica completa en 2 horas
+
+#### Cambios Realizados
+- ✅ Sincronización de 15 registros (7 migrados desde tabla legacy)
+- ✅ Migración de 7 archivos críticos:
+  - `permissionsService.ts` (permisos y filtros)
+  - `coordinacionService.ts` (coordinadores/supervisores)
+  - `authService.ts` (login)
+  - `useInactivityTimeout.ts`
+  - `UserManagement.tsx`
+  - `UserCreateModal.tsx` (eliminada escritura dual)
+  - `useUserManagement.ts` (eliminada escritura dual)
+- ✅ Nomenclatura: `coordinador_id` → `user_id`
+- ✅ Tabla única: `auth_user_coordinaciones` como fuente de verdad
+- ✅ Documentación exhaustiva: POST-MORTEM completo
+
+#### Archivos de Documentación
+- `docs/POSTMORTEM_DUAL_TABLES.md` - Análisis completo del problema
+- `docs/MIGRATION_COORDINADOR_COORDINACIONES.md` - Plan de migración
+- `docs/MIGRATION_COMPLETED_20251229.md` - Cambios detallados
+- `docs/MIGRATION_SUMMARY_20251229.md` - Resumen ejecutivo
+- `scripts/migration/verify-and-sync-coordinaciones.ts` - Script de sincronización
+- `scripts/migration/sync-coordinaciones-legacy-to-new.sql` - SQL de migración
+
+#### Estado Post-Migración
+- ⚠️ Tabla `coordinador_coordinaciones` DEPRECADA (no eliminada)
+- ✅ Conservada 30 días para rollback
+- ⏳ Pruebas pendientes de validación
+
+#### Lecciones Aprendidas
+- ❌ NO crear tablas nuevas sin migrar código completo
+- ❌ NO usar "escritura dual" como solución permanente
+- ✅ SÍ hacer migraciones atómicas (datos + código)
+- ✅ SÍ documentar cambios estructurales inmediatamente
+
+---
+
 ## [v2.2.1] - 2025-01-26
 
 ### 🎊 Sistema de Logos Personalizados

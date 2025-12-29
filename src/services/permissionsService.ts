@@ -558,11 +558,11 @@ class PermissionsService {
         }
 
         // Coordinadores y Supervisores: obtener todas sus coordinaciones desde tabla intermedia
-        // Nota: Supervisores usan la misma tabla coordinador_coordinaciones
+        // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
         const { data, error } = await supabaseSystemUIAdmin
-          .from('coordinador_coordinaciones')
+          .from('auth_user_coordinaciones')
           .select('coordinacion_id')
-          .eq('coordinador_id', userId);
+          .eq('user_id', userId);
 
         if (error) {
           console.error(`Error obteniendo coordinaciones del ${permissions.role}:`, error);
@@ -694,15 +694,16 @@ class PermissionsService {
       }
 
       // Obtener todas las coordinaciones del coordinador
+      // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
       const { data, error } = await supabaseSystemUIAdmin
-        .from('coordinador_coordinaciones')
+        .from('auth_user_coordinaciones')
         .select(`
           coordinacion_id,
           coordinaciones:coordinacion_id (
             codigo
           )
         `)
-        .eq('coordinador_id', userId);
+        .eq('user_id', userId);
 
       if (error) {
         console.error('Error verificando si es coordinador de calidad:', error);

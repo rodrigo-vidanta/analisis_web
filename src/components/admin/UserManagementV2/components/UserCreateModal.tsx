@@ -234,20 +234,8 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
           console.error('Error asignando coordinaciones (auth_user_coordinaciones):', relacionesError);
         }
 
-        // ⚠️ CRÍTICO: También insertar en coordinador_coordinaciones (tabla legacy usada por permissionsService)
-        // Esta tabla es la que usa el servicio de permisos para filtrar prospectos
-        try {
-          const relacionesLegacy = formData.coordinaciones_ids.map(coordId => ({
-            coordinador_id: userId,
-            coordinacion_id: coordId
-          }));
-
-          await supabaseSystemUIAdmin
-            .from('coordinador_coordinaciones')
-            .insert(relacionesLegacy);
-        } catch (legacyError) {
-          console.warn('Error insertando en coordinador_coordinaciones (no crítico):', legacyError);
-        }
+        // ✅ MIGRACIÓN COMPLETADA (2025-12-29): Ya no se necesita escritura dual
+        // permissionsService ahora usa auth_user_coordinaciones
       }
 
       // Si es ejecutivo, asignar una sola coordinación

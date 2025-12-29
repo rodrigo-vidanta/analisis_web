@@ -376,10 +376,11 @@ const UserManagement: React.FC = () => {
               if (mappedUser.role_name === 'ejecutivo') {
                 return { ...mappedUser, coordinacion_id: user.coordinacion_id };
               } else if (mappedUser.role_name === 'coordinador') {
+                // Fallback: migrado a auth_user_coordinaciones (2025-12-29)
                 const { data: relaciones } = await supabaseSystemUIAdmin
-                  .from('coordinador_coordinaciones')
+                  .from('auth_user_coordinaciones')
                   .select('coordinacion_id')
-                  .eq('coordinador_id', user.id);
+                  .eq('user_id', user.id);
                 return {
                   ...mappedUser,
                   coordinaciones_ids: relaciones?.map(r => r.coordinacion_id) || []
@@ -412,10 +413,11 @@ const UserManagement: React.FC = () => {
             if (mappedUser.role_name === 'ejecutivo') {
               return { ...mappedUser, coordinacion_id: user.coordinacion_id };
             } else if (mappedUser.role_name === 'coordinador') {
+              // Fallback: migrado a auth_user_coordinaciones (2025-12-29)
               const { data: relaciones } = await supabaseSystemUIAdmin
-                .from('coordinador_coordinaciones')
+                .from('auth_user_coordinaciones')
                 .select('coordinacion_id')
-                .eq('coordinador_id', user.id);
+                .eq('user_id', user.id);
               return {
                 ...mappedUser,
                 coordinaciones_ids: relaciones?.map(r => r.coordinacion_id) || []
@@ -1140,14 +1142,16 @@ const UserManagement: React.FC = () => {
             .delete()
             .eq('user_id', selectedUser.id);
           
-          // ⚠️ CRÍTICO: Limpiar coordinador_coordinaciones (tabla legacy usada por permissionsService)
+          // ⚠️ TRANSICIÓN: Limpiar tabla legacy coordinador_coordinaciones también (durante migración)
+          // TODO: Eliminar después de validar que todo funciona solo con auth_user_coordinaciones
           try {
             await supabaseSystemUIAdmin
               .from('coordinador_coordinaciones')
               .delete()
               .eq('coordinador_id', selectedUser.id);
           } catch (legacyError) {
-            console.warn('Error limpiando coordinador_coordinaciones (no crítico):', legacyError);
+            // No crítico - tabla legacy puede no existir en futuro
+            console.warn('Limpieza de tabla legacy coordinador_coordinaciones (ignorar si no existe):', legacyError);
           }
 
           const { error: coordUpdateError } = await supabaseSystemUIAdmin
@@ -1174,11 +1178,17 @@ const UserManagement: React.FC = () => {
             .delete()
             .eq('user_id', selectedUser.id);
           
-          // Limpiar relaciones de coordinador_coordinaciones (legacy)
-          await supabaseSystemUIAdmin
-            .from('coordinador_coordinaciones')
-            .delete()
-            .eq('coordinador_id', selectedUser.id);
+          // ⚠️ TRANSICIÓN: Limpiar relaciones en tabla legacy también (durante migración)
+          // TODO: Eliminar después de validar
+          try {
+            await supabaseSystemUIAdmin
+              .from('coordinador_coordinaciones')
+              .delete()
+              .eq('coordinador_id', selectedUser.id);
+          } catch (legacyError) {
+            // No crítico - tabla legacy puede no existir en futuro
+            console.warn('Limpieza de tabla legacy (ignorar si no existe):', legacyError);
+          }
 
           const { error: coordClearError } = await supabaseSystemUIAdmin
             .from('auth_users')

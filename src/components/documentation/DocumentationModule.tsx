@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'XXXXXXX', date: '2025-12-29', author: 'Team', message: 'v2.1.27: 🔴 CRÍTICO - Migración coordinador_coordinaciones → auth_user_coordinaciones (7 archivos, 15 registros)', isRelease: true },
   { hash: 'o1l2m3n', date: '2025-12-26', author: 'Team', message: 'v2.2.2: 🧹 Limpieza Consola + Optimización Performance - Eliminación logs debug y batching queries', isRelease: true },
   { hash: 'n0k1l2m', date: '2025-01-26', author: 'Team', message: 'v2.2.1: 🎊 Sistema de Logos Personalizados - Catálogo intercambiable, Año Nuevo con fuegos y contador', isRelease: true },
   { hash: 'm9j0k1l', date: '2025-01-26', author: 'Team', message: 'v2.2.0: 🎨 REDISEÑO COMPLETO - Sistema de Diseño Minimalista, Tokens Corporativos, Tema Twilight', isRelease: true },

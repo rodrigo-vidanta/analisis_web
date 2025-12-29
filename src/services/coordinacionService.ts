@@ -711,12 +711,12 @@ class CoordinacionService {
       // Primero obtener la coordinación para tener su información
       const coordinacion = await this.getCoordinacionById(coordinacionId);
       
-      // Obtener supervisores a través de la tabla intermedia coordinador_coordinaciones
-      // Nota: Supervisores usan la misma tabla que coordinadores
+      // Obtener supervisores a través de la tabla intermedia auth_user_coordinaciones
+      // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
       const { data: supervisorCoordinaciones, error: scError } = await supabaseSystemUI
-        .from('coordinador_coordinaciones')
+        .from('auth_user_coordinaciones')
         .select(`
-          coordinador_id,
+          user_id,
           coordinacion_id,
           coordinaciones:coordinacion_id (
             codigo,
@@ -735,7 +735,7 @@ class CoordinacionService {
 
       // Extraer IDs de supervisores potenciales
       const potentialSupervisorIds = supervisorCoordinaciones
-        .map(sc => sc.coordinador_id)
+        .map(sc => sc.user_id)
         .filter((id): id is string => id !== null && id !== undefined);
 
       if (potentialSupervisorIds.length === 0) {
@@ -784,7 +784,7 @@ class CoordinacionService {
 
           // Verificar que el usuario realmente pertenece a esta coordinación específica
           const relacion = supervisorCoordinaciones.find(sc => 
-            sc.coordinador_id === user.id && 
+            sc.user_id === user.id && 
             sc.coordinacion_id === coordinacionId
           );
           
@@ -792,7 +792,7 @@ class CoordinacionService {
         })
         .map((user: any) => {
           const relacion = supervisorCoordinaciones.find(sc => 
-            sc.coordinador_id === user.id && 
+            sc.user_id === user.id && 
             sc.coordinacion_id === coordinacionId
           );
           
@@ -838,12 +838,12 @@ class CoordinacionService {
       // Primero obtener la coordinación para tener su información
       const coordinacion = await this.getCoordinacionById(coordinacionId);
       
-      // Obtener coordinadores SOLO a través de la tabla intermedia coordinador_coordinaciones
-      // Esto asegura que solo obtenemos coordinadores que realmente pertenecen a esta coordinación
+      // Obtener coordinadores SOLO a través de la tabla intermedia auth_user_coordinaciones
+      // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
       const { data: coordinadorCoordinaciones, error: ccError } = await supabaseSystemUI
-        .from('coordinador_coordinaciones')
+        .from('auth_user_coordinaciones')
         .select(`
-          coordinador_id,
+          user_id,
           coordinacion_id,
           coordinaciones:coordinacion_id (
             codigo,
@@ -862,7 +862,7 @@ class CoordinacionService {
 
       // Extraer IDs de coordinadores (solo los que están en esta coordinación específica)
       const coordinadorIds = coordinadorCoordinaciones
-        .map(cc => cc.coordinador_id)
+        .map(cc => cc.user_id)
         .filter((id): id is string => id !== null && id !== undefined);
 
       if (coordinadorIds.length === 0) {
@@ -898,12 +898,12 @@ class CoordinacionService {
       }
 
       // Transformar datos para incluir información de coordinación
-      // CRÍTICO: Solo incluir coordinadores que tienen relación en coordinador_coordinaciones para esta coordinación específica
+      // CRÍTICO: Solo incluir coordinadores que tienen relación en auth_user_coordinaciones para esta coordinación específica
       const resultado = (usersData || [])
         .filter((user: any) => {
           // Verificar que el usuario realmente pertenece a esta coordinación específica
           const relacion = coordinadorCoordinaciones.find(cc => 
-            cc.coordinador_id === user.id && 
+            cc.user_id === user.id && 
             cc.coordinacion_id === coordinacionId
           );
           
@@ -920,7 +920,7 @@ class CoordinacionService {
         })
         .map((user: any) => {
           const relacion = coordinadorCoordinaciones.find(cc => 
-            cc.coordinador_id === user.id && 
+            cc.user_id === user.id && 
             cc.coordinacion_id === coordinacionId
           );
           
@@ -962,11 +962,11 @@ class CoordinacionService {
   async getAllCoordinadores(): Promise<Ejecutivo[]> {
     try {
       // Obtener coordinadores directamente de auth_users
-      // Primero intentar con coordinador_coordinaciones si existe
+      // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
       const { data: coordinadorCoordinaciones, error: ccError } = await supabaseSystemUI
-        .from('coordinador_coordinaciones')
+        .from('auth_user_coordinaciones')
         .select(`
-          coordinador_id,
+          user_id,
           coordinacion_id,
           coordinaciones:coordinacion_id (
             codigo,
@@ -977,9 +977,9 @@ class CoordinacionService {
       let coordinadores: Ejecutivo[] = [];
 
       if (!ccError && coordinadorCoordinaciones && coordinadorCoordinaciones.length > 0) {
-        // Usar coordinador_coordinaciones si existe y tiene datos
+        // Usar auth_user_coordinaciones si existe y tiene datos
         const coordinadorIds = coordinadorCoordinaciones
-          .map(cc => cc.coordinador_id)
+          .map(cc => cc.user_id)
           .filter((id): id is string => id !== null && id !== undefined);
 
         if (coordinadorIds.length > 0) {
@@ -1008,7 +1008,7 @@ class CoordinacionService {
           if (!usersError && usersData) {
             coordinadores = usersData.map((user: any) => {
               // Encontrar la relación para obtener la coordinación
-              const relacion = coordinadorCoordinaciones.find(cc => cc.coordinador_id === user.id);
+              const relacion = coordinadorCoordinaciones.find(cc => cc.user_id === user.id);
               const coordinacionData = relacion?.coordinaciones;
               const coordInfo = Array.isArray(coordinacionData) 
                 ? coordinacionData[0] 

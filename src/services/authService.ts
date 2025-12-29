@@ -669,14 +669,15 @@ class AuthService {
       .eq('id', sessionData.user_id)
       .single();
 
-    // Para coordinadores y supervisores, cargar sus coordinaciones desde coordinador_coordinaciones
+    // Para coordinadores y supervisores, cargar sus coordinaciones desde auth_user_coordinaciones
+    // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
     let coordinacionesIds: string[] | undefined;
     if (userData.role_name === 'coordinador' || userData.role_name === 'supervisor') {
       try {
         const { data: coordinacionesData } = await supabase
-          .from('coordinador_coordinaciones')
+          .from('auth_user_coordinaciones')
           .select('coordinacion_id')
-          .eq('coordinador_id', sessionData.user_id);
+          .eq('user_id', sessionData.user_id);
         
         if (coordinacionesData && coordinacionesData.length > 0) {
           coordinacionesIds = coordinacionesData.map(c => c.coordinacion_id);

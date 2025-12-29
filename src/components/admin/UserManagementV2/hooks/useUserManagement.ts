@@ -838,9 +838,8 @@ export function useUserManagement(): UseUserManagementReturn {
       }
 
       // 2. Manejar coordinaciones para coordinadores
-      // ⚠️ CRÍTICO: Limpiar AMBAS tablas de coordinaciones:
-      // - auth_user_coordinaciones (nueva)
-      // - coordinador_coordinaciones (legacy, usada por permissionsService)
+      // ✅ MIGRACIÓN COMPLETADA (2025-12-29): Solo usar auth_user_coordinaciones
+      // Limpieza de tabla legacy para compatibilidad durante transición
       const newRole = roles.find(r => r.id === updates.role_id);
       
       // Función helper para limpiar todas las relaciones de coordinador
@@ -851,16 +850,16 @@ export function useUserManagement(): UseUserManagementReturn {
           .delete()
           .eq('user_id', userId);
         
-        // ⚠️ CRÍTICO: Limpiar coordinador_coordinaciones (tabla legacy usada por permissionsService)
-        // Esta tabla usa 'coordinador_id' en lugar de 'user_id'
+        // ⚠️ TRANSICIÓN: Limpiar tabla legacy también (durante migración)
+        // TODO: Eliminar después de validar que todo funciona
         try {
           await supabaseSystemUIAdmin
             .from('coordinador_coordinaciones')
             .delete()
             .eq('coordinador_id', userId);
         } catch (error) {
-          // La tabla puede no existir en algunos entornos, no es crítico
-          console.warn('Error limpiando coordinador_coordinaciones (no crítico):', error);
+          // No crítico - tabla legacy puede no existir en futuro
+          console.warn('Limpieza de tabla legacy (ignorar si no existe):', error);
         }
       };
       
@@ -884,20 +883,8 @@ export function useUserManagement(): UseUserManagementReturn {
             console.error('Error actualizando coordinaciones:', relacionesError);
           }
           
-          // ⚠️ CRÍTICO: También insertar en coordinador_coordinaciones para compatibilidad con permissionsService
-          // Esta tabla es la que usa el servicio de permisos para filtrar prospectos
-          try {
-            const relacionesLegacy = updates.coordinaciones_ids.map(coordId => ({
-              coordinador_id: userId,
-              coordinacion_id: coordId
-            }));
-
-            await supabaseSystemUIAdmin
-              .from('coordinador_coordinaciones')
-              .insert(relacionesLegacy);
-          } catch (error) {
-            console.warn('Error insertando en coordinador_coordinaciones (no crítico):', error);
-          }
+          // ✅ MIGRACIÓN COMPLETADA (2025-12-29): Ya no se necesita escritura dual
+          // permissionsService ahora usa auth_user_coordinaciones
         }
 
         // Actualizar flags del usuario

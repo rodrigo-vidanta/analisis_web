@@ -58,11 +58,12 @@ export const useInactivityTimeout = () => {
                 .single();
               coordinacionId = ejecutivoData?.coordinacion_id || null;
             } else {
-              // Supervisor: obtener primera coordinación de coordinador_coordinaciones
+              // Supervisor: obtener primera coordinación de auth_user_coordinaciones
+              // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
               const { data: coordData } = await supabaseSystemUIAdmin
-                .from('coordinador_coordinaciones')
+                .from('auth_user_coordinaciones')
                 .select('coordinacion_id')
-                .eq('coordinador_id', currentUser.id)
+                .eq('user_id', currentUser.id)
                 .limit(1);
               coordinacionId = coordData?.[0]?.coordinacion_id || null;
             }
