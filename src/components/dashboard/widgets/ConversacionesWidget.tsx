@@ -20,6 +20,8 @@ import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions'
 import { AssignmentBadge } from '../../analysis/AssignmentBadge';
 import { BackupBadgeWrapper } from '../../shared/BackupBadgeWrapper';
 import { MultimediaMessage, needsBubble } from '../../chat/MultimediaMessage';
+import { ProspectoLabelBadges } from '../../shared/ProspectoLabelBadges';
+import { whatsappLabelsService, type ConversationLabel } from '../../../services/whatsappLabelsService';
 import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
 import { CallDetailModalSidebar } from '../../chat/CallDetailModalSidebar';
 import { createPortal } from 'react-dom';
@@ -86,6 +88,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   const [imageUrlsCache, setImageUrlsCache] = useState<Record<string, string>>({});
   const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({});
   const [prospectosDataVersion, setProspectosDataVersion] = useState(0); // Para forzar re-render cuando cambia el Map
+  const [prospectoLabels, setProspectoLabels] = useState<Record<string, ConversationLabel[]>>({});
   
   // Función helper para generar URL de imagen (reutiliza lógica de MultimediaMessage)
   const generateImageUrl = async (adjunto: any): Promise<string | null> => {
@@ -1740,6 +1743,17 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       }
       
       setConversations(top15 as UChatConversation[]);
+      
+      // Cargar etiquetas en paralelo (sin bloquear UI)
+      const prospectoIdsForLabels = top15
+        .map((c: any) => c.prospect_id)
+        .filter(Boolean) as string[];
+      
+      if (prospectoIdsForLabels.length > 0) {
+        whatsappLabelsService.getBatchProspectosLabels(prospectoIdsForLabels)
+          .then(labelsMap => setProspectoLabels(labelsMap))
+          .catch(err => console.error('Error cargando etiquetas en widget:', err));
+      }
 
     } catch (error: any) {
       if (error?.status === 401 || error?.code === 'PGRST301') {
@@ -2305,6 +2319,17 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                               </div>
                             )}
                           </div>
+                          
+                          {/* Badges de etiquetas WhatsApp */}
+                          {conv.prospect_id && prospectoLabels[conv.prospect_id] && (
+                            <div className="mb-1">
+                              <ProspectoLabelBadges 
+                                labels={prospectoLabels[conv.prospect_id]} 
+                                size="sm"
+                              />
+                            </div>
+                          )}
+                          
                         {conv.last_message_at && (
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             {formatTimeAgo(conv.last_message_at)}

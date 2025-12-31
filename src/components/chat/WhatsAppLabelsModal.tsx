@@ -302,7 +302,7 @@ export const WhatsAppLabelsModal: React.FC<WhatsAppLabelsModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+        className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[9999]"
         onClick={onClose}
       >
         <motion.div
@@ -551,7 +551,15 @@ export const WhatsAppLabelsModal: React.FC<WhatsAppLabelsModalProps> = ({
                   {/* Lista de MIS etiquetas personalizadas */}
                   {(() => {
                     const myLabels = availableLabels.custom.filter(l => l.isOwner);
-                    const otherLabels = availableLabels.custom.filter(l => !l.isOwner);
+                    
+                    // Etiquetas del Equipo: SOLO las que están aplicadas a ESTE prospecto Y no son mías
+                    const otherLabelsApplied = prospectoLabels
+                      .filter(pl => pl.label_type === 'custom')
+                      .map(pl => {
+                        const labelData = availableLabels.custom.find(l => l.id === pl.label_id);
+                        return labelData && !labelData.isOwner ? labelData : null;
+                      })
+                      .filter(Boolean);
                     
                     return (
                       <>
@@ -637,48 +645,99 @@ export const WhatsAppLabelsModal: React.FC<WhatsAppLabelsModalProps> = ({
                     </div>
                   )}
                   
-                  {/* Etiquetas del Equipo - Solo Referencia */}
-                  {otherLabels.length > 0 && (
+                  {/* Etiquetas del Equipo - SOLO las aplicadas a este prospecto */}
+                  {otherLabelsApplied.length > 0 && (
                     <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex items-center space-x-2 mb-3">
                         <div className="w-1 h-5 bg-gradient-to-b from-gray-400 to-gray-500 rounded-full"></div>
                         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                          Etiquetas del Equipo
+                          Etiquetas de Otros Usuarios
                         </h4>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                        Referencia: Puedes ver qué etiquetas usan otros para evitar duplicados.
+                        Estas etiquetas fueron aplicadas por otros usuarios en esta conversación.
                       </p>
                       <div className="space-y-2">
-                        {otherLabels.map((label, index) => (
-                          <motion.div
-                            key={label.id}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.35 + index * 0.03 }}
-                            className="p-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 opacity-60"
-                          >
-                            <div className="flex items-center justify-between">
+                        {otherLabelsApplied.map((label: any, index: number) => {
+                          // Buscar la etiqueta aplicada para obtener permisos
+                          const appliedLabel = prospectoLabels.find(
+                            pl => pl.label_id === label.id && pl.label_type === 'custom'
+                          );
+                          const canRemove = appliedLabel?.can_remove || false;
+                          
+                          console.log(`🔐 [Permisos] ${label.name}:`, {
+                            appliedLabel: appliedLabel?.id,
+                            can_remove: canRemove,
+                            remove_reason: appliedLabel?.remove_reason
+                          });
+                          
+                          return (
+                            <motion.div
+                              key={label.id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.35 + index * 0.03 }}
+                            >
                               <div className="flex items-center space-x-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: label.color }}
-                                ></div>
-                                <div>
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {label.name}
-                                  </span>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Creada por: {label.creatorName}
-                                  </p>
+                                <div className={`flex-1 p-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 ${!canRemove ? 'opacity-60' : ''}`}>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                      <div
+                                        className="w-3 h-3 rounded-full"
+                                        style={{ backgroundColor: label.color }}
+                                      ></div>
+                                      <div>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                          {label.name}
+                                        </span>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                          Creada por: {label.creatorName}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {!canRemove && (
+                                      <div className="text-xs text-gray-400">
+                                        Solo referencia
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
+                                
+                                {/* Botón quitar si tiene permisos */}
+                                {canRemove && appliedLabel && (
+                                  <button
+                                    onClick={async () => {
+                                      if (!user?.id) return;
+                                      setSaving(true);
+                                      try {
+                                        await whatsappLabelsService.removeLabelFromProspecto(
+                                          prospectoId,
+                                          label.id,
+                                          'custom'
+                                        );
+                                        setProspectoLabels(prev => 
+                                          prev.filter(pl => !(pl.label_id === label.id && pl.label_type === 'custom'))
+                                        );
+                                        toast.success(`Etiqueta "${label.name}" removida`);
+                                        onLabelsUpdate?.();
+                                      } catch (error: any) {
+                                        console.error('Error removiendo etiqueta:', error);
+                                        toast.error(error.message || 'Error al remover la etiqueta');
+                                      } finally {
+                                        setSaving(false);
+                                      }
+                                    }}
+                                    disabled={saving}
+                                    className="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200"
+                                    title="Remover etiqueta (tienes permisos)"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
-                              <div className="text-xs text-gray-400">
-                                Solo referencia
-                              </div>
-                            </div>
-                          </motion.div>
-                        ))}
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

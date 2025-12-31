@@ -17,6 +17,24 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.17.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **⚡ Optimización Crítica - ERR_INSUFFICIENT_RESOURCES**
+- **Problema resuelto:** Más de 2000 errores `ERR_INSUFFICIENT_RESOURCES` al entrar al módulo de prospectos causados por múltiples requests simultáneas a `auth_users` para verificar datos de backup
+- **Solución implementada:**
+  - **Pre-carga batch de datos de backup:** Nueva función `preloadBackupData()` en `permissionsService` que carga todos los datos de backup en una sola query batch antes de verificar permisos
+  - **Eliminación de consultas individuales:** `canUserAccessProspect` ahora solo usa caché, evitando consultas individuales que causaban saturación del navegador
+  - **Procesamiento en batches:** Verificaciones de permisos procesadas en batches de 50 prospectos para reducir carga simultánea
+  - **Optimización de consulta de ejecutivos:** Nueva función `getEjecutivosWhereIsBackup()` con caché para evitar consultas repetidas
+  - **Protección contra ejecuciones simultáneas:** Flags `isLoadingProspectosRef` y `isLoadingBackupBatch` previenen múltiples ejecuciones simultáneas
+- **Resultado:** De 2000+ requests simultáneas → 1-2 requests batch
+- **Archivos modificados:**
+  - `src/services/permissionsService.ts` - Pre-carga batch, eliminación consultas individuales
+  - `src/components/prospectos/ProspectosManager.tsx` - Pre-carga antes de verificaciones, procesamiento en batches
+
+---
+
 ### **v5.16.0** - Diciembre 2025
 **Estado:** ✅ Producción
 

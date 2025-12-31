@@ -139,25 +139,40 @@ class WhatsAppLabelsService {
         throw new Error('Supabase System UI no está configurado');
       }
 
-      // Cargar TODAS las etiquetas custom activas
+      // Cargar TODAS las etiquetas custom activas con info del creador
       const { data, error } = await supabaseSystemUI
         .from('whatsapp_labels_custom')
-        .select('*')
+        .select(`
+          id,
+          name,
+          color,
+          description,
+          user_id,
+          creator:auth_users!user_id(
+            full_name,
+            email
+          )
+        `)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      return (data || []).map(label => ({
-        id: label.id,
-        name: label.name,
-        color: label.color,
-        description: label.description,
-        type: 'custom' as const,
-        isOwner: String(label.user_id) === String(userId),
-        creatorName: 'Usuario',
-        creatorId: label.user_id,
-      }));
+      return (data || []).map(label => {
+        const creator = label.creator as any;
+        const creatorName = creator?.full_name || creator?.email?.split('@')[0] || 'Usuario';
+        
+        return {
+          id: label.id,
+          name: label.name,
+          color: label.color,
+          description: label.description,
+          type: 'custom' as const,
+          isOwner: String(label.user_id) === String(userId),
+          creatorName,
+          creatorId: label.user_id,
+        };
+      });
     } catch (error) {
       console.error('Error obteniendo etiquetas personalizadas:', error);
       throw error;
@@ -330,10 +345,22 @@ class WhatsAppLabelsService {
           const labelsWithPermissions = await Promise.all(
             labels.map(async (label: any) => {
               try {
-                const { data: permData } = await supabaseSystemUI.rpc('can_remove_label_from_prospecto', {
-                  p_relation_id: label.id,
+                // IMPORTANTE: p_relation_id es el ID de whatsapp_conversation_labels, no el label_id
+                const relationId = label.id; // ID de la relación, no del label
+                
+                const { data: permData, error: permError } = await supabaseSystemUI.rpc('can_remove_label_from_prospecto', {
+                  p_relation_id: relationId,
                   p_user_id: userId,
                 });
+                
+                if (permError) {
+                  console.error('Error validando permisos:', permError);
+                  return {
+                    ...label,
+                    can_remove: false,
+                    remove_reason: 'Error validando permisos',
+                  };
+                }
                 
                 return {
                   ...label,
@@ -341,11 +368,11 @@ class WhatsAppLabelsService {
                   remove_reason: permData?.reason,
                 };
               } catch (e) {
-                // Si la función no existe (404), asumir que puede remover
+                console.error('Exception validando permisos:', e);
                 return {
                   ...label,
-                  can_remove: true,
-                  remove_reason: 'Función de permisos no disponible',
+                  can_remove: false,
+                  remove_reason: 'Error en validación',
                 };
               }
             })
@@ -353,8 +380,8 @@ class WhatsAppLabelsService {
           
           return labelsWithPermissions;
         } catch (e) {
-          // Fallback: retornar sin permisos
-          return labels.map((l: any) => ({ ...l, can_remove: true }));
+          console.error('Error en batch de permisos:', e);
+          return labels.map((l: any) => ({ ...l, can_remove: false }));
         }
       }
       

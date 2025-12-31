@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'XXXXXXX', date: '2025-01-16', author: 'Team', message: 'v2.2.4: ⚡ Optimización crítica ERR_INSUFFICIENT_RESOURCES - Pre-carga batch datos backup', isRelease: true },
   { hash: '88c5aee', date: '2025-12-29', author: 'Team', message: 'fix: ERR_INSUFFICIENT_RESOURCES loop infinito + coordinación visible para coordinadores', isRelease: false },
   { hash: 'ff40be6', date: '2025-12-29', author: 'Team', message: 'v2.1.27: 🔴 CRÍTICO - Migración coordinador_coordinaciones → auth_user_coordinaciones (7 archivos, 15 registros)', isRelease: true },
   { hash: 'o1l2m3n', date: '2025-12-26', author: 'Team', message: 'v2.2.2: 🧹 Limpieza Consola + Optimización Performance - Eliminación logs debug y batching queries', isRelease: true },
@@ -310,6 +311,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-047', date: '2025-01-16 00:00', version: 'v2.2.4', status: 'pending', duration: '0s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-046', date: '2025-12-29 13:45', version: 'v2.1.27-hotfix', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-045', date: '2025-12-29 13:36', version: 'v2.1.27', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-044', date: '2025-12-26 14:00', version: 'v2.2.1', status: 'success', duration: '5m 20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -353,10 +355,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.2', highlight: true },
-  { label: 'Release', value: 'B7.1.2N7.0.2', highlight: false },
+  { label: 'Version', value: 'v2.2.4', highlight: true },
+  { label: 'Release', value: 'B7.1.4N7.0.4', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '26 Dic 2025', highlight: false },
+  { label: 'Ultima actualizacion', value: '16 Ene 2025', highlight: false },
 ];
 
 // ============================================

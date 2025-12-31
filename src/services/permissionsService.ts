@@ -71,12 +71,18 @@ class PermissionsService {
   // Caché para verificación de backups (evitar loop infinito de consultas)
   private backupCache = new Map<string, { data: { backup_id: string | null; has_backup: boolean } | null; timestamp: number }>();
   
+  // Caché para ejecutivos donde un usuario es backup (diferente estructura)
+  private backupOfCache = new Map<string, CacheEntry<string[]>>();
+  
   // Cachés para diferentes datos
   private permissionsCache = new Map<string, CacheEntry<UserPermissions | null>>();
   private coordinacionesCache = new Map<string, CacheEntry<string[] | null>>();
   private ejecutivoCache = new Map<string, CacheEntry<string | null>>();
   private calidadCache = new Map<string, CacheEntry<boolean>>();
   private accessProspectCache = new Map<string, CacheEntry<PermissionCheck>>();
+  
+  // Flag para prevenir múltiples cargas batch simultáneas
+  private isLoadingBackupBatch = false;
   
   /**
    * Verifica si una entrada de caché es válida (no ha expirado)
@@ -412,7 +418,9 @@ class PermissionsService {
 
         // Verificar si es backup del ejecutivo asignado
         if (prospectEjecutivoId && userEjecutivoId) {
-          // ⚡ OPTIMIZACIÓN: Usar caché para evitar consultas repetitivas (loop infinito)
+          // ⚡ OPTIMIZACIÓN CRÍTICA: Usar SOLO caché, NO hacer consultas individuales
+          // Si los datos no están en caché, significa que no se pre-cargaron correctamente
+          // En ese caso, denegar acceso en lugar de hacer una consulta individual que causa ERR_INSUFFICIENT_RESOURCES
           const cacheKey = prospectEjecutivoId;
           const cached = this.backupCache.get(cacheKey);
           const now = Date.now();
@@ -423,15 +431,11 @@ class PermissionsService {
             // Usar datos cacheados
             ejecutivoData = cached.data;
           } else {
-            // Consultar BD solo si no está en caché o expiró
-            const { data, error: backupError } = await supabaseSystemUIAdmin
-              .from('auth_users')
-              .select('backup_id, has_backup')
-              .eq('id', prospectEjecutivoId)
-              .single();
-            
-            ejecutivoData = !backupError && data ? data : null;
-            this.backupCache.set(cacheKey, { data: ejecutivoData, timestamp: now });
+            // ⚠️ NO hacer consulta individual - esto causa ERR_INSUFFICIENT_RESOURCES
+            // Si no está en caché, significa que los datos no se pre-cargaron
+            // En este caso, asumir que no es backup para evitar múltiples requests simultáneas
+            console.warn(`⚠️ Datos de backup no encontrados en caché para ejecutivo ${prospectEjecutivoId}. Asegúrate de llamar preloadBackupData() antes de verificar permisos.`);
+            ejecutivoData = null;
           }
           
           if (ejecutivoData) {
@@ -463,6 +467,120 @@ class PermissionsService {
         canAccess: false,
         reason: 'Error al verificar permisos',
       };
+    }
+  }
+
+  // ============================================
+  // PRE-CARGAR DATOS DE BACKUP EN BATCH
+  // ============================================
+  
+  /**
+   * Pre-carga datos de backup para múltiples ejecutivos en una sola query
+   * Esto evita múltiples requests simultáneas que causan ERR_INSUFFICIENT_RESOURCES
+   */
+  async preloadBackupData(ejecutivoIds: string[]): Promise<void> {
+    if (!ejecutivoIds || ejecutivoIds.length === 0) return;
+    
+    // Filtrar IDs que ya están en caché y no han expirado
+    const now = Date.now();
+    const idsToLoad = ejecutivoIds.filter(id => {
+      const cached = this.backupCache.get(id);
+      return !cached || (now - cached.timestamp) >= this.CACHE_TTL;
+    });
+    
+    if (idsToLoad.length === 0) return; // Todos ya están en caché
+    
+    // Prevenir múltiples cargas simultáneas
+    if (this.isLoadingBackupBatch) {
+      // Esperar a que termine la carga actual
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return this.preloadBackupData(idsToLoad); // Reintentar
+    }
+    
+    this.isLoadingBackupBatch = true;
+    
+    try {
+      // Cargar todos los datos de backup en una sola query
+      const { data, error } = await supabaseSystemUIAdmin
+        .from('auth_users')
+        .select('id, backup_id, has_backup')
+        .in('id', idsToLoad);
+      
+      if (error) {
+        console.error('❌ Error pre-cargando datos de backup:', error);
+        return;
+      }
+      
+      // Guardar en caché
+      if (data) {
+        data.forEach((ejecutivo: { id: string; backup_id: string | null; has_backup: boolean }) => {
+          this.backupCache.set(ejecutivo.id, {
+            data: {
+              backup_id: ejecutivo.backup_id,
+              has_backup: ejecutivo.has_backup
+            },
+            timestamp: now
+          });
+        });
+      }
+      
+      // Para IDs que no se encontraron, guardar null en caché para evitar consultas repetidas
+      const foundIds = new Set(data?.map((e: { id: string }) => e.id) || []);
+      idsToLoad.forEach(id => {
+        if (!foundIds.has(id)) {
+          this.backupCache.set(id, {
+            data: null,
+            timestamp: now
+          });
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error en preloadBackupData:', error);
+    } finally {
+      this.isLoadingBackupBatch = false;
+    }
+  }
+
+  // ============================================
+  // OBTENER EJECUTIVOS DONDE ES BACKUP
+  // ============================================
+  
+  /**
+   * Obtiene los IDs de ejecutivos donde el usuario actual es backup
+   * Usa caché para evitar múltiples consultas
+   */
+  async getEjecutivosWhereIsBackup(ejecutivoId: string): Promise<string[]> {
+    const cacheKey = `backup_of_${ejecutivoId}`;
+    const cached = this.backupOfCache.get(cacheKey);
+    
+    if (this.isCacheValid(cached)) {
+      return cached!.data;
+    }
+    
+    try {
+      const { data, error } = await supabaseSystemUIAdmin
+        .from('auth_users')
+        .select('id')
+        .eq('backup_id', ejecutivoId)
+        .eq('has_backup', true);
+      
+      if (error) {
+        console.error('❌ Error obteniendo ejecutivos donde es backup:', error);
+        return [];
+      }
+      
+      const ejecutivosIds = data?.map(e => e.id) || [];
+      
+      // Guardar en caché
+      this.backupOfCache.set(cacheKey, {
+        data: ejecutivosIds,
+        timestamp: Date.now()
+      });
+      
+      return ejecutivosIds;
+    } catch (error) {
+      console.error('❌ Error en getEjecutivosWhereIsBackup:', error);
+      return [];
     }
   }
 

@@ -1111,8 +1111,19 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   // Estados para infinite scroll por columna (Kanban)
   const [columnLoadingStates, setColumnLoadingStates] = useState<Record<string, { loading: boolean; page: number; hasMore: boolean }>>({});
   const [columnPages, setColumnPages] = useState<Record<string, number>>({});
+  
+  // Ref para prevenir ejecuciones simultáneas de loadProspectos
+  const isLoadingProspectosRef = useRef(false);
 
   const loadProspectos = async (reset: boolean = false) => {
+    // Prevenir ejecuciones simultáneas
+    if (isLoadingProspectosRef.current) {
+      console.warn('⚠️ loadProspectos ya está en ejecución, ignorando llamada duplicada');
+      return;
+    }
+    
+    isLoadingProspectosRef.current = true;
+    
     try {
       if (reset) {
         setLoading(true);
@@ -1143,17 +1154,12 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
             
             if (ejecutivoFilter) {
-              // Obtener IDs de ejecutivos donde es backup
-              const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
-              const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
-                .from('auth_users')
-                .select('id')
-                .eq('backup_id', ejecutivoFilter)
-                .eq('has_backup', true);
+              // Obtener IDs de ejecutivos donde es backup usando el servicio optimizado
+              const ejecutivosConBackup = await permissionsService.getEjecutivosWhereIsBackup(ejecutivoFilter);
               
               ejecutivosIdsParaFiltro = [ejecutivoFilter];
               if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
-                ejecutivosIdsParaFiltro.push(...ejecutivosConBackup.map(e => e.id));
+                ejecutivosIdsParaFiltro.push(...ejecutivosConBackup);
               }
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
               coordinacionesIdsParaFiltro = coordinacionesFilter;
@@ -1229,24 +1235,46 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       // Enriquecer prospectos usando mapas (instantáneo)
       let enrichedProspectos = enrichProspectos(data || [], coordinacionesMap, ejecutivosMap);
 
+      // ⚡ OPTIMIZACIÓN CRÍTICA: Pre-cargar datos de backup SIEMPRE antes de verificar permisos
+      // Esto evita múltiples requests simultáneas que causan ERR_INSUFFICIENT_RESOURCES
+      if (user?.id) {
+        const ejecutivosUnicos = [...new Set(enrichedProspectos.map((p: Prospecto) => p.ejecutivo_id).filter(Boolean))] as string[];
+        if (ejecutivosUnicos.length > 0) {
+          console.log(`📦 Pre-cargando datos de backup para ${ejecutivosUnicos.length} ejecutivos únicos...`);
+          await permissionsService.preloadBackupData(ejecutivosUnicos);
+          console.log(`✅ Datos de backup pre-cargados correctamente`);
+        }
+      }
+
       // Para ejecutivos: verificación adicional usando canUserAccessProspect (verifica prospect_assignments)
       if (user?.id && ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
         // Filtrar prospectos usando el servicio de permisos (verifica prospect_assignments)
-        const prospectosFiltrados = await Promise.all(
-          enrichedProspectos.map(async (prospecto: Prospecto) => {
-            // Verificar permisos usando el servicio (usa prospect_assignments como fuente de verdad)
-            try {
-              const permissionCheck = await permissionsService.canUserAccessProspect(user.id, prospecto.id);
-              return permissionCheck.canAccess ? prospecto : null;
-            } catch (error) {
-              console.error(`❌ Error verificando permiso para prospecto ${prospecto.id}:`, error);
-              return null; // En caso de error, excluir por seguridad
-            }
-          })
-        );
+        // Los datos de backup ya están pre-cargados arriba
+        // Procesar en batches pequeños para evitar saturar el navegador
+        const BATCH_SIZE = 50; // Procesar 50 prospectos a la vez
+        const prospectosFiltrados: Prospecto[] = [];
         
-        // Filtrar nulls
-        enrichedProspectos = prospectosFiltrados.filter((p: Prospecto | null) => p !== null) as Prospecto[];
+        for (let i = 0; i < enrichedProspectos.length; i += BATCH_SIZE) {
+          const batch = enrichedProspectos.slice(i, i + BATCH_SIZE);
+          const batchResults = await Promise.all(
+            batch.map(async (prospecto: Prospecto) => {
+              // Verificar permisos usando el servicio (usa prospect_assignments como fuente de verdad)
+              try {
+                const permissionCheck = await permissionsService.canUserAccessProspect(user.id, prospecto.id);
+                return permissionCheck.canAccess ? prospecto : null;
+              } catch (error) {
+                console.error(`❌ Error verificando permiso para prospecto ${prospecto.id}:`, error);
+                return null; // En caso de error, excluir por seguridad
+              }
+            })
+          );
+          
+          // Filtrar nulls y agregar al resultado
+          const validResults = batchResults.filter((p: Prospecto | null) => p !== null) as Prospecto[];
+          prospectosFiltrados.push(...validResults);
+        }
+        
+        enrichedProspectos = prospectosFiltrados;
       }
 
       // Cargar todos los prospectos de una vez
@@ -1259,6 +1287,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     } finally {
       setLoading(false);
       setLoadingMore(false);
+      isLoadingProspectosRef.current = false;
     }
   };
 
