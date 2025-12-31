@@ -1,4 +1,21 @@
-# 📚 ÍNDICE: Migración coordinador_coordinaciones → auth_user_coordinaciones
+# 📚 ÍNDICE DE MIGRACIONES - PQNC QA AI Platform
+
+## 🆕 Última Migración
+
+**Fecha**: 29 Diciembre 2025  
+**Versión**: v6.1.0  
+**Feature**: Sistema de Etiquetas para WhatsApp Business
+
+- ✅ 3 tablas nuevas en SYSTEM_UI
+- ✅ 5 funciones RPC + 3 triggers de validación
+- ✅ Modal de gestión con UI/UX avanzada
+- ✅ Integración completa en LiveChat
+- 📄 Script: `scripts/sql/add_whatsapp_labels_system.sql`
+- 📖 Docs: `src/components/chat/WHATSAPP_LABELS_README.md`
+
+---
+
+# 📚 MIGRACIÓN: coordinador_coordinaciones → auth_user_coordinaciones
 
 **Fecha:** 29 Diciembre 2025  
 **Estado:** ✅ Migración Completada - Pendiente Validación  

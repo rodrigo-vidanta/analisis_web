@@ -50,7 +50,8 @@ import {
   PhoneCall,
   PhoneMissed,
   PhoneOff,
-  Voicemail
+  Voicemail,
+  Tag
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
@@ -87,6 +88,8 @@ import { ReactivateConversationModal } from './ReactivateConversationModal';
 import { DeleteCallConfirmationModal } from '../shared/DeleteCallConfirmationModal';
 import { scheduledCallsService } from '../../services/scheduledCallsService';
 import { getApiToken } from '../../services/apiTokensService';
+import { WhatsAppLabelsModal } from './WhatsAppLabelsModal';
+import { whatsappLabelsService, type ConversationLabel } from '../../services/whatsappLabelsService';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -832,6 +835,8 @@ interface ConversationItemProps {
   unreadCount: number;
   userRole: string | undefined;
   userId?: string;
+  labels: ConversationLabel[];
+  onLabelsClick: (e: React.MouseEvent) => void;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onCallClick: () => void;
@@ -848,15 +853,20 @@ const ConversationItem = React.memo<ConversationItemProps>(({
   unreadCount,
   userRole,
   userId,
+  labels,
+  onLabelsClick,
   onSelect,
   onContextMenu,
   onCallClick,
   getStatusIndicator,
   formatTimeAgo
 }) => {
+  // Determinar si hay shadow_cell activo
+  const shadowLabel = labels.find(l => l.shadow_cell);
+  
   return (
     <div
-      className={`p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer transition-all duration-200 ${
+      className={`relative p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer transition-all duration-200 ${
         isSelected
           ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500 shadow-sm'
           : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
@@ -864,6 +874,20 @@ const ConversationItem = React.memo<ConversationItemProps>(({
       onClick={onSelect}
       onContextMenu={onContextMenu}
     >
+      {/* Blur de fondo si hay shadow_cell */}
+      {shadowLabel && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `linear-gradient(135deg, ${shadowLabel.color}10 0%, ${shadowLabel.color}05 100%)`,
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+          }}
+        />
+      )}
+      
+      {/* Contenido del card (relativo al blur) */}
+      <div className="relative z-10">
       <div className="flex items-start space-x-3">
         <ConversationAvatar
           hasActiveCall={hasActiveCall}
@@ -903,6 +927,49 @@ const ConversationItem = React.memo<ConversationItemProps>(({
           <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{conversation.customer_phone}</p>
           <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{conversation.metadata?.etapa}</p>
           
+          {/* Etiquetas WhatsApp */}
+          {labels.length > 0 && (
+            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+              {labels.map(label => (
+                <span
+                  key={label.id}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border"
+                  style={{
+                    backgroundColor: `${label.color}15`,
+                    borderColor: `${label.color}40`,
+                    color: label.color,
+                  }}
+                  title={label.description || label.name}
+                >
+                  <div
+                    className="w-1.5 h-1.5 rounded-full mr-1"
+                    style={{ backgroundColor: label.color }}
+                  />
+                  {label.name}
+                </span>
+              ))}
+              <button
+                onClick={onLabelsClick}
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                title="Gestionar etiquetas"
+              >
+                <Tag className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          
+          {/* Si no hay etiquetas, mostrar solo el botón */}
+          {labels.length === 0 && (
+            <button
+              onClick={onLabelsClick}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors mb-2"
+              title="Agregar etiqueta"
+            >
+              <Tag className="w-3 h-3" />
+              <span>Agregar etiqueta</span>
+            </button>
+          )}
+          
           <div className="flex items-center justify-between text-xs text-slate-400 dark:text-gray-500">
             <div className="flex items-center gap-2">
               <span>{Number(conversation.message_count ?? 0)} msj</span>
@@ -934,6 +1001,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
             <span>{formatTimeAgo(conversation.last_message_at || conversation.updated_at)}</span>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -1036,6 +1104,37 @@ const LiveChatCanvas: React.FC = () => {
   const [deleteCallModalOpen, setDeleteCallModalOpen] = useState(false);
   const [selectedCallForDelete, setSelectedCallForDelete] = useState<{ id: string; prospecto_nombre?: string; prospecto_whatsapp?: string; fecha_programada: string; justificacion_llamada?: string } | null>(null);
   const [isDeletingCall, setIsDeletingCall] = useState(false);
+
+  // Estados para gestión de etiquetas WhatsApp
+  const [labelsModalOpen, setLabelsModalOpen] = useState(false);
+  const [selectedProspectoForLabels, setSelectedProspectoForLabels] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [prospectoLabels, setProspectoLabels] = useState<Record<string, ConversationLabel[]>>({});
+  
+  // Estados para filtros de etiquetas
+  const [showLabelsFilter, setShowLabelsFilter] = useState(false);
+  const labelsFilterRef = useRef<HTMLDivElement>(null);
+  const [labelFilters, setLabelFilters] = useState<{
+    include: Set<string>; // IDs de etiquetas que DEBEN estar
+    exclude: Set<string>; // IDs de etiquetas que NO deben estar
+  }>({ include: new Set(), exclude: new Set() });
+  const [availableLabelsForFilter, setAvailableLabelsForFilter] = useState<any[]>([]);
+
+  // Cerrar dropdown de filtros de etiquetas al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (labelsFilterRef.current && !labelsFilterRef.current.contains(event.target as Node)) {
+        setShowLabelsFilter(false);
+      }
+    };
+    
+    if (showLabelsFilter) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showLabelsFilter]);
 
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -3509,6 +3608,14 @@ const LiveChatCanvas: React.FC = () => {
       }
 
       setConversations(filtered);
+      
+      // Cargar etiquetas en paralelo (sin bloquear UI)
+      const prospectoIdsForLabels = filtered.map(c => c.prospecto_id).filter(Boolean);
+      if (prospectoIdsForLabels.length > 0) {
+        loadProspectosLabels(prospectoIdsForLabels).catch(err => {
+          console.error('Error cargando etiquetas:', err);
+        });
+      }
 
     } catch (error) {
       console.error('❌ Error cargando conversaciones:', error);
@@ -3516,6 +3623,99 @@ const LiveChatCanvas: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ============================================
+  // FUNCIONES DE ETIQUETAS WHATSAPP
+  // ============================================
+
+  // Función para cargar etiquetas de prospectos en batch
+  const loadProspectosLabels = useCallback(async (prospectoIds: string[]) => {
+    if (prospectoIds.length === 0) return;
+    
+    try {
+      const labelsMap = await whatsappLabelsService.getBatchProspectosLabels(prospectoIds);
+      setProspectoLabels(labelsMap);
+    } catch (error) {
+      console.error('Error cargando etiquetas de prospectos:', error);
+    }
+  }, []);
+
+  // Nota: Las etiquetas ahora se cargan dentro de loadConversations() para evitar delay
+  // Este useEffect ya no es necesario pero lo dejamos como fallback
+  useEffect(() => {
+    if (conversations.length > 0 && Object.keys(prospectoLabels).length === 0) {
+      const prospectoIds = conversations.map(c => c.prospecto_id).filter(Boolean);
+      loadProspectosLabels(prospectoIds);
+    }
+  }, [conversations, loadProspectosLabels, prospectoLabels]);
+
+  // Cargar etiquetas disponibles para filtros
+  const loadAvailableLabelsForFilter = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      const labels = await whatsappLabelsService.getAvailableLabels(user.id);
+      const allLabels = [...labels.preset, ...labels.custom];
+      setAvailableLabelsForFilter(allLabels);
+    } catch (error) {
+      console.error('Error cargando etiquetas para filtros:', error);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadAvailableLabelsForFilter();
+  }, [loadAvailableLabelsForFilter]);
+
+  const handleOpenLabelsModal = (prospecto: { id: string; name: string }, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedProspectoForLabels(prospecto);
+    setLabelsModalOpen(true);
+  };
+
+  const handleLabelsUpdate = () => {
+    // Recargar etiquetas del prospecto modificado
+    if (selectedProspectoForLabels) {
+      whatsappLabelsService.getProspectoLabels(selectedProspectoForLabels.id)
+        .then(labels => {
+          setProspectoLabels(prev => ({
+            ...prev,
+            [selectedProspectoForLabels.id]: labels,
+          }));
+        })
+        .catch(error => {
+          console.error('Error recargando etiquetas:', error);
+        });
+    }
+    // Recargar etiquetas disponibles para filtros (por si creó/eliminó alguna)
+    loadAvailableLabelsForFilter();
+  };
+
+  const toggleLabelFilter = (labelId: string, type: 'include' | 'exclude') => {
+    setLabelFilters(prev => {
+      const newFilters = { ...prev };
+      const targetSet = type === 'include' ? newFilters.include : newFilters.exclude;
+      const oppositeSet = type === 'include' ? newFilters.exclude : newFilters.include;
+      
+      // Remover de la lista opuesta si estaba ahí
+      oppositeSet.delete(labelId);
+      
+      // Toggle en la lista actual
+      if (targetSet.has(labelId)) {
+        targetSet.delete(labelId);
+      } else {
+        targetSet.add(labelId);
+      }
+      
+      return {
+        include: new Set(newFilters.include),
+        exclude: new Set(newFilters.exclude),
+      };
+    });
+  };
+
+  const clearLabelFilters = () => {
+    setLabelFilters({ include: new Set(), exclude: new Set() });
   };
 
   const loadMetrics = async () => {
@@ -5247,7 +5447,7 @@ const LiveChatCanvas: React.FC = () => {
     }
   }, [selectedEtapas]);
 
-  // Filtrado optimizado con useMemo - Búsqueda mejorada + Filtro por etapa
+  // Filtrado optimizado con useMemo - Búsqueda mejorada + Filtro por etapa + Filtro por etiquetas
   const filteredConversations = useMemo(() => {
     let filtered = conversations;
     
@@ -5259,6 +5459,32 @@ const LiveChatCanvas: React.FC = () => {
         const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
         const etapa = prospectoData?.etapa || conv.metadata?.etapa || conv.etapa || null;
         return etapa && selectedEtapas.has(etapa);
+      });
+    }
+
+    // 1.5. Filtro por etiquetas (incluyentes y excluyentes)
+    if (labelFilters.include.size > 0 || labelFilters.exclude.size > 0) {
+      filtered = filtered.filter(conv => {
+        const convLabels = prospectoLabels[conv.prospecto_id] || [];
+        const convLabelIds = convLabels.map(l => l.label_id);
+        
+        // Filtros inclusivos: DEBE tener TODAS las etiquetas seleccionadas
+        if (labelFilters.include.size > 0) {
+          const hasAllIncluded = Array.from(labelFilters.include).every(labelId =>
+            convLabelIds.includes(labelId)
+          );
+          if (!hasAllIncluded) return false;
+        }
+        
+        // Filtros exclusivos: NO debe tener NINGUNA de las etiquetas seleccionadas
+        if (labelFilters.exclude.size > 0) {
+          const hasAnyExcluded = Array.from(labelFilters.exclude).some(labelId =>
+            convLabelIds.includes(labelId)
+          );
+          if (hasAnyExcluded) return false;
+        }
+        
+        return true;
       });
     }
     
@@ -5298,7 +5524,7 @@ const LiveChatCanvas: React.FC = () => {
     }
     
     return filtered;
-  }, [conversations, debouncedSearchTerm, selectedEtapas, prospectosDataVersion]);
+  }, [conversations, debouncedSearchTerm, selectedEtapas, labelFilters, prospectoLabels, prospectosDataVersion]);
 
   // Total no leídos - calcular desde conversaciones filtradas según permisos
   const totalUnread = useMemo(() => {
@@ -5530,6 +5756,124 @@ const LiveChatCanvas: React.FC = () => {
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Filtro por etiquetas */}
+            <div className="relative" ref={labelsFilterRef}>
+              <button
+                onClick={() => setShowLabelsFilter(!showLabelsFilter)}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white rounded-md hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors ${
+                  (labelFilters.include.size > 0 || labelFilters.exclude.size > 0) ? 'border-purple-500 dark:border-purple-400' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-slate-400 dark:text-gray-500" />
+                  <span className="text-xs text-slate-600 dark:text-gray-300">
+                    {(labelFilters.include.size === 0 && labelFilters.exclude.size === 0)
+                      ? 'Filtrar por etiquetas' 
+                      : `${labelFilters.include.size + labelFilters.exclude.size} filtro${(labelFilters.include.size + labelFilters.exclude.size) > 1 ? 's' : ''} activo${(labelFilters.include.size + labelFilters.exclude.size) > 1 ? 's' : ''}`
+                    }
+                  </span>
+                </div>
+                <ChevronRight className={`w-4 h-4 text-slate-400 dark:text-gray-500 transition-transform ${showLabelsFilter ? 'rotate-90' : ''}`} />
+              </button>
+              
+              {/* Dropdown de filtros de etiquetas */}
+              <AnimatePresence>
+                {showLabelsFilter && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto"
+                  >
+                    <div className="p-3 space-y-4">
+                      {/* Filtros Inclusivos */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                            Incluir (debe tener)
+                          </p>
+                          {labelFilters.include.size > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full font-medium">
+                              {labelFilters.include.size}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableLabelsForFilter.map(label => (
+                            <button
+                              key={`include-${label.id}`}
+                              onClick={() => toggleLabelFilter(label.id, 'include')}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-all ${
+                                labelFilters.include.has(label.id)
+                                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-green-300'
+                              }`}
+                            >
+                              <div
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: label.color }}
+                              />
+                              {label.name}
+                              {labelFilters.include.has(label.id) && (
+                                <Check className="w-3 h-3" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Filtros Exclusivos */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                            Excluir (no debe tener)
+                          </p>
+                          {labelFilters.exclude.size > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full font-medium">
+                              {labelFilters.exclude.size}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableLabelsForFilter.map(label => (
+                            <button
+                              key={`exclude-${label.id}`}
+                              onClick={() => toggleLabelFilter(label.id, 'exclude')}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-all ${
+                                labelFilters.exclude.has(label.id)
+                                  ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-red-300'
+                              }`}
+                            >
+                              <div
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: label.color }}
+                              />
+                              {label.name}
+                              {labelFilters.exclude.has(label.id) && (
+                                <X className="w-3 h-3" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Botón limpiar filtros */}
+                      {(labelFilters.include.size > 0 || labelFilters.exclude.size > 0) && (
+                        <button
+                          onClick={clearLabelFilters}
+                          className="w-full px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors font-medium"
+                        >
+                          Limpiar todos los filtros
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
@@ -5570,6 +5914,11 @@ const LiveChatCanvas: React.FC = () => {
                 unreadCount={Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0)}
                 userRole={user?.role_name}
                 userId={user?.id}
+                labels={prospectoLabels[conversation.prospecto_id] || []}
+                onLabelsClick={(e) => handleOpenLabelsModal({
+                  id: conversation.prospecto_id,
+                  name: conversation.customer_name || 'Conversación'
+                }, e)}
                 onSelect={() => {
                   isManualSelectionRef.current = true;
                   selectedConversationRef.current = conversation.prospecto_id;
@@ -6948,6 +7297,20 @@ const LiveChatCanvas: React.FC = () => {
           onClose={() => setShowCRMDataModal(false)}
           prospectoId={selectedConversation.prospecto_id || selectedConversation.id}
           prospectoIdDynamics={prospectosDataRef.current.get(selectedConversation.prospecto_id)?.id_dynamics}
+        />
+      )}
+
+      {/* Modal de gestión de etiquetas WhatsApp */}
+      {labelsModalOpen && selectedProspectoForLabels && (
+        <WhatsAppLabelsModal
+          isOpen={labelsModalOpen}
+          onClose={() => {
+            setLabelsModalOpen(false);
+            setSelectedProspectoForLabels(null);
+          }}
+          prospectoId={selectedProspectoForLabels.id}
+          prospectoName={selectedProspectoForLabels.name}
+          onLabelsUpdate={handleLabelsUpdate}
         />
       )}
     </div>

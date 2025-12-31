@@ -1,4 +1,21 @@
-# 📚 ÍNDICE: Migración coordinador_coordinaciones → auth_user_coordinaciones
+# 📚 ÍNDICE DE MIGRACIONES - PQNC QA AI Platform
+
+## 🆕 Última Migración
+
+**Fecha**: 29 Diciembre 2025  
+**Versión**: v6.1.0  
+**Feature**: Sistema de Etiquetas para WhatsApp Business
+
+- ✅ 3 tablas nuevas en SYSTEM_UI
+- ✅ 5 funciones RPC + 3 triggers de validación
+- ✅ Modal de gestión con UI/UX avanzada
+- ✅ Integración completa en LiveChat
+- 📄 Script: `scripts/sql/add_whatsapp_labels_system.sql`
+- 📖 Docs: `src/components/chat/WHATSAPP_LABELS_README.md`
+
+---
+
+# 📚 MIGRACIÓN: coordinador_coordinaciones → auth_user_coordinaciones
 
 **Fecha:** 29 Diciembre 2025  
 **Estado:** ✅ Migración Completada - Pendiente Validación  
@@ -29,6 +46,19 @@ Migración quirúrgica completa en 2 horas:
 ---
 
 ## 📂 DOCUMENTACIÓN DISPONIBLE
+
+### 0. 🔴 HOTFIX: Loop Infinito (29-12-2025 14:00)
+**Archivo:** `docs/HOTFIX_LOOP_INFINITO_20251229.md` (230 líneas)
+
+**Contenido:**
+- Loop infinito de consultas `ERR_INSUFFICIENT_RESOURCES`
+- Caché de backups implementado (99% reducción queries)
+- Fix coordinación visible para coordinadores
+- Deploy: commit 88c5aee, deploy-046
+
+**Cuándo leer:** Para entender el hotfix crítico aplicado inmediatamente después de la migración
+
+---
 
 ### 1. 🔍 POST-MORTEM (Análisis Completo)
 **Archivo:** `docs/POSTMORTEM_DUAL_TABLES.md` (467 líneas)
@@ -165,10 +195,10 @@ Migración quirúrgica completa en 2 horas:
 ## 📊 ESTADÍSTICAS
 
 ### Documentación Generada
-- **Total de archivos:** 6 documentos
-- **Total de líneas:** 1,654 líneas
-- **Promedio por doc:** 275 líneas
-- **Tiempo de escritura:** ~2 horas (incluye análisis)
+- **Total de archivos:** 7 documentos
+- **Total de líneas:** 1,884 líneas
+- **Promedio por doc:** 269 líneas
+- **Tiempo de escritura:** ~2.5 horas (incluye análisis + hotfix)
 
 ### Cobertura Documental
 - ✅ Historia completa del problema

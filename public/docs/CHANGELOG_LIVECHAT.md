@@ -17,6 +17,51 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v6.1.0** - 29 Diciembre 2025
+**Estado:** ✅ Producción
+
+#### **✨ Nuevo: Sistema de Etiquetas para WhatsApp Business**
+
+**Funcionalidades Implementadas:**
+
+1. **Etiquetas Predefinidas** (6 etiquetas del sistema):
+   - Nuevo Lead (Azul) - neutral
+   - En Seguimiento (Amarillo) - neutral
+   - Reservación Concretada (Verde) - positive
+   - No Interesado (Rojo) - negative
+   - Pendiente de Pago (Morado) - neutral
+   - Reagendar (Naranja) - neutral
+
+2. **Etiquetas Personalizadas**:
+   - Hasta 6 etiquetas por usuario
+   - Catálogo de 12 colores disponibles
+   - Reutilizables en múltiples conversaciones
+   - Gestión completa (crear, editar, eliminar)
+
+3. **Sistema de Sombreado**:
+   - Opción "Sombrear celda" para destacar conversaciones
+   - Blur traslúcido con color de etiqueta en fondo del card
+   - Solo 1 shadow activo por conversación
+
+4. **Validaciones Automáticas**:
+   - Máximo 3 etiquetas por conversación
+   - No permite combinar etiquetas contradictorias
+   - Triggers de base de datos + validaciones cliente
+
+#### **📁 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Integración completa con badges y modal
+- `src/components/chat/WhatsAppLabelsModal.tsx` - Modal de gestión (NUEVO)
+- `src/services/whatsappLabelsService.ts` - Servicio de etiquetas (NUEVO)
+- `src/components/chat/WHATSAPP_LABELS_README.md` - Documentación (NUEVO)
+
+#### **🗄️ Base de Datos**
+- Script: `scripts/sql/add_whatsapp_labels_system.sql`
+- Base: SYSTEM_UI (zbylezfyagwrxoecioup)
+- Tablas: `whatsapp_labels_preset`, `whatsapp_labels_custom`, `whatsapp_conversation_labels`
+- 5 funciones RPC + 3 triggers de validación
+
+---
+
 ### **v5.20.1** - Diciembre 2025
 **Estado:** ✅ Producción
 
