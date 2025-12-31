@@ -252,7 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'XXXXXXX', date: '2025-01-16', author: 'Team', message: 'v2.2.4: ⚡ Optimización crítica ERR_INSUFFICIENT_RESOURCES - Pre-carga batch datos backup', isRelease: true },
+  { hash: 'd9ef803', date: '2025-01-16', author: 'Team', message: 'v2.2.4: ⚡ Optimización crítica ERR_INSUFFICIENT_RESOURCES - Pre-carga batch datos backup', isRelease: true },
   { hash: '88c5aee', date: '2025-12-29', author: 'Team', message: 'fix: ERR_INSUFFICIENT_RESOURCES loop infinito + coordinación visible para coordinadores', isRelease: false },
   { hash: 'ff40be6', date: '2025-12-29', author: 'Team', message: 'v2.1.27: 🔴 CRÍTICO - Migración coordinador_coordinaciones → auth_user_coordinaciones (7 archivos, 15 registros)', isRelease: true },
   { hash: 'o1l2m3n', date: '2025-12-26', author: 'Team', message: 'v2.2.2: 🧹 Limpieza Consola + Optimización Performance - Eliminación logs debug y batching queries', isRelease: true },
