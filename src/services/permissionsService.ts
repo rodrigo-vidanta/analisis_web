@@ -69,7 +69,8 @@ class PermissionsService {
   private readonly CACHE_TTL = 30 * 1000;
   
   // Caché para verificación de backups (evitar loop infinito de consultas)
-  private backupCache = new Map<string, { data: { backup_id: string | null; has_backup: boolean } | null; timestamp: number }>();
+  // Hacer público para que otros servicios puedan acceder
+  public backupCache = new Map<string, { data: { backup_id: string | null; has_backup: boolean } | null; timestamp: number }>();
   
   // Caché para ejecutivos donde un usuario es backup (diferente estructura)
   private backupOfCache = new Map<string, CacheEntry<string[]>>();

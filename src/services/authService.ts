@@ -234,15 +234,20 @@ class AuthService {
       // Si es ejecutivo, restaurar backup y actualizar is_operativo a true al hacer login
       if (this.currentUser && this.currentUser.role_name === 'ejecutivo') {
         try {
+          // ⚡ OPTIMIZACIÓN: Usar caché de permissionsService para evitar queries repetidas
           // Verificar si este ejecutivo tiene un backup asignado (has_backup = true)
           // Solo remover backup si este ejecutivo es el que tenía el backup asignado
-          const { data: ejecutivoData, error: checkError } = await supabaseSystemUIAdmin
-            .from('auth_users')
-            .select('has_backup, backup_id')
-            .eq('id', authData.user_id)
-            .single();
+          const { permissionsService } = await import('./permissionsService');
           
-          if (!checkError && ejecutivoData && ejecutivoData.has_backup === true) {
+          // Pre-cargar datos de backup para este ejecutivo usando el servicio con caché
+          await permissionsService.preloadBackupData([authData.user_id]);
+          
+          // Obtener datos del caché
+          const cacheKey = authData.user_id;
+          const cached = permissionsService.backupCache?.get(cacheKey);
+          const ejecutivoData = cached?.data;
+          
+          if (ejecutivoData && ejecutivoData.has_backup === true) {
             // Remover backup y restaurar teléfono original
             const { backupService } = await import('./backupService');
             await backupService.removeBackup(authData.user_id);

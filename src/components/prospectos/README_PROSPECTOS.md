@@ -5,7 +5,7 @@
 **Módulo:** Sistema de gestión de prospectos con data grid avanzado
 **Propósito:** Gestión completa de prospectos con filtros inteligentes, navegación integrada y conexión con otros módulos
 **Base de datos:** `glsmifhkoaifvaegsozd.supabase.co` (Base Natalia - Análisis) + `hmmfuhqgvsehkizlfzga.supabase.co` (PQNC Principal) + `zbylezfyagwrxoecioup.supabase.co` (SystemUI)
-**Versión:** 5.15.0 (Enero 2025)
+**Versión:** 5.18.0 (Enero 2025)
 **Estado:** ✅ Producción estable
 
 ---
@@ -153,16 +153,39 @@ unread_count INTEGER DEFAULT 0
 ## 🎨 COMPONENTES FRONTEND
 
 ### **ProspectosManager** (`src/components/prospectos/ProspectosManager.tsx`)
-**Componente principal de gestión** - 1,411 líneas
+**Componente principal de gestión** - 2,000+ líneas
 
 **Características:**
-- **Data grid avanzado:** Visualización de 23+ prospectos reales
-- **Filtros múltiples:** Etapa, score, campaña origen, asesor
-- **Sorting dinámico:** Ordenamiento por cualquier columna
+- **Vista dual:** Kanban y Data Grid con toggle entre vistas
+- **Data grid avanzado:** Visualización de todos los prospectos con filtros
+- **Vista Kanban:** 8 columnas organizadas por etapa con sistema de colapso y filtrado
+- **Filtros múltiples:** Etapa, score, campaña origen, asesor, coordinación, ejecutivo
+- **Sistema de filtrado de columnas:** Mostrar/ocultar columnas en Kanban con persistencia
+- **Sorting dinámico:** Ordenamiento por cualquier columna en Data Grid
 - **Sidebar informativo:** Información completa del prospecto seleccionado
 - **Historial de llamadas:** Lista de llamadas asociadas al prospecto
 - **Modal de detalle:** Vista completa de llamada con transcripción y audio
 - **Navegación integrada:** Acceso directo a Live Chat y Análisis IA
+
+### **ProspectosKanban** (`src/components/prospectos/ProspectosKanban.tsx`)
+**Componente de vista Kanban** - 600+ líneas
+
+**Características:**
+- **8 columnas de etapas:**
+  1. **Es miembro** (emerald) - Colapsada por defecto
+  2. **Activo PQNC** (teal) - Colapsada por defecto
+  3. **Validando membresia** (blue)
+  4. **En seguimiento** (yellow)
+  5. **Interesado** (green)
+  6. **Atendió llamada** (purple)
+  7. **Con ejecutivo** (indigo) - Nueva
+  8. **Certificado adquirido** (rose) - Nueva
+- **Sistema de colapso:** Columnas colapsables a 60px con texto rotado
+- **Sistema de filtrado:** Mostrar/ocultar columnas con persistencia en localStorage
+- **Cards de prospectos:** Muestra nombre, teléfono, ciudad, score y última actividad
+- **Ordenamiento automático:** Prospectos ordenados por fecha de último mensaje
+- **Scroll independiente:** Cada columna tiene su propio scroll vertical
+- **Optimizaciones:** Carga de mensajes con refs para evitar loops infinitos
 
 **Estados internos:**
 ```typescript
@@ -388,15 +411,18 @@ const ETAPAS_DISPONIBLES = [
 
 ---
 
-## 📋 ESTADO ACTUAL (v5.7.0)
+## 📋 ESTADO ACTUAL (v5.18.0)
 
 ### ✅ **Funcionalidades Operativas**
-- Gestión completa de prospectos con data grid avanzado
+- **Vista Kanban:** 8 columnas con sistema de colapso y filtrado de columnas
+- **Vista Data Grid:** Tabla avanzada con todas las columnas configurables
+- Gestión completa de prospectos con carga completa (sin paginación)
 - Sistema de filtros múltiples e inteligentes
+- Sistema de filtrado de columnas en Kanban con persistencia
 - Sidebar informativo con información completa del prospecto
 - Historial de llamadas integrado con modal de detalle
 - Navegación automática a Live Chat y Análisis IA
-- Paginación automática eficiente para grandes datasets
+- Preferencias de usuario guardadas en localStorage
 
 ### ⚠️ **Limitaciones Conocidas**
 - **Dependencia de múltiples bases de datos** requiere coordinación

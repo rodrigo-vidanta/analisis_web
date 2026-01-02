@@ -12,6 +12,7 @@ export type ViewType = 'datagrid' | 'kanban';
 export interface ProspectsViewPreferences {
   viewType: ViewType;
   collapsedColumns?: string[]; // Columnas colapsadas en Kanban
+  hiddenColumns?: string[]; // Columnas ocultas en Kanban
   lastUpdated?: string;
 }
 
@@ -107,6 +108,32 @@ class ProspectsViewPreferencesService {
     
     this.updateCollapsedColumns(userId, newCollapsed);
     return newCollapsed;
+  }
+
+  /**
+   * Actualizar columnas ocultas (solo para Kanban)
+   */
+  updateHiddenColumns(userId: string | null, hiddenColumns: string[]): void {
+    const currentPreferences = this.getUserPreferences(userId);
+    this.saveUserPreferences(userId, {
+      ...currentPreferences,
+      hiddenColumns
+    });
+  }
+
+  /**
+   * Toggle de columna oculta
+   */
+  toggleColumnVisibility(userId: string | null, columnId: string): string[] {
+    const currentPreferences = this.getUserPreferences(userId);
+    const currentHidden = currentPreferences.hiddenColumns || [];
+    
+    const newHidden = currentHidden.includes(columnId)
+      ? currentHidden.filter(id => id !== columnId)
+      : [...currentHidden, columnId];
+    
+    this.updateHiddenColumns(userId, newHidden);
+    return newHidden;
   }
 }
 

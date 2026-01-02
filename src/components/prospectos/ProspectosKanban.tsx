@@ -46,6 +46,7 @@ interface ProspectosKanbanProps {
   onProspectoClick: (prospecto: Prospecto) => void;
   onProspectoContextMenu?: (e: React.MouseEvent, prospecto: Prospecto) => void;
   collapsedColumns?: string[];
+  hiddenColumns?: string[];
   onToggleColumnCollapse: (columnId: string) => void;
   getStatusColor: (etapa: string) => string;
   getScoreColor: (score: string) => string;
@@ -53,7 +54,7 @@ interface ProspectosKanbanProps {
   columnLoadingStates?: Record<string, { loading: boolean; page: number; hasMore: boolean }>;
 }
 
-// Checkpoints fijos - ORDEN CORRECTO: Es miembro, Activo PQNC, Validando membresia, En seguimiento, Interesado, Atendió llamada
+// Checkpoints fijos - ORDEN CORRECTO: Es miembro, Activo PQNC, Validando membresia, En seguimiento, Interesado, Atendió llamada, Con ejecutivo, Certificado adquirido
 const CHECKPOINTS = {
   'checkpoint #es-miembro': {
     title: 'Es miembro',
@@ -90,10 +91,34 @@ const CHECKPOINTS = {
     description: 'Prospecto atendió llamada',
     color: 'bg-purple-500',
     bgColor: 'bg-purple-50 dark:bg-purple-900/20'
+  },
+  'checkpoint #5': {
+    title: 'Con ejecutivo',
+    description: 'Prospecto asignado a ejecutivo',
+    color: 'bg-indigo-500',
+    bgColor: 'bg-indigo-50 dark:bg-indigo-900/20'
+  },
+  'checkpoint #6': {
+    title: 'Certificado adquirido',
+    description: 'Prospecto adquirió certificado',
+    color: 'bg-rose-500',
+    bgColor: 'bg-rose-50 dark:bg-rose-900/20'
   }
 } as const;
 
 type CheckpointKey = keyof typeof CHECKPOINTS;
+
+// Definir checkpoint keys en el orden correcto (constante fuera del componente)
+const CHECKPOINT_KEYS: CheckpointKey[] = [
+  'checkpoint #es-miembro', // Es miembro (al principio, colapsado)
+  'checkpoint #activo-pqnc', // Activo PQNC (al principio, colapsado)
+  'checkpoint #1', // Validando membresia
+  'checkpoint #2', // En seguimiento
+  'checkpoint #3', // Interesado
+  'checkpoint #4', // Atendió llamada
+  'checkpoint #5', // Con ejecutivo
+  'checkpoint #6'  // Certificado adquirido
+] as const;
 
 // Mapeo de etapas reales a checkpoints - ORDEN CORRECTO
 const getCheckpointForEtapa = (etapa?: string): CheckpointKey => {
@@ -109,8 +134,14 @@ const getCheckpointForEtapa = (etapa?: string): CheckpointKey => {
   if (etapaLower === 'validando membresia' || etapaLower === 'validando membresía') return 'checkpoint #1';
   if (etapaLower === 'en seguimiento' || etapaLower === 'seguimiento') return 'checkpoint #2';
   if (etapaLower === 'interesado' || etapaLower === 'interesada') return 'checkpoint #3';
-  // Atendió llamada es la ÚLTIMA etapa
+  // Atendió llamada
   if (etapaLower === 'atendió llamada' || etapaLower === 'atendio llamada' || etapaLower === 'atendio la llamada') return 'checkpoint #4';
+  
+  // Con ejecutivo (después de Atendió llamada)
+  if (etapaLower === 'con ejecutivo' || etapaLower === 'con ejecutiva' || etapaLower === 'asignado a ejecutivo' || etapaLower === 'asignada a ejecutivo') return 'checkpoint #5';
+  
+  // Certificado adquirido (al final)
+  if (etapaLower === 'certificado adquirido' || etapaLower === 'certificado comprado' || etapaLower === 'certificado obtenido') return 'checkpoint #6';
   
   // Mapeos legacy (por si acaso)
   if (etapaLower === 'propuesta') return 'checkpoint #3'; // Mapear a Interesado como fallback
@@ -126,6 +157,7 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   onProspectoClick,
   onProspectoContextMenu,
   collapsedColumns = [],
+  hiddenColumns = [],
   onToggleColumnCollapse,
   getScoreColor,
   onLoadMoreForColumn,
@@ -134,17 +166,33 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   const [ultimosMensajes, setUltimosMensajes] = useState<Record<string, string>>({});
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const observerRefs = useRef<Record<string, IntersectionObserver>>({});
+  const loadingMensajesRef = useRef(false);
+  const prospectosIdsRef = useRef<string>('');
 
-  // Cargar fechas de último mensaje
+  // Cargar fechas de último mensaje (solo si cambian los IDs de prospectos)
   useEffect(() => {
+    const currentIds = prospectos.map(p => p.id).sort().join(',');
+    
+    // Solo cargar si los IDs realmente cambiaron
+    if (currentIds === prospectosIdsRef.current || loadingMensajesRef.current) {
+      return;
+    }
+    
+    prospectosIdsRef.current = currentIds;
     loadUltimosMensajes();
   }, [prospectos]);
 
   const loadUltimosMensajes = async () => {
+    if (loadingMensajesRef.current) return;
+    loadingMensajesRef.current = true;
+    
     try {
       const prospectoIds = prospectos.map(p => p.id);
       
-      if (prospectoIds.length === 0) return;
+      if (prospectoIds.length === 0) {
+        loadingMensajesRef.current = false;
+        return;
+      }
 
       // ⚡ OPTIMIZACIÓN: Procesar en batches para evitar error 400 con URLs largas
       const MAX_IDS_PER_BATCH = 100;
@@ -192,6 +240,8 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
       setUltimosMensajes(mensajesMap);
     } catch (error) {
       // Silenciar errores
+    } finally {
+      loadingMensajesRef.current = false;
     }
   };
 
@@ -202,6 +252,11 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
       fecha_ultimo_mensaje: ultimosMensajes[p.id] || null
     }));
   }, [prospectos, ultimosMensajes]);
+  
+  // Filtrar columnas ocultas (usando constante externa)
+  const visibleCheckpointKeys = useMemo(() => {
+    return CHECKPOINT_KEYS.filter(key => !hiddenColumns.includes(key));
+  }, [hiddenColumns]);
 
   // Mapeo inverso: checkpoint → etapas posibles
   const getEtapasForCheckpoint = (checkpoint: CheckpointKey): string[] => {
@@ -218,6 +273,10 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
         return ['Interesado', 'Interesada'];
       case 'checkpoint #4':
         return ['Atendió llamada', 'Atendio llamada', 'Atendio la llamada'];
+      case 'checkpoint #5':
+        return ['Con ejecutivo', 'Con ejecutiva', 'Asignado a ejecutivo', 'Asignada a ejecutivo'];
+      case 'checkpoint #6':
+        return ['Certificado adquirido', 'Certificado comprado', 'Certificado obtenido'];
       default:
         return [];
     }
@@ -231,7 +290,9 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
       'checkpoint #1': [],
       'checkpoint #2': [],
       'checkpoint #3': [],
-      'checkpoint #4': []
+      'checkpoint #4': [],
+      'checkpoint #5': [],
+      'checkpoint #6': []
     };
     
     prospectosConMensajes.forEach(prospecto => {
@@ -260,7 +321,10 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   useEffect(() => {
     if (!onLoadMoreForColumn) return;
 
-    checkpointKeys.forEach((checkpointKey) => {
+    // Crear una copia estable de las keys para evitar recrear observers innecesariamente
+    const keysToProcess = [...visibleCheckpointKeys];
+    
+    keysToProcess.forEach((checkpointKey) => {
       const etapas = getEtapasForCheckpoint(checkpointKey);
       const etapa = etapas[0]; // Usar la primera etapa como identificador
       const columnElement = columnRefs.current[checkpointKey];
@@ -301,17 +365,7 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     return () => {
       Object.values(observerRefs.current).forEach(observer => observer.disconnect());
     };
-  }, [prospectosPorCheckpoint, columnLoadingStates, onLoadMoreForColumn]);
-
-  // Definir checkpoint keys en el orden correcto
-  const checkpointKeys: CheckpointKey[] = [
-    'checkpoint #es-miembro', // Es miembro (al principio, colapsado)
-    'checkpoint #activo-pqnc', // Activo PQNC (al principio, colapsado)
-    'checkpoint #1', // Validando membresia
-    'checkpoint #2', // En seguimiento
-    'checkpoint #3', // Interesado
-    'checkpoint #4'  // Atendió llamada
-  ];
+  }, [prospectosPorCheckpoint, columnLoadingStates, onLoadMoreForColumn, visibleCheckpointKeys]);
 
   const formatFechaUltimoMensaje = (fecha: string | null) => {
     if (!fecha) return 'Sin mensajes';
@@ -424,14 +478,14 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     return availableWidth;
   };
 
-  const totalExpanded = checkpointKeys.filter(key => !collapsedColumns.includes(key)).length;
+  const totalExpanded = visibleCheckpointKeys.filter(key => !collapsedColumns.includes(key)).length;
 
   return (
     <div className="h-full flex flex-col">
       <div className="rounded-lg overflow-hidden flex-1 flex flex-col" style={{ height: '100%', maxHeight: '100%' }}>
         {/* Contenedor principal con flexbox horizontal */}
         <div className="flex gap-0 flex-1" style={{ height: '100%', maxHeight: '100%', minHeight: 0 }}>
-          {checkpointKeys.map((checkpointKey) => {
+          {visibleCheckpointKeys.map((checkpointKey) => {
             const checkpoint = CHECKPOINTS[checkpointKey];
             const prospectosCheckpoint = prospectosPorCheckpoint[checkpointKey];
             const isCollapsed = collapsedColumns.includes(checkpointKey);
@@ -520,7 +574,6 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                             {renderProspectoCard(prospecto)}
                           </div>
                         ))}
-                        {/* Infinite scroll ya no es necesario - todos los prospectos están cargados */}
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-600 text-sm">
@@ -556,6 +609,12 @@ export default memo(ProspectosKanban, (prevProps, nextProps) => {
   // Si cambió el estado de columnas colapsadas, necesita re-render
   if (prevProps.collapsedColumns.length !== nextProps.collapsedColumns.length) return false;
   if (!prevProps.collapsedColumns.every((col, i) => col === nextProps.collapsedColumns[i])) return false;
+  
+  // Si cambió el estado de columnas ocultas, necesita re-render
+  const prevHidden = prevProps.hiddenColumns || [];
+  const nextHidden = nextProps.hiddenColumns || [];
+  if (prevHidden.length !== nextHidden.length) return false;
+  if (!prevHidden.every((col, i) => col === nextHidden[i])) return false;
   
   // Crear mapas para comparación eficiente
   const prevMap = new Map(prevProps.prospectos.map(p => [p.id, p.etapa]));

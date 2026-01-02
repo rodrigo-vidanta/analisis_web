@@ -17,6 +17,42 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.18.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🎨 Nuevas Columnas en Kanban y Sistema de Filtrado**
+- **Nuevas columnas añadidas:**
+  - **"Con ejecutivo"**: Columna añadida después de "Atendió llamada" (checkpoint #5)
+  - **"Certificado adquirido"**: Columna añadida al final del Kanban (checkpoint #6)
+- **Sistema de filtrado de columnas:**
+  - Dropdown con checkboxes para mostrar/ocultar columnas individuales
+  - Persistencia de preferencias en localStorage por usuario
+  - Indicador visual con contador de columnas ocultas
+  - Botón "Mostrar todas" para restaurar todas las columnas
+- **Optimizaciones de rendimiento:**
+  - `CHECKPOINT_KEYS` movido fuera del componente como constante
+  - Ref para evitar cargas múltiples de mensajes
+  - Comparación de IDs antes de recargar datos
+- **Colores de nuevas etapas:**
+  - **Con ejecutivo**: Color indigo (`bg-indigo-500`)
+  - **Certificado adquirido**: Color rose (`bg-rose-500`)
+- **Archivos modificados:**
+  - `src/components/prospectos/ProspectosKanban.tsx` - Nuevas columnas, sistema de filtrado, optimizaciones
+  - `src/components/prospectos/ProspectosManager.tsx` - UI de filtrado, manejo de columnas ocultas
+  - `src/services/prospectsViewPreferencesService.ts` - Soporte para `hiddenColumns`
+
+#### **🐛 Corrección de Loop Infinito - ERR_INSUFFICIENT_RESOURCES**
+- **Problema resuelto:** Múltiples queries a `auth_users` con `backup_id` y `has_backup` causando saturación
+- **Solución implementada:**
+  - `authService.ts` ahora usa caché de `permissionsService` en lugar de queries directas
+  - `backupCache` en `permissionsService` hecho público para acceso compartido
+  - Eliminadas queries redundantes en login de ejecutivos
+- **Archivos modificados:**
+  - `src/services/authService.ts` - Uso de caché compartido
+  - `src/services/permissionsService.ts` - `backupCache` público
+
+---
+
 ### **v5.17.0** - Enero 2025
 **Estado:** ✅ Producción
 

@@ -21,7 +21,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   Search, Filter, SortAsc, SortDesc, X, User, Users, Phone, Mail,
   Calendar, MapPin, Building, DollarSign, Clock, Tag,
-  ChevronRight, Eye, Edit, Star, TrendingUp, Activity,
+  ChevronRight, Eye, EyeOff, Edit, Star, TrendingUp, Activity,
   FileText, MessageSquare, CheckCircle, AlertTriangle, Network,
   LayoutGrid, Table2, PhoneCall, Heart, Loader2
 } from 'lucide-react';
@@ -949,6 +949,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   // Estado para vista (Kanban/Datagrid)
   const [viewType, setViewType] = useState<ViewType>('kanban');
   const [collapsedColumns, setCollapsedColumns] = useState<string[]>([]);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -997,6 +998,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     const preferences = prospectsViewPreferencesService.getUserPreferences(user?.id || null);
     setViewType(preferences.viewType);
     setCollapsedColumns(preferences.collapsedColumns || []);
+    setHiddenColumns(preferences.hiddenColumns || []);
   }, [user?.id]);
 
   // Cargar opciones de filtros (coordinaciones y ejecutivos) para todos los usuarios con acceso al módulo
@@ -1045,7 +1047,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         'Validando membresia',
         'En seguimiento',
         'Interesado',
-        'Atendió llamada'
+        'Atendió llamada',
+        'Con ejecutivo',
+        'Certificado adquirido'
       ];
       
       const initialStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
@@ -1428,6 +1432,45 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     setCollapsedColumns(newCollapsed);
   };
 
+  // Manejar visibilidad de columnas en Kanban
+  const handleToggleColumnVisibility = (columnId: string) => {
+    const newHidden = prospectsViewPreferencesService.toggleColumnVisibility(user?.id || null, columnId);
+    setHiddenColumns(newHidden);
+  };
+
+  // Definir todas las columnas disponibles del Kanban
+  const kanbanColumns = [
+    { id: 'checkpoint #es-miembro', label: 'Es miembro' },
+    { id: 'checkpoint #activo-pqnc', label: 'Activo PQNC' },
+    { id: 'checkpoint #1', label: 'Validando membresia' },
+    { id: 'checkpoint #2', label: 'En seguimiento' },
+    { id: 'checkpoint #3', label: 'Interesado' },
+    { id: 'checkpoint #4', label: 'Atendió llamada' },
+    { id: 'checkpoint #5', label: 'Con ejecutivo' },
+    { id: 'checkpoint #6', label: 'Certificado adquirido' }
+  ];
+
+  // Estado para mostrar/ocultar el dropdown de filtrado
+  const [showColumnFilter, setShowColumnFilter] = useState(false);
+  const columnFilterRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (columnFilterRef.current && !columnFilterRef.current.contains(event.target as Node)) {
+        setShowColumnFilter(false);
+      }
+    };
+
+    if (showColumnFilter) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showColumnFilter]);
+
   const getUniqueValues = (field: keyof Prospecto) => {
     return [...new Set(prospectos.map(p => p[field]).filter(Boolean))];
   };
@@ -1589,6 +1632,83 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               </motion.button>
             )}
             
+            {/* Filtro de columnas Kanban */}
+            {viewType === 'kanban' && (
+              <div className="relative" ref={columnFilterRef}>
+                <button
+                  onClick={() => setShowColumnFilter(!showColumnFilter)}
+                  className="h-9 flex items-center gap-1.5 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-xs whitespace-nowrap"
+                  title="Filtrar columnas"
+                >
+                  {hiddenColumns.length > 0 ? (
+                    <>
+                      <EyeOff size={14} />
+                      <span className="hidden sm:inline">Columnas ({hiddenColumns.length} ocultas)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={14} />
+                      <span className="hidden sm:inline">Columnas</span>
+                    </>
+                  )}
+                </button>
+                
+                {/* Dropdown de filtrado */}
+                <AnimatePresence>
+                  {showColumnFilter && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 p-2"
+                    >
+                      <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">
+                        Mostrar/Ocultar Columnas
+                      </div>
+                      <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {kanbanColumns.map((column) => {
+                          const isHidden = hiddenColumns.includes(column.id);
+                          return (
+                            <label
+                              key={column.id}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!isHidden}
+                                onChange={() => handleToggleColumnVisibility(column.id)}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                              <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">
+                                {column.label}
+                              </span>
+                              {isHidden && (
+                                <EyeOff size={14} className="text-gray-400" />
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {hiddenColumns.length > 0 && (
+                        <button
+                          onClick={() => {
+                            kanbanColumns.forEach(col => {
+                              if (hiddenColumns.includes(col.id)) {
+                                handleToggleColumnVisibility(col.id);
+                              }
+                            });
+                          }}
+                          className="mt-2 w-full text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        >
+                          Mostrar todas
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+            
             {/* Toggle de Vista al final */}
             <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 h-9">
               <button
@@ -1651,6 +1771,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               }
             }}
             collapsedColumns={collapsedColumns}
+            hiddenColumns={hiddenColumns}
             onToggleColumnCollapse={handleToggleColumnCollapse}
             getStatusColor={getStatusColor}
             getScoreColor={getScoreColor}
