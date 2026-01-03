@@ -314,6 +314,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-049', date: '2026-01-02 18:30', version: 'v2.2.7', status: 'success', duration: '31.69s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-048', date: '2026-01-02 17:50', version: 'v2.2.6', status: 'success', duration: '19.62s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-047', date: '2025-01-16 00:00', version: 'v2.2.4', status: 'pending', duration: '0s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-046', date: '2025-12-29 13:45', version: 'v2.1.27-hotfix', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
