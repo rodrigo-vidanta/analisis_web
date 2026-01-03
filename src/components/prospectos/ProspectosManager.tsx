@@ -934,10 +934,12 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [allProspectos, setAllProspectos] = useState<Prospecto[]>([]); // Todos los prospectos cargados
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false); // Ya no hay más datos porque cargamos todo
+  const [hasMore, setHasMore] = useState(true); // Hay más datos para cargar
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const scrollObserverRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const BATCH_SIZE = 400; // Tamaño del batch para infinite scrolling (DataGrid y Kanban)
   
   const [selectedProspecto, setSelectedProspecto] = useState<Prospecto | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1037,9 +1039,18 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     loadFilterOptions();
   }, [user?.id, user?.role_name]);
 
+  // Ref para prevenir cargas iniciales duplicadas (React Strict Mode)
+  const hasInitialLoadRef = useRef(false);
+
   // Cargar prospectos iniciales para todas las columnas (Kanban)
   useEffect(() => {
+    // Prevenir cargas duplicadas en React Strict Mode
+    if (hasInitialLoadRef.current) {
+      return;
+    }
+
     if (user?.id && viewType === 'kanban') {
+      hasInitialLoadRef.current = true;
       // Inicializar estados de columnas
       const etapasIniciales = [
         'Es miembro',
@@ -1061,16 +1072,23 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       // Cargar todos los prospectos de una vez
       loadProspectos(true);
     } else if (user?.id && viewType === 'datagrid') {
+      hasInitialLoadRef.current = true;
       // Para datagrid, cargar todos los prospectos
       loadProspectos(true);
     }
+
+    // Resetear el flag cuando cambia el usuario o la vista
+    return () => {
+      hasInitialLoadRef.current = false;
+    };
   }, [user?.id, viewType]);
 
   // Los filtros ahora se aplican solo en memoria, no recargan desde la base de datos
   // Solo recargar cuando cambia el usuario o la vista
 
-  // Infinite Scroll ya no es necesario - todos los prospectos se cargan de una vez
-  // Se mantiene el useEffect vacío para evitar errores si hay referencias al scrollObserverRef
+  // Infinite Scroll para DataGrid - cargar más prospectos cuando se hace scroll
+  // NOTA: Este useEffect debe estar después de la definición de filteredAndSortedProspectos
+  // Por ahora usamos allProspectos.length en lugar de filteredAndSortedProspectos.length
 
   // OPTIMIZACIÓN: Cargar todas las coordinaciones y ejecutivos de una vez
   const loadCoordinacionesAndEjecutivos = async () => {
@@ -1122,7 +1140,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const loadProspectos = async (reset: boolean = false) => {
     // Prevenir ejecuciones simultáneas
     if (isLoadingProspectosRef.current) {
-      console.warn('⚠️ loadProspectos ya está en ejecución, ignorando llamada duplicada');
+      // Silenciar retorno - el ref previene ejecuciones duplicadas correctamente
+      // (React Strict Mode puede ejecutar efectos dos veces, esto es normal)
       return;
     }
     
@@ -1132,15 +1151,20 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       if (reset) {
         setLoading(true);
         setAllProspectos([]);
-        setHasMore(false);
+        setHasMore(true);
+        setCurrentPage(0);
         setColumnPages({});
         setColumnLoadingStates({});
       }
 
-      // Construir query base - CARGAR TODOS LOS PROSPECTOS SIN LÍMITE
+      // Construir query base con paginación usando .range()
+      const from = reset ? 0 : currentPage * BATCH_SIZE;
+      const to = from + BATCH_SIZE - 1;
+      
       let query = analysisSupabase
         .from('prospectos')
-        .select('*', { count: 'exact' });
+        .select('*', { count: 'exact' })
+        .range(from, to);
 
       // Aplicar filtros de permisos si hay usuario (incluye lógica de backup)
       let ejecutivosIdsParaFiltro: string[] | null = null;
@@ -1174,8 +1198,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         }
       }
 
-      // NO aplicar paginación - cargar todos los prospectos
-      // La query siempre debería tener .order() después de .select()
+      // Aplicar ordenamiento y paginación con .range()
       let data, error, count;
       try {
         // Verificar que la query tiene .order() antes de usarlo
@@ -1189,7 +1212,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           const { analysisSupabase } = await import('../../config/analysisSupabase');
           let fallbackQuery = analysisSupabase
             .from('prospectos')
-            .select('*', { count: 'exact' });
+            .select('*', { count: 'exact' })
+            .range(from, to);
           
           // Aplicar los mismos filtros que se aplicaron antes
           if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
@@ -1204,17 +1228,18 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           count = fallbackResult.count;
         }
       } catch (err) {
-        // Si falla, reconstruir la query con los filtros aplicados (no sin filtros)
+        // Si falla, reconstruir la query con los filtros aplicados
         const { analysisSupabase } = await import('../../config/analysisSupabase');
         let fallbackQuery = analysisSupabase
           .from('prospectos')
-          .select('*', { count: 'exact' });
+          .select('*', { count: 'exact' })
+          .range(from, to);
         
         // Aplicar los mismos filtros que se aplicaron antes
         if (ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
           fallbackQuery = fallbackQuery.in('ejecutivo_id', ejecutivosIdsParaFiltro);
-        } else if (coordinacionIdParaFiltro) {
-          fallbackQuery = fallbackQuery.eq('coordinacion_id', coordinacionIdParaFiltro);
+        } else if (coordinacionesIdsParaFiltro && coordinacionesIdsParaFiltro.length > 0) {
+          fallbackQuery = fallbackQuery.in('coordinacion_id', coordinacionesIdsParaFiltro);
         }
         
         const fallbackResult = await fallbackQuery.order('created_at', { ascending: false });
@@ -1228,9 +1253,29 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         return;
       }
 
-      // Actualizar contador total
-      if (count !== null) {
+      // Actualizar contador total (solo en reset)
+      if (reset && count !== null) {
         setTotalCount(count);
+      }
+
+      // Verificar si hay más datos para cargar
+      if (reset) {
+        // En reset, verificar contra el total
+        if (count !== null) {
+          setHasMore((data?.length || 0) < count);
+        } else {
+          // Si no hay count, verificar si se cargaron menos que el batch size
+          setHasMore((data?.length || 0) === BATCH_SIZE);
+        }
+      } else {
+        // Al agregar más datos, verificar si hay más disponibles
+        const totalLoaded = allProspectos.length + (data?.length || 0);
+        if (count !== null) {
+          setHasMore(totalLoaded < count);
+        } else {
+          // Si no hay count, verificar si se cargaron menos que el batch size
+          setHasMore((data?.length || 0) === BATCH_SIZE);
+        }
       }
 
       // Cargar coordinaciones y ejecutivos una sola vez (optimización crítica)
@@ -1281,10 +1326,55 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         enrichedProspectos = prospectosFiltrados;
       }
 
-      // Cargar todos los prospectos de una vez
-      setAllProspectos(enrichedProspectos);
-      setProspectos(enrichedProspectos);
-      setHasMore(false); // Ya no hay más datos porque cargamos todo
+      // Agregar nuevos prospectos a los existentes (o reemplazar si es reset)
+      if (reset) {
+        setAllProspectos(enrichedProspectos);
+        setProspectos(enrichedProspectos);
+        setCurrentPage(1); // Siguiente página será 1
+        
+        // Actualizar estados de columnas para Kanban
+        if (viewType === 'kanban') {
+          const etapasIniciales = [
+            'Es miembro',
+            'Activo PQNC',
+            'Validando membresia',
+            'En seguimiento',
+            'Interesado',
+            'Atendió llamada',
+            'Con ejecutivo',
+            'Certificado adquirido'
+          ];
+          
+          const newColumnStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
+          etapasIniciales.forEach(etapa => {
+            newColumnStates[etapa] = { 
+              loading: false, 
+              page: 0, 
+              hasMore: hasMore // Usar el estado calculado arriba
+            };
+          });
+          setColumnLoadingStates(newColumnStates);
+        }
+      } else {
+        // Agregar a los existentes
+        setAllProspectos(prev => [...prev, ...enrichedProspectos]);
+        setProspectos(prev => [...prev, ...enrichedProspectos]);
+        setCurrentPage(prev => prev + 1);
+        
+        // Actualizar estados de columnas para Kanban cuando se cargan más datos
+        if (viewType === 'kanban') {
+          setColumnLoadingStates(prev => {
+            const updated = { ...prev };
+            Object.keys(updated).forEach(etapa => {
+              updated[etapa] = {
+                ...updated[etapa],
+                hasMore: hasMore // Actualizar hasMore para todas las columnas
+              };
+            });
+            return updated;
+          });
+        }
+      }
       
     } catch (error) {
       console.error('❌ Error loading prospectos:', error);
@@ -1296,17 +1386,21 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   };
 
   // Función para cargar más prospectos de una columna específica (Kanban)
-  // Ya no es necesaria porque cargamos todos los prospectos de una vez
+  // Implementa infinite scrolling para Kanban también
   const loadMoreProspectosForColumn = async (etapa: string) => {
-    // No hacer nada - todos los prospectos ya están cargados
-    return;
+    // Usar la misma función de carga general, pero solo para Kanban
+    if (viewType === 'kanban' && !loadingMore && hasMore && !isLoadingProspectosRef.current) {
+      setLoadingMore(true);
+      await loadProspectos(false); // Cargar más prospectos sin reset
+    }
   };
 
-  // Cargar más prospectos cuando se hace scroll
-  // Ya no es necesaria porque cargamos todos los prospectos de una vez
+  // Cargar más prospectos cuando se hace scroll (infinite scrolling)
   const loadMoreProspectos = () => {
-    // No hacer nada - todos los prospectos ya están cargados
-    return;
+    if (!loadingMore && hasMore && !isLoadingProspectosRef.current) {
+      setLoadingMore(true);
+      loadProspectos(false); // No reset, agregar a los existentes
+    }
   };
 
   // Filtrar y ordenar prospectos (usar allProspectos para filtros)
@@ -1389,15 +1483,56 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     return filtered;
   }, [allProspectos, filters, sort]);
 
+  // Infinite Scroll para DataGrid - cargar más prospectos cuando se hace scroll
+  useEffect(() => {
+    if (viewType !== 'datagrid' || !hasMore || loading || loadingMore) {
+      return;
+    }
+
+    const scrollContainer = scrollObserverRef.current;
+    const sentinel = sentinelRef.current;
+    
+    if (!scrollContainer || !sentinel) {
+      return;
+    }
+
+    // Función para verificar si debemos cargar más
+    const checkShouldLoad = () => {
+      const containerHeight = scrollContainer.clientHeight;
+      const scrollTop = scrollContainer.scrollTop;
+      const scrollHeight = scrollContainer.scrollHeight;
+      
+      // Calcular porcentaje de scroll (0 = inicio, 100 = final)
+      const scrollPercentage = (scrollTop + containerHeight) / scrollHeight * 100;
+      
+      // Cargar cuando el usuario está al 75% del scroll (25% antes del final)
+      if (scrollPercentage >= 75 && hasMore && !loadingMore && !isLoadingProspectosRef.current) {
+        loadMoreProspectos();
+      }
+    };
+
+    // Escuchar eventos de scroll
+    scrollContainer.addEventListener('scroll', checkShouldLoad);
+    
+    // También verificar inmediatamente por si el contenido es pequeño
+    checkShouldLoad();
+
+    return () => {
+      scrollContainer.removeEventListener('scroll', checkShouldLoad);
+    };
+  }, [viewType, hasMore, loading, loadingMore, allProspectos.length]);
+
   // Emitir evento para actualizar contador en el header
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('prospect-count-update', {
       detail: {
         filtered: filteredAndSortedProspectos.length,
-        total: totalCount > 0 ? totalCount : allProspectos.length
+        total: totalCount > 0 ? totalCount : allProspectos.length,
+        loaded: allProspectos.length, // Prospectos cargados actualmente
+        hasMore: hasMore // Si hay más prospectos por cargar
       }
     }));
-  }, [filteredAndSortedProspectos.length, totalCount, allProspectos.length]);
+  }, [filteredAndSortedProspectos.length, totalCount, allProspectos.length, hasMore]);
 
   const handleSort = (field: keyof Prospecto) => {
     setSort(prev => ({
@@ -1747,12 +1882,18 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col p-6"
-          style={{ height: 'calc(100vh - 280px)', maxHeight: 'calc(100vh - 280px)' }}
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col p-4 md:p-6 scrollbar-hide"
+          style={{ 
+            height: 'calc(100vh - 280px)', 
+            maxHeight: 'calc(100vh - 280px)',
+            width: '100%',
+            maxWidth: '100%'
+          }}
         >
           <ProspectosKanban
             prospectos={filteredAndSortedProspectos}
             onProspectoClick={handleProspectoClick}
+            onLoadMoreForColumn={loadMoreProspectosForColumn}
             onProspectoContextMenu={(e, prospecto) => {
               if (isCoordinador || isAdmin || isAdminOperativo) {
                 setAssignmentContextMenu({
@@ -1787,7 +1928,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col"
+          style={{ height: 'calc(100vh - 280px)', maxHeight: 'calc(100vh - 280px)' }}
         >
           {/* Vista móvil: Cards */}
           <div className="block md:hidden p-4 space-y-4">
@@ -1862,8 +2004,12 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             ))}
           </div>
 
-          {/* Vista desktop/tablet: Tabla con scroll horizontal mejorado */}
-          <div className="block overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+          {/* Vista desktop/tablet: Tabla con scroll horizontal y vertical */}
+          <div 
+            ref={scrollObserverRef}
+            className="block overflow-x-auto overflow-y-auto flex-1 scrollbar-hide"
+            style={{ maxHeight: '100%' }}
+          >
             <table className="w-full min-w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
@@ -2077,6 +2223,26 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 </AnimatePresence>
               </tbody>
             </table>
+            
+            {/* Elemento sentinel para infinite scrolling */}
+            {viewType === 'datagrid' && (
+              <div 
+                ref={sentinelRef}
+                className="h-20 flex items-center justify-center py-4"
+              >
+                {loadingMore && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Cargando más prospectos...</span>
+                  </div>
+                )}
+                {!hasMore && allProspectos.length > 0 && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400 py-4">
+                    Todos los prospectos cargados ({allProspectos.length} de {totalCount > 0 ? totalCount : allProspectos.length})
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           {filteredAndSortedProspectos.length === 0 && !loading && (

@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'XXXXXXX', date: '2026-01-02', author: 'Team', message: 'v2.2.7: 🔧 Fix error 406 system_config - Eliminada consulta directa desde Sidebar', isRelease: true },
   { hash: 'a70547e', date: '2026-01-02', author: 'Team', message: 'v2.2.6: 📊 Dashboard Ejecutivo - Widgets de métricas, funnel y ventas con animaciones avanzadas', isRelease: true },
   { hash: 'f41c4d8', date: '2025-01-16', author: 'Team', message: 'v2.2.5: 🎨 Nuevas columnas Kanban + Sistema filtrado + Fix loop infinito auth_users', isRelease: true },
   { hash: 'd9ef803', date: '2025-01-16', author: 'Team', message: 'v2.2.4: ⚡ Optimización crítica ERR_INSUFFICIENT_RESOURCES - Pre-carga batch datos backup', isRelease: true },
@@ -358,8 +359,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.6', highlight: true },
-  { label: 'Release', value: 'B7.1.5N7.0.5', highlight: false },
+  { label: 'Version', value: 'v2.2.7', highlight: true },
+  { label: 'Release', value: 'B7.1.6N7.0.6', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '02 Ene 2026', highlight: false },
 ];

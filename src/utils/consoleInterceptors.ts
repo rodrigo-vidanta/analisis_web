@@ -127,6 +127,15 @@ console.warn = (...args: any[]) => {
     return;
   }
   
+  // Silenciar warnings sobre system_config (tabla puede no existir en todas las BDs)
+  if (fullMessage.includes('system_config') || 
+      fullMessage.includes('selected_logo') ||
+      fullMessage.includes('error cargando logo') ||
+      fullMessage.includes('could not find the table') ||
+      fullMessage.includes('schema cache')) {
+    return;
+  }
+  
   originalWarn.apply(console, args);
 };
 
@@ -146,12 +155,26 @@ window.fetch = async function(...args: any[]) {
       (url.includes('/rest/v1/llamadas_ventas') && url.length > 8000) ||
       (url.includes('/rest/v1/mensajes_whatsapp') && url.length > 8000)) {
     try {
+      // Usar un try-catch interno para capturar cualquier error antes de que se muestre
       const response = await originalFetch.apply(window, args);
       
-      // Si es un 404, interceptar antes de que se muestre en consola
-      if (response.status === 404) {
-        // Retornar respuesta silenciosa - el código manejará el error
-        // Clonar la respuesta para poder leerla sin afectar el flujo
+      // Si es un 404 o 406, interceptar antes de que se muestre en consola
+      if (response.status === 404 || response.status === 406) {
+        // Para system_config, retornar una respuesta que no cause errores en consola
+        if (url.includes('/rest/v1/system_config')) {
+          // Retornar una respuesta que Supabase pueda procesar sin mostrar errores
+          // El 406 indica que la tabla no está expuesta o tiene RLS restrictivo
+          return new Response(JSON.stringify({ message: 'No rows returned', code: 'PGRST116', details: null, hint: null }), {
+            status: 200,
+            statusText: 'OK',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Content-Range': '*/0'
+            }
+          });
+        }
+        
+        // Para otras tablas, retornar respuesta silenciosa
         const clonedResponse = response.clone();
         return clonedResponse;
       }
@@ -160,6 +183,17 @@ window.fetch = async function(...args: any[]) {
     } catch (error) {
       // Si hay un error de red, también manejarlo silenciosamente
       // El código tiene fallbacks para estos casos
+      if (url.includes('/rest/v1/system_config')) {
+        return new Response(JSON.stringify({ message: 'No rows returned', code: 'PGRST116', details: null, hint: null }), {
+          status: 404,
+          statusText: 'Not Found',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Content-Range': '*/0'
+          }
+        });
+      }
+      
       return new Response(JSON.stringify([]), {
         status: 404,
         statusText: 'Not Found',
@@ -210,49 +244,8 @@ if (window.XMLHttpRequest) {
   };
 }
 
-// Silenciar errores 404 de tablas que no existen (se manejan con fallbacks)
-const originalError = console.error;
-console.error = (...args: any[]) => {
-  const message = args[0]?.toString() || '';
-  const fullMessage = args.map(arg => arg?.toString() || '').join(' ');
-  
-  // Silenciar errores 404 de Supabase para tablas que no existen (se manejan con datos mock o fallbacks)
-  if ((message.includes('404') || fullMessage.includes('404')) && 
-      (fullMessage.includes('tools') || 
-       fullMessage.includes('agent_templates') || 
-       fullMessage.includes('coordinaciones') ||
-       fullMessage.includes('ejecutivos') ||
-       fullMessage.includes('system_config') ||
-       fullMessage.includes('Not Found'))) {
-    return;
-  }
-  
-  // Silenciar errores de red 404 de Supabase REST API
-  if (fullMessage.includes('GET') && fullMessage.includes('404') && 
-      (fullMessage.includes('/rest/v1/tools') || 
-       fullMessage.includes('/rest/v1/agent_templates') ||
-       fullMessage.includes('/rest/v1/coordinaciones') ||
-       fullMessage.includes('/rest/v1/ejecutivos') ||
-       fullMessage.includes('/rest/v1/system_config'))) {
-    return;
-  }
-  
-  // Silenciar errores 400 de queries muy largas (se manejan con batches)
-  if ((message.includes('400') || fullMessage.includes('400')) && 
-      (fullMessage.includes('llamadas_ventas') || fullMessage.includes('mensajes_whatsapp')) &&
-      fullMessage.includes('Bad Request')) {
-    return;
-  }
-  
-  // Silenciar errores 406 de system_config (tabla puede no existir en todas las BDs)
-  if ((message.includes('406') || fullMessage.includes('406')) && 
-      fullMessage.includes('system_config') &&
-      fullMessage.includes('Not Acceptable')) {
-    return;
-  }
-  
-  originalError.apply(console, args);
-};
+// NOTA: El interceptor de console.error principal está más abajo (línea ~308)
+// Este interceptor anterior se mantiene para compatibilidad pero el principal tiene prioridad
 
 // ============================================
 // INTERCEPTOR GLOBAL DE ERRORES PARA LOGGING
@@ -296,23 +289,70 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 // Interceptar console.error para capturar errores críticos
+// IMPORTANTE: Este interceptor debe filtrar ANTES de llamar al original para evitar mostrar errores esperados
+// NOTA: Este interceptor sobrescribe el anterior, así que debe incluir toda la lógica de filtrado
 const originalConsoleError = console.error;
 console.error = (...args: any[]) => {
-  // Llamar al original primero
-  originalConsoleError.apply(console, args);
-  
-  // NO capturar errores del propio ErrorLogService para evitar loops infinitos
   const firstArg = args[0];
-  const fullMessage = args.map(arg => String(arg)).join(' ');
+  const message = args[0]?.toString() || '';
+  const fullMessage = args.map(arg => String(arg)).join(' ').toLowerCase();
+  
+  // Filtrar errores 404 y 406 de system_config ANTES de mostrar (PRIORIDAD ALTA)
+  if ((fullMessage.includes('404') || fullMessage.includes('406') || 
+       fullMessage.includes('not found') || fullMessage.includes('not acceptable')) && 
+      (fullMessage.includes('system_config') || 
+       fullMessage.includes('selected_logo') ||
+       fullMessage.includes('/rest/v1/system_config'))) {
+    return; // Silenciar completamente - no mostrar ni loggear
+  }
+  
+  // Silenciar errores 404 de Supabase para tablas que no existen (se manejan con datos mock o fallbacks)
+  if ((message.includes('404') || fullMessage.includes('404')) && 
+      (fullMessage.includes('tools') || 
+       fullMessage.includes('agent_templates') || 
+       fullMessage.includes('coordinaciones') ||
+       fullMessage.includes('ejecutivos') ||
+       fullMessage.includes('system_config') ||
+       fullMessage.includes('not found'))) {
+    return;
+  }
+  
+  // Silenciar errores de red 404 de Supabase REST API
+  if (fullMessage.includes('get') && fullMessage.includes('404') && 
+      (fullMessage.includes('/rest/v1/tools') || 
+       fullMessage.includes('/rest/v1/agent_templates') ||
+       fullMessage.includes('/rest/v1/coordinaciones') ||
+       fullMessage.includes('/rest/v1/ejecutivos') ||
+       fullMessage.includes('/rest/v1/system_config'))) {
+    return;
+  }
+  
+  // Silenciar errores 400 de queries muy largas (se manejan con batches)
+  if ((message.includes('400') || fullMessage.includes('400')) && 
+      (fullMessage.includes('llamadas_ventas') || fullMessage.includes('mensajes_whatsapp')) &&
+      fullMessage.includes('bad request')) {
+    return;
+  }
+  
+  // Silenciar errores 406 de system_config (tabla puede no existir o no estar expuesta)
+  if ((message.includes('406') || fullMessage.includes('406')) && 
+      (fullMessage.includes('system_config') || 
+       fullMessage.includes('selected_logo') ||
+       fullMessage.includes('/rest/v1/system_config'))) {
+    return;
+  }
   
   // Excluir mensajes del ErrorLogService
-  if (fullMessage.includes('[ErrorLogService]') || 
-      fullMessage.includes('ErrorLogService') ||
-      fullMessage.includes('Webhook responded') ||
-      fullMessage.includes('Error sending to webhook') ||
-      fullMessage.includes('Error logging error')) {
+  if (fullMessage.includes('[errorlogservice]') || 
+      fullMessage.includes('errorlogservice') ||
+      fullMessage.includes('webhook responded') ||
+      fullMessage.includes('error sending to webhook') ||
+      fullMessage.includes('error logging error')) {
     return; // No loggear errores del propio servicio de logging
   }
+  
+  // Llamar al original solo si no es un error que debe silenciarse
+  originalConsoleError.apply(console, args);
   
   // Excluir errores de Realtime que son warnings esperados (no críticos)
   if (fullMessage.includes('[REALTIME V4]') ||

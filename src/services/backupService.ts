@@ -12,6 +12,7 @@
 
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 import { coordinacionService } from './coordinacionService';
+import { permissionsService } from './permissionsService';
 
 export interface BackupInfo {
   ejecutivo_id: string;
@@ -598,6 +599,7 @@ class BackupService {
   /**
    * Obtiene información del ejecutivo del cual el usuario actual es backup
    * Retorna null si el usuario no es backup de nadie
+   * ⚡ OPTIMIZACIÓN: Usa caché de permissionsService para evitar consultas repetitivas
    */
   async getBackupEjecutivoInfo(currentUserId: string): Promise<{
     ejecutivo_id: string;
@@ -605,13 +607,36 @@ class BackupService {
     ejecutivo_email: string;
   } | null> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
-        .from('auth_users')
-        .select('backup_id, has_backup')
-        .eq('id', currentUserId)
-        .single();
+      // ⚡ OPTIMIZACIÓN: Verificar caché primero (evita loop infinito)
+      const cacheKey = currentUserId;
+      const cached = permissionsService.backupCache.get(cacheKey);
+      const now = Date.now();
+      const CACHE_TTL = 30 * 1000; // 30 segundos (mismo que permissionsService)
+      
+      let backupData: { backup_id: string | null; has_backup: boolean } | null = null;
+      
+      if (cached && (now - cached.timestamp) < CACHE_TTL) {
+        // Usar datos cacheados (0 consultas a BD)
+        backupData = cached.data;
+      } else {
+        // Consultar BD solo si no está en caché o expiró
+        const { data, error } = await supabaseSystemUIAdmin
+          .from('auth_users')
+          .select('backup_id, has_backup')
+          .eq('id', currentUserId)
+          .single();
 
-      if (error || !data || !data.backup_id || !data.has_backup) {
+        if (error || !data) {
+          backupData = null;
+        } else {
+          backupData = data;
+        }
+        
+        // Guardar en caché para próximas consultas
+        permissionsService.backupCache.set(cacheKey, { data: backupData, timestamp: now });
+      }
+
+      if (!backupData || !backupData.backup_id || !backupData.has_backup) {
         return null;
       }
 
@@ -619,7 +644,7 @@ class BackupService {
       const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUIAdmin
         .from('auth_users')
         .select('id, full_name, email')
-        .eq('id', data.backup_id)
+        .eq('id', backupData.backup_id)
         .single();
 
       if (ejecutivoError || !ejecutivoData) {

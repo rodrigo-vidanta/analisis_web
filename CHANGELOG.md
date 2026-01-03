@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 🔧 Fix: Error 406 system_config en Sidebar [02-01-2026]
+
+#### Problema Resuelto
+- **Síntoma:** Errores `406 (Not Acceptable)` al cargar página por consulta a `system_config` desde `Sidebar.tsx`
+- **Causa:** La tabla `system_config` no está expuesta a la API REST de Supabase en la base de datos PQNC
+- **Impacto:** Errores en consola del navegador al cargar la aplicación
+- **Solución:** Eliminada consulta directa a `system_config` desde `Sidebar.tsx`. El componente ahora usa logo sugerido por defecto y escucha cambios desde `SystemPreferences` cuando el usuario cambia el logo.
+
+#### Cambios Realizados
+- ✅ Eliminada consulta directa a `system_config` desde `Sidebar.tsx`
+- ✅ Actualizado `consoleInterceptors.ts` para manejar errores 406 de `system_config`
+- ✅ `Sidebar.tsx` ahora usa `getSuggestedLogo()` por defecto
+- ✅ Sistema de eventos `logo-changed` para actualizar logo cuando se cambia desde `SystemPreferences`
+
+#### Archivos Modificados
+- `src/components/Sidebar.tsx` (eliminada consulta a system_config)
+- `src/utils/consoleInterceptors.ts` (manejo de errores 406)
+
+---
+
 ### 🔴 HOTFIX CRÍTICO: Loop Infinito + Coordinación Visible [29-12-2025]
 
 #### Problema 1: ERR_INSUFFICIENT_RESOURCES (Loop Infinito)

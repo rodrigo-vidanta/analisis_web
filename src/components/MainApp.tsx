@@ -92,6 +92,13 @@ function MainApp() {
   useEffect(() => {
     errorLogService.setActiveModule(appMode);
   }, [appMode]);
+
+  // Colapsar sidebar automáticamente cuando se entra al módulo de Prospectos (vista Kanban por defecto)
+  useEffect(() => {
+    if (appMode === 'prospectos') {
+      setSidebarCollapsed(true);
+    }
+  }, [appMode]);
   
   // Hook de tema para el rediseño
   const { currentTheme, getThemeClasses, isLinearTheme } = useTheme();

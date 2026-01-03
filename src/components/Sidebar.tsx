@@ -10,7 +10,6 @@ import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import type { TokenLimits } from '../services/tokenService';
 import { getLogoComponent, getSuggestedLogo, type LogoType } from './logos/LogoCatalog';
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // Estilos para el logo con animación y glow
 const sidebarLogoStyles = `
@@ -526,34 +525,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   
   const faviconUrl = config.app_branding?.favicon_url;
   
-  // Estado para logo seleccionado
-  const [currentLogoType, setCurrentLogoType] = useState<LogoType>('default');
+  // Estado para logo seleccionado - usar logo sugerido por defecto
+  // No intentar cargar desde BD porque la tabla system_config no está expuesta (error 406)
+  // SystemPreferences.tsx maneja la carga del logo cuando el usuario accede a esa sección
+  const [currentLogoType, setCurrentLogoType] = useState<LogoType>(getSuggestedLogo());
   
-  // Cargar logo seleccionado desde BD
+  // Escuchar cambios de logo desde SystemPreferences (cuando el usuario lo cambia)
   useEffect(() => {
-    const loadSelectedLogo = async () => {
-      try {
-        const { data } = await supabaseSystemUI
-          .from('system_config')
-          .select('config_value')
-          .eq('config_key', 'selected_logo')
-          .single();
-
-        if (data && data.config_value?.logo_type) {
-          setCurrentLogoType(data.config_value.logo_type);
-        } else {
-          // Si no hay configuración, usar sugerido
-          setCurrentLogoType(getSuggestedLogo());
-        }
-      } catch (error) {
-        // Si hay error, usar sugerido
-        setCurrentLogoType(getSuggestedLogo());
-      }
-    };
-
-    loadSelectedLogo();
-
-    // Escuchar cambios de logo desde SystemPreferences
     const handleLogoChanged = (event: CustomEvent) => {
       const { logoType } = event.detail;
       setCurrentLogoType(logoType);

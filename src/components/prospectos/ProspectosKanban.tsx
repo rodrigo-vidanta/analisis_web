@@ -168,6 +168,8 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   const observerRefs = useRef<Record<string, IntersectionObserver>>({});
   const loadingMensajesRef = useRef(false);
   const prospectosIdsRef = useRef<string>('');
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const autoCollapseRef = useRef(false); // Prevenir loops infinitos
 
   // Cargar fechas de último mensaje (solo si cambian los IDs de prospectos)
   useEffect(() => {
@@ -257,6 +259,84 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   const visibleCheckpointKeys = useMemo(() => {
     return CHECKPOINT_KEYS.filter(key => !hiddenColumns.includes(key));
   }, [hiddenColumns]);
+
+  // Columnas menos prioritarias que se colapsan automáticamente cuando no hay espacio
+  // Orden de prioridad: Es miembro → Activo PQNC → Certificado adquirido
+  const lowPriorityColumns: CheckpointKey[] = useMemo(() => [
+    'checkpoint #es-miembro',
+    'checkpoint #activo-pqnc',
+    'checkpoint #6' // Certificado adquirido
+  ], []);
+
+  // Efecto para colapsar automáticamente columnas cuando no hay espacio suficiente
+  useEffect(() => {
+    if (!containerRef.current || autoCollapseRef.current) return;
+
+    const checkAndAutoCollapse = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const containerWidth = container.clientWidth;
+      if (containerWidth === 0) return; // Aún no está renderizado
+
+      const totalVisibleColumns = visibleCheckpointKeys.length;
+      const currentlyCollapsed = collapsedColumns.length;
+      const currentlyExpanded = totalVisibleColumns - currentlyCollapsed;
+
+      if (currentlyExpanded === 0) return; // Ya están todas colapsadas
+
+      // Calcular el ancho mínimo necesario
+      // Columnas colapsadas: 60px cada una
+      // Columnas expandidas: mínimo 120px cada una para ser funcionales
+      const collapsedWidth = currentlyCollapsed * 60;
+      const minExpandedWidthPerColumn = 120; // Mínimo funcional por columna expandida
+      const idealExpandedWidthPerColumn = 180; // Ancho ideal por columna expandida
+      const totalMinWidth = collapsedWidth + (currentlyExpanded * minExpandedWidthPerColumn);
+      const totalIdealWidth = collapsedWidth + (currentlyExpanded * idealExpandedWidthPerColumn);
+
+      // Si el espacio disponible es menor que el ideal, colapsar columnas menos prioritarias
+      if (containerWidth < totalIdealWidth) {
+        autoCollapseRef.current = true;
+        
+        // Encontrar la primera columna menos prioritaria que esté expandida
+        for (const lowPriorityKey of lowPriorityColumns) {
+          if (visibleCheckpointKeys.includes(lowPriorityKey) && 
+              !collapsedColumns.includes(lowPriorityKey)) {
+            // Colapsar esta columna
+            onToggleColumnCollapse(lowPriorityKey);
+            // Usar setTimeout para permitir que React procese el cambio antes de verificar de nuevo
+            setTimeout(() => {
+              autoCollapseRef.current = false;
+            }, 200);
+            return;
+          }
+        }
+        
+        autoCollapseRef.current = false;
+      }
+    };
+
+    // Verificar después de un pequeño delay para asegurar que el DOM está renderizado
+    const timeoutId = setTimeout(checkAndAutoCollapse, 300);
+
+    // También verificar cuando cambia el tamaño de la ventana
+    let resizeTimeoutId: NodeJS.Timeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeoutId);
+      resizeTimeoutId = setTimeout(() => {
+        autoCollapseRef.current = false;
+        checkAndAutoCollapse();
+      }, 200);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(resizeTimeoutId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [visibleCheckpointKeys, collapsedColumns, onToggleColumnCollapse, hiddenColumns, lowPriorityColumns]);
 
   // Mapeo inverso: checkpoint → etapas posibles
   const getEtapasForCheckpoint = (checkpoint: CheckpointKey): string[] => {
@@ -399,15 +479,42 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
             onProspectoContextMenu(e, prospecto);
           }
         }}
-        className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 mb-2"
+        className="bg-white dark:bg-slate-800 rounded-lg p-2.5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 mb-2 min-w-0"
       >
-        {/* Nombre */}
-        <div className="mb-2">
-          <h4 className="font-medium text-sm text-slate-900 dark:text-white truncate">
-            {prospecto.nombre_completo || 
-             `${prospecto.nombre || ''} ${prospecto.apellido_paterno || ''} ${prospecto.apellido_materno || ''}`.trim() || 
-             prospecto.nombre_whatsapp || 
-             'Sin nombre'}
+        {/* Nombre con truncamiento inteligente */}
+        <div className="mb-2 min-w-0">
+          <h4 
+            className="font-medium text-sm text-slate-900 dark:text-white truncate"
+            title={prospecto.nombre_completo || 
+                   `${prospecto.nombre || ''} ${prospecto.apellido_paterno || ''} ${prospecto.apellido_materno || ''}`.trim() || 
+                   prospecto.nombre_whatsapp || 
+                   'Sin nombre'}
+          >
+            {(() => {
+              const nombreCompleto = prospecto.nombre_completo || 
+                `${prospecto.nombre || ''} ${prospecto.apellido_paterno || ''} ${prospecto.apellido_materno || ''}`.trim() || 
+                prospecto.nombre_whatsapp || 
+                'Sin nombre';
+              
+              // Truncamiento inteligente: mostrar primeros nombres y primer apellido con puntos suspensivos
+              // Ejemplo: "Darig Samuel Rosales Robledo" -> "Darig Samuel Ros..."
+              const partes = nombreCompleto.trim().split(/\s+/).filter(p => p.length > 0);
+              
+              if (partes.length <= 2) {
+                // Si tiene 2 palabras o menos, mostrar completo (el truncate CSS se encargará si es muy largo)
+                return nombreCompleto;
+              } else if (partes.length === 3) {
+                // Si tiene 3 palabras: "Nombre Apellido1 Apellido2" -> "Nombre Apellido1..."
+                return `${partes[0]} ${partes[1]}...`;
+              } else {
+                // Si tiene más de 3 palabras: mostrar primeros nombres + primeras 3 letras del primer apellido
+                // Ejemplo: "Darig Samuel Rosales Robledo" -> "Darig Samuel Ros..."
+                const primerosNombres = partes.slice(0, -2).join(' '); // Todos excepto los últimos 2 (apellidos)
+                const primerApellido = partes[partes.length - 2]; // Primer apellido
+                const primerApellidoTruncado = primerApellido.substring(0, 3); // Primeras 3 letras
+                return `${primerosNombres} ${primerApellidoTruncado}...`;
+              }
+            })()}
           </h4>
         </div>
 
@@ -467,13 +574,19 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     );
   };
 
-  // Calcular ancho de cada columna
+  // Calcular ancho de cada columna (responsivo y adaptativo, respetando el contenedor)
   const getColumnWidth = (isCollapsed: boolean, totalExpanded: number) => {
     if (isCollapsed) {
       return '60px'; // Columna más delgada cuando está colapsada
     }
     // Calcular el ancho disponible para columnas expandidas
+    // Asegurar que el total no exceda el 100% del contenedor
     const totalCollapsedWidth = collapsedColumns.length * 60; // Usar 60px para cálculo
+    if (totalExpanded === 0) {
+      return '0px'; // No hay columnas expandidas
+    }
+    // Dividir el espacio disponible entre las columnas expandidas
+    // El ancho se calcula dinámicamente para que todas las columnas quepan
     const availableWidth = `calc((100% - ${totalCollapsedWidth}px) / ${totalExpanded})`;
     return availableWidth;
   };
@@ -481,10 +594,22 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   const totalExpanded = visibleCheckpointKeys.filter(key => !collapsedColumns.includes(key)).length;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="rounded-lg overflow-hidden flex-1 flex flex-col" style={{ height: '100%', maxHeight: '100%' }}>
-        {/* Contenedor principal con flexbox horizontal */}
-        <div className="flex gap-0 flex-1" style={{ height: '100%', maxHeight: '100%', minHeight: 0 }}>
+    <div className="h-full flex flex-col w-full" style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+      <div className="rounded-lg overflow-hidden flex-1 flex flex-col w-full" style={{ height: '100%', maxHeight: '100%', width: '100%', maxWidth: '100%' }}>
+        {/* Contenedor principal con flexbox horizontal - responsivo, sin scroll horizontal */}
+        <div 
+          ref={containerRef}
+          className="flex gap-0 flex-1 w-full overflow-x-hidden scrollbar-hide" 
+          style={{ 
+            height: '100%', 
+            maxHeight: '100%', 
+            minHeight: 0,
+            // Asegurar que el contenedor use exactamente el ancho disponible sin exceder
+            width: '100%',
+            maxWidth: '100%',
+            overflowX: 'hidden' // Forzar sin scroll horizontal
+          }}
+        >
           {visibleCheckpointKeys.map((checkpointKey) => {
             const checkpoint = CHECKPOINTS[checkpointKey];
             const prospectosCheckpoint = prospectosPorCheckpoint[checkpointKey];
@@ -496,12 +621,14 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                 className="flex flex-col border-r border-slate-200 dark:border-slate-700 last:border-r-0"
                 style={{
                   width: getColumnWidth(isCollapsed, totalExpanded),
-                  minWidth: isCollapsed ? '60px' : '200px', // Columna más delgada cuando está colapsada
-                  flexShrink: 0,
-                  flexGrow: isCollapsed ? 0 : 1,
+                  // Ancho mínimo funcional que permite que se ajusten al espacio disponible
+                  minWidth: isCollapsed ? '60px' : '100px', // Mínimo funcional para que el contenido sea legible
+                  flexShrink: isCollapsed ? 0 : 1, // Permitir que se reduzcan si es necesario
+                  flexGrow: isCollapsed ? 0 : 1, // Crecer para llenar espacio disponible
                   height: '100%',
                   maxHeight: '100%',
-                  minHeight: 0 // Necesario para que el scroll funcione en flexbox
+                  minHeight: 0, // Necesario para que el scroll funcione en flexbox
+                  boxSizing: 'border-box' // Incluir padding y border en el cálculo del ancho
                 }}
               >
                 {/* Header de la columna */}
@@ -561,10 +688,12 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                     ref={(el) => {
                       columnRefs.current[checkpointKey] = el;
                     }}
-                    className="flex-1 overflow-y-auto bg-transparent p-2 scrollbar-hide"
+                    className="flex-1 overflow-y-auto bg-transparent p-2 scrollbar-hide min-w-0"
                     style={{
                       height: 0, // Necesario para que flex-1 funcione con overflow
-                      minHeight: 0 // Necesario para que el scroll funcione
+                      minHeight: 0, // Necesario para que el scroll funcione
+                      width: '100%',
+                      maxWidth: '100%'
                     }}
                   >
                     {prospectosCheckpoint.length > 0 ? (
@@ -574,6 +703,25 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                             {renderProspectoCard(prospecto)}
                           </div>
                         ))}
+                        {/* Elemento sentinel para infinite scrolling */}
+                        {(() => {
+                          const etapas = getEtapasForCheckpoint(checkpointKey);
+                          const etapa = etapas[0];
+                          const columnState = columnLoadingStates[etapa];
+                          return (
+                            <div 
+                              data-sentinel 
+                              className="h-20 flex items-center justify-center py-2"
+                            >
+                              {columnState?.loading && (
+                                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <span>Cargando...</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-600 text-sm">
