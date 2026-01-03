@@ -253,9 +253,16 @@ const LiveMonitorKanban: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [ejecutivoFilter, setEjecutivoFilter] = useState('');
   const [filteredHistoryCalls, setFilteredHistoryCalls] = useState<any[]>([]);
-  const [paginatedCalls, setPaginatedCalls] = useState<any[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  // Estados para infinite scroll del historial
+  const [allHistoryCallsLoaded, setAllHistoryCallsLoaded] = useState<any[]>([]);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+  const [totalHistoryCount, setTotalHistoryCount] = useState(0);
+  const HISTORY_BATCH_SIZE = 200;
+  const historyScrollContainerRef = useRef<HTMLDivElement>(null);
+  const isLoadingHistoryRef = useRef(false);
+  const currentPageHistoryRef = useRef(0); // Usar ref para evitar problemas de estado asíncrono
+  const hasInitialLoadRef = useRef(false); // Prevenir múltiples cargas iniciales
   const [uniqueInterests, setUniqueInterests] = useState<string[]>([]);
   const [uniqueEjecutivos, setUniqueEjecutivos] = useState<Array<{id: string, name: string}>>([]);
   const [quickFilters, setQuickFilters] = useState<{
@@ -990,11 +997,34 @@ const LiveMonitorKanban: React.FC = () => {
   };
 
   // Función para cargar historial de llamadas desde la misma fuente que AnalysisIAComplete
-  const loadHistoryCalls = useCallback(async () => {
+  const loadHistoryCalls = useCallback(async (reset: boolean = false) => {
+    // Prevenir ejecuciones simultáneas
+    if (isLoadingHistoryRef.current) {
+      console.log('⚠️ loadHistoryCalls ya está en ejecución, ignorando llamada duplicada');
+      return;
+    }
+    
+    isLoadingHistoryRef.current = true;
+    
     try {
+      // Si es reset, resetear estados
+      if (reset) {
+        currentPageHistoryRef.current = 0;
+        setAllHistoryCallsLoaded([]);
+        setHasMoreHistory(true);
+        setTotalHistoryCount(0);
+        hasInitialLoadRef.current = false;
+        console.log('🔄 Reset de historial - página: 0');
+      }
+      
+      const pageToLoad = reset ? 0 : currentPageHistoryRef.current;
+      console.log(`📥 Iniciando carga batch ${pageToLoad + 1} (reset: ${reset})`);
+      
       // Solo mostrar loading si no hay datos previos (evitar parpadeos en actualizaciones)
-      if (allCallsWithAnalysis.length === 0) {
+      if (allHistoryCallsLoaded.length === 0 || reset) {
         setLoading(true);
+      } else {
+        setLoadingMoreHistory(true);
       }
       
       // Determinar permisos del usuario
@@ -1075,13 +1105,29 @@ const LiveMonitorKanban: React.FC = () => {
       }
       
       // Cargar llamadas desde llamadas_ventas (fuente principal)
-      // Limitar a 300 llamadas más recientes para mejor rendimiento
-      // La paginación se aplica después de filtrar en el frontend
+      // Infinite scroll: cargar en bloques de 200
+      const from = pageToLoad * HISTORY_BATCH_SIZE;
+      const to = from + HISTORY_BATCH_SIZE - 1;
+      
+      // Obtener conteo total solo en la primera carga o reset
+      if (pageToLoad === 0) {
+        const { count, error: countError } = await analysisSupabase
+          .from('llamadas_ventas')
+          .select('*', { count: 'exact', head: true });
+        
+        if (!countError && count !== null) {
+          setTotalHistoryCount(count);
+          console.log(`📊 Total de llamadas en BD: ${count}`);
+        } else if (countError) {
+          console.error('Error obteniendo conteo total:', countError);
+        }
+      }
+      
       const { data: allLlamadasData, error: allLlamadasError } = await analysisSupabase
         .from('llamadas_ventas')
         .select('call_id, fecha_llamada, duracion_segundos, call_status, prospecto, datos_proceso, datos_llamada, audio_ruta_bucket')
         .order('fecha_llamada', { ascending: false })
-        .limit(300); // Reducido de 1000 a 300 para mejor rendimiento
+        .range(from, to);
       
       if (allLlamadasError) {
         console.error('Error loading llamadas_ventas:', allLlamadasError);
@@ -1215,24 +1261,37 @@ const LiveMonitorKanban: React.FC = () => {
             if (!prospectosError && prospectosResult && prospectosResult.length > 0) {
               // Filtrar adicionalmente en el código para asegurar que ejecutivos solo vean prospectos con ejecutivo_id asignado
               // Incluir prospectos de ejecutivos donde es backup
-              // IMPORTANTE: Usar canUserAccessProspect para verificar permisos basándose en prospect_assignments
-              if (ejecutivoFilter) {
-                // Filtrar prospectos usando el servicio de permisos (verifica prospect_assignments)
-                const prospectosFiltrados = await Promise.all(
-                  prospectosResult.map(async (prospecto: any) => {
-                    // Verificar permisos usando el servicio (usa prospect_assignments como fuente de verdad)
-                    try {
-                      const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, prospecto.id);
-                      return permissionCheck.canAccess ? prospecto : null;
-                    } catch (error) {
-                      console.error(`❌ Error verificando permiso para prospecto ${prospecto.id}:`, error);
-                      return null; // En caso de error, excluir por seguridad
-                    }
-                  })
-                );
+              // OPTIMIZACIÓN: Pre-cargar datos de backup antes de verificar permisos (igual que ProspectosManager)
+              if (ejecutivoFilter && prospectosResult.length > 0) {
+                const ejecutivosUnicos = [...new Set(prospectosResult.map((p: any) => p.ejecutivo_id).filter(Boolean))] as string[];
+                if (ejecutivosUnicos.length > 0) {
+                  console.log(`📦 Pre-cargando datos de backup para ${ejecutivosUnicos.length} ejecutivos únicos...`);
+                  await permissionsService.preloadBackupData(ejecutivosUnicos);
+                  console.log(`✅ Datos de backup pre-cargados correctamente`);
+                }
                 
-                // Filtrar nulls y actualizar prospectosResult
-                prospectosData = prospectosFiltrados.filter((p: any) => p !== null);
+                // Filtrar prospectos usando el servicio de permisos (verifica prospect_assignments)
+                // OPTIMIZACIÓN: Procesar en batches de 50 para evitar saturación
+                const BATCH_SIZE_PERMISSIONS = 50;
+                const prospectosFiltrados: any[] = [];
+                
+                for (let i = 0; i < prospectosResult.length; i += BATCH_SIZE_PERMISSIONS) {
+                  const batch = prospectosResult.slice(i, i + BATCH_SIZE_PERMISSIONS);
+                  const batchResults = await Promise.all(
+                    batch.map(async (prospecto: any) => {
+                      try {
+                        const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, prospecto.id);
+                        return permissionCheck.canAccess ? prospecto : null;
+                      } catch (error) {
+                        console.error(`❌ Error verificando permiso para prospecto ${prospecto.id}:`, error);
+                        return null;
+                      }
+                    })
+                  );
+                  prospectosFiltrados.push(...batchResults.filter((p: any) => p !== null));
+                }
+                
+                prospectosData = prospectosFiltrados;
               } else {
                 prospectosData = prospectosResult;
               }
@@ -1412,71 +1471,121 @@ const LiveMonitorKanban: React.FC = () => {
         return dateB.getTime() - dateA.getTime();
       });
 
-      // Solo actualizar estado si no hay modal abierto para evitar interrumpir reproducción de audio
-      if (!isModalOpenRef.current) {
-        // Comparar datos antes de actualizar para evitar re-renders innecesarios
-        const currentDataString = JSON.stringify(allCallsWithAnalysis.map(c => c.call_id).sort());
-        const newDataString = JSON.stringify(enrichedData.map(c => c.call_id).sort());
+      // Verificar si hay más datos disponibles
+      // IMPORTANTE: Usar allLlamadasData.length (datos crudos) en lugar de enrichedData.length (después de filtros)
+      const rawLoadedCount = allLlamadasData?.length || 0;
+      const enrichedCount = enrichedData.length;
+      
+      // Log solo en desarrollo y solo para batches importantes
+      if (pageToLoad === 0 || pageToLoad % 2 === 0) {
+        console.log(`📊 Carga batch ${pageToLoad + 1}: ${rawLoadedCount} llamadas crudas → ${enrichedCount} después de filtros`);
+      }
+      
+      let finalData: any[];
+      
+      if (reset || pageToLoad === 0) {
+        // Reset: reemplazar todos los datos
+        setAllHistoryCallsLoaded(enrichedData);
+        currentPageHistoryRef.current = 1; // Actualizar ref
+        finalData = enrichedData; // Usar enrichedData para actualizar allCallsWithAnalysis
         
-        // Solo actualizar si realmente cambió el contenido
-        if (currentDataString !== newDataString || allCallsWithAnalysis.length !== enrichedData.length) {
-          // Usar React.startTransition para marcar actualizaciones como no urgentes
-          React.startTransition(() => {
-            setAllCallsWithAnalysis(enrichedData);
-            setAllCalls(enrichedData); // También actualizar allCalls para mantener compatibilidad
-            
-            // Diferir procesamiento de valores únicos usando requestIdleCallback
-            if ('requestIdleCallback' in window) {
-              requestIdleCallback(() => {
-                // Extraer valores únicos para filtros
-                const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
-                
-                // Solo actualizar si realmente cambió
-                setUniqueInterests(prev => {
-                  const prevString = JSON.stringify(prev.sort());
-                  const newString = JSON.stringify(interests.sort());
-                  return prevString !== newString ? interests : prev;
-                });
-                
-                // Inicializar grupos cuando cambien las llamadas
-                const groups = groupCallsByProspect(enrichedData);
-                setGroupedCalls(prev => {
-                  const prevKeys = JSON.stringify(Object.keys(prev).sort());
-                  const newKeys = JSON.stringify(Object.keys(groups).sort());
-                  return prevKeys !== newKeys ? groups : prev;
-                });
-              }, { timeout: 1000 });
-            } else {
-              // Fallback: procesar inmediatamente pero en el siguiente frame
-              setTimeout(() => {
-                const interests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
-                
-                setUniqueInterests(prev => {
-                  const prevString = JSON.stringify(prev.sort());
-                  const newString = JSON.stringify(interests.sort());
-                  return prevString !== newString ? interests : prev;
-                });
-                
-                const groups = groupCallsByProspect(enrichedData);
-                setGroupedCalls(prev => {
-                  const prevKeys = JSON.stringify(Object.keys(prev).sort());
-                  const newKeys = JSON.stringify(Object.keys(groups).sort());
-                  return prevKeys !== newKeys ? groups : prev;
-                });
-              }, 0);
-            }
-          });
+        // Verificar si hay más datos usando rawLoadedCount
+        if (totalHistoryCount > 0) {
+          const hasMore = (pageToLoad + 1) * HISTORY_BATCH_SIZE < totalHistoryCount;
+          setHasMoreHistory(hasMore);
+          console.log(`📊 Reset: ${enrichedCount} cargadas de ${totalHistoryCount} totales. HasMore: ${hasMore}`);
+        } else {
+          setHasMoreHistory(rawLoadedCount === HISTORY_BATCH_SIZE);
+          console.log(`📊 Reset: ${enrichedCount} cargadas. HasMore: ${rawLoadedCount === HISTORY_BATCH_SIZE}`);
         }
+        hasInitialLoadRef.current = true;
+      } else {
+        // Agregar a los existentes usando forma funcional de setState
+        // CRÍTICO: Usar setState funcional para evitar problemas de closure stale
+        let updatedData: any[] = [];
+        setAllHistoryCallsLoaded(prev => {
+          updatedData = [...prev, ...enrichedData];
+          return updatedData;
+        });
+        
+        currentPageHistoryRef.current = currentPageHistoryRef.current + 1; // Actualizar ref
+        finalData = updatedData; // Usar updatedData para actualizar allCallsWithAnalysis
+        
+        // CRÍTICO: Si no se cargaron datos nuevos (0 llamadas), no hay más
+        if (rawLoadedCount === 0 || enrichedCount === 0) {
+          setHasMoreHistory(false);
+          console.log(`📊 No hay más datos disponibles. Total cargado: ${updatedData.length} de ${totalHistoryCount}`);
+        } else if (totalHistoryCount > 0) {
+          // Calcular si hay más datos basándose en el total cargado vs el total disponible
+          const hasMore = updatedData.length < totalHistoryCount && rawLoadedCount === HISTORY_BATCH_SIZE;
+          setHasMoreHistory(hasMore);
+          // Log solo cada 2 batches para evitar spam
+          if (currentPageHistoryRef.current % 2 === 0) {
+            console.log(`📊 Agregadas ${enrichedCount} llamadas. Total: ${updatedData.length} de ${totalHistoryCount}. HasMore: ${hasMore}`);
+          }
+        } else {
+          // Si no tenemos total, verificar si se cargaron menos que el batch size
+          const hasMore = rawLoadedCount === HISTORY_BATCH_SIZE;
+          setHasMoreHistory(hasMore);
+          if (currentPageHistoryRef.current % 2 === 0) {
+            console.log(`📊 Agregadas ${enrichedCount} llamadas. Total: ${updatedData.length}. HasMore: ${hasMore}`);
+          }
+        }
+      }
+
+      // OPTIMIZACIÓN: Solo actualizar allCallsWithAnalysis en reset, NO en cargas incrementales
+      // Esto evita rerenders completos al cargar más datos
+      if ((reset || pageToLoad === 0) && !isModalOpenRef.current) {
+        // Solo actualizar en reset inicial
+        React.startTransition(() => {
+          setAllCallsWithAnalysis(finalData);
+          setAllCalls(finalData);
+        });
+      }
+      // Para cargas incrementales, los datos ya están en allHistoryCallsLoaded
+      // y se aplicarán filtros automáticamente sin rerender completo
+      
+      // Diferir procesamiento pesado usando requestIdleCallback
+      const processHeavyData = () => {
+        // Extraer valores únicos para filtros solo de los nuevos datos
+        const newInterests = [...new Set(enrichedData.map(c => c.nivel_interes_detectado || c.nivel_interes).filter(Boolean))];
+        
+        // Actualizar solo si hay cambios (merge con existentes)
+        setUniqueInterests(prev => {
+          const combined = [...new Set([...prev, ...newInterests])];
+          return combined.length !== prev.length ? combined : prev;
+        });
+        
+        // Actualizar grupos solo en reset (muy pesado, evitar en cargas incrementales)
+        if (reset || pageToLoad === 0) {
+          const groups = groupCallsByProspect(finalData);
+          setGroupedCalls(groups);
+        }
+      };
+      
+      // Usar requestIdleCallback si está disponible, sino setTimeout con delay mayor
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(processHeavyData, { timeout: 2000 });
+      } else {
+        setTimeout(processHeavyData, 500);
       }
       
     } catch (error: any) {
       console.error('Error loading history calls:', error);
       setAllCallsWithAnalysis([]);
       setAllCalls([]);
+      setAllHistoryCallsLoaded([]);
     } finally {
       setLoading(false);
+      setLoadingMoreHistory(false);
+      isLoadingHistoryRef.current = false;
+      // Log solo en desarrollo - usar currentPageHistoryRef que siempre está disponible
+      const currentPage = currentPageHistoryRef.current;
+      if (currentPage === 0 || currentPage % 3 === 0) {
+        console.log(`✅ Carga batch completada. Página: ${currentPage}, HasMore: ${hasMoreHistory}`);
+      }
     }
-  }, [user?.id]); // Solo depende de user.id para evitar recreaciones innecesarias
+  }, [user?.id, hasMoreHistory]); // Incluir hasMoreHistory para que se actualice cuando cambie
 
   // Función para aplicar filtros al historial
   // Función para agrupar llamadas por prospecto
@@ -1549,9 +1658,19 @@ const LiveMonitorKanban: React.FC = () => {
   }, [searchQuery]);
 
   const applyHistoryFilters = useCallback(() => {
-    // Usar requestAnimationFrame para diferir trabajo pesado y evitar bloqueos
-    requestAnimationFrame(() => {
-    let filtered = [...allCallsWithAnalysis];
+    // OPTIMIZACIÓN: NUNCA vaciar filteredHistoryCalls durante cargas
+    // Si no hay datos cargados O está cargando más, mantener datos actuales
+    if (allHistoryCallsLoaded.length === 0) {
+      return; // No limpiar si no hay datos
+    }
+    
+    // Si está cargando más Y ya hay datos filtrados, NO aplicar filtros aún
+    // Esperar a que termine de cargar para evitar que la tabla se vacíe
+    if (loadingMoreHistory && filteredHistoryCalls.length > 0) {
+      return; // Mantener datos actuales visibles
+    }
+    
+    let filtered = [...allHistoryCallsLoaded];
 
     // Búsqueda mejorada por texto (ejecutivo, coordinación, nombre, estado, interés, fecha)
     if (debouncedSearchQuery) {
@@ -1700,126 +1819,155 @@ const LiveMonitorKanban: React.FC = () => {
       return 0;
     });
 
-    // Agrupar por prospecto y obtener lista expandida
+    // FIX 2: Deshabilitar agrupamiento por prospecto - Mostrar TODAS las llamadas
+    // Agrupar solo para estadísticas, pero NO para filtrar la vista
     const groups = groupCallsByProspect(filtered);
-    const expandedCalls = getExpandedCalls(groups);
+    // Ya NO usar getExpandedCalls que solo muestra 1 llamada por prospecto
+    // Mostrar todas las llamadas filtradas directamente
     
-      // Usar requestAnimationFrame para actualizar estado sin bloquear
-      requestAnimationFrame(() => {
-    setFilteredHistoryCalls(expandedCalls);
-    
-    // Resetear a página 1 cuando cambian los filtros
-    setCurrentPage(1);
-      });
-    });
-  }, [allCallsWithAnalysis, debouncedSearchQuery, dateFrom, dateTo, interestFilter, statusFilter, ejecutivoFilter, quickFilters, historySortField, historySortDirection, expandedGroup, ejecutivosMap, coordinacionesMap]);
+    // OPTIMIZACIÓN: Actualizar inmediatamente sin RAF para evitar frames extras
+    setFilteredHistoryCalls(filtered); // Usar 'filtered' en lugar de 'expandedCalls'
+  }, [allHistoryCallsLoaded, debouncedSearchQuery, dateFrom, dateTo, interestFilter, statusFilter, ejecutivoFilter, quickFilters, historySortField, historySortDirection, expandedGroup, ejecutivosMap, coordinacionesMap]);
 
-  // Paginación
+  // Infinite scroll: cargar más cuando se hace scroll cerca del final (75%)
+  // Usar el mismo enfoque que ProspectosManager para consistencia
   useEffect(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    setPaginatedCalls(filteredHistoryCalls.slice(startIndex, endIndex));
-  }, [filteredHistoryCalls, currentPage, itemsPerPage]);
+    if (selectedTab !== 'all' || !hasMoreHistory || loadingMoreHistory || isLoadingHistoryRef.current) {
+      return;
+    }
+
+    const scrollContainer = historyScrollContainerRef.current;
+    if (!scrollContainer) {
+      return;
+    }
+
+    let lastScrollCheck = 0;
+    let scrollCheckTimeout: NodeJS.Timeout | null = null;
+
+    // Función para verificar si debemos cargar más (igual que ProspectosManager)
+    const checkShouldLoad = () => {
+      if (loadingMoreHistory || isLoadingHistoryRef.current || !hasMoreHistory) {
+        return;
+      }
+
+      const containerHeight = scrollContainer.clientHeight;
+      const scrollTop = scrollContainer.scrollTop;
+      const scrollHeight = scrollContainer.scrollHeight;
+      
+      // Calcular porcentaje de scroll (0 = inicio, 100 = final)
+      const scrollPercentage = ((scrollTop + containerHeight) / scrollHeight) * 100;
+      
+      // Solo loggear cada 10% para evitar spam
+      const roundedPercentage = Math.floor(scrollPercentage / 10) * 10;
+      if (roundedPercentage !== lastScrollCheck && roundedPercentage % 25 === 0) {
+        console.log(`📊 Scroll al ${roundedPercentage}% - loaded: ${allHistoryCallsLoaded.length}, filtered: ${filteredHistoryCalls.length}, hasMore: ${hasMoreHistory}`);
+        lastScrollCheck = roundedPercentage;
+      }
+      
+      // OPTIMIZACIÓN UX: Cargar al 75% del scroll (25% antes del final)
+      // Esto hace la experiencia más suave y fluida
+      if (scrollPercentage >= 75 && hasMoreHistory && !loadingMoreHistory && !isLoadingHistoryRef.current) {
+        console.log(`📊 Scroll al ${Math.round(scrollPercentage)}% - Cargando más llamadas...`);
+        loadHistoryCalls(false);
+        return;
+      }
+      
+      // Si no hay suficiente scroll Y hay más datos, cargar automáticamente
+      // Aumentar límite a 1000 para permitir más cargas automáticas
+      if (scrollHeight <= containerHeight + 50 && hasMoreHistory && !loadingMoreHistory && !isLoadingHistoryRef.current && allHistoryCallsLoaded.length < 1000) {
+        console.log(`📊 No hay suficiente scroll - Cargando más automáticamente...`);
+        loadHistoryCalls(false);
+        return;
+      }
+    };
+
+    // Escuchar eventos de scroll con throttling
+    const handleScroll = () => {
+      if (scrollCheckTimeout) {
+        clearTimeout(scrollCheckTimeout);
+      }
+      scrollCheckTimeout = setTimeout(() => {
+        checkShouldLoad();
+      }, 150); // Throttle de 150ms
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // También verificar inmediatamente por si el contenido es pequeño
+    const initialCheck = setTimeout(() => {
+      checkShouldLoad();
+    }, 800);
+
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      if (scrollCheckTimeout) clearTimeout(scrollCheckTimeout);
+      clearTimeout(initialCheck);
+    };
+  }, [selectedTab, hasMoreHistory, loadingMoreHistory, filteredHistoryCalls.length, allHistoryCallsLoaded.length, loadHistoryCalls]);
 
   // Actualizar ref cuando cambia el estado del modal
   useEffect(() => {
     isModalOpenRef.current = showAnalysisDetailModal;
   }, [showAnalysisDetailModal]);
 
-  // Cargar historial al inicio y actualizar periódicamente cada 60 segundos
+  // FIX 1: Cargar contador total al montar el componente (sin cargar todas las llamadas)
   useEffect(() => {
-    if (!user?.id) return; // No cargar si no hay usuario
+    if (!user?.id) return;
     
-    // Cargar inmediatamente usando requestIdleCallback para diferir trabajo pesado
-    const loadInitial = () => {
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => {
-          loadHistoryCalls();
-        }, { timeout: 1000 });
-      } else {
-        // Fallback para navegadores sin requestIdleCallback
-        setTimeout(() => loadHistoryCalls(), 100);
-      }
-    };
-    loadInitial();
-    
-    // Configurar actualización periódica cada 60 segundos
-    const intervalId = setInterval(() => {
-      // Solo actualizar si no hay modal abierto para evitar interrumpir reproducción de audio
-      if (!isModalOpenRef.current && user?.id) {
-        // Diferir carga usando requestIdleCallback
-        if ('requestIdleCallback' in window) {
-          requestIdleCallback(() => {
-            loadHistoryCalls();
-          }, { timeout: 2000 });
-        } else {
-          setTimeout(() => loadHistoryCalls(), 200);
+    const loadTotalCount = async () => {
+      try {
+        const { count, error } = await analysisSupabase
+          .from('llamadas_ventas')
+          .select('*', { count: 'exact', head: true });
+        
+        if (!error && count !== null) {
+          setTotalHistoryCount(count);
+          console.log(`📊 Contador total cargado: ${count} llamadas`);
         }
+      } catch (error) {
+        console.error('Error cargando contador total:', error);
       }
-    }, 60000); // 60 segundos
-    
-    // Limpiar intervalo al desmontar
-    return () => {
-      clearInterval(intervalId);
     };
-  }, [user?.id, loadHistoryCalls]); // Incluir loadHistoryCalls en dependencias
+    
+    loadTotalCount();
+  }, [user?.id]);
   
-  // También recargar cuando se cambia a la pestaña de historial
+  // Cargar historial cuando se cambia a la pestaña de historial (solo una vez)
   useEffect(() => {
-    if (selectedTab === 'all' && user?.id) {
-      // Diferir carga cuando se cambia de pestaña
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => {
-          loadHistoryCalls();
-        }, { timeout: 500 });
-      } else {
-        setTimeout(() => loadHistoryCalls(), 100);
-      }
+    if (selectedTab === 'all' && user?.id && !hasInitialLoadRef.current) {
+      console.log('🔄 Cargando historial inicial desde tab change...');
+      hasInitialLoadRef.current = true;
+      loadHistoryCalls(true); // Reset al cambiar a historial
     }
   }, [selectedTab, user?.id, loadHistoryCalls]);
-
-  // Aplicar filtros cuando se selecciona la pestaña 'all'
-  // Usar ref para evitar re-ejecuciones innecesarias cuando solo cambia la longitud
-  const previousLengthRef = useRef(0);
+  
+  // Resetear hasInitialLoadRef cuando se cambia de tab
   useEffect(() => {
-    if (selectedTab === 'all' && allCallsWithAnalysis.length > 0) {
-      // Solo aplicar filtros si realmente cambió el contenido, no solo la longitud
-      if (previousLengthRef.current !== allCallsWithAnalysis.length) {
-        previousLengthRef.current = allCallsWithAnalysis.length;
-        
-        // Diferir aplicación de filtros para evitar bloqueos y parpadeos
-        const timeoutId = setTimeout(() => {
-          if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-              applyHistoryFilters();
-            }, { timeout: 500 });
-          } else {
-            applyHistoryFilters();
-          }
-        }, 150); // Aumentado el delay para evitar parpadeos
-        
-        return () => clearTimeout(timeoutId);
-      }
+    if (selectedTab !== 'all') {
+      hasInitialLoadRef.current = false;
     }
-  }, [selectedTab, allCallsWithAnalysis.length, applyHistoryFilters]);
+  }, [selectedTab]);
 
-  // Aplicar filtros cuando cambien los valores (con debounce adicional)
+  // OPTIMIZACIÓN: Aplicar filtros solo cuando cambia allHistoryCallsLoaded
+  // PERO SOLO si NO está cargando más (evita vaciar la tabla)
+  // Usar un pequeño delay para asegurar que el estado se actualizó completamente
   useEffect(() => {
-    if (selectedTab === 'all') {
-      // Diferir aplicación de filtros para evitar múltiples ejecuciones rápidas
+    if (selectedTab === 'all' && allHistoryCallsLoaded.length > 0 && !loadingMoreHistory) {
+      // Delay mínimo para asegurar que el estado se sincronizó
       const timeoutId = setTimeout(() => {
-        if ('requestIdleCallback' in window) {
-          requestIdleCallback(() => {
-            applyHistoryFilters();
-          }, { timeout: 300 });
-        } else {
-      applyHistoryFilters();
-        }
-      }, 100); // Debounce de 100ms
-      
+        applyHistoryFilters();
+      }, 50);
       return () => clearTimeout(timeoutId);
     }
-  }, [selectedTab, applyHistoryFilters]);
+  }, [selectedTab, allHistoryCallsLoaded.length, loadingMoreHistory, applyHistoryFilters]);
+
+  // Aplicar filtros cuando cambien valores de filtrado
+  // OPTIMIZACIÓN: NO aplicar durante cargas incrementales
+  useEffect(() => {
+    if (selectedTab === 'all' && !loadingMoreHistory) {
+      applyHistoryFilters();
+    }
+  }, [selectedTab, debouncedSearchQuery, dateFrom, dateTo, interestFilter, statusFilter, ejecutivoFilter, quickFilters, historySortField, historySortDirection, loadingMoreHistory, applyHistoryFilters]);
 
   // Extraer valores únicos para filtros cuando cambie allCallsWithAnalysis (con diferimiento)
   // Usar ref para comparar y evitar procesamiento innecesario
@@ -1915,7 +2063,6 @@ const LiveMonitorKanban: React.FC = () => {
     setStatusFilter('');
     setEjecutivoFilter('');
     setQuickFilters({});
-    setCurrentPage(1);
     setShowDatePicker(false);
   };
 
@@ -1941,7 +2088,6 @@ const LiveMonitorKanban: React.FC = () => {
       }
       return newFilters;
     });
-    setCurrentPage(1);
   };
 
   // Función para ordenar datos
@@ -3750,20 +3896,8 @@ const LiveMonitorKanban: React.FC = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-slate-600 dark:text-slate-400">Cargando llamadas...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ELIMINADO: Early return con loading completo
+  // Ahora el loading se maneja discretamente dentro de cada tab
 
   const groupedActiveCalls = groupCallsByCheckpoint(activeCalls);
   const horizontalRows = createHorizontalRows(groupedActiveCalls);
@@ -3893,7 +4027,7 @@ const LiveMonitorKanban: React.FC = () => {
                   </svg>
                   <span>Historial</span>
                   <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {allCallsWithAnalysis.length}
+                    {totalHistoryCount > 0 ? totalHistoryCount : (allHistoryCallsLoaded.length > 0 ? allHistoryCallsLoaded.length : allCallsWithAnalysis.length)}
                   </span>
                 </div>
               </button>
@@ -4185,9 +4319,10 @@ const LiveMonitorKanban: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden"
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col"
+                  style={{ maxHeight: 'calc(100vh - 280px)', minHeight: '400px' }}
                 >
-              <div className="w-full">
+              <div ref={historyScrollContainerRef} className="w-full overflow-y-auto scrollbar-hide flex-1" style={{ maxHeight: 'calc(100vh - 350px)' }}>
                 <table className="w-full divide-y divide-slate-200 dark:divide-slate-700 table-fixed">
                       <thead className="bg-slate-50 dark:bg-slate-700">
                         <tr>
@@ -4287,16 +4422,26 @@ const LiveMonitorKanban: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                        {paginatedCalls.length === 0 ? (
+                        {/* Loading discreto SOLO para carga inicial (cuando no hay datos) */}
+                        {loading && filteredHistoryCalls.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-12 text-center">
+                              <div className="flex items-center justify-center gap-3">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <span className="text-sm text-slate-600 dark:text-slate-400">Cargando historial...</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : filteredHistoryCalls.length === 0 && !loadingMoreHistory ? (
                           <tr>
                             <td colSpan={6} className="px-6 py-12 text-center">
                               <div className="text-slate-500 dark:text-slate-400">
-                                {allCallsWithAnalysis.length === 0 ? 'No hay llamadas registradas' : 'No hay resultados que coincidan con los filtros'}
+                                {allHistoryCallsLoaded.length === 0 ? 'No hay llamadas registradas' : 'No hay resultados que coincidan con los filtros'}
                               </div>
                             </td>
                           </tr>
                         ) : (
-                          paginatedCalls.map((call, index) => {
+                          filteredHistoryCalls.map((call, index) => {
                             const prospectKey = call.prospecto_nombre || call.nombre_completo || 'Sin prospecto';
                             const isGroupMain = call.isGroupMain;
                             const isGroupSub = call.isGroupSub;
@@ -4637,49 +4782,22 @@ const LiveMonitorKanban: React.FC = () => {
                 </table>
                   </div>
                   
-                  {/* Paginación */}
-                  {filteredHistoryCalls.length > 0 && (
-                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredHistoryCalls.length)} de {filteredHistoryCalls.length}
-                        </span>
-                        <select
-                          value={itemsPerPage}
-                          onChange={(e) => {
-                            setItemsPerPage(Number(e.target.value));
-                            setCurrentPage(1);
-                          }}
-                          className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
-                        >
-                          <option value={50}>50 por página</option>
-                          <option value={100}>100 por página</option>
-                          <option value={300}>300 por página</option>
-                          <option value={500}>500 por página</option>
-                        </select>
+                  {/* Indicador de carga y contador - SIEMPRE VISIBLE */}
+                  <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        Mostrando {filteredHistoryCalls.length} de {totalHistoryCount > 0 ? totalHistoryCount : allHistoryCallsLoaded.length} llamadas
+                      </span>
+                    </div>
+                    
+                    {/* Indicador discreto SOLO cuando está cargando más Y ya hay datos visibles */}
+                    {loadingMoreHistory && filteredHistoryCalls.length > 0 && (
+                      <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-700">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                        <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Cargando más...</span>
                       </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                          disabled={currentPage === 1}
-                          className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700"
-                        >
-                          Anterior
-                        </button>
-                        <span className="text-xs text-slate-600 dark:text-slate-400">
-                          Página {currentPage} de {Math.ceil(filteredHistoryCalls.length / itemsPerPage) || 1}
-                        </span>
-                        <button
-                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredHistoryCalls.length / itemsPerPage), prev + 1))}
-                          disabled={currentPage >= Math.ceil(filteredHistoryCalls.length / itemsPerPage)}
-                          className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700"
-                        >
-                          Siguiente
-                        </button>
-                      </div>
+                    )}
                   </div>
-                )}
                 </motion.div>
               </div>
             )}

@@ -17,6 +17,34 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.7.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🚀 Infinite Scroll Optimizado en Historial**
+- **Carga anticipada:** Trigger de carga cambiado del 100% al 75% del scroll (25% antes del final)
+- **Experiencia fluida:** Los datos cargan antes de que el usuario llegue al final
+- **Sin parpadeos:** Las llamadas visibles NUNCA desaparecen durante cargas incrementales
+- **Protección contra vacío:** 4 capas de protección para evitar que la tabla se vacíe durante carga
+- **Detección correcta de fin:** Sistema mejorado para detectar cuando no hay más datos disponibles
+
+#### **🐛 Correcciones Críticas**
+- **Loading intrusivo eliminado:** Removido early return que mostraba pantalla completa de "Cargando llamadas..."
+- **Estado stale corregido:** Uso de setState funcional para evitar problemas de closure
+- **Filtros no intrusivos:** `applyHistoryFilters()` bloqueado durante `loadingMoreHistory`
+- **Contador correcto:** Badge de historial muestra total correcto desde el inicio
+- **Última llamada:** Corrección de lógica para cargar el registro final (571/572 → 572/572)
+
+#### **✨ Mejoras de UX**
+- **Indicador discreto:** Badge pequeño "🔄 Cargando más..." en footer en lugar de loading central
+- **Carga silenciosa:** Nuevas llamadas se agregan sin afectar las visibles
+- **Timing optimizado:** Delay de 50ms en aplicación de filtros para sincronización de estado
+- **Loop infinito prevenido:** Detección de batch vacío (0 registros) detiene carga inmediatamente
+
+#### **📁 Archivos Modificados**
+- `src/components/analysis/LiveMonitorKanban.tsx` - Sistema completo de infinite scroll optimizado
+
+---
+
 ### **v5.6.0** - Enero 2025
 **Estado:** ✅ Producción
 
