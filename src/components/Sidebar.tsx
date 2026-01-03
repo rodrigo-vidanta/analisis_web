@@ -518,6 +518,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   
   // Permisos efectivos (rol base + grupos asignados)
   const { isAdmin } = useEffectivePermissions();
+  const isCoordinador = user?.role_name === 'coordinador';
   const { config } = useSystemConfig();
   const { activeCallNotification, clearCallNotification } = useNotificationStore();
   const [isRinging, setIsRinging] = useState(false);
