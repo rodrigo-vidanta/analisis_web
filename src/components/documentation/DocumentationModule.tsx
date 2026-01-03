@@ -252,6 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'a8b9c0d', date: '2026-01-02', author: 'Team', message: 'v2.2.6: 📊 Dashboard Ejecutivo - Widgets de métricas, funnel y ventas con animaciones avanzadas', isRelease: true },
   { hash: 'f41c4d8', date: '2025-01-16', author: 'Team', message: 'v2.2.5: 🎨 Nuevas columnas Kanban + Sistema filtrado + Fix loop infinito auth_users', isRelease: true },
   { hash: 'd9ef803', date: '2025-01-16', author: 'Team', message: 'v2.2.4: ⚡ Optimización crítica ERR_INSUFFICIENT_RESOURCES - Pre-carga batch datos backup', isRelease: true },
   { hash: '88c5aee', date: '2025-12-29', author: 'Team', message: 'fix: ERR_INSUFFICIENT_RESOURCES loop infinito + coordinación visible para coordinadores', isRelease: false },
@@ -312,6 +313,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-048', date: '2026-01-02 17:50', version: 'v2.2.6', status: 'pending', duration: '0s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-047', date: '2025-01-16 00:00', version: 'v2.2.4', status: 'pending', duration: '0s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-046', date: '2025-12-29 13:45', version: 'v2.1.27-hotfix', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-045', date: '2025-12-29 13:36', version: 'v2.1.27', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -356,8 +358,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.5', highlight: true },
-  { label: 'Release', value: 'B7.1.4N7.0.4', highlight: false },
+  { label: 'Version', value: 'v2.2.6', highlight: true },
+  { label: 'Release', value: 'B7.1.5N7.0.5', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '02 Ene 2026', highlight: false },
 ];

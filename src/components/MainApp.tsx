@@ -5,7 +5,6 @@ import Sidebar from './Sidebar';
 import ProjectSelector from './ProjectSelector';
 import LoginScreen from './LoginScreen';
 import IndividualAgentWizard from './IndividualAgentWizard';
-import AdminDashboard from './AdminDashboard';
 import AnalysisDashboard from './analysis/AnalysisDashboard';
 import LiveMonitorKanban from './analysis/LiveMonitorKanban';
 import AdminDashboardTabs from './admin/AdminDashboardTabs';
@@ -31,6 +30,9 @@ import ScheduledCallsManager from './scheduled-calls/ScheduledCallsManager';
 
 // Operative Dashboard
 import { OperativeDashboard } from './dashboard/OperativeDashboard';
+
+// Dashboard Ejecutivo (Analytics)
+import DashboardModule from './dashboard/DashboardModule';
 
 // Campaigns Manager
 import CampaignsDashboardTabs from './campaigns/CampaignsDashboardTabs';
@@ -485,6 +487,10 @@ function MainApp() {
             </div>
           )
         );
+
+      case 'dashboard':
+        // Dashboard Ejecutivo - Solo admin y coordinadores de calidad
+        return <DashboardModule />;
 
       default:
         return (

@@ -389,7 +389,8 @@ const Header = ({
                      appMode === 'scheduled-calls' ? 'Programación' :
                      appMode === 'operative-dashboard' ? 'Inicio' :
                      appMode === 'campaigns' ? 'Campañas' :
-                     appMode === 'direccion' ? 'Mis Tareas' : 'PQNC AI Platform'}
+                     appMode === 'direccion' ? 'Mis Tareas' :
+                     appMode === 'dashboard' ? 'Dashboard Ejecutivo' : 'PQNC AI Platform'}
                   </h1>
                   {appMode === 'live-monitor' && (
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -399,6 +400,11 @@ const Header = ({
                   {appMode === 'operative-dashboard' && (
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Vista centralizada de prospectos, conversaciones y llamadas
+                    </p>
+                  )}
+                  {appMode === 'dashboard' && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Métricas y análisis de operaciones en tiempo real
                     </p>
                   )}
                 </div>

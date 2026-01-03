@@ -758,6 +758,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     onClick: () => setAppMode('campaigns')
   } : null;
 
+  // Dashboard Ejecutivo - Solo Admin y Coordinadores de Calidad
+  const dashboardItem: MenuItemProps | null = (isAdmin || isCoordinador) ? {
+    icon: (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+    label: 'Dashboard',
+    active: appMode === 'dashboard',
+    onClick: () => setAppMode('dashboard')
+  } : null;
+
   // Admin al final - Usar canAccessModule para incluir administrador_operativo
   const adminItem: MenuItemProps | null = canAccessModule('admin') ? {
     icon: (
@@ -932,6 +944,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           </div>
         )}
 
+        {/* Dashboard Ejecutivo - Solo Admin y Coordinadores Calidad */}
+        {dashboardItem && (
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+            <MenuItem {...dashboardItem} isCollapsed={isCollapsed} />
+          </div>
+        )}
 
         {/* Admin al final */}
         {adminItem && (
