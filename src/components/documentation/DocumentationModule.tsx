@@ -252,7 +252,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'XXXXXXX', date: '2026-01-02', author: 'Team', message: 'v2.2.7: 🔧 Fix error 406 system_config - Eliminada consulta directa desde Sidebar', isRelease: true },
+  { hash: '46ad4ae', date: '2026-01-02', author: 'Team', message: 'v2.2.7: 🔧 Fix error 406 system_config - Eliminada consulta directa desde Sidebar', isRelease: true },
   { hash: 'a70547e', date: '2026-01-02', author: 'Team', message: 'v2.2.6: 📊 Dashboard Ejecutivo - Widgets de métricas, funnel y ventas con animaciones avanzadas', isRelease: true },
   { hash: 'f41c4d8', date: '2025-01-16', author: 'Team', message: 'v2.2.5: 🎨 Nuevas columnas Kanban + Sistema filtrado + Fix loop infinito auth_users', isRelease: true },
   { hash: 'd9ef803', date: '2025-01-16', author: 'Team', message: 'v2.2.4: ⚡ Optimización crítica ERR_INSUFFICIENT_RESOURCES - Pre-carga batch datos backup', isRelease: true },
