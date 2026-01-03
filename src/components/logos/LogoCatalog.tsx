@@ -16,12 +16,13 @@ import React from 'react';
 import { DefaultLogo } from './DefaultLogo';
 import { ChristmasLogo } from './ChristmasLogo';
 import { NewYearLogo } from './NewYearLogo';
+import { ReyesLogo } from './ReyesLogo';
 
 // ============================================
 // TIPOS
 // ============================================
 
-export type LogoType = 'default' | 'christmas' | 'newyear';
+export type LogoType = 'default' | 'christmas' | 'newyear' | 'reyes';
 
 export interface LogoConfig {
   id: LogoType;
@@ -67,6 +68,16 @@ export const LOGO_CATALOG: Record<LogoType, LogoConfig> = {
     availableUntil: '2025-01-15',
     isSeasonallogo: true,
   },
+  reyes: {
+    id: 'reyes',
+    name: 'Logo de Reyes Magos',
+    description: 'Logo de Reyes con estrella dejando estela tipo cometa, estrellas flotantes y resplandor. Audio oriental al hacer clic.',
+    preview: '/assets/logo_pqnc-reyes.png',
+    component: ReyesLogo,
+    availableFrom: '2025-01-01',
+    availableUntil: '2025-01-10',
+    isSeasonallogo: true,
+  },
 };
 
 // ============================================
@@ -106,13 +117,18 @@ export const getSuggestedLogo = (): LogoType => {
   const month = now.getMonth(); // 0-11
   const day = now.getDate();
   
-  // 26 Dic - 15 Ene: Año Nuevo
-  if ((month === 11 && day >= 26) || (month === 0 && day <= 15)) {
+  // 1 Ene - 10 Ene: Reyes Magos (prioridad sobre Año Nuevo)
+  if (month === 0 && day >= 1 && day <= 10) {
+    return 'reyes';
+  }
+  
+  // 26 Dic - 31 Dic: Año Nuevo
+  if (month === 11 && day >= 26) {
     return 'newyear';
   }
   
-  // 1 Dic - 6 Ene: Navidad
-  if ((month === 11 && day >= 1) || (month === 0 && day <= 6)) {
+  // 1 Dic - 25 Dic: Navidad
+  if (month === 11 && day >= 1 && day <= 25) {
     return 'christmas';
   }
   
