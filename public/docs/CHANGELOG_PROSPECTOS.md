@@ -17,6 +17,43 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.20.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **⚡ Infinite Scrolling en DataGrid - Carga por Batches**
+- **Problema resuelto:** DataGrid solo mostraba 1000 de 1167 prospectos debido a limitación de Supabase (máximo 1000 registros por query)
+- **Solución implementada:**
+  - **Carga por batches:** Implementado infinite scrolling con batches de 200 prospectos usando `.range()` de Supabase
+  - **IntersectionObserver:** Detecta cuando el usuario hace scroll cerca del final (200px antes) y carga automáticamente el siguiente batch
+  - **Indicadores visuales:** Muestra "Cargando más prospectos..." mientras carga y contador de prospectos cargados/totales
+  - **Gestión de estado:** Mantiene `currentPage`, `hasMore`, y `loadingMore` para controlar la paginación
+- **Resultado:** Ahora carga todos los prospectos disponibles (1167+) sin saturar el navegador
+- **Archivos modificados:**
+  - `src/components/prospectos/ProspectosManager.tsx` - Infinite scrolling con batches, IntersectionObserver, indicadores de carga
+- **Mejoras técnicas:**
+  - Batch size: 200 prospectos por carga
+  - Scroll threshold: 200px antes del final
+  - Contador dinámico: muestra "X de Y prospectos cargados"
+  - Contenedor con scroll vertical para activar IntersectionObserver
+
+---
+
+### **v5.19.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🐛 Corrección Crítica - Loop Infinito ERR_INSUFFICIENT_RESOURCES en DataGrid**
+- **Problema resuelto:** Más de 1900 requests simultáneas a `auth_users` con `backup_id` y `has_backup` causando `ERR_INSUFFICIENT_RESOURCES` al abrir el módulo de Prospectos en vista DataGrid
+- **Causa raíz:** `backupService.getBackupEjecutivoInfo()` hacía consultas sin caché. Al renderizar `BackupBadgeWrapper` para cada prospecto en el DataGrid, se generaban múltiples consultas al mismo usuario
+- **Solución implementada:**
+  - `backupService.getBackupEjecutivoInfo()` ahora usa el caché público de `permissionsService.backupCache`
+  - TTL de 30 segundos (mismo que `permissionsService`)
+  - Reducción de queries de 1900+ → 1-2 requests (solo ejecutivos únicos)
+- **Archivos modificados:**
+  - `src/services/backupService.ts` - Implementado caché usando `permissionsService.backupCache`
+- **Resultado:** DataGrid carga correctamente sin saturar el navegador
+
+---
+
 ### **v5.18.0** - Enero 2025
 **Estado:** ✅ Producción
 
