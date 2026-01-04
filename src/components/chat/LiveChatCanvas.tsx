@@ -1025,6 +1025,19 @@ const LiveChatCanvas: React.FC = () => {
   const selectedConversationStateRef = useRef<Conversation | null>(null);
   const messagesByConversationRef = useRef<Record<string, Message[]>>({});
   
+  // ============================================
+  // 🚀 INFINITE SCROLL STATES (v6.2.0)
+  // ============================================
+  const [allConversationsLoaded, setAllConversationsLoaded] = useState<Conversation[]>([]);
+  const [hasMoreConversations, setHasMoreConversations] = useState(true);
+  const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
+  const [totalConversationsCount, setTotalConversationsCount] = useState(0);
+  const CONVERSATIONS_BATCH_SIZE = 200;
+  const conversationsScrollContainerRef = useRef<HTMLDivElement>(null);
+  const isLoadingConversationsRef = useRef(false);
+  const currentConversationsPageRef = useRef(0);
+  const hasInitialConversationsLoadRef = useRef(false);
+  
   
   const [conversationBlocks, setConversationBlocks] = useState<ConversationBlock[]>([]);
   const [messagesByConversation, setMessagesByConversation] = useState<Record<string, Message[]>>({});
@@ -1347,8 +1360,8 @@ const LiveChatCanvas: React.FC = () => {
     isManualSelectionRef.current = false;
     
     const initializeChat = async () => {
-      // Inicialización silenciosa
-      await loadConversations();
+      // Inicialización con reset (carga primera página)
+      await loadConversations('', true); // Reset en carga inicial
       setupRealtimeSubscription();
     };
     
@@ -1498,11 +1511,15 @@ const LiveChatCanvas: React.FC = () => {
         };
         
         startTransition(() => {
-          setConversations(prevList => {
+          const addNewConversation = (prevList: Conversation[]) => {
             const alreadyExists = prevList.some(c => c.id === targetProspectoId || c.prospecto_id === targetProspectoId);
             if (alreadyExists) return prevList;
             return [adaptedConv, ...prevList];
-          });
+          };
+          
+          // Actualizar ambas listas
+          setConversations(addNewConversation);
+          setAllConversationsLoaded(addNewConversation);
         });
       } catch (error) {
         // Silenciar errores
@@ -1847,8 +1864,8 @@ const LiveChatCanvas: React.FC = () => {
                 };
               });
 
-              // Batch 2: Actualizar lista de conversaciones
-              setConversations(prev => {
+              // Batch 2: Actualizar AMBAS listas (conversations Y allConversationsLoaded)
+              const updateConversationsList = (prev: Conversation[]) => {
                 const existingIndex = prev.findIndex(c => 
                   c.id === targetProspectoId || c.prospecto_id === targetProspectoId
                 );
@@ -1880,7 +1897,11 @@ const LiveChatCanvas: React.FC = () => {
                 }
                 // Mover al principio
                 return [updatedConv, ...prev.slice(0, existingIndex), ...prev.slice(existingIndex + 1)];
-              });
+              };
+              
+              // Actualizar ambas listas con la misma lógica
+              setConversations(updateConversationsList);
+              setAllConversationsLoaded(updateConversationsList);
             });
           });
 
@@ -2370,6 +2391,78 @@ const LiveChatCanvas: React.FC = () => {
     }
   }, [conversations.length, selectedConversation?.id]); // Se ejecuta cuando cambia el número de conversaciones o la conversación seleccionada
 
+  // ============================================
+  // 🚀 INFINITE SCROLL HANDLER (v6.2.0)
+  // ============================================
+  useEffect(() => {
+    if (!hasMoreConversations || loadingMoreConversations || isLoadingConversationsRef.current) {
+      return;
+    }
+
+    const scrollContainer = conversationsScrollContainerRef.current;
+    if (!scrollContainer) {
+      return;
+    }
+
+    let lastScrollCheck = 0;
+    let scrollCheckTimeout: NodeJS.Timeout | null = null;
+
+    const checkShouldLoadMore = () => {
+      if (loadingMoreConversations || isLoadingConversationsRef.current || !hasMoreConversations) {
+        return;
+      }
+
+      const containerHeight = scrollContainer.clientHeight;
+      const scrollTop = scrollContainer.scrollTop;
+      const scrollHeight = scrollContainer.scrollHeight;
+      
+      const scrollPercentage = ((scrollTop + containerHeight) / scrollHeight) * 100;
+      
+      // Log solo cada 25% para evitar spam
+      const roundedPercentage = Math.floor(scrollPercentage / 10) * 10;
+      if (roundedPercentage !== lastScrollCheck && roundedPercentage % 25 === 0) {
+        console.log(`📊 Scroll conversaciones al ${roundedPercentage}% - loaded: ${allConversationsLoaded.length}, visible: ${filteredConversations.length}, hasMore: ${hasMoreConversations}`);
+        lastScrollCheck = roundedPercentage;
+      }
+      
+      // Cargar al 75% del scroll (25% antes del final)
+      if (scrollPercentage >= 75 && hasMoreConversations && !loadingMoreConversations && !isLoadingConversationsRef.current) {
+        console.log(`📊 Scroll al ${Math.round(scrollPercentage)}% - Cargando más conversaciones...`);
+        loadConversations('', false); // Cargar siguiente página sin reset
+        return;
+      }
+      
+      // Si no hay suficiente scroll, cargar automáticamente (hasta 1000 conversaciones)
+      if (scrollHeight <= containerHeight + 50 && hasMoreConversations && !loadingMoreConversations && !isLoadingConversationsRef.current && allConversationsLoaded.length < 1000) {
+        console.log(`📊 No hay suficiente scroll - Cargando más conversaciones automáticamente...`);
+        loadConversations('', false);
+        return;
+      }
+    };
+
+    const handleScroll = () => {
+      if (scrollCheckTimeout) {
+        clearTimeout(scrollCheckTimeout);
+      }
+      scrollCheckTimeout = setTimeout(() => {
+        checkShouldLoadMore();
+      }, 150); // Throttle de 150ms
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Verificar inmediatamente por si el contenido es pequeño
+    const initialCheck = setTimeout(() => {
+      checkShouldLoadMore();
+    }, 800);
+
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      if (scrollCheckTimeout) clearTimeout(scrollCheckTimeout);
+      clearTimeout(initialCheck);
+    };
+  }, [hasMoreConversations, loadingMoreConversations, filteredConversations.length, allConversationsLoaded.length]);
+
   // Efecto para cargar el nombre del agente asignado cuando se selecciona una conversación
   useEffect(() => {
     if (selectedConversation?.id) {
@@ -2600,8 +2693,8 @@ const LiveChatCanvas: React.FC = () => {
         .single();
 
       if (!uchatError && uchatConv) {
-        // Recargar conversaciones para incluir esta
-        await loadConversations();
+        // Recargar conversaciones para incluir esta (sin reset)
+        await loadConversations('', false);
         // Intentar seleccionar después de recargar (selección automática - NO marcar como leída)
         setTimeout(() => {
           isManualSelectionRef.current = false; // ✅ Asegurar que es selección automática
@@ -3204,18 +3297,65 @@ const LiveChatCanvas: React.FC = () => {
   // MÉTODOS DE CARGA
   // ============================================
 
-  const loadConversations = async (searchTerm = '') => {
-    setLoading(true);
+  const loadConversations = async (searchTerm = '', reset = false) => {
+    // ⚠️ PROTECCIÓN: Prevenir ejecuciones simultáneas
+    if (isLoadingConversationsRef.current) {
+      console.log('⚠️ loadConversations ya está en ejecución, ignorando');
+      return;
+    }
+    
+    isLoadingConversationsRef.current = true;
+    
     try {
-      // OPTIMIZACIÓN: Cargar ambas fuentes en paralelo
+      // Si es reset, limpiar estados
+      if (reset) {
+        currentConversationsPageRef.current = 0;
+        setAllConversationsLoaded([]);
+        setHasMoreConversations(true);
+        setTotalConversationsCount(0);
+        hasInitialConversationsLoadRef.current = false;
+        console.log('🔄 Reset de conversaciones - página: 0');
+      }
+      
+      const pageToLoad = reset ? 0 : currentConversationsPageRef.current;
+      console.log(`📥 Cargando batch ${pageToLoad + 1} de conversaciones (reset: ${reset})`);
+      
+      // Solo mostrar loading completo en carga inicial
+      if (allConversationsLoaded.length === 0 || reset) {
+        setLoading(true);
+      } else {
+        setLoadingMoreConversations(true);
+      }
+      
+      // Calcular paginación para RPC
+      const from = pageToLoad * CONVERSATIONS_BATCH_SIZE;
+      const to = from + CONVERSATIONS_BATCH_SIZE - 1;
+      
+      // Obtener conteo total solo en la primera carga
+      if (pageToLoad === 0) {
+        try {
+          const { data: countData, error: countError } = await analysisSupabase
+            .rpc('get_conversations_count');
+          
+          if (!countError && countData !== null) {
+            setTotalConversationsCount(countData);
+            console.log(`📊 Total de conversaciones en BD: ${countData}`);
+          }
+        } catch (err) {
+          console.error('Error obteniendo conteo total:', err);
+        }
+      }
+      
+      // OPTIMIZACIÓN: Cargar ambas fuentes en paralelo con paginación
       const [uchatConversationsRaw, rpcDataResult] = await Promise.all([
-        // Consulta 1: Conversaciones de uchat
+        // Consulta 1: Conversaciones de uchat (mantener límite bajo)
         uchatService.getConversations({
           userId: user?.id,
           limit: 100
         }),
-        // Consulta 2: Conversaciones de WhatsApp (RPC)
-        analysisSupabase.rpc('get_conversations_ordered')
+        // Consulta 2: Conversaciones de WhatsApp (RPC PAGINADO)
+        analysisSupabase
+          .rpc('get_conversations_ordered', { p_limit: CONVERSATIONS_BATCH_SIZE, p_offset: from })
           .then(({ data, error }) => ({ data, error }))
           .catch(() => ({ data: null, error: null }))
       ]);
@@ -3607,7 +3747,49 @@ const LiveChatCanvas: React.FC = () => {
         );
       }
 
-      setConversations(filtered);
+      // ============================================
+      // 🚀 INFINITE SCROLL: Actualizar estados paginados
+      // ============================================
+      const rawLoadedCount = (rpcDataResult.data || []).length;
+      
+      if (reset || pageToLoad === 0) {
+        // Reset: reemplazar todos los datos
+        setAllConversationsLoaded(filtered);
+        setConversations(filtered);
+        currentConversationsPageRef.current = 1;
+        
+        // Verificar si hay más datos
+        if (totalConversationsCount > 0) {
+          const hasMore = filtered.length < totalConversationsCount;
+          setHasMoreConversations(hasMore);
+          console.log(`📊 Reset: ${filtered.length} cargadas de ${totalConversationsCount} totales. HasMore: ${hasMore}`);
+        } else {
+          setHasMoreConversations(rawLoadedCount === CONVERSATIONS_BATCH_SIZE);
+        }
+        hasInitialConversationsLoadRef.current = true;
+      } else {
+        // Agregar a las existentes usando setState funcional
+        let updatedData: Conversation[] = [];
+        setAllConversationsLoaded(prev => {
+          updatedData = [...prev, ...filtered];
+          return updatedData;
+        });
+        setConversations(updatedData);
+        
+        currentConversationsPageRef.current = currentConversationsPageRef.current + 1;
+        
+        // Verificar si hay más datos
+        if (rawLoadedCount === 0 || filtered.length === 0) {
+          setHasMoreConversations(false);
+          console.log(`📊 No hay más conversaciones. Total: ${updatedData.length} de ${totalConversationsCount}`);
+        } else if (totalConversationsCount > 0) {
+          const hasMore = updatedData.length < totalConversationsCount && rawLoadedCount === CONVERSATIONS_BATCH_SIZE;
+          setHasMoreConversations(hasMore);
+          console.log(`📊 Agregadas ${filtered.length} conversaciones. Total: ${updatedData.length} de ${totalConversationsCount}. HasMore: ${hasMore}`);
+        } else {
+          setHasMoreConversations(rawLoadedCount === CONVERSATIONS_BATCH_SIZE);
+        }
+      }
       
       // Cargar etiquetas en paralelo (sin bloquear UI)
       const prospectoIdsForLabels = filtered.map(c => c.prospecto_id).filter(Boolean);
@@ -3620,8 +3802,11 @@ const LiveChatCanvas: React.FC = () => {
     } catch (error) {
       console.error('❌ Error cargando conversaciones:', error);
       setConversations([]);
+      setAllConversationsLoaded([]);
     } finally {
       setLoading(false);
+      setLoadingMoreConversations(false);
+      isLoadingConversationsRef.current = false;
     }
   };
 
@@ -5879,7 +6064,10 @@ const LiveChatCanvas: React.FC = () => {
 
         {/* Área de scroll INDIVIDUAL de la caja */}
         <div 
-          ref={conversationsScrollRef}
+          ref={(el) => {
+            conversationsScrollRef.current = el;
+            conversationsScrollContainerRef.current = el; // También asignar al ref de scroll
+          }}
           className="flex-1 overflow-y-auto scrollbar-ultra-thin"
           style={{ 
             overscrollBehavior: 'contain'
@@ -5952,6 +6140,16 @@ const LiveChatCanvas: React.FC = () => {
               />
             );
           })}
+          
+          {/* 🚀 Indicador discreto de carga incremental (v6.2.0) */}
+          {loadingMoreConversations && filteredConversations.length > 0 && (
+            <div className="p-3 border-t border-slate-100 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/50">
+              <div className="flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Cargando más conversaciones...</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -5966,7 +6164,7 @@ const LiveChatCanvas: React.FC = () => {
           position={assignmentContextMenu.position}
           onClose={() => setAssignmentContextMenu(null)}
           onAssignmentComplete={() => {
-            loadConversations();
+            loadConversations('', false); // Recargar sin reset
             setAssignmentContextMenu(null);
           }}
         />

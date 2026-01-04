@@ -17,6 +17,46 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v6.2.0** - Enero 2025
+**Estado:** ✅ Producción
+
+#### **🚀 Infinite Scroll Implementado**
+- **Carga paginada:** Batches de 200 conversaciones para performance óptima
+- **Carga anticipada:** Trigger al 75% del scroll (25% antes del final)
+- **Acceso total:** Soporte para >10,000 conversaciones (superado límite de 1000)
+- **Indicador discreto:** Badge de "Cargando más..." en footer sin interrumpir UX
+- **Contador total:** Badge muestra total de conversaciones desde el inicio
+
+#### **🔧 Optimizaciones de Carga**
+- **RPC mejorado:** `get_conversations_ordered` con soporte de paginación (LIMIT/OFFSET)
+- **RPC nuevo:** `get_conversations_count()` para obtener total sin cargar datos
+- **setState funcional:** Prevención de closure stale en cargas incrementales
+- **Protección duplicados:** Flag `isLoadingConversationsRef` para evitar cargas simultáneas
+- **Loading no intrusivo:** Conversaciones visibles NUNCA desaparecen durante carga
+
+#### **✨ Realtime Mejorado**
+- **Doble actualización:** Nuevos mensajes actualizan tanto `conversations` como `allConversationsLoaded`
+- **Inserción al tope:** Conversaciones con mensajes nuevos se mueven al principio
+- **Sin recargas:** Realtime inserta sin triggear `loadConversations` completo
+- **Performance:** Uso de `startTransition` para updates no urgentes
+
+#### **📁 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Sistema completo de infinite scroll
+- `scripts/sql/update_get_conversations_ordered_v3_pagination.sql` - RPC paginado (NUEVO)
+- `docs/LIVECHAT_ESCALABILITY_ROADMAP.md` - Plan de virtualización futura (NUEVO)
+
+#### **🗄️ Base de Datos**
+- **Función nueva:** `get_conversations_count()` - Conteo eficiente de conversaciones totales
+- **Función actualizada:** `get_conversations_ordered(p_limit, p_offset)` - Soporte de paginación
+- **Base:** Analysis DB (glsmifhkoaifvaegsozd.supabase.co)
+
+#### **📝 Documentación**
+- **Roadmap:** Plan completo para migración a virtualización (v7.0.0)
+- **Timeline:** Estimación de 1-2 semanas para implementación profesional
+- **Librerías recomendadas:** @tanstack/react-virtual para v7.0.0
+
+---
+
 ### **v6.1.0** - 29 Diciembre 2025
 **Estado:** ✅ Producción
 
