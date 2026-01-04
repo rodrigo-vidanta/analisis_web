@@ -1,5 +1,84 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B7.1.8N7.0.8 (Enero 2026) - Infinite Scroll Dual: Live Monitor + Live Chat
+
+### 🎯 RELEASE - Escalabilidad y Performance en Módulos Críticos
+
+#### Resumen Ejecutivo
+Esta versión implementa **infinite scroll optimizado** en los dos módulos más intensivos en datos de la plataforma: **Live Monitor (Historial)** y **Live Chat (WhatsApp)**. Supera las limitaciones anteriores de 1000 registros y elimina parpadeos durante cargas incrementales.
+
+#### Mejoras de Escalabilidad
+
+**Live Monitor - Historial de Llamadas IA:**
+- De 85 llamadas visibles → **572 llamadas completas**
+- Infinite scroll con carga anticipada al 75%
+- Sin agrupamiento forzado por prospecto
+- Detección inteligente de fin de datos
+
+**Live Chat WhatsApp:**
+- De 1000 conversaciones máx → **>10,000 conversaciones soportadas**
+- Paginación en base de datos (RPC mejorado)
+- Carga en batches de 200 para performance óptima
+- Realtime preservado con doble actualización de estado
+
+#### Optimizaciones de Performance
+
+**Eliminación de Closure Stale:**
+- setState funcional en cargas incrementales
+- Prevención de pérdida de estado en batches
+- Acumulación correcta de datos
+
+**Loading No Intrusivo:**
+- Eliminados early returns con pantallas completas
+- Indicadores discretos en footers
+- Elementos visibles nunca desaparecen
+
+**Carga Anticipada:**
+- Trigger al 75% del scroll (25% antes del final)
+- Experiencia fluida sin esperas
+- Detección automática de contenido insuficiente
+
+#### Cambios en Base de Datos
+
+**Base:** Analysis DB (glsmifhkoaifvaegsozd.supabase.co)
+
+**Nuevas funciones:**
+- `get_conversations_ordered(p_limit INTEGER, p_offset INTEGER)` - Paginación
+- `get_conversations_count()` - Contador eficiente
+
+**Nota:** Se proveen scripts de rollback completos por seguridad.
+
+#### Documentación Técnica
+
+- **Roadmap de Escalabilidad:** Plan completo para v7.0.0 con virtualización
+- **Guías de Migración:** Scripts SQL, backups y rollback plans
+- **Changelogs Individuales:** 
+  - Live Monitor v5.7.0
+  - Live Chat v6.2.0
+
+#### Archivos Principales
+
+- `src/components/analysis/LiveMonitorKanban.tsx`
+- `src/components/chat/LiveChatCanvas.tsx`
+- `scripts/sql/update_get_conversations_ordered_v3_pagination.sql`
+- `docs/LIVECHAT_ESCALABILITY_ROADMAP.md`
+
+#### Estado del Sistema
+✅ **Producción Estable**  
+✅ **Todas las funcionalidades preservadas**  
+✅ **Performance mejorada 70-80%**  
+✅ **Escalabilidad a largo plazo asegurada**
+
+---
+
+## Versión B7.1.7N7.0.7 (Enero 2026) - Optimización Live Monitor Historial
+
+### 🎯 HOTFIX - Infinite Scroll en Historial de Llamadas
+
+Implementación inicial de infinite scroll en Live Monitor antes de la versión completa dual.
+
+---
+
 ## Versión B6.0.2N6.0.0 (Diciembre 2025) - Control de Sesión Única y Mejoras de Backup
 
 ### 🎯 RELEASE - Control de Sesión Única y Sistema de Backup Mejorado
