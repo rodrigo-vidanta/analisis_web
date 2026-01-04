@@ -2461,7 +2461,7 @@ const LiveChatCanvas: React.FC = () => {
       if (scrollCheckTimeout) clearTimeout(scrollCheckTimeout);
       clearTimeout(initialCheck);
     };
-  }, [hasMoreConversations, loadingMoreConversations, filteredConversations.length, allConversationsLoaded.length]);
+  }, [hasMoreConversations, loadingMoreConversations, conversations.length, allConversationsLoaded.length]);
 
   // Efecto para cargar el nombre del agente asignado cuando se selecciona una conversación
   useEffect(() => {
@@ -3768,27 +3768,30 @@ const LiveChatCanvas: React.FC = () => {
         }
         hasInitialConversationsLoadRef.current = true;
       } else {
-        // Agregar a las existentes usando setState funcional
-        let updatedData: Conversation[] = [];
+        // CRÍTICO: Usar setState funcional y actualizar AMBAS listas en el mismo callback
         setAllConversationsLoaded(prev => {
-          updatedData = [...prev, ...filtered];
+          const updatedData = [...prev, ...filtered];
+          
+          // Actualizar conversations también dentro del mismo callback
+          setConversations(updatedData);
+          
+          // Verificar si hay más datos
+          if (rawLoadedCount === 0 || filtered.length === 0) {
+            setHasMoreConversations(false);
+            console.log(`📊 No hay más conversaciones. Total: ${updatedData.length} de ${totalConversationsCount}`);
+          } else if (totalConversationsCount > 0) {
+            const hasMore = updatedData.length < totalConversationsCount && rawLoadedCount === CONVERSATIONS_BATCH_SIZE;
+            setHasMoreConversations(hasMore);
+            console.log(`📊 Agregadas ${filtered.length} conversaciones. Total: ${updatedData.length} de ${totalConversationsCount}. HasMore: ${hasMore}`);
+          } else {
+            const hasMore = rawLoadedCount === CONVERSATIONS_BATCH_SIZE;
+            setHasMoreConversations(hasMore);
+          }
+          
           return updatedData;
         });
-        setConversations(updatedData);
         
         currentConversationsPageRef.current = currentConversationsPageRef.current + 1;
-        
-        // Verificar si hay más datos
-        if (rawLoadedCount === 0 || filtered.length === 0) {
-          setHasMoreConversations(false);
-          console.log(`📊 No hay más conversaciones. Total: ${updatedData.length} de ${totalConversationsCount}`);
-        } else if (totalConversationsCount > 0) {
-          const hasMore = updatedData.length < totalConversationsCount && rawLoadedCount === CONVERSATIONS_BATCH_SIZE;
-          setHasMoreConversations(hasMore);
-          console.log(`📊 Agregadas ${filtered.length} conversaciones. Total: ${updatedData.length} de ${totalConversationsCount}. HasMore: ${hasMore}`);
-        } else {
-          setHasMoreConversations(rawLoadedCount === CONVERSATIONS_BATCH_SIZE);
-        }
       }
       
       // Cargar etiquetas en paralelo (sin bloquear UI)
