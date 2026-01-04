@@ -170,6 +170,7 @@ const documentationSections: DocSection[] = [
     docs: [
       { id: 'readme-chat', name: 'README Live Chat', path: '/docs/README.md', description: 'Documentacion del modulo de chat' },
       { id: 'changelog-chat', name: 'Changelog Live Chat', path: '/docs/CHANGELOG_LIVECHAT.md', description: 'Historial de cambios del chat' },
+      { id: 'roadmap-livechat', name: 'Roadmap Escalabilidad v7.0', path: '/docs/LIVECHAT_ESCALABILITY_ROADMAP.md', description: 'Plan de virtualizacion y escalabilidad para >10k conversaciones' },
       { id: 'optimizaciones-chat', name: 'Optimizaciones V4', path: '/docs/OPTIMIZACIONES_RENDIMIENTO_V4.md', description: 'Optimizaciones de rendimiento v4' },
       { id: 'cache-imagenes', name: 'Cache de Imagenes', path: '/docs/OPTIMIZACION_CACHE_IMAGENES.md', description: 'Sistema de cache de imagenes' },
     ]
@@ -252,6 +253,9 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '005c2b8', date: '2026-01-04', author: 'Team', message: 'fix: Corregir closure stale en infinite scroll LiveChat - B7.1.8N7.0.8', isRelease: false },
+  { hash: 'd4636ec', date: '2026-01-04', author: 'Team', message: 'feat: B7.1.8N7.0.8 - Infinite scroll en Live Chat WhatsApp + Roadmap v7.0.0', isRelease: true },
+  { hash: '7dcc9f3', date: '2026-01-04', author: 'Team', message: 'fix: B7.1.7N7.0.7 - Infinite scroll optimizado en historial Live Monitor', isRelease: true },
   { hash: '46ad4ae', date: '2026-01-02', author: 'Team', message: 'v2.2.7: 🔧 Fix error 406 system_config - Eliminada consulta directa desde Sidebar', isRelease: true },
   { hash: 'a70547e', date: '2026-01-02', author: 'Team', message: 'v2.2.6: 📊 Dashboard Ejecutivo - Widgets de métricas, funnel y ventas con animaciones avanzadas', isRelease: true },
   { hash: 'f41c4d8', date: '2025-01-16', author: 'Team', message: 'v2.2.5: 🎨 Nuevas columnas Kanban + Sistema filtrado + Fix loop infinito auth_users', isRelease: true },
@@ -314,9 +318,11 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-051', date: '2026-01-04 19:50', version: 'B7.1.8N7.0.8', status: 'success', duration: '21.08s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
+  { id: 'deploy-050', date: '2026-01-04 19:40', version: 'B7.1.7N7.0.7', status: 'success', duration: '22.88s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-049', date: '2026-01-02 18:30', version: 'v2.2.7', status: 'success', duration: '31.69s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-048', date: '2026-01-02 17:50', version: 'v2.2.6', status: 'success', duration: '19.62s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
-  { id: 'deploy-047', date: '2025-01-16 00:00', version: 'v2.2.4', status: 'pending', duration: '0s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
+  { id: 'deploy-047', date: '2025-01-16 00:00', version: 'v2.2.4', status: 'success', duration: '0s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-046', date: '2025-12-29 13:45', version: 'v2.1.27-hotfix', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-045', date: '2025-12-29 13:36', version: 'v2.1.27', status: 'success', duration: '7.92s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-044', date: '2025-12-26 14:00', version: 'v2.2.1', status: 'success', duration: '5m 20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -360,10 +366,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.7', highlight: true },
-  { label: 'Release', value: 'B7.1.6N7.0.6', highlight: false },
+  { label: 'Version', value: 'v2.2.8', highlight: true },
+  { label: 'Release', value: 'B7.1.8N7.0.8', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '02 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '04 Ene 2026', highlight: false },
 ];
 
 // ============================================

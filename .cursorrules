@@ -185,17 +185,48 @@ cp VERSIONS.md public/docs/
 ```
 
 #### PASO 2: Actualizar Modulo de Documentacion y Footer
-- Verificar/actualizar version en `src/components/documentation/DocumentationModule.tsx`:
-  - stats[0].value = version actual (ej: 'v2.1.26')
-  - stats[1].value = fecha actual (ej: '16 Dic 2025')
-- Agregar nuevo commit al array `gitCommits[]` al inicio:
-  ```typescript
-  { hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripcion', isRelease: true/false }
-  ```
-- **Actualizar version en Footer** (`src/components/Footer.tsx`):
-  ```typescript
-  const version = 'BX.X.XNX.X.X';  // Ej: 'B6.0.3N6.0.0'
-  ```
+
+**ARCHIVO 1: `src/components/documentation/DocumentationModule.tsx`**
+
+1. **Actualizar stats** (línea ~367):
+   ```typescript
+   const stats = [
+     { label: 'Version', value: 'vX.X.X', highlight: true },  // ← ACTUALIZAR versión
+     { label: 'Release', value: 'BX.X.XNX.X.X', highlight: false },  // ← ACTUALIZAR release
+     { label: 'Documentos', value: '...', highlight: true },
+     { label: 'Ultima actualizacion', value: 'DD Mes YYYY', highlight: false },  // ← ACTUALIZAR fecha
+   ];
+   ```
+
+2. **Agregar commits a gitCommits[]** (línea ~256, AL INICIO del array):
+   ```typescript
+   const gitCommits: GitCommit[] = [
+     { hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripción', isRelease: true/false },  // ← AGREGAR AQUÍ
+     // ... commits existentes
+   ];
+   ```
+
+3. **Si es deploy AWS, agregar a awsDeployments[]** (línea ~321, AL INICIO del array):
+   ```typescript
+   const awsDeployments: AWSDeployment[] = [
+     { id: 'deploy-XXX', date: 'YYYY-MM-DD HH:mm', version: 'BX.X.XNX.X.X', status: 'success', duration: 'XXs', triggeredBy: 'Samuel Rosales', environment: 'Production' },  // ← AGREGAR AQUÍ
+     // ... deployments existentes
+   ];
+   ```
+
+4. **Si hay nuevos documentos, agregarlos al catálogo** (línea ~128):
+   - Buscar la sección correspondiente en `documentationSections[]`
+   - Agregar entrada nueva:
+   ```typescript
+   { id: 'unique-id', name: 'Nombre Visible', path: '/docs/ARCHIVO.md', description: 'Descripción' }
+   ```
+
+**ARCHIVO 2: `src/components/Footer.tsx`**
+
+5. **Actualizar version** (línea ~8):
+   ```typescript
+   const version = 'BX.X.XNX.X.X';  // Formato: Backend.Patch.MinorN+FrontendVersion
+   ```
 
 #### PASO 3: Actualizar package.json
 - Incrementar version en `package.json` si es release
@@ -254,7 +285,7 @@ Ejemplo: v2.1.26 = B6.0.3N6.0.0
 
 ### COMANDO RAPIDO: "documenta y actualiza"
 
-Cuando el usuario diga **"documenta y actualiza"** o **"push a git y aws"**, ejecutar TODO este proceso:
+Cuando el usuario diga **"documenta y actualiza"**, **"push a git y aws"**, o **"de acuerdo a la regla"**, ejecutar TODO este proceso COMPLETO:
 
 #### PASO 1: Sincronizar TODA la documentacion de modulos a /public/docs/
 ```bash
