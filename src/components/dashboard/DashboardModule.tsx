@@ -31,7 +31,8 @@ import {
   Calendar, Building2, ChevronDown, Maximize2, Minimize2,
   RefreshCw, AlertCircle, CheckCircle2,
   DollarSign, UserCheck, UserX, Hourglass, PhoneCall,
-  ArrowRightLeft, BarChart3, Activity, Layers, Award
+  ArrowRightLeft, BarChart3, Activity, Layers, Award,
+  X, Package
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
@@ -123,6 +124,17 @@ interface CRMCategoryData {
   paquetes: { numero: string; monto: number; fecha: string; coordinacion: string }[]; // Detalle
 }
 
+// Interfaz para detalle individual de venta
+interface SaleDetail {
+  id: string;
+  numeroPaquete: string;
+  monto: number;
+  fecha: string;
+  coordinacion: string;
+  statusCRM: string;
+  cliente?: string;
+}
+
 interface CRMSalesData {
   activosPQNC: CRMCategoryData;
   inactivosPQNC: CRMCategoryData;
@@ -131,6 +143,7 @@ interface CRMSalesData {
   total: CRMCategoryData;
   byCoordinacion: Record<string, { count: number; certificados: number; monto: number }>;
   byPeriod: { period: string; count: number; monto: number }[];
+  allSalesDetails: SaleDetail[]; // Todos los detalles para el modal
 }
 
 // Datos del funnel por coordinación
@@ -1455,6 +1468,9 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   isLoading,
   period
 }) => {
+  // Estado para modal de detalle por coordinación
+  const [selectedCoord, setSelectedCoord] = useState<string | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
   const formatMoney = (amount: number) => {
     if (amount >= 1000000) return `$${(amount / 1000000).toFixed(2)}M`;
@@ -1542,6 +1558,177 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   const totalCertificados = data.total?.certificados || 0;
   const totalMonto = data.total?.monto || 0;
   const totalClientes = data.total?.count || 0;
+
+  // Obtener ventas filtradas por coordinación para el modal
+  const filteredSales = useMemo(() => {
+    if (!selectedCoord || !data.allSalesDetails) return [];
+    return data.allSalesDetails.filter(sale => sale.coordinacion === selectedCoord);
+  }, [selectedCoord, data.allSalesDetails]);
+
+  // Formatear fecha para mostrar
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-MX', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Modal de detalle por coordinación
+  const DetailModal = () => (
+    <AnimatePresence>
+      {isDetailModalOpen && selectedCoord && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setIsDetailModalOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700"
+          >
+            {/* Header del modal */}
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-500 text-white">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Ventas de {selectedCoord}
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {filteredSales.length} certificados · {formatMoney(filteredSales.reduce((sum, s) => sum + s.monto, 0))} total
+                    </p>
+                  </div>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </motion.button>
+              </div>
+            </div>
+
+            {/* DataGrid de ventas */}
+            <div className="flex-1 overflow-auto p-4">
+              {filteredSales.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-tl-lg">
+                          # Paquete
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Fecha
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Status CRM
+                        </th>
+                        <th className="text-right py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-tr-lg">
+                          Monto
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSales.map((sale, index) => (
+                        <motion.tr
+                          key={sale.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                        >
+                          <td className="py-3 px-4">
+                            <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-700 dark:text-gray-300">
+                              {sale.numeroPaquete}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
+                            {formatDate(sale.fecha)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              sale.statusCRM.toLowerCase().includes('activo') 
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : sale.statusCRM.toLowerCase().includes('inactivo')
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                            }`}>
+                              {sale.statusCRM}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                              {formatMoney(sale.monto)}
+                            </span>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                  <Package className="w-12 h-12 mb-3 opacity-50" />
+                  <p>No hay ventas registradas para esta coordinación</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer con resumen */}
+            {filteredSales.length > 0 && (
+              <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-6">
+                    <div>
+                      <p className="text-xs text-gray-500">Total Certificados</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">{filteredSales.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Monto Total</p>
+                      <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatMoney(filteredSales.reduce((sum, s) => sum + s.monto, 0))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Ticket Promedio</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">
+                        {formatMoney(filteredSales.reduce((sum, s) => sum + s.monto, 0) / filteredSales.length)}
+                      </p>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setIsDetailModalOpen(false)}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Cerrar
+                  </motion.button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   // Función para renderizar contenido con isExpandedView
   const renderWidgetContent = (isExpandedView: boolean) => (
@@ -1652,15 +1839,27 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
               )}
             </div>
 
-            {/* Distribución por coordinación */}
+            {/* Distribución por coordinación - CLICKEABLE */}
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-500" />
                 Por Coordinación
+                <span className="text-xs text-gray-400 font-normal ml-2">(clic para ver detalle)</span>
               </h4>
               {coordData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={coordData} layout="vertical">
+                  <BarChart 
+                    data={coordData} 
+                    layout="vertical"
+                    onClick={(chartData) => {
+                      if (chartData && chartData.activePayload && chartData.activePayload[0]) {
+                        const coordName = chartData.activePayload[0].payload.name;
+                        setSelectedCoord(coordName);
+                        setIsDetailModalOpen(true);
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                     <YAxis 
                       type="category" 
@@ -1672,12 +1871,14 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                     />
                     <Tooltip 
                       formatter={(value: number) => [value, 'Certificados']}
+                      cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
                     />
                     <Bar 
                       dataKey="certificados" 
                       fill="#10B981" 
                       radius={[0, 4, 4, 0]}
                       animationDuration={2000}
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -1717,15 +1918,18 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   );
 
   return (
-    <ExpandableWidget
-      title="Ventas de Certificados"
-      subtitle={`${totalCertificados} certificados vendidos · ${totalClientes} clientes`}
-      icon={<Award className="w-5 h-5" />}
-      isExpanded={isExpanded}
-      onToggleExpand={onToggleExpand}
-      isLoading={isLoading}
-      renderContent={renderWidgetContent}
-    />
+    <>
+      <ExpandableWidget
+        title="Ventas de Certificados"
+        subtitle={`${totalCertificados} certificados vendidos · ${totalClientes} clientes`}
+        icon={<Award className="w-5 h-5" />}
+        isExpanded={isExpanded}
+        onToggleExpand={onToggleExpand}
+        isLoading={isLoading}
+        renderContent={renderWidgetContent}
+      />
+      <DetailModal />
+    </>
   );
 };
 
@@ -2487,6 +2691,7 @@ const DashboardModule: React.FC = () => {
       let otros = createEmptyCategory();
       const byCoordinacion: Record<string, { count: number; certificados: number; monto: number }> = {};
       const periodData: Record<string, { count: number; monto: number }> = {};
+      const allSalesDetails: SaleDetail[] = [];
       
       // Helper para agrupar según el periodo seleccionado
       const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -2567,13 +2772,23 @@ const DashboardModule: React.FC = () => {
               // Filtrar: solo paquetes creados desde 27 nov 2025
               if (fechaCreacion && new Date(fechaCreacion) >= new Date(CRM_START_DATE)) {
                 const monto = parseFloat(paq?.MontoTotal || 0);
+                const coordName = record.coordinacion || 'Venta Asistida por IA';
                 totalCertificados++;
                 totalMonto += monto;
                 paquetesDetalle.push({
                   numero: paq?.NumeroPaquete || 'N/A',
                   monto: monto,
                   fecha: fechaCreacion,
-                  coordinacion: record.coordinacion || 'Venta Asistida por IA'
+                  coordinacion: coordName
+                });
+                // Agregar a detalles para el modal
+                allSalesDetails.push({
+                  id: `${paq?.NumeroPaquete || 'N/A'}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  numeroPaquete: paq?.NumeroPaquete || 'N/A',
+                  monto: monto,
+                  fecha: fechaCreacion,
+                  coordinacion: coordName,
+                  statusCRM: record.status_crm || 'N/A'
                 });
               }
             });
@@ -2671,7 +2886,8 @@ const DashboardModule: React.FC = () => {
           paquetes: [...activosPQNC.paquetes, ...inactivosPQNC.paquetes, ...enProceso.paquetes, ...otros.paquetes]
         },
         byCoordinacion,
-        byPeriod
+        byPeriod,
+        allSalesDetails: allSalesDetails.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
       });
     } catch (error) {
       console.error('Error loading CRM data:', error);
