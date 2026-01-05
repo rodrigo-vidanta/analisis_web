@@ -3,11 +3,32 @@ import './utils/consoleInterceptors';
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import { CitasApp } from './components/citas'
 
+/**
+ * Configuración de Rutas Principal
+ * 
+ * La aplicación tiene dos proyectos principales:
+ * 
+ * 1. PQNC AI Platform (/)
+ *    - Sistema principal de QA con IA
+ * 
+ * 2. Sistema de Citas (/citas)
+ *    - Sub-proyecto independiente
+ */
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <BrowserRouter>
+      <Routes>
+        {/* Ruta principal - PQNC Platform */}
+        <Route path="/*" element={<App />} />
+        
+        {/* Sub-proyecto de Citas */}
+        <Route path="/citas/*" element={<CitasApp />} />
+      </Routes>
+    </BrowserRouter>
   </StrictMode>
 )
