@@ -132,6 +132,7 @@ interface SaleDetail {
   fecha: string;
   coordinacion: string;
   statusCRM: string;
+  ejecutivo: string;
   cliente?: string;
 }
 
@@ -1635,10 +1636,16 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                           # Paquete
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Ejecutivo
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Cliente
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
                           Fecha
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
-                          Status CRM
+                          Status
                         </th>
                         <th className="text-right py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-tr-lg">
                           Monto
@@ -1659,18 +1666,31 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                               {sale.numeroPaquete}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
+                                {sale.ejecutivo.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                              </div>
+                              <span className="text-gray-700 dark:text-gray-300 text-xs font-medium truncate max-w-[120px]" title={sale.ejecutivo}>
+                                {sale.ejecutivo}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-xs truncate max-w-[150px]" title={sale.cliente || '-'}>
+                            {sale.cliente || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-xs">
                             {formatDate(sale.fecha)}
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                               sale.statusCRM.toLowerCase().includes('activo') 
                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                 : sale.statusCRM.toLowerCase().includes('inactivo')
                                 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                                 : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                             }`}>
-                              {sale.statusCRM}
+                              {sale.statusCRM.replace(' PQNC', '')}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right">
@@ -1848,18 +1868,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
               </h4>
               {coordData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart 
-                    data={coordData} 
-                    layout="vertical"
-                    onClick={(chartData) => {
-                      if (chartData && chartData.activePayload && chartData.activePayload[0]) {
-                        const coordName = chartData.activePayload[0].payload.name;
-                        setSelectedCoord(coordName);
-                        setIsDetailModalOpen(true);
-                      }
-                    }}
-                    style={{ cursor: 'pointer' }}
-                  >
+                  <BarChart data={coordData} layout="vertical">
                     <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                     <YAxis 
                       type="category" 
@@ -1871,15 +1880,28 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                     />
                     <Tooltip 
                       formatter={(value: number) => [value, 'Certificados']}
-                      cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
+                      cursor={{ fill: 'rgba(16, 185, 129, 0.15)' }}
                     />
                     <Bar 
                       dataKey="certificados" 
-                      fill="#10B981" 
                       radius={[0, 4, 4, 0]}
                       animationDuration={2000}
-                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                    />
+                      style={{ cursor: 'pointer' }}
+                      onClick={(barData: any) => {
+                        if (barData && barData.name) {
+                          setSelectedCoord(barData.name);
+                          setIsDetailModalOpen(true);
+                        }
+                      }}
+                    >
+                      {coordData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill="#10B981"
+                          style={{ cursor: 'pointer' }}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -2004,11 +2026,14 @@ const DashboardModule: React.FC = () => {
   const [assignmentByCoord, setAssignmentByCoord] = useState<CoordAssignment[]>([]);
   const [totalProspectsReal, setTotalProspectsReal] = useState(0);
   const [crmSalesData, setCrmSalesData] = useState<CRMSalesData>({
-    activosPQNC: { count: 0, monto: 0 },
-    inactivosPQNC: { count: 0, monto: 0 },
-    enProceso: { count: 0, monto: 0 },
-    otros: { count: 0, monto: 0 },
-    total: { count: 0, monto: 0 }
+    activosPQNC: { count: 0, monto: 0, certificados: 0, reservaciones: 0, paquetes: [] },
+    inactivosPQNC: { count: 0, monto: 0, certificados: 0, reservaciones: 0, paquetes: [] },
+    enProceso: { count: 0, monto: 0, certificados: 0, reservaciones: 0, paquetes: [] },
+    otros: { count: 0, monto: 0, certificados: 0, reservaciones: 0, paquetes: [] },
+    total: { count: 0, monto: 0, certificados: 0, reservaciones: 0, paquetes: [] },
+    byCoordinacion: {},
+    byPeriod: [],
+    allSalesDetails: []
   });
 
   const hasAccess = useMemo(() => {
@@ -2670,7 +2695,7 @@ const DashboardModule: React.FC = () => {
       // Consultar crm_data donde transactions no sea null ni vacío
       const { data: crmRecords, error } = await analysisSupabase
         .from('crm_data')
-        .select('status_crm, transactions, coordinacion, created_at')
+        .select('status_crm, transactions, coordinacion, created_at, propietario, nombre')
         .not('transactions', 'is', null)
         .gte('created_at', CRM_START_DATE)
         .range(0, 9999);
@@ -2788,7 +2813,9 @@ const DashboardModule: React.FC = () => {
                   monto: monto,
                   fecha: fechaCreacion,
                   coordinacion: coordName,
-                  statusCRM: record.status_crm || 'N/A'
+                  statusCRM: record.status_crm || 'N/A',
+                  ejecutivo: record.propietario || 'Sin asignar',
+                  cliente: record.nombre || undefined
                 });
               }
             });
