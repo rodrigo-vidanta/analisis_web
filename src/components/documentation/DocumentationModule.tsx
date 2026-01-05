@@ -253,7 +253,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'b3c4d5e', date: '2026-01-05', author: 'Team', message: 'v2.2.9: 📊 Dashboard - Modal DataGrid detalle ventas por coordinación con ejecutivo', isRelease: true },
+  { hash: '02d889a', date: '2026-01-05', author: 'Team', message: 'v2.2.9: 📊 Dashboard - Modal DataGrid detalle ventas por coordinación con ejecutivo', isRelease: true },
   { hash: '005c2b8', date: '2026-01-04', author: 'Team', message: 'fix: Corregir closure stale en infinite scroll LiveChat - B7.1.8N7.0.8', isRelease: false },
   { hash: 'd4636ec', date: '2026-01-04', author: 'Team', message: 'feat: B7.1.8N7.0.8 - Infinite scroll en Live Chat WhatsApp + Roadmap v7.0.0', isRelease: true },
   { hash: '7dcc9f3', date: '2026-01-04', author: 'Team', message: 'fix: B7.1.7N7.0.7 - Infinite scroll optimizado en historial Live Monitor', isRelease: true },
@@ -319,7 +319,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
-  { id: 'deploy-052', date: '2026-01-05 18:00', version: 'B7.1.9N7.0.9', status: 'pending', duration: '0s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
+  { id: 'deploy-052', date: '2026-01-05 18:00', version: 'B7.1.9N7.0.9', status: 'success', duration: '25.70s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-051', date: '2026-01-04 19:50', version: 'B7.1.8N7.0.8', status: 'success', duration: '21.08s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-050', date: '2026-01-04 19:40', version: 'B7.1.7N7.0.7', status: 'success', duration: '22.88s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-049', date: '2026-01-02 18:30', version: 'v2.2.7', status: 'success', duration: '31.69s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
