@@ -1,0 +1,322 @@
+---
+description: Reglas del subproyecto Citas Vidanta - Vacation Planner Confirmación
+globs:
+  - src/components/citas/**/*
+  - public/assets/citas-*
+---
+# 🏖️ Reglas del Subproyecto CITAS VIDANTA
+
+**Sistema:** Vacation Planner Confirmación  
+**URL:** https://ai.vidavacations.com/citas  
+**Versión:** 1.0.0
+
+---
+
+## 📋 DESCRIPCIÓN
+
+Sistema de gestión de citas para Vacation Planner de Vidanta.
+Subproyecto **aislado** del proyecto principal PQNC QA AI Platform.
+
+---
+
+## 🗂️ ESTRUCTURA DE ARCHIVOS
+
+```
+src/components/citas/
+├── CitasApp.tsx          # Componente raíz - maneja auth y navegación
+├── CitasLoginScreen.tsx  # Pantalla de login con diseño tropical
+├── CitasDashboard.tsx    # Dashboard principal con sidebar
+├── index.ts              # Exports del módulo
+└── README.md             # Documentación técnica
+
+public/assets/
+├── citas-background-beach.png    # Fondo login (playa acuarela)
+├── citas-login-success.mp3       # Audio de gaviotas (éxito login)
+├── citas-workspace-light.png     # Fondo workspace modo claro
+├── citas-workspace-dark.png      # Fondo workspace modo oscuro
+├── citas-sidebar-light.png       # Fondo sidebar modo claro
+└── citas-sidebar-dark.png        # Fondo sidebar modo oscuro
+```
+
+---
+
+## 🎨 SISTEMA DE DISEÑO
+
+### Tipografía Principal: Montserrat
+
+```tsx
+// Importar en cada componente
+<link 
+  href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;500;600;700;800;900&display=swap" 
+  rel="stylesheet" 
+/>
+
+// Aplicar en estilos
+style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 500 }}
+```
+
+| Uso | Weight | Size | Tracking |
+|-----|--------|------|----------|
+| Títulos grandes | 600 | 5xl-7xl | tight |
+| Subtítulos | 500-600 | base-lg | 0.2em-0.3em |
+| Texto normal | 400-500 | sm | normal |
+| Labels pequeños | 300-400 | xs-[10px] | 0.15em-0.25em |
+
+### Paleta de Colores
+
+#### Modo Claro
+```css
+--teal-500: #14b8a6     /* Botones, acentos */
+--teal-600: #0d9488     /* Hover states */
+--gray-700: #374151     /* Texto principal */
+--gray-600: #4b5563     /* Texto secundario */
+--white/60-80           /* Cards, inputs */
+```
+
+#### Modo Oscuro
+```css
+--teal-600: #0d9488     /* Botones, acentos */
+--gray-800: #1f2937     /* Fondos cards */
+--gray-300: #d1d5db     /* Texto principal */
+--gray-900/50-60        /* Overlays */
+```
+
+### Efectos Visuales
+
+#### Glassmorphism (Login)
+```tsx
+style={{ 
+  backgroundColor: 'rgba(255, 255, 255, 0.2)',  // 20% opaco
+  backdropFilter: 'blur(10px)'
+}}
+```
+
+#### Cards del Dashboard
+```tsx
+className={`
+  p-6 rounded-2xl backdrop-blur-sm shadow-xl
+  ${darkMode ? 'bg-gray-800/60' : 'bg-white/60'}
+`}
+```
+
+#### Resplandor en Logo
+```tsx
+style={{
+  filter: `
+    drop-shadow(0 0 12px rgba(255, 255, 255, 0.9))
+    drop-shadow(0 0 20px rgba(255, 255, 255, 0.7))
+    drop-shadow(0 0 30px rgba(255, 255, 255, 0.5))
+  `,
+}}
+```
+
+#### Resplandor en Texto
+```tsx
+style={{
+  textShadow: darkMode 
+    ? '0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(255, 255, 255, 0.15)' 
+    : '0 0 8px rgba(255, 255, 255, 0.6), 0 0 16px rgba(255, 255, 255, 0.4)'
+}}
+```
+
+---
+
+## ✨ ANIMACIONES (Framer Motion)
+
+### Transiciones de Página
+```tsx
+<AnimatePresence mode="wait">
+  <motion.div
+    key="unique-key"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.3 }}
+  >
+```
+
+### Entrada de Elementos
+```tsx
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.2, duration: 0.6 }}
+>
+```
+
+### Hover/Tap en Botones
+```tsx
+<motion.button
+  whileHover={{ scale: 1.02 }}
+  whileTap={{ scale: 0.98 }}
+>
+```
+
+### Sidebar Colapsable
+```tsx
+<motion.aside
+  initial={false}
+  animate={{ width: sidebarCollapsed ? 80 : 280 }}
+  transition={{ duration: 0.3, ease: 'easeInOut' }}
+>
+```
+
+---
+
+## 🔐 AUTENTICACIÓN
+
+### Servicio: authService del proyecto principal
+```tsx
+import { authService } from '../../services/authService';
+```
+
+### Flujo
+1. **Verificar sesión:** `authService.initialize()`
+2. **Login:** `authService.login({ email, password })`
+3. **Logout:** `authService.logout()`
+
+### Audio de Éxito
+```tsx
+const LOGIN_SUCCESS_AUDIO_URL = '/assets/citas-login-success.mp3';
+
+const playLoginSuccessSound = () => {
+  const audio = new Audio(LOGIN_SUCCESS_AUDIO_URL);
+  audio.volume = 0.5;
+  audio.play().catch(() => {});
+};
+```
+
+---
+
+## 🖼️ ASSETS Y FONDOS
+
+### Rutas
+```tsx
+const ASSETS = {
+  workspaceLight: '/assets/citas-workspace-light.png',
+  workspaceDark: '/assets/citas-workspace-dark.png',
+  sidebarLight: '/assets/citas-sidebar-light.png',
+  sidebarDark: '/assets/citas-sidebar-dark.png',
+};
+const BACKGROUND_IMAGE_URL = '/assets/citas-background-beach.png';
+```
+
+### Configuración de Fondos
+
+#### Login (Background completo)
+```tsx
+<div 
+  className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+  style={{ backgroundImage: `url(${BACKGROUND_IMAGE_URL})` }}
+/>
+```
+
+#### Sidebar (Recortado a la izquierda)
+```tsx
+<img 
+  src={darkMode ? ASSETS.sidebarDark : ASSETS.sidebarLight}
+  className="absolute inset-0 w-full h-full object-cover object-left"
+/>
+{darkMode && <div className="absolute inset-0 bg-gray-900/50" />}
+```
+
+#### Workspace (Opacidad en modo claro)
+```tsx
+<img 
+  src={darkMode ? ASSETS.workspaceDark : ASSETS.workspaceLight}
+  className="w-full h-full object-cover"
+  style={{ opacity: darkMode ? 1 : 0.6 }}
+/>
+{darkMode && <div className="absolute inset-0 bg-gray-900/20" />}
+```
+
+---
+
+## 📐 JERARQUÍA Z-INDEX
+
+```
+z-[100]  → Menús emergentes (dropdowns)
+z-30     → Header del área de trabajo
+z-20     → Botón toggle sidebar
+z-10     → Contenido del sidebar
+z-5      → Contenido principal
+z-0      → Capas de fondo (imágenes)
+```
+
+---
+
+## ⚠️ REGLAS CRÍTICAS
+
+### ❌ PROHIBIDO
+1. Modificar archivos fuera de `/src/components/citas/`
+2. Crear nuevos servicios de autenticación
+3. Hardcodear credenciales
+4. Usar overlays blancos en modo claro (ocultan imágenes)
+5. Z-index negativos en fondos
+
+### ✅ OBLIGATORIO
+1. Usar Montserrat como fuente única
+2. Mantener consistencia de colores teal/gray
+3. Usar framer-motion para animaciones
+4. Soportar modo claro Y oscuro
+5. Usar react-hot-toast para notificaciones
+6. Tipar todo con TypeScript
+
+### 💡 RECOMENDADO
+- Usar `object-left` para sidebar (recortar imágenes)
+- Aplicar opacidad a imágenes en modo claro
+- Cerrar menús con useRef + mousedown listener
+
+---
+
+## 🔗 DEPENDENCIAS DEL PROYECTO PRINCIPAL
+
+```tsx
+// Hooks
+import { useSystemConfig } from '../../hooks/useSystemConfig';
+
+// Servicios
+import { authService } from '../../services/authService';
+
+// Librerías
+import { Toaster } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Home, Calendar, Users, Settings, LogOut } from 'lucide-react';
+```
+
+---
+
+## 🚀 DESARROLLO LOCAL
+
+```
+URL: http://localhost:5173/citas
+```
+
+### Configuración en main.tsx
+```tsx
+<Routes>
+  <Route path="/" element={<App />} />
+  <Route path="/citas/*" element={<CitasApp />} />
+</Routes>
+```
+
+---
+
+## 📝 COMPONENTES
+
+| Componente | Responsabilidad | Props |
+|------------|-----------------|-------|
+| `CitasApp` | Orquestar auth y navegación | - |
+| `CitasLoginScreen` | Pantalla de login | onLoginSuccess(user) |
+| `CitasDashboard` | Dashboard principal | onLogout, userEmail, userName |
+
+---
+
+## 🎯 TODO (Próximos pasos)
+
+- [ ] Registro de usuarios
+- [ ] OAuth con Office 365
+- [ ] Módulo "Mis Citas" funcional
+- [ ] Módulo "Destinos" con catálogo
+- [ ] Notificaciones push
+- [ ] Responsive móvil completo
