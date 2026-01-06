@@ -286,7 +286,9 @@ export const WhatsAppLabelsModal: React.FC<WhatsAppLabelsModalProps> = ({
     return prospectoLabels.find(cl => cl.label_id === labelId && cl.label_type === labelType);
   };
   
-  const canCreateMore = availableLabels.custom.length < LABEL_LIMITS.MAX_CUSTOM_LABELS_PER_USER;
+  // FIX: Solo contar las etiquetas del usuario actual, no todas las custom
+  const myLabelsCount = availableLabels.custom.filter(l => l.isOwner).length;
+  const canCreateMore = myLabelsCount < LABEL_LIMITS.MAX_CUSTOM_LABELS_PER_USER;
   const canAddMore = prospectoLabels.length < LABEL_LIMITS.MAX_LABELS_PER_CONVERSATION;
   
   // ============================================
