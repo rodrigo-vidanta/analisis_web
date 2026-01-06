@@ -1032,6 +1032,10 @@ const LiveChatCanvas: React.FC = () => {
   const [hasMoreConversations, setHasMoreConversations] = useState(true);
   const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
   const [totalConversationsCount, setTotalConversationsCount] = useState(0);
+  // v6.4.0: Conteo real de conversaciones del usuario (según permisos)
+  const [userConversationsCount, setUserConversationsCount] = useState<number | null>(null);
+  // v6.4.0: Flag para indicar si ya se precargaron las etiquetas del usuario
+  const allUserLabelsLoadedRef = useRef(false);
   const CONVERSATIONS_BATCH_SIZE = 200;
   const conversationsScrollContainerRef = useRef<HTMLDivElement>(null);
   const isLoadingConversationsRef = useRef(false);
@@ -3866,12 +3870,21 @@ const LiveChatCanvas: React.FC = () => {
   // ============================================
 
   // Función para cargar etiquetas de prospectos en batch
+  // v6.4.1: MEZCLA con etiquetas existentes en lugar de reemplazar
   const loadProspectosLabels = useCallback(async (prospectoIds: string[]) => {
     if (prospectoIds.length === 0) return;
     
+    // v6.4.1: Si las etiquetas del usuario ya fueron precargadas, no volver a cargar
+    // Esto evita que los batches sobrescriban la precarga completa
+    if (allUserLabelsLoadedRef.current) {
+      console.log(`🏷️ [v6.4.1] Etiquetas ya precargadas, omitiendo carga de batch`);
+      return;
+    }
+    
     try {
       const labelsMap = await whatsappLabelsService.getBatchProspectosLabels(prospectoIds);
-      setProspectoLabels(labelsMap);
+      // v6.4.1: MEZCLAR con etiquetas existentes, no reemplazar
+      setProspectoLabels(prev => ({ ...prev, ...labelsMap }));
     } catch (error) {
       console.error('Error cargando etiquetas de prospectos:', error);
     }
@@ -3902,6 +3915,144 @@ const LiveChatCanvas: React.FC = () => {
   useEffect(() => {
     loadAvailableLabelsForFilter();
   }, [loadAvailableLabelsForFilter]);
+  
+  // ============================================
+  // v6.4.0: PRECARGA DE ETIQUETAS Y CONTEO DE USUARIO
+  // ============================================
+  // Esta función precarga:
+  // 1. El conteo total de conversaciones que el usuario puede ver
+  // 2. Las etiquetas de TODOS los prospectos asignados al usuario
+  // Esto asegura que los filtros funcionen correctamente con infinite scroll
+  // ============================================
+  const preloadUserDataAndLabels = useCallback(async () => {
+    if (!user?.id || allUserLabelsLoadedRef.current) return;
+    
+    try {
+      console.log('🏷️ [v6.4.0] Precargando datos y etiquetas del usuario...');
+      
+      // Obtener filtros de permisos
+      const { permissionsService } = await import('../../services/permissionsService');
+      const [ejecutivoFilter, coordinacionesFilter] = await Promise.all([
+        permissionsService.getEjecutivoFilter(user.id),
+        permissionsService.getCoordinacionesFilter(user.id)
+      ]);
+      
+      const isUserAdmin = !ejecutivoFilter && !coordinacionesFilter;
+      
+      if (isUserAdmin) {
+        // Admin: el total de BD es su total
+        console.log('👑 [v6.4.0] Usuario es admin, usando conteo total de BD');
+        setUserConversationsCount(totalConversationsCount);
+        allUserLabelsLoadedRef.current = true;
+        return;
+      }
+      
+      // Ejecutivo o Coordinador: necesitamos contar y cargar etiquetas de sus prospectos
+      let prospectoIds: string[] = [];
+      
+      if (ejecutivoFilter) {
+        // Obtener IDs de ejecutivos donde es backup
+        const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
+        const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+          .from('auth_users')
+          .select('id')
+          .eq('backup_id', ejecutivoFilter)
+          .eq('has_backup', true);
+        
+        const ejecutivosIds = [ejecutivoFilter];
+        if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+          ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+        }
+        
+        // Obtener todos los prospectos asignados a este ejecutivo (y backups)
+        // filtrando también por coordinación
+        const BATCH_SIZE = 500;
+        let offset = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const { data: prospectos, error } = await analysisSupabase
+            .from('prospectos')
+            .select('id')
+            .in('ejecutivo_id', ejecutivosIds)
+            .in('coordinacion_id', coordinacionesFilter || [])
+            .range(offset, offset + BATCH_SIZE - 1);
+          
+          if (error) {
+            console.error('Error obteniendo prospectos del ejecutivo:', error);
+            break;
+          }
+          
+          if (prospectos && prospectos.length > 0) {
+            prospectoIds.push(...prospectos.map(p => p.id));
+            offset += BATCH_SIZE;
+            hasMore = prospectos.length === BATCH_SIZE;
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        console.log(`✅ [v6.4.0] Ejecutivo tiene ${prospectoIds.length} prospectos asignados`);
+      } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+        // Coordinador: obtener todos los prospectos de sus coordinaciones
+        const BATCH_SIZE = 500;
+        let offset = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const { data: prospectos, error } = await analysisSupabase
+            .from('prospectos')
+            .select('id')
+            .in('coordinacion_id', coordinacionesFilter)
+            .range(offset, offset + BATCH_SIZE - 1);
+          
+          if (error) {
+            console.error('Error obteniendo prospectos del coordinador:', error);
+            break;
+          }
+          
+          if (prospectos && prospectos.length > 0) {
+            prospectoIds.push(...prospectos.map(p => p.id));
+            offset += BATCH_SIZE;
+            hasMore = prospectos.length === BATCH_SIZE;
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        console.log(`✅ [v6.4.0] Coordinador tiene ${prospectoIds.length} prospectos en sus coordinaciones`);
+      }
+      
+      // Establecer conteo real del usuario
+      setUserConversationsCount(prospectoIds.length);
+      
+      // Precargar etiquetas de TODOS los prospectos del usuario
+      if (prospectoIds.length > 0) {
+        console.log(`🏷️ [v6.4.0] Precargando etiquetas de ${prospectoIds.length} prospectos...`);
+        try {
+          const labelsMap = await whatsappLabelsService.getBatchProspectosLabels(prospectoIds);
+          // v6.4.1: MEZCLAR con etiquetas existentes (por si el primer batch ya cargó algunas)
+          setProspectoLabels(prev => ({ ...prev, ...labelsMap }));
+          console.log(`✅ [v6.4.0] Etiquetas precargadas para ${Object.keys(labelsMap).length} prospectos`);
+        } catch (err) {
+          console.error('Error precargando etiquetas:', err);
+        }
+      }
+      
+      // v6.4.1: Marcar como cargadas DESPUÉS de establecer las etiquetas
+      allUserLabelsLoadedRef.current = true;
+      console.log(`🏷️ [v6.4.1] Flag allUserLabelsLoadedRef establecido - los siguientes batches no cargarán etiquetas`);
+    } catch (error) {
+      console.error('❌ [v6.4.0] Error en precarga de datos:', error);
+    }
+  }, [user?.id, totalConversationsCount]);
+  
+  // Ejecutar precarga cuando tengamos el conteo total y el usuario
+  useEffect(() => {
+    if (user?.id && totalConversationsCount > 0 && !allUserLabelsLoadedRef.current) {
+      preloadUserDataAndLabels();
+    }
+  }, [user?.id, totalConversationsCount, preloadUserDataAndLabels]);
 
   const handleOpenLabelsModal = (prospecto: { id: string; name: string }, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -5880,8 +6031,16 @@ const LiveChatCanvas: React.FC = () => {
         >
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="text-center">
-              <div className="text-sm font-semibold text-slate-900 dark:text-white">{filteredConversations.length > 0 ? filteredConversations.length : conversations.length}</div>
-              <div className="text-[10px] text-slate-500 dark:text-gray-400">Total</div>
+              {/* v6.4.0: Mostrar conteo real del usuario según permisos */}
+              <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                {userConversationsCount !== null 
+                  ? `${filteredConversations.length}/${userConversationsCount}`
+                  : (filteredConversations.length > 0 ? filteredConversations.length : conversations.length)
+                }
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-gray-400">
+                {userConversationsCount !== null ? 'Cargadas/Total' : 'Total'}
+              </div>
             </div>
             <div className="text-center">
               <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
