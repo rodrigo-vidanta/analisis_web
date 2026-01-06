@@ -41,7 +41,6 @@ const CitasDashboard: React.FC<CitasDashboardProps> = ({ onLogout, userEmail, us
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [imageLoadStatus, setImageLoadStatus] = useState<Record<string, boolean>>({});
   const { config } = useSystemConfig();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -61,40 +60,6 @@ const CitasDashboard: React.FC<CitasDashboardProps> = ({ onLogout, userEmail, us
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showUserMenu]);
-
-  // DEBUG: Log de URLs de imágenes y verificación de carga
-  useEffect(() => {
-    console.log('🖼️ [CitasDashboard] ASSETS:', ASSETS);
-    console.log('🌙 [CitasDashboard] darkMode:', darkMode);
-    console.log('🖼️ [CitasDashboard] Current sidebar image:', darkMode ? ASSETS.sidebarDark : ASSETS.sidebarLight);
-    console.log('🖼️ [CitasDashboard] Current workspace image:', darkMode ? ASSETS.workspaceDark : ASSETS.workspaceLight);
-    
-    // Precargar imágenes para verificar si cargan
-    const imagesToTest = [
-      { name: 'sidebarLight', url: ASSETS.sidebarLight },
-      { name: 'sidebarDark', url: ASSETS.sidebarDark },
-      { name: 'workspaceLight', url: ASSETS.workspaceLight },
-      { name: 'workspaceDark', url: ASSETS.workspaceDark },
-    ];
-
-    imagesToTest.forEach(({ name, url }) => {
-      const img = new Image();
-      img.onload = () => {
-        console.log(`✅ [CitasDashboard] Imagen ${name} cargada correctamente:`, url);
-        setImageLoadStatus(prev => ({ ...prev, [name]: true }));
-      };
-      img.onerror = (e) => {
-        console.error(`❌ [CitasDashboard] Error cargando imagen ${name}:`, url, e);
-        setImageLoadStatus(prev => ({ ...prev, [name]: false }));
-      };
-      img.src = url;
-    });
-  }, [darkMode]);
-
-  // Log del estado de carga
-  useEffect(() => {
-    console.log('📊 [CitasDashboard] Image load status:', imageLoadStatus);
-  }, [imageLoadStatus]);
 
   const leafLogoUrl = config.app_branding?.favicon_url;
 
@@ -129,8 +94,6 @@ const CitasDashboard: React.FC<CitasDashboardProps> = ({ onLogout, userEmail, us
             src={darkMode ? ASSETS.sidebarDark : ASSETS.sidebarLight}
             alt="Sidebar background"
             className="absolute inset-0 w-full h-full object-cover object-left"
-            onLoad={() => console.log('✅ Sidebar image loaded:', darkMode ? 'dark' : 'light')}
-            onError={(e) => console.error('❌ Sidebar image error:', e, darkMode ? ASSETS.sidebarDark : ASSETS.sidebarLight)}
           />
           {/* Overlay para legibilidad - Solo en modo oscuro, el modo claro no necesita overlay */}
           {darkMode && <div className="absolute inset-0 bg-gray-900/50" />}
@@ -298,8 +261,6 @@ const CitasDashboard: React.FC<CitasDashboardProps> = ({ onLogout, userEmail, us
               alt="Workspace background"
               className="w-full h-full object-cover"
               style={{ opacity: darkMode ? 1 : 0.6 }}
-              onLoad={() => console.log('✅ Workspace image loaded:', darkMode ? 'dark' : 'light')}
-              onError={(e) => console.error('❌ Workspace image error:', e, darkMode ? ASSETS.workspaceDark : ASSETS.workspaceLight)}
             />
             {/* Overlay solo en modo oscuro */}
             {darkMode && <div className="absolute inset-0 pointer-events-none bg-gray-900/20" />}
