@@ -253,6 +253,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'e3v6722', date: '2026-01-06', author: 'Team', message: 'v2.2.12: 🔧 Fix Widget Últimas Conversaciones - Carga progresiva por batches para ejecutivos', isRelease: true },
   { hash: 'd2u5611', date: '2026-01-05', author: 'Team', message: 'v2.2.11: 🏖️ Dashboard Citas - Fondos acuarela, modo claro/oscuro, corrección z-index menú usuario', isRelease: true },
   { hash: 'c1t4500', date: '2026-01-05', author: 'Team', message: 'v2.2.10: 🏖️ Subproyecto /citas - Login Vacation Planner con diseño playa tropical y audio gaviotas', isRelease: true },
   { hash: '02d889a', date: '2026-01-05', author: 'Team', message: 'v2.2.9: 📊 Dashboard - Modal DataGrid detalle ventas por coordinación con ejecutivo', isRelease: true },
@@ -321,6 +322,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-055', date: '2026-01-06 14:30', version: 'B7.2.2N7.1.2', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-054', date: '2026-01-05 22:45', version: 'B7.2.1N7.1.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-053', date: '2026-01-05 20:30', version: 'B7.2.0N7.1.0', status: 'success', duration: '56.74s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-052', date: '2026-01-05 18:00', version: 'B7.1.9N7.0.9', status: 'success', duration: '25.70s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -372,10 +374,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.11', highlight: true },
-  { label: 'Release', value: 'B7.2.1N7.1.1', highlight: false },
+  { label: 'Version', value: 'v2.2.12', highlight: true },
+  { label: 'Release', value: 'B7.2.2N7.1.2', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '05 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '06 Ene 2026', highlight: false },
 ];
 
 // ============================================

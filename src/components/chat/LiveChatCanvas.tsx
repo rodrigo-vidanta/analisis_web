@@ -2432,9 +2432,26 @@ const LiveChatCanvas: React.FC = () => {
         return;
       }
       
-      // Si no hay suficiente scroll, cargar automáticamente (hasta 1000 conversaciones)
-      if (scrollHeight <= containerHeight + 50 && hasMoreConversations && !loadingMoreConversations && !isLoadingConversationsRef.current && allConversationsLoaded.length < 1000) {
-        console.log(`📊 No hay suficiente scroll - Cargando más conversaciones automáticamente...`);
+      // ============================================
+      // FIX v6.3.0: Carga automática más agresiva para ejecutivos
+      // ============================================
+      // Si no hay suficiente scroll O si hay muy pocas conversaciones,
+      // cargar automáticamente más batches.
+      // El límite de 1000 es para evitar loops infinitos, pero seguimos
+      // hasta tener al menos algo de scroll o agotar la BD.
+      const MIN_CONVERSATIONS_FOR_SCROLL = 10; // Mínimo para tener scroll decente
+      const shouldLoadMore = 
+        hasMoreConversations && 
+        !loadingMoreConversations && 
+        !isLoadingConversationsRef.current && 
+        allConversationsLoaded.length < 1000 &&
+        (
+          scrollHeight <= containerHeight + 50 || // No hay suficiente scroll
+          allConversationsLoaded.length < MIN_CONVERSATIONS_FOR_SCROLL // Muy pocas conversaciones
+        );
+      
+      if (shouldLoadMore) {
+        console.log(`📊 Carga automática - Conversaciones: ${allConversationsLoaded.length}, Scroll: ${Math.round(scrollHeight)}/${Math.round(containerHeight)}`);
         loadConversations('', false);
         return;
       }
@@ -2451,10 +2468,11 @@ const LiveChatCanvas: React.FC = () => {
 
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
     
-    // Verificar inmediatamente por si el contenido es pequeño
+    // Verificar rápidamente después de la carga inicial
+    // Reducido de 800ms a 300ms para mejor UX cuando hay pocas conversaciones
     const initialCheck = setTimeout(() => {
       checkShouldLoadMore();
-    }, 800);
+    }, 300);
 
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
@@ -3758,13 +3776,25 @@ const LiveChatCanvas: React.FC = () => {
         setConversations(filtered);
         currentConversationsPageRef.current = 1;
         
-        // Verificar si hay más datos
-        if (totalConversationsCount > 0) {
-          const hasMore = filtered.length < totalConversationsCount;
+        // ============================================
+        // FIX v6.3.0: hasMore basado en rawLoadedCount del RPC
+        // ============================================
+        // Si el RPC devolvió un batch completo (200), hay más datos en la BD.
+        // Aunque filtered.length sea pequeño (ej: 2), debemos seguir cargando
+        // porque las conversaciones del usuario pueden estar en batches posteriores.
+        if (rawLoadedCount < CONVERSATIONS_BATCH_SIZE) {
+          // El RPC no devolvió un batch completo, no hay más datos en BD
+          setHasMoreConversations(false);
+          console.log(`📊 Reset: ${filtered.length} filtradas. Fin de BD (batch: ${rawLoadedCount}/${CONVERSATIONS_BATCH_SIZE})`);
+        } else if (totalConversationsCount > 0) {
+          // Batch completo, verificar si hay más en la BD
+          const hasMore = CONVERSATIONS_BATCH_SIZE < totalConversationsCount;
           setHasMoreConversations(hasMore);
-          console.log(`📊 Reset: ${filtered.length} cargadas de ${totalConversationsCount} totales. HasMore: ${hasMore}`);
+          console.log(`📊 Reset: ${filtered.length} filtradas de ${rawLoadedCount} en batch. Total BD: ${totalConversationsCount}. HasMore: ${hasMore}`);
         } else {
-          setHasMoreConversations(rawLoadedCount === CONVERSATIONS_BATCH_SIZE);
+          // Sin conteo, asumir que hay más si el batch está lleno
+          setHasMoreConversations(true);
+          console.log(`📊 Reset: ${filtered.length} filtradas. Continuando carga...`);
         }
         hasInitialConversationsLoadRef.current = true;
       } else {
@@ -3775,17 +3805,35 @@ const LiveChatCanvas: React.FC = () => {
           // Actualizar conversations también dentro del mismo callback
           setConversations(updatedData);
           
-          // Verificar si hay más datos
-          if (rawLoadedCount === 0 || filtered.length === 0) {
+          // ============================================
+          // FIX v6.3.0: hasMore basado en rawLoadedCount (crudo), NO en filtered.length
+          // ============================================
+          // PROBLEMA ANTERIOR: Si un batch de 200 devolvía 0 conversaciones para el usuario
+          // (porque ninguna le pertenecía), se establecía hasMore=false incorrectamente.
+          // 
+          // SOLUCIÓN: Basar la decisión SOLO en rawLoadedCount (cantidad del RPC).
+          // Si el RPC devolvió el batch completo (200), hay más datos en la BD.
+          // Si devolvió menos, no hay más datos.
+          // ============================================
+          if (rawLoadedCount === 0) {
+            // El RPC no devolvió nada, realmente no hay más
             setHasMoreConversations(false);
-            console.log(`📊 No hay más conversaciones. Total: ${updatedData.length} de ${totalConversationsCount}`);
+            console.log(`📊 No hay más conversaciones en BD. Total filtrado: ${updatedData.length} de ${totalConversationsCount}`);
+          } else if (rawLoadedCount < CONVERSATIONS_BATCH_SIZE) {
+            // El RPC devolvió menos del límite, significa que llegamos al final de la BD
+            setHasMoreConversations(false);
+            console.log(`📊 Fin de conversaciones en BD (batch incompleto: ${rawLoadedCount}). Total filtrado: ${updatedData.length}`);
           } else if (totalConversationsCount > 0) {
-            const hasMore = updatedData.length < totalConversationsCount && rawLoadedCount === CONVERSATIONS_BATCH_SIZE;
+            // El RPC devolvió un batch completo, puede haber más
+            // Verificar si ya cargamos todas las conversaciones posibles
+            const totalLoadedFromDB = (currentConversationsPageRef.current + 1) * CONVERSATIONS_BATCH_SIZE;
+            const hasMore = totalLoadedFromDB < totalConversationsCount;
             setHasMoreConversations(hasMore);
-            console.log(`📊 Agregadas ${filtered.length} conversaciones. Total: ${updatedData.length} de ${totalConversationsCount}. HasMore: ${hasMore}`);
+            console.log(`📊 Agregadas ${filtered.length} conversaciones (de ${rawLoadedCount} en batch). Total filtrado: ${updatedData.length}. HasMore: ${hasMore}`);
           } else {
-            const hasMore = rawLoadedCount === CONVERSATIONS_BATCH_SIZE;
-            setHasMoreConversations(hasMore);
+            // Sin conteo total, asumir que hay más si el batch está lleno
+            setHasMoreConversations(true);
+            console.log(`📊 Agregadas ${filtered.length} conversaciones. Continuando carga...`);
           }
           
           return updatedData;

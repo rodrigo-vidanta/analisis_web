@@ -1893,7 +1893,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           <ProspectosKanban
             prospectos={filteredAndSortedProspectos}
             onProspectoClick={handleProspectoClick}
-            onLoadMoreForColumn={loadMoreProspectosForColumn}
             onProspectoContextMenu={(e, prospecto) => {
               if (isCoordinador || isAdmin || isAdminOperativo) {
                 setAssignmentContextMenu({

@@ -1296,20 +1296,70 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     try {
       setLoading(true);
       
-      // OPTIMIZACIÓN: Cargar ambas fuentes en paralelo (igual que LiveChatCanvas)
-      const [uchatConversationsRaw, rpcDataResult] = await Promise.all([
-        uchatService.getConversations({
-          userId: userId,
-          limit: 15
-        }),
-        analysisSupabase.rpc('get_conversations_ordered')
-          .then(({ data, error }) => ({ data, error }))
-          .catch(() => ({ data: null, error: null }))
-      ]);
-
-      // Obtener filtros de permisos
+      // Obtener filtros de permisos primero para determinar la estrategia de carga
       const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
       const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+      
+      // ============================================
+      // CARGA PROGRESIVA POR BATCHES (v6.3.0)
+      // ============================================
+      // Para ejecutivos y coordinadores, las conversaciones están dispersas
+      // entre las 1350+ totales. Necesitamos cargar múltiples batches
+      // hasta tener al menos 15 conversaciones filtradas para el widget.
+      const WIDGET_BATCH_SIZE = 200; // Mismo tamaño que LiveChatCanvas
+      
+      let allRpcData: any[] = [];
+      let currentOffset = 0;
+      let hasMoreData = true;
+      let batchCount = 0;
+      
+      // Para admin, cargar un solo batch grande es suficiente
+      const isUserAdmin = !coordinacionesFilter && !ejecutivoFilter;
+      
+      // OPTIMIZACIÓN: Cargar uchat primero (siempre son pocas)
+      const uchatConversationsRaw = await uchatService.getConversations({
+        userId: userId,
+        limit: 15
+      });
+      
+      // ============================================
+      // CARGA INTELIGENTE PARA EJECUTIVOS (v6.3.1)
+      // ============================================
+      // Para ejecutivos, necesitamos cargar suficientes conversaciones
+      // para que después del filtrado por permisos tengamos al menos 15.
+      // El enfoque es cargar batches más grandes para ejecutivos.
+      
+      // Para ejecutivos: cargar más batches porque sus conversaciones están dispersas
+      const batchesToLoad = isUserAdmin ? 1 : 5; // Admin: 1 batch (200), Ejecutivo: 5 batches (1000)
+      
+      while (hasMoreData && batchCount < batchesToLoad) {
+        const { data: batchData, error } = await analysisSupabase
+          .rpc('get_conversations_ordered', { 
+            p_limit: WIDGET_BATCH_SIZE, 
+            p_offset: currentOffset 
+          });
+        
+        if (error) {
+          console.error(`❌ [ConversacionesWidget] Error cargando batch ${batchCount + 1}:`, error);
+          break;
+        }
+        
+        const batch = batchData || [];
+        allRpcData = [...allRpcData, ...batch];
+        currentOffset += WIDGET_BATCH_SIZE;
+        batchCount++;
+        
+        // Si el batch está vacío o tiene menos del límite, no hay más datos en BD
+        if (batch.length < WIDGET_BATCH_SIZE) {
+          hasMoreData = false;
+          console.log(`📊 [ConversacionesWidget] Fin de BD en batch ${batchCount} (${batch.length}/${WIDGET_BATCH_SIZE})`);
+        }
+      }
+      
+      console.log(`📊 [ConversacionesWidget] Total cargado: ${allRpcData.length} conversaciones en ${batchCount} batches`);
+      
+      // Usar allRpcData como el rpcData para el resto del procesamiento
+      const rpcDataResult = { data: allRpcData, error: null };
 
       // ============================================
       // OPTIMIZACIÓN CRÍTICA: Carga en dos pasos para enriquecimiento de datos
