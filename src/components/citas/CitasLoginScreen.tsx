@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSystemConfig } from '../../hooks/useSystemConfig';
+import { authService } from '../../services/authService';
+import toast from 'react-hot-toast';
 
 /**
  * CitasLoginScreen - Sistema de Citas Vidanta
  * Vacation Planner Confirmación
+ * 
+ * Usa el mismo sistema de autenticación que el proyecto principal
  */
 
 interface CitasLoginScreenProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (user: { email: string; name: string }) => void;
 }
 
 const BACKGROUND_IMAGE_URL = '/assets/citas-background-beach.png';
@@ -19,31 +23,49 @@ const CitasLoginScreen: React.FC<CitasLoginScreenProps> = ({ onLoginSuccess }) =
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { config } = useSystemConfig();
 
   // Función para reproducir audio de éxito
   const playLoginSuccessSound = () => {
     try {
       const audio = new Audio(LOGIN_SUCCESS_AUDIO_URL);
-      audio.volume = 0.5; // Volumen al 50%
-      audio.play().catch(() => {
-        // Silenciar errores si el navegador bloquea el audio
-      });
+      audio.volume = 0.5;
+      audio.play().catch(() => {});
     } catch {
       // Silenciar errores
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     
     setIsLoading(true);
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      // Usar el authService real del proyecto principal
+      const result = await authService.login({ email, password });
+      
+      if (result.isAuthenticated && result.user) {
+        playLoginSuccessSound();
+        toast.success(`¡Bienvenido, ${result.user.first_name}!`);
+        onLoginSuccess({
+          email: result.user.email,
+          name: result.user.full_name || result.user.first_name
+        });
+      } else {
+        setError(result.error || 'Credenciales incorrectas');
+        toast.error(result.error || 'Credenciales incorrectas');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
       setIsLoading(false);
-      playLoginSuccessSound(); // Reproducir sonido de gaviotas
-      onLoginSuccess();
-    }, 1000);
+    }
   };
 
   // Logo de la hoja (favicon)
@@ -155,7 +177,7 @@ const CitasLoginScreen: React.FC<CitasLoginScreenProps> = ({ onLoginSuccess }) =
             <div className="h-8" />
           </div>
 
-          {/* ===== LADO DERECHO - ÁREA TRANSLÚCIDA 70% ===== */}
+          {/* ===== LADO DERECHO - ÁREA TRANSLÚCIDA 20% ===== */}
           <motion.div
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
@@ -184,6 +206,17 @@ const CitasLoginScreen: React.FC<CitasLoginScreenProps> = ({ onLoginSuccess }) =
                 </p>
               </div>
 
+              {/* Error message */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm"
+                >
+                  {error}
+                </motion.div>
+              )}
+
               {/* Formulario */}
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Email */}
@@ -193,7 +226,8 @@ const CitasLoginScreen: React.FC<CitasLoginScreenProps> = ({ onLoginSuccess }) =
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="correo@ejemplo.com"
                   required
-                  className="w-full px-4 py-3 bg-white/80 border border-gray-200/60 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400 transition-all text-sm"
+                  disabled={isLoading}
+                  className="w-full px-4 py-3 bg-white/80 border border-gray-200/60 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400 transition-all text-sm disabled:opacity-50"
                   style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 400 }}
                 />
 
@@ -205,7 +239,8 @@ const CitasLoginScreen: React.FC<CitasLoginScreenProps> = ({ onLoginSuccess }) =
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Contraseña"
                     required
-                    className="w-full px-4 py-3 bg-white/80 border border-gray-200/60 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400 transition-all text-sm pr-12"
+                    disabled={isLoading}
+                    className="w-full px-4 py-3 bg-white/80 border border-gray-200/60 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400 transition-all text-sm pr-12 disabled:opacity-50"
                     style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 400 }}
                   />
                   <button
@@ -231,10 +266,16 @@ const CitasLoginScreen: React.FC<CitasLoginScreenProps> = ({ onLoginSuccess }) =
                   <button
                     type="submit"
                     disabled={isLoading || !email || !password}
-                    className="px-8 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="px-8 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
                     style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 500 }}
                   >
-                    {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
+                    {isLoading && (
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    <span>{isLoading ? 'Iniciando...' : 'Iniciar sesión'}</span>
                   </button>
                 </div>
               </form>
