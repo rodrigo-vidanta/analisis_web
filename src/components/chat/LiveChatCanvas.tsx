@@ -1067,6 +1067,9 @@ const LiveChatCanvas: React.FC = () => {
   const etapasFilterRef = useRef<HTMLDivElement>(null);
   const [prospectosDataVersion, setProspectosDataVersion] = useState(0); // Para forzar re-render cuando cambien los prospectos
   
+  // v6.6.0: Filtro por conversaciones no leídas
+  const [filterByUnread, setFilterByUnread] = useState(false);
+  
   // Cerrar dropdown de etapas al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1545,13 +1548,16 @@ const LiveChatCanvas: React.FC = () => {
   }, [searchTerm]);
 
   // ============================================
-  // v6.5.0: CARGA AGRESIVA PARA BÚSQUEDA
+  // v6.5.0/v6.6.0: CARGA AGRESIVA PARA BÚSQUEDA Y FILTROS
   // ============================================
-  // Cuando hay un término de búsqueda activo (>2 chars), cargar TODOS los
-  // batches automáticamente para que la búsqueda funcione correctamente.
-  // Sin esto, la búsqueda solo filtra los datos ya cargados en memoria.
+  // Cuando hay un término de búsqueda activo (>2 chars) O filtro de no leídos,
+  // cargar TODOS los batches automáticamente para que funcione correctamente.
+  // Sin esto, la búsqueda/filtro solo filtra los datos ya cargados en memoria.
   const [isSearchingAllBatches, setIsSearchingAllBatches] = useState(false);
   const searchLoadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Determinar si necesitamos carga agresiva (búsqueda o filtro no leídos)
+  const needsAggressiveLoading = (debouncedSearchTerm.trim().length >= 3) || filterByUnread;
   
   useEffect(() => {
     // Limpiar intervalo anterior
@@ -1560,9 +1566,10 @@ const LiveChatCanvas: React.FC = () => {
       searchLoadIntervalRef.current = null;
     }
     
-    // Si hay término de búsqueda >= 3 caracteres y hay más batches por cargar
-    if (debouncedSearchTerm.trim().length >= 3 && hasMoreConversations) {
-      console.log(`🔍 [v6.5.0] Búsqueda activa: "${debouncedSearchTerm}" - Cargando todos los batches...`);
+    // Si hay búsqueda >= 3 chars O filtro de no leídos, y hay más batches
+    if (needsAggressiveLoading && hasMoreConversations) {
+      const reason = filterByUnread ? 'Filtro no leídos' : `Búsqueda: "${debouncedSearchTerm}"`;
+      console.log(`🔍 [v6.6.0] ${reason} - Cargando todos los batches...`);
       setIsSearchingAllBatches(true);
       
       // Cargar batches cada 500ms hasta completar
@@ -1571,8 +1578,9 @@ const LiveChatCanvas: React.FC = () => {
           return;
         }
         
-        // No cargar si ya no hay término de búsqueda
-        if (debouncedSearchTerm.trim().length < 3) {
+        // Verificar si aún necesitamos cargar
+        const stillNeedsLoading = (debouncedSearchTerm.trim().length >= 3) || filterByUnread;
+        if (!stillNeedsLoading) {
           if (searchLoadIntervalRef.current) {
             clearInterval(searchLoadIntervalRef.current);
             searchLoadIntervalRef.current = null;
@@ -1599,15 +1607,16 @@ const LiveChatCanvas: React.FC = () => {
         searchLoadIntervalRef.current = null;
       }
     };
-  }, [debouncedSearchTerm, hasMoreConversations]);
+  }, [debouncedSearchTerm, hasMoreConversations, filterByUnread, needsAggressiveLoading]);
   
   // Efecto para finalizar estado de búsqueda cuando ya no hay más batches
   useEffect(() => {
     if (!hasMoreConversations && isSearchingAllBatches) {
-      console.log(`✅ [v6.5.0] Búsqueda completada - Todos los batches cargados`);
+      const reason = filterByUnread ? 'Filtro no leídos' : 'Búsqueda';
+      console.log(`✅ [v6.6.0] ${reason} completado - Todos los batches cargados`);
       setIsSearchingAllBatches(false);
     }
-  }, [hasMoreConversations, isSearchingAllBatches]);
+  }, [hasMoreConversations, isSearchingAllBatches, filterByUnread]);
 
   // ⚡ OPTIMIZADO V5.2: Verificar llamadas activas - ref en lugar de dependencia
   const conversationsRef = useRef<Conversation[]>([]);
@@ -5975,27 +5984,29 @@ const LiveChatCanvas: React.FC = () => {
       }
     }
     
+    // v6.6.0: Filtro por conversaciones no leídas
+    if (filterByUnread) {
+      filtered = filtered.filter(conv => {
+        const unread = Number(conv.mensajes_no_leidos ?? conv.unread_count ?? unreadCounts[conv.id] ?? 0);
+        return unread > 0;
+      });
+    }
+    
     return filtered;
-  }, [conversations, debouncedSearchTerm, selectedEtapas, labelFilters, prospectoLabels, prospectosDataVersion]);
+  }, [conversations, debouncedSearchTerm, selectedEtapas, labelFilters, prospectoLabels, prospectosDataVersion, filterByUnread, unreadCounts]);
 
-  // Total no leídos - calcular desde conversaciones filtradas según permisos
-  const totalUnread = useMemo(() => {
-    // Usar las conversaciones filtradas (ya aplican permisos)
-    const filteredConvs = filteredConversations.length > 0 ? filteredConversations : conversations;
+  // v6.6.0: Contador de CONVERSACIONES no leídas (no mensajes)
+  // Cuenta cuántas conversaciones tienen al menos 1 mensaje no leído
+  const unreadConversationsCount = useMemo(() => {
+    // Usar las conversaciones filtradas (ya aplican permisos) pero SIN el filtro de no leídos
+    const baseConvs = conversations;
     
-    // Si tenemos conversaciones con mensajes_no_leidos, usar esos
-    const serverSum = filteredConvs.reduce((acc, c) => {
-      // Las conversaciones de get_conversations_ordered tienen mensajes_no_leidos
-      return acc + Number(c.mensajes_no_leidos ?? c.unread_count ?? 0);
-    }, 0);
-    
-    // Si no hay datos del servidor, usar contadores locales (solo para conversaciones filtradas)
-    const localSum = filteredConvs.reduce((acc, c) => {
-      return acc + Number(unreadCounts[c.id] ?? 0);
-    }, 0);
-    
-    return serverSum > 0 ? serverSum : localSum;
-  }, [unreadCounts, conversations, filteredConversations]);
+    // Contar conversaciones con al menos 1 mensaje no leído
+    return baseConvs.filter(c => {
+      const unread = Number(c.mensajes_no_leidos ?? c.unread_count ?? unreadCounts[c.id] ?? 0);
+      return unread > 0;
+    }).length;
+  }, [unreadCounts, conversations]);
 
   // ⚡ OPTIMIZADO V5: Métricas calculadas con useMemo (sin useEffect separado)
   // Esto evita un setState adicional en cada mensaje
@@ -6095,7 +6106,17 @@ const LiveChatCanvas: React.FC = () => {
           }}
         >
           <div className="grid grid-cols-3 gap-2 mb-4">
-            <div className="text-center">
+            {/* v6.6.0: Total clickeable para quitar filtro de no leídas */}
+            <button
+              onClick={() => filterByUnread && setFilterByUnread(false)}
+              className={`text-center px-2 py-1 rounded-lg transition-all ${
+                filterByUnread 
+                  ? 'hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer' 
+                  : 'cursor-default'
+              }`}
+              title={filterByUnread ? 'Clic para ver todas las conversaciones' : ''}
+              disabled={!filterByUnread}
+            >
               {/* v6.4.0: Mostrar conteo real del usuario según permisos */}
               <div className="text-sm font-semibold text-slate-900 dark:text-white">
                 {userConversationsCount !== null 
@@ -6106,15 +6127,46 @@ const LiveChatCanvas: React.FC = () => {
               <div className="text-[10px] text-slate-500 dark:text-gray-400">
                 {userConversationsCount !== null ? 'Cargadas/Total' : 'Total'}
               </div>
-            </div>
-            <div className="text-center">
+            </button>
+            {/* v6.6.0: Activas clickeable para quitar filtro de no leídas */}
+            <button
+              onClick={() => filterByUnread && setFilterByUnread(false)}
+              className={`text-center px-2 py-1 rounded-lg transition-all ${
+                filterByUnread 
+                  ? 'hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer' 
+                  : 'cursor-default'
+              }`}
+              title={filterByUnread ? 'Clic para ver todas las conversaciones' : ''}
+              disabled={!filterByUnread}
+            >
               <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
               <div className="text-[10px] text-slate-500 dark:text-gray-400">Activas</div>
-            </div>
-            <div className="text-center">
-              <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">{totalUnread}</div>
-              <div className="text-[10px] text-slate-500 dark:text-gray-400">No leídos</div>
-            </div>
+            </button>
+            {/* v6.6.0: Contador de CONVERSACIONES no leídas - clickeable para filtrar */}
+            <button
+              onClick={() => setFilterByUnread(!filterByUnread)}
+              className={`text-center px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                filterByUnread 
+                  ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-500' 
+                  : 'hover:bg-slate-100 dark:hover:bg-gray-700'
+              }`}
+              title={filterByUnread ? 'Clic para ver todas' : 'Clic para filtrar no leídas'}
+            >
+              <div className={`text-sm font-semibold ${
+                filterByUnread 
+                  ? 'text-blue-700 dark:text-blue-300' 
+                  : 'text-blue-600 dark:text-blue-400'
+              }`}>
+                {unreadConversationsCount}
+              </div>
+              <div className={`text-[10px] ${
+                filterByUnread 
+                  ? 'text-blue-600 dark:text-blue-400 font-medium' 
+                  : 'text-slate-500 dark:text-gray-400'
+              }`}>
+                {filterByUnread ? '✓ No leídas' : 'No leídas'}
+              </div>
+            </button>
           </div>
 
           <div className="space-y-2">
@@ -6141,10 +6193,10 @@ const LiveChatCanvas: React.FC = () => {
                 </div>
               )}
             </div>
-            {/* v6.5.0: Mensaje de búsqueda en progreso */}
+            {/* v6.5.0/v6.6.0: Mensaje de búsqueda/filtro en progreso */}
             {isSearchingAllBatches && (
               <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 mt-1">
-                <span>Buscando en todas las conversaciones...</span>
+                <span>{filterByUnread ? 'Cargando conversaciones no leídas...' : 'Buscando en todas las conversaciones...'}</span>
                 <span className="text-slate-400">({allConversationsLoaded.length} cargadas)</span>
               </div>
             )}
