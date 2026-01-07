@@ -8,6 +8,7 @@ import { AssignmentBadge } from './analysis/AssignmentBadge';
 import UserProfileModal from './shared/UserProfileModal';
 import AdminMessagesModal from './admin/AdminMessagesModal';
 import { adminMessagesService } from '../services/adminMessagesService';
+import { permissionsService } from '../services/permissionsService';
 import { Mail, Wrench } from 'lucide-react';
 import { NotificationControl } from './dashboard/NotificationControl';
 import { ThemeSelector, type ThemeMode } from './ThemeSelector';
@@ -307,6 +308,22 @@ const Header = ({
   
   // Permisos efectivos (rol base + grupos asignados)
   const { isAdmin, isAdminOperativo } = useEffectivePermissions();
+  
+  // v2.2.17: Estado para coordinadores de Calidad (tienen acceso al botón CRM)
+  const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
+  
+  // Verificar si el usuario es coordinador de Calidad al cargar
+  useEffect(() => {
+    const checkCoordinadorCalidad = async () => {
+      if (user?.id && user?.role_name === 'coordinador') {
+        const esCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+        setIsCoordinadorCalidad(esCalidad);
+      } else {
+        setIsCoordinadorCalidad(false);
+      }
+    };
+    checkCoordinadorCalidad();
+  }, [user?.id, user?.role_name]);
 
   // Cargar contador de mensajes no leídos
   useEffect(() => {
@@ -493,29 +510,31 @@ const Header = ({
                 </button>
               )}
               
-              {/* Botones de navegación para admin */}
+              {/* v2.2.17: Botón CRM - Visible para Admin y Coordinadores de Calidad */}
+              {(isAdmin || isCoordinadorCalidad) && (
+                <button 
+                  onClick={() => {
+                    onModeChange?.('admin');
+                    // Disparar evento para cambiar a pestaña dynamics después de navegar
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('admin-navigate-tab', { detail: 'dynamics' }));
+                    }, 100);
+                  }}
+                  className="hidden md:flex relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400"
+                  title="Dynamics CRM Manager"
+                >
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span>CRM</span>
+                  </div>
+                </button>
+              )}
+              
+              {/* Botones de navegación para admin (Logs y Admin) */}
               {isAdmin && (
                 <div className="hidden md:flex items-center space-x-2">
-                  {/* Botón CRM - Vinculado a Dynamics CRM */}
-                  <button 
-                    onClick={() => {
-                      onModeChange?.('admin');
-                      // Disparar evento para cambiar a pestaña dynamics después de navegar
-                      setTimeout(() => {
-                        window.dispatchEvent(new CustomEvent('admin-navigate-tab', { detail: 'dynamics' }));
-                      }, 100);
-                    }}
-                    className="relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400"
-                    title="Dynamics CRM Manager"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      <span>CRM</span>
-                    </div>
-                  </button>
-
                   {/* Botón Logs - Solo icono */}
                   <button 
                     onClick={() => {
