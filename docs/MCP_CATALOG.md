@@ -1,166 +1,301 @@
 # Catálogo de MCPs — PQNC QA AI Platform
 
-**Actualizado:** 2025-12-23  
-**Versión:** 1.0.0
+**Actualizado:** 2026-01-07  
+**Versión:** 2.1.0
 
 ---
 
-## 📋 Resumen de MCPs Disponibles
+## 📋 Resumen de MCPs de Supabase
 
-| MCP | Proyecto Supabase | Uso Principal | Estado |
-|-----|-------------------|---------------|--------|
-| SupaVidanta | `glsmifhkoaifvaegsozd` | Análisis de llamadas, Live Monitor | ✅ Activo |
-| SupaSystemUI | `zbylezfyagwrxoecioup` | Usuarios, auth, configuración sistema | ✅ Activo |
-| SupaPQNC | `hmmfuhqgvsehkizlfzga` | PQNC Humans, ejecutivos, feedback | ✅ Activo |
-| aws-infrastructure | AWS us-west-2 | ECS, RDS, S3, CloudWatch | ✅ Activo |
-| N8N | Railway | Workflows, ejecuciones | ✅ Activo |
-| vapi | VAPI | Agentes de voz | ✅ Activo |
-| SupaClever | `rnhejbuubpbnojalljso` | **⛔ NO USAR** - Proyecto Clever Ideas | ❌ Removido |
+| MCP | Nombre del Proyecto | URL Base | Estado |
+|-----|---------------------|----------|--------|
+| **Supa_PQNC_AI** | pqnc_ai | `glsmifhkoaifvaegsozd.supabase.co` | ✅ Activo |
+| **Supa_SystemUI** | system_ui | `zbylezfyagwrxoecioup.supabase.co` | ✅ Activo |
+
+### MCPs Desactivados/Removidos
+
+| MCP | Razón | Estado |
+|-----|-------|--------|
+| SupaClever | Proyecto ajeno (clever-ideas-ai-platform) | ⛔ NO USAR |
+| SupaPQNC | No requerido actualmente | 🔇 Removido |
 
 ---
 
-## 🔴 REGLAS CRÍTICAS
+## 🔴 REGLAS CRÍTICAS DE USO
 
 ### ⛔ NUNCA usar SupaClever
 - Es de otro proyecto (clever-ideas-ai-platform)
+- Proyecto Supabase: `rnhejbuubpbnojalljso`
 - Contaminaría datos y documentación
-- Si ves referencias a `rnhejbuubpbnojalljso`, NO conectar
+- **SI VES REFERENCIAS A ESTE PROYECTO, NO CONECTAR**
 
-### ✅ Reglas de uso por contexto
-
-| Contexto | MCP a usar |
-|----------|------------|
-| Análisis de llamadas | `SupaVidanta` |
-| Live Monitor | `SupaVidanta` |
-| Prospectos | `SupaVidanta` |
-| Conversaciones WhatsApp | `SupaVidanta` |
-| Usuarios del sistema | `SupaSystemUI` |
-| Sesiones y auth | `SupaSystemUI` |
-| Mensajes admin | `SupaSystemUI` |
-| Bot pause status | `SupaSystemUI` |
-| Ejecutivos PQNC | `SupaPQNC` |
-| Roles y permisos | `SupaPQNC` |
-| Feedback de calidad | `SupaPQNC` |
-| ECS/RDS/S3 | `aws-infrastructure` |
-| Workflows N8N | `N8N` |
-| Agentes VAPI | `vapi` |
+### 📝 Documentación Obligatoria
+- **ANTES** de cualquier operación destructiva (DELETE, DROP, TRUNCATE): hacer backup
+- **DESPUÉS** de cualquier cambio: documentar en `MCP_CHANGELOG.local.md`
+- Los archivos `.local.md` NO se suben a git (están en .gitignore)
 
 ---
 
-## 📦 Detalle de cada MCP
+## 📦 Detalle de MCPs Activos
 
-### SupaVidanta (Análisis/Live Monitor)
-- **URL:** `https://glsmifhkoaifvaegsozd.supabase.co`
-- **Archivo servidor:** `mcp-supavidanta-server.ts`
-- **Tablas principales:**
-  - `llamadas_ventas` - Llamadas de ventas
-  - `prospectos` - Base de prospectos
-  - `live_monitor_view` - Vista de monitoreo
-  - `call_analysis_summary` - Resumen de análisis
-  - `conversaciones_whatsapp` - Chats de WhatsApp
-- **Funciones RPC:** `exec_sql`, `get_database_schema`, `backup_table_data`
+### 1. Supa_PQNC_AI
 
-### SupaSystemUI (Autenticación/Config)
-- **URL:** `https://zbylezfyagwrxoecioup.supabase.co`
-- **Archivo servidor:** `mcp-supa-system-ui-server.ts`
-- **Tablas principales:**
-  - `auth_users` - Usuarios del sistema
-  - `auth_sessions` - Sesiones activas
-  - `admin_messages` - Mensajes para admins
-  - `bot_pause_status` - Estado de pausa del bot
-  - `system_config` - Configuración del sistema
-- **Edge Functions:** Proxies de N8N, Anthropic, send-img
+| Propiedad | Valor |
+|-----------|-------|
+| **Nombre interno** | `Supa_PQNC_AI` |
+| **Proyecto Supabase** | pqnc_ai |
+| **Project Ref** | `glsmifhkoaifvaegsozd` |
+| **URL** | `https://glsmifhkoaifvaegsozd.supabase.co` |
+| **Archivo servidor** | `mcp-supa-pqnc-ai-server.ts` |
+| **Acceso** | Full R/W (Read/Write) |
+| **Versión** | 2.0.0 |
 
-### SupaPQNC (PQNC Humans)
-- **URL:** `https://hmmfuhqgvsehkizlfzga.supabase.co`
-- **Archivo servidor:** `mcp-supa-pqnc-server.ts`
-- **Tablas principales:**
-  - `pqnc_usuarios` - Usuarios PQNC
-  - `pqnc_roles` - Roles y permisos
-  - `pqnc_ejecutivos` - Ejecutivos de ventas
-  - `pqnc_analisis` - Análisis de calidad
-  - `pqnc_feedback` - Retroalimentación
+#### Propósito
+- Análisis de llamadas de ventas (PQNC)
+- Live Monitor (monitoreo en tiempo real)
+- Gestión de prospectos
+- Conversaciones de WhatsApp
+- Dashboard y métricas
 
-### aws-infrastructure
-- **Región:** us-west-2
-- **Archivo servidor:** `/Users/darigsamuelrosalesrobledo/mcp-server-aws/dist/index.js`
-- **Servicios disponibles:**
-  - ECS: Clusters, services, tasks
-  - RDS: Instancias, snapshots
-  - S3: Buckets
-  - CloudWatch: Métricas, logs
-  - EC2: Instancias, VPCs, Security Groups
-  - ElastiCache: Clusters Redis
+#### ⚠️ TABLAS EXCLUSIVAS DE ESTE MCP - NO CREAR EN SystemUI
 
-### N8N
-- **URL:** `https://primary-dev-d75a.up.railway.app`
-- **Servicios:**
-  - Listar workflows
-  - Ejecutar workflows
-  - Ver detalles de workflow
+| Tabla | Descripción | Módulo UI |
+|-------|-------------|-----------|
+| `prospectos` | Base de datos de prospectos y clientes potenciales | Prospectos, Live Monitor |
+| `llamadas_ventas` | Llamadas de ventas y análisis PQNC | Live Monitor, Análisis |
+| `llamadas_programadas` | Llamadas agendadas para ejecutar | Scheduled Calls |
+| `conversaciones_whatsapp` | Historial de conversaciones WhatsApp | Live Chat |
+| `mensajes_whatsapp` | Mensajes individuales de WhatsApp | Live Chat |
+| `call_analysis` | Análisis de calidad de llamadas | Análisis IA |
+| `whatsapp_templates` | Templates de mensajes WA | WhatsApp Templates |
+| `whatsapp_template_sends` | Registro de envíos de templates | WhatsApp Templates |
+| `whatsapp_audiences` | Audiencias para campañas WA | WhatsApp Audiences |
+| `crm_data` | Datos sincronizados de Dynamics CRM | CRM Sync |
+| `dynamics_audit_log` | Log de operaciones con Dynamics | Audit Log |
+| `destinos` | Catálogo de destinos turísticos | Content Management |
+| `resorts` | Catálogo de resorts | Content Management |
+| `info_resorts` | Información vectorizada de resorts (RAG) | RAG/Search |
+| `content_management` | Gestión de contenido multimedia | Content Management |
+| `config_horarios_base` | Horarios base de operación | Config Horarios |
+| `config_horarios_bloqueos` | Bloqueos de horarios | Config Horarios |
+| `config_horarios_excepciones` | Días festivos/especiales | Config Horarios |
 
-### vapi
-- **Servicios:**
-  - Gestión de agentes de voz
-  - Configuración de llamadas
+#### Vistas
 
----
+| Vista | Descripción |
+|-------|-------------|
+| `live_monitor_view` | Vista optimizada para monitoreo en vivo |
+| `call_analysis_summary` | Resumen de análisis de llamadas |
+| `call_analysis_executive_summary` | Resumen ejecutivo |
+| `v_audit_pending_retry` | Operaciones pendientes de reintento |
+| `v_horario_hoy` | Horario del día actual |
+| `v_template_analytics` | Analíticas de templates WA |
 
-## 🔧 Comandos útiles por MCP
-
-### SupaVidanta / SupaSystemUI / SupaPQNC
-```
-mcp_[nombre]_query_table - Consultar tabla
-mcp_[nombre]_insert_data - Insertar datos
-mcp_[nombre]_update_data - Actualizar datos
-mcp_[nombre]_delete_data - Eliminar datos
-mcp_[nombre]_execute_sql - Ejecutar SQL
-mcp_[nombre]_get_database_schema - Ver esquema
-mcp_[nombre]_backup_table - Backup de tabla
-```
-
-### aws-infrastructure
-```
-mcp_aws-infrastructure_aws_ecs_list_clusters
-mcp_aws-infrastructure_aws_ecs_list_services
-mcp_aws-infrastructure_aws_ecs_describe_service
-mcp_aws-infrastructure_aws_rds_list_instances
-mcp_aws-infrastructure_aws_s3_list_buckets
-mcp_aws-infrastructure_aws_get_infrastructure_summary
-mcp_aws-infrastructure_aws_get_cost_estimation
-```
-
-### N8N
-```
-mcp_N8N_search_workflows
-mcp_N8N_get_workflow_details
-mcp_N8N_execute_workflow
-```
+#### Cuándo Usar
+- ✅ Análisis de llamadas
+- ✅ Live Monitor
+- ✅ Prospectos y leads
+- ✅ Conversaciones WhatsApp
+- ✅ Métricas de ventas
+- ✅ Gestión de contenido
+- ✅ Configuración de horarios
 
 ---
 
-## 📁 Archivos de configuración
+### 2. Supa_SystemUI
 
-| Archivo | Ubicación | Descripción |
-|---------|-----------|-------------|
-| MCP Global | `~/.cursor/mcp.json` | Configuración de todos los MCPs |
-| SupaVidanta Server | `mcp-supavidanta-server.ts` | Servidor MCP Analysis |
-| SupaSystemUI Server | `mcp-supa-system-ui-server.ts` | Servidor MCP System UI |
-| SupaPQNC Server | `mcp-supa-pqnc-server.ts` | Servidor MCP PQNC |
+| Propiedad | Valor |
+|-----------|-------|
+| **Nombre interno** | `Supa_SystemUI` |
+| **Proyecto Supabase** | system_ui |
+| **Project Ref** | `zbylezfyagwrxoecioup` |
+| **URL** | `https://zbylezfyagwrxoecioup.supabase.co` |
+| **Archivo servidor** | `mcp-supa-system-ui-server.ts` |
+| **Acceso** | Full R/W (Read/Write) |
+| **Versión** | 2.0.0 |
+
+#### Propósito
+- Gestión de usuarios y autenticación
+- Grupos de permisos y roles
+- Mensajes administrativos
+- Estado de pausas de bots
+- Configuración del sistema
+- Logs de auditoría
+
+#### ⚠️ TABLAS EXCLUSIVAS DE ESTE MCP - NO CREAR EN PQNC_AI
+
+| Tabla | Descripción | Módulo UI |
+|-------|-------------|-----------|
+| `admin_messages` | Mensajes para administradores | Admin Panel |
+| `permission_groups` | Grupos de permisos del sistema | User Management |
+| `group_permissions` | Permisos asociados a grupos | User Management |
+| `user_permission_groups` | Relación usuarios-grupos | User Management |
+| `group_audit_log` | Log de auditoría de cambios | Audit Log |
+| `bot_pause_status` | Estado de pausas de bots | Bot Control |
+| `system_config` | Configuración global del sistema | System Config |
+| `user_sessions` | Sesiones activas de usuarios | Auth |
+
+#### Cuándo Usar
+- ✅ Usuarios del sistema
+- ✅ Sesiones y auth
+- ✅ Permisos y roles
+- ✅ Mensajes admin
+- ✅ Bot pause status
+- ✅ Configuración del sistema
 
 ---
 
-## ⚠️ Troubleshooting
+## 🔧 Herramientas Disponibles (Ambos MCPs)
+
+### Operaciones de Lectura
+| Herramienta | Descripción |
+|-------------|-------------|
+| `query_table` | Consultar tabla con filtros, orden y límite |
+| `get_database_schema` | Obtener esquema completo de la BD |
+| `get_table_info` | Información de columnas de una tabla |
+| `backup_table` | Hacer backup de una tabla en JSON |
+
+### Operaciones de Escritura
+| Herramienta | Descripción |
+|-------------|-------------|
+| `insert_data` | Insertar registros |
+| `update_data` | Actualizar registros (requiere filtro) |
+| `delete_data` | Eliminar registros (requiere filtro, ⚠️ destructivo) |
+
+### Operaciones Avanzadas
+| Herramienta | Descripción |
+|-------------|-------------|
+| `execute_sql` | Ejecutar SQL arbitrario (DDL/DML) |
+| `execute_rpc` | Ejecutar función RPC de Supabase |
+| `exec_sql_transaction` | Múltiples queries en una transacción |
+
+---
+
+## 📋 Guía Rápida: ¿Dónde Crear/Modificar Tablas?
+
+### Si la tabla es sobre...
+
+| Tema | MCP Correcto | Ejemplos |
+|------|--------------|----------|
+| Prospectos/Leads | `Supa_PQNC_AI` | prospectos, leads, clientes |
+| Llamadas de venta | `Supa_PQNC_AI` | llamadas_ventas, call_analysis |
+| WhatsApp | `Supa_PQNC_AI` | mensajes_whatsapp, conversaciones |
+| Templates WA | `Supa_PQNC_AI` | whatsapp_templates, template_sends |
+| Contenido/Resorts | `Supa_PQNC_AI` | destinos, resorts, content |
+| Horarios | `Supa_PQNC_AI` | config_horarios_* |
+| CRM/Dynamics | `Supa_PQNC_AI` | crm_data, dynamics_audit |
+| Usuarios | `Supa_SystemUI` | users, profiles |
+| Permisos | `Supa_SystemUI` | permissions, groups |
+| Auth | `Supa_SystemUI` | sessions, tokens |
+| Admin/Sistema | `Supa_SystemUI` | admin_messages, system_config |
+| Bots | `Supa_SystemUI` | bot_pause_status |
+
+---
+
+## 📝 Ejemplos de Uso
+
+### Consultar tabla
+```
+mcp_Supa_PQNC_AI_query_table
+  table: "prospectos"
+  select: "id,nombre_completo,etapa,score"
+  filter: {"etapa": "Calificado"}
+  limit: 10
+  order: "created_at.desc"
+```
+
+### Insertar datos
+```
+mcp_Supa_SystemUI_insert_data
+  table: "admin_messages"
+  data: {"title": "Nuevo mensaje", "message": "Contenido...", "category": "system_alert"}
+```
+
+### Ejecutar SQL
+```
+mcp_Supa_PQNC_AI_execute_sql
+  sql: "SELECT COUNT(*) FROM prospectos WHERE etapa = 'Calificado'"
+  description: "Contar prospectos calificados"
+```
+
+---
+
+## ⚙️ Configuración
+
+### Archivo de Configuración Global
+**Ubicación:** `~/.cursor/mcp.json`
+
+### Archivos de Servidores MCP
+| Archivo | MCP |
+|---------|-----|
+| `mcp-supa-pqnc-ai-server.ts` | Supa_PQNC_AI |
+| `mcp-supa-system-ui-server.ts` | Supa_SystemUI |
+
+### Requisitos de Base de Datos
+Para que los MCPs funcionen con acceso completo, ejecutar en **cada** proyecto de Supabase:
+
+1. Ir a Supabase Dashboard > SQL Editor
+2. Ejecutar el script: `enable_full_access_mcp.sql`
+3. Esto crea las funciones RPC necesarias:
+   - `exec_sql` - Ejecutar SQL arbitrario
+   - `get_database_schema` - Obtener esquema
+   - `backup_table_data` - Hacer backups
+   - `exec_sql_transaction` - Transacciones
+
+---
+
+## 📊 Auditoría y Rollback
+
+### Archivos Locales (NO se suben a git)
+| Archivo | Propósito |
+|---------|-----------|
+| `MCP_CHANGELOG.local.md` | Log de cambios realizados vía MCP |
+| `MCP_SCHEMAS.local.md` | Esquemas actualizados de ambas BDs |
+
+### Reglas de Seguridad
+1. **DELETE sin WHERE está bloqueado** por los servidores MCP
+2. **Backup antes de DELETE masivo** usando `backup_table`
+3. **Documentar en changelog** después de cada operación
+
+---
+
+## ❓ Troubleshooting
 
 ### MCP no responde
 1. Verificar que el archivo servidor existe
 2. Reiniciar Cursor IDE
 3. Verificar logs en terminal
 
-### Error de conexión Supabase
+### Error "function not found"
+1. Ejecutar `enable_full_access_mcp.sql` en Supabase Dashboard
+2. Verificar que se crearon las funciones RPC
+
+### Error de conexión
 1. Verificar URL y keys en `~/.cursor/mcp.json`
 2. Verificar que el proyecto Supabase está activo
+3. Verificar conectividad de red
 
-### Error "function not found"
-Ejecutar el script `enable_full_access_mcp.sql` en el dashboard de Supabase
+---
 
+## 🗂️ Otros MCPs (No Supabase)
+
+| MCP | Servicio | Descripción |
+|-----|----------|-------------|
+| `aws-infrastructure` | AWS us-west-2 | ECS, RDS, S3, CloudWatch |
+| `N8N` | Railway | Workflows, ejecuciones |
+| `vapi` | VAPI | Agentes de voz |
+| `Magic MCP` | 21st.dev | Componentes UI |
+| `cursor-ide-browser` | Browser | Automatización navegador |
+
+---
+
+## 📚 Documentación Relacionada
+
+- `enable_full_access_mcp.sql` - Script de habilitación de funciones
+- `MCP_CHANGELOG.local.md` - Log local de cambios (no en git)
+- `MCP_SCHEMAS.local.md` - Esquemas de BD (no en git)
+- `.cursor/rules/mcp-rules.mdc` - Reglas de uso de MCPs
+
+---
+
+**Última actualización:** 2026-01-07 por Cursor AI

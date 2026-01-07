@@ -13,7 +13,8 @@
  * - Filtros globales por coordinación y período
  * - Cada widget expandible a fullscreen
  * - Gráficos con Recharts + CSS animado (funnel vertical)
- * - Solo accesible para admin, admin_operativo, coordinador_calidad
+ * - Solo accesible para: admin y coordinadores de la coordinación CALIDAD
+ *   (NO admin_operativo, NO coordinadores de otras coordinaciones)
  * 
  * Versión: 3.0.0
  * Fecha: Enero 2025
@@ -37,6 +38,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { permissionsService } from '../../services/permissionsService';
 // supabaseSystemUI removido - ahora usamos coordinacion_id directamente en analysisSupabase
 import { classifyCallStatus } from '../../services/callStatusClassifier';
 import type { CallStatusGranular } from '../../services/callStatusClassifier';
@@ -1961,7 +1963,13 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
 
 const DashboardModule: React.FC = () => {
   const { user } = useAuth();
-  const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
+  const { isAdmin } = useEffectivePermissions();
+  
+  // Estado de acceso - verificación asíncrona para coordinadores de CALIDAD
+  // ACCESO PERMITIDO SOLO: admin o coordinador de la coordinación de CALIDAD
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
   
   // Clave para localStorage
   const STORAGE_KEY = 'pqnc_dashboard_filters';
@@ -2036,10 +2044,41 @@ const DashboardModule: React.FC = () => {
     allSalesDetails: []
   });
 
-  const hasAccess = useMemo(() => {
-    if (!user) return false;
-    return isAdmin || isAdminOperativo || isCoordinador;
-  }, [user, isAdmin, isAdminOperativo, isCoordinador]);
+  // Verificar permisos de acceso al Dashboard
+  // SOLO: admin o coordinador de la coordinación de CALIDAD
+  // NINGÚN otro rol tiene acceso (ni admin operativo, ni coordinadores de otras coordinaciones)
+  useEffect(() => {
+    const checkAccess = async () => {
+      if (!user?.id) {
+        setHasAccess(false);
+        setIsCheckingAccess(false);
+        return;
+      }
+
+      setIsCheckingAccess(true);
+
+      try {
+        // Solo Admin tiene acceso automático
+        if (isAdmin) {
+          setHasAccess(true);
+          setIsCheckingAccess(false);
+          return;
+        }
+
+        // Verificar si es Coordinador de la coordinación de CALIDAD
+        const esCoordCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+        setIsCoordinadorCalidad(esCoordCalidad);
+        setHasAccess(esCoordCalidad);
+      } catch (error) {
+        console.error('Error verificando acceso al Dashboard:', error);
+        setHasAccess(false);
+      } finally {
+        setIsCheckingAccess(false);
+      }
+    };
+
+    checkAccess();
+  }, [user?.id, isAdmin]);
 
   const isGlobalView = filters.coordinaciones === 'global' || filters.coordinaciones === 'pending_default';
 
@@ -2934,6 +2973,18 @@ const DashboardModule: React.FC = () => {
     if (hasAccess) loadAllData();
   }, [hasAccess, filters, loadAllData]);
 
+  // Mostrar loading mientras se verifican permisos
+  if (isCheckingAccess || hasAccess === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-600 dark:text-gray-400">Verificando permisos...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -2941,7 +2992,7 @@ const DashboardModule: React.FC = () => {
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Acceso Denegado</h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Solo administradores, administradores operativos y coordinadores de calidad pueden acceder.
+            Solo administradores y coordinadores de la <strong>coordinación de Calidad</strong> pueden acceder a este dashboard.
           </p>
         </div>
       </div>

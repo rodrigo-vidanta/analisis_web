@@ -32,3 +32,9 @@ dist-ssr
 AWS_Project/diagram-platform
 AWS_Project/amplify-con-token.yaml
 backups/
+
+# MCP - Archivos locales (NO SUBIR)
+MCP_CHANGELOG.local.md
+MCP_SCHEMAS.local.md
+*.local.md
+mcp-backups/

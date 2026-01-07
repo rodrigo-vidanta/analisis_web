@@ -1,0 +1,99 @@
+---
+alwaysApply: true
+---
+
+# Reglas de Uso de MCPs de Supabase
+
+## 📋 MCPs Activos
+
+| MCP | Proyecto | URL | Uso |
+|-----|----|----|-----|
+| `Supa_PQNC_AI` | pqnc_ai | `glsmifhkoaifvaegsozd.supabase.co` | Llamadas, prospectos, Live Monitor, WhatsApp |
+| `Supa_SystemUI` | system_ui | `zbylezfyagwrxoecioup.supabase.co` | Usuarios, auth, permisos, config |
+
+## ⛔ MCPs PROHIBIDOS
+
+**NUNCA usar estos MCPs:**
+- `SupaClever` (rnhejbuubpbnojalljso) - Proyecto ajeno
+- `SupaPQNC` (hmmfuhqgvsehkizlfzga) - Removido de configuración
+
+## 📝 Reglas Obligatorias
+
+### 1. Documentación de Cambios
+- **SIEMPRE** documentar operaciones de escritura en `MCP_CHANGELOG.local.md`
+- Formato: fecha, MCP, operación, datos antes/después, rollback SQL
+- Este archivo NO se sube a git
+
+### 2. Operaciones Destructivas
+- **ANTES** de DELETE/DROP/TRUNCATE: hacer backup con `backup_table`
+- **NUNCA** ejecutar DELETE sin WHERE (los MCPs ya lo bloquean)
+- **SIEMPRE** verificar el filtro antes de UPDATE masivos
+
+### 3. Cuándo Usar Cada MCP
+
+| Contexto | MCP a usar |
+|----|---|
+| Análisis de llamadas | `Supa_PQNC_AI` |
+| Live Monitor | `Supa_PQNC_AI` |
+| Prospectos | `Supa_PQNC_AI` |
+| Conversaciones WhatsApp | `Supa_PQNC_AI` |
+| Métricas de ventas | `Supa_PQNC_AI` |
+| Usuarios del sistema | `Supa_SystemUI` |
+| Sesiones y auth | `Supa_SystemUI` |
+| Permisos y roles | `Supa_SystemUI` |
+| Mensajes admin | `Supa_SystemUI` |
+| Bot pause status | `Supa_SystemUI` |
+| Configuración sistema | `Supa_SystemUI` |
+
+### 4. Nomenclatura de Herramientas
+
+```
+mcp_Supa_PQNC_AI_query_table      # Consultar tabla en PQNC AI
+mcp_Supa_PQNC_AI_insert_data      # Insertar en PQNC AI
+mcp_Supa_PQNC_AI_update_data      # Actualizar en PQNC AI
+mcp_Supa_PQNC_AI_delete_data      # Eliminar en PQNC AI (⚠️)
+mcp_Supa_PQNC_AI_execute_sql      # SQL en PQNC AI
+mcp_Supa_PQNC_AI_get_database_schema  # Esquema de PQNC AI
+
+mcp_Supa_SystemUI_query_table     # Consultar tabla en SystemUI
+mcp_Supa_SystemUI_insert_data     # Insertar en SystemUI
+mcp_Supa_SystemUI_update_data     # Actualizar en SystemUI
+mcp_Supa_SystemUI_delete_data     # Eliminar en SystemUI (⚠️)
+mcp_Supa_SystemUI_execute_sql     # SQL en SystemUI
+mcp_Supa_SystemUI_get_database_schema  # Esquema de SystemUI
+```
+
+### 5. Flujo de Trabajo Recomendado
+
+1. **Consultar primero**: Usar `query_table` o `execute_sql` SELECT antes de modificar
+2. **Backup si es destructivo**: Usar `backup_table` antes de DELETE/UPDATE masivo
+3. **Ejecutar cambio**: Realizar la operación
+4. **Documentar**: Registrar en `MCP_CHANGELOG.local.md`
+5. **Verificar**: Consultar de nuevo para confirmar el resultado
+
+### 6. Requisitos de Setup
+
+Para acceso completo (DDL/DML), ejecutar en cada proyecto Supabase:
+
+```sql
+-- Ejecutar: enable_full_access_mcp.sql
+-- Crea funciones: exec_sql, get_database_schema, backup_table_data, exec_sql_transaction
+```
+
+## 📁 Archivos Relacionados
+
+| Archivo | Descripción | En Git |
+|---|----|----|
+| `~/.cursor/mcp.json` | Configuración global de MCPs | No |
+| `mcp-supa-pqnc-ai-server.ts` | Servidor MCP PQNC AI | Sí |
+| `mcp-supa-system-ui-server.ts` | Servidor MCP SystemUI | Sí |
+| `enable_full_access_mcp.sql` | Script de habilitación | Sí |
+| `MCP_CHANGELOG.local.md` | Log local de cambios | **No** |
+| `docs/MCP_CATALOG.md` | Documentación completa | Sí |
+
+## ⚠️ Advertencias
+
+1. **Producción activa**: Ambos proyectos están en producción
+2. **Sin rollback automático**: Los cambios son permanentes
+3. **Credenciales en mcp.json**: NUNCA compartir ~/.cursor/mcp.json
+4. **Service Role Key**: Los MCPs usan service_role (acceso total)

@@ -168,12 +168,25 @@ export interface WhatsAppAudience {
   destinos?: string[]; // Array de destinos (prospectos.destino_preferencia)
   estado_civil?: EstadoCivil | null;
   viaja_con?: string[]; // Array de tipos (prospectos.viaja_con)
+  dias_sin_contacto?: number | null; // Filtrar prospectos sin actividad en X días
   prospectos_count: number;
   is_active: boolean;
   created_by?: string | null;
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Presets de días sin contacto
+ */
+export const DIAS_SIN_CONTACTO_PRESETS = [
+  { value: 7, label: '7 días', description: '1 semana' },
+  { value: 14, label: '14 días', description: '2 semanas' },
+  { value: 30, label: '30 días', description: '1 mes' },
+  { value: 60, label: '60 días', description: '2 meses' },
+  { value: 90, label: '90 días', description: '3 meses' },
+  { value: 180, label: '180 días', description: '6 meses' },
+];
 
 /**
  * Input para crear/editar audiencia
@@ -185,6 +198,7 @@ export interface CreateAudienceInput {
   destinos?: string[]; // Múltiples destinos seleccionables
   estado_civil?: EstadoCivil | null;
   viaja_con?: string[]; // Múltiples opciones de "viaja con"
+  dias_sin_contacto?: number | null; // Días sin actividad
 }
 
 /**
@@ -344,5 +358,167 @@ export interface TableSchema {
   table_name: string;
   display_name: string;
   fields: TableField[];
+}
+
+// ============================================
+// TIPOS PARA CAMPAÑAS
+// ============================================
+
+/**
+ * Estados posibles de una campaña
+ */
+export type CampaignStatus = 
+  | 'draft'      // Borrador, aún no programada
+  | 'scheduled'  // Programada para envío futuro
+  | 'running'    // En proceso de envío
+  | 'paused'     // Pausada temporalmente
+  | 'completed'  // Completada exitosamente
+  | 'failed'     // Falló durante el envío
+  | 'cancelled'; // Cancelada por el usuario
+
+export const CAMPAIGN_STATUS_CONFIG: Record<CampaignStatus, { 
+  label: string; 
+  color: string; 
+  bgColor: string;
+  icon: string;
+}> = {
+  draft: { 
+    label: 'Borrador', 
+    color: 'text-gray-600 dark:text-gray-400', 
+    bgColor: 'bg-gray-100 dark:bg-gray-700',
+    icon: 'FileText'
+  },
+  scheduled: { 
+    label: 'Programada', 
+    color: 'text-blue-600 dark:text-blue-400', 
+    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+    icon: 'Calendar'
+  },
+  running: { 
+    label: 'En Ejecución', 
+    color: 'text-amber-600 dark:text-amber-400', 
+    bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+    icon: 'Play'
+  },
+  paused: { 
+    label: 'Pausada', 
+    color: 'text-orange-600 dark:text-orange-400', 
+    bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+    icon: 'Pause'
+  },
+  completed: { 
+    label: 'Completada', 
+    color: 'text-emerald-600 dark:text-emerald-400', 
+    bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
+    icon: 'CheckCircle'
+  },
+  failed: { 
+    label: 'Fallida', 
+    color: 'text-red-600 dark:text-red-400', 
+    bgColor: 'bg-red-100 dark:bg-red-900/30',
+    icon: 'XCircle'
+  },
+  cancelled: { 
+    label: 'Cancelada', 
+    color: 'text-gray-500 dark:text-gray-500', 
+    bgColor: 'bg-gray-100 dark:bg-gray-800',
+    icon: 'Ban'
+  },
+};
+
+/**
+ * Campaña de WhatsApp
+ */
+export interface WhatsAppCampaign {
+  id: string;
+  nombre: string;
+  descripcion?: string | null;
+  
+  // Referencias
+  template_id: string;
+  audience_id: string;
+  
+  // Relaciones expandidas (para joins)
+  template?: WhatsAppTemplate;
+  audience?: WhatsAppAudience;
+  
+  // Configuración de envío
+  batch_size: number;
+  batch_interval_seconds: number;
+  
+  // Programación
+  scheduled_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  
+  // Estado
+  status: CampaignStatus;
+  
+  // Estadísticas
+  total_recipients: number;
+  sent_count: number;
+  delivered_count: number;
+  read_count: number;
+  replied_count: number;
+  failed_count: number;
+  
+  // Auditoría
+  created_by?: string | null;
+  created_by_email?: string | null;
+  created_at: string;
+  updated_at: string;
+  
+  // Webhook
+  webhook_execution_id?: string | null;
+  webhook_response?: Record<string, unknown> | null;
+  
+  // Snapshot de la query
+  audience_query_snapshot?: string | null;
+  
+  // Metadata
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Input para crear una nueva campaña
+ */
+export interface CreateCampaignInput {
+  nombre: string;
+  descripcion?: string;
+  template_id: string;
+  audience_id: string;
+  batch_size?: number;
+  batch_interval_seconds?: number;
+  scheduled_at?: string | null;
+}
+
+/**
+ * Input para actualizar una campaña
+ */
+export interface UpdateCampaignInput {
+  nombre?: string;
+  descripcion?: string;
+  template_id?: string;
+  audience_id?: string;
+  batch_size?: number;
+  batch_interval_seconds?: number;
+  scheduled_at?: string | null;
+  status?: CampaignStatus;
+}
+
+/**
+ * Payload para el webhook de broadcast
+ */
+export interface BroadcastWebhookPayload {
+  campaign_id: string;
+  audience_id: string;
+  template_id: string;
+  audience_query: string;
+  batch_size: number;
+  batch_interval_seconds: number;
+  created_by_id: string;
+  created_by_email: string;
+  scheduled_at?: string;
+  timestamp: string;
 }
 
