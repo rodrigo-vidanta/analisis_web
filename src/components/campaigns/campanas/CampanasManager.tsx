@@ -44,7 +44,11 @@ import {
   Zap,
   TrendingUp,
   BarChart3,
-  Loader2
+  Loader2,
+  GitBranch,
+  Split,
+  Sparkles,
+  Rocket
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { analysisSupabase } from '../../../config/analysisSupabase';
@@ -54,10 +58,11 @@ import type {
   WhatsAppTemplate, 
   WhatsAppAudience,
   CampaignStatus,
+  CampaignType,
   CreateCampaignInput,
   BroadcastWebhookPayload
 } from '../../../types/whatsappTemplates';
-import { CAMPAIGN_STATUS_CONFIG } from '../../../types/whatsappTemplates';
+import { CAMPAIGN_STATUS_CONFIG, CAMPAIGN_TYPE_CONFIG } from '../../../types/whatsappTemplates';
 
 // ============================================
 // CONSTANTES
@@ -115,18 +120,29 @@ const CampanasManager: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
       
-      if (campaignsError) throw campaignsError;
+      if (campaignsError) {
+        console.error('Error loading campaigns:', campaignsError);
+      }
       
-      // Cargar plantillas activas
+      // Normalizar datos de campañas para asegurar valores por defecto
+      const normalizedCampaigns = (campaignsData || []).map(c => ({
+        ...c,
+        campaign_type: c.campaign_type || 'standard',
+        ab_distribution_a: c.ab_distribution_a ?? 50,
+      }));
+      
+      // Cargar plantillas activas (sin filtro is_deleted para más flexibilidad)
       const { data: templatesData, error: templatesError } = await analysisSupabase
         .from('whatsapp_templates')
         .select('*')
         .eq('is_active', true)
-        .eq('is_deleted', false)
         .eq('status', 'APPROVED')
+        .or('is_deleted.is.null,is_deleted.eq.false')
         .order('name');
       
-      if (templatesError) throw templatesError;
+      if (templatesError) {
+        console.error('Error loading templates:', templatesError);
+      }
       
       // Cargar audiencias activas
       const { data: audiencesData, error: audiencesError } = await analysisSupabase
@@ -135,11 +151,19 @@ const CampanasManager: React.FC = () => {
         .eq('is_active', true)
         .order('nombre');
       
-      if (audiencesError) throw audiencesError;
+      if (audiencesError) {
+        console.error('Error loading audiences:', audiencesError);
+      }
       
-      setCampaigns(campaignsData || []);
+      setCampaigns(normalizedCampaigns);
       setTemplates(templatesData || []);
       setAudiences(audiencesData || []);
+      
+      console.log('Loaded:', { 
+        campaigns: normalizedCampaigns.length, 
+        templates: templatesData?.length || 0, 
+        audiences: audiencesData?.length || 0 
+      });
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -288,8 +312,8 @@ const CampanasManager: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Gestión de Campañas
-          </h2>
+          Gestión de Campañas
+        </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Crea y gestiona campañas de envío masivo de WhatsApp
           </p>
@@ -501,7 +525,7 @@ const CampanasManager: React.FC = () => {
         </div>
       ) : filteredCampaigns.length === 0 ? (
         <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <MessageSquare className="w-8 h-8 text-white" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -731,6 +755,7 @@ interface CampaignCardProps {
 
 const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, onDelete, onStatusChange }) => {
   const config = CAMPAIGN_STATUS_CONFIG[campaign.status];
+  const isABTest = campaign.campaign_type === 'ab_test';
   
   const getStatusIcon = () => {
     switch (campaign.status) {
@@ -762,19 +787,30 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2, delay: index * 0.03 }}
-      className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 overflow-hidden hover:shadow-lg hover:shadow-blue-500/5"
+      className={`group relative bg-white dark:bg-gray-800 rounded-xl border transition-all duration-200 overflow-hidden hover:shadow-lg ${
+        isABTest 
+          ? 'border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-purple-500/10' 
+          : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-blue-500/5'
+      }`}
     >
       {/* Barra de estado superior */}
-      <div className={`h-1.5 ${config.bgColor}`} />
+      <div className={`h-1.5 ${isABTest ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500' : config.bgColor}`} />
       
       {/* Contenido */}
       <div className="p-4">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={campaign.nombre}>
-              {campaign.nombre}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={campaign.nombre}>
+                {campaign.nombre}
+              </h3>
+              {isABTest && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded">
+                  A/B
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2 mt-1">
               <StatusBadge status={campaign.status} />
             </div>
@@ -802,17 +838,59 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
           </div>
         </div>
         
+        {/* Fecha de ejecución */}
+        {campaign.execute_at && (
+          <div className={`mb-3 p-2 rounded-lg text-xs flex items-center gap-2 ${
+            campaign.status === 'scheduled' 
+              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+              : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400'
+          }`}>
+            <Calendar className="w-3.5 h-3.5" />
+            <span>{new Date(campaign.execute_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</span>
+          </div>
+        )}
+        
         {/* Plantilla y Audiencia */}
         <div className="space-y-2 mb-3">
           <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
             <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="truncate">{campaign.template?.name || 'Sin plantilla'}</span>
+            {isABTest && (
+              <span className="px-1 py-0.5 text-[8px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">A</span>
+            )}
           </div>
+          {isABTest && campaign.ab_template_b_id && (
+            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+              <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">Plantilla B</span>
+              <span className="px-1 py-0.5 text-[8px] font-bold bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 rounded">B</span>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
             <Users className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="truncate">{campaign.audience?.nombre || 'Sin audiencia'}</span>
           </div>
         </div>
+        
+        {/* Distribución A/B */}
+        {isABTest && (
+          <div className="mb-3 p-2 bg-gradient-to-r from-blue-50 to-pink-50 dark:from-blue-900/20 dark:to-pink-900/20 rounded-lg">
+            <div className="flex items-center justify-between text-[10px] font-medium">
+              <span className="text-blue-600 dark:text-blue-400">A: {campaign.ab_distribution_a || 50}%</span>
+              <span className="text-pink-600 dark:text-pink-400">B: {100 - (campaign.ab_distribution_a || 50)}%</span>
+            </div>
+            <div className="mt-1 h-1.5 rounded-full overflow-hidden flex">
+              <div 
+                className="bg-blue-500 h-full" 
+                style={{ width: `${campaign.ab_distribution_a || 50}%` }}
+              />
+              <div 
+                className="bg-pink-500 h-full" 
+                style={{ width: `${100 - (campaign.ab_distribution_a || 50)}%` }}
+              />
+            </div>
+          </div>
+        )}
         
         {/* Estadísticas */}
         <div className="grid grid-cols-3 gap-2 mb-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
@@ -857,6 +935,197 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
 };
 
 // ============================================
+// PHONE MOCKUP COMPONENT
+// ============================================
+
+interface PhoneMockupProps {
+  template: WhatsAppTemplate | undefined;
+  message: string;
+  variant?: 'A' | 'B';
+  recipients: number;
+  previewProspect: any;
+}
+
+const PhoneMockup: React.FC<PhoneMockupProps> = ({ template, message, variant, recipients, previewProspect }) => {
+  const gradientFrom = variant === 'A' ? 'from-blue-500' : variant === 'B' ? 'from-pink-500' : 'from-emerald-500';
+  const gradientTo = variant === 'A' ? 'to-cyan-500' : variant === 'B' ? 'to-rose-500' : 'to-teal-500';
+  
+  return (
+    <div className="flex flex-col items-center flex-shrink-0">
+      {/* Etiqueta variante */}
+      {variant && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-3 px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-lg ${
+            variant === 'A' 
+              ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
+              : 'bg-gradient-to-r from-pink-500 to-rose-500'
+          }`}
+        >
+          Variante {variant} • {recipients.toLocaleString()} prospectos
+        </motion.div>
+      )}
+      
+      {/* Mockup de celular */}
+      <div className="relative w-52 sm:w-56 md:w-60">
+        {/* Frame del celular */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: variant === 'B' ? 0.1 : 0 }}
+          className="bg-gray-900 rounded-[2.5rem] p-2 shadow-2xl"
+        >
+          {/* Notch */}
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-20 h-5 bg-gray-900 rounded-full z-10 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-gray-700"></div>
+          </div>
+          
+          {/* Pantalla */}
+          <div className="bg-[#0b141a] rounded-[2rem] overflow-hidden">
+            {/* Header de WhatsApp */}
+            <div className="bg-[#202c33] px-3 py-2 pt-8 flex items-center gap-2">
+              {/* Logo de hoja animado */}
+              <motion.div 
+                className={`w-9 h-9 rounded-full bg-gradient-to-br ${gradientFrom} ${gradientTo} flex items-center justify-center shadow-lg`}
+                animate={{ 
+                  rotate: [0, 3, -3, 0],
+                  scale: [1, 1.03, 1]
+                }}
+                transition={{ 
+                  duration: 4, 
+                  repeat: Infinity, 
+                  ease: "easeInOut" 
+                }}
+              >
+                {/* Icono de hoja (como el del sidebar) */}
+                <motion.svg 
+                  className="w-5 h-5 text-white" 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor"
+                  animate={{ 
+                    y: [0, -1, 0],
+                  }}
+                  transition={{ 
+                    duration: 2, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }}
+                >
+                  <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66l.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/>
+                </motion.svg>
+              </motion.div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-medium truncate">Vidanta Vacations</p>
+                <div className="flex items-center gap-1">
+                  <motion.div 
+                    className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+                    animate={{ opacity: [1, 0.5, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                  <p className="text-gray-400 text-[10px]">en línea</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Chat area - Fondo estilo WhatsApp con scroll */}
+            <div 
+              className="h-80 sm:h-96 relative"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cdefs%3E%3Cpattern id='pattern' patternUnits='userSpaceOnUse' width='40' height='40'%3E%3Cpath d='M0 20 L20 0 L40 20 L20 40 Z' fill='none' stroke='%23128c7e' stroke-width='0.3' opacity='0.15'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='200' height='200' fill='%23090e11'/%3E%3Crect width='200' height='200' fill='url(%23pattern)'/%3E%3C/svg%3E")`,
+                backgroundColor: '#090e11'
+              }}
+            >
+              {template ? (
+                <div className="h-full flex flex-col">
+                  {/* Contenedor scrolleable para el mensaje */}
+                  <div 
+                    className="flex-1 overflow-y-auto p-3"
+                    style={{
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                    }}
+                  >
+                    <style>{`
+                      .chat-scroll::-webkit-scrollbar {
+                        display: none;
+                      }
+                    `}</style>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="chat-scroll"
+                    >
+                      {/* Mensaje principal */}
+                      <div className="bg-[#005c4b] rounded-xl rounded-tl-sm p-3 max-w-[90%] shadow-lg">
+                        <p className="text-white text-[13px] leading-relaxed whitespace-pre-wrap">
+                          {message || 'Mensaje de ejemplo...'}
+                        </p>
+                        <div className="flex items-center justify-end gap-1 mt-1.5">
+                          <span className="text-[10px] text-gray-300">
+                            {new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                            <path d="M5 16.17L0.83 12l-1.42 1.41L5 19 17 7l-1.41-1.41L5 16.17z" transform="translate(4,0)"/>
+                          </svg>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <motion.div 
+                    className="text-center"
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <Smartphone className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+                    <p className="text-gray-500 text-xs">
+                      Selecciona una<br />plantilla
+                    </p>
+                  </motion.div>
+                </div>
+              )}
+            </div>
+            
+            {/* Input area */}
+            <div className="bg-[#202c33] px-3 py-2.5 flex items-center gap-2">
+              <div className="flex-1 bg-[#2a3942] rounded-full px-4 py-2">
+                <p className="text-gray-500 text-xs">Escribe un mensaje</p>
+              </div>
+              <motion.div 
+                className="w-9 h-9 rounded-full bg-[#00a884] flex items-center justify-center shadow-lg"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Send className="w-4 h-4 text-white" />
+              </motion.div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+      
+      {/* Label de plantilla - debajo del celular */}
+      {template && (
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3 text-center"
+        >
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-gray-800/80 text-[11px] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700/50 shadow-sm">
+            <span className="text-emerald-500">📋</span>
+            <span className="truncate max-w-[150px]">{template.name}</span>
+          </span>
+        </motion.div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
 // MODAL DE CREACIÓN DE CAMPAÑA
 // ============================================
 
@@ -883,10 +1152,14 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   const [formData, setFormData] = useState<CreateCampaignInput>({
     nombre: '',
     descripcion: '',
+    campaign_type: 'standard',
     template_id: '',
     audience_id: '',
+    ab_template_b_id: null,
+    ab_distribution_a: 50,
     batch_size: 10,
     batch_interval_seconds: 60,
+    execute_at: null,
     scheduled_at: null
   });
   
@@ -894,10 +1167,20 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   const [prospectCount, setProspectCount] = useState(0);
   const [countingProspects, setCountingProspects] = useState(false);
   const [previewProspect, setPreviewProspect] = useState<any>(null);
+  const [executeOption, setExecuteOption] = useState<'now' | 'scheduled'>('now');
   
   // Datos seleccionados
   const selectedTemplate = templates.find(t => t.id === formData.template_id);
+  const selectedTemplateB = templates.find(t => t.id === formData.ab_template_b_id);
   const selectedAudience = audiences.find(a => a.id === formData.audience_id);
+  
+  // Cálculos A/B
+  const recipientsA = formData.campaign_type === 'ab_test' 
+    ? Math.floor(prospectCount * (formData.ab_distribution_a || 50) / 100)
+    : prospectCount;
+  const recipientsB = formData.campaign_type === 'ab_test' 
+    ? prospectCount - recipientsA
+    : 0;
   
   // Reset form cuando se abre/cierra
   useEffect(() => {
@@ -905,22 +1188,32 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       setFormData({
         nombre: editingCampaign.nombre,
         descripcion: editingCampaign.descripcion || '',
+        campaign_type: editingCampaign.campaign_type || 'standard',
         template_id: editingCampaign.template_id,
         audience_id: editingCampaign.audience_id,
+        ab_template_b_id: editingCampaign.ab_template_b_id || null,
+        ab_distribution_a: editingCampaign.ab_distribution_a || 50,
         batch_size: editingCampaign.batch_size,
         batch_interval_seconds: editingCampaign.batch_interval_seconds,
+        execute_at: editingCampaign.execute_at || null,
         scheduled_at: editingCampaign.scheduled_at
       });
+      setExecuteOption(editingCampaign.execute_at ? 'scheduled' : 'now');
     } else {
       setFormData({
         nombre: '',
         descripcion: '',
+        campaign_type: 'standard',
         template_id: '',
         audience_id: '',
+        ab_template_b_id: null,
+        ab_distribution_a: 50,
         batch_size: 10,
         batch_interval_seconds: 60,
+        execute_at: null,
         scheduled_at: null
       });
+      setExecuteOption('now');
     }
   }, [editingCampaign, isOpen]);
   
@@ -972,10 +1265,10 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   }, [formData.audience_id, audiences, isOpen]);
   
   // Generar preview del mensaje
-  const getMessagePreview = () => {
-    if (!selectedTemplate) return '';
+  const getMessagePreview = (template: WhatsAppTemplate | undefined) => {
+    if (!template) return '';
     
-    const bodyComponent = selectedTemplate.components?.find(c => c.type === 'BODY');
+    const bodyComponent = template.components?.find(c => c.type === 'BODY');
     if (!bodyComponent?.text) return '';
     
     let message = bodyComponent.text;
@@ -1035,16 +1328,25 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       if (audience?.viaja_con?.length) audienceQuery += ` AND viaja_con IN ('${audience.viaja_con.join("','")}')`;
       if (audience?.destinos?.length) audienceQuery += ` AND destino_preferencia && ARRAY['${audience.destinos.join("','")}']`;
       
+      // Determinar fecha de ejecución
+      const executeAt = executeOption === 'now' 
+        ? new Date().toISOString() 
+        : formData.execute_at;
+      
       const campaignData = {
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion?.trim() || null,
+        campaign_type: formData.campaign_type || 'standard',
         template_id: formData.template_id,
         audience_id: formData.audience_id,
+        ab_template_b_id: formData.campaign_type === 'ab_test' ? formData.ab_template_b_id : null,
+        ab_distribution_a: formData.campaign_type === 'ab_test' ? formData.ab_distribution_a : 50,
         batch_size: formData.batch_size,
         batch_interval_seconds: formData.batch_interval_seconds,
+        execute_at: executeAt,
         scheduled_at: formData.scheduled_at,
-        status: launchNow ? 'running' : (formData.scheduled_at ? 'scheduled' : 'draft'),
-        total_recipients: prospectCount,
+        status: launchNow ? 'running' : (executeOption === 'scheduled' ? 'scheduled' : 'draft'),
+        total_recipients: formData.campaign_type === 'ab_test' ? recipientsA : prospectCount,
         created_by: user?.id,
         created_by_email: user?.email,
         audience_query_snapshot: audienceQuery
@@ -1075,45 +1377,106 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       
       // Si se lanza ahora, enviar al webhook
       if (launchNow) {
-        const payload: BroadcastWebhookPayload = {
+        const basePayload: BroadcastWebhookPayload = {
           campaign_id: campaignId,
+          campaign_type: formData.campaign_type || 'standard',
           audience_id: formData.audience_id,
           template_id: formData.template_id,
           audience_query: audienceQuery,
           batch_size: formData.batch_size,
           batch_interval_seconds: formData.batch_interval_seconds,
+          recipients_count: formData.campaign_type === 'ab_test' ? recipientsA : prospectCount,
           created_by_id: user?.id || '',
           created_by_email: user?.email || '',
+          execute_at: executeAt || new Date().toISOString(),
           timestamp: new Date().toISOString()
         };
         
         try {
-          const response = await fetch(BROADCAST_WEBHOOK_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Auth': BROADCAST_WEBHOOK_AUTH
-            },
-            body: JSON.stringify(payload)
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Webhook error: ${response.status}`);
+          // Para campañas A/B, enviar dos payloads
+          if (formData.campaign_type === 'ab_test' && formData.ab_template_b_id) {
+            // Payload variante A
+            const payloadA: BroadcastWebhookPayload = {
+              ...basePayload,
+              ab_variant: 'A',
+              ab_distribution_percent: formData.ab_distribution_a,
+              recipients_count: recipientsA
+            };
+            
+            // Payload variante B  
+            const payloadB: BroadcastWebhookPayload = {
+              ...basePayload,
+              campaign_id: `${campaignId}_B`,
+              template_id: formData.ab_template_b_id,
+              ab_variant: 'B',
+              ab_distribution_percent: 100 - (formData.ab_distribution_a || 50),
+              ab_linked_campaign_id: campaignId,
+              recipients_count: recipientsB
+            };
+            
+            // Enviar ambos payloads
+            const [responseA, responseB] = await Promise.all([
+              fetch(BROADCAST_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Auth': BROADCAST_WEBHOOK_AUTH },
+                body: JSON.stringify(payloadA)
+              }),
+              fetch(BROADCAST_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Auth': BROADCAST_WEBHOOK_AUTH },
+                body: JSON.stringify(payloadB)
+              })
+            ]);
+            
+            if (!responseA.ok || !responseB.ok) {
+              throw new Error(`Webhook error: A=${responseA.status}, B=${responseB.status}`);
+            }
+            
+            const [webhookResponseA, webhookResponseB] = await Promise.all([
+              responseA.json(),
+              responseB.json()
+            ]);
+            
+            // Actualizar campaña con respuestas
+            await analysisSupabase
+              .from('whatsapp_campaigns')
+              .update({
+                webhook_execution_id: webhookResponseA?.execution_id || null,
+                webhook_response: { variantA: webhookResponseA, variantB: webhookResponseB },
+                started_at: new Date().toISOString()
+              })
+              .eq('id', campaignId);
+            
+            toast.success('¡Campaña A/B lanzada exitosamente!');
+          } else {
+            // Campaña estándar - un solo payload
+            const response = await fetch(BROADCAST_WEBHOOK_URL, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Auth': BROADCAST_WEBHOOK_AUTH
+              },
+              body: JSON.stringify(basePayload)
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Webhook error: ${response.status}`);
+            }
+            
+            const webhookResponse = await response.json();
+            
+            // Actualizar campaña con respuesta del webhook
+            await analysisSupabase
+              .from('whatsapp_campaigns')
+              .update({
+                webhook_execution_id: webhookResponse?.execution_id || null,
+                webhook_response: webhookResponse,
+                started_at: new Date().toISOString()
+              })
+              .eq('id', campaignId);
+            
+            toast.success('¡Campaña lanzada exitosamente!');
           }
-          
-          const webhookResponse = await response.json();
-          
-          // Actualizar campaña con respuesta del webhook
-          await analysisSupabase
-            .from('whatsapp_campaigns')
-            .update({
-              webhook_execution_id: webhookResponse?.execution_id || null,
-              webhook_response: webhookResponse,
-              started_at: new Date().toISOString()
-            })
-            .eq('id', campaignId);
-          
-          toast.success('¡Campaña lanzada exitosamente!');
         } catch (webhookError) {
           console.error('Webhook error:', webhookError);
           toast.error('Campaña guardada pero hubo un error al lanzarla');
@@ -1135,6 +1498,9 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     }
   };
   
+  // Determinar si es A/B test
+  const isABTest = formData.campaign_type === 'ab_test';
+  
   return (
     <AnimatePresence>
       {isOpen && (
@@ -1143,7 +1509,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[60]"
+          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 z-[60]"
           onClick={onClose}
         >
           <motion.div
@@ -1152,38 +1518,88 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
             exit={{ opacity: 0, scale: 0.96, y: 10 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800"
+            className={`bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-h-[95vh] overflow-hidden flex flex-col border border-gray-100 dark:border-gray-800 ${
+              isABTest ? 'max-w-[95vw] xl:max-w-[1600px]' : 'max-w-5xl'
+            }`}
           >
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5 text-white" />
-                  </div>
+                  <motion.div 
+                    initial={{ rotate: -10 }}
+                    animate={{ rotate: 0 }}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      isABTest 
+                        ? 'bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500' 
+                        : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                    }`}
+                  >
+                    {isABTest ? (
+                      <GitBranch className="w-5 h-5 text-white" />
+                    ) : (
+                      <MessageSquare className="w-5 h-5 text-white" />
+                    )}
+                  </motion.div>
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                       {editingCampaign ? 'Editar Campaña' : 'Crear Nueva Campaña'}
+                      {isABTest && <span className="ml-2 text-purple-500">A/B Test</span>}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Configura tu campaña de envío masivo
+                      {isABTest 
+                        ? 'Compara dos plantillas con tu audiencia' 
+                        : 'Configura tu campaña de envío masivo'}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
+                
+                {/* Selector tipo de campaña */}
+                <div className="flex items-center gap-3">
+                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                    <button
+                      onClick={() => setFormData({ ...formData, campaign_type: 'standard' })}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                        !isABTest
+                          ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        Estándar
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setFormData({ ...formData, campaign_type: 'ab_test' })}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                        isABTest
+                          ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <GitBranch className="w-4 h-4" />
+                        A/B Test
+                      </span>
+                    </button>
+                  </div>
+                  
+                  <button
+                    onClick={onClose}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
               </div>
             </div>
             
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-6">
+              <div className={`grid gap-0 ${isABTest ? 'grid-cols-1 xl:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
                 {/* Formulario */}
-                <div className="p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-gray-100 dark:border-gray-800">
+                <div className="p-6 space-y-5 border-b xl:border-b-0 xl:border-r border-gray-100 dark:border-gray-800">
                   {/* Nombre */}
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
@@ -1192,10 +1608,10 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                         Información Básica
                       </label>
                     </div>
-                    <div className="grid grid-cols-1 gap-4 pt-2">
+                    <div className="grid grid-cols-1 gap-3 pt-2">
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                          <FileText className="w-4 h-4" />
+                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                          <FileText className="w-3.5 h-3.5" />
                           Nombre de la Campaña
                         </label>
                         <input
@@ -1203,84 +1619,305 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                           value={formData.nombre}
                           onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                           placeholder="Ej: Promoción Verano 2026"
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
                         />
                       </div>
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                          <MessageSquare className="w-4 h-4" />
+                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                          <MessageSquare className="w-3.5 h-3.5" />
                           Descripción (opcional)
                         </label>
                         <textarea
                           value={formData.descripcion}
                           onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                          placeholder="Describe el objetivo de la campaña..."
+                          placeholder="Describe el objetivo..."
                           rows={2}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white resize-none transition-all"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white resize-none transition-all"
                         />
                       </div>
                     </div>
                   </div>
                   
-                  {/* Selección de Plantilla y Audiencia */}
+                  {/* Audiencia (solo una para A/B) */}
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                      <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        Contenido y Destinatarios
+                        Audiencia
                       </label>
                     </div>
-                    <div className="grid grid-cols-1 gap-4 pt-2">
+                    <div className="pt-2">
+                      <select
+                        value={formData.audience_id}
+                        onChange={(e) => setFormData({ ...formData, audience_id: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
+                      >
+                        <option value="">Selecciona una audiencia</option>
+                        {audiences.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.nombre} ({a.prospectos_count} prospectos)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {/* Plantillas */}
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-1 h-5 bg-gradient-to-b rounded-full ${isABTest ? 'from-purple-500 to-pink-500' : 'from-purple-500 to-pink-500'}`}></div>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        {isABTest ? 'Plantillas A/B' : 'Plantilla'}
+                      </label>
+                    </div>
+                    <div className={`grid gap-3 pt-2 ${isABTest ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                          <MessageSquare className="w-4 h-4" />
-                          Plantilla de Mensaje
+                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                          {isABTest && <span className="w-5 h-5 bg-blue-500 text-white text-[10px] font-bold rounded flex items-center justify-center">A</span>}
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          Plantilla {isABTest && 'Variante A'}
                         </label>
                         <select
                           value={formData.template_id}
                           onChange={(e) => setFormData({ ...formData, template_id: e.target.value })}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
                         >
-                          <option value="">Selecciona una plantilla</option>
+                          <option value="">Selecciona plantilla</option>
                           {templates.map((t) => (
                             <option key={t.id} value={t.id}>{t.name}</option>
                           ))}
                         </select>
                       </div>
-                      <div>
-                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                          <Users className="w-4 h-4" />
-                          Audiencia
+                      {isABTest && (
+                        <div>
+                          <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                            <span className="w-5 h-5 bg-pink-500 text-white text-[10px] font-bold rounded flex items-center justify-center">B</span>
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            Plantilla Variante B
+                          </label>
+                          <select
+                            value={formData.ab_template_b_id || ''}
+                            onChange={(e) => setFormData({ ...formData, ab_template_b_id: e.target.value || null })}
+                            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 dark:bg-gray-800/50 dark:text-white transition-all"
+                          >
+                            <option value="">Selecciona plantilla</option>
+                            {templates.filter(t => t.id !== formData.template_id).map((t) => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Slider A/B Distribution */}
+                  {isABTest && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <div className="w-1 h-5 bg-gradient-to-b from-orange-500 to-amber-500 rounded-full"></div>
+                        <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          Distribución
                         </label>
-                        <select
-                          value={formData.audience_id}
-                          onChange={(e) => setFormData({ ...formData, audience_id: e.target.value })}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
-                        >
-                          <option value="">Selecciona una audiencia</option>
-                          {audiences.map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.nombre} ({a.prospectos_count} prospectos)
-                            </option>
-                          ))}
-                        </select>
                       </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded flex items-center justify-center">A</span>
+                            <span className="text-lg font-bold text-blue-600">{formData.ab_distribution_a}%</span>
+                          </div>
+                          <Split className="w-5 h-5 text-gray-400" />
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-pink-600">{100 - (formData.ab_distribution_a || 50)}%</span>
+                            <span className="w-6 h-6 bg-pink-500 text-white text-xs font-bold rounded flex items-center justify-center">B</span>
+                          </div>
+                        </div>
+                        <input
+                          type="range"
+                          min={10}
+                          max={90}
+                          step={5}
+                          value={formData.ab_distribution_a}
+                          onChange={(e) => setFormData({ ...formData, ab_distribution_a: parseInt(e.target.value) })}
+                          className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${formData.ab_distribution_a}%, #EC4899 ${formData.ab_distribution_a}%, #EC4899 100%)`
+                          }}
+                        />
+                        <div className="flex justify-between mt-2 text-xs text-gray-500">
+                          <span>{recipientsA.toLocaleString()} prospectos</span>
+                          <span>{recipientsB.toLocaleString()} prospectos</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  {/* Fecha de ejecución */}
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-1 h-5 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Fecha de Ejecución
+                      </label>
+                    </div>
+                    <div className="pt-2 space-y-3">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExecuteOption('now');
+                            setFormData({ ...formData, execute_at: null });
+                          }}
+                          className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                            executeOption === 'now'
+                              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                          }`}
+                        >
+                          <Rocket className="w-4 h-4" />
+                          <span className="text-sm font-medium">Ahora</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExecuteOption('scheduled')}
+                          className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                            executeOption === 'scheduled'
+                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                          }`}
+                        >
+                          <Calendar className="w-4 h-4" />
+                          <span className="text-sm font-medium">Programar</span>
+                        </button>
+                      </div>
+                      
+                      {executeOption === 'scheduled' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="space-y-3"
+                        >
+                          {/* Date picker moderno */}
+                          <div className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                            {/* Presets rápidos */}
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {[
+                                { label: 'En 1 hora', hours: 1 },
+                                { label: 'En 3 horas', hours: 3 },
+                                { label: 'Mañana 9am', preset: 'tomorrow9' },
+                                { label: 'Mañana 2pm', preset: 'tomorrow14' },
+                              ].map((option, idx) => {
+                                const getPresetDate = () => {
+                                  const now = new Date();
+                                  if (option.hours) {
+                                    now.setHours(now.getHours() + option.hours);
+                                    return now;
+                                  }
+                                  if (option.preset === 'tomorrow9') {
+                                    now.setDate(now.getDate() + 1);
+                                    now.setHours(9, 0, 0, 0);
+                                    return now;
+                                  }
+                                  if (option.preset === 'tomorrow14') {
+                                    now.setDate(now.getDate() + 1);
+                                    now.setHours(14, 0, 0, 0);
+                                    return now;
+                                  }
+                                  return now;
+                                };
+                                
+                                return (
+                                  <motion.button
+                                    key={idx}
+                                    type="button"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setFormData({ ...formData, execute_at: getPresetDate().toISOString() })}
+                                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-all shadow-sm"
+                                  >
+                                    {option.label}
+                                  </motion.button>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* Selector de fecha y hora personalizado */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] font-medium text-purple-600 dark:text-purple-400 uppercase mb-1 block">
+                                  Fecha
+                                </label>
+                                <input
+                                  type="date"
+                                  value={formData.execute_at ? formData.execute_at.slice(0, 10) : ''}
+                                  min={new Date().toISOString().slice(0, 10)}
+                                  onChange={(e) => {
+                                    const currentTime = formData.execute_at ? formData.execute_at.slice(11, 16) : '09:00';
+                                    const newDate = new Date(`${e.target.value}T${currentTime}`);
+                                    setFormData({ ...formData, execute_at: newDate.toISOString() });
+                                  }}
+                                  className="w-full px-3 py-2.5 text-sm border border-purple-200 dark:border-purple-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-medium text-purple-600 dark:text-purple-400 uppercase mb-1 block">
+                                  Hora
+                                </label>
+                                <input
+                                  type="time"
+                                  value={formData.execute_at ? formData.execute_at.slice(11, 16) : '09:00'}
+                                  onChange={(e) => {
+                                    const currentDate = formData.execute_at ? formData.execute_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+                                    const newDate = new Date(`${currentDate}T${e.target.value}`);
+                                    setFormData({ ...formData, execute_at: newDate.toISOString() });
+                                  }}
+                                  className="w-full px-3 py-2.5 text-sm border border-purple-200 dark:border-purple-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all"
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Vista previa de la fecha seleccionada */}
+                            {formData.execute_at && (
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700 flex items-center gap-3"
+                              >
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                                  <Calendar className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                    {new Date(formData.execute_at).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                  </p>
+                                  <p className="text-xs text-purple-600 dark:text-purple-400">
+                                    {new Date(formData.execute_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} hrs
+                                  </p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
                   
                   {/* Configuración de Envío */}
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                      <div className="w-1 h-5 bg-gradient-to-b from-cyan-500 to-blue-500 rounded-full"></div>
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        Configuración de Envío
+                        Velocidad de Envío
                       </label>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="grid grid-cols-2 gap-3 pt-2">
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                          <Zap className="w-4 h-4" />
-                          Mensajes por Batch
+                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                          <Zap className="w-3.5 h-3.5" />
+                          Por Batch
                         </label>
                         <input
                           type="number"
@@ -1288,14 +1925,13 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                           max={100}
                           value={formData.batch_size}
                           onChange={(e) => setFormData({ ...formData, batch_size: parseInt(e.target.value) || 10 })}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
                         />
-                        <p className="text-[10px] text-gray-500 mt-1">1-100 mensajes por batch</p>
                       </div>
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                          <Clock className="w-4 h-4" />
-                          Intervalo (segundos)
+                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          Intervalo (s)
                         </label>
                         <input
                           type="number"
@@ -1303,9 +1939,8 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                           max={300}
                           value={formData.batch_interval_seconds}
                           onChange={(e) => setFormData({ ...formData, batch_interval_seconds: parseInt(e.target.value) || 60 })}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all"
                         />
-                        <p className="text-[10px] text-gray-500 mt-1">Mínimo 30 segundos</p>
                       </div>
                     </div>
                   </div>
@@ -1315,96 +1950,82 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800"
+                      className={`p-4 rounded-xl border ${
+                        isABTest 
+                          ? 'bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800'
+                          : 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800'
+                      }`}
                     >
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className={`grid gap-3 ${isABTest ? 'grid-cols-2' : 'grid-cols-3'}`}>
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          <p className={`text-xl font-bold ${isABTest ? 'text-purple-600 dark:text-purple-400' : 'text-blue-600 dark:text-blue-400'}`}>
                             {countingProspects ? '...' : prospectCount.toLocaleString()}
                           </p>
-                          <p className="text-xs text-blue-700 dark:text-blue-300">Destinatarios</p>
+                          <p className="text-[10px] text-gray-600 dark:text-gray-400">Total</p>
                         </div>
-                        <div className="text-center border-x border-blue-200 dark:border-blue-700">
-                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            {Math.ceil(prospectCount / formData.batch_size)}
-                          </p>
-                          <p className="text-xs text-blue-700 dark:text-blue-300">Batches</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            {getEstimatedTime()}
-                          </p>
-                          <p className="text-xs text-blue-700 dark:text-blue-300">Duración Est.</p>
-                        </div>
+                        {isABTest ? (
+                          <>
+                            <div className="text-center">
+                              <p className="text-xl font-bold text-pink-600 dark:text-pink-400">
+                                {getEstimatedTime()}
+                              </p>
+                              <p className="text-[10px] text-gray-600 dark:text-gray-400">Duración</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-center border-x border-blue-200 dark:border-blue-700">
+                              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                                {Math.ceil(prospectCount / (formData.batch_size || 10))}
+                              </p>
+                              <p className="text-[10px] text-gray-600 dark:text-gray-400">Batches</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                                {getEstimatedTime()}
+                              </p>
+                              <p className="text-[10px] text-gray-600 dark:text-gray-400">Duración</p>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </motion.div>
                   )}
                 </div>
                 
-                {/* Preview de Celular */}
-                <div className="p-6 bg-gray-50 dark:bg-gray-800/50 flex flex-col items-center justify-center">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
+                {/* Preview de Celular(es) */}
+                <div className={`p-4 sm:p-6 bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 dark:from-[#0d1117] dark:via-[#0d1117] dark:to-[#151b23] flex flex-col items-center justify-center min-h-[500px] ${isABTest ? 'xl:col-span-2' : ''}`}>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-500" />
                     Vista previa del mensaje
                   </p>
                   
-                  {/* Mockup de celular */}
-                  <div className="relative w-64 sm:w-72">
-                    {/* Frame del celular */}
-                    <div className="bg-gray-900 rounded-[2.5rem] p-2 shadow-2xl">
-                      {/* Notch */}
-                      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-24 h-5 bg-gray-900 rounded-full z-10"></div>
-                      
-                      {/* Pantalla */}
-                      <div className="bg-[#0b141a] rounded-[2rem] overflow-hidden">
-                        {/* Header de WhatsApp */}
-                        <div className="bg-[#202c33] px-3 py-2 pt-8 flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">V</span>
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-white text-sm font-medium">Vidanta Vacations</p>
-                            <p className="text-gray-400 text-[10px]">en línea</p>
-                          </div>
-                        </div>
-                        
-                        {/* Chat area */}
-                        <div className="h-80 p-3 bg-[url('https://i.pinimg.com/originals/97/c0/07/97c00759d90d786d9b6096e274d81826.jpg')] bg-cover bg-center">
-                          {selectedTemplate ? (
-                            <motion.div
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="bg-[#005c4b] rounded-lg rounded-tl-none p-3 max-w-[85%] shadow-lg"
-                            >
-                              <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
-                                {getMessagePreview()}
-                              </p>
-                              <p className="text-right text-[10px] text-gray-300 mt-1">
-                                {new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                            </motion.div>
-                          ) : (
-                            <div className="h-full flex items-center justify-center">
-                              <div className="text-center">
-                                <Smartphone className="w-12 h-12 text-gray-500 mx-auto mb-2 opacity-50" />
-                                <p className="text-gray-400 text-xs">
-                                  Selecciona una plantilla<br />para ver la vista previa
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Input area */}
-                        <div className="bg-[#202c33] px-3 py-2 flex items-center gap-2">
-                          <div className="flex-1 bg-[#2a3942] rounded-full px-4 py-2">
-                            <p className="text-gray-400 text-xs">Escribe un mensaje</p>
-                          </div>
-                          <div className="w-8 h-8 rounded-full bg-[#00a884] flex items-center justify-center">
-                            <Send className="w-4 h-4 text-white" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  {/* Contenedor de previews - centrado y responsivo */}
+                  <div className={`flex items-center justify-center gap-4 sm:gap-6 lg:gap-8 w-full ${
+                    isABTest 
+                      ? 'flex-col md:flex-row' 
+                      : 'flex-col'
+                  }`}>
+                    
+                    {/* Phone Mockup A */}
+                    <PhoneMockup 
+                      template={selectedTemplate}
+                      message={getMessagePreview(selectedTemplate)}
+                      variant={isABTest ? 'A' : undefined}
+                      recipients={isABTest ? recipientsA : prospectCount}
+                      previewProspect={previewProspect}
+                    />
+                    
+                    {/* Phone Mockup B (solo A/B) */}
+                    {isABTest && (
+                      <PhoneMockup 
+                        template={selectedTemplateB}
+                        message={getMessagePreview(selectedTemplateB)}
+                        variant="B"
+                        recipients={recipientsB}
+                        previewProspect={previewProspect}
+                      />
+                    )}
                   </div>
                   
                   {/* Info del prospecto de muestra */}
@@ -1415,7 +2036,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                       className="mt-4 text-center"
                     >
                       <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                        Preview con datos de: <span className="font-medium">{previewProspect.nombre || 'Prospecto'}</span>
+                        Preview con datos de: <span className="font-medium text-emerald-600 dark:text-emerald-400">{previewProspect.nombre || previewProspect.nombre_completo || 'Prospecto'}</span>
                       </p>
                     </motion.div>
                   )}
@@ -1427,7 +2048,14 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
             <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col sm:flex-row justify-between gap-4">
               <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <AlertCircle className="w-4 h-4" />
-                <span>Los mensajes se enviarán según la configuración de batch</span>
+                <span>
+                  {executeOption === 'now' 
+                    ? 'La campaña se ejecutará inmediatamente' 
+                    : formData.execute_at 
+                      ? `Programada para: ${new Date(formData.execute_at).toLocaleString('es-MX')}`
+                      : 'Selecciona fecha de ejecución'
+                  }
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -1440,7 +2068,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleSubmit(false)}
-                  disabled={saving || !formData.nombre.trim() || !formData.template_id || !formData.audience_id}
+                  disabled={saving || !formData.nombre.trim() || !formData.template_id || !formData.audience_id || (isABTest && !formData.ab_template_b_id)}
                   className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {saving ? 'Guardando...' : 'Guardar Borrador'}
@@ -1449,11 +2077,32 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleSubmit(true)}
-                  disabled={saving || !formData.nombre.trim() || !formData.template_id || !formData.audience_id || prospectCount === 0}
-                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-500/25 flex items-center gap-2"
+                  disabled={
+                    saving || 
+                    !formData.nombre.trim() || 
+                    !formData.template_id || 
+                    !formData.audience_id || 
+                    prospectCount === 0 ||
+                    (isABTest && !formData.ab_template_b_id) ||
+                    (executeOption === 'scheduled' && !formData.execute_at)
+                  }
+                  className={`px-6 py-2.5 text-sm font-medium text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center gap-2 ${
+                    isABTest 
+                      ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-700 hover:via-pink-700 hover:to-rose-700 shadow-purple-500/25' 
+                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-blue-500/25'
+                  }`}
                 >
-                  <Send className="w-4 h-4" />
-                  {saving ? 'Lanzando...' : 'Lanzar Ahora'}
+                  {executeOption === 'now' ? (
+                    <>
+                      <Rocket className="w-4 h-4" />
+                      {saving ? 'Lanzando...' : isABTest ? 'Lanzar A/B Test' : 'Lanzar Ahora'}
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4" />
+                      {saving ? 'Programando...' : 'Programar Envío'}
+                    </>
+                  )}
                 </motion.button>
               </div>
             </div>

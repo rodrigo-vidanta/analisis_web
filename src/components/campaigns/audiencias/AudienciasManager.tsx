@@ -107,11 +107,16 @@ const AudienciasManager: React.FC = () => {
               query = query.overlaps('destino_preferencia', aud.destinos);
             }
             
-            // Filtro de días sin contacto
+            // Filtro de días sin contacto (prospectos inactivos en un rango de 1 a X días)
             if (aud.dias_sin_contacto && aud.dias_sin_contacto > 0) {
+              const today = new Date();
+              const oneDayAgo = new Date();
+              oneDayAgo.setDate(today.getDate() - 1);
               const cutoffDate = new Date();
-              cutoffDate.setDate(cutoffDate.getDate() - aud.dias_sin_contacto);
-              query = query.lt('updated_at', cutoffDate.toISOString());
+              cutoffDate.setDate(today.getDate() - aud.dias_sin_contacto);
+              // Prospectos que no fueron contactados ayer o antes, pero dentro del rango
+              query = query.lt('updated_at', oneDayAgo.toISOString());
+              query = query.gte('updated_at', cutoffDate.toISOString());
             }
             
             const { count } = await query;
@@ -853,11 +858,16 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
           query = query.overlaps('destino_preferencia', formData.destinos);
         }
         
-        // Filtro de días sin contacto (basado en updated_at)
+        // Filtro de días sin contacto (prospectos inactivos en un rango de 1 a X días)
         if (formData.dias_sin_contacto && formData.dias_sin_contacto > 0) {
+          const today = new Date();
+          const oneDayAgo = new Date();
+          oneDayAgo.setDate(today.getDate() - 1);
           const cutoffDate = new Date();
-          cutoffDate.setDate(cutoffDate.getDate() - formData.dias_sin_contacto);
-          query = query.lt('updated_at', cutoffDate.toISOString());
+          cutoffDate.setDate(today.getDate() - formData.dias_sin_contacto);
+          // Prospectos que no fueron contactados ayer o antes, pero dentro del rango
+          query = query.lt('updated_at', oneDayAgo.toISOString());
+          query = query.gte('updated_at', cutoffDate.toISOString());
         }
         
         const { count, error } = await query;
@@ -1193,7 +1203,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                 </div>
                 
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Filtrar prospectos que no han tenido actividad en los últimos días
+                  Incluir prospectos inactivos dentro de este rango de tiempo (desde 1 día hasta X días sin contacto)
                 </p>
                 
                 {/* Presets */}
@@ -1281,10 +1291,11 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                     <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                       <Calendar className="w-4 h-4" />
                       <span>
-                        Mostrando prospectos sin actividad desde el{' '}
+                        Prospectos con inactividad de <strong>1 a {formData.dias_sin_contacto} días</strong> (desde{' '}
                         <strong>
                           {new Date(Date.now() - formData.dias_sin_contacto * 24 * 60 * 60 * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </strong>
+                        {' '}hasta ayer)
                       </span>
                     </div>
                   </motion.div>

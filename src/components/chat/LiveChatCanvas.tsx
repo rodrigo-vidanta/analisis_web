@@ -1035,7 +1035,7 @@ const LiveChatCanvas: React.FC = () => {
   // v6.4.0: Conteo real de conversaciones del usuario (según permisos)
   const [userConversationsCount, setUserConversationsCount] = useState<number | null>(null);
   // v6.4.0: Flag para indicar si ya se precargaron las etiquetas del usuario
-  const allUserLabelsLoadedRef = useRef(false);
+  const allUserLabelsLoadedRef = useRef(false); // Flag para evitar cargas duplicadas
   const CONVERSATIONS_BATCH_SIZE = 200;
   const conversationsScrollContainerRef = useRef<HTMLDivElement>(null);
   const isLoadingConversationsRef = useRef(false);
@@ -3948,16 +3948,14 @@ const LiveChatCanvas: React.FC = () => {
   const loadProspectosLabels = useCallback(async (prospectoIds: string[]) => {
     if (prospectoIds.length === 0) return;
     
-    // v6.4.1: Si las etiquetas del usuario ya fueron precargadas, no volver a cargar
-    // Esto evita que los batches sobrescriban la precarga completa
+    // Si las etiquetas ya fueron precargadas, no recargar (optimización)
     if (allUserLabelsLoadedRef.current) {
-      console.log(`🏷️ [v6.4.1] Etiquetas ya precargadas, omitiendo carga de batch`);
+      console.log(`🏷️ [Optimización] Etiquetas ya precargadas, omitiendo batch`);
       return;
     }
     
     try {
       const labelsMap = await whatsappLabelsService.getBatchProspectosLabels(prospectoIds);
-      // v6.4.1: MEZCLAR con etiquetas existentes, no reemplazar
       setProspectoLabels(prev => ({ ...prev, ...labelsMap }));
     } catch (error) {
       console.error('Error cargando etiquetas de prospectos:', error);
@@ -4014,10 +4012,11 @@ const LiveChatCanvas: React.FC = () => {
       const isUserAdmin = !ejecutivoFilter && !coordinacionesFilter;
       
       if (isUserAdmin) {
-        // Admin: el total de BD es su total
-        console.log('👑 [v6.4.0] Usuario es admin, usando conteo total de BD');
+        // Admin: NO precargar (allConversationsLoaded está vacío en este punto)
+        // Permitir que cada batch cargue sus etiquetas on-demand
+        console.log('👑 [Admin] Permitiendo carga on-demand de etiquetas en batches');
         setUserConversationsCount(totalConversationsCount);
-        allUserLabelsLoadedRef.current = true;
+        // NO setear allUserLabelsLoadedRef.current para permitir carga en batches
         return;
       }
       
@@ -4113,9 +4112,9 @@ const LiveChatCanvas: React.FC = () => {
         }
       }
       
-      // v6.4.1: Marcar como cargadas DESPUÉS de establecer las etiquetas
+      // Marcar como cargadas DESPUÉS de establecer las etiquetas
       allUserLabelsLoadedRef.current = true;
-      console.log(`🏷️ [v6.4.1] Flag allUserLabelsLoadedRef establecido - los siguientes batches no cargarán etiquetas`);
+      console.log(`✅ [Precarga] Flag establecido - batches subsecuentes no cargarán etiquetas (optimización)`);
     } catch (error) {
       console.error('❌ [v6.4.0] Error en precarga de datos:', error);
     }
@@ -4123,7 +4122,7 @@ const LiveChatCanvas: React.FC = () => {
   
   // Ejecutar precarga cuando tengamos el conteo total y el usuario
   useEffect(() => {
-    if (user?.id && totalConversationsCount > 0 && !allUserLabelsLoadedRef.current) {
+    if (user?.id && totalConversationsCount > 0) {
       preloadUserDataAndLabels();
     }
   }, [user?.id, totalConversationsCount, preloadUserDataAndLabels]);

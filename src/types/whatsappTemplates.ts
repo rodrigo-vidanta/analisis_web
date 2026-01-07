@@ -427,12 +427,33 @@ export const CAMPAIGN_STATUS_CONFIG: Record<CampaignStatus, {
 };
 
 /**
+ * Tipo de campaña
+ */
+export type CampaignType = 'standard' | 'ab_test';
+
+export const CAMPAIGN_TYPE_CONFIG: Record<CampaignType, { label: string; description: string; icon: string }> = {
+  standard: { 
+    label: 'Estándar', 
+    description: 'Campaña normal con una sola plantilla',
+    icon: 'MessageSquare'
+  },
+  ab_test: { 
+    label: 'A/B Test', 
+    description: 'Prueba dos plantillas con diferentes audiencias',
+    icon: 'GitBranch'
+  },
+};
+
+/**
  * Campaña de WhatsApp
  */
 export interface WhatsAppCampaign {
   id: string;
   nombre: string;
   descripcion?: string | null;
+  
+  // Tipo de campaña
+  campaign_type: CampaignType;
   
   // Referencias
   template_id: string;
@@ -442,11 +463,18 @@ export interface WhatsAppCampaign {
   template?: WhatsAppTemplate;
   audience?: WhatsAppAudience;
   
+  // A/B Test
+  ab_template_b_id?: string | null;
+  ab_template_b?: WhatsAppTemplate; // Relación expandida
+  ab_distribution_a: number; // Porcentaje para variante A (0-100)
+  ab_linked_campaign_id?: string | null; // ID de campaña vinculada
+  
   // Configuración de envío
   batch_size: number;
   batch_interval_seconds: number;
   
   // Programación
+  execute_at?: string | null; // Cuándo ejecutar (null = ahora)
   scheduled_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
@@ -485,10 +513,14 @@ export interface WhatsAppCampaign {
 export interface CreateCampaignInput {
   nombre: string;
   descripcion?: string;
+  campaign_type?: CampaignType;
   template_id: string;
   audience_id: string;
+  ab_template_b_id?: string | null;
+  ab_distribution_a?: number;
   batch_size?: number;
   batch_interval_seconds?: number;
+  execute_at?: string | null;
   scheduled_at?: string | null;
 }
 
@@ -498,10 +530,14 @@ export interface CreateCampaignInput {
 export interface UpdateCampaignInput {
   nombre?: string;
   descripcion?: string;
+  campaign_type?: CampaignType;
   template_id?: string;
   audience_id?: string;
+  ab_template_b_id?: string | null;
+  ab_distribution_a?: number;
   batch_size?: number;
   batch_interval_seconds?: number;
+  execute_at?: string | null;
   scheduled_at?: string | null;
   status?: CampaignStatus;
 }
@@ -511,14 +547,20 @@ export interface UpdateCampaignInput {
  */
 export interface BroadcastWebhookPayload {
   campaign_id: string;
+  campaign_type: CampaignType;
   audience_id: string;
   template_id: string;
   audience_query: string;
   batch_size: number;
   batch_interval_seconds: number;
+  recipients_count: number;
   created_by_id: string;
   created_by_email: string;
-  scheduled_at?: string;
+  execute_at: string; // Cuándo ejecutar la campaña
   timestamp: string;
+  // Para A/B test: indicar variante
+  ab_variant?: 'A' | 'B';
+  ab_distribution_percent?: number;
+  ab_linked_campaign_id?: string;
 }
 
