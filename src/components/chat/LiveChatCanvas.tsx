@@ -1544,6 +1544,71 @@ const LiveChatCanvas: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // ============================================
+  // v6.5.0: CARGA AGRESIVA PARA BÚSQUEDA
+  // ============================================
+  // Cuando hay un término de búsqueda activo (>2 chars), cargar TODOS los
+  // batches automáticamente para que la búsqueda funcione correctamente.
+  // Sin esto, la búsqueda solo filtra los datos ya cargados en memoria.
+  const [isSearchingAllBatches, setIsSearchingAllBatches] = useState(false);
+  const searchLoadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  useEffect(() => {
+    // Limpiar intervalo anterior
+    if (searchLoadIntervalRef.current) {
+      clearInterval(searchLoadIntervalRef.current);
+      searchLoadIntervalRef.current = null;
+    }
+    
+    // Si hay término de búsqueda >= 3 caracteres y hay más batches por cargar
+    if (debouncedSearchTerm.trim().length >= 3 && hasMoreConversations) {
+      console.log(`🔍 [v6.5.0] Búsqueda activa: "${debouncedSearchTerm}" - Cargando todos los batches...`);
+      setIsSearchingAllBatches(true);
+      
+      // Cargar batches cada 500ms hasta completar
+      const loadNextBatch = async () => {
+        if (!hasMoreConversations || isLoadingConversationsRef.current) {
+          return;
+        }
+        
+        // No cargar si ya no hay término de búsqueda
+        if (debouncedSearchTerm.trim().length < 3) {
+          if (searchLoadIntervalRef.current) {
+            clearInterval(searchLoadIntervalRef.current);
+            searchLoadIntervalRef.current = null;
+          }
+          setIsSearchingAllBatches(false);
+          return;
+        }
+        
+        await loadConversations('', false);
+      };
+      
+      // Cargar primer batch inmediatamente
+      loadNextBatch();
+      
+      // Configurar intervalo para cargar más
+      searchLoadIntervalRef.current = setInterval(loadNextBatch, 600);
+    } else {
+      setIsSearchingAllBatches(false);
+    }
+    
+    return () => {
+      if (searchLoadIntervalRef.current) {
+        clearInterval(searchLoadIntervalRef.current);
+        searchLoadIntervalRef.current = null;
+      }
+    };
+  }, [debouncedSearchTerm, hasMoreConversations]);
+  
+  // Efecto para finalizar estado de búsqueda cuando ya no hay más batches
+  useEffect(() => {
+    if (!hasMoreConversations && isSearchingAllBatches) {
+      console.log(`✅ [v6.5.0] Búsqueda completada - Todos los batches cargados`);
+      setIsSearchingAllBatches(false);
+    }
+  }, [hasMoreConversations, isSearchingAllBatches]);
+
   // ⚡ OPTIMIZADO V5.2: Verificar llamadas activas - ref en lugar de dependencia
   const conversationsRef = useRef<Conversation[]>([]);
   useEffect(() => {
@@ -6069,7 +6134,20 @@ const LiveChatCanvas: React.FC = () => {
                 autoComplete="off"
                 className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-300 dark:focus:ring-gray-500"
               />
+              {/* v6.5.0: Indicador de carga de búsqueda */}
+              {isSearchingAllBatches && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                </div>
+              )}
             </div>
+            {/* v6.5.0: Mensaje de búsqueda en progreso */}
+            {isSearchingAllBatches && (
+              <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 mt-1">
+                <span>Buscando en todas las conversaciones...</span>
+                <span className="text-slate-400">({allConversationsLoaded.length} cargadas)</span>
+              </div>
+            )}
             
             {/* Filtro por etapa */}
             <div className="relative" ref={etapasFilterRef}>

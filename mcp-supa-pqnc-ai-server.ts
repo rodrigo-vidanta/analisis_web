@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
  * ============================================
- * MCP Server: Supa_SystemUI
+ * MCP Server: Supa_PQNC_AI
  * ============================================
  * 
- * Proyecto: System UI Platform
- * Base de datos: system_ui
- * URL: https://zbylezfyagwrxoecioup.supabase.co
+ * Proyecto: PQNC AI Platform
+ * Base de datos: pqnc_ai
+ * URL: https://glsmifhkoaifvaegsozd.supabase.co
  * 
  * Propósito:
- * - Gestión de usuarios y autenticación
- * - Grupos de permisos y roles
- * - Mensajes administrativos
- * - Estado de pausas de bots
- * - Configuración del sistema
- * - Logs de auditoría
+ * - Análisis de llamadas de ventas
+ * - Live Monitor (monitoreo en tiempo real)
+ * - Gestión de prospectos
+ * - Conversaciones de WhatsApp
+ * - Dashboard y métricas
  * 
  * Acceso: Full R/W (Read/Write)
  * 
@@ -49,11 +48,11 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
 // Initialize Supabase client with service role for full access
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-class SupaSystemUIServer {
+class SupaPQNCAIServer {
   constructor() {
     this.server = new Server(
       {
-        name: 'Supa_SystemUI',
+        name: 'Supa_PQNC_AI',
         version: '2.0.0',
       },
       {
@@ -68,7 +67,7 @@ class SupaSystemUIServer {
     this.setupResourceHandlers();
     
     // Error handling
-    this.server.onerror = (error) => console.error('[MCP Supa_SystemUI Error]', error);
+    this.server.onerror = (error) => console.error('[MCP Supa_PQNC_AI Error]', error);
     process.on('SIGINT', async () => {
       await this.server.close();
       process.exit(0);
@@ -80,7 +79,7 @@ class SupaSystemUIServer {
       tools: [
         {
           name: 'query_table',
-          description: 'Consulta una tabla de Supabase con filtros opcionales',
+          description: 'Consulta una tabla de Supabase con filtros opcionales. Soporta eq, neq, gt, lt, gte, lte, like, ilike.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -313,34 +312,34 @@ class SupaSystemUIServer {
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
       resources: [
         {
-          uri: 'supabase://admin_messages',
+          uri: 'supabase://llamadas_ventas',
           mimeType: 'application/json',
-          name: 'Admin Messages',
-          description: 'Mensajes para administradores del sistema',
+          name: 'Llamadas Ventas',
+          description: 'Llamadas de ventas y análisis PQNC - Tabla principal de análisis',
         },
         {
-          uri: 'supabase://permission_groups',
+          uri: 'supabase://prospectos',
           mimeType: 'application/json',
-          name: 'Permission Groups',
-          description: 'Grupos de permisos del sistema',
+          name: 'Prospectos',
+          description: 'Base de datos de prospectos y clientes potenciales',
         },
         {
-          uri: 'supabase://group_permissions',
+          uri: 'supabase://live_monitor_view',
           mimeType: 'application/json',
-          name: 'Group Permissions',
-          description: 'Permisos asociados a grupos',
+          name: 'Live Monitor View',
+          description: 'Vista optimizada para monitoreo en vivo de llamadas',
         },
         {
-          uri: 'supabase://user_permission_groups',
+          uri: 'supabase://call_analysis_summary',
           mimeType: 'application/json',
-          name: 'User Permission Groups',
-          description: 'Relación usuarios-grupos de permisos',
+          name: 'Call Analysis Summary',
+          description: 'Resumen de análisis de llamadas por prospecto',
         },
         {
-          uri: 'supabase://group_audit_log',
+          uri: 'supabase://conversaciones_whatsapp',
           mimeType: 'application/json',
-          name: 'Group Audit Log',
-          description: 'Log de auditoría de cambios en grupos',
+          name: 'Conversaciones WhatsApp',
+          description: 'Historial de conversaciones de WhatsApp con prospectos',
         },
       ],
     }));
@@ -351,9 +350,23 @@ class SupaSystemUIServer {
       if (uri.startsWith('supabase://')) {
         const table = uri.replace('supabase://', '');
         
+        // Optimized selects per table
+        let select = '*';
+        if (table === 'llamadas_ventas') {
+          select = 'call_id,fecha_llamada,duracion_segundos,es_venta_exitosa,nivel_interes,probabilidad_cierre,tipo_llamada,prospecto,resumen_llamada';
+        } else if (table === 'prospectos') {
+          select = 'id,nombre_completo,edad,estado_civil,ciudad_residencia,etapa,score,whatsapp,email,asesor_asignado';
+        } else if (table === 'live_monitor_view') {
+          select = 'call_id,prospecto_id,call_status_inteligente,fecha_llamada,duracion_segundos,checkpoint_venta_actual,nivel_interes';
+        } else if (table === 'call_analysis_summary') {
+          select = 'analysis_id,prospecto_id,call_id,calificaciones,total_puntos_positivos,feedback_positivo';
+        } else if (table === 'conversaciones_whatsapp') {
+          select = 'id,prospecto_id,summary,resultado,fecha_inicio,fecha_fin';
+        }
+        
         const { data, error } = await supabase
           .from(table)
-          .select('*')
+          .select(select)
           .limit(10);
 
         if (error) throw error;
@@ -378,10 +391,12 @@ class SupaSystemUIServer {
     
     let query = supabase.from(table).select(select);
     
+    // Apply filters
     Object.entries(filter).forEach(([key, value]) => {
       query = query.eq(key, value);
     });
     
+    // Apply ordering
     if (order) {
       const [column, direction] = order.split('.');
       query = query.order(column, { ascending: direction !== 'desc' });
@@ -440,8 +455,10 @@ class SupaSystemUIServer {
                   instructions: [
                     '1. Go to Supabase Dashboard > SQL Editor',
                     '2. Execute the script: enable_full_access_mcp.sql',
-                    '3. Retry this operation'
-                  ]
+                    '3. This will create the exec_sql function with full DDL/DML access',
+                    '4. Retry this operation'
+                  ],
+                  setup_file: 'enable_full_access_mcp.sql'
                 }, null, 2),
               },
             ],
@@ -479,6 +496,7 @@ class SupaSystemUIServer {
               error: error.message,
               sql,
               description,
+              note: 'Unexpected error during SQL execution'
             }, null, 2),
           },
         ],
@@ -580,6 +598,7 @@ class SupaSystemUIServer {
   async deleteData(args) {
     const { table, filter } = args;
     
+    // Safety check: require at least one filter
     if (!filter || Object.keys(filter).length === 0) {
       return {
         content: [
@@ -589,7 +608,8 @@ class SupaSystemUIServer {
               status: 'error',
               operation: 'DELETE',
               table,
-              error: 'DELETE without filters is not allowed.',
+              error: 'DELETE without filters is not allowed. Provide at least one filter condition.',
+              safety_note: 'This prevents accidental deletion of all records.'
             }, null, 2),
           },
         ],
@@ -654,7 +674,8 @@ class SupaSystemUIServer {
                   status: 'setup_required',
                   error: 'get_database_schema function not found',
                   instructions: [
-                    '1. Execute enable_full_access_mcp.sql in Supabase Dashboard'
+                    '1. Execute enable_full_access_mcp.sql in Supabase Dashboard',
+                    '2. This will create all required functions'
                   ]
                 }, null, 2),
               },
@@ -674,6 +695,7 @@ class SupaSystemUIServer {
               status: 'success',
               operation: 'GET_SCHEMA',
               schema,
+              message: 'Database schema retrieved successfully'
             }, null, 2),
           },
         ],
@@ -709,6 +731,9 @@ class SupaSystemUIServer {
                 text: JSON.stringify({ 
                   status: 'setup_required',
                   error: 'backup_table_data function not found',
+                  instructions: [
+                    '1. Execute enable_full_access_mcp.sql in Supabase Dashboard'
+                  ]
                 }, null, 2),
               },
             ],
@@ -728,6 +753,7 @@ class SupaSystemUIServer {
               operation: 'BACKUP_TABLE',
               table,
               backup,
+              message: `Table '${table}' backed up successfully`
             }, null, 2),
           },
         ],
@@ -764,6 +790,9 @@ class SupaSystemUIServer {
                 text: JSON.stringify({ 
                   status: 'setup_required',
                   error: 'exec_sql_transaction function not found',
+                  instructions: [
+                    '1. Execute enable_full_access_mcp.sql in Supabase Dashboard'
+                  ]
                 }, null, 2),
               },
             ],
@@ -784,6 +813,7 @@ class SupaSystemUIServer {
               description: description || 'Multi-query transaction',
               queries_count: queries.length,
               result,
+              message: result.message || 'Transaction completed'
             }, null, 2),
           },
         ],
@@ -796,6 +826,8 @@ class SupaSystemUIServer {
             text: JSON.stringify({ 
               status: 'error',
               operation: 'TRANSACTION',
+              description: description || 'Multi-query transaction',
+              queries_count: queries.length,
               error: error.message
             }, null, 2),
           },
@@ -808,6 +840,7 @@ class SupaSystemUIServer {
     const { table } = args;
     
     try {
+      // Get column information directly from table
       const { data, error } = await supabase
         .from(table)
         .select('*')
@@ -815,6 +848,7 @@ class SupaSystemUIServer {
       
       if (error) throw error;
       
+      // Get column names and sample types from first row
       const columns = data && data[0] ? Object.keys(data[0]).map(key => ({
         name: key,
         sample_value: data[0][key],
@@ -831,6 +865,7 @@ class SupaSystemUIServer {
               table,
               columns,
               column_count: columns.length,
+              note: 'For detailed schema info, use get_database_schema()'
             }, null, 2),
           },
         ],
@@ -855,9 +890,10 @@ class SupaSystemUIServer {
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('Supa_SystemUI MCP server running on stdio');
+    console.error('Supa_PQNC_AI MCP server running on stdio');
   }
 }
 
-const server = new SupaSystemUIServer();
+const server = new SupaPQNCAIServer();
 server.run().catch(console.error);
+
