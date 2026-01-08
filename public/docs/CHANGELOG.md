@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+### 🔄 v2.2.27 (B7.2.17N7.2.7) - Totales Reales en Prospectos [08-01-2026]
+
+#### 🎯 Mejora Principal
+Implementación de contadores de totales reales en el módulo de Prospectos. Los usuarios ahora pueden ver el total real de prospectos desde la carga inicial, sin necesidad de hacer scroll para cargar todos los batches.
+
+#### 📁 Archivos Modificados
+
+**ProspectosManager.tsx:**
+- Nuevo estado `etapaTotals` para almacenar conteos reales por etapa desde BD
+- Nueva función `loadEtapaTotals()` que consulta conteos totales respetando permisos
+- Se carga automáticamente junto con los prospectos en la carga inicial
+- **Nuevo badge visible en header** mostrando:
+  - Total de prospectos (ej: "2,345 prospectos")
+  - Indicador de cargados si hay diferencia (ej: "(800 cargados)")
+  - Badge de filtrados cuando se aplican filtros (ej: "150 filtrados")
+
+**ProspectosKanban.tsx:**
+- Nueva prop `etapaTotals` que recibe los conteos reales desde BD
+- Nueva función `getTotalForCheckpoint()` que suma totales de etapas correspondientes a cada columna
+- Headers de columnas ahora muestran:
+  - El total real de prospectos para esa etapa (no solo los del batch cargado)
+  - Indicador "X cargados" debajo si hay más prospectos por cargar
+  - Funciona tanto en columnas expandidas como colapsadas
+
+#### 🔧 Comportamiento Esperado
+
+| Vista | Antes | Ahora |
+|-------|-------|-------|
+| **Kanban** | Mostraba solo el batch (ej: "47") | Muestra total real (ej: "234") + "47 cargados" |
+| **DataGrid** | Sin contador visible | Badge con total + cargados + filtrados |
+
+#### 🎨 Mejoras de UX
+- El usuario ve el total real desde el primer momento
+- No es necesario hacer scroll hasta el final para conocer el total
+- Los filtros muestran cuántos prospectos coinciden vs el total
+- Diseño visual coherente con badges de colores (azul para total, ámbar para filtrados)
+
+---
+
 ### 🔄 v2.2.26 (B7.2.16N7.2.6) - Realtime para id_dynamics y etapa [08-01-2026]
 
 #### 🎯 Mejora Principal
