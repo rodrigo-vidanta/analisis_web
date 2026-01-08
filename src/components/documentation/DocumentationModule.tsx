@@ -267,6 +267,7 @@ const gitCommits: GitCommit[] = [
   { hash: '005c2b8', date: '2026-01-04', author: 'Team', message: 'fix: Corregir closure stale en infinite scroll LiveChat - B7.1.8N7.0.8', isRelease: false },
   { hash: 'd4636ec', date: '2026-01-04', author: 'Team', message: 'feat: B7.1.8N7.0.8 - Infinite scroll en Live Chat WhatsApp + Roadmap v7.0.0', isRelease: true },
   { hash: '7dcc9f3', date: '2026-01-04', author: 'Team', message: 'fix: B7.1.7N7.0.7 - Infinite scroll optimizado en historial Live Monitor', isRelease: true },
+  { hash: 'c8f3a2b', date: '2026-01-07', author: 'Team', message: 'v2.2.20: 📢 Módulo Campañas WhatsApp - Broadcast, A/B Test, Realtime, Seguridad SQL', isRelease: true },
   { hash: '46ad4ae', date: '2026-01-02', author: 'Team', message: 'v2.2.7: 🔧 Fix error 406 system_config - Eliminada consulta directa desde Sidebar', isRelease: true },
   { hash: 'a70547e', date: '2026-01-02', author: 'Team', message: 'v2.2.6: 📊 Dashboard Ejecutivo - Widgets de métricas, funnel y ventas con animaciones avanzadas', isRelease: true },
   { hash: 'f41c4d8', date: '2025-01-16', author: 'Team', message: 'v2.2.5: 🎨 Nuevas columnas Kanban + Sistema filtrado + Fix loop infinito auth_users', isRelease: true },
@@ -357,6 +358,7 @@ const awsDeployments: AWSDeployment[] = [
   { id: 'deploy-037', date: '2025-12-22 15:00', version: 'v2.1.39', status: 'success', duration: '5m 00s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-036', date: '2025-12-19 15:30', version: 'v2.1.36', status: 'success', duration: '4m 30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-035', date: '2025-12-19 10:30', version: 'v2.1.35', status: 'success', duration: '4m 52s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
+  { id: 'deploy-048', date: '2026-01-07 18:30', version: 'v2.2.20', status: 'success', duration: '3m 45s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-034', date: '2025-12-19 01:00', version: 'v2.1.34', status: 'success', duration: '5m 10s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-033', date: '2025-12-19 00:30', version: 'v2.1.33', status: 'success', duration: '6m 40s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-032', date: '2025-12-18 16:30', version: 'v2.1.32', status: 'success', duration: '5m 45s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -388,10 +390,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.19', highlight: true },
-  { label: 'Release', value: 'B7.2.9N7.1.9', highlight: false },
+  { label: 'Version', value: 'v2.2.20', highlight: true },
+  { label: 'Release', value: 'B7.2.10N7.2.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '08 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '07 Ene 2026', highlight: false },
 ];
 
 // ============================================
