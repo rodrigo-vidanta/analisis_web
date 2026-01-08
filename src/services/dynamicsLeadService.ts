@@ -12,19 +12,61 @@
  * - Por ID de Dynamics (id_dynamics)
  * - Por email
  * - Por teléfono (10 dígitos)
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2026-01-07):
+ * - Las credenciales se obtienen de BD (SystemUI → api_auth_tokens)
+ * - NO hardcodear tokens en código
  */
+
+import { credentialsService } from './credentialsService';
 
 // ============================================
 // CONFIGURACIÓN
 // ============================================
 
-const N8N_GET_LEAD_DYNAMICS_URL =
-  import.meta.env.VITE_N8N_GET_LEAD_DYNAMICS_URL ||
-  'https://primary-dev-d75a.up.railway.app/webhook/lead-info';
+// Cache de credenciales (se carga dinámicamente)
+let cachedCredentials: { url: string; token: string } | null = null;
 
-const N8N_DYNAMICS_TOKEN =
-  import.meta.env.VITE_N8N_DYNAMICS_TOKEN ||
-  'sAEhQEoCV51Vf0xIiLyrBGJK8OJjRHA1BxHwa2K2ObT2jMC9qtXVVbYX8cRoKYiLmKQfl41l9IWQ79c4GXoqIpgVePyOvDtwWrZJ6Qv1iU8tWd6vxqqhaaG6qG1DrIzjHyJ69pbv2C1lRjMIqSqYGo0wGhPXSMK2EauyWWIBA';
+// Función para limpiar el cache (útil cuando se actualizan credenciales)
+export function clearDynamicsCredentialsCache() {
+  cachedCredentials = null;
+  // También limpiar el cache del servicio de credenciales
+  credentialsService.clearCache();
+  console.log('🔄 [DynamicsLead] Cache de credenciales limpiado (ambos servicios)');
+}
+
+// Función para obtener credenciales de forma segura
+async function getDynamicsCredentials(): Promise<{ url: string; token: string }> {
+  // Si el cache tiene valores válidos (no vacíos), usarlo
+  if (cachedCredentials && cachedCredentials.token && cachedCredentials.token.trim() !== '' && cachedCredentials.url) {
+    return cachedCredentials;
+  }
+  
+  // Limpiar cache si tiene valores inválidos
+  if (cachedCredentials && (!cachedCredentials.token || cachedCredentials.token.trim() === '')) {
+    cachedCredentials = null;
+  }
+  
+  // Limpiar cache del servicio de credenciales para forzar recarga de BD
+  credentialsService.clearCache();
+  
+  // Obtener credenciales desde BD
+  const creds = await credentialsService.getDynamicsWebhookCredentials();
+  
+  // Verificar que las credenciales sean válidas
+  const token = creds.token || import.meta.env.VITE_N8N_DYNAMICS_TOKEN || '';
+  const url = creds.getLeadUrl || import.meta.env.VITE_N8N_GET_LEAD_DYNAMICS_URL || 'https://primary-dev-d75a.up.railway.app/webhook/lead-info';
+  
+  // Solo guardar en cache si el token es válido
+  if (token && token.trim() !== '') {
+    cachedCredentials = { url, token };
+  } else {
+    cachedCredentials = null;
+    console.error('❌ [DynamicsLead] Token no encontrado. Verifica credenciales en Administración > API Auth Tokens (módulo: Dynamics, key: TOKEN)');
+  }
+  
+  return { url, token };
+}
 
 // Timeout para el webhook (30 segundos)
 const WEBHOOK_TIMEOUT_MS = 30000;
@@ -102,6 +144,20 @@ class DynamicsLeadService {
     console.log(`🔍 [DynamicsLead] Buscando lead por ${searchType}:`, request);
 
     try {
+      // Obtener credenciales de forma segura desde BD
+      const { url, token } = await getDynamicsCredentials();
+      
+      // Validar que el token no esté vacío
+      if (!token || token.trim() === '') {
+        console.error('❌ [DynamicsLead] Token vacío o no encontrado');
+        return {
+          success: false,
+          data: null,
+          error: 'Token de autenticación no encontrado. Verifica las credenciales en Administración > API Auth Tokens (módulo: N8N Webhooks, key: DYNAMICS_TOKEN)',
+          searchType,
+        };
+      }
+      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
@@ -116,11 +172,11 @@ class DynamicsLeadService {
         payload.phone = request.phone.replace(/\D/g, '').slice(-10);
       }
 
-      const response = await fetch(N8N_GET_LEAD_DYNAMICS_URL, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${N8N_DYNAMICS_TOKEN}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
@@ -131,10 +187,26 @@ class DynamicsLeadService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ [DynamicsLead] Error en webhook:', response.status, errorText);
+        
+        // Log de credenciales usadas (sin exponer el token completo)
+        const { url, token } = await getDynamicsCredentials();
+        console.error(`❌ [DynamicsLead] URL usada: ${url}`);
+        console.error(`❌ [DynamicsLead] Token presente: ${token ? 'Sí (' + token.substring(0, 10) + '...)' : 'NO'}`);
+        
+        // Mensaje más claro para errores 403
+        let errorMessage = `Error ${response.status}: ${errorText || 'Error al consultar Dynamics'}`;
+        if (response.status === 403) {
+          if (!token) {
+            errorMessage = `Error 403: Token no encontrado. Verifica las credenciales en Administración > API Auth Tokens (módulo: N8N Webhooks, key: DYNAMICS_TOKEN)`;
+          } else {
+            errorMessage = `Error 403: Authorization data is wrong! El token existe pero es inválido. Verifica las credenciales en Administración > API Auth Tokens (módulo: N8N Webhooks, key: DYNAMICS_TOKEN)`;
+          }
+        }
+        
         return {
           success: false,
           data: null,
-          error: `Error ${response.status}: ${errorText || 'Error al consultar Dynamics'}`,
+          error: errorMessage,
           searchType,
         };
       }
@@ -281,8 +353,9 @@ class DynamicsLeadService {
     // ============================================
     const localCoordName = localData.coordinacion_nombre || '';
     const dynamicsCoordName = dynamicsData.Coordinacion || '';
-    const localCoord = this.normalizeValue(localCoordName);
-    const dynamicsCoord = this.normalizeValue(dynamicsCoordName);
+    // Usar normalización específica para coordinaciones (maneja equivalencias)
+    const localCoord = this.normalizeCoordinacion(localCoordName);
+    const dynamicsCoord = this.normalizeCoordinacion(dynamicsCoordName);
     
     let coordSynced = localCoord === dynamicsCoord || (!localCoord && !dynamicsCoord);
     let coordSeverity: LeadFieldComparison['severity'] = coordSynced ? 'success' : 'error';
@@ -426,6 +499,39 @@ class DynamicsLeadService {
       'free union': 'unión libre',
     };
     return mapping[value?.toLowerCase()] || value;
+  }
+
+  /**
+   * Normaliza la coordinación para comparación
+   * Mapea nombres equivalentes entre sistemas locales y Dynamics
+   */
+  private normalizeCoordinacion(value: string): string {
+    if (!value) return '';
+    
+    // Mapa de equivalencias: clave es el valor normalizado, valores son variantes
+    const equivalencias: Record<string, string[]> = {
+      'cob acapulco': ['cob aca', 'cob acapulco', 'acapulco'],
+      'cob cancun': ['cob can', 'cob cancun', 'cancun'],
+      'cob cdmx': ['cob cdmx', 'cob mexico', 'cdmx', 'ciudad de mexico'],
+      'cob guadalajara': ['cob gdl', 'cob guadalajara', 'guadalajara'],
+      'cob monterrey': ['cob mty', 'cob monterrey', 'monterrey'],
+      'cob los cabos': ['cob cab', 'cob los cabos', 'los cabos', 'cabos'],
+      'cob puerto vallarta': ['cob pv', 'cob puerto vallarta', 'puerto vallarta', 'vallarta'],
+      'cob riviera maya': ['cob rm', 'cob riviera maya', 'riviera maya'],
+      'cob nuevo vallarta': ['cob nv', 'cob nuevo vallarta', 'nuevo vallarta'],
+    };
+    
+    const normalized = value.toLowerCase().trim();
+    
+    // Buscar si el valor coincide con alguna variante
+    for (const [canonical, variants] of Object.entries(equivalencias)) {
+      if (variants.some(v => normalized === v || normalized.includes(v))) {
+        return canonical;
+      }
+    }
+    
+    // Si no hay equivalencia, devolver el valor normalizado
+    return normalized;
   }
 
   /**

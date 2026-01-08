@@ -5,16 +5,29 @@
  * 
  * Gestiona tokens de autenticación para webhooks y APIs externas
  * Incluye caché local para rendimiento
+ * 
+ * 📋 Tabla: api_auth_tokens (SystemUI)
+ * 📍 Ubicación: zbylezfyagwrxoecioup.supabase.co
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2026-01-07):
+ * - Los tokens están almacenados en BD (SystemUI → api_auth_tokens)
+ * - Los DEFAULT_TOKENS son solo fallback de emergencia
+ * - Usar el panel Administración > Credenciales para gestionar tokens
  */
 
 import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 
-// Tokens por defecto (se usan cuando no hay BD disponible)
+// Tokens de emergencia (fallback solo si BD no está disponible)
+// ⚠️ ESTOS VALORES DEBEN COINCIDIR CON LA BD - NO EDITAR AQUÍ
 const DEFAULT_TOKENS: Record<string, string> = {
-  manual_call_auth: 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV',
-  send_message_auth: '2025_livechat_auth',
-  pause_bot_auth: '2025_livechat_auth',
-  media_url_auth: '93fbcfc4-ccc9-4023-b820-86ef98f10122'
+  // Los valores reales están en SystemUI → api_auth_tokens
+  // Estos son solo fallbacks de emergencia
+  manual_call_auth: '',
+  send_message_auth: '',
+  pause_bot_auth: '',
+  media_url_auth: '',
+  whatsapp_templates_auth: '',
+  broadcast_auth: ''
 };
 
 // Caché local para evitar consultas repetidas

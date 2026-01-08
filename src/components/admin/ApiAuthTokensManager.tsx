@@ -400,6 +400,17 @@ const ApiAuthTokensManager: React.FC = () => {
 
       if (error) throw error;
 
+      // Limpiar cache de credenciales si es necesario
+      if (editingToken.module_name === 'N8N Webhooks' && editingToken.token_key === 'DYNAMICS_TOKEN') {
+        // Limpiar cache del servicio de Dynamics
+        try {
+          const { clearDynamicsCredentialsCache } = await import('../../services/dynamicsLeadService');
+          clearDynamicsCredentialsCache();
+        } catch (err) {
+          console.warn('No se pudo limpiar cache de Dynamics:', err);
+        }
+      }
+
       toast.success('Credencial actualizada');
       cancelEditing();
       await loadTokens();

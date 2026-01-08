@@ -1,0 +1,196 @@
+---
+alwaysApply: true
+---
+# Reglas de Uso del MCP N8N
+
+## 📋 Información de la Instancia
+
+| Propiedad | Valor |
+|-----------|-------|
+| **MCP Name** | `N8N` |
+| **Versión** | 1.121.3 |
+| **Platform** | Docker (self-hosted) en Railway |
+| **Base URL** | `https://primary-dev-d75a.up.railway.app` |
+| **API Docs** | `https://primary-dev-d75a.up.railway.app/api/v1/docs/` |
+| **Instance ID** | `cd55aa12663cca66c362f6923b086640c04692cadff2ee7c0ba1470b0885fdd7` |
+| **License** | Enterprise (production) |
+| **Database** | PostgreSQL |
+| **Execution Mode** | Scaling (single-main) |
+| **Concurrency** | 50 |
+
+## ⛔ REGLAS CRÍTICAS
+
+### 1. NUNCA Hardcodear Credenciales
+- Las API Keys están almacenadas en **SystemUI → `system_credentials`**
+- NUNCA incluir API keys en código fuente
+- Para el MCP: token en `~/.cursor/mcp.json` (NO compartir)
+- Para el código: usar `credentialsService.getN8NCredentials()`
+
+**Credenciales disponibles en BD:**
+| service_name | credential_key | Uso |
+|--------------|----------------|-----|
+| N8N | API_KEY | API REST pública |
+| N8N | MCP_API_KEY | Conexión MCP Server |
+| N8N | BASE_URL | URL de la instancia |
+
+```typescript
+// Ejemplo de uso en código
+import { credentialsService } from '../services/credentialsService';
+const { apiKey, baseUrl } = await credentialsService.getN8NCredentials();
+```
+
+### 2. Operaciones de Alto Riesgo
+- ⚠️ `DELETE /workflows/{id}` - Elimina workflow permanentemente
+- ⚠️ `POST /workflows/{id}/deactivate` - Detiene workflow en producción
+- ⚠️ `DELETE /executions/{id}` - Elimina historial de ejecución
+- **SIEMPRE** confirmar con el usuario antes de ejecutar estas operaciones
+
+### 3. Workflows en Producción
+Los siguientes workflows están ACTIVOS en producción:
+- `Guardrail agentic logic [PROD]` - ID: Q5pWOsixILUmnWP3
+- `Logica de llamadas programadas [PROD]` - ID: HYRGSVN86YY64pBS
+- `VAPI-Natalia_transfer_tool [PROD]` - ID: qpk8xsMI50IWltFV
+- `[api]-whatsapp-templates-gestion` - ID: 99xohF9xOZT2nIe5
+- `[api]-whatsapp-templates-envio-v2` - ID: pZSsb89s4ZqN8Pl6
+
+**NO modificar sin autorización explícita.**
+
+## 🔧 Herramientas Disponibles
+
+### Workflows
+
+| Herramienta | Descripción | Riesgo |
+|-------------|-------------|--------|
+| `mcp_N8N_search_workflows` | Buscar workflows con filtros | 🟢 Bajo |
+| `mcp_N8N_get_workflow_details` | Obtener detalles de un workflow | 🟢 Bajo |
+| `mcp_N8N_execute_workflow` | Ejecutar un workflow | 🟡 Medio |
+
+### Ejecuciones (No disponibles actualmente vía MCP)
+Para operaciones de ejecuciones, usar la API REST directamente o el Dashboard de N8N.
+
+## 📊 Capacidades del API (Referencia)
+
+### Endpoints Disponibles
+
+#### User Management
+- `GET /users` - Listar usuarios
+- `POST /users` - Crear usuarios
+- `GET /users/{id}` - Obtener usuario
+- `DELETE /users/{id}` - Eliminar usuario
+- `PATCH /users/{id}/role` - Cambiar rol
+
+#### Workflows
+- `GET /workflows` - Listar workflows
+- `POST /workflows` - Crear workflow
+- `GET /workflows/{id}` - Obtener workflow
+- `PUT /workflows/{id}` - Actualizar workflow
+- `DELETE /workflows/{id}` - Eliminar workflow
+- `POST /workflows/{id}/activate` - Activar workflow
+- `POST /workflows/{id}/deactivate` - Desactivar workflow
+- `PUT /workflows/{id}/transfer` - Transferir a otro proyecto
+- `GET /workflows/{id}/tags` - Obtener tags
+- `PUT /workflows/{id}/tags` - Actualizar tags
+
+#### Executions
+- `GET /executions` - Listar ejecuciones
+- `GET /executions/{id}` - Obtener ejecución
+- `DELETE /executions/{id}` - Eliminar ejecución
+- `POST /executions/{id}/retry` - Reintentar ejecución
+
+#### Credentials
+- `POST /credentials` - Crear credencial
+- `DELETE /credentials/{id}` - Eliminar credencial
+- `GET /credentials/schema/{type}` - Ver esquema de credencial
+- `PUT /credentials/{id}/transfer` - Transferir credencial
+
+#### Tags
+- `POST /tags` - Crear tag
+- `GET /tags` - Listar tags
+- `GET /tags/{id}` - Obtener tag
+- `PUT /tags/{id}` - Actualizar tag
+- `DELETE /tags/{id}` - Eliminar tag
+
+#### Variables
+- `POST /variables` - Crear variable
+- `GET /variables` - Listar variables
+- `PUT /variables/{id}` - Actualizar variable
+- `DELETE /variables/{id}` - Eliminar variable
+
+#### Projects
+- `POST /projects` - Crear proyecto
+- `GET /projects` - Listar proyectos
+- `PUT /projects/{projectId}` - Actualizar proyecto
+- `DELETE /projects/{projectId}` - Eliminar proyecto
+- `POST /projects/{projectId}/users` - Agregar usuarios
+- `DELETE /projects/{projectId}/users/{userId}` - Remover usuario
+- `PATCH /projects/{projectId}/users/{userId}` - Cambiar rol usuario
+
+#### Source Control
+- `POST /source-control/pull` - Pull desde repositorio remoto
+
+#### Audit
+- `POST /audit` - Generar auditoría de seguridad
+
+## 📁 Archivos Relacionados
+
+| Archivo | Descripción | En Git |
+|---------|-------------|--------|
+| `~/.cursor/mcp.json` | Configuración MCP con token | ❌ No |
+| `.cursor/rules/n8n-rules.mdc` | Este archivo de reglas | ✅ Sí |
+| `docs/N8N_MCP_CATALOG.md` | Documentación completa | ✅ Sí |
+| `docs/N8N_WORKFLOWS_INDEX.md` | Índice de workflows | ✅ Sí |
+| `src/services/credentialsService.ts` | Servicio para obtener credenciales de BD | ✅ Sí |
+
+### 📊 Tabla de Credenciales (SystemUI)
+```sql
+-- Ver todas las credenciales de N8N
+SELECT module_name, token_key, description, is_active 
+FROM api_auth_tokens 
+WHERE module_name LIKE 'N8N%' AND is_active = true;
+```
+
+**Credenciales en BD (12 activas):**
+- N8N: API_KEY, MCP_API_KEY, BASE_URL
+- N8N Webhooks: DYNAMICS_TOKEN, GET_LEAD_URL, REASIGNAR_URL
+- Llamadas Programadas: manual_call_auth
+- Mensajes WhatsApp: send_message_auth
+- Pausar Bot: pause_bot_auth
+- Media WhatsApp: media_url_auth
+- Plantillas WhatsApp: whatsapp_templates_auth
+- Broadcast WhatsApp: broadcast_auth
+
+## 📝 Flujo de Trabajo Recomendado
+
+1. **Antes de modificar workflows:**
+   - Usar `search_workflows` para listar
+   - Usar `get_workflow_details` para ver estructura
+   - Verificar si está marcado como [PROD]
+
+2. **Para ejecutar workflows:**
+   - Verificar descripción del workflow
+   - Revisar trigger type (webhook, form, chat)
+   - Preparar inputs según esquema
+
+3. **Para debugging:**
+   - Consultar ejecuciones recientes
+   - Revisar logs de errores
+   - Verificar conexiones de nodos
+
+## ⚠️ Advertencias
+
+1. **Producción activa**: Esta instancia maneja comunicaciones reales
+2. **Sin rollback**: Los cambios a workflows son inmediatos
+3. **Costos de API**: Cada ejecución consume recursos (LLMs, APIs externas)
+4. **Rate Limits**: Respetar límites de concurrencia (50)
+
+## 🔐 Seguridad
+
+- Token de API con permisos de MCP Server
+- Conexión segura vía HTTPS
+- Autenticación Bearer token requerida
+- NUNCA exponer el token en logs o código
+
+---
+
+**Última actualización:** 2025-01-07
+**Documentación completa:** `docs/N8N_MCP_CATALOG.md`

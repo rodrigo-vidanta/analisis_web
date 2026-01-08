@@ -253,6 +253,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'l0c3499', date: '2026-01-08', author: 'Team', message: 'v2.2.19: 🔧 Fix Dynamics CRM - Credenciales BD, equivalencias coordinaciones', isRelease: true },
   { hash: 'k9b2388', date: '2026-01-07', author: 'Team', message: 'v2.2.18: 🔐 Fix Dashboard Analíticas - Acceso solo admin y coord. Calidad', isRelease: true },
   { hash: 'j8a1277', date: '2026-01-06', author: 'Team', message: 'v2.2.17: 🔧 Botón CRM visible para Coordinadores de Calidad', isRelease: true },
   { hash: 'i7z0166', date: '2026-01-06', author: 'Team', message: 'v2.2.16: 📬 Filtro Conversaciones No Leídas - Contador, filtro y carga agresiva', isRelease: true },
@@ -328,6 +329,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-062', date: '2026-01-08 00:30', version: 'B7.2.9N7.1.9', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-061', date: '2026-01-07 12:00', version: 'B7.2.8N7.1.8', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-060', date: '2026-01-06 18:30', version: 'B7.2.7N7.1.7', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-059', date: '2026-01-06 18:20', version: 'B7.2.6N7.1.6', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -386,10 +388,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.18', highlight: true },
-  { label: 'Release', value: 'B7.2.8N7.1.8', highlight: false },
+  { label: 'Version', value: 'v2.2.19', highlight: true },
+  { label: 'Release', value: 'B7.2.9N7.1.9', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '07 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '08 Ene 2026', highlight: false },
 ];
 
 // ============================================

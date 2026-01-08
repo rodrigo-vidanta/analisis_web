@@ -22,12 +22,21 @@ export const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_ANON_KEY || '';
 export const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY || '';
 
+// Log de inicialización para debugging
+console.log('📦 [SystemUI Config] Variables de entorno:', {
+  hasUrl: !!SUPABASE_URL,
+  hasAnonKey: !!SUPABASE_ANON_KEY,
+  hasServiceKey: !!SUPABASE_SERVICE_KEY,
+  url: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'NO CONFIGURADA'
+});
+
 // Validación en desarrollo
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('⚠️ SYSTEM_UI: Faltan variables de entorno VITE_SYSTEM_UI_SUPABASE_URL o VITE_SYSTEM_UI_SUPABASE_ANON_KEY');
+  console.error('❌ SYSTEM_UI: Faltan variables de entorno VITE_SYSTEM_UI_SUPABASE_URL o VITE_SYSTEM_UI_SUPABASE_ANON_KEY');
+  console.error('❌ Agrega estas variables a tu archivo .env');
 }
 if (!SUPABASE_SERVICE_KEY) {
-  console.warn('⚠️ SYSTEM_UI: VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY no configurada - operaciones admin no funcionarán');
+  console.warn('⚠️ SYSTEM_UI: VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY no configurada');
 }
 
 const supabaseUrl = SUPABASE_URL;
@@ -48,6 +57,7 @@ export const supabaseSystemUI = supabaseUrl && supabaseAnonKey
 
 // Cliente admin para operaciones administrativas
 // Solo crear si tenemos service key
+// IMPORTANTE: Usar service key para bypass RLS
 export const supabaseSystemUIAdmin = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -55,6 +65,14 @@ export const supabaseSystemUIAdmin = supabaseUrl && supabaseServiceKey
         autoRefreshToken: false,
         storageKey: 'systemui-admin'
       },
+      db: {
+        schema: 'public'
+      },
+      global: {
+        headers: {
+          'x-client-info': 'systemui-admin-service'
+        }
+      }
     })
   : null;
 

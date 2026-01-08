@@ -198,22 +198,40 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
 
   /**
    * Obtiene el id_dynamics del prospecto y abre el modal de programación
+   * Busca en prospectos primero, luego en crm_data como fallback
    */
   const openScheduleModalWithProspecto = async (call: ScheduledCall) => {
     try {
-      // Obtener id_dynamics del prospecto
-      const { data: prospecto } = await analysisSupabase
+      // Primero buscar en prospectos
+      const { data: prospecto, error: prospectoError } = await analysisSupabase
         .from('prospectos')
         .select('id_dynamics')
         .eq('id', call.prospecto)
-        .single();
+        .maybeSingle();
       
-      setSelectedProspectoIdDynamics(prospecto?.id_dynamics || null);
+      let idDynamics = prospecto?.id_dynamics || null;
+
+      // Si no tiene en prospectos, buscar en crm_data
+      if (!idDynamics) {
+        const { data: crmData, error: crmError } = await analysisSupabase
+          .from('crm_data')
+          .select('id_dynamics')
+          .eq('prospecto_id', call.prospecto)
+          .maybeSingle();
+        
+        if (crmError) {
+          console.error('Error buscando id_dynamics en crm_data:', crmError);
+        }
+        
+        idDynamics = crmData?.id_dynamics || null;
+      }
+      
+      setSelectedProspectoIdDynamics(idDynamics);
       setSelectedCallForSchedule(call);
       setShowScheduleModal(true);
     } catch (error) {
       console.error('Error obteniendo id_dynamics:', error);
-      // Abrir modal de todas formas, pasando null
+      // Abrir modal de todas formas, pasando null (el modal buscará automáticamente)
       setSelectedProspectoIdDynamics(null);
       setSelectedCallForSchedule(call);
       setShowScheduleModal(true);

@@ -10,7 +10,7 @@
  * - Webhook para ejecución de campañas
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, 
@@ -53,6 +53,8 @@ import {
 import toast from 'react-hot-toast';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { useAuth } from '../../../contexts/AuthContext';
+import { getApiToken } from '../../../services/apiTokensService';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { 
   WhatsAppCampaign, 
   WhatsAppTemplate, 
@@ -69,7 +71,6 @@ import { CAMPAIGN_STATUS_CONFIG, CAMPAIGN_TYPE_CONFIG } from '../../../types/wha
 // ============================================
 
 const BROADCAST_WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/broadcast';
-const BROADCAST_WEBHOOK_AUTH = '4ydoA3HgTwWI5lSolmZW8VYqjpazPPap5M6a0EHLccHyXvOgv82evBMzMGj5sYVF';
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -110,13 +111,15 @@ const CampanasManager: React.FC = () => {
     try {
       setLoading(true);
       
-      // Cargar campañas con joins
+      // Cargar campañas con joins explícitos (especificar FK para evitar ambigüedad PGRST201)
+      // Nota: Usamos !fk_column para indicar qué relación usar cuando hay múltiples FKs hacia la misma tabla
       const { data: campaignsData, error: campaignsError } = await analysisSupabase
         .from('whatsapp_campaigns')
         .select(`
           *,
-          template:whatsapp_templates(*),
-          audience:whatsapp_audiences(*)
+          template:whatsapp_templates!template_id(*),
+          template_b:whatsapp_templates!ab_template_b_id(*),
+          audience:whatsapp_audiences!audience_id(*)
         `)
         .order('created_at', { ascending: false });
       
@@ -173,8 +176,101 @@ const CampanasManager: React.FC = () => {
     }
   }, []);
 
+  // Referencia para el canal de Realtime
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+
   useEffect(() => {
     loadData();
+    
+    // Configurar suscripción Realtime para campañas
+    const setupRealtimeSubscription = () => {
+      // Limpiar suscripción anterior si existe
+      if (realtimeChannelRef.current) {
+        analysisSupabase.removeChannel(realtimeChannelRef.current);
+      }
+      
+      // Crear nueva suscripción
+      const channel = analysisSupabase
+        .channel('whatsapp_campaigns_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'whatsapp_campaigns'
+          },
+          async (payload) => {
+            console.log('📡 Realtime campaign update:', payload.eventType);
+            
+            if (payload.eventType === 'INSERT') {
+              // Nueva campaña - cargar con joins
+              const { data: newCampaign } = await analysisSupabase
+                .from('whatsapp_campaigns')
+                .select(`
+                  *,
+                  template:whatsapp_templates!template_id(*),
+                  template_b:whatsapp_templates!ab_template_b_id(*),
+                  audience:whatsapp_audiences!audience_id(*)
+                `)
+                .eq('id', payload.new.id)
+                .single();
+              
+              if (newCampaign) {
+                setCampaigns(prev => [
+                  {
+                    ...newCampaign,
+                    campaign_type: newCampaign.campaign_type || 'standard',
+                    ab_distribution_a: newCampaign.ab_distribution_a ?? 50,
+                  },
+                  ...prev
+                ]);
+                toast.success('Nueva campaña creada');
+              }
+            } else if (payload.eventType === 'UPDATE') {
+              // Actualizar campaña existente - cargar con joins
+              const { data: updatedCampaign } = await analysisSupabase
+                .from('whatsapp_campaigns')
+                .select(`
+                  *,
+                  template:whatsapp_templates!template_id(*),
+                  template_b:whatsapp_templates!ab_template_b_id(*),
+                  audience:whatsapp_audiences!audience_id(*)
+                `)
+                .eq('id', payload.new.id)
+                .single();
+              
+              if (updatedCampaign) {
+                setCampaigns(prev => prev.map(c => 
+                  c.id === payload.new.id 
+                    ? {
+                        ...updatedCampaign,
+                        campaign_type: updatedCampaign.campaign_type || 'standard',
+                        ab_distribution_a: updatedCampaign.ab_distribution_a ?? 50,
+                      }
+                    : c
+                ));
+              }
+            } else if (payload.eventType === 'DELETE') {
+              // Eliminar campaña
+              setCampaigns(prev => prev.filter(c => c.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 Realtime subscription status:', status);
+        });
+      
+      realtimeChannelRef.current = channel;
+    };
+    
+    setupRealtimeSubscription();
+    
+    // Cleanup al desmontar
+    return () => {
+      if (realtimeChannelRef.current) {
+        analysisSupabase.removeChannel(realtimeChannelRef.current);
+      }
+    };
   }, [loadData]);
 
   const handleRefresh = async () => {
@@ -1069,8 +1165,8 @@ const PhoneMockup: React.FC<PhoneMockupProps> = ({ template, message, variant, r
                           <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                             <path d="M5 16.17L0.83 12l-1.42 1.41L5 19 17 7l-1.41-1.41L5 16.17z" transform="translate(4,0)"/>
-                          </svg>
-                        </div>
+          </svg>
+        </div>
                       </div>
                     </motion.div>
                   </div>
@@ -1087,7 +1183,7 @@ const PhoneMockup: React.FC<PhoneMockupProps> = ({ template, message, variant, r
                       Selecciona una<br />plantilla
                     </p>
                   </motion.div>
-                </div>
+      </div>
               )}
             </div>
             
@@ -1169,17 +1265,121 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   const [previewProspect, setPreviewProspect] = useState<any>(null);
   const [executeOption, setExecuteOption] = useState<'now' | 'scheduled'>('now');
   
+  // ============================================
+  // VALIDACIÓN DE COBERTURA DE VARIABLES - PLANTILLA A
+  // ============================================
+  const [variableCoverage, setVariableCoverage] = useState<{
+    totalProspects: number;
+    prospectsWithVariables: number;
+    prospectsWithoutVariables: number;
+    coveragePercent: number;
+    requiredFields: string[];
+    isAnalyzing: boolean;
+    requiresABTest: boolean;
+  }>({
+    totalProspects: 0,
+    prospectsWithVariables: 0,
+    prospectsWithoutVariables: 0,
+    coveragePercent: 100,
+    requiredFields: [],
+    isAnalyzing: false,
+    requiresABTest: false
+  });
+  
+  // ============================================
+  // VALIDACIÓN DE COBERTURA DE VARIABLES - PLANTILLA B
+  // ============================================
+  const [templateBCoverage, setTemplateBCoverage] = useState<{
+    isValid: boolean;
+    coveragePercent: number;
+    requiredFields: string[];
+    isAnalyzing: boolean;
+    errorMessage: string;
+  }>({
+    isValid: true,
+    coveragePercent: 100,
+    requiredFields: [],
+    isAnalyzing: false,
+    errorMessage: ''
+  });
+  
+  // ============================================
+  // PLANTILLAS VÁLIDAS PARA B (100% cobertura)
+  // ============================================
+  const [validTemplatesForB, setValidTemplatesForB] = useState<{
+    templateIds: string[];
+    isCalculating: boolean;
+  }>({
+    templateIds: [],
+    isCalculating: false
+  });
+  
   // Datos seleccionados
   const selectedTemplate = templates.find(t => t.id === formData.template_id);
   const selectedTemplateB = templates.find(t => t.id === formData.ab_template_b_id);
   const selectedAudience = audiences.find(a => a.id === formData.audience_id);
   
-  // Cálculos A/B
+  // ============================================
+  // HELPER: Extraer campos requeridos de variable_mappings
+  // ============================================
+  const getRequiredFieldsFromTemplate = useCallback((template: WhatsAppTemplate | undefined): string[] => {
+    if (!template?.variable_mappings) return [];
+    
+    let mappings: any[] = [];
+    
+    // Parsear variable_mappings (puede venir como string, array, o objeto)
+    try {
+      if (typeof template.variable_mappings === 'string') {
+        mappings = JSON.parse(template.variable_mappings);
+      } else if (Array.isArray(template.variable_mappings)) {
+        mappings = template.variable_mappings;
+      } else if (typeof template.variable_mappings === 'object' && 'mappings' in (template.variable_mappings as any)) {
+        mappings = (template.variable_mappings as any).mappings || [];
+      }
+    } catch (e) {
+      console.error('Error parsing variable_mappings:', e);
+      return [];
+    }
+    
+    if (!Array.isArray(mappings)) return [];
+    
+    // Filtrar solo campos de la tabla prospectos (no variables del sistema)
+    const prospectoFields = mappings
+      .filter((m: any) => 
+        m.table_name === 'prospectos' && 
+        !m.is_system_variable &&
+        m.field_name
+      )
+      .map((m: any) => m.field_name);
+    
+    return [...new Set(prospectoFields)]; // Eliminar duplicados
+  }, []);
+  
+  // ============================================
+  // HELPER: Verificar si plantilla tiene variables dinámicas
+  // ============================================
+  const templateHasVariables = useCallback((template: WhatsAppTemplate | undefined): boolean => {
+    const fields = getRequiredFieldsFromTemplate(template);
+    return fields.length > 0;
+  }, [getRequiredFieldsFromTemplate]);
+  
+  // ============================================
+  // HELPER: Filtrar plantillas sin variables (para B)
+  // ============================================
+  const templatesWithoutVariables = useMemo(() => {
+    return templates.filter(t => !templateHasVariables(t));
+  }, [templates, templateHasVariables]);
+  
+  // Cálculos A/B - usar cobertura de variables cuando hay datos
   const recipientsA = formData.campaign_type === 'ab_test' 
-    ? Math.floor(prospectCount * (formData.ab_distribution_a || 50) / 100)
+    ? (variableCoverage.requiresABTest 
+        ? variableCoverage.prospectsWithVariables 
+        : Math.floor(prospectCount * (formData.ab_distribution_a || 50) / 100))
     : prospectCount;
   const recipientsB = formData.campaign_type === 'ab_test' 
-    ? prospectCount - recipientsA
+    ? (variableCoverage.requiresABTest 
+        ? variableCoverage.prospectsWithoutVariables 
+        : prospectCount - recipientsA)
     : 0;
   
   // Reset form cuando se abre/cierra
@@ -1215,7 +1415,313 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       });
       setExecuteOption('now');
     }
+    
+    // Resetear estado de cobertura cuando se abre/cierra el modal
+    if (!isOpen) {
+      setVariableCoverage({
+        totalProspects: 0,
+        prospectsWithVariables: 0,
+        prospectsWithoutVariables: 0,
+        coveragePercent: 100,
+        requiredFields: [],
+        isAnalyzing: false,
+        requiresABTest: false
+      });
+      setTemplateBCoverage({
+        isValid: true,
+        coveragePercent: 100,
+        requiredFields: [],
+        isAnalyzing: false,
+        errorMessage: ''
+      });
+      setValidTemplatesForB({
+        templateIds: [],
+        isCalculating: false
+      });
+    }
   }, [editingCampaign, isOpen]);
+  
+  // ============================================
+  // EFECTO: Calcular qué plantillas son válidas para B (100% cobertura)
+  // ============================================
+  useEffect(() => {
+    // Si no es A/B test, limpiar
+    if (formData.campaign_type !== 'ab_test' || !isOpen) {
+      setValidTemplatesForB({ templateIds: [], isCalculating: false });
+      return;
+    }
+    
+    // Las plantillas sin variables SIEMPRE son válidas (100% cobertura garantizada)
+    const templatesNoVarsIds = templates
+      .filter(t => t.id !== formData.template_id && !templateHasVariables(t))
+      .map(t => t.id);
+    
+    // Si no hay audiencia aún, mostrar al menos las plantillas sin variables
+    if (!formData.audience_id) {
+      setValidTemplatesForB({ 
+        templateIds: templatesNoVarsIds, 
+        isCalculating: false 
+      });
+      return;
+    }
+    
+    const calculateValidTemplatesForB = async () => {
+      setValidTemplatesForB(prev => ({ ...prev, isCalculating: true }));
+      
+      try {
+        const audience = audiences.find(a => a.id === formData.audience_id);
+        if (!audience) {
+          // Si no se encuentra audiencia, al menos mostrar las sin variables
+          setValidTemplatesForB({ 
+            templateIds: templatesNoVarsIds, 
+            isCalculating: false 
+          });
+          return;
+        }
+        
+        // Para plantillas con variables, calcular cobertura sobre audiencia B
+        const templatesWithVars = templates.filter(t => 
+          t.id !== formData.template_id && templateHasVariables(t)
+        );
+        
+        const validWithVarsIds: string[] = [];
+        
+        // Solo calcular para plantillas con variables si hay alguna
+        if (templatesWithVars.length > 0) {
+          for (const template of templatesWithVars) {
+            const templateFields = getRequiredFieldsFromTemplate(template);
+            if (templateFields.length === 0) {
+              // Si no tiene campos requeridos, es válida
+              validWithVarsIds.push(template.id);
+              continue;
+            }
+            
+            try {
+              // Construir query base para audiencia (o audiencia B si es forzado)
+              let queryBuilder = analysisSupabase
+                .from('prospectos')
+                .select('id', { count: 'exact' });
+              
+              // Filtros de audiencia
+              if (audience.etapa) queryBuilder = queryBuilder.eq('etapa', audience.etapa);
+              if (audience.estado_civil) queryBuilder = queryBuilder.eq('estado_civil', audience.estado_civil);
+              if (audience.viaja_con?.length) queryBuilder = queryBuilder.in('viaja_con', audience.viaja_con);
+              if (audience.destinos?.length) queryBuilder = queryBuilder.overlaps('destino_preferencia', audience.destinos);
+              
+              // Filtrar a audiencia B (los que NO tienen variables de A) solo si hay cobertura forzada
+              if (variableCoverage.requiresABTest && variableCoverage.requiredFields.length > 0) {
+                for (const field of variableCoverage.requiredFields) {
+                  queryBuilder = queryBuilder.or(`${field}.is.null,${field}.eq.`);
+                }
+              }
+              
+              // Contar total de audiencia (o audiencia B)
+              const { count: totalCount } = await queryBuilder.limit(0);
+              
+              // Ahora contar los que SÍ tienen las variables de esta plantilla
+              let withVarsQuery = analysisSupabase
+                .from('prospectos')
+                .select('id', { count: 'exact' });
+              
+              if (audience.etapa) withVarsQuery = withVarsQuery.eq('etapa', audience.etapa);
+              if (audience.estado_civil) withVarsQuery = withVarsQuery.eq('estado_civil', audience.estado_civil);
+              if (audience.viaja_con?.length) withVarsQuery = withVarsQuery.in('viaja_con', audience.viaja_con);
+              if (audience.destinos?.length) withVarsQuery = withVarsQuery.overlaps('destino_preferencia', audience.destinos);
+              
+              if (variableCoverage.requiresABTest && variableCoverage.requiredFields.length > 0) {
+                for (const field of variableCoverage.requiredFields) {
+                  withVarsQuery = withVarsQuery.or(`${field}.is.null,${field}.eq.`);
+                }
+              }
+              
+              // Los que tienen las variables de esta plantilla
+              for (const field of templateFields) {
+                withVarsQuery = withVarsQuery.not(field, 'is', null);
+                withVarsQuery = withVarsQuery.neq(field, '');
+              }
+              
+              const { count: withVars } = await withVarsQuery.limit(0);
+              
+              // Si cobertura es 100%, agregar a válidos
+              const total = totalCount || 0;
+              const valid = withVars || 0;
+              if (total > 0 && valid === total) {
+                validWithVarsIds.push(template.id);
+              } else if (total === 0) {
+                // Si no hay audiencia objetivo, cualquier plantilla es válida
+                validWithVarsIds.push(template.id);
+              }
+            } catch (err) {
+              console.error(`Error checking template ${template.id}:`, err);
+            }
+          }
+        }
+        
+        // Combinar: plantillas sin variables + plantillas con variables que tienen 100% cobertura
+        setValidTemplatesForB({
+          templateIds: [...templatesNoVarsIds, ...validWithVarsIds],
+          isCalculating: false
+        });
+        
+        console.log('Valid templates for B:', {
+          noVars: templatesNoVarsIds.length,
+          withVarsValid: validWithVarsIds.length,
+          total: templatesNoVarsIds.length + validWithVarsIds.length
+        });
+        
+      } catch (error) {
+        console.error('Error calculating valid templates for B:', error);
+        // En caso de error, al menos mostrar las sin variables
+        setValidTemplatesForB({ 
+          templateIds: templatesNoVarsIds, 
+          isCalculating: false 
+        });
+      }
+    };
+    
+    const timer = setTimeout(calculateValidTemplatesForB, 600);
+    return () => clearTimeout(timer);
+  }, [formData.audience_id, formData.template_id, formData.campaign_type, templates, audiences, isOpen, variableCoverage.requiresABTest, variableCoverage.requiredFields, templateHasVariables, getRequiredFieldsFromTemplate]);
+  
+  // ============================================
+  // EFECTO: Limpiar Plantilla B si ya no es válida
+  // ============================================
+  useEffect(() => {
+    // Si hay una plantilla B seleccionada pero ya no está en la lista de válidas, limpiarla
+    if (
+      formData.ab_template_b_id && 
+      !validTemplatesForB.isCalculating && 
+      validTemplatesForB.templateIds.length > 0 &&
+      !validTemplatesForB.templateIds.includes(formData.ab_template_b_id)
+    ) {
+      setFormData(prev => ({ ...prev, ab_template_b_id: null }));
+    }
+  }, [validTemplatesForB.templateIds, validTemplatesForB.isCalculating, formData.ab_template_b_id]);
+  
+  // ============================================
+  // EFECTO: Validar cobertura de Plantilla B cuando se selecciona
+  // La Plantilla B debe tener 100% de cobertura sobre la audiencia B
+  // (prospectos que NO tienen las variables de A)
+  // ============================================
+  useEffect(() => {
+    // Si no hay plantilla B seleccionada, es válido
+    if (!formData.ab_template_b_id) {
+      setTemplateBCoverage({
+        isValid: true,
+        coveragePercent: 100,
+        requiredFields: [],
+        isAnalyzing: false,
+        errorMessage: ''
+      });
+      return;
+    }
+    
+    const templateB = templates.find(t => t.id === formData.ab_template_b_id);
+    if (!templateB) return;
+    
+    const templateBFields = getRequiredFieldsFromTemplate(templateB);
+    
+    // Si la plantilla B no tiene variables dinámicas, es válida (100% cobertura garantizada)
+    if (templateBFields.length === 0) {
+      setTemplateBCoverage({
+        isValid: true,
+        coveragePercent: 100,
+        requiredFields: [],
+        isAnalyzing: false,
+        errorMessage: ''
+      });
+      return;
+    }
+    
+    // Si la plantilla B tiene variables, necesitamos verificar cobertura sobre audiencia B
+    const validateTemplateBCoverage = async () => {
+      if (!formData.audience_id || !isOpen) return;
+      
+      setTemplateBCoverage(prev => ({ ...prev, isAnalyzing: true }));
+      
+      try {
+        const audience = audiences.find(a => a.id === formData.audience_id);
+        if (!audience) return;
+        
+        // Construir query base para la audiencia
+        let baseQuery = analysisSupabase
+          .from('prospectos')
+          .select('id', { count: 'exact' });
+        
+        if (audience.etapa) baseQuery = baseQuery.eq('etapa', audience.etapa);
+        if (audience.estado_civil) baseQuery = baseQuery.eq('estado_civil', audience.estado_civil);
+        if (audience.viaja_con?.length) baseQuery = baseQuery.in('viaja_con', audience.viaja_con);
+        if (audience.destinos?.length) baseQuery = baseQuery.overlaps('destino_preferencia', audience.destinos);
+        
+        // Audiencia B = prospectos que NO tienen las variables de A
+        // (solo aplicar si hay cobertura forzada)
+        if (variableCoverage.requiresABTest && variableCoverage.requiredFields.length > 0) {
+          // Filtrar los que NO tienen las variables de A
+          for (const field of variableCoverage.requiredFields) {
+            // Usamos .or para obtener los que tienen NULL o están vacíos
+            baseQuery = baseQuery.or(`${field}.is.null,${field}.eq.`);
+          }
+        }
+        
+        // Ahora contar cuántos de la audiencia B tienen las variables de la plantilla B
+        const { count: totalAudienceB } = await baseQuery.limit(0);
+        
+        // Construir query para los que SÍ tienen las variables de B
+        let withBVarsQuery = analysisSupabase
+          .from('prospectos')
+          .select('id', { count: 'exact' });
+        
+        if (audience.etapa) withBVarsQuery = withBVarsQuery.eq('etapa', audience.etapa);
+        if (audience.estado_civil) withBVarsQuery = withBVarsQuery.eq('estado_civil', audience.estado_civil);
+        if (audience.viaja_con?.length) withBVarsQuery = withBVarsQuery.in('viaja_con', audience.viaja_con);
+        if (audience.destinos?.length) withBVarsQuery = withBVarsQuery.overlaps('destino_preferencia', audience.destinos);
+        
+        // Filtrar los que NO tienen las variables de A (audiencia B)
+        if (variableCoverage.requiresABTest && variableCoverage.requiredFields.length > 0) {
+          for (const field of variableCoverage.requiredFields) {
+            withBVarsQuery = withBVarsQuery.or(`${field}.is.null,${field}.eq.`);
+          }
+        }
+        
+        // Agregar filtro: deben tener las variables de la plantilla B
+        for (const field of templateBFields) {
+          withBVarsQuery = withBVarsQuery.not(field, 'is', null);
+          withBVarsQuery = withBVarsQuery.neq(field, '');
+        }
+        
+        const { count: withBVars } = await withBVarsQuery.limit(0);
+        
+        const totalB = totalAudienceB || 0;
+        const withVars = withBVars || 0;
+        const coverage = totalB > 0 ? Math.round((withVars / totalB) * 100) : 100;
+        const isValid = coverage === 100;
+        
+        setTemplateBCoverage({
+          isValid,
+          coveragePercent: coverage,
+          requiredFields: templateBFields,
+          isAnalyzing: false,
+          errorMessage: isValid 
+            ? '' 
+            : `La Plantilla B solo cubre ${coverage}% de la audiencia B. Se requiere 100% para evitar prueba C.`
+        });
+        
+        // Si no es válida, mostrar toast de advertencia
+        if (!isValid) {
+          toast.error(`Plantilla B inválida: solo cubre ${coverage}% de la audiencia B`, {
+            duration: 5000
+          });
+        }
+        
+      } catch (error) {
+        console.error('Error validating template B coverage:', error);
+        setTemplateBCoverage(prev => ({ ...prev, isAnalyzing: false }));
+      }
+    };
+    
+    const timer = setTimeout(validateTemplateBCoverage, 500);
+    return () => clearTimeout(timer);
+  }, [formData.ab_template_b_id, formData.audience_id, templates, audiences, isOpen, variableCoverage.requiresABTest, variableCoverage.requiredFields, getRequiredFieldsFromTemplate]);
   
   // Contar prospectos y obtener uno de muestra cuando cambia la audiencia
   useEffect(() => {
@@ -1264,6 +1770,140 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     return () => clearTimeout(timer);
   }, [formData.audience_id, audiences, isOpen]);
   
+  // ============================================
+  // EFECTO: Analizar cobertura de variables cuando cambia plantilla o audiencia
+  // ============================================
+  useEffect(() => {
+    if (!formData.audience_id || !formData.template_id || !isOpen) {
+      setVariableCoverage(prev => ({
+        ...prev,
+        isAnalyzing: false,
+        requiresABTest: false,
+        coveragePercent: 100
+      }));
+      return;
+    }
+    
+    const analyzeVariableCoverage = async () => {
+      setVariableCoverage(prev => ({ ...prev, isAnalyzing: true }));
+      
+      try {
+        const template = templates.find(t => t.id === formData.template_id);
+        const audience = audiences.find(a => a.id === formData.audience_id);
+        
+        if (!template || !audience) return;
+        
+        // Obtener campos requeridos de la plantilla
+        const requiredFields = getRequiredFieldsFromTemplate(template);
+        
+        // Si no hay variables dinámicas, cobertura es 100%
+        if (requiredFields.length === 0) {
+          setVariableCoverage({
+            totalProspects: prospectCount,
+            prospectsWithVariables: prospectCount,
+            prospectsWithoutVariables: 0,
+            coveragePercent: 100,
+            requiredFields: [],
+            isAnalyzing: false,
+            requiresABTest: false
+          });
+          return;
+        }
+        
+        // Construir query base para la audiencia
+        let baseQueryBuilder = analysisSupabase
+          .from('prospectos')
+          .select('id', { count: 'exact' });
+        
+        if (audience.etapa) {
+          baseQueryBuilder = baseQueryBuilder.eq('etapa', audience.etapa);
+        }
+        if (audience.estado_civil) {
+          baseQueryBuilder = baseQueryBuilder.eq('estado_civil', audience.estado_civil);
+        }
+        if (audience.viaja_con && audience.viaja_con.length > 0) {
+          baseQueryBuilder = baseQueryBuilder.in('viaja_con', audience.viaja_con);
+        }
+        if (audience.destinos && audience.destinos.length > 0) {
+          baseQueryBuilder = baseQueryBuilder.overlaps('destino_preferencia', audience.destinos);
+        }
+        
+        // Contar total de prospectos en la audiencia
+        const { count: totalCount } = await baseQueryBuilder.limit(0);
+        const total = totalCount || 0;
+        
+        // Construir query con filtro de campos requeridos (IS NOT NULL para todos)
+        let withVariablesQuery = analysisSupabase
+          .from('prospectos')
+          .select('id', { count: 'exact' });
+        
+        // Aplicar filtros de audiencia
+        if (audience.etapa) {
+          withVariablesQuery = withVariablesQuery.eq('etapa', audience.etapa);
+        }
+        if (audience.estado_civil) {
+          withVariablesQuery = withVariablesQuery.eq('estado_civil', audience.estado_civil);
+        }
+        if (audience.viaja_con && audience.viaja_con.length > 0) {
+          withVariablesQuery = withVariablesQuery.in('viaja_con', audience.viaja_con);
+        }
+        if (audience.destinos && audience.destinos.length > 0) {
+          withVariablesQuery = withVariablesQuery.overlaps('destino_preferencia', audience.destinos);
+        }
+        
+        // Agregar filtro de campos requeridos (todos deben tener valor)
+        for (const field of requiredFields) {
+          withVariablesQuery = withVariablesQuery.not(field, 'is', null);
+          // También verificar que no esté vacío para strings
+          withVariablesQuery = withVariablesQuery.neq(field, '');
+        }
+        
+        const { count: withVarsCount } = await withVariablesQuery.limit(0);
+        const withVariables = withVarsCount || 0;
+        const withoutVariables = total - withVariables;
+        const coverage = total > 0 ? Math.round((withVariables / total) * 100) : 100;
+        
+        const requiresAB = coverage < 100 && withoutVariables > 0;
+        
+        setVariableCoverage({
+          totalProspects: total,
+          prospectsWithVariables: withVariables,
+          prospectsWithoutVariables: withoutVariables,
+          coveragePercent: coverage,
+          requiredFields,
+          isAnalyzing: false,
+          requiresABTest: requiresAB
+        });
+        
+        // Si requiere A/B test, forzar el tipo de campaña y ajustar distribución
+        if (requiresAB && formData.campaign_type === 'standard') {
+          setFormData(prev => ({
+            ...prev,
+            campaign_type: 'ab_test',
+            ab_distribution_a: coverage // La distribución A es el % de cobertura
+          }));
+          toast('Plantilla no aplica a todos los prospectos. Se requiere A/B Test.', {
+            icon: '⚠️',
+            duration: 4000
+          });
+        } else if (requiresAB && formData.campaign_type === 'ab_test') {
+          // Actualizar distribución automáticamente
+          setFormData(prev => ({
+            ...prev,
+            ab_distribution_a: coverage
+          }));
+        }
+        
+      } catch (error) {
+        console.error('Error analyzing variable coverage:', error);
+        setVariableCoverage(prev => ({ ...prev, isAnalyzing: false }));
+      }
+    };
+    
+    const timer = setTimeout(analyzeVariableCoverage, 500);
+    return () => clearTimeout(timer);
+  }, [formData.audience_id, formData.template_id, templates, audiences, isOpen, prospectCount, getRequiredFieldsFromTemplate]);
+  
   // Generar preview del mensaje
   const getMessagePreview = (template: WhatsAppTemplate | undefined) => {
     if (!template) return '';
@@ -1302,8 +1942,9 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     return `${(totalSeconds / 3600).toFixed(1)} horas`;
   };
   
-  // Guardar campaña
-  const handleSubmit = async (launchNow = false) => {
+  // Enviar campaña al webhook (N8N maneja la inserción en BD)
+  // SEGURIDAD: No enviamos queries SQL, solo filtros estructurados para evitar SQL injection
+  const handleSubmit = async () => {
     if (!formData.nombre.trim()) {
       toast.error('El nombre es requerido');
       return;
@@ -1317,182 +1958,154 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       return;
     }
     
+    // Validación adicional para A/B obligatorio
+    if (variableCoverage.requiresABTest && !formData.ab_template_b_id) {
+      toast.error('Debes seleccionar una Plantilla B para los prospectos sin datos completos');
+      return;
+    }
+    
+    // Validar que la Plantilla B tenga 100% de cobertura
+    if (formData.campaign_type === 'ab_test' && formData.ab_template_b_id && !templateBCoverage.isValid) {
+      toast.error(`La Plantilla B solo cubre ${templateBCoverage.coveragePercent}% de la audiencia B. Se requiere 100%.`);
+      return;
+    }
+    
     try {
       setSaving(true);
       
-      // Construir query de audiencia para snapshot
+      // Obtener token de autenticación (mismo que livechat)
+      const authToken = await getApiToken('pause_bot_auth');
+      
+      // Obtener datos de la audiencia
       const audience = audiences.find(a => a.id === formData.audience_id);
-      let audienceQuery = 'SELECT * FROM prospectos WHERE 1=1';
-      if (audience?.etapa) audienceQuery += ` AND etapa = '${audience.etapa}'`;
-      if (audience?.estado_civil) audienceQuery += ` AND estado_civil = '${audience.estado_civil}'`;
-      if (audience?.viaja_con?.length) audienceQuery += ` AND viaja_con IN ('${audience.viaja_con.join("','")}')`;
-      if (audience?.destinos?.length) audienceQuery += ` AND destino_preferencia && ARRAY['${audience.destinos.join("','")}']`;
       
       // Determinar fecha de ejecución
       const executeAt = executeOption === 'now' 
         ? new Date().toISOString() 
         : formData.execute_at;
       
-      const campaignData = {
+      // Obtener datos de templates para el payload
+      const templateA = templates.find(t => t.id === formData.template_id);
+      const templateB = formData.ab_template_b_id 
+        ? templates.find(t => t.id === formData.ab_template_b_id)
+        : null;
+      
+      const isABTestPayload = formData.campaign_type === 'ab_test' && formData.ab_template_b_id;
+      
+      // ===========================================
+      // Construir cláusulas WHERE (sin SELECT FROM)
+      // N8N agregará: SELECT * FROM prospectos + where_clause
+      // Lógica EXACTA de AudienciasManager
+      // ===========================================
+      
+      // WHERE base de la audiencia
+      let baseWhere = 'WHERE 1=1';
+      
+      // Filtro de etapa (eq)
+      if (audience?.etapa) {
+        baseWhere += ` AND etapa = '${audience.etapa}'`;
+      }
+      
+      // Filtro de estado civil (eq)
+      if (audience?.estado_civil) {
+        baseWhere += ` AND estado_civil = '${audience.estado_civil}'`;
+      }
+      
+      // Filtro de viaja_con (IN - el valor del prospecto está en el array de filtros)
+      if (audience?.viaja_con?.length) {
+        baseWhere += ` AND viaja_con IN ('${audience.viaja_con.join("','")}')`;
+      }
+      
+      // Filtro de destinos (overlaps - el array del prospecto tiene intersección con el filtro)
+      if (audience?.destinos?.length) {
+        baseWhere += ` AND destino_preferencia && ARRAY['${audience.destinos.join("','")}']::text[]`;
+      }
+      
+      // Filtro de días sin contacto: prospectos con MÁS de X días sin ser contactados
+      // Lógica: updated_at < (hoy - X días)
+      if (audience?.dias_sin_contacto && audience.dias_sin_contacto > 0) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - audience.dias_sin_contacto);
+        baseWhere += ` AND updated_at < '${cutoffDate.toISOString()}'`;
+      }
+      
+      // WHERE para variante A (prospectos CON variables)
+      let whereA = baseWhere;
+      if (variableCoverage.requiredFields.length > 0) {
+        const hasVarsCondition = variableCoverage.requiredFields
+          .map(field => `(${field} IS NOT NULL AND ${field} != '')`)
+          .join(' AND ');
+        whereA += ` AND (${hasVarsCondition})`;
+      }
+      
+      // WHERE para variante B (prospectos SIN variables)
+      let whereB = baseWhere;
+      if (isABTestPayload && variableCoverage.requiredFields.length > 0) {
+        const missingVarsCondition = variableCoverage.requiredFields
+          .map(field => `(${field} IS NULL OR ${field} = '')`)
+          .join(' OR ');
+        whereB += ` AND (${missingVarsCondition})`;
+      }
+      
+      const payload = {
+        // Datos para insertar en whatsapp_campaigns
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion?.trim() || null,
         campaign_type: formData.campaign_type || 'standard',
         template_id: formData.template_id,
         audience_id: formData.audience_id,
-        ab_template_b_id: formData.campaign_type === 'ab_test' ? formData.ab_template_b_id : null,
-        ab_distribution_a: formData.campaign_type === 'ab_test' ? formData.ab_distribution_a : 50,
+        ab_template_b_id: isABTestPayload ? formData.ab_template_b_id : null,
+        ab_distribution_a: isABTestPayload 
+          ? (variableCoverage.requiresABTest ? variableCoverage.coveragePercent : formData.ab_distribution_a)
+          : null,
         batch_size: formData.batch_size,
         batch_interval_seconds: formData.batch_interval_seconds,
         execute_at: executeAt,
-        scheduled_at: formData.scheduled_at,
-        status: launchNow ? 'running' : (executeOption === 'scheduled' ? 'scheduled' : 'draft'),
-        total_recipients: formData.campaign_type === 'ab_test' ? recipientsA : prospectCount,
+        status: executeOption === 'now' ? 'running' : 'scheduled',
+        total_recipients: prospectCount,
         created_by: user?.id,
         created_by_email: user?.email,
-        audience_query_snapshot: audienceQuery
+        
+        // Cláusulas WHERE (tú agregas SELECT * FROM prospectos)
+        // Para estándar: usa where_clause_a
+        // Para A/B: usa where_clause_a y where_clause_b
+        where_clause_a: isABTestPayload ? whereA : baseWhere,
+        where_clause_b: isABTestPayload ? whereB : null,
+        
+        // Conteos
+        recipients_a: isABTestPayload ? recipientsA : prospectCount,
+        recipients_b: isABTestPayload ? recipientsB : null
       };
       
-      let campaignId: string;
+      // Enviar al webhook con auth de livechat
+      const response = await fetch(BROADCAST_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'livechat_auth': authToken
+        },
+        body: JSON.stringify(payload)
+      });
       
-      if (editingCampaign) {
-        const { error } = await analysisSupabase
-          .from('whatsapp_campaigns')
-          .update(campaignData)
-          .eq('id', editingCampaign.id);
-        
-        if (error) throw error;
-        campaignId = editingCampaign.id;
-        toast.success('Campaña actualizada');
-      } else {
-        const { data, error } = await analysisSupabase
-          .from('whatsapp_campaigns')
-          .insert(campaignData)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        campaignId = data.id;
-        toast.success('Campaña creada');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Webhook error: ${response.status} - ${errorText}`);
       }
       
-      // Si se lanza ahora, enviar al webhook
-      if (launchNow) {
-        const basePayload: BroadcastWebhookPayload = {
-          campaign_id: campaignId,
-          campaign_type: formData.campaign_type || 'standard',
-          audience_id: formData.audience_id,
-          template_id: formData.template_id,
-          audience_query: audienceQuery,
-          batch_size: formData.batch_size,
-          batch_interval_seconds: formData.batch_interval_seconds,
-          recipients_count: formData.campaign_type === 'ab_test' ? recipientsA : prospectCount,
-          created_by_id: user?.id || '',
-          created_by_email: user?.email || '',
-          execute_at: executeAt || new Date().toISOString(),
-          timestamp: new Date().toISOString()
-        };
-        
-        try {
-          // Para campañas A/B, enviar dos payloads
-          if (formData.campaign_type === 'ab_test' && formData.ab_template_b_id) {
-            // Payload variante A
-            const payloadA: BroadcastWebhookPayload = {
-              ...basePayload,
-              ab_variant: 'A',
-              ab_distribution_percent: formData.ab_distribution_a,
-              recipients_count: recipientsA
-            };
-            
-            // Payload variante B  
-            const payloadB: BroadcastWebhookPayload = {
-              ...basePayload,
-              campaign_id: `${campaignId}_B`,
-              template_id: formData.ab_template_b_id,
-              ab_variant: 'B',
-              ab_distribution_percent: 100 - (formData.ab_distribution_a || 50),
-              ab_linked_campaign_id: campaignId,
-              recipients_count: recipientsB
-            };
-            
-            // Enviar ambos payloads
-            const [responseA, responseB] = await Promise.all([
-              fetch(BROADCAST_WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Auth': BROADCAST_WEBHOOK_AUTH },
-                body: JSON.stringify(payloadA)
-              }),
-              fetch(BROADCAST_WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Auth': BROADCAST_WEBHOOK_AUTH },
-                body: JSON.stringify(payloadB)
-              })
-            ]);
-            
-            if (!responseA.ok || !responseB.ok) {
-              throw new Error(`Webhook error: A=${responseA.status}, B=${responseB.status}`);
-            }
-            
-            const [webhookResponseA, webhookResponseB] = await Promise.all([
-              responseA.json(),
-              responseB.json()
-            ]);
-            
-            // Actualizar campaña con respuestas
-            await analysisSupabase
-              .from('whatsapp_campaigns')
-              .update({
-                webhook_execution_id: webhookResponseA?.execution_id || null,
-                webhook_response: { variantA: webhookResponseA, variantB: webhookResponseB },
-                started_at: new Date().toISOString()
-              })
-              .eq('id', campaignId);
-            
-            toast.success('¡Campaña A/B lanzada exitosamente!');
-          } else {
-            // Campaña estándar - un solo payload
-            const response = await fetch(BROADCAST_WEBHOOK_URL, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Auth': BROADCAST_WEBHOOK_AUTH
-              },
-              body: JSON.stringify(basePayload)
-            });
-            
-            if (!response.ok) {
-              throw new Error(`Webhook error: ${response.status}`);
-            }
-            
-            const webhookResponse = await response.json();
-            
-            // Actualizar campaña con respuesta del webhook
-            await analysisSupabase
-              .from('whatsapp_campaigns')
-              .update({
-                webhook_execution_id: webhookResponse?.execution_id || null,
-                webhook_response: webhookResponse,
-                started_at: new Date().toISOString()
-              })
-              .eq('id', campaignId);
-            
-            toast.success('¡Campaña lanzada exitosamente!');
-          }
-        } catch (webhookError) {
-          console.error('Webhook error:', webhookError);
-          toast.error('Campaña guardada pero hubo un error al lanzarla');
-          
-          // Marcar como fallida
-          await analysisSupabase
-            .from('whatsapp_campaigns')
-            .update({ status: 'failed' })
-            .eq('id', campaignId);
-        }
-      }
+      const webhookResponse = await response.json();
+      console.log('✅ Webhook response:', webhookResponse);
       
+      toast.success(isABTestPayload 
+        ? '¡Campaña A/B enviada! Se actualizará automáticamente.' 
+        : '¡Campaña enviada! Se actualizará automáticamente.'
+      );
+      
+      // Cerrar modal - los datos se actualizarán vía Realtime
       onCreated();
+      
     } catch (error: any) {
-      console.error('Error saving campaign:', error);
-      toast.error(error.message || 'Error al guardar campaña');
+      console.error('Error sending campaign:', error);
+      toast.error(error.message || 'Error al enviar campaña');
     } finally {
       setSaving(false);
     }
@@ -1558,11 +2171,21 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                 <div className="flex items-center gap-3">
                   <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
                     <button
-                      onClick={() => setFormData({ ...formData, campaign_type: 'standard' })}
+                      onClick={() => {
+                        // No permitir cambiar a estándar si se requiere A/B por cobertura
+                        if (variableCoverage.requiresABTest) {
+                          toast.error('La plantilla seleccionada requiere A/B Test por cobertura incompleta');
+                          return;
+                        }
+                        setFormData({ ...formData, campaign_type: 'standard' });
+                      }}
+                      disabled={variableCoverage.requiresABTest}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                         !isABTest
                           ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          : variableCoverage.requiresABTest 
+                            ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                       }`}
                     >
                       <span className="flex items-center gap-2">
@@ -1581,6 +2204,11 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                       <span className="flex items-center gap-2">
                         <GitBranch className="w-4 h-4" />
                         A/B Test
+                        {variableCoverage.requiresABTest && (
+                          <span className="px-1.5 py-0.5 text-[9px] bg-amber-500 text-white rounded font-bold">
+                            REQUERIDO
+                          </span>
+                        )}
                       </span>
                     </button>
                   </div>
@@ -1694,21 +2322,148 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                             <span className="w-5 h-5 bg-pink-500 text-white text-[10px] font-bold rounded flex items-center justify-center">B</span>
                             <MessageSquare className="w-3.5 h-3.5" />
                             Plantilla Variante B
+                            {/* Indicador de cálculo */}
+                            {validTemplatesForB.isCalculating && (
+                              <Loader2 className="w-3 h-3 animate-spin text-pink-500" />
+                            )}
+                            {!validTemplatesForB.isCalculating && formData.ab_template_b_id && templateBCoverage.isValid && (
+                              <span className="flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle className="w-3 h-3" />
+                                100%
+                              </span>
+                            )}
                           </label>
                           <select
                             value={formData.ab_template_b_id || ''}
                             onChange={(e) => setFormData({ ...formData, ab_template_b_id: e.target.value || null })}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 dark:bg-gray-800/50 dark:text-white transition-all"
+                            disabled={validTemplatesForB.isCalculating}
+                            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 dark:bg-gray-800/50 dark:text-white transition-all disabled:opacity-50"
                           >
-                            <option value="">Selecciona plantilla</option>
-                            {templates.filter(t => t.id !== formData.template_id).map((t) => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
+                            <option value="">
+                              {validTemplatesForB.isCalculating 
+                                ? 'Calculando plantillas válidas...' 
+                                : 'Selecciona plantilla'}
+                            </option>
+                            {/* Solo mostrar plantillas con 100% de cobertura */}
+                            {templates
+                              .filter(t => 
+                                t.id !== formData.template_id && 
+                                validTemplatesForB.templateIds.includes(t.id)
+                              )
+                              .map((t) => {
+                                const hasVars = templateHasVariables(t);
+                                return (
+                                  <option key={t.id} value={t.id}>
+                                    {t.name}
+                                    {!hasVars ? ' ✓ Sin variables' : ' ✓ 100% cobertura'}
+                                  </option>
+                                );
+                              })}
                           </select>
+                          
+                          {/* Mensaje si no hay plantillas válidas */}
+                          {!validTemplatesForB.isCalculating && validTemplatesForB.templateIds.filter(id => id !== formData.template_id).length === 0 && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
+                            >
+                              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5" />
+                                <span>No hay plantillas con 100% de cobertura disponibles</span>
+                              </p>
+                            </motion.div>
+                          )}
+                          
+                          {/* Indicador de plantilla seleccionada válida */}
+                          {!validTemplatesForB.isCalculating && formData.ab_template_b_id && templateBCoverage.isValid && templateBCoverage.requiredFields.length > 0 && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg"
+                            >
+                              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Plantilla B válida: 100% de cobertura</span>
+                              </p>
+                            </motion.div>
+                          )}
                         </div>
                       )}
                     </div>
                   </div>
+                  
+                  {/* Panel de cobertura de variables */}
+                  {isABTest && variableCoverage.requiredFields.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <div className="w-1 h-5 bg-gradient-to-b from-amber-500 to-red-500 rounded-full"></div>
+                        <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          Cobertura de Variables
+                        </label>
+                      </div>
+                      <div className={`p-4 rounded-xl border-2 ${
+                        variableCoverage.coveragePercent === 100 
+                          ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' 
+                          : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                      }`}>
+                        {variableCoverage.isAnalyzing ? (
+                          <div className="flex items-center gap-2 text-gray-500">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">Analizando cobertura...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Prospectos con variables completas
+                              </span>
+                              <span className={`text-lg font-bold ${
+                                variableCoverage.coveragePercent === 100 ? 'text-emerald-600' : 'text-amber-600'
+                              }`}>
+                                {variableCoverage.coveragePercent}%
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${variableCoverage.coveragePercent}%` }}
+                                className={`h-full ${
+                                  variableCoverage.coveragePercent === 100 ? 'bg-emerald-500' : 'bg-amber-500'
+                                }`}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  Con variables: <span className="font-semibold text-gray-900 dark:text-white">{variableCoverage.prospectsWithVariables.toLocaleString()}</span>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 bg-pink-500 rounded-full" />
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  Sin variables: <span className="font-semibold text-gray-900 dark:text-white">{variableCoverage.prospectsWithoutVariables.toLocaleString()}</span>
+                                </span>
+                              </div>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
+                                <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                <span>
+                                  Campos requeridos: <span className="font-mono">{variableCoverage.requiredFields.join(', ')}</span>
+                                </span>
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
                   
                   {/* Slider A/B Distribution */}
                   {isABTest && (
@@ -1721,9 +2476,16 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                         <div className="w-1 h-5 bg-gradient-to-b from-orange-500 to-amber-500 rounded-full"></div>
                         <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Distribución
+                          {variableCoverage.requiresABTest && (
+                            <span className="ml-2 text-[9px] text-amber-600 dark:text-amber-400 font-normal normal-case">(calculada automáticamente)</span>
+                          )}
                         </label>
                       </div>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      <div className={`p-4 rounded-xl ${
+                        variableCoverage.requiresABTest 
+                          ? 'bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800' 
+                          : 'bg-gray-50 dark:bg-gray-800/50'
+                      }`}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className="w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded flex items-center justify-center">A</span>
@@ -1742,7 +2504,10 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                           step={5}
                           value={formData.ab_distribution_a}
                           onChange={(e) => setFormData({ ...formData, ab_distribution_a: parseInt(e.target.value) })}
-                          className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                          disabled={variableCoverage.requiresABTest}
+                          className={`w-full h-2 rounded-lg appearance-none ${
+                            variableCoverage.requiresABTest ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                          }`}
                           style={{
                             background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${formData.ab_distribution_a}%, #EC4899 ${formData.ab_distribution_a}%, #EC4899 100%)`
                           }}
@@ -1751,6 +2516,12 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                           <span>{recipientsA.toLocaleString()} prospectos</span>
                           <span>{recipientsB.toLocaleString()} prospectos</span>
                         </div>
+                        {variableCoverage.requiresABTest && (
+                          <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            Distribución basada en cobertura de variables de la Plantilla A
+                          </p>
+                        )}
                       </div>
                     </motion.div>
                   )}
@@ -2067,16 +2838,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSubmit(false)}
-                  disabled={saving || !formData.nombre.trim() || !formData.template_id || !formData.audience_id || (isABTest && !formData.ab_template_b_id)}
-                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {saving ? 'Guardando...' : 'Guardar Borrador'}
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSubmit(true)}
+                  onClick={() => handleSubmit()}
                   disabled={
                     saving || 
                     !formData.nombre.trim() || 

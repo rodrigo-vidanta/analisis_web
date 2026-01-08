@@ -12,24 +12,36 @@
  * - La reasignación ahora se hace vía webhook, NO directamente en BD
  * - Solo se actualiza localmente después de recibir 200 del webhook
  * - Permisos: admin, administrador_operativo, coordinador, coordinador_calidad
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2026-01-07):
+ * - Las credenciales se obtienen de BD (SystemUI → api_auth_tokens)
+ * - NO hardcodear tokens en código
  */
 
 import { analysisSupabase } from '../config/analysisSupabase';
 import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
 import { coordinacionService } from './coordinacionService';
+import { credentialsService } from './credentialsService';
 import toast from 'react-hot-toast';
 
 // ============================================
 // CONFIGURACIÓN
 // ============================================
 
-const N8N_REASIGNAR_LEAD_DYNAMICS_URL = 
-  import.meta.env.VITE_N8N_REASIGNAR_LEAD_DYNAMICS_URL || 
-  'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto';
+// Cache de credenciales (se carga dinámicamente)
+let cachedReasignacionCredentials: { url: string; token: string } | null = null;
 
-const N8N_DYNAMICS_TOKEN = 
-  import.meta.env.VITE_N8N_DYNAMICS_TOKEN || 
-  'sAEhQEoCV51Vf0xIiLyrBGJK8OJjRHA1BxHwa2K2ObT2jMC9qtXVVbYX8cRoKYiLmKQfl41l9IWQ79c4GXoqIpgVePyOvDtwWrZJ6Qv1iU8tWd6vxqqhaaG6qG1DrIzjHyJ69pbv2C1lRjMIqSqYGo0wGhPXSMK2EauyWWIBA';
+// Función para obtener credenciales de forma segura
+async function getReasignacionCredentials(): Promise<{ url: string; token: string }> {
+  if (cachedReasignacionCredentials) return cachedReasignacionCredentials;
+  
+  const creds = await credentialsService.getDynamicsWebhookCredentials();
+  cachedReasignacionCredentials = {
+    url: creds.reasignarUrl || import.meta.env.VITE_N8N_REASIGNAR_LEAD_DYNAMICS_URL || 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto',
+    token: creds.token || import.meta.env.VITE_N8N_DYNAMICS_TOKEN || ''
+  };
+  return cachedReasignacionCredentials;
+}
 
 // Timeout para el webhook (80 segundos - el proceso de Dynamics es tardado)
 const WEBHOOK_TIMEOUT_MS = 80000;
@@ -246,7 +258,10 @@ class DynamicsReasignacionService {
    */
   private async enviarWebhook(request: ReasignacionRequest): Promise<ReasignacionResponse> {
     try {
-      console.log('📤 [DynamicsReasignacion] Enviando al webhook:', N8N_REASIGNAR_LEAD_DYNAMICS_URL);
+      // Obtener credenciales de forma segura desde BD
+      const { url, token } = await getReasignacionCredentials();
+      
+      console.log('📤 [DynamicsReasignacion] Enviando al webhook:', url);
       console.log(`⏱️ [DynamicsReasignacion] Timeout configurado: ${WEBHOOK_TIMEOUT_MS / 1000} segundos`);
       
       const payload = {
@@ -264,12 +279,12 @@ class DynamicsReasignacionService {
       const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
       try {
-        const response = await fetch(N8N_REASIGNAR_LEAD_DYNAMICS_URL, {
+        const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${N8N_DYNAMICS_TOKEN}`,
-            'X-Dynamics-Token': N8N_DYNAMICS_TOKEN
+            'Authorization': `Bearer ${token}`,
+            'X-Dynamics-Token': token
           },
           body: JSON.stringify(payload),
           signal: controller.signal

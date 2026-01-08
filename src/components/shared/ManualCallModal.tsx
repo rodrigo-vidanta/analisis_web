@@ -87,21 +87,71 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   // Verificar restricciones al abrir el modal
   useEffect(() => {
     if (isOpen) {
-      // 1. Verificar si tiene id_dynamics
-      if (!prospectoIdDynamics) {
-        setShowNoCrmModal(true);
-        return;
-      }
+      // 1. Verificar si tiene id_dynamics (buscar en prospectos y crm_data)
+      checkCrmRegistration();
+    }
+  }, [isOpen, prospectoId, prospectoIdDynamics]);
+
+  // Función para verificar registro en CRM (busca en prospectos y crm_data)
+  const checkCrmRegistration = async () => {
+    // Si ya viene en la prop, usarlo directamente
+    if (prospectoIdDynamics) {
       setShowNoCrmModal(false);
-      
-      // 2. Cargar horarios del sistema
       loadHorarios();
-      
-      // 3. Verificar si "Ahora" está disponible (6am - 12am)
       const nowCheck = horariosService.isWithinMaxServiceHours();
       setNowCallBlocked({ blocked: !nowCheck.valid, reason: nowCheck.reason });
+      return;
     }
-  }, [isOpen, prospectoIdDynamics]);
+
+    // Si no viene en la prop, buscar en prospectos primero
+    try {
+      const { data: prospectoData, error: prospectoError } = await analysisSupabase
+        .from('prospectos')
+        .select('id_dynamics')
+        .eq('id', prospectoId)
+        .maybeSingle();
+
+      if (prospectoError) {
+        console.error('Error verificando prospecto:', prospectoError);
+      }
+
+      // Si tiene id_dynamics en prospectos, usarlo
+      if (prospectoData?.id_dynamics) {
+        setShowNoCrmModal(false);
+        loadHorarios();
+        const nowCheck = horariosService.isWithinMaxServiceHours();
+        setNowCallBlocked({ blocked: !nowCheck.valid, reason: nowCheck.reason });
+        return;
+      }
+
+      // Si no tiene en prospectos, buscar en crm_data
+      const { data: crmData, error: crmError } = await analysisSupabase
+        .from('crm_data')
+        .select('id_dynamics')
+        .eq('prospecto_id', prospectoId)
+        .maybeSingle();
+
+      if (crmError) {
+        console.error('Error verificando crm_data:', crmError);
+      }
+
+      // Si tiene id_dynamics en crm_data, permitir programar
+      if (crmData?.id_dynamics) {
+        setShowNoCrmModal(false);
+        loadHorarios();
+        const nowCheck = horariosService.isWithinMaxServiceHours();
+        setNowCallBlocked({ blocked: !nowCheck.valid, reason: nowCheck.reason });
+        return;
+      }
+
+      // Si no tiene en ninguno, mostrar modal de sin CRM
+      setShowNoCrmModal(true);
+    } catch (error) {
+      console.error('Error verificando registro CRM:', error);
+      // En caso de error, mostrar modal de sin CRM por seguridad
+      setShowNoCrmModal(true);
+    }
+  };
 
   // Cargar horarios del sistema
   const loadHorarios = async () => {

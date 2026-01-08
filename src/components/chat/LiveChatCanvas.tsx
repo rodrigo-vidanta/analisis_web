@@ -3542,11 +3542,35 @@ const LiveChatCanvas: React.FC = () => {
               continue;
             }
             
+            // Obtener ids_dynamics desde crm_data para los que no tienen en prospectos
+            const prospectosSinIdDynamics = (data || []).filter(p => !p.id_dynamics).map(p => p.id);
+            const crmDataMap = new Map<string, string>();
+            
+            if (prospectosSinIdDynamics.length > 0) {
+              try {
+                const { data: crmData } = await analysisSupabase
+                  .from('crm_data')
+                  .select('prospecto_id, id_dynamics')
+                  .in('prospecto_id', prospectosSinIdDynamics);
+                
+                (crmData || []).forEach(crm => {
+                  if (crm.id_dynamics) {
+                    crmDataMap.set(crm.prospecto_id, crm.id_dynamics);
+                  }
+                });
+              } catch (crmErr) {
+                console.error(`⚠️ [LiveChatCanvas] Error cargando crm_data para batch ${i / BATCH_SIZE + 1}:`, crmErr);
+              }
+            }
+            
             (data || []).forEach(p => {
+              // Usar id_dynamics de prospectos, o buscar en crm_data como fallback
+              const idDynamics = p.id_dynamics || crmDataMap.get(p.id) || null;
+              
               resultMap.set(p.id, {
                 coordinacion_id: p.coordinacion_id,
                 ejecutivo_id: p.ejecutivo_id,
-                id_dynamics: p.id_dynamics,
+                id_dynamics: idDynamics,
                 nombre_completo: p.nombre_completo,
                 nombre_whatsapp: p.nombre_whatsapp,
                 titulo: p.titulo || null,
