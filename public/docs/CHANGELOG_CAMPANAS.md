@@ -16,7 +16,7 @@
 
 - **Días sin Contacto Mejorado**: Ahora consulta `mensajes_whatsapp`
   - Antes: Usaba `prospectos.updated_at`
-  - Ahora: Usa última interacción en `mensajes_whatsapp.timestamp`
+  - Ahora: Usa última interacción en `mensajes_whatsapp.fecha_hora`
   - Incluye mensajes humanos, bot y plantillas
 
 #### Etapas Actualizadas

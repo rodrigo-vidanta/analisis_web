@@ -1833,7 +1833,11 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                 .select('id', { count: 'exact' });
               
               // Filtros de audiencia
-              if (audience.etapa) queryBuilder = queryBuilder.eq('etapa', audience.etapa);
+              if (audience.etapas?.length) {
+                queryBuilder = queryBuilder.in('etapa', audience.etapas);
+              } else if (audience.etapa) {
+                queryBuilder = queryBuilder.eq('etapa', audience.etapa);
+              }
               if (audience.estado_civil) queryBuilder = queryBuilder.eq('estado_civil', audience.estado_civil);
               if (audience.viaja_con?.length) queryBuilder = queryBuilder.in('viaja_con', audience.viaja_con);
               if (audience.destinos?.length) queryBuilder = queryBuilder.overlaps('destino_preferencia', audience.destinos);
@@ -1853,7 +1857,11 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                 .from('prospectos')
                 .select('id', { count: 'exact' });
               
-              if (audience.etapa) withVarsQuery = withVarsQuery.eq('etapa', audience.etapa);
+              if (audience.etapas?.length) {
+                withVarsQuery = withVarsQuery.in('etapa', audience.etapas);
+              } else if (audience.etapa) {
+                withVarsQuery = withVarsQuery.eq('etapa', audience.etapa);
+              }
               if (audience.estado_civil) withVarsQuery = withVarsQuery.eq('estado_civil', audience.estado_civil);
               if (audience.viaja_con?.length) withVarsQuery = withVarsQuery.in('viaja_con', audience.viaja_con);
               if (audience.destinos?.length) withVarsQuery = withVarsQuery.overlaps('destino_preferencia', audience.destinos);
@@ -1978,7 +1986,11 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           .from('prospectos')
           .select('id', { count: 'exact' });
         
-        if (audience.etapa) baseQuery = baseQuery.eq('etapa', audience.etapa);
+        if (audience.etapas?.length) {
+          baseQuery = baseQuery.in('etapa', audience.etapas);
+        } else if (audience.etapa) {
+          baseQuery = baseQuery.eq('etapa', audience.etapa);
+        }
         if (audience.estado_civil) baseQuery = baseQuery.eq('estado_civil', audience.estado_civil);
         if (audience.viaja_con?.length) baseQuery = baseQuery.in('viaja_con', audience.viaja_con);
         if (audience.destinos?.length) baseQuery = baseQuery.overlaps('destino_preferencia', audience.destinos);
@@ -2001,7 +2013,11 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           .from('prospectos')
           .select('id', { count: 'exact' });
         
-        if (audience.etapa) withBVarsQuery = withBVarsQuery.eq('etapa', audience.etapa);
+        if (audience.etapas?.length) {
+          withBVarsQuery = withBVarsQuery.in('etapa', audience.etapas);
+        } else if (audience.etapa) {
+          withBVarsQuery = withBVarsQuery.eq('etapa', audience.etapa);
+        }
         if (audience.estado_civil) withBVarsQuery = withBVarsQuery.eq('estado_civil', audience.estado_civil);
         if (audience.viaja_con?.length) withBVarsQuery = withBVarsQuery.in('viaja_con', audience.viaja_con);
         if (audience.destinos?.length) withBVarsQuery = withBVarsQuery.overlaps('destino_preferencia', audience.destinos);
@@ -2068,8 +2084,10 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           .from('prospectos')
           .select('*', { count: 'exact' });
         
-        // Filtro de etapa
-        if (audience.etapa) {
+        // Filtro de etapas (múltiple)
+        if (audience.etapas?.length) {
+          query = query.in('etapa', audience.etapas);
+        } else if (audience.etapa) {
           query = query.eq('etapa', audience.etapa);
         }
         
@@ -2093,6 +2111,13 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           query = query.not('email', 'is', null).neq('email', '');
         } else if (audience.tiene_email === false) {
           query = query.or('email.is.null,email.eq.');
+        }
+        
+        // Filtro de con_menores (cantidad_menores > 0)
+        if (audience.con_menores === true) {
+          query = query.gt('cantidad_menores', 0);
+        } else if (audience.con_menores === false) {
+          query = query.or('cantidad_menores.is.null,cantidad_menores.eq.0');
         }
         
         // Filtro de etiquetas (requiere consulta a SystemUI)
@@ -2139,7 +2164,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
             const { data: recentContacts } = await analysisSupabase
               .from('mensajes_whatsapp')
               .select('prospecto_id')
-              .gte('timestamp', cutoffDate.toISOString());
+              .gte('fecha_hora', cutoffDate.toISOString());
             
             const recentIds = new Set((recentContacts || []).map(m => m.prospecto_id));
             
@@ -2225,7 +2250,9 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           .from('prospectos')
           .select('id', { count: 'exact' });
         
-        if (audience.etapa) {
+        if (audience.etapas?.length) {
+          baseQueryBuilder = baseQueryBuilder.in('etapa', audience.etapas);
+        } else if (audience.etapa) {
           baseQueryBuilder = baseQueryBuilder.eq('etapa', audience.etapa);
         }
         if (audience.estado_civil) {
@@ -2248,7 +2275,9 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           .select('id', { count: 'exact' });
         
         // Aplicar filtros de audiencia
-        if (audience.etapa) {
+        if (audience.etapas?.length) {
+          withVariablesQuery = withVariablesQuery.in('etapa', audience.etapas);
+        } else if (audience.etapa) {
           withVariablesQuery = withVariablesQuery.eq('etapa', audience.etapa);
         }
         if (audience.estado_civil) {
@@ -2411,8 +2440,11 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       // WHERE base de la audiencia
       let baseWhere = 'WHERE 1=1';
       
-      // Filtro de etapa (eq)
-      if (audience?.etapa) {
+      // Filtro de etapas (IN - múltiple)
+      if (audience?.etapas?.length) {
+        baseWhere += ` AND etapa IN ('${audience.etapas.join("','")}')`;
+      } else if (audience?.etapa) {
+        // Compatibilidad legacy: etapa singular
         baseWhere += ` AND etapa = '${audience.etapa}'`;
       }
       
@@ -2440,7 +2472,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         // Usamos una subquery para verificar la última interacción en mensajes_whatsapp
         baseWhere += ` AND (id NOT IN (
           SELECT DISTINCT prospecto_id FROM mensajes_whatsapp 
-          WHERE timestamp >= '${cutoffDate.toISOString()}'::timestamptz
+          WHERE fecha_hora >= '${cutoffDate.toISOString()}'::timestamptz
         ) OR id NOT IN (SELECT DISTINCT prospecto_id FROM mensajes_whatsapp))`;
       }
       
@@ -2449,6 +2481,13 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         baseWhere += ` AND email IS NOT NULL AND email != ''`;
       } else if (audience?.tiene_email === false) {
         baseWhere += ` AND (email IS NULL OR email = '')`;
+      }
+      
+      // Filtro de con_menores (cantidad_menores > 0)
+      if (audience?.con_menores === true) {
+        baseWhere += ` AND cantidad_menores > 0`;
+      } else if (audience?.con_menores === false) {
+        baseWhere += ` AND (cantidad_menores IS NULL OR cantidad_menores = 0)`;
       }
       
       // Filtro de etiquetas (requiere join con whatsapp_conversation_labels en SystemUI)

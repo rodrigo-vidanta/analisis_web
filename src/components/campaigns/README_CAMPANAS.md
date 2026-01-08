@@ -121,14 +121,14 @@ updated_at TIMESTAMPTZ DEFAULT NOW()
 
 ### Filtro de Días sin Contacto
 
-- **Fuente:** Tabla `mensajes_whatsapp.timestamp`
+- **Fuente:** Tabla `mensajes_whatsapp.fecha_hora`
 - **Lógica:** Prospectos cuya última interacción sea anterior a `hoy - X días`
 - **Incluye:** Mensajes humanos, bot y plantillas
 - **Query generada:**
 ```sql
 AND (id NOT IN (
   SELECT DISTINCT prospecto_id FROM mensajes_whatsapp 
-  WHERE timestamp >= '${cutoffDate}'::timestamptz
+  WHERE fecha_hora >= '${cutoffDate}'::timestamptz
 ) OR id NOT IN (SELECT DISTINCT prospecto_id FROM mensajes_whatsapp))
 ```
 

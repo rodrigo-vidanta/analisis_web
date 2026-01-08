@@ -169,12 +169,14 @@ export interface WhatsAppAudience {
   id: string;
   nombre: string;
   descripcion?: string | null;
-  etapa?: ProspectoEtapa | null;
+  etapa?: ProspectoEtapa | null; // Legacy: etapa única (mantener compatibilidad)
+  etapas?: ProspectoEtapa[]; // Nuevo: múltiples etapas seleccionables
   destinos?: string[]; // Array de destinos (prospectos.destino_preferencia)
   estado_civil?: EstadoCivil | null;
   viaja_con?: string[]; // Array de tipos (prospectos.viaja_con)
-  dias_sin_contacto?: number | null; // Filtrar prospectos sin actividad en X días (de mensajes_whatsapp)
+  dias_sin_contacto?: number | null; // Filtrar prospectos sin actividad en X días (de mensajes_whatsapp.fecha_hora)
   tiene_email?: boolean | null; // true = con email, false = sin email, null = todos
+  con_menores?: boolean | null; // true = cantidad_menores > 0, false = cantidad_menores = 0 o null, null = todos
   etiquetas?: string[]; // Array de IDs de etiquetas (whatsapp_labels_preset)
   prospectos_count: number;
   is_active: boolean;
@@ -201,12 +203,13 @@ export const DIAS_SIN_CONTACTO_PRESETS = [
 export interface CreateAudienceInput {
   nombre: string;
   descripcion?: string;
-  etapa?: ProspectoEtapa | null;
+  etapas?: ProspectoEtapa[]; // Múltiples etapas seleccionables
   destinos?: string[]; // Múltiples destinos seleccionables
   estado_civil?: EstadoCivil | null;
   viaja_con?: string[]; // Múltiples opciones de "viaja con"
-  dias_sin_contacto?: number | null; // Días sin actividad (de mensajes_whatsapp)
+  dias_sin_contacto?: number | null; // Días sin actividad (de mensajes_whatsapp.fecha_hora)
   tiene_email?: boolean | null; // true = con email, false = sin email, null = todos
+  con_menores?: boolean | null; // true = con menores (cantidad_menores > 0), false = sin menores, null = todos
   etiquetas?: string[]; // IDs de etiquetas del sistema (whatsapp_labels_preset)
 }
 

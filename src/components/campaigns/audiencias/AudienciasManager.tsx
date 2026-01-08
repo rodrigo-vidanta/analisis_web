@@ -191,15 +191,26 @@ const AudienciasManager: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  // Estado para modal de confirmación de eliminación
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    isOpen: boolean;
+    audienceId: string | null;
+    audienceName: string;
+  }>({ isOpen: false, audienceId: null, audienceName: '' });
+
+  const handleDelete = async (id: string, name: string = 'esta audiencia') => {
     if (id === 'global' || id.startsWith('etapa-')) {
       toast.error('No se pueden eliminar audiencias del sistema');
       return;
     }
 
-    if (!confirm('¿Estás seguro de eliminar esta audiencia?')) {
-      return;
-    }
+    // Abrir modal de confirmación en lugar de confirm nativo
+    setDeleteConfirmModal({ isOpen: true, audienceId: id, audienceName: name });
+  };
+
+  const confirmDelete = async () => {
+    const id = deleteConfirmModal.audienceId;
+    if (!id) return;
 
     try {
       const { error } = await analysisSupabase
@@ -210,10 +221,12 @@ const AudienciasManager: React.FC = () => {
       if (error) throw error;
 
       toast.success('Audiencia eliminada');
+      setDeleteConfirmModal({ isOpen: false, audienceId: null, audienceName: '' });
       loadAudiences();
     } catch (error) {
       console.error('Error deleting audience:', error);
       toast.error('Error al eliminar audiencia');
+      setDeleteConfirmModal({ isOpen: false, audienceId: null, audienceName: '' });
     }
   };
 
@@ -551,7 +564,7 @@ const AudienciasManager: React.FC = () => {
                       setEditingAudience(audience);
                       setShowCreateModal(true);
                     }}
-                    onDelete={() => handleDelete(audience.id)}
+                    onDelete={() => handleDelete(audience.id, audience.nombre)}
                   />
                 );
               })}
@@ -745,7 +758,7 @@ const AudienciasManager: React.FC = () => {
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleDelete(audience.id)}
+                                onClick={() => handleDelete(audience.id, audience.nombre)}
                                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                                 title="Eliminar"
                               >
@@ -806,6 +819,60 @@ const AudienciasManager: React.FC = () => {
         }}
         editingAudience={editingAudience}
       />
+
+      {/* Modal de confirmación de eliminación */}
+      <AnimatePresence>
+        {deleteConfirmModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={() => setDeleteConfirmModal({ isOpen: false, audienceId: null, audienceName: '' })}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Eliminar Audiencia
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Esta acción no se puede deshacer
+                  </p>
+                </div>
+              </div>
+              
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                ¿Estás seguro de eliminar la audiencia <strong>"{deleteConfirmModal.audienceName}"</strong>?
+              </p>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDeleteConfirmModal({ isOpen: false, audienceId: null, audienceName: '' })}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -830,12 +897,13 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
   const [formData, setFormData] = useState<CreateAudienceInput>({
     nombre: '',
     descripcion: '',
-    etapa: null,
+    etapas: [],
     destinos: [],
     estado_civil: null,
     viaja_con: [],
     dias_sin_contacto: null,
     tiene_email: null,
+    con_menores: null,
     etiquetas: [],
   });
   const [saving, setSaving] = useState(false);
@@ -877,15 +945,21 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
 
   useEffect(() => {
     if (editingAudience) {
+      // Compatibilidad: si tiene etapa (singular) pero no etapas, migrar
+      const etapasToUse = editingAudience.etapas?.length 
+        ? editingAudience.etapas 
+        : (editingAudience.etapa ? [editingAudience.etapa] : []);
+      
       setFormData({
         nombre: editingAudience.nombre,
         descripcion: editingAudience.descripcion || '',
-        etapa: editingAudience.etapa,
+        etapas: etapasToUse,
         destinos: editingAudience.destinos || [],
         estado_civil: editingAudience.estado_civil,
         viaja_con: editingAudience.viaja_con || [],
         dias_sin_contacto: editingAudience.dias_sin_contacto || null,
         tiene_email: editingAudience.tiene_email ?? null,
+        con_menores: editingAudience.con_menores ?? null,
         etiquetas: editingAudience.etiquetas || [],
       });
       setCustomDays(editingAudience.dias_sin_contacto?.toString() || '');
@@ -893,12 +967,13 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       setFormData({
         nombre: '',
         descripcion: '',
-        etapa: null,
+        etapas: [],
         destinos: [],
         estado_civil: null,
         viaja_con: [],
         dias_sin_contacto: null,
         tiene_email: null,
+        con_menores: null,
         etiquetas: [],
       });
       setCustomDays('');
@@ -912,127 +987,179 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     const countProspects = async () => {
       setCountingProspects(true);
       try {
-        // Para filtro de días sin contacto, usamos una consulta SQL más compleja
-        // que consulta la última interacción desde mensajes_whatsapp
+        // Paso 1: Obtener IDs a excluir si hay filtro de días sin contacto
+        let excludeProspectoIds: string[] = [];
+        
         if (formData.dias_sin_contacto && formData.dias_sin_contacto > 0) {
-          // Usar RPC o consulta SQL para obtener prospectos con última interacción
+          // Obtener prospectos con actividad reciente (a excluir)
           const cutoffDate = new Date();
           cutoffDate.setDate(cutoffDate.getDate() - formData.dias_sin_contacto);
           const cutoffISO = cutoffDate.toISOString();
           
-          // Construir filtros adicionales para la consulta
-          let whereConditions: string[] = [];
+          console.log(`🔍 Buscando prospectos con mensajes desde: ${cutoffISO} (últimos ${formData.dias_sin_contacto} días)`);
           
-          if (formData.etapa) {
-            whereConditions.push(`etapa = '${formData.etapa}'`);
-          }
-          if (formData.estado_civil) {
-            whereConditions.push(`estado_civil = '${formData.estado_civil}'`);
-          }
-          if (formData.viaja_con && formData.viaja_con.length > 0) {
-            const viajaCon = formData.viaja_con.map(v => `'${v}'`).join(',');
-            whereConditions.push(`viaja_con IN (${viajaCon})`);
-          }
-          if (formData.destinos && formData.destinos.length > 0) {
-            const destinos = formData.destinos.map(d => `'${d}'`).join(',');
-            whereConditions.push(`destino_preferencia && ARRAY[${destinos}]`);
-          }
-          if (formData.tiene_email === true) {
-            whereConditions.push(`email IS NOT NULL AND email != ''`);
-          } else if (formData.tiene_email === false) {
-            whereConditions.push(`(email IS NULL OR email = '')`);
-          }
-          // Etiquetas se manejan de forma diferente (requiere join con whatsapp_conversation_labels)
+          // Usar paginación para obtener TODOS los prospectos con mensajes recientes
+          let allRecentProspectIds: string[] = [];
+          let hasMore = true;
+          let offset = 0;
+          const pageSize = 1000;
           
-          const whereClause = whereConditions.length > 0 
-            ? `AND ${whereConditions.join(' AND ')}`
-            : '';
-          
-          // Consulta SQL que busca prospectos cuya última interacción en mensajes_whatsapp
-          // sea anterior a la fecha de corte
-          const { data, error } = await analysisSupabase.rpc('exec_sql', {
-            query: `
-              SELECT COUNT(DISTINCT p.id)::integer as count
-              FROM prospectos p
-              LEFT JOIN (
-                SELECT prospecto_id, MAX(timestamp) as ultima_interaccion
-                FROM mensajes_whatsapp
-                GROUP BY prospecto_id
-              ) mw ON p.id = mw.prospecto_id
-              WHERE (
-                mw.ultima_interaccion IS NULL 
-                OR mw.ultima_interaccion < '${cutoffISO}'::timestamptz
-              )
-              ${whereClause}
-            `
-          });
-          
-          if (error) {
-            console.error('Error counting with dias_sin_contacto:', error);
-            // Fallback a conteo simple sin filtro de días
-            const fallbackQuery = await analysisSupabase
-              .from('prospectos')
-              .select('id', { count: 'exact', head: true });
-            setProspectCount(fallbackQuery.count || 0);
-          } else {
-            setProspectCount(data?.[0]?.count || 0);
-          }
-        } else {
-          // Conteo simple sin filtro de días sin contacto
-          let query = analysisSupabase
-            .from('prospectos')
-            .select('id', { count: 'exact', head: true });
-          
-          if (formData.etapa) {
-            query = query.eq('etapa', formData.etapa);
-          }
-          
-          if (formData.estado_civil) {
-            query = query.eq('estado_civil', formData.estado_civil);
-          }
-          
-          if (formData.viaja_con && formData.viaja_con.length > 0) {
-            query = query.in('viaja_con', formData.viaja_con);
-          }
-          
-          if (formData.destinos && formData.destinos.length > 0) {
-            query = query.overlaps('destino_preferencia', formData.destinos);
-          }
-          
-          // Filtro de tiene_email
-          if (formData.tiene_email === true) {
-            query = query.not('email', 'is', null).neq('email', '');
-          } else if (formData.tiene_email === false) {
-            query = query.or('email.is.null,email.eq.');
-          }
-          
-          // Filtro de etiquetas (necesita join con whatsapp_conversation_labels)
-          // Por ahora, si hay etiquetas seleccionadas, hacemos una consulta separada
-          if (formData.etiquetas && formData.etiquetas.length > 0) {
-            // Obtener IDs de prospectos que tienen alguna de las etiquetas seleccionadas
-            const { data: labeledProspects } = await supabaseSystemUI
-              .from('whatsapp_conversation_labels')
+          while (hasMore) {
+            const { data: recentContacts, error: recentError } = await analysisSupabase
+              .from('mensajes_whatsapp')
               .select('prospecto_id')
-              .in('label_id', formData.etiquetas)
-              .eq('label_type', 'preset');
+              .gte('fecha_hora', cutoffISO)
+              .range(offset, offset + pageSize - 1);
             
-            if (labeledProspects && labeledProspects.length > 0) {
-              const prospectoIds = [...new Set(labeledProspects.map(lp => lp.prospecto_id))];
-              query = query.in('id', prospectoIds);
+            if (recentError) {
+              console.error('❌ Error consultando mensajes_whatsapp:', recentError);
+              hasMore = false;
+            } else if (recentContacts && recentContacts.length > 0) {
+              const ids = recentContacts.map(c => c.prospecto_id).filter(Boolean);
+              allRecentProspectIds = [...allRecentProspectIds, ...ids];
+              offset += pageSize;
+              hasMore = recentContacts.length === pageSize;
             } else {
-              // No hay prospectos con esas etiquetas
-              setProspectCount(0);
-              setCountingProspects(false);
-              return;
+              hasMore = false;
             }
           }
           
-          const { count, error } = await query;
+          // Eliminar duplicados
+          excludeProspectoIds = [...new Set(allRecentProspectIds)] as string[];
+          console.log(`📊 Total mensajes procesados: ${allRecentProspectIds.length}`);
+          console.log(`📊 Prospectos únicos con actividad reciente (a EXCLUIR): ${excludeProspectoIds.length}`);
+        }
+        
+        // Paso 2: Obtener IDs filtrados por etiquetas si aplica
+        let labelFilteredIds: string[] | null = null;
+        
+        if (formData.etiquetas && formData.etiquetas.length > 0) {
+          const { data: labeledProspects } = await supabaseSystemUI
+            .from('whatsapp_conversation_labels')
+            .select('prospecto_id')
+            .in('label_id', formData.etiquetas)
+            .eq('label_type', 'preset');
           
-          if (error) {
-            console.error('Error counting prospectos:', error);
-            setProspectCount(0);
+          if (labeledProspects && labeledProspects.length > 0) {
+            labelFilteredIds = [...new Set(labeledProspects.map(lp => lp.prospecto_id))] as string[];
           } else {
+            // No hay prospectos con esas etiquetas
+            setProspectCount(0);
+            setCountingProspects(false);
+            return;
+          }
+        }
+        
+        // Paso 3: Construir query principal
+        let query = analysisSupabase
+          .from('prospectos')
+          .select('id', { count: 'exact', head: true });
+        
+        // Filtro de etapas (múltiples)
+        if (formData.etapas && formData.etapas.length > 0) {
+          query = query.in('etapa', formData.etapas);
+        }
+        
+        // Filtro de estado civil
+        if (formData.estado_civil) {
+          query = query.eq('estado_civil', formData.estado_civil);
+        }
+        
+        // Filtro de viaja con
+        if (formData.viaja_con && formData.viaja_con.length > 0) {
+          query = query.in('viaja_con', formData.viaja_con);
+        }
+        
+        // Filtro de destinos
+        if (formData.destinos && formData.destinos.length > 0) {
+          query = query.overlaps('destino_preferencia', formData.destinos);
+        }
+        
+        // Filtro de tiene email
+        if (formData.tiene_email === true) {
+          query = query.not('email', 'is', null).neq('email', '');
+        } else if (formData.tiene_email === false) {
+          query = query.or('email.is.null,email.eq.');
+        }
+        
+        // Filtro de viaja con menores (cantidad_menores > 0)
+        if (formData.con_menores === true) {
+          query = query.gt('cantidad_menores', 0);
+        } else if (formData.con_menores === false) {
+          query = query.or('cantidad_menores.is.null,cantidad_menores.eq.0');
+        }
+        
+        // Aplicar filtro de etiquetas
+        if (labelFilteredIds !== null) {
+          query = query.in('id', labelFilteredIds);
+        }
+        
+        // Excluir prospectos con contacto reciente (días sin contacto)
+        // Nota: Supabase no soporta .not().in() directamente, así que primero obtenemos todos
+        // y luego filtramos en memoria si hay muchos, o usamos lógica diferente
+        
+        const { count, error, data } = await query;
+        
+        if (error) {
+          console.error('Error counting prospectos:', error);
+          setProspectCount(0);
+        } else {
+          // Si hay filtro de días sin contacto, necesitamos restar los excluidos
+          if (excludeProspectoIds.length > 0 && count && count > 0) {
+            // Re-hacer la query obteniendo IDs para comparar
+            let idsQuery = analysisSupabase
+              .from('prospectos')
+              .select('id');
+            
+            if (formData.etapas && formData.etapas.length > 0) {
+              idsQuery = idsQuery.in('etapa', formData.etapas);
+            }
+            if (formData.estado_civil) {
+              idsQuery = idsQuery.eq('estado_civil', formData.estado_civil);
+            }
+            if (formData.viaja_con && formData.viaja_con.length > 0) {
+              idsQuery = idsQuery.in('viaja_con', formData.viaja_con);
+            }
+            if (formData.destinos && formData.destinos.length > 0) {
+              idsQuery = idsQuery.overlaps('destino_preferencia', formData.destinos);
+            }
+            if (formData.tiene_email === true) {
+              idsQuery = idsQuery.not('email', 'is', null).neq('email', '');
+            } else if (formData.tiene_email === false) {
+              idsQuery = idsQuery.or('email.is.null,email.eq.');
+            }
+            if (formData.con_menores === true) {
+              idsQuery = idsQuery.gt('cantidad_menores', 0);
+            } else if (formData.con_menores === false) {
+              idsQuery = idsQuery.or('cantidad_menores.is.null,cantidad_menores.eq.0');
+            }
+            if (labelFilteredIds !== null) {
+              idsQuery = idsQuery.in('id', labelFilteredIds);
+            }
+            
+            const { data: allIds } = await idsQuery;
+            
+            if (allIds) {
+              const filteredCount = allIds.filter(p => !excludeProspectoIds.includes(p.id)).length;
+              setProspectCount(filteredCount);
+            } else {
+              setProspectCount(count || 0);
+            }
+          } else {
+            // Verificar si hay filtro de días sin contacto pero no hay contactos recientes
+            // Esto significa que TODOS los prospectos cumplen (ninguno tiene contacto reciente)
+            if (formData.dias_sin_contacto && formData.dias_sin_contacto > 0) {
+              // Verificar que existan mensajes en la tabla para validar
+              const cutoffDate = new Date();
+              cutoffDate.setDate(cutoffDate.getDate() - formData.dias_sin_contacto);
+              
+              const { count: totalMessagesRecent } = await analysisSupabase
+                .from('mensajes_whatsapp')
+                .select('*', { count: 'exact', head: true })
+                .gte('fecha_hora', cutoffDate.toISOString());
+              
+              console.log(`📊 Días sin contacto: ${formData.dias_sin_contacto}d, mensajes recientes: ${totalMessagesRecent}, prospectos filtrados: ${count}`);
+            }
             setProspectCount(count || 0);
           }
         }
@@ -1046,7 +1173,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     
     const timer = setTimeout(countProspects, 300);
     return () => clearTimeout(timer);
-  }, [formData.etapa, formData.destinos, formData.estado_civil, formData.viaja_con, formData.dias_sin_contacto, formData.tiene_email, formData.etiquetas, isOpen]);
+  }, [formData.etapas, formData.destinos, formData.estado_civil, formData.viaja_con, formData.dias_sin_contacto, formData.tiene_email, formData.con_menores, formData.etiquetas, isOpen]);
 
   const handleSubmit = async () => {
     if (!formData.nombre.trim()) {
@@ -1060,10 +1187,12 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       const audienceData: any = {
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion?.trim() || null,
-        etapa: formData.etapa || null,
+        etapas: formData.etapas?.length ? formData.etapas : null,
+        etapa: formData.etapas?.length === 1 ? formData.etapas[0] : null, // Compatibilidad legacy
         estado_civil: formData.estado_civil || null,
         dias_sin_contacto: formData.dias_sin_contacto || null,
         tiene_email: formData.tiene_email,
+        con_menores: formData.con_menores,
         prospectos_count: prospectCount,
         is_active: true,
       };
@@ -1102,12 +1231,13 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       setFormData({
         nombre: '',
         descripcion: '',
-        etapa: null,
+        etapas: [],
         destinos: [],
         estado_civil: null,
         viaja_con: [],
         dias_sin_contacto: null,
         tiene_email: null,
+        con_menores: null,
         etiquetas: [],
       });
       
@@ -1242,27 +1372,64 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                 />
               </div>
 
+              {/* Etapas (Multi-select) - Sección completa */}
+              <div className="space-y-2">
+                <label className="flex items-center justify-between text-xs font-medium text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center space-x-2">
+                    <Tag className="w-4 h-4" />
+                    <span>Etapas del Prospecto</span>
+                  </div>
+                  {(formData.etapas?.length || 0) > 0 && (
+                    <span className="text-purple-600 dark:text-purple-400">
+                      {formData.etapas?.length} seleccionadas
+                    </span>
+                  )}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {PROSPECTO_ETAPAS.map((etapa) => {
+                    const isSelected = formData.etapas?.includes(etapa.value) || false;
+                    return (
+                      <button
+                        key={etapa.value}
+                        type="button"
+                        onClick={() => {
+                          const currentEtapas = formData.etapas || [];
+                          if (isSelected) {
+                            setFormData({ 
+                              ...formData, 
+                              etapas: currentEtapas.filter(e => e !== etapa.value) 
+                            });
+                          } else {
+                            setFormData({ 
+                              ...formData, 
+                              etapas: [...currentEtapas, etapa.value] 
+                            });
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-2 border-purple-400'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-purple-300'
+                        }`}
+                      >
+                        {isSelected && '✓ '}{etapa.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {(formData.etapas?.length || 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, etapas: [] })}
+                    className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Limpiar selección
+                  </button>
+                )}
+              </div>
+
               {/* Grid de criterios */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Etapa */}
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-                    <Tag className="w-4 h-4" />
-                    <span>Etapa del Prospecto</span>
-                  </label>
-                  <select
-                    value={formData.etapa || ''}
-                    onChange={(e) => setFormData({ ...formData, etapa: e.target.value as ProspectoEtapa || null })}
-                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-                  >
-                    <option value="">No aplica</option>
-                    {PROSPECTO_ETAPAS.map((etapa) => (
-                      <option key={etapa.value} value={etapa.value}>
-                        {etapa.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
                 {/* Estado Civil */}
                 <div className="space-y-2">
@@ -1272,7 +1439,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                   </label>
                   <select
                     value={formData.estado_civil || ''}
-                    onChange={(e) => setFormData({ ...formData, estado_civil: e.target.value as EstadoCivil || null })}
+                    onChange={(e) => setFormData({ ...formData, estado_civil: e.target.value ? e.target.value as EstadoCivil : null })}
                     className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
                   >
                     <option value="">No aplica</option>
@@ -1291,11 +1458,22 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                       <MapPin className="w-4 h-4" />
                       <span>Destinos Preferidos</span>
                     </div>
-                    {(formData.destinos?.length || 0) > 0 && (
-                      <span className="text-blue-600 dark:text-blue-400">
-                        {formData.destinos?.length} seleccionados
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {(formData.destinos?.length || 0) > 0 && (
+                        <>
+                          <span className="text-blue-600 dark:text-blue-400">
+                            {formData.destinos?.length} seleccionados
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, destinos: [] })}
+                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            Limpiar
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {DESTINOS.map((destino) => {
@@ -1328,15 +1506,27 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                       Viaja Con
                     </h4>
                   </div>
-                  {(formData.viaja_con?.length || 0) > 0 && (
-                    <span className="text-xs text-purple-600 dark:text-purple-400">
-                      {formData.viaja_con?.length} seleccionados
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {((formData.viaja_con?.length || 0) > 0 || formData.con_menores !== null) && (
+                      <>
+                        <span className="text-xs text-purple-600 dark:text-purple-400">
+                          {(formData.viaja_con?.length || 0) + (formData.con_menores !== null ? 1 : 0)} filtros
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, viaja_con: [], con_menores: null })}
+                          className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                        >
+                          Limpiar
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {VIAJA_CON_OPTIONS.map((tipo) => {
+                  {/* Botones normales de Viaja Con (sin Hijos) */}
+                  {VIAJA_CON_OPTIONS.filter(tipo => tipo.value !== 'Hijos').map((tipo) => {
                     const Icon = getIconForViajaCon(tipo.value);
                     const isSelected = formData.viaja_con?.includes(tipo.value);
                     return (
@@ -1357,6 +1547,45 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                       </button>
                     );
                   })}
+                  
+                  {/* Botón especial "Menores" con 3 estados */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Ciclo de 3 estados: null → true → false → null
+                      if (formData.con_menores === null) {
+                        setFormData({ ...formData, con_menores: true });
+                      } else if (formData.con_menores === true) {
+                        setFormData({ ...formData, con_menores: false });
+                      } else {
+                        setFormData({ ...formData, con_menores: null });
+                      }
+                    }}
+                    className={`p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center gap-1 ${
+                      formData.con_menores === true
+                        ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/30'
+                        : formData.con_menores === false
+                          ? 'border-slate-500 bg-slate-50 dark:bg-slate-900/30'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <Baby className={`w-5 h-5 ${
+                      formData.con_menores === true 
+                        ? 'text-pink-600 dark:text-pink-400' 
+                        : formData.con_menores === false
+                          ? 'text-slate-600 dark:text-slate-400'
+                          : 'text-gray-500 dark:text-gray-400'
+                    }`} />
+                    <span className={`text-xs font-medium ${
+                      formData.con_menores === true 
+                        ? 'text-pink-700 dark:text-pink-300' 
+                        : formData.con_menores === false
+                          ? 'text-slate-700 dark:text-slate-300'
+                          : 'text-gray-600 dark:text-gray-400'
+                    }`}>
+                      {formData.con_menores === true ? 'Con menores' : formData.con_menores === false ? 'Sin menores' : 'Menores'}
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -1499,7 +1728,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, tiene_email: formData.tiene_email === null ? null : null })}
+                    onClick={() => setFormData({ ...formData, tiene_email: null })}
                     className={`flex-1 px-4 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
                       formData.tiene_email === null
                         ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/30'
@@ -1613,11 +1842,20 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                     animate={{ opacity: 1, height: 'auto' }}
                     className="p-3 bg-violet-50 dark:bg-violet-900/20 rounded-lg border border-violet-200 dark:border-violet-800"
                   >
-                    <div className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-300">
-                      <Bookmark className="w-4 h-4" />
-                      <span>
-                        Se incluirán prospectos con <strong>cualquiera</strong> de las {formData.etiquetas?.length} etiquetas seleccionadas
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-300">
+                        <Bookmark className="w-4 h-4" />
+                        <span>
+                          Se incluirán prospectos con <strong>cualquiera</strong> de las {formData.etiquetas?.length} etiquetas seleccionadas
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, etiquetas: [] })}
+                        className="text-xs text-violet-600 dark:text-violet-400 hover:underline"
+                      >
+                        Limpiar
+                      </button>
                     </div>
                   </motion.div>
                 )}
