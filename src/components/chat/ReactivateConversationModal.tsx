@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles, AlertTriangle, Calendar, Clock, Ban } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles, AlertTriangle, Calendar, Clock, Ban, Lightbulb } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService, type TemplateSendLimits } from '../../services/whatsappTemplatesService';
 import type { WhatsAppTemplate } from '../../types/whatsappTemplates';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { getApiToken } from '../../services/apiTokensService';
+import { whatsappTemplateSuggestionsService, type SuggestionStats } from '../../services/whatsappTemplateSuggestionsService';
 
 interface ReactivateConversationModalProps {
   isOpen: boolean;
@@ -52,6 +54,9 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   // ⚠️ PROTECCIÓN CONTRA DUPLICADOS
   const isSendingRef = useRef(false);
   const [sendingSuccess, setSendingSuccess] = useState(false);
+  
+  // Estado anterior del sidebar para restaurarlo al cerrar
+  const previousSidebarStateRef = useRef<boolean | null>(null);
   const [preview, setPreview] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [destinos, setDestinos] = useState<Array<{ id: string; nombre: string }>>([]);
@@ -70,6 +75,18 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     resortId?: string;
   }>>({});
 
+  // Estado para formulario de sugerencia
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false);
+  const [suggestionName, setSuggestionName] = useState('');
+  const [suggestionText, setSuggestionText] = useState('');
+  const [suggestionJustification, setSuggestionJustification] = useState('');
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionStats, setSuggestionStats] = useState<SuggestionStats | null>(null);
+  const [hoverSuggestButton, setHoverSuggestButton] = useState(false);
+  
+  // Filtro "Mis plantillas" - muestra plantillas sugeridas por el usuario actual
+  const [showMyTemplatesOnly, setShowMyTemplatesOnly] = useState(false);
+
   // Cargar límites de envío
   const loadSendLimits = async () => {
     if (!prospectoData?.id) return;
@@ -85,6 +102,42 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     }
   };
 
+  // Manejar colapso del sidebar al abrir/cerrar el modal
+  useEffect(() => {
+    if (isOpen) {
+      // Guardar estado actual del sidebar
+      const mainContent = document.querySelector('.flex-1.flex.flex-col');
+      const wasCollapsed = mainContent?.classList.contains('lg:ml-16') || false;
+      previousSidebarStateRef.current = wasCollapsed;
+      
+      // Colapsar sidebar si está expandido
+      if (!wasCollapsed) {
+        // Disparar evento personalizado para colapsar sidebar
+        window.dispatchEvent(new CustomEvent('collapse-sidebar'));
+      }
+    } else {
+      // Restaurar estado anterior del sidebar al cerrar
+      if (previousSidebarStateRef.current !== null) {
+        if (!previousSidebarStateRef.current) {
+          // El sidebar estaba expandido, restaurarlo
+          window.dispatchEvent(new CustomEvent('expand-sidebar'));
+        }
+        previousSidebarStateRef.current = null;
+      }
+    }
+  }, [isOpen]);
+
+  // Cargar estadísticas de sugerencias
+  const loadSuggestionStats = async () => {
+    if (!user?.id) return;
+    try {
+      const stats = await whatsappTemplateSuggestionsService.getSuggestionStats(user.id);
+      setSuggestionStats(stats);
+    } catch (error) {
+      console.error('Error cargando estadísticas de sugerencias:', error);
+    }
+  };
+
   // Cargar plantillas y audiencias al abrir el modal
   useEffect(() => {
     if (isOpen) {
@@ -95,12 +148,17 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       setSendingSuccess(false);
       setSendLimits(null);
       setSelectedTemplateBlocked({ blocked: false, reason: null });
+      setShowSuggestionForm(false);
+      setSuggestionName('');
+      setSuggestionText('');
+      setSuggestionJustification('');
       loadTemplates();
       loadAudiences();
       loadDestinos();
       loadSendLimits();
+      loadSuggestionStats();
     }
-  }, [isOpen, prospectoData?.id]);
+  }, [isOpen, prospectoData?.id, user?.id]);
 
   // Cargar resorts cuando se selecciona un destino
   useEffect(() => {
@@ -268,9 +326,51 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     return avgScore;
   }, [audiences, calculateAudienceMatchScore]);
 
+  // Verificar si el prospecto cumple con los requisitos de las variables de una plantilla
+  const canProspectFulfillTemplate = useCallback((template: WhatsAppTemplate): boolean => {
+    if (!prospectoData) return true; // Si no hay datos de prospecto, mostrar todas
+    
+    // Normalizar variable_mappings
+    let variableMappings: any[] = [];
+    if (template.variable_mappings) {
+      if (Array.isArray(template.variable_mappings)) {
+        variableMappings = template.variable_mappings;
+      } else if (typeof template.variable_mappings === 'object' && 'mappings' in template.variable_mappings) {
+        const mappingsObj = template.variable_mappings as { mappings?: any[] };
+        variableMappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
+      }
+    }
+    
+    // Si no hay mapeos, asumir que puede cumplir
+    if (variableMappings.length === 0) return true;
+    
+    // Verificar cada mapeo
+    for (const mapping of variableMappings) {
+      if (mapping.table_name === 'prospectos') {
+        const fieldValue = prospectoData[mapping.field_name];
+        // Si el campo es requerido y está vacío, el prospecto no puede cumplir
+        if (fieldValue === null || fieldValue === undefined || fieldValue === '') {
+          return false;
+        }
+      }
+      // Variables de sistema siempre se pueden cumplir
+      // Variables de destinos/resorts se pueden seleccionar manualmente
+    }
+    
+    return true;
+  }, [prospectoData]);
+
   // Filtrar y ordenar plantillas
   const filteredAndSortedTemplates = useMemo(() => {
     let filtered = templates;
+
+    // Filtrar por plantillas que el prospecto puede cumplir
+    filtered = filtered.filter(t => canProspectFulfillTemplate(t));
+
+    // Filtrar por "Mis plantillas" (sugeridas por el usuario actual)
+    if (showMyTemplatesOnly && user?.id) {
+      filtered = filtered.filter(t => t.suggested_by === user.id);
+    }
 
     // Filtrar por búsqueda
     if (searchTerm.trim()) {
@@ -291,7 +391,13 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     templatesWithScores.sort((a, b) => b.score - a.score);
 
     return templatesWithScores.map(item => item.template);
-  }, [templates, searchTerm, calculateTemplateMatchScore]);
+  }, [templates, searchTerm, calculateTemplateMatchScore, showMyTemplatesOnly, user?.id, canProspectFulfillTemplate]);
+  
+  // Contar plantillas sugeridas por el usuario
+  const myTemplatesCount = useMemo(() => {
+    if (!user?.id) return 0;
+    return templates.filter(t => t.suggested_by === user.id).length;
+  }, [templates, user?.id]);
 
   // Verificar si una plantilla es recomendada (score > 50%)
   const isTemplateRecommended = useCallback((template: WhatsAppTemplate) => {
@@ -316,6 +422,11 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
 
   const handleSelectTemplate = async (template: WhatsAppTemplate) => {
     setSelectedTemplate(template);
+    
+    // Si el formulario de sugerencia está abierto, cerrarlo (los datos se mantienen en caché)
+    if (showSuggestionForm) {
+      setShowSuggestionForm(false);
+    }
     
     // Inicializar variables con valores por defecto
     const initialVars: Record<number, any> = {};
@@ -370,6 +481,18 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       variableMappings.forEach(mapping => {
       if (mapping.table_name === 'prospectos' && prospectoData) {
         let value = prospectoData[mapping.field_name];
+        
+        // Fallbacks especiales para campos que pueden tener alternativas
+        if ((value === null || value === undefined || value === '') && mapping.field_name === 'titulo') {
+          // Si no hay título, usar primer_nombre o nombre como fallback
+          value = prospectoData.primer_nombre || prospectoData.nombre || 
+                  (prospectoData.nombre_completo?.split(' ')[0]) || '';
+        }
+        if ((value === null || value === undefined || value === '') && mapping.field_name === 'primer_nombre') {
+          // Si no hay primer_nombre, usar nombre o parte del nombre_completo
+          value = prospectoData.nombre || (prospectoData.nombre_completo?.split(' ')[0]) || '';
+        }
+        
         if (value === null || value === undefined) {
           value = '';
         } else if (Array.isArray(value)) {
@@ -446,8 +569,11 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       allVariablesInText.forEach(varNum => {
         if (prospectoData) {
           if (varNum === 1) {
+            // Intentar obtener título, si no hay usar el primer nombre
+            const titulo = prospectoData.titulo || prospectoData.nombre || prospectoData.primer_nombre || 
+                          (prospectoData.nombre_completo?.split(' ')[0]) || '';
             initialVars[varNum] = {
-              value: prospectoData.titulo || prospectoData.nombre_completo?.split(' ')[0] || '',
+              value: titulo,
               type: 'prospecto',
             };
           } else if (varNum === 2) {
@@ -915,16 +1041,71 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     }
   };
 
-  if (!isOpen) return null;
+  // Manejar envío de sugerencia
+  const handleSubmitSuggestion = async () => {
+    if (!user?.id || !suggestionName.trim() || !suggestionText.trim() || !suggestionJustification.trim()) {
+      toast.error('Por favor completa todos los campos');
+      return;
+    }
 
-  return (
+    try {
+      setSuggestionLoading(true);
+      await whatsappTemplateSuggestionsService.createSuggestion(
+        {
+          name: suggestionName,
+          template_text: suggestionText,
+          justification: suggestionJustification,
+          conversation_id: conversation.id,
+          available_variables: ['titulo', 'primer_nombre', 'primer_apellido', 'ejecutivo_nombre', 'fecha_actual'],
+        },
+        user.id
+      );
+
+      toast.success('Sugerencia enviada exitosamente. Será revisada por un administrador.');
+      setShowSuggestionForm(false);
+      setSuggestionName('');
+      setSuggestionText('');
+      setSuggestionJustification('');
+      loadSuggestionStats();
+    } catch (error: any) {
+      console.error('Error enviando sugerencia:', error);
+      toast.error(error.message || 'Error al enviar la sugerencia');
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
+
+  // Insertar variable en el texto de sugerencia
+  const insertVariable = (variable: string) => {
+    const variablePlaceholder = `{{${variable}}}`;
+    const textarea = document.getElementById('suggestion-text') as HTMLTextAreaElement;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = suggestionText;
+      const newText = text.substring(0, start) + variablePlaceholder + text.substring(end);
+      setSuggestionText(newText);
+      // Restaurar cursor después de la variable insertada
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + variablePlaceholder.length, start + variablePlaceholder.length);
+      }, 0);
+    } else {
+      setSuggestionText(suggestionText + variablePlaceholder);
+    }
+  };
+
+  if (!isOpen || typeof document === 'undefined') return null;
+
+  const modalContent = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[100]"
+        className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4"
+        style={{ zIndex: 10000 }}
         onClick={onClose}
       >
         <motion.div
@@ -937,8 +1118,9 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         >
           {/* Header */}
           <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-6">
+              {/* Lado izquierdo - Título */}
+              <div className="flex-1">
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Reactivar Conversación con Plantilla
                 </h3>
@@ -946,12 +1128,74 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                   {prospectoEtapa && `Etapa del prospecto: ${prospectoEtapa}`}
                 </p>
               </div>
+
+              {/* Lado derecho - Botón cerrar */}
               <button
                 onClick={onClose}
                 className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Sección de Sugerencias - Grid organizado */}
+            <div className="mt-5 p-4 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                {/* Botón de sugerir plantilla */}
+                <motion.button
+                  onMouseEnter={() => setHoverSuggestButton(true)}
+                  onMouseLeave={() => setHoverSuggestButton(false)}
+                  onClick={() => {
+                    setShowSuggestionForm(true);
+                    setSelectedTemplate(null);
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="relative overflow-hidden px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium text-sm transition-all duration-300 shadow-lg shadow-purple-500/25"
+                >
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={hoverSuggestButton ? 'suggest' : 'not-found'}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      <Lightbulb className="w-4 h-4" />
+                      <span>{hoverSuggestButton ? 'Sugiere una plantilla' : '¿No encuentras una plantilla?'}</span>
+                      <Sparkles className="w-4 h-4" />
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.button>
+
+                {/* Contadores de Sugerencias con Grid */}
+                {suggestionStats && (
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs font-medium text-purple-700 dark:text-purple-400 uppercase tracking-wide">
+                      Mis sugerencias:
+                    </span>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-white/80 dark:bg-gray-800/80 border border-blue-200 dark:border-blue-800">
+                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{suggestionStats.total}</span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Total</span>
+                      </div>
+                      <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-white/80 dark:bg-gray-800/80 border border-amber-200 dark:border-amber-800">
+                        <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{suggestionStats.pending}</span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Pendientes</span>
+                      </div>
+                      <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-white/80 dark:bg-gray-800/80 border border-green-200 dark:border-green-800">
+                        <span className="text-lg font-bold text-green-600 dark:text-green-400">{suggestionStats.approved}</span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Aprobadas</span>
+                      </div>
+                      <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-white/80 dark:bg-gray-800/80 border border-red-200 dark:border-red-800">
+                        <span className="text-lg font-bold text-red-600 dark:text-red-400">{suggestionStats.rejected}</span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Rechazadas</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Indicadores de Límites de Envío */}
@@ -1066,7 +1310,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
             {/* Panel izquierdo - Lista de plantillas */}
             <div className="w-[45%] border-r border-gray-200 dark:border-gray-800 flex flex-col">
               {/* Filtro de búsqueda */}
-              <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-800 space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
@@ -1077,6 +1321,32 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                     className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
                   />
                 </div>
+                
+                {/* Filtro "Mis plantillas" */}
+                {myTemplatesCount > 0 && (
+                  <motion.button
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    onClick={() => setShowMyTemplatesOnly(!showMyTemplatesOnly)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      showMyTemplatesOnly
+                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-2 border-purple-300 dark:border-purple-700'
+                        : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Star className={`w-4 h-4 ${showMyTemplatesOnly ? 'fill-purple-500 text-purple-500' : ''}`} />
+                      <span>Mis plantillas sugeridas</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      showMyTemplatesOnly
+                        ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}>
+                      {myTemplatesCount}
+                    </span>
+                  </motion.button>
+                )}
               </div>
 
               {/* Lista de plantillas */}
@@ -1221,9 +1491,152 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
               </div>
             </div>
 
-            {/* Panel derecho - Vista previa y variables */}
+            {/* Panel derecho - Vista previa y variables o Formulario de sugerencia */}
             <div className="w-[55%] flex flex-col">
-              {selectedTemplate ? (
+              {showSuggestionForm ? (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key="suggestion-form"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex-1 overflow-y-auto p-6 space-y-6"
+                  >
+                    {/* Header del formulario */}
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Lightbulb className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                          Sugerir Nueva Plantilla
+                        </h4>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Comparte tu idea para una nueva plantilla. Un administrador la revisará y podrá aprobarla o rechazarla.
+                      </p>
+                    </div>
+
+                    {/* Formulario */}
+                    <div className="space-y-4">
+                      {/* Nombre de la plantilla */}
+                      <div>
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                          <span>Nombre de la Plantilla *</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={suggestionName}
+                          onChange={(e) => setSuggestionName(e.target.value)}
+                          placeholder="Ej: Reagendar llamada no exitosa"
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white"
+                        />
+                      </div>
+
+                      {/* Plantilla con variables */}
+                      <div>
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                          <span>Contenido de la Plantilla *</span>
+                        </label>
+                        <div className="mb-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => insertVariable('titulo')}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {'Título ({{titulo}})'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertVariable('primer_nombre')}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {'Primer Nombre ({{primer_nombre}})'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertVariable('primer_apellido')}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {'Primer Apellido ({{primer_apellido}})'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertVariable('ejecutivo_nombre')}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {'Ejecutivo ({{ejecutivo_nombre}})'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertVariable('fecha_actual')}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            {'Fecha ({{fecha_actual}})'}
+                          </button>
+                        </div>
+                        <textarea
+                          id="suggestion-text"
+                          value={suggestionText}
+                          onChange={(e) => setSuggestionText(e.target.value)}
+                          placeholder="Escribe el contenido de tu plantilla aquí. Puedes usar las variables disponibles haciendo clic en los botones de arriba."
+                          rows={8}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white resize-none"
+                        />
+                      </div>
+
+                      {/* Justificación */}
+                      <div>
+                        <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                          <span>Justificación *</span>
+                        </label>
+                        <textarea
+                          value={suggestionJustification}
+                          onChange={(e) => setSuggestionJustification(e.target.value)}
+                          placeholder="Explica por qué esta plantilla sería útil y en qué situaciones se usaría..."
+                          rows={4}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white resize-none"
+                        />
+                      </div>
+
+                      {/* Botones */}
+                      <div className="flex justify-end space-x-3 pt-4">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            setShowSuggestionForm(false);
+                            setSuggestionName('');
+                            setSuggestionText('');
+                            setSuggestionJustification('');
+                          }}
+                          className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                        >
+                          Cancelar
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleSubmitSuggestion}
+                          disabled={suggestionLoading || !suggestionName.trim() || !suggestionText.trim() || !suggestionJustification.trim()}
+                          className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-purple-500/25 flex items-center space-x-2"
+                        >
+                          {suggestionLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Enviando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4" />
+                              <span>Enviar Sugerencia</span>
+                            </>
+                          )}
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              ) : selectedTemplate ? (
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={selectedTemplate.id}
@@ -1545,4 +1958,6 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       </motion.div>
     </AnimatePresence>
   );
+
+  return createPortal(modalContent, document.body);
 };

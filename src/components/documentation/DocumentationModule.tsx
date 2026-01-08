@@ -262,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'p4g7833', date: '2026-01-08', author: 'Team', message: 'v2.2.24: 💬 Sugerencias de Plantillas WhatsApp - Formulario, contadores, importación automática, filtros', isRelease: true },
   { hash: 'o3f6722', date: '2026-01-08', author: 'Team', message: 'v2.2.23: 🛠️ Audiencias - Filtro Menores 3 estados, limpieza de filtros, fix bugs', isRelease: true },
   { hash: 'n2e5611', date: '2026-01-08', author: 'Team', message: 'v2.2.22: 🎯 Audiencias - Filtros email, etiquetas, días sin contacto (mensajes_whatsapp)', isRelease: true },
   { hash: 'm1d4500', date: '2026-01-08', author: 'Team', message: 'v2.2.21: 📢 Campañas A/B - Agrupación visual, barras progreso, N8N integration', isRelease: true },
@@ -342,6 +343,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-066', date: '2026-01-08 22:30', version: 'B7.2.14N7.2.4', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-065', date: '2026-01-08 19:00', version: 'B7.2.13N7.2.3', status: 'success', duration: '18s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-064', date: '2026-01-08 04:10', version: 'B7.2.12N7.2.2', status: 'success', duration: '58s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-063', date: '2026-01-08 03:50', version: 'B7.2.11N7.2.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -405,8 +407,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.23', highlight: true },
-  { label: 'Release', value: 'B7.2.13N7.2.3', highlight: false },
+  { label: 'Version', value: 'v2.2.24', highlight: true },
+  { label: 'Release', value: 'B7.2.14N7.2.4', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '08 Ene 2026', highlight: false },
 ];

@@ -514,24 +514,35 @@ class WhatsAppTemplatesService {
     // Crear a través del webhook (maneja uChat y BD)
     const uchatData = await this.createTemplateInUChat(input);
     
-    // El webhook crea el registro en BD, pero puede que no incluya variable_mappings
-    // Actualizar el registro en BD local con los variable_mappings si existen
-    if (input.variable_mappings && input.variable_mappings.length > 0 && uchatData?.id) {
+    // El webhook crea el registro en BD, pero puede que no incluya variable_mappings o suggested_by
+    // Actualizar el registro en BD local con los datos adicionales
+    const hasAdditionalData = (input.variable_mappings && input.variable_mappings.length > 0) || input.suggested_by;
+    
+    if (hasAdditionalData && uchatData?.id) {
       try {
+        const updateData: Record<string, any> = {
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (input.variable_mappings && input.variable_mappings.length > 0) {
+          updateData.variable_mappings = input.variable_mappings;
+        }
+        
+        if (input.suggested_by) {
+          updateData.suggested_by = input.suggested_by;
+        }
+        
         const { error: updateError } = await analysisSupabase
           .from('whatsapp_templates')
-          .update({
-            variable_mappings: input.variable_mappings,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', uchatData.id);
         
         if (updateError) {
-          console.error('Error actualizando variable_mappings en BD:', updateError);
+          console.error('Error actualizando datos adicionales en BD:', updateError);
           // No lanzar error, solo loguear, ya que la plantilla se creó exitosamente
         }
       } catch (error) {
-        console.error('Error actualizando variable_mappings en BD:', error);
+        console.error('Error actualizando datos adicionales en BD:', error);
         // No lanzar error, solo loguear
       }
     }
@@ -1285,6 +1296,8 @@ class WhatsAppTemplatesService {
             // Valores por defecto si no hay datos
             const defaults: Record<string, Record<string, string>> = {
               prospectos: {
+                titulo: 'Sr.',
+                primer_nombre: 'Juan',
                 nombre: 'Juan',
                 nombre_completo: 'Juan Pérez',
                 apellido_paterno: 'Pérez',

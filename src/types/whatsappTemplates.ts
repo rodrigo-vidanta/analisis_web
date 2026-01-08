@@ -330,6 +330,7 @@ export interface WhatsAppTemplate {
   is_deleted?: boolean; // Campo para soft delete
   description?: string | null;
   created_by?: string | null;
+  suggested_by?: string | null; // ID del usuario que sugirió esta plantilla
   created_at: string;
   updated_at: string;
   variable_mappings?: VariableMapping[];
@@ -344,6 +345,8 @@ export interface CreateTemplateInput {
   variable_mappings?: VariableMapping[];
   // Clasificación de la plantilla (se envía al webhook en array separado)
   classification?: TemplateClassification;
+  // ID del usuario que sugirió esta plantilla (si viene de una sugerencia)
+  suggested_by?: string;
 }
 
 export interface UpdateTemplateInput {

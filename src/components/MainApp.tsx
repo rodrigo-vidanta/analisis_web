@@ -99,6 +99,25 @@ function MainApp() {
       setSidebarCollapsed(true);
     }
   }, [appMode]);
+
+  // Escuchar eventos personalizados para colapsar/expandir sidebar desde modales
+  useEffect(() => {
+    const handleCollapseSidebar = () => {
+      setSidebarCollapsed(true);
+    };
+    
+    const handleExpandSidebar = () => {
+      setSidebarCollapsed(false);
+    };
+
+    window.addEventListener('collapse-sidebar', handleCollapseSidebar);
+    window.addEventListener('expand-sidebar', handleExpandSidebar);
+
+    return () => {
+      window.removeEventListener('collapse-sidebar', handleCollapseSidebar);
+      window.removeEventListener('expand-sidebar', handleExpandSidebar);
+    };
+  }, []);
   
   // Hook de tema para el rediseño
   const { currentTheme, getThemeClasses, isLinearTheme } = useTheme();

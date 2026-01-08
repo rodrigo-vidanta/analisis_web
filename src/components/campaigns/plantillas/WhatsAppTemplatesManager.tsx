@@ -64,6 +64,7 @@ import { Users, Heart, User as UserIcon, UserPlus, Users2, Image, Baby } from 'l
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { ErrorModal } from '../../shared/ErrorModal';
 import { DeleteTemplateConfirmationModal } from '../../shared/DeleteTemplateConfirmationModal';
+import TemplateSuggestionsTab from './TemplateSuggestionsTab';
 
 /**
  * ============================================
@@ -81,6 +82,8 @@ import { DeleteTemplateConfirmationModal } from '../../shared/DeleteTemplateConf
 
 const WhatsAppTemplatesManager: React.FC = () => {
   const { user } = useAuth();
+  const [mainTab, setMainTab] = useState<'templates' | 'suggestions'>('templates');
+  const [importingSuggestion, setImportingSuggestion] = useState<TemplateSuggestion | null>(null);
   
   // Variables predefinidas del sistema disponibles
   const systemVariables = [
@@ -727,12 +730,6 @@ const WhatsAppTemplatesManager: React.FC = () => {
         errors.invalidBodyChars = true;
       }
 
-      // Validar audiencias seleccionadas
-      const hasAudiences = formData.classification?.audience_ids && formData.classification.audience_ids.length > 0;
-      if (!hasAudiences) {
-        errors.noAudiences = true;
-      }
-
       // Validar mapeos de variables (solo si hay variables)
       const allText = formData.components.map(c => c.text || '').join(' ');
       const hasVariables = /\{\{\d+\}\}/.test(allText);
@@ -804,6 +801,22 @@ const WhatsAppTemplatesManager: React.FC = () => {
         console.log('➕ [handleSave] Creando nueva plantilla...');
         const result = await whatsappTemplatesService.createTemplate(formData);
         console.log('✅ [handleSave] Plantilla creada:', result);
+        
+        // Si se está importando desde una sugerencia, vincularla
+        if (importingSuggestion) {
+          try {
+            await whatsappTemplateSuggestionsService.linkSuggestionToTemplate(
+              importingSuggestion.id,
+              result.id
+            );
+            console.log('✅ [handleSave] Sugerencia vinculada a plantilla');
+          } catch (linkError: any) {
+            console.error('⚠️ [handleSave] Error vinculando sugerencia:', linkError);
+            // No fallar el guardado si hay error al vincular
+          }
+          setImportingSuggestion(null);
+        }
+        
         toast.success('Plantilla creada exitosamente');
       }
 
@@ -1164,18 +1177,136 @@ const WhatsAppTemplatesManager: React.FC = () => {
     );
   }
 
+  // Manejar importación de sugerencia a plantilla
+  const handleImportSuggestionToTemplate = (suggestion: TemplateSuggestion) => {
+    // Guardar la sugerencia que se está importando
+    setImportingSuggestion(suggestion);
+    
+    // Mapeo de nombres de variable a configuración de mapeo
+    const variableNameToMapping: Record<string, { table_name: string; field_name: string; display_name: string }> = {
+      'titulo': { table_name: 'prospectos', field_name: 'titulo', display_name: 'Título' },
+      'primer_nombre': { table_name: 'prospectos', field_name: 'primer_nombre', display_name: 'Primer Nombre' },
+      'primer_apellido': { table_name: 'prospectos', field_name: 'apellido_paterno', display_name: 'Primer Apellido' },
+      'ejecutivo_nombre': { table_name: 'system', field_name: 'ejecutivo_nombre', display_name: 'Nombre Ejecutivo' },
+      'fecha_actual': { table_name: 'system', field_name: 'fecha_actual', display_name: 'Fecha Actual' },
+    };
+    
+    // Extraer variables del texto de sugerencia y reemplazar por {{1}}, {{2}}, etc.
+    let processedText = suggestion.template_text;
+    const variableMappings: VariableMapping[] = [];
+    let variableCounter = 1;
+    
+    // Buscar todas las variables con formato {{variable_name}}
+    const variableRegex = /\{\{(\w+)\}\}/g;
+    const foundVariables: string[] = [];
+    let match;
+    
+    // Primero encontrar todas las variables únicas
+    while ((match = variableRegex.exec(suggestion.template_text)) !== null) {
+      const varName = match[1];
+      if (!foundVariables.includes(varName)) {
+        foundVariables.push(varName);
+      }
+    }
+    
+    // Reemplazar cada variable única y crear mapeo
+    foundVariables.forEach(varName => {
+      const mappingConfig = variableNameToMapping[varName];
+      if (mappingConfig) {
+        // Reemplazar todas las ocurrencias de {{varName}} por {{variableCounter}}
+        const varRegex = new RegExp(`\\{\\{${varName}\\}\\}`, 'g');
+        processedText = processedText.replace(varRegex, `{{${variableCounter}}}`);
+        
+        // Crear el mapeo
+        variableMappings.push({
+          variable_number: variableCounter,
+          table_name: mappingConfig.table_name,
+          field_name: mappingConfig.field_name,
+          display_name: mappingConfig.display_name,
+        });
+        
+        variableCounter++;
+      }
+    });
+    
+    // Sanitizar el nombre de la plantilla:
+    // - Convertir a minúsculas
+    // - Reemplazar espacios por guiones bajos
+    // - Eliminar acentos y caracteres especiales
+    // - Solo permitir letras, números y guiones bajos
+    const sanitizedName = suggestion.name
+      .toLowerCase()
+      .normalize('NFD') // Separar caracteres con acentos
+      .replace(/[\u0300-\u036f]/g, '') // Eliminar acentos
+      .replace(/\s+/g, '_') // Reemplazar espacios por guiones bajos
+      .replace(/[^a-z0-9_]/g, '') // Solo letras, números y guiones bajos
+      .replace(/_+/g, '_') // Eliminar guiones bajos duplicados
+      .replace(/^_|_$/g, ''); // Eliminar guiones bajos al inicio y final
+    
+    // Preparar datos del formulario con la sugerencia
+    // Incluimos suggested_by para rastrear quién sugirió la plantilla
+    setFormData({
+      name: sanitizedName,
+      language: 'es_MX',
+      category: 'MARKETING',
+      components: [
+        {
+          type: 'BODY',
+          text: processedText, // Texto con variables convertidas a {{1}}, {{2}}, etc.
+        }
+      ],
+      description: suggestion.justification,
+      variable_mappings: variableMappings, // Mapeos generados automáticamente
+      classification: { audience_ids: [] },
+      suggested_by: suggestion.suggested_by, // ID del usuario que sugirió la plantilla
+    });
+    
+    // Cambiar a tab de plantillas y abrir modal de creación
+    setMainTab('templates');
+    setIsModalOpen(true);
+    setEditingTemplate(null);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header con acciones */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Plantillas WhatsApp
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Gestiona y crea plantillas de mensajes para uChat
-          </p>
+      {/* Tabs principales */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <div className="flex space-x-8">
+          <button
+            onClick={() => setMainTab('templates')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              mainTab === 'templates'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Plantillas
+          </button>
+          <button
+            onClick={() => setMainTab('suggestions')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              mainTab === 'suggestions'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Sugerencias
+          </button>
         </div>
+      </div>
+
+      {mainTab === 'templates' ? (
+        <>
+          {/* Header con acciones */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Plantillas WhatsApp
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Gestiona y crea plantillas de mensajes para uChat
+              </p>
+            </div>
         <div className="flex items-center gap-3">
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -1717,6 +1848,11 @@ const WhatsAppTemplatesManager: React.FC = () => {
       />
 
       {/* Modal de error para errores 400 */}
+        </>
+      ) : (
+        <TemplateSuggestionsTab onImportToTemplate={handleImportSuggestionToTemplate} />
+      )}
+
       <ErrorModal
         isOpen={showErrorModal}
         onClose={() => setShowErrorModal(false)}
@@ -2368,7 +2504,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
   validationErrors = {},
   onValidationErrorsChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<'content' | 'variables' | 'audience' | 'preview'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'variables' | 'preview'>('content');
   const [showPreviewContent, setShowPreviewContent] = useState(false);
 
   const variables = getAllVariables();
@@ -2442,9 +2578,8 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                         <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
                         <span className="text-xs font-medium text-red-700 dark:text-red-300">
                           {validationErrors.unmappedVariables && `Variables sin mapear`}
-                          {validationErrors.noAudiences && (validationErrors.unmappedVariables ? ', ' : '') + `Sin audiencias`}
-                          {validationErrors.emptyName && ((validationErrors.unmappedVariables || validationErrors.noAudiences) ? ', ' : '') + `Nombre requerido`}
-                          {validationErrors.invalidBodyChars && ((validationErrors.unmappedVariables || validationErrors.noAudiences || validationErrors.emptyName) ? ', ' : '') + `Caracteres inválidos`}
+                          {validationErrors.emptyName && (validationErrors.unmappedVariables ? ', ' : '') + `Nombre requerido`}
+                          {validationErrors.invalidBodyChars && ((validationErrors.unmappedVariables || validationErrors.emptyName) ? ', ' : '') + `Caracteres inválidos`}
                         </span>
                       </motion.div>
                     )}
@@ -2459,7 +2594,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
 
                 {/* Tabs */}
                 <div className="flex space-x-1 border-b border-gray-200 dark:border-gray-700">
-                  {(['content', 'variables', 'audience', 'preview'] as const).map((tab) => (
+                  {(['content', 'variables', 'preview'] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -2471,7 +2606,6 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                     >
                       {tab === 'content' && 'Contenido'}
                       {tab === 'variables' && `Variables (${variables.length})`}
-                      {tab === 'audience' && 'Audiencia'}
                       {tab === 'preview' && 'Vista Previa'}
                     </button>
                   ))}
@@ -2639,23 +2773,6 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                     components={formData.components}
                     validationErrors={validationErrors}
                     onValidationErrorsChange={onValidationErrorsChange}
-                  />
-                )}
-
-                {activeTab === 'audience' && (
-                  <AudienceSelectorTab
-                    selectedAudienceIds={formData.classification?.audience_ids || []}
-                    onSelectionChange={(audience_ids) => {
-                      setFormData({ 
-                        ...formData, 
-                        classification: { audience_ids } 
-                      });
-                      // Limpiar error de audiencias si se seleccionan
-                      if (validationErrors.noAudiences && audience_ids.length > 0) {
-                        onValidationErrorsChange?.({ ...validationErrors, noAudiences: false });
-                      }
-                    }}
-                    hasError={validationErrors.noAudiences}
                   />
                 )}
 
@@ -4852,7 +4969,7 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
   systemVariables,
   audiences,
 }) => {
-  const [activeTab, setActiveTab] = useState<'description' | 'audience' | 'variables'>('description');
+  const [activeTab, setActiveTab] = useState<'description' | 'variables'>('description');
   const [originalFormData, setOriginalFormData] = useState<typeof formData | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -5016,7 +5133,7 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
               {/* Tabs */}
               <div className="px-8 pt-4 border-b border-gray-100 dark:border-gray-800">
                 <div className="flex space-x-1">
-                  {(['description', 'audience', 'variables'] as const).map((tab) => (
+                  {(['description', 'variables'] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -5027,7 +5144,6 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
                       }`}
                     >
                       {tab === 'description' && 'Descripción'}
-                      {tab === 'audience' && `Audiencia${formData.audience_ids.length > 0 ? ` (${formData.audience_ids.length})` : ''}`}
                       {tab === 'variables' && `Variables (${variables.length})`}
                     </button>
                   ))}
@@ -5055,21 +5171,6 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
                         className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 min-h-[100px] resize-y"
                       />
                     </div>
-                  </motion.div>
-                )}
-
-                {/* Audiencias */}
-                {activeTab === 'audience' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <AudienceSelectorTab
-                      selectedAudienceIds={formData.audience_ids}
-                      onSelectionChange={(audience_ids) => {
-                        setFormData(prev => ({ ...prev, audience_ids }));
-                      }}
-                    />
                   </motion.div>
                 )}
 
