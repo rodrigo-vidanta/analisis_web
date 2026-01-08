@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
+import { PhoneText } from '../shared/PhoneDisplay';
 
 interface Prospecto {
   id: string;
@@ -25,6 +26,7 @@ interface Prospecto {
   email?: string;
   telefono_principal?: string;
   etapa?: string;
+  id_dynamics?: string; // Campo necesario para visibilidad de teléfono
   score?: string;
   campana_origen?: string;
   ciudad_residencia?: string;
@@ -52,6 +54,7 @@ interface ProspectosKanbanProps {
   getScoreColor: (score: string) => string;
   onLoadMoreForColumn?: (etapa: string) => void;
   columnLoadingStates?: Record<string, { loading: boolean; page: number; hasMore: boolean }>;
+  etapaTotals?: Record<string, number>;
 }
 
 // Checkpoints fijos - ORDEN CORRECTO: Es miembro, Activo PQNC, Validando membresia, En seguimiento, Interesado, Atendió llamada, Con ejecutivo, Certificado adquirido
@@ -161,7 +164,8 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   onToggleColumnCollapse,
   getScoreColor,
   onLoadMoreForColumn,
-  columnLoadingStates = {}
+  columnLoadingStates = {},
+  etapaTotals = {}
 }) => {
   const [ultimosMensajes, setUltimosMensajes] = useState<Record<string, string>>({});
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -361,6 +365,16 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
         return [];
     }
   };
+  
+  // Obtener el total real de prospectos para un checkpoint (desde BD, no del batch)
+  const getTotalForCheckpoint = (checkpoint: CheckpointKey): number => {
+    const etapas = getEtapasForCheckpoint(checkpoint);
+    let total = 0;
+    etapas.forEach(etapa => {
+      total += etapaTotals[etapa] || 0;
+    });
+    return total;
+  };
 
   // Agrupar prospectos por checkpoint
   const prospectosPorCheckpoint = useMemo(() => {
@@ -523,7 +537,11 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
           {prospecto.whatsapp && (
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
               <Phone size={10} />
-              <span className="font-mono truncate">{prospecto.whatsapp}</span>
+              <PhoneText 
+                phone={prospecto.whatsapp} 
+                prospecto={prospecto}
+                className="truncate"
+              />
             </div>
           )}
           {prospecto.ciudad_residencia && (
@@ -655,16 +673,39 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                           {checkpoint.description}
                         </p>
                       </div>
-                      <div className={`w-6 h-6 ${checkpoint.color} rounded-full flex items-center justify-center text-white text-xs font-bold ml-2 flex-shrink-0`}>
-                        {prospectosCheckpoint.length}
-                      </div>
+                      {/* Mostrar total real, con indicador de cargados si hay diferencia */}
+                      {(() => {
+                        const totalReal = getTotalForCheckpoint(checkpointKey);
+                        const cargados = prospectosCheckpoint.length;
+                        const hasTotalReal = totalReal > 0;
+                        const showDiff = hasTotalReal && cargados < totalReal;
+                        return (
+                          <div className="flex flex-col items-end ml-2 flex-shrink-0">
+                            <div className={`min-w-6 h-6 px-1.5 ${checkpoint.color} rounded-full flex items-center justify-center text-white text-xs font-bold`}>
+                              {hasTotalReal ? totalReal : cargados}
+                            </div>
+                            {showDiff && (
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                {cargados} cargados
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full w-full relative">
-                      {/* Contador arriba, en posición normal */}
-                      <div className={`w-6 h-6 ${checkpoint.color} rounded-full flex items-center justify-center text-white text-xs font-bold absolute top-2`}>
-                        {prospectosCheckpoint.length}
-                      </div>
+                      {/* Contador arriba - mostrar total real */}
+                      {(() => {
+                        const totalReal = getTotalForCheckpoint(checkpointKey);
+                        const cargados = prospectosCheckpoint.length;
+                        const hasTotalReal = totalReal > 0;
+                        return (
+                          <div className={`min-w-6 h-6 px-1.5 ${checkpoint.color} rounded-full flex items-center justify-center text-white text-xs font-bold absolute top-2`}>
+                            {hasTotalReal ? totalReal : cargados}
+                          </div>
+                        );
+                      })()}
                       {/* Título rotado 90° y centrado */}
                       <div className="flex-1 flex items-center justify-center w-full">
                         <h3 

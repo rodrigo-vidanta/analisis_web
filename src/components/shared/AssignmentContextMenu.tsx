@@ -1,11 +1,17 @@
 /**
  * Componente de menú contextual para asignar prospectos a ejecutivos
  * Se muestra al hacer clic derecho sobre un prospecto o conversación
+ * 
+ * ACTUALIZACIÓN (Enero 2025):
+ * - Coordinadores normales ahora tienen campo de búsqueda (solo su coordinación)
+ * - Modal de loading bloqueante durante reasignación (no se puede cerrar)
+ * - Reasignación directa sin necesidad de desasignar primero
+ * - Callback para actualizar propietario silenciosamente en UI
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Users, X, Check, Search } from 'lucide-react';
+import { User, Users, X, Check, Search, Loader2, AlertCircle } from 'lucide-react';
 import { coordinacionService, type Ejecutivo } from '../../services/coordinacionService';
 import { assignmentService } from '../../services/assignmentService';
 import { prospectsService } from '../../services/prospectsService';
@@ -28,7 +34,16 @@ interface AssignmentContextMenuProps {
   isOpen: boolean;
   position: { x: number; y: number };
   onClose: () => void;
-  onAssignmentComplete?: () => void;
+  onAssignmentComplete?: (
+    newEjecutivoId: string, 
+    newEjecutivoName: string,
+    ejecutivoData?: {
+      coordinacion_id?: string;
+      coordinacion_codigo?: string;
+      coordinacion_nombre?: string;
+      ejecutivo_email?: string;
+    }
+  ) => void;
 }
 
 export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
@@ -57,6 +72,10 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   const [pendingEjecutivoId, setPendingEjecutivoId] = useState<string | null>(null);
   // Estado local para el ejecutivo asignado (se actualiza después de asignar)
   const [currentEjecutivoId, setCurrentEjecutivoId] = useState<string | undefined>(initialEjecutivoId);
+  
+  // Estado para modal de loading bloqueante durante reasignación
+  const [isReassigning, setIsReassigning] = useState(false);
+  const [reassigningToName, setReassigningToName] = useState<string>('');
   
   // Verificar si el usuario es administrador, administrador operativo o coordinador (usando permisos efectivos)
   const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
@@ -316,8 +335,9 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       // Primero intentar con ejecutivos activos
       let ejecutivosData = await coordinacionService.getEjecutivosByCoordinacion(coordinacionId);
       
-      // Si el usuario es coordinador, también cargar coordinadores de la misma coordinación
+      // Si el usuario es coordinador, también cargar coordinadores y supervisores de la misma coordinación
       if (isCoordinador && !isAdmin && !isAdminOperativo) {
+        // Cargar coordinadores
         try {
           const coordinadoresData = await coordinacionService.getCoordinadoresByCoordinacion(coordinacionId);
           
@@ -346,7 +366,28 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           
           ejecutivosData = [...ejecutivosData, ...coordinadoresMarcados];
         } catch (coordError) {
+          console.warn('Error cargando coordinadores:', coordError);
           // Continuar solo con ejecutivos si falla cargar coordinadores
+        }
+        
+        // Cargar supervisores de la misma coordinación
+        try {
+          const supervisoresData = await coordinacionService.getSupervisoresByCoordinacion(coordinacionId);
+          
+          // Agregar supervisores a la lista (marcarlos como supervisores para diferenciarlos)
+          const supervisoresMarcados = supervisoresData.map(sup => ({
+            ...sup,
+            is_supervisor: true
+          }));
+          
+          // Evitar duplicados (un supervisor podría ya estar en la lista de ejecutivos)
+          const idsExistentes = new Set(ejecutivosData.map(e => e.id));
+          const supervisoresSinDuplicar = supervisoresMarcados.filter(s => !idsExistentes.has(s.id));
+          
+          ejecutivosData = [...ejecutivosData, ...supervisoresSinDuplicar];
+        } catch (supError) {
+          console.warn('Error cargando supervisores:', supError);
+          // Continuar sin supervisores si falla cargar
         }
       }
       
@@ -388,6 +429,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   };
 
   // Función interna para ejecutar la asignación (sin validación)
+  // ACTUALIZACIÓN: Modal de loading bloqueante + timeout optimista de 30 segundos
+  // Si no hay error en los primeros 30 segundos, asumimos éxito y actualizamos UI
   const executeAssignment = async (ejecutivoIdToAssign: string) => {
     console.log('🚀 executeAssignment iniciado:', ejecutivoIdToAssign);
     console.log('📋 Estado actual:', {
@@ -398,74 +441,61 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       isAdminOperativo
     });
     
-    setAssigning(ejecutivoIdToAssign);
-    try {
-      // Obtener el ejecutivo seleccionado para obtener su coordinación
-      console.log('🔍 Buscando ejecutivo en lista:', ejecutivoIdToAssign);
-      const ejecutivoSeleccionado = ejecutivos.find(e => e.id === ejecutivoIdToAssign);
-      
-      if (!ejecutivoSeleccionado) {
-        console.error('❌ Ejecutivo no encontrado en lista');
-        console.log('📋 Ejecutivos disponibles:', ejecutivos.map(e => ({ id: e.id, name: e.full_name })));
-        toast.error('Ejecutivo no encontrado');
-        setAssigning(null);
-        return;
-      }
+    // Obtener el ejecutivo seleccionado primero para mostrar el nombre en el loading
+    const ejecutivoSeleccionado = ejecutivos.find(e => e.id === ejecutivoIdToAssign);
+    
+    if (!ejecutivoSeleccionado) {
+      console.error('❌ Ejecutivo no encontrado en lista');
+      console.log('📋 Ejecutivos disponibles:', ejecutivos.map(e => ({ id: e.id, name: e.full_name })));
+      toast.error('Ejecutivo no encontrado');
+      return;
+    }
 
+    // Activar modal de loading bloqueante
+    setReassigningToName(ejecutivoSeleccionado.full_name || 'usuario seleccionado');
+    setIsReassigning(true);
+    setAssigning(ejecutivoIdToAssign);
+    
+    // Variables para el timeout optimista
+    let hasError = false;
+    let hasCompleted = false;
+    let optimisticTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    
+    // Determinar la coordinación a usar ANTES del try-catch
+    let coordinacionIdToUse: string | undefined;
+    
+    try {
       console.log('✅ Ejecutivo encontrado:', {
         id: ejecutivoSeleccionado.id,
         name: ejecutivoSeleccionado.full_name,
         coordinacion_id: ejecutivoSeleccionado.coordinacion_id
       });
 
-      // Determinar la coordinación a usar
-      let coordinacionIdToUse: string;
-      
       if (isAdmin || isAdminOperativo || isCoordinadorCalidad) {
         console.log('👤 Usuario admin/admin operativo/coord. calidad, usando coordinación del ejecutivo');
-        // Admin, Admin Operativo y Coordinadores de Calidad: usar la coordinación del ejecutivo seleccionado
         if (!ejecutivoSeleccionado.coordinacion_id) {
           console.error('❌ Ejecutivo no tiene coordinación asignada');
           toast.error('El ejecutivo seleccionado no tiene coordinación asignada');
+          setIsReassigning(false);
           setAssigning(null);
           return;
         }
-        
-        // Verificar que la coordinación del ejecutivo esté activa (con manejo de errores robusto)
         coordinacionIdToUse = ejecutivoSeleccionado.coordinacion_id;
-        console.log('🔍 Verificando coordinación:', coordinacionIdToUse);
-        
-        // Verificación de coordinación opcional (no bloquea la asignación)
-        // IMPORTANTE: Admin, Admin Operativo y Coordinadores de Calidad pueden asignar a coordinaciones no activas
-        try {
-          console.log('🔍 Verificando coordinación:', coordinacionIdToUse);
-          const coordinacion = await coordinacionService.getCoordinacionById(coordinacionIdToUse);
-          console.log('📋 Coordinación obtenida:', coordinacion ? { id: coordinacion.id, nombre: coordinacion.nombre, is_active: coordinacion.is_active, archivado: coordinacion.archivado } : 'null');
-          
-          if (coordinacion && (!coordinacion.is_active || coordinacion.archivado)) {
-            console.log('ℹ️ Coordinación no está activa o está archivada, pero admin/admin operativo/coord. calidad puede asignar de todas formas');
-            // No bloquear la asignación - pueden asignar a cualquier coordinación
-          }
-          console.log('✅ Verificación de coordinación completada');
-        } catch (coordError) {
-          console.warn('⚠️ No se pudo verificar el estado de la coordinación, continuando con la asignación:', coordError);
-          // Si falla la verificación, continuar de todas formas (el ejecutivo tiene coordinación asignada)
-        }
       } else {
         console.log('👤 Usuario coordinador, usando coordinación propia');
-        // Coordinador: usar su propia coordinación
         if (!currentCoordinacionId) {
           console.error('❌ No hay coordinación del coordinador');
           toast.error('No se puede asignar: falta coordinación del coordinador');
+          setIsReassigning(false);
           setAssigning(null);
           return;
         }
         coordinacionIdToUse = currentCoordinacionId;
-        console.log('✅ Usando coordinación del coordinador:', coordinacionIdToUse);
       }
 
       // Si ya tiene ejecutivo asignado, es una reasignación
-      const reason = currentEjecutivoId
+      const isReasignacion = !!currentEjecutivoId;
+      const reason = isReasignacion
         ? `Reasignación desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : isAdminOperativo ? ' (Admin Operativo)' : ''}`
         : `Asignación manual desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : isAdminOperativo ? ' (Admin Operativo)' : ''}`;
 
@@ -474,9 +504,50 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         coordinacionIdToUse,
         ejecutivoIdToAssign,
         assignedBy: user!.id,
-        reason
+        reason,
+        isReasignacion
       });
 
+      // ============================================
+      // TIMEOUT OPTIMISTA: 30 segundos
+      // Si no hay error en 30 segundos, asumimos éxito
+      // ============================================
+      const OPTIMISTIC_TIMEOUT_MS = 30000; // 30 segundos
+      
+      optimisticTimeoutId = setTimeout(() => {
+        if (!hasError && !hasCompleted) {
+          console.log('⏱️ Timeout optimista alcanzado (30s) - Asumiendo éxito y actualizando UI');
+          hasCompleted = true;
+          
+          // Actualizar el estado local del ejecutivo asignado
+          setCurrentEjecutivoId(ejecutivoIdToAssign);
+          
+          // Mostrar toast de éxito (optimista)
+          toast.success(
+            `Prospecto ${isReasignacion ? 'reasignado' : 'asignado'} a ${ejecutivoSeleccionado.full_name}`,
+            { duration: 3000 }
+          );
+          
+          // Llamar al callback de completado con el nuevo ejecutivo y datos adicionales
+          onAssignmentComplete?.(
+            ejecutivoIdToAssign, 
+            ejecutivoSeleccionado.full_name || '',
+            {
+              coordinacion_id: coordinacionIdToUse,
+              coordinacion_codigo: ejecutivoSeleccionado.coordinacion_codigo,
+              coordinacion_nombre: ejecutivoSeleccionado.coordinacion_nombre,
+              ejecutivo_email: ejecutivoSeleccionado.email,
+            }
+          );
+          
+          // Cerrar el modal
+          setIsReassigning(false);
+          setAssigning(null);
+          onClose();
+        }
+      }, OPTIMISTIC_TIMEOUT_MS);
+
+      // Ejecutar la asignación real
       const result = await assignmentService.assignProspectManuallyToEjecutivo(
         prospectId,
         coordinacionIdToUse,
@@ -487,29 +558,77 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
       console.log('📦 Resultado de asignación:', result);
 
+      // Cancelar el timeout optimista si ya respondió
+      if (optimisticTimeoutId) {
+        clearTimeout(optimisticTimeoutId);
+        optimisticTimeoutId = null;
+      }
+
       if (!result.success) {
+        hasError = true;
         throw new Error(result.error || result.message || 'Error desconocido al asignar prospecto');
       }
+
+      // Si ya se completó por timeout optimista, no hacer nada más
+      if (hasCompleted) {
+        console.log('✅ La UI ya fue actualizada por timeout optimista');
+        return;
+      }
+
+      hasCompleted = true;
 
       // Actualizar el estado local del ejecutivo asignado
       setCurrentEjecutivoId(ejecutivoIdToAssign);
       console.log('✅ Ejecutivo asignado actualizado localmente:', ejecutivoIdToAssign);
 
-      toast.success('Prospecto asignado exitosamente');
+      // Mostrar toast de éxito
+      toast.success(
+        isReasignacion 
+          ? `Prospecto reasignado a ${ejecutivoSeleccionado.full_name}` 
+          : `Prospecto asignado a ${ejecutivoSeleccionado.full_name}`,
+        { duration: 3000 }
+      );
       
-      // Llamar al callback de completado antes de cerrar
-      onAssignmentComplete?.();
+      // Llamar al callback de completado con el nuevo ejecutivo y datos adicionales
+      onAssignmentComplete?.(
+        ejecutivoIdToAssign, 
+        ejecutivoSeleccionado.full_name || '',
+        {
+          coordinacion_id: coordinacionIdToUse,
+          coordinacion_codigo: ejecutivoSeleccionado.coordinacion_codigo,
+          coordinacion_nombre: ejecutivoSeleccionado.coordinacion_nombre,
+          ejecutivo_email: ejecutivoSeleccionado.email,
+        }
+      );
       
       // Cerrar el modal después de un pequeño delay para que el usuario vea el cambio
       setTimeout(() => {
+        setIsReassigning(false);
         onClose();
       }, 500);
     } catch (error) {
+      hasError = true;
+      
+      // Cancelar el timeout optimista si hay error
+      if (optimisticTimeoutId) {
+        clearTimeout(optimisticTimeoutId);
+        optimisticTimeoutId = null;
+      }
+      
+      // Si ya se completó por timeout optimista, no mostrar error
+      if (hasCompleted) {
+        console.warn('⚠️ Error después de timeout optimista (ignorado para UI):', error);
+        return;
+      }
+      
       console.error('❌ Error al asignar prospecto:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido al asignar prospecto';
       toast.error(`Error al asignar prospecto: ${errorMessage}`);
+      setIsReassigning(false);
     } finally {
-      setAssigning(null);
+      if (!hasCompleted) {
+        setAssigning(null);
+      }
     }
   };
 
@@ -730,21 +849,32 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
             </div>
           ) : (
             <>
-              {/* Campo de búsqueda (para administradores, admin operativo y coordinadores de Calidad) */}
-              {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
-                <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar ejecutivo por nombre..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                    />
-                  </div>
+              {/* Campo de búsqueda (disponible para todos los roles con acceso) */}
+              {/* Coordinadores normales: buscan solo en su coordinación */}
+              {/* Admin/Admin Operativo/Coord. Calidad: buscan en todas las coordinaciones */}
+              <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder={
+                      (isAdmin || isAdminOperativo || isCoordinadorCalidad)
+                        ? "Buscar en todas las coordinaciones..."
+                        : "Buscar en mi coordinación..."
+                    }
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  />
                 </div>
-              )}
+                {/* Indicador de contexto de búsqueda para coordinadores normales */}
+                {isCoordinador && !isAdmin && !isAdminOperativo && !isCoordinadorCalidad && currentCoordinacionId && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                    <Users className="w-3 h-3 mr-1" />
+                    Solo ejecutivos, supervisores y coordinadores de tu coordinación
+                  </p>
+                )}
+              </div>
               
               {filteredEjecutivos.length === 0 ? (
             <div className="p-6 text-center">
@@ -770,19 +900,22 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
             </div>
           ) : (
             <div className="py-2">
-              {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && searchTerm && (
+              {/* Mostrar contador de resultados cuando hay búsqueda activa */}
+              {searchTerm && (
                 <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
                   {filteredEjecutivos.length} {filteredEjecutivos.length === 1 ? 'usuario encontrado' : 'usuarios encontrados'}
                 </div>
               )}
-              {currentEjecutivoId && (
+              {/* Botón Desasignar: SOLO para admin, admin operativo y coordinadores de Calidad */}
+              {/* Coordinadores normales solo pueden reasignar directamente */}
+              {currentEjecutivoId && (isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     handleUnassign();
                   }}
-                  disabled={assigning === 'unassign'}
+                  disabled={assigning === 'unassign' || isReassigning}
                   className="w-full px-4 py-2.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {assigning === 'unassign' ? (
@@ -858,6 +991,11 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
                               Coordinador
                             </span>
                           )}
+                          {(ejecutivo as any).is_supervisor && !isCurrentUser && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                              Supervisor
+                            </span>
+                          )}
                         </div>
                         {!isCurrentUser && (
                           <>
@@ -918,6 +1056,69 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           }}
         />
       )}
+
+      {/* Modal de Loading Bloqueante durante Reasignación */}
+      {/* Este modal NO se puede cerrar hasta que termine el proceso */}
+      {/* z-[9999] para estar por encima de TODOS los sidebars y modales */}
+      <AnimatePresence>
+        {isReassigning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-md flex items-center justify-center"
+            // No hay onClick para cerrar - es bloqueante
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-sm mx-4 text-center"
+            >
+              {/* Spinner animado */}
+              <div className="relative w-16 h-16 mx-auto mb-6">
+                <div className="absolute inset-0 rounded-full border-4 border-purple-200 dark:border-purple-900"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-purple-600 animate-spin"></div>
+                <Loader2 className="absolute inset-0 m-auto w-6 h-6 text-purple-600 animate-pulse" />
+              </div>
+              
+              {/* Mensaje */}
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Reasignando prospecto
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Transfiriendo a <span className="font-medium text-purple-600 dark:text-purple-400">{reassigningToName}</span>
+              </p>
+              
+              {/* Indicador de progreso visual */}
+              <div className="flex items-center justify-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+                <AlertCircle className="w-4 h-4" />
+                <span>Este proceso incluye actualización en CRM</span>
+              </div>
+              
+              {/* Barra de progreso indeterminada */}
+              <div className="mt-4 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                  initial={{ x: '-100%' }}
+                  animate={{ x: '100%' }}
+                  transition={{ 
+                    repeat: Infinity, 
+                    duration: 1.5, 
+                    ease: 'easeInOut' 
+                  }}
+                  style={{ width: '50%' }}
+                />
+              </div>
+              
+              {/* Mensaje de advertencia */}
+              <p className="mt-4 text-xs text-amber-600 dark:text-amber-400">
+                Por favor, no cierre esta ventana
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

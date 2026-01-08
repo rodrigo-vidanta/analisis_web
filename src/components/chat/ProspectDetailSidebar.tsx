@@ -34,6 +34,7 @@ import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
+import { PhoneDisplay } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
 
 interface CallHistory {
@@ -91,6 +92,7 @@ interface ProspectData {
   nombre_conyuge?: string;
   campana_origen?: string;
   etapa?: string;
+  id_dynamics?: string; // Campo necesario para visibilidad de teléfono
   score?: string;
   ingresos?: string;
   interes_principal?: string;
@@ -595,22 +597,26 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                        <MessageSquare className="w-3 h-3 inline mr-1" />
-                        WhatsApp
-                      </label>
-                      <div className="text-gray-900 dark:text-white font-mono text-xs">
-                        {prospecto.whatsapp || 'No disponible'}
-                      </div>
+                      <PhoneDisplay
+                        phone={prospecto.whatsapp}
+                        prospecto={prospecto}
+                        label="WhatsApp"
+                        showLabel
+                        showIcon
+                        size="xs"
+                        copyable
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                        <Phone className="w-3 h-3 inline mr-1" />
-                        Teléfono
-                      </label>
-                      <div className="text-gray-900 dark:text-white font-mono text-xs">
-                        {prospecto.telefono_principal || 'No disponible'}
-                      </div>
+                      <PhoneDisplay
+                        phone={prospecto.telefono_principal}
+                        prospecto={prospecto}
+                        label="Teléfono"
+                        showLabel
+                        showIcon
+                        size="xs"
+                        copyable
+                      />
                     </div>
                     
                     {prospecto.edad && (

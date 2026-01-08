@@ -11,6 +11,7 @@ import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
+import { PhoneDisplay } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
 import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 
@@ -46,6 +47,7 @@ interface ProspectoData {
   nombre_conyuge?: string;
   campana_origen?: string;
   etapa?: string;
+  id_dynamics?: string; // Campo necesario para visibilidad de teléfono
   score?: string;
   ingresos?: string;
   interes_principal?: string;
@@ -362,12 +364,24 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                         <div className="text-gray-900 dark:text-white font-mono">{prospecto.email || 'No disponible'}</div>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">WhatsApp</label>
-                        <div className="text-gray-900 dark:text-white font-mono">{prospecto.whatsapp || 'No disponible'}</div>
+                        <PhoneDisplay
+                          phone={prospecto.whatsapp}
+                          prospecto={prospecto}
+                          label="WhatsApp"
+                          showLabel
+                          size="sm"
+                          copyable
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
-                        <div className="text-gray-900 dark:text-white font-mono">{prospecto.telefono_principal || 'No disponible'}</div>
+                        <PhoneDisplay
+                          phone={prospecto.telefono_principal}
+                          prospecto={prospecto}
+                          label="Teléfono"
+                          showLabel
+                          size="sm"
+                          copyable
+                        />
                       </div>
                       
                       {prospecto.edad && (

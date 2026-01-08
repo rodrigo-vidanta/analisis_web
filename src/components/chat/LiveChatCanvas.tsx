@@ -66,6 +66,7 @@ import { ParaphraseModal } from './ParaphraseModal';
 import { botPauseService } from '../../services/botPauseService';
 import { Pause } from 'lucide-react';
 import { ProspectDetailSidebar } from './ProspectDetailSidebar';
+import { PhoneDisplay } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
 import ModerationService from '../../services/moderationService';
 import ParaphraseLogService from '../../services/paraphraseLogService';
@@ -6526,8 +6527,95 @@ const LiveChatCanvas: React.FC = () => {
           isOpen={!!assignmentContextMenu}
           position={assignmentContextMenu.position}
           onClose={() => setAssignmentContextMenu(null)}
-          onAssignmentComplete={() => {
-            loadConversations('', false); // Recargar sin reset
+          onAssignmentComplete={(newEjecutivoId?: string, newEjecutivoName?: string, ejecutivoData?: {
+            coordinacion_id?: string;
+            coordinacion_codigo?: string;
+            coordinacion_nombre?: string;
+            ejecutivo_email?: string;
+          }) => {
+            // Si hay nuevo ejecutivo, actualizar silenciosamente
+            if (newEjecutivoId && assignmentContextMenu.prospectId) {
+              const prospectoData = prospectosDataRef.current.get(assignmentContextMenu.prospectId);
+              if (prospectoData) {
+                prospectosDataRef.current.set(assignmentContextMenu.prospectId, {
+                  ...prospectoData,
+                  ejecutivo_id: newEjecutivoId,
+                  coordinacion_id: ejecutivoData?.coordinacion_id || prospectoData.coordinacion_id,
+                });
+              }
+              
+              // Actualizar metadata de la conversación si está seleccionada (header)
+              if (selectedConversation?.prospecto_id === assignmentContextMenu.prospectId) {
+                setSelectedConversation(prev => prev ? {
+                  ...prev,
+                  metadata: {
+                    ...prev.metadata,
+                    ejecutivo_id: newEjecutivoId,
+                    ejecutivo_nombre: newEjecutivoName,
+                    ejecutivo_email: ejecutivoData?.ejecutivo_email,
+                    coordinacion_id: ejecutivoData?.coordinacion_id,
+                    coordinacion_codigo: ejecutivoData?.coordinacion_codigo,
+                    coordinacion_nombre: ejecutivoData?.coordinacion_nombre,
+                  }
+                } : null);
+              }
+              
+              // Actualizar metadata en la lista de conversaciones para reflejar el cambio
+              setConversations(prev => prev.map(conv => {
+                if (conv.prospecto_id === assignmentContextMenu.prospectId || conv.id === assignmentContextMenu.prospectId) {
+                  return {
+                    ...conv,
+                    metadata: {
+                      ...conv.metadata,
+                      ejecutivo_id: newEjecutivoId,
+                      ejecutivo_nombre: newEjecutivoName,
+                      ejecutivo_email: ejecutivoData?.ejecutivo_email,
+                      coordinacion_id: ejecutivoData?.coordinacion_id,
+                      coordinacion_codigo: ejecutivoData?.coordinacion_codigo,
+                      coordinacion_nombre: ejecutivoData?.coordinacion_nombre,
+                    }
+                  };
+                }
+                return conv;
+              }));
+            } else if (!newEjecutivoId && assignmentContextMenu.prospectId) {
+              // Desasignación: actualizar silenciosamente removiendo el ejecutivo
+              const prospectoData = prospectosDataRef.current.get(assignmentContextMenu.prospectId);
+              if (prospectoData) {
+                prospectosDataRef.current.set(assignmentContextMenu.prospectId, {
+                  ...prospectoData,
+                  ejecutivo_id: undefined,
+                });
+              }
+              
+              if (selectedConversation?.prospecto_id === assignmentContextMenu.prospectId) {
+                setSelectedConversation(prev => prev ? {
+                  ...prev,
+                  metadata: {
+                    ...prev.metadata,
+                    ejecutivo_id: undefined,
+                    ejecutivo_nombre: undefined,
+                    ejecutivo_email: undefined,
+                  }
+                } : null);
+              }
+              
+              // Actualizar en la lista también
+              setConversations(prev => prev.map(conv => {
+                if (conv.prospecto_id === assignmentContextMenu.prospectId || conv.id === assignmentContextMenu.prospectId) {
+                  return {
+                    ...conv,
+                    metadata: {
+                      ...conv.metadata,
+                      ejecutivo_id: undefined,
+                      ejecutivo_nombre: undefined,
+                      ejecutivo_email: undefined,
+                    }
+                  };
+                }
+                return conv;
+              }));
+            }
             setAssignmentContextMenu(null);
           }}
         />
@@ -6673,25 +6761,26 @@ const LiveChatCanvas: React.FC = () => {
                       } as any}
                       variant="compact"
                     />
-                    {/* Teléfono clickeable */}
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const phone = selectedConversation.customer_phone || selectedConversation.numero_telefono;
-                        if (phone) {
-                          try {
-                            await navigator.clipboard.writeText(phone);
-                            toast.success('Teléfono copiado al portapapeles');
-                          } catch (error) {
-                            toast.error('Error al copiar teléfono');
-                          }
-                        }
-                      }}
-                      className="hover:text-slate-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer"
-                      title="Click para copiar teléfono"
-                    >
-                      {selectedConversation.customer_phone || selectedConversation.numero_telefono || 'Sin teléfono'}
-                    </button>
+                    {/* Teléfono con control de visibilidad */}
+                    {(() => {
+                      const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
+                      const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                      const phoneProspecto = {
+                        id_dynamics: prospectoData?.id_dynamics || selectedConversation.metadata?.id_dynamics,
+                        etapa: prospectoData?.etapa || selectedConversation.metadata?.etapa,
+                      };
+                      return (
+                        <PhoneDisplay
+                          phone={selectedConversation.customer_phone || selectedConversation.numero_telefono}
+                          prospecto={phoneProspecto}
+                          size="sm"
+                          copyable
+                          inline
+                          textClassName="text-slate-500 dark:text-gray-400"
+                          emptyText="Sin teléfono"
+                        />
+                      );
+                    })()}
                     {/* Separador y Prospecto ID */}
                     {selectedConversation.prospecto_id && (
                       <>

@@ -43,8 +43,8 @@ async function getReasignacionCredentials(): Promise<{ url: string; token: strin
   return cachedReasignacionCredentials;
 }
 
-// Timeout para el webhook (80 segundos - el proceso de Dynamics es tardado)
-const WEBHOOK_TIMEOUT_MS = 80000;
+// Timeout para el webhook (120 segundos / 2 minutos - el proceso de Dynamics puede ser muy tardado)
+const WEBHOOK_TIMEOUT_MS = 120000;
 
 // ============================================
 // INTERFACES
@@ -253,7 +253,7 @@ class DynamicsReasignacionService {
 
   /**
    * Envía la solicitud al webhook de N8N
-   * Incluye timeout de 80 segundos porque el proceso de Dynamics es tardado
+   * Incluye timeout de 120 segundos (2 min) porque el proceso de Dynamics es muy tardado
    * Solo muestra notificación cuando el webhook responde (éxito o error)
    */
   private async enviarWebhook(request: ReasignacionRequest): Promise<ReasignacionResponse> {
@@ -357,10 +357,10 @@ class DynamicsReasignacionService {
         
         // Verificar si fue un timeout
         if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          console.error('⏱️ [DynamicsReasignacion] Timeout - El webhook no respondió en 80 segundos');
+          console.error('⏱️ [DynamicsReasignacion] Timeout - El webhook no respondió en 120 segundos');
           
           toast.error(
-            `⏱️ Timeout: Dynamics no respondió en 80 segundos\nLa reasignación puede haberse completado. Verifica en Dynamics.`,
+            `⏱️ Timeout: Dynamics no respondió en 2 minutos\nLa reasignación puede haberse completado. Verifica en Dynamics.`,
             {
               duration: 10000,
               style: {
@@ -374,7 +374,7 @@ class DynamicsReasignacionService {
 
           return {
             success: false,
-            message: 'Timeout: El webhook no respondió en 80 segundos',
+            message: 'Timeout: El webhook no respondió en 2 minutos',
             error: 'TIMEOUT'
           };
         }

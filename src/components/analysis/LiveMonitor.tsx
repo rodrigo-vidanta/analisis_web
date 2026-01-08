@@ -29,6 +29,7 @@ import { AssignmentBadge } from './AssignmentBadge';
 import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { ProspectAvatar } from './ProspectAvatar';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
+import { PhoneDisplay } from '../shared/PhoneDisplay';
 import { CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 
 // Extender interfaz Prospect para incluir campos de llamada
@@ -3683,7 +3684,13 @@ Debería sonar MUCHO mejor ahora.`);
                         <Phone className="w-3 h-3 mr-1" />
                         Teléfono:
                       </span>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{prospect.whatsapp}</p>
+                      <PhoneDisplay
+                        phone={prospect.whatsapp}
+                        prospecto={prospect}
+                        size="sm"
+                        copyable
+                        textClassName="font-medium text-gray-900 dark:text-white"
+                      />
                     </motion.div>
                     <motion.div
                       initial={{ opacity: 0, x: -10 }}

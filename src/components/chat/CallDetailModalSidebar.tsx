@@ -25,6 +25,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import toast from 'react-hot-toast';
 import { convertUTCToMexicoTime } from '../../utils/timezoneHelper';
+import { PhoneDisplay } from '../shared/PhoneDisplay';
 
 /**
  * ============================================
@@ -1001,10 +1002,15 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                           )}
                           {prospecto.whatsapp && (
                             <div>
-                              <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">WhatsApp</label>
-                              <div className="text-gray-900 dark:text-white font-medium">
-                                {prospecto.whatsapp}
-                              </div>
+                              <PhoneDisplay
+                                phone={prospecto.whatsapp}
+                                prospecto={prospecto}
+                                label="WhatsApp"
+                                showLabel
+                                size="sm"
+                                copyable
+                                textClassName="font-medium text-gray-900 dark:text-white"
+                              />
                             </div>
                           )}
                           {(datosProceso?.numero_personas || prospecto.tamano_grupo) && (

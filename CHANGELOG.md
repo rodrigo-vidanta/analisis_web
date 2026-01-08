@@ -2,6 +2,135 @@
 
 ## [Unreleased]
 
+### 🔐 v2.2.25 (B7.2.15N7.2.5) - Seguridad de Números Telefónicos por Rol [08-01-2026]
+
+#### 🎯 Objetivo Principal
+Implementación de un sistema de control de acceso a números telefónicos de prospectos basado en roles, etapas del prospecto y presencia de `id_dynamics` en CRM Dynamics.
+
+#### 🆕 Nuevos Archivos Creados
+
+**Hook Centralizado de Visibilidad de Teléfonos:**
+- `src/hooks/usePhoneVisibility.ts` - Hook reutilizable que determina si un usuario puede ver el teléfono de un prospecto
+  - Interface `ProspectoPhoneData`: Define los campos mínimos requeridos (`id_dynamics`, `etapa`, `telefono_principal`, `whatsapp`, `telefono_alternativo`)
+  - Función `hasVisibleEtapa()`: Verifica si la etapa permite visibilidad ("Activo PQNC", "Es miembro")
+  - Función `canViewPhone()`: Lógica principal de permisos
+  - Función `formatPhone()`: Enmascara teléfonos no permitidos (ej: `+52 55 **** **34`)
+  - Función `getPhoneField()`: Obtiene el teléfono formateado según permisos
+
+**Componente Reutilizable de Visualización:**
+- `src/components/shared/PhoneDisplay.tsx` - Componente React para mostrar teléfonos
+  - `PhoneDisplay`: Componente completo con estilos y botón de copia
+  - `PhoneText`: Versión simplificada para uso en texto inline
+
+#### 🔒 Reglas de Acceso Implementadas
+
+| Rol | Acceso Global | Condición para Ver Teléfono |
+|-----|---------------|------------------------------|
+| `admin` | ✅ Sí | Siempre puede ver todos los teléfonos |
+| `coordinador_calidad` | ✅ Sí | Siempre puede ver todos los teléfonos |
+| `administrador_operativo` | ❌ No | Solo si `id_dynamics` existe O etapa es "Activo PQNC"/"Es miembro" |
+| `coordinador` | ❌ No | Solo si `id_dynamics` existe O etapa es "Activo PQNC"/"Es miembro" |
+| `supervisor` | ❌ No | Solo si `id_dynamics` existe O etapa es "Activo PQNC"/"Es miembro" |
+| `ejecutivo` | ❌ No | Solo si `id_dynamics` existe O etapa es "Activo PQNC"/"Es miembro" |
+| Otros roles | ❌ No | Nunca pueden ver teléfonos |
+
+#### 📁 Archivos Modificados
+
+**Módulo Prospectos:**
+- `src/components/prospectos/ProspectosManager.tsx` - Sidebar de detalles de prospecto
+- `src/components/prospectos/ProspectosKanban.tsx` - Tarjetas Kanban con teléfono compacto
+
+**Módulo WhatsApp / Chat:**
+- `src/components/chat/ProspectDetailSidebar.tsx` - Sidebar de prospecto en conversaciones
+- `src/components/chat/LiveChatCanvas.tsx` - Header de conversación con teléfono
+- `src/components/chat/CallDetailModalSidebar.tsx` - Sidebar de detalles de llamada
+
+**Módulo Llamadas IA / Live Monitor:**
+- `src/components/analysis/LiveMonitor.tsx` - Modal de detalles de prospecto
+- `src/components/analysis/LiveMonitorKanban.tsx` - Corrección de conteo total de llamadas por permisos
+- `src/services/liveMonitorService.ts` - Agregado `id_dynamics` a interfaces y queries
+
+**Dashboard:**
+- `src/components/dashboard/widgets/ActiveCallDetailModal.tsx` - Modal de llamada activa
+- `src/components/dashboard/widgets/ProspectosNuevosWidget.tsx` - Widget de nuevos prospectos
+
+#### 🐛 Correcciones Adicionales
+
+1. **Conteo de Llamadas en Historial:**
+   - Problema: El total mostraba 778 llamadas globales en lugar de 70 filtradas por permisos
+   - Solución: `totalHistoryCount` ahora usa `filteredHistoryCalls.length` después de aplicar permisos
+   - Archivo: `LiveMonitorKanban.tsx`
+
+2. **Error de Sintaxis en Build:**
+   - Problema: `Unexpected token` por estructuras `if` duplicadas
+   - Solución: Eliminadas estructuras duplicadas en `loadHistoryCalls()`
+   - Archivo: `LiveMonitorKanban.tsx`
+
+3. **Export de Type en Vite:**
+   - Problema: `ProspectoPhoneData` no se exportaba correctamente
+   - Solución: Agregado `export` explícito y uso de `import type` para compatibilidad Vite
+   - Archivos: `usePhoneVisibility.ts`, `PhoneDisplay.tsx`
+
+#### 🧪 Testing Manual Recomendado
+
+1. **Como Ejecutivo:**
+   - Verificar que prospectos SIN `id_dynamics` muestran `+52 XX **** **XX`
+   - Verificar que prospectos CON `id_dynamics` muestran número completo
+   - Verificar que prospectos en "Activo PQNC" o "Es miembro" muestran número completo
+
+2. **Como Administrador o Coord. Calidad:**
+   - Verificar acceso total a todos los teléfonos sin restricción
+
+3. **Como Supervisor:**
+   - Verificar mismas restricciones que ejecutivo
+
+4. **Historial Llamadas IA:**
+   - Verificar que el contador total refleja solo las llamadas con permisos de visualización
+
+#### 📚 Documentación Técnica
+
+**Estructura del Hook `usePhoneVisibility`:**
+```typescript
+export interface ProspectoPhoneData {
+  id_dynamics?: string | null;
+  etapa?: string | null;
+  telefono_principal?: string | null;
+  whatsapp?: string | null;
+  telefono_alternativo?: string | null;
+}
+
+export const usePhoneVisibility = () => {
+  // Permisos efectivos del usuario
+  const { isAdmin, isAdminOperativo, isCoordinador, isEjecutivo, isSupervisor } = useEffectivePermissions();
+  const isCoordinadorCalidad = permissionsService.isCoordinadorCalidad();
+
+  // Acceso global: Solo Admin y Coord. Calidad
+  const hasGlobalAccess = isAdmin || isCoordinadorCalidad;
+
+  // Etapas que permiten visibilidad
+  const VISIBLE_STAGES = ['Activo PQNC', 'Es miembro'];
+
+  return { canViewPhone, formatPhone, getPhoneField, hasVisibleEtapa };
+};
+```
+
+**Uso del Componente `PhoneDisplay`:**
+```tsx
+<PhoneDisplay
+  prospecto={{
+    id_dynamics: prospecto.id_dynamics,
+    etapa: prospecto.etapa,
+    whatsapp: prospecto.whatsapp,
+    telefono_principal: prospecto.telefono_principal
+  }}
+  phoneField="whatsapp"
+  className="text-sm"
+  showCopyButton={true}
+/>
+```
+
+---
+
 ### 🚀 v2.2.8 (B7.1.8N7.0.8) - Infinite Scroll Dual: Live Monitor + Live Chat [04-01-2026]
 
 #### 🎯 Mejoras Principales

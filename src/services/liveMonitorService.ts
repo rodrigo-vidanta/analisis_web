@@ -81,6 +81,7 @@ export interface LiveCallData {
   nombre_whatsapp: string;
   whatsapp: string;
   etapa: string;
+  id_dynamics?: string; // ID de CRM - necesario para visibilidad de teléfono
   temperatura_prospecto?: 'frio' | 'tibio' | 'caliente';
   observaciones?: string;
   tamano_grupo?: number;
@@ -141,6 +142,7 @@ export interface Prospect {
   nombre_whatsapp: string;
   whatsapp: string;
   etapa: string;
+  id_dynamics?: string; // ID de CRM - necesario para visibilidad de teléfono
   temperatura_prospecto?: 'frio' | 'tibio' | 'caliente';
   checkpoint_transferencia?: string;
   agente_asignado?: string;
@@ -377,7 +379,7 @@ class LiveMonitorService {
             const batch = ids.slice(i, i + BATCH_SIZE);
             const { data: batchData, error } = await analysisSupabase
               .from('prospectos')
-              .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa, observaciones, tamano_grupo, destino_preferencia, ciudad_residencia, email, edad, viaja_con, cantidad_menores, updated_at, estado_civil, interes_principal, campana_origen, coordinacion_id, ejecutivo_id')
+              .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa, id_dynamics, observaciones, tamano_grupo, destino_preferencia, ciudad_residencia, email, edad, viaja_con, cantidad_menores, updated_at, estado_civil, interes_principal, campana_origen, coordinacion_id, ejecutivo_id')
               .in('id', batch);
             if (!error && batchData) {
               results.push(...batchData);
@@ -449,6 +451,7 @@ class LiveMonitorService {
           nombre_whatsapp: prospecto?.nombre_whatsapp || 'Sin nombre',
           whatsapp: prospecto?.whatsapp || '',
           etapa: prospecto?.etapa || 'Desconocida',
+          id_dynamics: prospecto?.id_dynamics,
           temperatura_prospecto: prospecto?.temperatura_prospecto,
           observaciones: prospecto?.observaciones,
           tamano_grupo: call.composicion_familiar_numero || prospecto?.tamano_grupo,
@@ -1207,6 +1210,7 @@ class LiveMonitorService {
           nombre_whatsapp: prospecto?.nombre_whatsapp || 'Sin nombre',
           whatsapp: prospecto?.whatsapp || '',
           etapa: prospecto?.etapa || 'Finalizado',
+          id_dynamics: prospecto?.id_dynamics,
           temperatura_prospecto: prospecto?.temperatura_prospecto,
           observaciones: prospecto?.observaciones,
           tamano_grupo: call.composicion_familiar_numero || prospecto?.tamano_grupo,

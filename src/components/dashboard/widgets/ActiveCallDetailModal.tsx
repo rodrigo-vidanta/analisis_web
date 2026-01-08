@@ -17,6 +17,7 @@ import {
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { type LiveCallData } from '../../../services/liveMonitorService';
 import { Avatar } from '../../shared/Avatar';
+import { PhoneDisplay } from '../../shared/PhoneDisplay';
 import { convertUTCToMexicoTime } from '../../../utils/timezoneHelper';
 
 // ============================================
@@ -1096,7 +1097,19 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
                   </h4>
                 </div>
                 <div className="space-y-1 text-xs">
-                  {renderField('Teléfono', currentCall.whatsapp)}
+                  <div className="flex justify-between py-1.5 border-b border-gray-100 dark:border-gray-700/50">
+                    <span className="text-gray-500 dark:text-gray-400">Teléfono</span>
+                    <PhoneDisplay
+                      phone={currentCall.whatsapp}
+                      prospecto={{
+                        id_dynamics: currentCall.id_dynamics,
+                        etapa: currentCall.etapa,
+                      }}
+                      size="xs"
+                      copyable
+                      textClassName="font-medium text-gray-900 dark:text-white"
+                    />
+                  </div>
                   {renderField('Ciudad', currentCall.ciudad_residencia)}
                   {renderField('Campaña', currentCall.campana_origen)}
                 </div>

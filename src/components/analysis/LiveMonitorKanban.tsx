@@ -1109,19 +1109,8 @@ const LiveMonitorKanban: React.FC = () => {
       const from = pageToLoad * HISTORY_BATCH_SIZE;
       const to = from + HISTORY_BATCH_SIZE - 1;
       
-      // Obtener conteo total solo en la primera carga o reset
-      if (pageToLoad === 0) {
-        const { count, error: countError } = await analysisSupabase
-          .from('llamadas_ventas')
-          .select('*', { count: 'exact', head: true });
-        
-        if (!countError && count !== null) {
-          setTotalHistoryCount(count);
-          console.log(`📊 Total de llamadas en BD: ${count}`);
-        } else if (countError) {
-          console.error('Error obteniendo conteo total:', countError);
-        }
-      }
+      // NOTA: El conteo total se calcula DESPUÉS de aplicar filtros de permisos
+      // para mostrar solo las llamadas a las que el usuario tiene acceso
       
       const { data: allLlamadasData, error: allLlamadasError } = await analysisSupabase
         .from('llamadas_ventas')
@@ -1490,14 +1479,13 @@ const LiveMonitorKanban: React.FC = () => {
         finalData = enrichedData; // Usar enrichedData para actualizar allCallsWithAnalysis
         
         // Verificar si hay más datos usando rawLoadedCount
-        if (totalHistoryCount > 0) {
-          const hasMore = (pageToLoad + 1) * HISTORY_BATCH_SIZE < totalHistoryCount;
-          setHasMoreHistory(hasMore);
-          console.log(`📊 Reset: ${enrichedCount} cargadas de ${totalHistoryCount} totales. HasMore: ${hasMore}`);
-        } else {
-          setHasMoreHistory(rawLoadedCount === HISTORY_BATCH_SIZE);
-          console.log(`📊 Reset: ${enrichedCount} cargadas. HasMore: ${rawLoadedCount === HISTORY_BATCH_SIZE}`);
-        }
+        // NOTA: No usamos totalHistoryCount porque ese conteo no aplica filtros de permisos
+        setHasMoreHistory(rawLoadedCount === HISTORY_BATCH_SIZE);
+        
+        // Actualizar el total con el conteo real después de filtros (se irá actualizando al cargar más)
+        setTotalHistoryCount(enrichedCount);
+        console.log(`📊 Reset: ${enrichedCount} cargadas (filtradas por permisos). HasMore: ${rawLoadedCount === HISTORY_BATCH_SIZE}`);
+        
         hasInitialLoadRef.current = true;
       } else {
         // Agregar a los existentes usando forma funcional de setState
@@ -1514,21 +1502,18 @@ const LiveMonitorKanban: React.FC = () => {
         // CRÍTICO: Si no se cargaron datos nuevos (0 llamadas), no hay más
         if (rawLoadedCount === 0 || enrichedCount === 0) {
           setHasMoreHistory(false);
-          console.log(`📊 No hay más datos disponibles. Total cargado: ${updatedData.length} de ${totalHistoryCount}`);
-        } else if (totalHistoryCount > 0) {
-          // Calcular si hay más datos basándose en el total cargado vs el total disponible
-          const hasMore = updatedData.length < totalHistoryCount && rawLoadedCount === HISTORY_BATCH_SIZE;
-          setHasMoreHistory(hasMore);
-          // Log solo cada 2 batches para evitar spam
-          if (currentPageHistoryRef.current % 2 === 0) {
-            console.log(`📊 Agregadas ${enrichedCount} llamadas. Total: ${updatedData.length} de ${totalHistoryCount}. HasMore: ${hasMore}`);
-          }
+          // Actualizar el total con la cantidad real después de filtros
+          setTotalHistoryCount(updatedData.length);
+          console.log(`📊 No hay más datos disponibles. Total cargado: ${updatedData.length} (filtrado por permisos)`);
         } else {
-          // Si no tenemos total, verificar si se cargaron menos que el batch size
+          // Verificar si se cargaron menos que el batch size (significa que no hay más)
           const hasMore = rawLoadedCount === HISTORY_BATCH_SIZE;
           setHasMoreHistory(hasMore);
+          // Actualizar el total con la cantidad real después de filtros
+          setTotalHistoryCount(updatedData.length);
+          // Log solo cada 2 batches para evitar spam
           if (currentPageHistoryRef.current % 2 === 0) {
-            console.log(`📊 Agregadas ${enrichedCount} llamadas. Total: ${updatedData.length}. HasMore: ${hasMore}`);
+            console.log(`📊 Agregadas ${enrichedCount} llamadas. Total: ${updatedData.length} (filtrado por permisos). HasMore: ${hasMore}`);
           }
         }
       }
@@ -1911,26 +1896,9 @@ const LiveMonitorKanban: React.FC = () => {
   }, [showAnalysisDetailModal]);
 
   // FIX 1: Cargar contador total al montar el componente (sin cargar todas las llamadas)
-  useEffect(() => {
-    if (!user?.id) return;
-    
-    const loadTotalCount = async () => {
-      try {
-        const { count, error } = await analysisSupabase
-          .from('llamadas_ventas')
-          .select('*', { count: 'exact', head: true });
-        
-        if (!error && count !== null) {
-          setTotalHistoryCount(count);
-          console.log(`📊 Contador total cargado: ${count} llamadas`);
-        }
-      } catch (error) {
-        console.error('Error cargando contador total:', error);
-      }
-    };
-    
-    loadTotalCount();
-  }, [user?.id]);
+  // NOTA: El conteo total ahora se calcula después de aplicar filtros de permisos
+  // El useEffect anterior que contaba todas las llamadas sin filtros fue removido
+  // porque mostraba un total incorrecto para usuarios con permisos restringidos
   
   // Cargar historial cuando se cambia a la pestaña de historial (solo una vez)
   useEffect(() => {

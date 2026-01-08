@@ -45,6 +45,7 @@ import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
 import { CallDetailModalSidebar } from '../chat/CallDetailModalSidebar';
 import { getCoordinacionColor } from '../../utils/coordinacionColors';
+import { PhoneDisplay } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
 
 interface Prospecto {
@@ -658,22 +659,26 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                        <MessageSquare className="w-3 h-3 inline mr-1" />
-                        WhatsApp
-                      </label>
-                      <div className="text-gray-900 dark:text-white font-mono text-xs">
-                        {prospecto.whatsapp || 'No disponible'}
-                      </div>
+                      <PhoneDisplay
+                        phone={prospecto.whatsapp}
+                        prospecto={prospecto}
+                        label="WhatsApp"
+                        showLabel
+                        showIcon
+                        size="xs"
+                        copyable
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                        <Phone className="w-3 h-3 inline mr-1" />
-                        Teléfono
-                      </label>
-                      <div className="text-gray-900 dark:text-white font-mono text-xs">
-                        {prospecto.telefono_principal || 'No disponible'}
-                      </div>
+                      <PhoneDisplay
+                        phone={prospecto.telefono_principal}
+                        prospecto={prospecto}
+                        label="Teléfono"
+                        showLabel
+                        showIcon
+                        size="xs"
+                        copyable
+                      />
                     </div>
                     
                     {prospecto.edad && (
@@ -994,6 +999,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   
   // Estado para coordinadores de Calidad (tienen acceso completo)
   const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
+  
+  // Estado para totales por etapa (conteo real desde BD, independiente del batch cargado)
+  const [etapaTotals, setEtapaTotals] = useState<Record<string, number>>({});
 
   // Cargar preferencias de vista al inicio
   useEffect(() => {
@@ -1071,10 +1079,14 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       
       // Cargar todos los prospectos de una vez
       loadProspectos(true);
+      // Cargar totales por etapa (conteos reales desde BD)
+      loadEtapaTotals();
     } else if (user?.id && viewType === 'datagrid') {
       hasInitialLoadRef.current = true;
       // Para datagrid, cargar todos los prospectos
       loadProspectos(true);
+      // Cargar totales por etapa (también para datagrid stats)
+      loadEtapaTotals();
     }
 
     // Resetear el flag cuando cambia el usuario o la vista
@@ -1133,6 +1145,51 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   // Estados para infinite scroll por columna (Kanban)
   const [columnLoadingStates, setColumnLoadingStates] = useState<Record<string, { loading: boolean; page: number; hasMore: boolean }>>({});
   const [columnPages, setColumnPages] = useState<Record<string, number>>({});
+  
+  // Cargar totales por etapa (conteos reales desde BD, independiente del batch cargado)
+  const loadEtapaTotals = async () => {
+    if (!user?.id) return;
+    
+    try {
+      console.log('📊 Cargando totales por etapa...');
+      
+      // Construir query base
+      let query = analysisSupabase
+        .from('prospectos')
+        .select('etapa', { count: 'exact', head: false });
+      
+      // Aplicar filtros de permisos (igual que en loadProspectos)
+      if (user?.id) {
+        try {
+          const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
+          if (filteredQuery) {
+            query = filteredQuery;
+          }
+        } catch (permError) {
+          console.error('❌ Error aplicando filtros de permisos para totales:', permError);
+        }
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('❌ Error cargando totales por etapa:', error);
+        return;
+      }
+      
+      // Agrupar por etapa y contar
+      const counts: Record<string, number> = {};
+      data?.forEach((row: { etapa?: string }) => {
+        const etapa = row.etapa || 'Sin etapa';
+        counts[etapa] = (counts[etapa] || 0) + 1;
+      });
+      
+      console.log('✅ Totales por etapa cargados:', counts);
+      setEtapaTotals(counts);
+    } catch (error) {
+      console.error('❌ Error cargando totales por etapa:', error);
+    }
+  };
   
   // Ref para prevenir ejecuciones simultáneas de loadProspectos
   const isLoadingProspectosRef = useRef(false);
@@ -1678,6 +1735,31 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
         className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 md:p-4"
       >
+        {/* Badge de contador total */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
+              <Users size={16} className="text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                {totalCount > 0 ? totalCount.toLocaleString() : allProspectos.length.toLocaleString()} prospectos
+              </span>
+              {allProspectos.length < totalCount && (
+                <span className="text-xs text-blue-500 dark:text-blue-400">
+                  ({allProspectos.length} cargados)
+                </span>
+              )}
+            </div>
+            {filteredAndSortedProspectos.length < allProspectos.length && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-700">
+                <Filter size={14} className="text-amber-600 dark:text-amber-400" />
+                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  {filteredAndSortedProspectos.length.toLocaleString()} filtrados
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+        
         <div className="flex flex-col md:flex-row gap-3 md:gap-2 items-stretch md:items-center">
           {/* Búsqueda - Ocupa más espacio */}
           <div className="relative flex-1 min-w-0">
@@ -1917,6 +1999,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             getScoreColor={getScoreColor}
             onLoadMoreForColumn={loadMoreProspectosForColumn}
             columnLoadingStates={columnLoadingStates}
+            etapaTotals={etapaTotals}
           />
           
           {/* Infinite Scroll ya no es necesario - todos los prospectos están cargados */}
@@ -2286,8 +2369,59 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           isOpen={!!assignmentContextMenu}
           position={assignmentContextMenu.position}
           onClose={() => setAssignmentContextMenu(null)}
-          onAssignmentComplete={() => {
-            loadProspectos(true);
+          onAssignmentComplete={(newEjecutivoId?: string, newEjecutivoName?: string, ejecutivoData?: {
+            coordinacion_id?: string;
+            coordinacion_codigo?: string;
+            coordinacion_nombre?: string;
+            ejecutivo_email?: string;
+          }) => {
+            // Si hay nuevo ejecutivo, actualizar silenciosamente
+            if (newEjecutivoId && assignmentContextMenu.prospectId) {
+              const updateProspecto = (prospecto: Prospecto) => {
+                if (prospecto.id === assignmentContextMenu.prospectId) {
+                  return {
+                    ...prospecto,
+                    ejecutivo_id: newEjecutivoId,
+                    ejecutivo_nombre: newEjecutivoName || prospecto.ejecutivo_nombre,
+                    ejecutivo_email: ejecutivoData?.ejecutivo_email || prospecto.ejecutivo_email,
+                    asesor_asignado: newEjecutivoName || prospecto.asesor_asignado,
+                    coordinacion_id: ejecutivoData?.coordinacion_id || prospecto.coordinacion_id,
+                    coordinacion_codigo: ejecutivoData?.coordinacion_codigo || prospecto.coordinacion_codigo,
+                    coordinacion_nombre: ejecutivoData?.coordinacion_nombre || prospecto.coordinacion_nombre,
+                  };
+                }
+                return prospecto;
+              };
+              
+              setProspectos(prev => prev.map(updateProspecto));
+              setAllProspectos(prev => prev.map(updateProspecto));
+              
+              // También actualizar el prospecto seleccionado si está abierto
+              if (selectedProspecto?.id === assignmentContextMenu.prospectId) {
+                setSelectedProspecto(prev => prev ? updateProspecto(prev) : prev);
+              }
+            } else if (!newEjecutivoId && assignmentContextMenu.prospectId) {
+              // Desasignación: actualizar silenciosamente removiendo el ejecutivo
+              const updateProspecto = (prospecto: Prospecto) => {
+                if (prospecto.id === assignmentContextMenu.prospectId) {
+                  return {
+                    ...prospecto,
+                    ejecutivo_id: undefined,
+                    ejecutivo_nombre: undefined,
+                    ejecutivo_email: undefined,
+                    asesor_asignado: undefined,
+                  };
+                }
+                return prospecto;
+              };
+              
+              setProspectos(prev => prev.map(updateProspecto));
+              setAllProspectos(prev => prev.map(updateProspecto));
+              
+              if (selectedProspecto?.id === assignmentContextMenu.prospectId) {
+                setSelectedProspecto(prev => prev ? updateProspecto(prev) : prev);
+              }
+            }
             setAssignmentContextMenu(null);
           }}
         />

@@ -17,6 +17,7 @@ import { createPortal } from 'react-dom';
 import { getAvatarGradient } from '../../../utils/avatarGradient';
 import { systemNotificationService } from '../../../services/systemNotificationService';
 import { BackupBadgeWrapper } from '../../shared/BackupBadgeWrapper';
+import { PhoneText } from '../../shared/PhoneDisplay';
 import { useAuth } from '../../../contexts/AuthContext';
 
 interface ProspectosNuevosWidgetProps {
@@ -862,9 +863,13 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
                           )}
                         </div>
                         {prospecto.whatsapp && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            {prospecto.whatsapp}
-                          </p>
+                          <div className="mt-0.5">
+                            <PhoneText 
+                              phone={prospecto.whatsapp} 
+                              prospecto={prospecto}
+                              className="text-xs text-gray-500 dark:text-gray-400"
+                            />
+                          </div>
                         )}
                         {prospecto.motivo_handoff && (
                           <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium leading-relaxed">
