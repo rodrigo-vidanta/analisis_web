@@ -23,10 +23,14 @@ import {
   ArrowDown,
   Search,
   Clock,
-  Calendar
+  Calendar,
+  Mail,
+  MailX,
+  Bookmark
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { analysisSupabase } from '../../../config/analysisSupabase';
+import { supabaseSystemUI } from '../../../config/supabaseSystemUI';
 import type {
   WhatsAppAudience,
   CreateAudienceInput,
@@ -40,6 +44,18 @@ import {
   VIAJA_CON_OPTIONS,
   DIAS_SIN_CONTACTO_PRESETS,
 } from '../../../types/whatsappTemplates';
+
+// Tipo para etiquetas del sistema
+interface WhatsAppLabelPreset {
+  id: string;
+  name: string;
+  color: string;
+  icon?: string;
+  description?: string;
+  business_rule?: 'positive' | 'negative' | 'neutral';
+  is_active: boolean;
+  display_order: number;
+}
 
 const AudienciasManager: React.FC = () => {
   const [audiences, setAudiences] = useState<WhatsAppAudience[]>([]);
@@ -107,13 +123,37 @@ const AudienciasManager: React.FC = () => {
               query = query.overlaps('destino_preferencia', aud.destinos);
             }
             
-            // Filtro de días sin contacto: prospectos con MÁS de X días sin ser contactados
-            // Lógica: updated_at < (hoy - X días)
-            if (aud.dias_sin_contacto && aud.dias_sin_contacto > 0) {
-              const cutoffDate = new Date();
-              cutoffDate.setDate(cutoffDate.getDate() - aud.dias_sin_contacto);
-              query = query.lt('updated_at', cutoffDate.toISOString());
+            // Filtro de tiene_email
+            if (aud.tiene_email === true) {
+              query = query.not('email', 'is', null).neq('email', '');
+            } else if (aud.tiene_email === false) {
+              query = query.or('email.is.null,email.eq.');
             }
+            
+            // Filtro de etiquetas (requiere join con whatsapp_conversation_labels)
+            if (aud.etiquetas && aud.etiquetas.length > 0) {
+              const { data: labeledProspects } = await supabaseSystemUI
+                .from('whatsapp_conversation_labels')
+                .select('prospecto_id')
+                .in('label_id', aud.etiquetas)
+                .eq('label_type', 'preset');
+              
+              if (labeledProspects && labeledProspects.length > 0) {
+                const prospectoIds = [...new Set(labeledProspects.map(lp => lp.prospecto_id))];
+                query = query.in('id', prospectoIds);
+              } else {
+                // No hay prospectos con esas etiquetas, count = 0
+                dynamicAudiences.push({
+                  ...aud,
+                  prospectos_count: 0,
+                });
+                continue;
+              }
+            }
+            
+            // Nota: El filtro de días sin contacto desde mensajes_whatsapp
+            // requiere una consulta más compleja que se hace por separado
+            // Por ahora, usamos el conteo básico y el valor se recalcula al editar
             
             const { count } = await query;
             
@@ -795,11 +835,45 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     estado_civil: null,
     viaja_con: [],
     dias_sin_contacto: null,
+    tiene_email: null,
+    etiquetas: [],
   });
   const [saving, setSaving] = useState(false);
   const [prospectCount, setProspectCount] = useState<number>(0);
   const [countingProspects, setCountingProspects] = useState(false);
   const [customDays, setCustomDays] = useState<string>(''); // Para input manual
+  
+  // Estados para etiquetas del sistema
+  const [availableLabels, setAvailableLabels] = useState<WhatsAppLabelPreset[]>([]);
+  const [loadingLabels, setLoadingLabels] = useState(false);
+
+  // Cargar etiquetas del sistema al abrir el modal
+  useEffect(() => {
+    if (isOpen) {
+      loadLabels();
+    }
+  }, [isOpen]);
+
+  const loadLabels = async () => {
+    setLoadingLabels(true);
+    try {
+      const { data, error } = await supabaseSystemUI
+        .from('whatsapp_labels_preset')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (error) {
+        console.error('Error loading labels:', error);
+      } else {
+        setAvailableLabels(data || []);
+      }
+    } catch (err) {
+      console.error('Error in loadLabels:', err);
+    } finally {
+      setLoadingLabels(false);
+    }
+  };
 
   useEffect(() => {
     if (editingAudience) {
@@ -811,6 +885,8 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
         estado_civil: editingAudience.estado_civil,
         viaja_con: editingAudience.viaja_con || [],
         dias_sin_contacto: editingAudience.dias_sin_contacto || null,
+        tiene_email: editingAudience.tiene_email ?? null,
+        etiquetas: editingAudience.etiquetas || [],
       });
       setCustomDays(editingAudience.dias_sin_contacto?.toString() || '');
     } else {
@@ -822,6 +898,8 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
         estado_civil: null,
         viaja_con: [],
         dias_sin_contacto: null,
+        tiene_email: null,
+        etiquetas: [],
       });
       setCustomDays('');
     }
@@ -834,41 +912,129 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     const countProspects = async () => {
       setCountingProspects(true);
       try {
-        let query = analysisSupabase
-          .from('prospectos')
-          .select('id', { count: 'exact', head: true });
-        
-        if (formData.etapa) {
-          query = query.eq('etapa', formData.etapa);
-        }
-        
-        if (formData.estado_civil) {
-          query = query.eq('estado_civil', formData.estado_civil);
-        }
-        
-        if (formData.viaja_con && formData.viaja_con.length > 0) {
-          query = query.in('viaja_con', formData.viaja_con);
-        }
-        
-        if (formData.destinos && formData.destinos.length > 0) {
-          query = query.overlaps('destino_preferencia', formData.destinos);
-        }
-        
-        // Filtro de días sin contacto: prospectos con MÁS de X días sin ser contactados
-        // Lógica: updated_at < (hoy - X días)
+        // Para filtro de días sin contacto, usamos una consulta SQL más compleja
+        // que consulta la última interacción desde mensajes_whatsapp
         if (formData.dias_sin_contacto && formData.dias_sin_contacto > 0) {
+          // Usar RPC o consulta SQL para obtener prospectos con última interacción
           const cutoffDate = new Date();
           cutoffDate.setDate(cutoffDate.getDate() - formData.dias_sin_contacto);
-          query = query.lt('updated_at', cutoffDate.toISOString());
-        }
-        
-        const { count, error } = await query;
-        
-        if (error) {
-          console.error('Error counting prospectos:', error);
-          setProspectCount(0);
+          const cutoffISO = cutoffDate.toISOString();
+          
+          // Construir filtros adicionales para la consulta
+          let whereConditions: string[] = [];
+          
+          if (formData.etapa) {
+            whereConditions.push(`etapa = '${formData.etapa}'`);
+          }
+          if (formData.estado_civil) {
+            whereConditions.push(`estado_civil = '${formData.estado_civil}'`);
+          }
+          if (formData.viaja_con && formData.viaja_con.length > 0) {
+            const viajaCon = formData.viaja_con.map(v => `'${v}'`).join(',');
+            whereConditions.push(`viaja_con IN (${viajaCon})`);
+          }
+          if (formData.destinos && formData.destinos.length > 0) {
+            const destinos = formData.destinos.map(d => `'${d}'`).join(',');
+            whereConditions.push(`destino_preferencia && ARRAY[${destinos}]`);
+          }
+          if (formData.tiene_email === true) {
+            whereConditions.push(`email IS NOT NULL AND email != ''`);
+          } else if (formData.tiene_email === false) {
+            whereConditions.push(`(email IS NULL OR email = '')`);
+          }
+          // Etiquetas se manejan de forma diferente (requiere join con whatsapp_conversation_labels)
+          
+          const whereClause = whereConditions.length > 0 
+            ? `AND ${whereConditions.join(' AND ')}`
+            : '';
+          
+          // Consulta SQL que busca prospectos cuya última interacción en mensajes_whatsapp
+          // sea anterior a la fecha de corte
+          const { data, error } = await analysisSupabase.rpc('exec_sql', {
+            query: `
+              SELECT COUNT(DISTINCT p.id)::integer as count
+              FROM prospectos p
+              LEFT JOIN (
+                SELECT prospecto_id, MAX(timestamp) as ultima_interaccion
+                FROM mensajes_whatsapp
+                GROUP BY prospecto_id
+              ) mw ON p.id = mw.prospecto_id
+              WHERE (
+                mw.ultima_interaccion IS NULL 
+                OR mw.ultima_interaccion < '${cutoffISO}'::timestamptz
+              )
+              ${whereClause}
+            `
+          });
+          
+          if (error) {
+            console.error('Error counting with dias_sin_contacto:', error);
+            // Fallback a conteo simple sin filtro de días
+            const fallbackQuery = await analysisSupabase
+              .from('prospectos')
+              .select('id', { count: 'exact', head: true });
+            setProspectCount(fallbackQuery.count || 0);
+          } else {
+            setProspectCount(data?.[0]?.count || 0);
+          }
         } else {
-          setProspectCount(count || 0);
+          // Conteo simple sin filtro de días sin contacto
+          let query = analysisSupabase
+            .from('prospectos')
+            .select('id', { count: 'exact', head: true });
+          
+          if (formData.etapa) {
+            query = query.eq('etapa', formData.etapa);
+          }
+          
+          if (formData.estado_civil) {
+            query = query.eq('estado_civil', formData.estado_civil);
+          }
+          
+          if (formData.viaja_con && formData.viaja_con.length > 0) {
+            query = query.in('viaja_con', formData.viaja_con);
+          }
+          
+          if (formData.destinos && formData.destinos.length > 0) {
+            query = query.overlaps('destino_preferencia', formData.destinos);
+          }
+          
+          // Filtro de tiene_email
+          if (formData.tiene_email === true) {
+            query = query.not('email', 'is', null).neq('email', '');
+          } else if (formData.tiene_email === false) {
+            query = query.or('email.is.null,email.eq.');
+          }
+          
+          // Filtro de etiquetas (necesita join con whatsapp_conversation_labels)
+          // Por ahora, si hay etiquetas seleccionadas, hacemos una consulta separada
+          if (formData.etiquetas && formData.etiquetas.length > 0) {
+            // Obtener IDs de prospectos que tienen alguna de las etiquetas seleccionadas
+            const { data: labeledProspects } = await supabaseSystemUI
+              .from('whatsapp_conversation_labels')
+              .select('prospecto_id')
+              .in('label_id', formData.etiquetas)
+              .eq('label_type', 'preset');
+            
+            if (labeledProspects && labeledProspects.length > 0) {
+              const prospectoIds = [...new Set(labeledProspects.map(lp => lp.prospecto_id))];
+              query = query.in('id', prospectoIds);
+            } else {
+              // No hay prospectos con esas etiquetas
+              setProspectCount(0);
+              setCountingProspects(false);
+              return;
+            }
+          }
+          
+          const { count, error } = await query;
+          
+          if (error) {
+            console.error('Error counting prospectos:', error);
+            setProspectCount(0);
+          } else {
+            setProspectCount(count || 0);
+          }
         }
       } catch (err) {
         console.error('Error in countProspects:', err);
@@ -880,7 +1046,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     
     const timer = setTimeout(countProspects, 300);
     return () => clearTimeout(timer);
-  }, [formData.etapa, formData.destinos, formData.estado_civil, formData.viaja_con, formData.dias_sin_contacto, isOpen]);
+  }, [formData.etapa, formData.destinos, formData.estado_civil, formData.viaja_con, formData.dias_sin_contacto, formData.tiene_email, formData.etiquetas, isOpen]);
 
   const handleSubmit = async () => {
     if (!formData.nombre.trim()) {
@@ -897,6 +1063,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
         etapa: formData.etapa || null,
         estado_civil: formData.estado_civil || null,
         dias_sin_contacto: formData.dias_sin_contacto || null,
+        tiene_email: formData.tiene_email,
         prospectos_count: prospectCount,
         is_active: true,
       };
@@ -906,6 +1073,9 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       }
       if (formData.viaja_con && formData.viaja_con.length > 0) {
         audienceData.viaja_con = formData.viaja_con;
+      }
+      if (formData.etiquetas && formData.etiquetas.length > 0) {
+        audienceData.etiquetas = formData.etiquetas;
       }
       
       if (editingAudience) {
@@ -936,14 +1106,17 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
         destinos: [],
         estado_civil: null,
         viaja_con: [],
+        dias_sin_contacto: null,
+        tiene_email: null,
+        etiquetas: [],
       });
       
       onCreated();
     } catch (error: any) {
       console.error('Error saving audience:', error);
-      if (error.message?.includes('destinos') || error.message?.includes('viaja_con')) {
+      if (error.message?.includes('destinos') || error.message?.includes('viaja_con') || error.message?.includes('tiene_email') || error.message?.includes('etiquetas')) {
         toast.error(
-          'Error: Las columnas destinos/viaja_con no existen. Por favor ejecuta el script SQL: docs/sql/add_destinos_viaja_con_to_audiences.sql',
+          'Error: Algunas columnas no existen. Por favor ejecuta el SQL para agregar las columnas tiene_email y etiquetas a whatsapp_audiences.',
           { duration: 8000 }
         );
       } else {
@@ -969,6 +1142,15 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       setFormData({ ...formData, viaja_con: current.filter(t => t !== tipo) });
     } else {
       setFormData({ ...formData, viaja_con: [...current, tipo] });
+    }
+  };
+
+  const toggleEtiqueta = (labelId: string) => {
+    const current = formData.etiquetas || [];
+    if (current.includes(labelId)) {
+      setFormData({ ...formData, etiquetas: current.filter(id => id !== labelId) });
+    } else {
+      setFormData({ ...formData, etiquetas: [...current, labelId] });
     }
   };
 
@@ -1283,11 +1465,158 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                     <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                       <Calendar className="w-4 h-4" />
                       <span>
-                        Prospectos con inactividad de <strong>1 a {formData.dias_sin_contacto} días</strong> (desde{' '}
+                        Prospectos con más de <strong>{formData.dias_sin_contacto} días</strong> sin contacto (última interacción antes del{' '}
                         <strong>
                           {new Date(Date.now() - formData.dias_sin_contacto * 24 * 60 * 60 * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </strong>
-                        {' '}hasta ayer)
+                        )
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Tiene Email */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-1 h-5 bg-gradient-to-b from-cyan-500 to-blue-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Correo Electrónico
+                    </h4>
+                  </div>
+                  {formData.tiene_email !== null && (
+                    <span className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">
+                      {formData.tiene_email ? 'Con email' : 'Sin email'}
+                    </span>
+                  )}
+                </div>
+                
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Filtrar prospectos según tengan o no correo electrónico registrado
+                </p>
+                
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, tiene_email: formData.tiene_email === null ? null : null })}
+                    className={`flex-1 px-4 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                      formData.tiene_email === null
+                        ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <Users className={`w-4 h-4 ${formData.tiene_email === null ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-500'}`} />
+                    <span className={`text-sm font-medium ${formData.tiene_email === null ? 'text-cyan-700 dark:text-cyan-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                      Todos
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, tiene_email: true })}
+                    className={`flex-1 px-4 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                      formData.tiene_email === true
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <Mail className={`w-4 h-4 ${formData.tiene_email === true ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500'}`} />
+                    <span className={`text-sm font-medium ${formData.tiene_email === true ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                      Con email
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, tiene_email: false })}
+                    className={`flex-1 px-4 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                      formData.tiene_email === false
+                        ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <MailX className={`w-4 h-4 ${formData.tiene_email === false ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500'}`} />
+                    <span className={`text-sm font-medium ${formData.tiene_email === false ? 'text-rose-700 dark:text-rose-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                      Sin email
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Etiquetas del Sistema */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-1 h-5 bg-gradient-to-b from-violet-500 to-purple-500 rounded-full"></div>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Etiquetas WhatsApp
+                    </h4>
+                  </div>
+                  {(formData.etiquetas?.length || 0) > 0 && (
+                    <span className="text-xs text-violet-600 dark:text-violet-400 font-medium">
+                      {formData.etiquetas?.length} seleccionadas
+                    </span>
+                  )}
+                </div>
+                
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Filtrar prospectos que tengan alguna de las etiquetas seleccionadas
+                </p>
+                
+                {loadingLabels ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-violet-500"></div>
+                  </div>
+                ) : availableLabels.length === 0 ? (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      No hay etiquetas del sistema configuradas
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {availableLabels.map((label) => {
+                      const isSelected = formData.etiquetas?.includes(label.id);
+                      return (
+                        <button
+                          key={label.id}
+                          type="button"
+                          onClick={() => toggleEtiqueta(label.id)}
+                          className={`px-3 py-2 rounded-lg border-2 transition-all flex items-center gap-2 ${
+                            isSelected
+                              ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/30'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: label.color }}
+                          />
+                          <span className={`text-xs font-medium ${
+                            isSelected 
+                              ? 'text-violet-700 dark:text-violet-300' 
+                              : 'text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {label.name}
+                          </span>
+                          {isSelected && (
+                            <Bookmark className="w-3 h-3 text-violet-500 fill-violet-500" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {(formData.etiquetas?.length || 0) > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="p-3 bg-violet-50 dark:bg-violet-900/20 rounded-lg border border-violet-200 dark:border-violet-800"
+                  >
+                    <div className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-300">
+                      <Bookmark className="w-4 h-4" />
+                      <span>
+                        Se incluirán prospectos con <strong>cualquiera</strong> de las {formData.etiquetas?.length} etiquetas seleccionadas
                       </span>
                     </div>
                   </motion.div>

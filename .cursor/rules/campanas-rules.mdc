@@ -1,0 +1,319 @@
+# Reglas del Módulo de Campañas WhatsApp
+
+## 📋 Descripción
+
+Reglas y guías para el desarrollo y mantenimiento del módulo de Campañas de WhatsApp Broadcast.
+
+---
+
+## 🗄️ BASES DE DATOS
+
+### MCPs a Utilizar
+
+| Contexto | MCP | Base de Datos |
+|----------|-----|---------------|
+| Campañas, Audiencias, Plantillas | `Supa_PQNC_AI` | glsmifhkoaifvaegsozd |
+| Prospectos, Mensajes WhatsApp | `Supa_PQNC_AI` | glsmifhkoaifvaegsozd |
+| Etiquetas WhatsApp | `Supa_SystemUI` | zbylezfyagwrxoecioup |
+| Tokens de API | `Supa_SystemUI` | zbylezfyagwrxoecioup |
+
+### Tablas Principales
+
+```
+PQNC_AI:
+├── whatsapp_campaigns      # Campañas creadas
+├── whatsapp_audiences      # Audiencias/segmentos
+├── whatsapp_templates      # Plantillas de mensajes
+├── prospectos              # Datos de prospectos
+└── mensajes_whatsapp       # Historial de mensajes
+
+SystemUI:
+├── whatsapp_labels_preset  # Etiquetas del sistema
+├── whatsapp_conversation_labels  # Etiquetas asignadas
+└── api_auth_tokens         # Tokens de autenticación
+```
+
+---
+
+## 🔧 ETAPAS DE PROSPECTOS
+
+### Fuente de Verdad
+
+**Archivo:** `src/types/whatsappTemplates.ts`
+**Constante:** `PROSPECTO_ETAPAS`
+
+### Reglas Críticas
+
+1. **Los valores (`value`) deben coincidir EXACTAMENTE con `prospectos.etapa`**
+   - Sin acentos donde la BD no los tiene
+   - Case-sensitive
+   - Espacios exactos
+
+2. **Para agregar/quitar etapas:**
+   ```typescript
+   // SOLO editar este archivo:
+   // src/types/whatsappTemplates.ts
+   
+   export type ProspectoEtapa = 
+     | 'Nueva etapa aquí'  // Agregar al type
+     | ...existing;
+   
+   export const PROSPECTO_ETAPAS = [
+     { value: 'Nueva etapa aquí', label: 'Nueva Etapa', color: 'blue' },
+     ...existing
+   ];
+   ```
+
+3. **NO requiere cambios en:**
+   - N8N Code Node (usa WHERE clauses dinámicos)
+   - N8N Guardrail (valida estructura, no contenido)
+   - Queries de BD (usan los valores del frontend)
+
+### Etapas Actuales (Enero 2025)
+
+```typescript
+'Es miembro' | 'Activo PQNC' | 'Validando membresia' |
+'Primer contacto' | 'En seguimiento' | 'Interesado' |
+'Atendió llamada' | 'Con ejecutivo' | 'Certificado adquirido'
+```
+
+---
+
+## 🎯 FILTROS DE AUDIENCIA
+
+### Filtros Disponibles
+
+| Filtro | Tipo | Tabla/Campo |
+|--------|------|-------------|
+| Etapa | Enum | prospectos.etapa |
+| Estado Civil | Enum | prospectos.estado_civil |
+| Viaja Con | Multi-select | prospectos.viaja_con |
+| Destinos | Multi-select | prospectos.destino_preferencia |
+| Días sin Contacto | Number | mensajes_whatsapp.timestamp |
+| Tiene Email | Boolean | prospectos.email |
+| Etiquetas | Multi-select | whatsapp_conversation_labels |
+
+### Agregar Nuevo Filtro
+
+1. **BD:** Agregar columna a `whatsapp_audiences`
+   ```sql
+   ALTER TABLE whatsapp_audiences 
+   ADD COLUMN nuevo_filtro TYPE DEFAULT NULL;
+   ```
+
+2. **Tipos:** Actualizar interfaces
+   ```typescript
+   // src/types/whatsappTemplates.ts
+   export interface WhatsAppAudience {
+     // ...existing
+     nuevo_filtro?: TipoFiltro | null;
+   }
+   
+   export interface CreateAudienceInput {
+     // ...existing
+     nuevo_filtro?: TipoFiltro | null;
+   }
+   ```
+
+3. **UI Audiencias:** Agregar en `AudienciasManager.tsx`
+   - Estado en formData
+   - UI de selección
+   - Lógica de conteo
+
+4. **Campañas:** Agregar en `CampanasManager.tsx`
+   - Lógica de conteo (useEffect countAndSample)
+   - Construcción de WHERE clause (handleSubmit)
+
+5. **Payload:** Incluir en webhook si N8N necesita procesarlo
+
+---
+
+## 🚀 WEBHOOK DE BROADCAST
+
+### Endpoint
+
+```
+URL: https://primary-dev-d75a.up.railway.app/webhook/broadcast
+Auth Header: livechat_auth
+Auth Value: getApiToken('pause_bot_auth')
+```
+
+### Payload Structure
+
+```typescript
+{
+  // Datos de campaña
+  nombre: string;
+  descripcion: string | null;
+  campaign_type: 'standard' | 'ab_test';
+  template_id: string;
+  audience_id: string;
+  
+  // Solo A/B
+  ab_template_b_id: string | null;
+  ab_distribution_a: number | null;
+  
+  // Ejecución
+  batch_size: number;
+  batch_interval_seconds: number;
+  execute_at: string | null;
+  status: 'running' | 'scheduled';
+  
+  // Conteos
+  total_recipients: number;
+  recipients_a: number;
+  recipients_b: number | null;
+  
+  // Usuario
+  created_by: string;
+  created_by_email: string;
+  
+  // WHERE clauses (SIN SELECT FROM)
+  where_clause_a: string;  // Siempre presente
+  where_clause_b: string | null;  // Solo A/B
+  
+  // Filtros adicionales para N8N
+  audience_etiquetas: string[] | null;
+}
+```
+
+### Seguridad
+
+- **NUNCA** enviar queries completos (SELECT * FROM...)
+- **SOLO** enviar WHERE clauses
+- N8N construye el SELECT con columnas específicas
+- Guardrail valida antes de ejecutar
+
+---
+
+## 🔄 CAMPAÑAS A/B
+
+### Estructura en BD
+
+Cada campaña A/B crea **2 registros** vinculados:
+
+```sql
+-- Variante A
+INSERT INTO whatsapp_campaigns (
+  ab_group_id: 'uuid-compartido',
+  ab_variant: 'A',
+  template_id: 'template-a-id',
+  ab_distribution_a: 60,  -- Porcentaje
+  total_recipients: 600
+);
+
+-- Variante B
+INSERT INTO whatsapp_campaigns (
+  ab_group_id: 'uuid-compartido',
+  ab_variant: 'B',
+  template_id: 'template-b-id',
+  ab_distribution_a: 40,  -- 100 - A
+  total_recipients: 400
+);
+```
+
+### UI
+
+- Se muestran como UN solo card agrupado por `ab_group_id`
+- Estadísticas combinadas con barras separadas
+- Eliminar borra ambas variantes
+
+---
+
+## 🛡️ N8N - CODE NODE
+
+### Principios
+
+1. **100% Dinámico**: No hardcodea valores de filtros
+2. **Recibe WHERE clauses**: Ya construidos desde frontend
+3. **Genera SQL**: INSERT para campañas, SELECT para prospectos
+
+### Flujo
+
+```
+Webhook → Code Node → Guardrail → Postgres
+                                      ↓
+                                   uChat
+```
+
+### Output del Code Node
+
+```javascript
+{
+  is_ab_test: boolean,
+  ab_group_id: string | null,
+  
+  // SQL listo para ejecutar
+  insert_campaigns_sql: string,  // INSERT INTO whatsapp_campaigns...
+  select_prospects_sql: string,  // SELECT ... FROM prospectos WHERE...
+  
+  // Metadata
+  variant_a: { campaign_id, template_id, recipients_count },
+  variant_b: { ... } | null,
+  metadata: { processed_at, version }
+}
+```
+
+---
+
+## 🛡️ N8N - GUARDRAIL
+
+### Qué Valida
+
+✅ Patrones peligrosos: DROP, DELETE, TRUNCATE, ALTER, CREATE, GRANT
+✅ Estructura de queries: INSERT/SELECT/WHERE según tipo
+✅ SQL injection patterns: OR 1=1, SLEEP, EXEC, etc.
+
+### Qué NO Valida
+
+❌ Valores específicos de etapas
+❌ Valores de filtros (email, destinos, etc.)
+❌ Nombres de columnas
+
+### Si Falla
+
+```javascript
+{
+  guardrail_passed: false,
+  guardrail_errors: ['Descripción del error'],
+  data: null
+}
+```
+
+---
+
+## 📁 ARCHIVOS PRINCIPALES
+
+| Archivo | Descripción |
+|---------|-------------|
+| `src/types/whatsappTemplates.ts` | Tipos, etapas, interfaces |
+| `src/components/campaigns/campanas/CampanasManager.tsx` | Gestor de campañas |
+| `src/components/campaigns/audiencias/AudienciasManager.tsx` | Gestor de audiencias |
+| `src/components/campaigns/plantillas/WhatsAppTemplatesManager.tsx` | Gestor de plantillas |
+| `src/components/campaigns/README_CAMPANAS.md` | Documentación técnica |
+| `src/components/campaigns/CHANGELOG_CAMPANAS.md` | Historial de cambios |
+
+---
+
+## ⚠️ ADVERTENCIAS
+
+1. **Status `running`**: Las campañas en ejecución NO se pueden editar
+2. **Etapas case-sensitive**: Deben coincidir EXACTAMENTE con BD
+3. **Etiquetas en otra BD**: Requieren consulta a SystemUI
+4. **Días sin contacto**: Usa mensajes_whatsapp, no updated_at
+
+---
+
+## 🔄 ACTUALIZACIONES
+
+Al hacer cambios en este módulo:
+
+1. Actualizar `CHANGELOG_CAMPANAS.md`
+2. Actualizar `README_CAMPANAS.md` si es necesario
+3. Sincronizar a `/public/docs/`
+4. Actualizar `DocumentationModule.tsx`
+
+---
+
+**Última actualización:** 2025-01-08
+**Versión del módulo:** 2.3.0

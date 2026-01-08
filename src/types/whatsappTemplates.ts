@@ -9,29 +9,34 @@
 // ============================================
 
 /**
- * Etapas del prospecto - sincronizado con tabla prospectos
+ * Etapas del prospecto - sincronizado con valores exactos de BD
+ * IMPORTANTE: Los valores deben coincidir EXACTAMENTE con la tabla prospectos.etapa
+ * 
+ * Para agregar/quitar etapas, solo modifica este array.
+ * Los filtros de audiencias y campañas se adaptan automáticamente.
  */
 export type ProspectoEtapa = 
-  | 'Activo PQNC'
-  | 'Atendió llamada'
-  | 'En seguimiento'
   | 'Es miembro'
+  | 'Activo PQNC'
+  | 'Validando membresia'  // Sin acento - así está en BD
+  | 'Primer contacto'
+  | 'En seguimiento'
   | 'Interesado'
-  | 'Nuevo'
-  | 'Sin contactar'
-  | 'No interesado'
-  | 'Cerrado';
+  | 'Atendió llamada'
+  | 'Con ejecutivo'
+  | 'Certificado adquirido';
 
-export const PROSPECTO_ETAPAS: { value: ProspectoEtapa; label: string }[] = [
-  { value: 'Activo PQNC', label: 'Activo PQNC' },
-  { value: 'Atendió llamada', label: 'Atendió llamada' },
-  { value: 'En seguimiento', label: 'En seguimiento' },
-  { value: 'Es miembro', label: 'Es miembro' },
-  { value: 'Interesado', label: 'Interesado' },
-  { value: 'Nuevo', label: 'Nuevo' },
-  { value: 'Sin contactar', label: 'Sin contactar' },
-  { value: 'No interesado', label: 'No interesado' },
-  { value: 'Cerrado', label: 'Cerrado' },
+export const PROSPECTO_ETAPAS: { value: ProspectoEtapa; label: string; color?: string }[] = [
+  // Etapas del Kanban (en orden del flujo de ventas)
+  { value: 'Es miembro', label: 'Es miembro', color: 'emerald' },
+  { value: 'Activo PQNC', label: 'Activo PQNC', color: 'teal' },
+  { value: 'Validando membresia', label: 'Validando membresía', color: 'blue' },
+  { value: 'Primer contacto', label: 'Primer contacto', color: 'sky' },
+  { value: 'En seguimiento', label: 'En seguimiento', color: 'yellow' },
+  { value: 'Interesado', label: 'Interesado', color: 'green' },
+  { value: 'Atendió llamada', label: 'Atendió llamada', color: 'purple' },
+  { value: 'Con ejecutivo', label: 'Con ejecutivo', color: 'indigo' },
+  { value: 'Certificado adquirido', label: 'Certificado adquirido', color: 'rose' },
 ];
 
 /**
@@ -168,7 +173,9 @@ export interface WhatsAppAudience {
   destinos?: string[]; // Array de destinos (prospectos.destino_preferencia)
   estado_civil?: EstadoCivil | null;
   viaja_con?: string[]; // Array de tipos (prospectos.viaja_con)
-  dias_sin_contacto?: number | null; // Filtrar prospectos sin actividad en X días
+  dias_sin_contacto?: number | null; // Filtrar prospectos sin actividad en X días (de mensajes_whatsapp)
+  tiene_email?: boolean | null; // true = con email, false = sin email, null = todos
+  etiquetas?: string[]; // Array de IDs de etiquetas (whatsapp_labels_preset)
   prospectos_count: number;
   is_active: boolean;
   created_by?: string | null;
@@ -198,7 +205,9 @@ export interface CreateAudienceInput {
   destinos?: string[]; // Múltiples destinos seleccionables
   estado_civil?: EstadoCivil | null;
   viaja_con?: string[]; // Múltiples opciones de "viaja con"
-  dias_sin_contacto?: number | null; // Días sin actividad
+  dias_sin_contacto?: number | null; // Días sin actividad (de mensajes_whatsapp)
+  tiene_email?: boolean | null; // true = con email, false = sin email, null = todos
+  etiquetas?: string[]; // IDs de etiquetas del sistema (whatsapp_labels_preset)
 }
 
 /**

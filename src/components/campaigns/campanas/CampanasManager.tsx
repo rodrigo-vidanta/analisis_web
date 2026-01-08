@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { analysisSupabase } from '../../../config/analysisSupabase';
+import { supabaseSystemUI } from '../../../config/supabaseSystemUI';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getApiToken } from '../../../services/apiTokensService';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -2062,30 +2063,110 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         const audience = audiences.find(a => a.id === formData.audience_id);
         if (!audience) return;
         
-        // Construir query
+        // Construir query con TODOS los filtros de la audiencia
         let query = analysisSupabase
           .from('prospectos')
           .select('*', { count: 'exact' });
         
+        // Filtro de etapa
         if (audience.etapa) {
           query = query.eq('etapa', audience.etapa);
         }
+        
+        // Filtro de estado civil
         if (audience.estado_civil) {
           query = query.eq('estado_civil', audience.estado_civil);
         }
+        
+        // Filtro de viaja_con
         if (audience.viaja_con && audience.viaja_con.length > 0) {
           query = query.in('viaja_con', audience.viaja_con);
         }
+        
+        // Filtro de destinos
         if (audience.destinos && audience.destinos.length > 0) {
           query = query.overlaps('destino_preferencia', audience.destinos);
         }
+        
+        // Filtro de tiene_email
+        if (audience.tiene_email === true) {
+          query = query.not('email', 'is', null).neq('email', '');
+        } else if (audience.tiene_email === false) {
+          query = query.or('email.is.null,email.eq.');
+        }
+        
+        // Filtro de etiquetas (requiere consulta a SystemUI)
+        if (audience.etiquetas && audience.etiquetas.length > 0) {
+          try {
+            const { data: labeledProspects } = await supabaseSystemUI
+              .from('whatsapp_conversation_labels')
+              .select('prospecto_id')
+              .in('label_id', audience.etiquetas)
+              .eq('label_type', 'preset');
+            
+            if (labeledProspects && labeledProspects.length > 0) {
+              const prospectoIds = [...new Set(labeledProspects.map(lp => lp.prospecto_id))];
+              query = query.in('id', prospectoIds);
+            } else {
+              // No hay prospectos con esas etiquetas
+              setProspectCount(0);
+              setPreviewProspect(null);
+              setCountingProspects(false);
+              return;
+            }
+          } catch (labelError) {
+            console.error('Error fetching labeled prospects:', labelError);
+          }
+        }
+        
+        // Nota: El filtro de dias_sin_contacto desde mensajes_whatsapp
+        // requiere una consulta más compleja. El conteo aquí es aproximado.
+        // El valor exacto se calcula cuando se construye la query final para el webhook.
+        // Para el preview, usamos una aproximación si hay filtro de días sin contacto.
         
         const { data, count, error } = await query.limit(1);
         
         if (error) throw error;
         
-        setProspectCount(count || 0);
-        setPreviewProspect(data?.[0] || null);
+        // Si hay filtro de días sin contacto, hacer conteo adicional
+        if (audience.dias_sin_contacto && audience.dias_sin_contacto > 0) {
+          // Obtener IDs de prospectos que SÍ tienen mensajes recientes
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - audience.dias_sin_contacto);
+          
+          try {
+            // Obtener prospectos con mensajes recientes (los que NO queremos)
+            const { data: recentContacts } = await analysisSupabase
+              .from('mensajes_whatsapp')
+              .select('prospecto_id')
+              .gte('timestamp', cutoffDate.toISOString());
+            
+            const recentIds = new Set((recentContacts || []).map(m => m.prospecto_id));
+            
+            // Filtrar del conteo total los que tienen mensajes recientes
+            // Re-hacer la consulta sin filtro de dias_sin_contacto pero excluyendo los recientes
+            if (data && data.length > 0) {
+              // Obtener todos los IDs y filtrar
+              const { data: allProspects } = await query;
+              const filteredCount = (allProspects || []).filter(p => !recentIds.has(p.id)).length;
+              setProspectCount(filteredCount);
+              // Obtener un prospecto de muestra de los filtrados
+              const sampleProspect = (allProspects || []).find(p => !recentIds.has(p.id));
+              setPreviewProspect(sampleProspect || null);
+            } else {
+              setProspectCount(0);
+              setPreviewProspect(null);
+            }
+          } catch (msgError) {
+            console.error('Error checking recent messages:', msgError);
+            // Fallback al conteo básico
+            setProspectCount(count || 0);
+            setPreviewProspect(data?.[0] || null);
+          }
+        } else {
+          setProspectCount(count || 0);
+          setPreviewProspect(data?.[0] || null);
+        }
       } catch (error) {
         console.error('Error counting prospects:', error);
         setProspectCount(0);
@@ -2350,13 +2431,31 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         baseWhere += ` AND destino_preferencia && ARRAY['${audience.destinos.join("','")}']::text[]`;
       }
       
-      // Filtro de días sin contacto: prospectos con MÁS de X días sin ser contactados
-      // Lógica: updated_at < (hoy - X días)
+      // Filtro de días sin contacto usando mensajes_whatsapp
+      // Lógica: última interacción en mensajes_whatsapp < (hoy - X días)
+      // Nota: Esta subquery encuentra prospectos cuya última interacción sea anterior a la fecha de corte
       if (audience?.dias_sin_contacto && audience.dias_sin_contacto > 0) {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - audience.dias_sin_contacto);
-        baseWhere += ` AND updated_at < '${cutoffDate.toISOString()}'`;
+        // Usamos una subquery para verificar la última interacción en mensajes_whatsapp
+        baseWhere += ` AND (id NOT IN (
+          SELECT DISTINCT prospecto_id FROM mensajes_whatsapp 
+          WHERE timestamp >= '${cutoffDate.toISOString()}'::timestamptz
+        ) OR id NOT IN (SELECT DISTINCT prospecto_id FROM mensajes_whatsapp))`;
       }
+      
+      // Filtro de tiene_email
+      if (audience?.tiene_email === true) {
+        baseWhere += ` AND email IS NOT NULL AND email != ''`;
+      } else if (audience?.tiene_email === false) {
+        baseWhere += ` AND (email IS NULL OR email = '')`;
+      }
+      
+      // Filtro de etiquetas (requiere join con whatsapp_conversation_labels en SystemUI)
+      // Nota: Las etiquetas están en otra base de datos, así que primero
+      // necesitamos obtener los IDs de prospectos que tienen esas etiquetas
+      // Esto se debe hacer en el webhook de N8N ya que requiere acceso a SystemUI
+      // Por ahora, agregamos una nota en el payload para que N8N aplique este filtro
       
       // WHERE para variante A (prospectos CON variables)
       let whereA = baseWhere;
@@ -2403,7 +2502,10 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         
         // Conteos
         recipients_a: isABTestPayload ? recipientsA : prospectCount,
-        recipients_b: isABTestPayload ? recipientsB : null
+        recipients_b: isABTestPayload ? recipientsB : null,
+        
+        // Filtros adicionales para N8N (etiquetas están en SystemUI, N8N debe filtrar)
+        audience_etiquetas: audience?.etiquetas || null,
       };
       
       // Enviar al webhook con auth de livechat

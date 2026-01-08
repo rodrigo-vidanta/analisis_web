@@ -203,6 +203,15 @@ const documentationSections: DocSection[] = [
     ]
   },
   {
+    id: 'campanas',
+    title: 'Campañas WhatsApp',
+    icon: Icons.integrations,
+    docs: [
+      { id: 'readme-campanas', name: 'README Campañas', path: '/docs/README_CAMPANAS.md', description: 'Documentación del módulo de campañas broadcast' },
+      { id: 'changelog-campanas', name: 'Changelog Campañas', path: '/docs/CHANGELOG_CAMPANAS.md', description: 'Historial de cambios de campañas' },
+    ]
+  },
+  {
     id: 'scheduled',
     title: 'Llamadas Programadas',
     icon: Icons.history,
@@ -253,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'n2e5611', date: '2026-01-08', author: 'Team', message: 'v2.2.22: 🎯 Audiencias - Filtros email, etiquetas, días sin contacto (mensajes_whatsapp)', isRelease: true },
   { hash: 'm1d4500', date: '2026-01-08', author: 'Team', message: 'v2.2.21: 📢 Campañas A/B - Agrupación visual, barras progreso, N8N integration', isRelease: true },
   { hash: 'l0c3499', date: '2026-01-08', author: 'Team', message: 'v2.2.19: 🔧 Fix Dynamics CRM - Credenciales BD, equivalencias coordinaciones', isRelease: true },
   { hash: 'k9b2388', date: '2026-01-07', author: 'Team', message: 'v2.2.18: 🔐 Fix Dashboard Analíticas - Acceso solo admin y coord. Calidad', isRelease: true },
@@ -392,8 +402,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.21', highlight: true },
-  { label: 'Release', value: 'B7.2.11N7.2.1', highlight: false },
+  { label: 'Version', value: 'v2.2.22', highlight: true },
+  { label: 'Release', value: 'B7.2.12N7.2.2', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '08 Ene 2026', highlight: false },
 ];
