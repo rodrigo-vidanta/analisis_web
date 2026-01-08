@@ -253,6 +253,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'm1d4500', date: '2026-01-08', author: 'Team', message: 'v2.2.21: 📢 Campañas A/B - Agrupación visual, barras progreso, N8N integration', isRelease: true },
   { hash: 'l0c3499', date: '2026-01-08', author: 'Team', message: 'v2.2.19: 🔧 Fix Dynamics CRM - Credenciales BD, equivalencias coordinaciones', isRelease: true },
   { hash: 'k9b2388', date: '2026-01-07', author: 'Team', message: 'v2.2.18: 🔐 Fix Dashboard Analíticas - Acceso solo admin y coord. Calidad', isRelease: true },
   { hash: 'j8a1277', date: '2026-01-06', author: 'Team', message: 'v2.2.17: 🔧 Botón CRM visible para Coordinadores de Calidad', isRelease: true },
@@ -390,10 +391,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.20', highlight: true },
-  { label: 'Release', value: 'B7.2.10N7.2.0', highlight: false },
+  { label: 'Version', value: 'v2.2.21', highlight: true },
+  { label: 'Release', value: 'B7.2.11N7.2.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '07 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '08 Ene 2026', highlight: false },
 ];
 
 // ============================================

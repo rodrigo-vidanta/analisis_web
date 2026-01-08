@@ -281,10 +281,11 @@ const CampanasManager: React.FC = () => {
   };
 
   // ============================================
-  // FILTRADO Y ORDENAMIENTO
+  // FILTRADO, AGRUPACIÓN Y ORDENAMIENTO
   // ============================================
 
-  const filteredCampaigns = useMemo(() => {
+  // Agrupar campañas A/B por ab_group_id
+  const groupedCampaigns = useMemo((): GroupedCampaign[] => {
     let filtered = [...campaigns];
     
     // Filtro de búsqueda
@@ -323,13 +324,91 @@ const CampanasManager: React.FC = () => {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     
-    return filtered;
+    // Agrupar por ab_group_id
+    const abGroups = new Map<string, WhatsAppCampaign[]>();
+    const standaloneCampaigns: WhatsAppCampaign[] = [];
+    const processedGroupIds = new Set<string>();
+    
+    // Separar campañas con ab_group_id de las individuales
+    filtered.forEach(campaign => {
+      if (campaign.ab_group_id) {
+        const existing = abGroups.get(campaign.ab_group_id) || [];
+        existing.push(campaign);
+        abGroups.set(campaign.ab_group_id, existing);
+      } else {
+        standaloneCampaigns.push(campaign);
+      }
+    });
+    
+    // Construir lista de GroupedCampaign
+    const result: GroupedCampaign[] = [];
+    
+    // Agregar grupos A/B
+    abGroups.forEach((groupCampaigns, groupId) => {
+      // Ordenar por variante (A primero, B después)
+      groupCampaigns.sort((a, b) => {
+        const aVariant = a.ab_variant || '';
+        const bVariant = b.ab_variant || '';
+        return aVariant.localeCompare(bVariant);
+      });
+      
+      const variantA = groupCampaigns.find(c => c.ab_variant === 'A');
+      const variantB = groupCampaigns.find(c => c.ab_variant === 'B');
+      
+      // Calcular estadísticas combinadas
+      const combinedStats = {
+        totalRecipients: groupCampaigns.reduce((sum, c) => sum + c.total_recipients, 0),
+        sentCount: groupCampaigns.reduce((sum, c) => sum + c.sent_count, 0),
+        deliveredCount: groupCampaigns.reduce((sum, c) => sum + c.delivered_count, 0),
+        readCount: groupCampaigns.reduce((sum, c) => sum + c.read_count, 0),
+        repliedCount: groupCampaigns.reduce((sum, c) => sum + c.replied_count, 0),
+        failedCount: groupCampaigns.reduce((sum, c) => sum + c.failed_count, 0),
+      };
+      
+      // Extraer nombre base (sin " - Variante A/B")
+      const baseName = variantA?.nombre.replace(/ - Variante [AB]$/i, '') || 
+                       variantB?.nombre.replace(/ - Variante [AB]$/i, '') || 
+                       'Campaña A/B';
+      
+      result.push({
+        type: 'ab_group',
+        abGroupId: groupId,
+        variantA,
+        variantB,
+        combinedName: baseName,
+        combinedStats,
+      });
+    });
+    
+    // Agregar campañas individuales
+    standaloneCampaigns.forEach(campaign => {
+      result.push({
+        type: 'single',
+        campaign,
+      });
+    });
+    
+    // Re-ordenar por fecha de creación
+    result.sort((a, b) => {
+      const aDate = a.type === 'ab_group' 
+        ? (a.variantA?.created_at || a.variantB?.created_at || '') 
+        : (a.campaign?.created_at || '');
+      const bDate = b.type === 'ab_group' 
+        ? (b.variantA?.created_at || b.variantB?.created_at || '') 
+        : (b.campaign?.created_at || '');
+      
+      return sortDirection === 'asc' 
+        ? aDate.localeCompare(bDate) 
+        : bDate.localeCompare(aDate);
+    });
+    
+    return result;
   }, [campaigns, searchQuery, statusFilter, sortColumn, sortDirection]);
 
   // Paginación
-  const totalPages = Math.ceil(filteredCampaigns.length / itemsPerPage);
+  const totalPages = Math.ceil(groupedCampaigns.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedCampaigns = filteredCampaigns.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedCampaigns = groupedCampaigns.slice(startIndex, startIndex + itemsPerPage);
 
   // Reset página cuando cambian filtros
   useEffect(() => {
@@ -346,19 +425,39 @@ const CampanasManager: React.FC = () => {
       return;
     }
     
-    if (!confirm(`¿Estás seguro de eliminar la campaña "${campaign.nombre}"?`)) {
+    // Para campañas A/B con ab_group_id, eliminar ambas variantes
+    const isABWithGroup = campaign.ab_group_id && campaign.campaign_type === 'ab_test';
+    const confirmMessage = isABWithGroup
+      ? `¿Estás seguro de eliminar la campaña A/B "${campaign.nombre.replace(/ - Variante [AB]$/i, '')}" y sus variantes?`
+      : `¿Estás seguro de eliminar la campaña "${campaign.nombre}"?`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
     
     try {
-      const { error } = await analysisSupabase
-        .from('whatsapp_campaigns')
-        .delete()
-        .eq('id', campaign.id);
+      if (isABWithGroup && campaign.ab_group_id) {
+        // Eliminar todas las campañas del grupo A/B
+        const { error } = await analysisSupabase
+          .from('whatsapp_campaigns')
+          .delete()
+          .eq('ab_group_id', campaign.ab_group_id);
+        
+        if (error) throw error;
+        
+        toast.success('Campaña A/B eliminada (ambas variantes)');
+      } else {
+        // Eliminar campaña individual
+        const { error } = await analysisSupabase
+          .from('whatsapp_campaigns')
+          .delete()
+          .eq('id', campaign.id);
+        
+        if (error) throw error;
+        
+        toast.success('Campaña eliminada');
+      }
       
-      if (error) throw error;
-      
-      toast.success('Campaña eliminada');
       loadData();
     } catch (error) {
       console.error('Error deleting campaign:', error);
@@ -602,11 +701,11 @@ const CampanasManager: React.FC = () => {
       </div>
 
       {/* Contador de resultados */}
-      {filteredCampaigns.length > 0 && (
+      {groupedCampaigns.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {filteredCampaigns.length} campaña{filteredCampaigns.length !== 1 ? 's' : ''} 
-            {(searchQuery || statusFilter !== 'all') && ' encontrada' + (filteredCampaigns.length !== 1 ? 's' : '')}
+            {groupedCampaigns.length} campaña{groupedCampaigns.length !== 1 ? 's' : ''} 
+            {(searchQuery || statusFilter !== 'all') && ' encontrada' + (groupedCampaigns.length !== 1 ? 's' : '')}
           </p>
         </div>
       )}
@@ -619,7 +718,7 @@ const CampanasManager: React.FC = () => {
             <p className="text-gray-500 dark:text-gray-400">Cargando campañas...</p>
           </div>
         </div>
-      ) : filteredCampaigns.length === 0 ? (
+      ) : groupedCampaigns.length === 0 ? (
         <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
         <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <MessageSquare className="w-8 h-8 text-white" />
@@ -651,19 +750,28 @@ const CampanasManager: React.FC = () => {
           {/* Vista de Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             <AnimatePresence mode="popLayout">
-              {paginatedCampaigns.map((campaign, index) => (
-                <CampaignCard
-                  key={campaign.id}
-                  campaign={campaign}
-                  index={index}
-                  onEdit={() => {
-                    setEditingCampaign(campaign);
-                    setShowCreateModal(true);
-                  }}
-                  onDelete={() => handleDelete(campaign)}
-                  onStatusChange={(status) => handleStatusChange(campaign, status)}
-                />
-              ))}
+              {paginatedCampaigns.map((grouped, index) => {
+                const key = grouped.type === 'ab_group' 
+                  ? grouped.abGroupId 
+                  : grouped.campaign?.id;
+                const primaryCampaign = grouped.type === 'ab_group' 
+                  ? grouped.variantA 
+                  : grouped.campaign;
+                
+                return (
+                  <CampaignCard
+                    key={key}
+                    groupedCampaign={grouped}
+                    index={index}
+                    onEdit={(campaign) => {
+                      setEditingCampaign(campaign);
+                      setShowCreateModal(true);
+                    }}
+                    onDelete={(campaign) => handleDelete(campaign)}
+                    onStatusChange={(campaign, status) => handleStatusChange(campaign, status)}
+                  />
+                );
+              })}
             </AnimatePresence>
           </div>
         </>
@@ -676,7 +784,8 @@ const CampanasManager: React.FC = () => {
                 <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
                   <tr>
                     <SortableHeader column="nombre" label="Nombre" sortColumn={sortColumn} sortDirection={sortDirection} onSort={setSortColumn} onDirection={setSortDirection} />
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Plantilla</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Tipo</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Plantilla(s)</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Audiencia</th>
                     <SortableHeader column="status" label="Estado" sortColumn={sortColumn} sortDirection={sortDirection} onSort={setSortColumn} onDirection={setSortDirection} />
                     <SortableHeader column="total_recipients" label="Destinatarios" sortColumn={sortColumn} sortDirection={sortDirection} onSort={setSortColumn} onDirection={setSortDirection} />
@@ -686,56 +795,97 @@ const CampanasManager: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {paginatedCampaigns.map((campaign) => (
-                    <motion.tr
-                      key={campaign.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                    >
-                      <td className="px-4 py-3">
-                        <span className="font-medium text-gray-900 dark:text-white">{campaign.nombre}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{campaign.template?.name || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{campaign.audience?.nombre || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={campaign.status} />
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">
-                        {campaign.total_recipients.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                        {campaign.sent_count.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(campaign.created_at).toLocaleDateString('es-MX')}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => {
-                              setEditingCampaign(campaign);
-                              setShowCreateModal(true);
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-blue-600 transition-colors"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(campaign)}
-                            disabled={campaign.status === 'running'}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
+                  {paginatedCampaigns.map((grouped) => {
+                    const isABGroup = grouped.type === 'ab_group';
+                    const displayCampaign = isABGroup ? grouped.variantA : grouped.campaign;
+                    if (!displayCampaign) return null;
+                    
+                    const key = isABGroup ? grouped.abGroupId : displayCampaign.id;
+                    const displayName = isABGroup 
+                      ? grouped.combinedName 
+                      : displayCampaign.nombre;
+                    const stats = isABGroup && grouped.combinedStats 
+                      ? grouped.combinedStats 
+                      : {
+                          totalRecipients: displayCampaign.total_recipients,
+                          sentCount: displayCampaign.sent_count,
+                        };
+                    const isRunning = isABGroup 
+                      ? (grouped.variantA?.status === 'running' || grouped.variantB?.status === 'running')
+                      : displayCampaign.status === 'running';
+                    
+                    return (
+                      <motion.tr
+                        key={key}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-gray-900 dark:text-white">{displayName}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {isABGroup ? (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded">A/B</span>
+                          ) : (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Estándar</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {isABGroup ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs text-gray-600 dark:text-gray-400">
+                                <span className="text-blue-500 font-medium">A:</span> {grouped.variantA?.template?.name || '-'}
+                              </span>
+                              <span className="text-xs text-gray-600 dark:text-gray-400">
+                                <span className="text-pink-500 font-medium">B:</span> {grouped.variantB?.template?.name || '-'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{displayCampaign.template?.name || '-'}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{displayCampaign.audience?.nombre || '-'}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={displayCampaign.status} />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">
+                          {stats.totalRecipients.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                          {stats.sentCount.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(displayCampaign.created_at).toLocaleDateString('es-MX')}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingCampaign(displayCampaign);
+                                setShowCreateModal(true);
+                              }}
+                              disabled={isRunning}
+                              title={isRunning ? 'No se puede editar una campaña en ejecución' : 'Editar campaña'}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(displayCampaign)}
+                              disabled={isRunning}
+                              title={isRunning ? 'No se puede eliminar una campaña en ejecución' : 'Eliminar campaña'}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -747,7 +897,7 @@ const CampanasManager: React.FC = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Mostrando {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredCampaigns.length)} de {filteredCampaigns.length}
+            Mostrando {startIndex + 1} - {Math.min(startIndex + itemsPerPage, groupedCampaigns.length)} de {groupedCampaigns.length} campañas
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -838,23 +988,82 @@ const StatusBadge: React.FC<{ status: CampaignStatus }> = ({ status }) => {
 };
 
 // ============================================
-// CARD DE CAMPAÑA
+// TIPOS PARA CAMPAÑAS AGRUPADAS
+// ============================================
+
+interface GroupedCampaign {
+  type: 'single' | 'ab_group';
+  // Para campañas individuales (standard o A/B sin grupo)
+  campaign?: WhatsAppCampaign;
+  // Para grupos A/B
+  abGroupId?: string;
+  variantA?: WhatsAppCampaign;
+  variantB?: WhatsAppCampaign;
+  // Datos combinados para A/B
+  combinedName?: string;
+  combinedStats?: {
+    totalRecipients: number;
+    sentCount: number;
+    deliveredCount: number;
+    readCount: number;
+    repliedCount: number;
+    failedCount: number;
+  };
+}
+
+// ============================================
+// CARD DE CAMPAÑA (SOPORTA INDIVIDUAL Y A/B AGRUPADO)
 // ============================================
 
 interface CampaignCardProps {
-  campaign: WhatsAppCampaign;
+  groupedCampaign: GroupedCampaign;
   index: number;
-  onEdit: () => void;
-  onDelete: () => void;
-  onStatusChange: (status: CampaignStatus) => void;
+  onEdit: (campaign: WhatsAppCampaign) => void;
+  onDelete: (campaign: WhatsAppCampaign) => void;
+  onStatusChange: (campaign: WhatsAppCampaign, status: CampaignStatus) => void;
 }
 
-const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, onDelete, onStatusChange }) => {
-  const config = CAMPAIGN_STATUS_CONFIG[campaign.status];
-  const isABTest = campaign.campaign_type === 'ab_test';
+const CampaignCard: React.FC<CampaignCardProps> = ({ groupedCampaign, index, onEdit, onDelete, onStatusChange }) => {
+  const isABGroup = groupedCampaign.type === 'ab_group';
+  
+  // Para campañas individuales
+  const campaign = groupedCampaign.campaign;
+  
+  // Para grupos A/B
+  const variantA = groupedCampaign.variantA;
+  const variantB = groupedCampaign.variantB;
+  
+  // Determinar datos a mostrar
+  const displayCampaign = isABGroup ? variantA : campaign;
+  if (!displayCampaign) return null;
+  
+  const config = CAMPAIGN_STATUS_CONFIG[displayCampaign.status];
+  const isABTest = isABGroup || displayCampaign.campaign_type === 'ab_test';
+  
+  // Estadísticas combinadas para A/B
+  const stats = isABGroup && groupedCampaign.combinedStats 
+    ? groupedCampaign.combinedStats 
+    : {
+        totalRecipients: displayCampaign.total_recipients,
+        sentCount: displayCampaign.sent_count,
+        deliveredCount: displayCampaign.delivered_count,
+        readCount: displayCampaign.read_count,
+        repliedCount: displayCampaign.replied_count,
+        failedCount: displayCampaign.failed_count,
+      };
+  
+  // Nombre a mostrar
+  const displayName = isABGroup 
+    ? groupedCampaign.combinedName || variantA?.nombre.replace(' - Variante A', '') || 'Campaña A/B'
+    : displayCampaign.nombre;
+  
+  // Determinar si alguna variante está en ejecución
+  const isRunning = isABGroup 
+    ? variantA?.status === 'running' || variantB?.status === 'running'
+    : displayCampaign.status === 'running';
   
   const getStatusIcon = () => {
-    switch (campaign.status) {
+    switch (displayCampaign.status) {
       case 'draft': return FileText;
       case 'scheduled': return Calendar;
       case 'running': return Play;
@@ -868,13 +1077,18 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
   
   const StatusIcon = getStatusIcon();
   
-  const successRate = campaign.sent_count > 0 
-    ? ((campaign.delivered_count / campaign.sent_count) * 100).toFixed(1) 
+  const successRate = stats.sentCount > 0 
+    ? ((stats.deliveredCount / stats.sentCount) * 100).toFixed(1) 
     : '0';
   
-  const replyRate = campaign.sent_count > 0 
-    ? ((campaign.replied_count / campaign.sent_count) * 100).toFixed(1) 
+  const replyRate = stats.sentCount > 0 
+    ? ((stats.repliedCount / stats.sentCount) * 100).toFixed(1) 
     : '0';
+  
+  // Distribución A/B
+  const distributionA = isABGroup && variantA && variantB
+    ? Math.round((variantA.total_recipients / (variantA.total_recipients + variantB.total_recipients)) * 100)
+    : displayCampaign.ab_distribution_a || 50;
 
   return (
     <motion.div
@@ -883,14 +1097,10 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2, delay: index * 0.03 }}
-      className={`group relative bg-white dark:bg-gray-800 rounded-xl border transition-all duration-200 overflow-hidden hover:shadow-lg ${
-        isABTest 
-          ? 'border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-purple-500/10' 
-          : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-blue-500/5'
-      }`}
+      className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 transition-all duration-200 overflow-hidden hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-gray-500/5"
     >
       {/* Barra de estado superior */}
-      <div className={`h-1.5 ${isABTest ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500' : config.bgColor}`} />
+      <div className={`h-1.5 ${isABTest ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500' : 'bg-gradient-to-r from-blue-500 to-emerald-500'}`} />
       
       {/* Contenido */}
       <div className="p-4">
@@ -898,8 +1108,8 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={campaign.nombre}>
-                {campaign.nombre}
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={displayName}>
+                {displayName}
               </h3>
               {isABTest && (
                 <span className="px-1.5 py-0.5 text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded">
@@ -908,26 +1118,40 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
               )}
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <StatusBadge status={campaign.status} />
+              <StatusBadge status={displayCampaign.status} />
+              {isABGroup && variantB && variantB.status !== variantA?.status && (
+                <StatusBadge status={variantB.status} />
+              )}
             </div>
           </div>
           
           {/* Acciones */}
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={onEdit}
-              className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+              whileHover={!isRunning ? { scale: 1.1 } : {}}
+              whileTap={!isRunning ? { scale: 0.9 } : {}}
+              onClick={() => onEdit(displayCampaign)}
+              disabled={isRunning}
+              title={isRunning ? 'No se puede editar una campaña en ejecución' : 'Editar campaña'}
+              className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Edit2 className="w-4 h-4" />
             </motion.button>
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={onDelete}
-              disabled={campaign.status === 'running'}
-              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50"
+              whileHover={!isRunning ? { scale: 1.1 } : {}}
+              whileTap={!isRunning ? { scale: 0.9 } : {}}
+              onClick={() => {
+                // Para grupos A/B, eliminar ambas variantes
+                if (isABGroup && variantA && variantB) {
+                  onDelete(variantA);
+                  // La segunda eliminación se manejará en el handler
+                } else {
+                  onDelete(displayCampaign);
+                }
+              }}
+              disabled={isRunning}
+              title={isRunning ? 'No se puede eliminar una campaña en ejecución' : 'Eliminar campaña'}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Trash2 className="w-4 h-4" />
             </motion.button>
@@ -935,77 +1159,179 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
         </div>
         
         {/* Fecha de ejecución */}
-        {campaign.execute_at && (
+        {displayCampaign.execute_at && (
           <div className={`mb-3 p-2 rounded-lg text-xs flex items-center gap-2 ${
-            campaign.status === 'scheduled' 
+            displayCampaign.status === 'scheduled' 
               ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
               : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400'
           }`}>
             <Calendar className="w-3.5 h-3.5" />
-            <span>{new Date(campaign.execute_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</span>
+            <span>{new Date(displayCampaign.execute_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</span>
           </div>
         )}
         
-        {/* Plantilla y Audiencia */}
+        {/* Plantillas y Audiencia */}
         <div className="space-y-2 mb-3">
+          {/* Plantilla A */}
           <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
             <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate">{campaign.template?.name || 'Sin plantilla'}</span>
+            <span className="truncate">{isABGroup ? variantA?.template?.name : displayCampaign.template?.name || 'Sin plantilla'}</span>
             {isABTest && (
               <span className="px-1 py-0.5 text-[8px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">A</span>
             )}
           </div>
-          {isABTest && campaign.ab_template_b_id && (
+          
+          {/* Plantilla B (para grupos A/B) */}
+          {isABGroup && variantB && (
             <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
               <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">Plantilla B</span>
+              <span className="truncate">{variantB.template?.name || 'Sin plantilla'}</span>
               <span className="px-1 py-0.5 text-[8px] font-bold bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 rounded">B</span>
             </div>
           )}
+          
+          {/* Audiencia */}
           <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
             <Users className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate">{campaign.audience?.nombre || 'Sin audiencia'}</span>
+            <span className="truncate">{displayCampaign.audience?.nombre || 'Sin audiencia'}</span>
           </div>
         </div>
         
-        {/* Distribución A/B */}
-        {isABTest && (
+        {/* Barra de progreso y estadísticas de envío */}
+        {isABTest ? (
+          // Distribución y progreso A/B
           <div className="mb-3 p-2 bg-gradient-to-r from-blue-50 to-pink-50 dark:from-blue-900/20 dark:to-pink-900/20 rounded-lg">
-            <div className="flex items-center justify-between text-[10px] font-medium">
-              <span className="text-blue-600 dark:text-blue-400">A: {campaign.ab_distribution_a || 50}%</span>
-              <span className="text-pink-600 dark:text-pink-400">B: {100 - (campaign.ab_distribution_a || 50)}%</span>
+            {/* Header con destinatarios */}
+            <div className="flex items-center justify-between text-[10px] font-medium mb-2">
+              <span className="text-blue-600 dark:text-blue-400">
+                A: {isABGroup && variantA ? variantA.total_recipients.toLocaleString() : `${distributionA}%`}
+              </span>
+              <span className="text-pink-600 dark:text-pink-400">
+                B: {isABGroup && variantB ? variantB.total_recipients.toLocaleString() : `${100 - distributionA}%`}
+              </span>
             </div>
-            <div className="mt-1 h-1.5 rounded-full overflow-hidden flex">
+            
+            {/* Barras de progreso por variante */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Variante A */}
+              <div>
+                <div className="flex items-center justify-between text-[8px] text-blue-600 dark:text-blue-400 mb-0.5">
+                  <span>Enviados A</span>
+                  <span>
+                    {isABGroup && variantA && variantA.total_recipients > 0
+                      ? Math.round((variantA.sent_count / variantA.total_recipients) * 100)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden bg-blue-200/50 dark:bg-blue-900/50">
+                  <div 
+                    className="bg-blue-500 h-full transition-all duration-500" 
+                    style={{ 
+                      width: `${isABGroup && variantA && variantA.total_recipients > 0
+                        ? Math.min(100, (variantA.sent_count / variantA.total_recipients) * 100)
+                        : 0}%` 
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {/* Variante B */}
+              <div>
+                <div className="flex items-center justify-between text-[8px] text-pink-600 dark:text-pink-400 mb-0.5">
+                  <span>Enviados B</span>
+                  <span>
+                    {isABGroup && variantB && variantB.total_recipients > 0
+                      ? Math.round((variantB.sent_count / variantB.total_recipients) * 100)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden bg-pink-200/50 dark:bg-pink-900/50">
+                  <div 
+                    className="bg-pink-500 h-full transition-all duration-500" 
+                    style={{ 
+                      width: `${isABGroup && variantB && variantB.total_recipients > 0
+                        ? Math.min(100, (variantB.sent_count / variantB.total_recipients) * 100)
+                        : 0}%` 
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Estadísticas por variante para grupos A/B */}
+            {isABGroup && variantA && variantB && (
+              <div className="mt-2 grid grid-cols-2 gap-2 text-[9px]">
+                <div className="text-center p-1 bg-blue-100/50 dark:bg-blue-900/30 rounded">
+                  <span className="text-blue-700 dark:text-blue-300">
+                    ✓ {variantA.sent_count} env | ↩ {variantA.replied_count} resp
+                  </span>
+                </div>
+                <div className="text-center p-1 bg-pink-100/50 dark:bg-pink-900/30 rounded">
+                  <span className="text-pink-700 dark:text-pink-300">
+                    ✓ {variantB.sent_count} env | ↩ {variantB.replied_count} resp
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Barra de progreso para campaña estándar
+          <div className="mb-3 p-2 bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/20 dark:to-emerald-900/20 rounded-lg">
+            <div className="flex items-center justify-between text-[10px] font-medium mb-1">
+              <span className="text-gray-600 dark:text-gray-400">
+                Progreso de envío
+              </span>
+              <span className="text-blue-600 dark:text-blue-400">
+                {stats.totalRecipients > 0 
+                  ? Math.round((stats.sentCount / stats.totalRecipients) * 100) 
+                  : 0}%
+              </span>
+            </div>
+            {/* Barra de progreso */}
+            <div className="h-1.5 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
               <div 
-                className="bg-blue-500 h-full" 
-                style={{ width: `${campaign.ab_distribution_a || 50}%` }}
+                className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full transition-all duration-500" 
+                style={{ 
+                  width: `${stats.totalRecipients > 0 
+                    ? Math.min(100, (stats.sentCount / stats.totalRecipients) * 100) 
+                    : 0}%` 
+                }}
               />
-              <div 
-                className="bg-pink-500 h-full" 
-                style={{ width: `${100 - (campaign.ab_distribution_a || 50)}%` }}
-              />
+            </div>
+            {/* Estadísticas de envío */}
+            <div className="mt-2 flex items-center justify-center gap-4 text-[9px]">
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-100/50 dark:bg-blue-900/30 rounded">
+                <span className="text-blue-700 dark:text-blue-300">
+                  ✓ {stats.sentCount.toLocaleString()} enviados
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-100/50 dark:bg-emerald-900/30 rounded">
+                <span className="text-emerald-700 dark:text-emerald-300">
+                  ↩ {stats.repliedCount.toLocaleString()} respuestas
+                </span>
+              </div>
             </div>
           </div>
         )}
         
-        {/* Estadísticas */}
+        {/* Estadísticas Combinadas */}
         <div className="grid grid-cols-3 gap-2 mb-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
           <div className="text-center">
-            <p className="text-lg font-bold text-gray-900 dark:text-white">{campaign.total_recipients.toLocaleString()}</p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">Destino</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.totalRecipients.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">Total</p>
           </div>
           <div className="text-center border-x border-gray-200 dark:border-gray-700">
-            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{campaign.sent_count.toLocaleString()}</p>
+            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{stats.sentCount.toLocaleString()}</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">Enviados</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{campaign.replied_count.toLocaleString()}</p>
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{stats.repliedCount.toLocaleString()}</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">Respuestas</p>
           </div>
         </div>
         
         {/* Tasas */}
-        {campaign.sent_count > 0 && (
+        {stats.sentCount > 0 && (
           <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-3">
             <span>Entrega: {successRate}%</span>
             <span>Respuesta: {replyRate}%</span>
@@ -1016,13 +1342,13 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign, index, onEdit, on
         <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
             <Clock className="w-3 h-3" />
-            <span>{new Date(campaign.created_at).toLocaleDateString('es-MX')}</span>
+            <span>{new Date(displayCampaign.created_at).toLocaleDateString('es-MX')}</span>
           </div>
           
           {/* Batch info */}
           <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
             <Zap className="w-3 h-3" />
-            <span>{campaign.batch_size}/min</span>
+            <span>{displayCampaign.batch_size}/min</span>
           </div>
         </div>
       </div>
@@ -1244,6 +1570,9 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   editingCampaign,
   user
 }) => {
+  // Verificar si la campaña está en ejecución (bloquear edición)
+  const isRunning = editingCampaign?.status === 'running';
+  
   // Form state
   const [formData, setFormData] = useState<CreateCampaignInput>({
     nombre: '',
@@ -2829,43 +3158,54 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                 </span>
               </div>
               <div className="flex items-center gap-3">
+                {/* Banner de advertencia si está en ejecución */}
+                {isRunning && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl">
+                    <Play className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse" />
+                    <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                      Campaña en ejecución
+                    </span>
+                  </div>
+                )}
                 <button
                   onClick={onClose}
                   className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                 >
-                  Cancelar
+                  {isRunning ? 'Cerrar' : 'Cancelar'}
                 </button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSubmit()}
-                  disabled={
-                    saving || 
-                    !formData.nombre.trim() || 
-                    !formData.template_id || 
-                    !formData.audience_id || 
-                    prospectCount === 0 ||
-                    (isABTest && !formData.ab_template_b_id) ||
-                    (executeOption === 'scheduled' && !formData.execute_at)
-                  }
-                  className={`px-6 py-2.5 text-sm font-medium text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center gap-2 ${
-                    isABTest 
-                      ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-700 hover:via-pink-700 hover:to-rose-700 shadow-purple-500/25' 
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-blue-500/25'
-                  }`}
-                >
-                  {executeOption === 'now' ? (
-                    <>
-                      <Rocket className="w-4 h-4" />
-                      {saving ? 'Lanzando...' : isABTest ? 'Lanzar A/B Test' : 'Lanzar Ahora'}
-                    </>
-                  ) : (
-                    <>
-                      <Calendar className="w-4 h-4" />
-                      {saving ? 'Programando...' : 'Programar Envío'}
-                    </>
-                  )}
-                </motion.button>
+                {!isRunning && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleSubmit()}
+                    disabled={
+                      saving || 
+                      !formData.nombre.trim() || 
+                      !formData.template_id || 
+                      !formData.audience_id || 
+                      prospectCount === 0 ||
+                      (isABTest && !formData.ab_template_b_id) ||
+                      (executeOption === 'scheduled' && !formData.execute_at)
+                    }
+                    className={`px-6 py-2.5 text-sm font-medium text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center gap-2 ${
+                      isABTest 
+                        ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-700 hover:via-pink-700 hover:to-rose-700 shadow-purple-500/25' 
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-blue-500/25'
+                    }`}
+                  >
+                    {executeOption === 'now' ? (
+                      <>
+                        <Rocket className="w-4 h-4" />
+                        {saving ? 'Lanzando...' : isABTest ? 'Lanzar A/B Test' : 'Lanzar Ahora'}
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-4 h-4" />
+                        {saving ? 'Programando...' : 'Programar Envío'}
+                      </>
+                    )}
+                  </motion.button>
+                )}
               </div>
             </div>
           </motion.div>
