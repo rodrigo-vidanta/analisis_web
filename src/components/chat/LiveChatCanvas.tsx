@@ -2023,13 +2023,15 @@ const LiveChatCanvas: React.FC = () => {
               // El prospecto cambió de asignación - verificar si ahora el usuario tiene acceso
               const wasInCache = prospectosDataRef.current.has(prospectoId);
               
-              // Actualizar el cache con los nuevos datos
+              // Actualizar el cache con los nuevos datos (incluyendo id_dynamics y etapa para PhoneDisplay)
               prospectosDataRef.current.set(prospectoId, {
                 id: prospectoId,
                 ejecutivo_id: updatedProspecto.ejecutivo_id,
                 coordinacion_id: updatedProspecto.coordinacion_id,
                 requiere_atencion_humana: updatedProspecto.requiere_atencion_humana || false,
-                motivo_handoff: updatedProspecto.motivo_handoff || null
+                motivo_handoff: updatedProspecto.motivo_handoff || null,
+                id_dynamics: updatedProspecto.id_dynamics || null,
+                etapa: updatedProspecto.etapa || null
               });
               
               // Verificar permisos del usuario para este prospecto actualizado
@@ -2124,9 +2126,37 @@ const LiveChatCanvas: React.FC = () => {
               }
             }
             
-            // ✅ ACTUALIZAR: requiere_atencion_humana y motivo_handoff en el ref local
+            // ✅ ACTUALIZAR: requiere_atencion_humana, motivo_handoff, id_dynamics, etapa en el ref local
             const requiereAtencionChanged = oldProspecto?.requiere_atencion_humana !== updatedProspecto.requiere_atencion_humana;
             const motivoHandoffChanged = oldProspecto?.motivo_handoff !== updatedProspecto.motivo_handoff;
+            const idDynamicsChanged = oldProspecto?.id_dynamics !== updatedProspecto.id_dynamics;
+            const etapaChanged = oldProspecto?.etapa !== updatedProspecto.etapa;
+            
+            // ✅ REALTIME id_dynamics y etapa: Actualizar siempre que cambien para PhoneDisplay
+            if (idDynamicsChanged || etapaChanged) {
+              const prospectoData = prospectosDataRef.current.get(prospectoId);
+              if (prospectoData) {
+                prospectosDataRef.current.set(prospectoId, {
+                  ...prospectoData,
+                  id_dynamics: updatedProspecto.id_dynamics || null,
+                  etapa: updatedProspecto.etapa || null
+                });
+              }
+              
+              // Forzar re-render para que PhoneDisplay muestre el teléfono si ahora tiene id_dynamics
+              startTransition(() => {
+                setConversations(prev => [...prev]);
+                
+                // Si la conversación seleccionada es la que cambió, forzar re-render
+                const currentSelected = selectedConversationStateRef.current;
+                if (currentSelected && 
+                    (currentSelected.prospecto_id === prospectoId || currentSelected.id === prospectoId)) {
+                  setSelectedConversation(prev => prev ? { ...prev } : null);
+                }
+              });
+              
+              logDev(`🔔 [REALTIME] Prospecto ${prospectoId} id_dynamics/etapa actualizado: id_dynamics=${updatedProspecto.id_dynamics}, etapa=${updatedProspecto.etapa}`);
+            }
             
             if (requiereAtencionChanged || motivoHandoffChanged) {
               const prospectoData = prospectosDataRef.current.get(prospectoId);

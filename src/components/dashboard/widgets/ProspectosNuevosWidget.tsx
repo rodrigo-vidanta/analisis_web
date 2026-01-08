@@ -225,6 +225,30 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
           const coordinacionChanged = oldProspect?.coordinacion_id !== updatedProspect.coordinacion_id;
           const assignmentChanged = ejecutivoChanged || coordinacionChanged;
           
+          // ✅ REALTIME id_dynamics y etapa: Actualizar prospecto para PhoneDisplay
+          const idDynamicsChanged = oldProspect?.id_dynamics !== updatedProspect.id_dynamics;
+          const etapaChanged = oldProspect?.etapa !== updatedProspect.etapa;
+          
+          if (idDynamicsChanged || etapaChanged) {
+            // Si el prospecto está en la lista, actualizar sus datos para que PhoneDisplay re-evalúe
+            startTransition(() => {
+              setProspectos(prev => {
+                const existingIndex = prev.findIndex(p => p.id === updatedProspect.id);
+                if (existingIndex !== -1) {
+                  const updated = [...prev];
+                  updated[existingIndex] = {
+                    ...updated[existingIndex],
+                    id_dynamics: updatedProspect.id_dynamics,
+                    etapa: updatedProspect.etapa
+                  };
+                  prospectosListRef.current = updated;
+                  return updated;
+                }
+                return prev;
+              });
+            });
+          }
+          
           // Verificar si requiere_atencion_humana cambió
           const nowRequiringAttention = updatedProspect?.requiere_atencion_humana === true;
           

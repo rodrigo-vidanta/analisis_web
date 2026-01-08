@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### 🔄 v2.2.26 (B7.2.16N7.2.6) - Realtime para id_dynamics y etapa [08-01-2026]
+
+#### 🎯 Mejora Principal
+Implementación de actualización en tiempo real para `id_dynamics` y `etapa` en todos los módulos que usan `PhoneDisplay`, permitiendo que el teléfono se muestre inmediatamente cuando un prospecto obtiene `id_dynamics` sin necesidad de recargar la página.
+
+#### 📁 Archivos Modificados
+
+**LiveChatCanvas.tsx:**
+- Agregada detección de cambios en `id_dynamics` y `etapa` en suscripción realtime
+- Actualización de `prospectosDataRef` con campos `id_dynamics` y `etapa`
+- Forzado de re-render cuando cambian para que `PhoneDisplay` re-evalúe permisos
+
+**ProspectosNuevosWidget.tsx:**
+- Agregada detección de cambios en `id_dynamics` y `etapa` en handler UPDATE
+- Actualización del estado local `prospectos` para refrescar `PhoneText`
+
+**ProspectosManager.tsx:**
+- Nueva suscripción realtime a tabla `prospectos` (evento UPDATE)
+- Actualización de `allProspectos` y `selectedProspecto` cuando cambian `id_dynamics` o `etapa`
+- Sidebar de prospecto se actualiza automáticamente si está abierto
+
+#### 🔧 Comportamiento Esperado
+
+1. Usuario abre conversación/prospecto con teléfono enmascarado
+2. En CRM Dynamics se asigna `id_dynamics` al prospecto
+3. El teléfono se muestra inmediatamente sin recargar página
+4. Funciona en: WhatsApp, Dashboard Widgets, Módulo Prospectos
+
+---
+
 ### 🔐 v2.2.25 (B7.2.15N7.2.5) - Seguridad de Números Telefónicos por Rol [08-01-2026]
 
 #### 🎯 Objetivo Principal

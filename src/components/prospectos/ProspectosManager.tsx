@@ -1095,6 +1095,64 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     };
   }, [user?.id, viewType]);
 
+  // ✅ REALTIME: Suscripción para detectar cambios en id_dynamics y etapa (PhoneDisplay)
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const channelId = `prospectos-manager-realtime-${user.id}-${Date.now()}`;
+    const channel = analysisSupabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'prospectos'
+        },
+        (payload) => {
+          const updatedProspecto = payload.new as any;
+          const oldProspecto = payload.old as any;
+          
+          // Detectar cambios en id_dynamics o etapa para actualizar PhoneDisplay en tiempo real
+          const idDynamicsChanged = oldProspecto?.id_dynamics !== updatedProspecto.id_dynamics;
+          const etapaChanged = oldProspecto?.etapa !== updatedProspecto.etapa;
+          
+          if (idDynamicsChanged || etapaChanged) {
+            setAllProspectos(prev => {
+              const index = prev.findIndex(p => p.id === updatedProspecto.id);
+              if (index !== -1) {
+                const updated = [...prev];
+                updated[index] = {
+                  ...updated[index],
+                  id_dynamics: updatedProspecto.id_dynamics,
+                  etapa: updatedProspecto.etapa
+                };
+                return updated;
+              }
+              return prev;
+            });
+            
+            // También actualizar el sidebar si está abierto con este prospecto
+            setSelectedProspecto(prev => {
+              if (prev && prev.id === updatedProspecto.id) {
+                return {
+                  ...prev,
+                  id_dynamics: updatedProspecto.id_dynamics,
+                  etapa: updatedProspecto.etapa
+                };
+              }
+              return prev;
+            });
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user?.id]);
+
   // Los filtros ahora se aplican solo en memoria, no recargan desde la base de datos
   // Solo recargar cuando cambia el usuario o la vista
 
