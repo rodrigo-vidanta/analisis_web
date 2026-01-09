@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 🧹 v2.2.32 (B7.2.22N7.2.12) - Limpieza Logs Debug [09-01-2026]
+
+#### 🎯 Limpieza
+Eliminados logs de debug del PhoneCache después de confirmar que el fix funciona correctamente.
+
+---
+
 ### 🔒 v2.2.31 (B7.2.21N7.2.11) - Fix PhoneCache Async v2 [09-01-2026]
 
 #### 🎯 Fix Adicional

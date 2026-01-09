@@ -5,7 +5,7 @@ import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
   // Versión actual
-  const version = 'B7.2.21N7.2.11';
+  const version = 'B7.2.22N7.2.12';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division
