@@ -262,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'u9l2388', date: '2026-01-09', author: 'Team', message: 'v2.2.29: 🔍 Búsqueda Global Prospectos - Normalización acentos, búsqueda servidor para prospectos no cargados', isRelease: true },
   { hash: 't8k1277', date: '2026-01-09', author: 'Team', message: 'v2.2.28: 🔒 Fix Crítico PhoneDisplay Lista Conversaciones - Teléfonos protegidos en ConversationItem', isRelease: true },
   { hash: 's7j0166', date: '2026-01-08', author: 'Team', message: 'v2.2.27: 📊 Totales Reales Prospectos - Contadores BD en Kanban y DataGrid, badge header visible', isRelease: true },
   { hash: 'r6i9055', date: '2026-01-08', author: 'Team', message: 'v2.2.26: 🔄 Realtime id_dynamics/etapa - Teléfonos actualizan sin reload en WhatsApp, Dashboard, Prospectos', isRelease: true },
@@ -357,6 +358,7 @@ const awsDeployments: AWSDeployment[] = [
   { id: 'deploy-063', date: '2026-01-08 03:50', version: 'B7.2.11N7.2.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-062', date: '2026-01-08 00:30', version: 'B7.2.9N7.1.9', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-061', date: '2026-01-07 12:00', version: 'B7.2.8N7.1.8', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
+  { id: 'deploy-071', date: '2026-01-09 01:00', version: 'B7.2.19N7.2.9', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-060', date: '2026-01-06 18:30', version: 'B7.2.7N7.1.7', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-059', date: '2026-01-06 18:20', version: 'B7.2.6N7.1.6', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-058', date: '2026-01-06 18:05', version: 'B7.2.5N7.1.5', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -415,8 +417,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.28', highlight: true },
-  { label: 'Release', value: 'B7.2.18N7.2.8', highlight: false },
+  { label: 'Version', value: 'v2.2.29', highlight: true },
+  { label: 'Release', value: 'B7.2.19N7.2.9', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '09 Ene 2026', highlight: false },
 ];

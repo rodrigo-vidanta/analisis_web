@@ -17,6 +17,42 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.21.0** - 09 Enero 2026
+**Estado:** ✅ Producción
+
+#### **🔍 Búsqueda Global con Normalización de Acentos**
+- **Problema resuelto:** Prospectos no encontrados cuando:
+  1. Usuario busca sin acentos ("Sanchez") pero el nombre tiene acentos ("Sánchez")
+  2. Prospecto está en página posterior (paginación de 200) - no cargado en memoria
+  3. Teléfono en formato diferente (con espacios, guiones, etc.)
+- **Diagnóstico:**
+  - Prospecto "Luis Alberto Sánchez Rodríguez" (ID: 43a68d17-7020-4abf-94fa-dfdb2a3dda8e) estaba en página 7 (~posición 1400)
+  - Solo se cargan 200 prospectos inicialmente
+  - Búsqueda anterior solo operaba en memoria (prospectos ya cargados)
+  - `includes()` es sensible a acentos (á ≠ a)
+- **Solución implementada:**
+  - **Normalización de texto:** `normalizeForSearch()` - elimina acentos (NFD + regex), minúsculas
+  - **Normalización de teléfono:** `normalizePhoneForSearch()` - solo dígitos
+  - **Búsqueda en servidor:** Cuando se escriben 3+ caracteres, busca directamente en BD
+  - **Debounce:** 400ms para evitar saturar servidor
+  - **Indicadores visuales:** Spinner azul durante búsqueda, badge "X encontrados en toda la BD"
+- **Comportamiento:**
+  | Acción | Comportamiento |
+  |--------|----------------|
+  | 1-2 caracteres | Búsqueda en memoria (prospectos cargados) |
+  | 3+ caracteres | Búsqueda en servidor (toda la BD) |
+  | Spinner azul | Búsqueda en progreso |
+  | Badge azul | Resultados incluyen toda la BD |
+- **Archivos modificados:**
+  - `src/components/prospectos/ProspectosManager.tsx`:
+    - Línea 51-73: Funciones `normalizeForSearch()` y `normalizePhoneForSearch()`
+    - Línea 995-1000: Estados para búsqueda debounced y resultados servidor
+    - Línea 1191-1299: Effect de debounce y búsqueda en servidor con ILIKE
+    - Línea 1668-1725: `filteredAndSortedProspectos` prioriza resultados del servidor
+    - Línea 2003-2017: UI con spinner y border cuando hay búsqueda activa
+
+---
+
 ### **v5.20.0** - Enero 2025
 **Estado:** ✅ Producción
 

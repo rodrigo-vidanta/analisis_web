@@ -48,6 +48,30 @@ import { getCoordinacionColor } from '../../utils/coordinacionColors';
 import { PhoneDisplay } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
 
+/**
+ * Normaliza texto para búsqueda: remueve acentos, convierte a minúsculas
+ * Esto permite buscar "Sanchez" y encontrar "Sánchez"
+ */
+const normalizeForSearch = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .normalize('NFD') // Descompone caracteres con acentos (é -> e + ́)
+    .replace(/[\u0300-\u036f]/g, '') // Remueve marcas diacríticas
+    .replace(/ñ/g, 'n') // Caso especial para ñ
+    .replace(/[^\w\s@.]/g, '') // Mantiene letras, números, espacios, @ y .
+    .trim();
+};
+
+/**
+ * Normaliza número de teléfono para búsqueda: solo dígitos
+ * Esto permite buscar "55 8129 9678" y encontrar "5215581299678"
+ */
+const normalizePhoneForSearch = (phone: string | null | undefined): string => {
+  if (!phone) return '';
+  return phone.replace(/\D/g, ''); // Solo dígitos
+};
+
 interface Prospecto {
   id: string;
   nombre_completo?: string;
@@ -969,6 +993,12 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     asignacion: 'todos'
   });
   
+  // Estado para búsqueda en servidor (debounced)
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [isSearchingServer, setIsSearchingServer] = useState(false);
+  const [serverSearchResults, setServerSearchResults] = useState<Prospecto[] | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Estado para opciones de filtros (coordinaciones y ejecutivos)
   const [coordinacionesOptions, setCoordinacionesOptions] = useState<{id: string; nombre: string; codigo: string}[]>([]);
   const [ejecutivosOptions, setEjecutivosOptions] = useState<{id: string; full_name: string; coordinacion_id?: string}[]>([]);
@@ -1155,6 +1185,123 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
 
   // Los filtros ahora se aplican solo en memoria, no recargan desde la base de datos
   // Solo recargar cuando cambia el usuario o la vista
+
+  // ============================================
+  // BÚSQUEDA EN SERVIDOR (para encontrar prospectos no cargados)
+  // ============================================
+  
+  // Debounce de búsqueda: esperar 400ms después de que el usuario deje de escribir
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Solo buscar en servidor si hay término de búsqueda de más de 3 caracteres
+    if (filters.search.trim().length >= 3) {
+      searchTimeoutRef.current = setTimeout(() => {
+        setDebouncedSearch(filters.search.trim());
+      }, 400);
+    } else {
+      setDebouncedSearch('');
+      setServerSearchResults(null);
+    }
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [filters.search]);
+  
+  // Ejecutar búsqueda en servidor cuando cambia debouncedSearch
+  useEffect(() => {
+    if (!debouncedSearch || !user?.id || !analysisSupabase) {
+      setServerSearchResults(null);
+      return;
+    }
+    
+    const searchInServer = async () => {
+      setIsSearchingServer(true);
+      try {
+        // Normalizar búsqueda para teléfono
+        const searchDigits = normalizePhoneForSearch(debouncedSearch);
+        const isPhoneSearch = searchDigits.length >= 6;
+        
+        // Construir query de búsqueda
+        let query = analysisSupabase
+          .from('prospectos')
+          .select('*');
+        
+        // Aplicar filtros de permisos
+        if (user?.id) {
+          const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
+          if (filteredQuery && typeof filteredQuery === 'object') {
+            query = filteredQuery;
+          }
+        }
+        
+        // Buscar por teléfono (búsqueda exacta con LIKE)
+        if (isPhoneSearch) {
+          query = query.or(`whatsapp.ilike.%${searchDigits}%,telefono_principal.ilike.%${searchDigits}%`);
+        } else {
+          // Buscar por nombre (ILIKE para ignorar mayúsculas, pero sensible a acentos)
+          // Nota: PostgreSQL es sensible a acentos por defecto con ILIKE
+          query = query.or(
+            `nombre_completo.ilike.%${debouncedSearch}%,` +
+            `nombre.ilike.%${debouncedSearch}%,` +
+            `apellido_paterno.ilike.%${debouncedSearch}%,` +
+            `apellido_materno.ilike.%${debouncedSearch}%,` +
+            `email.ilike.%${debouncedSearch}%,` +
+            `nombre_whatsapp.ilike.%${debouncedSearch}%`
+          );
+        }
+        
+        // Ordenar y limitar resultados
+        const { data, error } = await query
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (error) {
+          console.error('❌ Error en búsqueda de servidor:', error);
+          setServerSearchResults(null);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          // Enriquecer con datos de coordinación/ejecutivo
+          const coordinaciones = await coordinacionService.getCoordinaciones();
+          const ejecutivos = await coordinacionService.getAllEjecutivos();
+          const coordinacionesMap = new Map(coordinaciones.map(c => [c.id, c]));
+          const ejecutivosMap = new Map(ejecutivos.map(e => [e.id, e]));
+          
+          const enrichedResults = data.map((p: any) => {
+            const coordinacion = p.coordinacion_id ? coordinacionesMap.get(p.coordinacion_id) : null;
+            const ejecutivo = p.ejecutivo_id ? ejecutivosMap.get(p.ejecutivo_id) : null;
+            return {
+              ...p,
+              coordinacion_codigo: coordinacion?.codigo || null,
+              coordinacion_nombre: coordinacion?.nombre || null,
+              ejecutivo_nombre: ejecutivo?.full_name || null,
+              ejecutivo_email: ejecutivo?.email || null,
+            };
+          });
+          
+          setServerSearchResults(enrichedResults);
+          console.log(`🔍 Búsqueda servidor: ${enrichedResults.length} resultados para "${debouncedSearch}"`);
+        } else {
+          setServerSearchResults([]);
+          console.log(`🔍 Búsqueda servidor: 0 resultados para "${debouncedSearch}"`);
+        }
+      } catch (error) {
+        console.error('❌ Error en búsqueda de servidor:', error);
+        setServerSearchResults(null);
+      } finally {
+        setIsSearchingServer(false);
+      }
+    };
+    
+    searchInServer();
+  }, [debouncedSearch, user?.id]);
 
   // Infinite Scroll para DataGrid - cargar más prospectos cuando se hace scroll
   // NOTA: Este useEffect debe estar después de la definición de filteredAndSortedProspectos
@@ -1518,31 +1665,63 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     }
   };
 
-  // Filtrar y ordenar prospectos (usar allProspectos para filtros)
+  // Filtrar y ordenar prospectos (usar allProspectos para filtros o serverSearchResults si hay búsqueda)
   const filteredAndSortedProspectos = useMemo(() => {
-    // Aplicar filtros sobre todos los prospectos cargados
-    let filtered = allProspectos;
-
-    // Aplicar filtros
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(p => 
-        // Búsqueda por nombre del prospecto
-        p.nombre_completo?.toLowerCase().includes(searchLower) ||
-        p.nombre?.toLowerCase().includes(searchLower) ||
-        p.apellido_paterno?.toLowerCase().includes(searchLower) ||
-        p.apellido_materno?.toLowerCase().includes(searchLower) ||
-        p.email?.toLowerCase().includes(searchLower) ||
-        p.nombre_whatsapp?.toLowerCase().includes(searchLower) ||
-        // Búsqueda por teléfono
-        p.whatsapp?.toLowerCase().includes(searchLower) ||
-        p.telefono_principal?.toLowerCase().includes(searchLower) ||
-        // Búsqueda por ejecutivo asignado
-        p.ejecutivo_nombre?.toLowerCase().includes(searchLower) ||
-        // Búsqueda por coordinación
-        p.coordinacion_codigo?.toLowerCase().includes(searchLower) ||
-        p.coordinacion_nombre?.toLowerCase().includes(searchLower)
-      );
+    // ============================================
+    // PRIORIDAD DE FUENTE DE DATOS:
+    // 1. Si hay búsqueda activa Y resultados del servidor → usar resultados del servidor
+    // 2. Si hay búsqueda pero sin resultados del servidor → buscar en memoria (prospectos cargados)
+    // 3. Sin búsqueda → usar todos los prospectos cargados
+    // ============================================
+    
+    let filtered: Prospecto[];
+    
+    // Si hay búsqueda de 3+ caracteres y tenemos resultados del servidor, usarlos como base
+    if (filters.search.trim().length >= 3 && serverSearchResults !== null) {
+      // Usar resultados del servidor directamente
+      // Ya vienen filtrados por permisos y coincidencia de búsqueda
+      filtered = serverSearchResults;
+      
+      // Aplicar filtros adicionales en memoria (etapa, coordinación, etc.)
+      // pero NO volver a filtrar por búsqueda (ya está aplicada en servidor)
+    } else {
+      // Búsqueda corta o sin resultados del servidor: filtrar en memoria
+      filtered = allProspectos;
+      
+      if (filters.search) {
+        // Normalizar búsqueda (sin acentos, minúsculas)
+        const searchNormalized = normalizeForSearch(filters.search);
+        const searchDigits = normalizePhoneForSearch(filters.search);
+        
+        filtered = filtered.filter(p => {
+          // Búsqueda por nombre del prospecto (normalizada, ignora acentos)
+          const matchName = 
+            normalizeForSearch(p.nombre_completo).includes(searchNormalized) ||
+            normalizeForSearch(p.nombre).includes(searchNormalized) ||
+            normalizeForSearch(p.apellido_paterno).includes(searchNormalized) ||
+            normalizeForSearch(p.apellido_materno).includes(searchNormalized) ||
+            normalizeForSearch(p.nombre_whatsapp).includes(searchNormalized);
+          
+          // Búsqueda por email (case insensitive, pero exacta)
+          const matchEmail = p.email?.toLowerCase().includes(filters.search.toLowerCase());
+          
+          // Búsqueda por teléfono (solo dígitos para flexibilidad)
+          const matchPhone = searchDigits.length >= 4 && (
+            normalizePhoneForSearch(p.whatsapp).includes(searchDigits) ||
+            normalizePhoneForSearch(p.telefono_principal).includes(searchDigits)
+          );
+          
+          // Búsqueda por ejecutivo asignado (normalizada)
+          const matchEjecutivo = normalizeForSearch(p.ejecutivo_nombre).includes(searchNormalized);
+          
+          // Búsqueda por coordinación (normalizada)
+          const matchCoordinacion = 
+            normalizeForSearch(p.coordinacion_codigo).includes(searchNormalized) ||
+            normalizeForSearch(p.coordinacion_nombre).includes(searchNormalized);
+          
+          return matchName || matchEmail || matchPhone || matchEjecutivo || matchCoordinacion;
+        });
+      }
     }
 
     if (filters.etapa) {
@@ -1596,7 +1775,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     });
 
     return filtered;
-  }, [allProspectos, filters, sort]);
+  }, [allProspectos, filters, sort, serverSearchResults]);
 
   // Infinite Scroll para DataGrid - cargar más prospectos cuando se hace scroll
   useEffect(() => {
@@ -1807,7 +1986,15 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 </span>
               )}
             </div>
-            {filteredAndSortedProspectos.length < allProspectos.length && (
+            {/* Indicador de resultados filtrados o búsqueda en servidor */}
+            {serverSearchResults !== null && filters.search.length >= 3 ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
+                <Search size={14} className="text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  {serverSearchResults.length} encontrados en toda la BD
+                </span>
+              </div>
+            ) : filteredAndSortedProspectos.length < allProspectos.length && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-700">
                 <Filter size={14} className="text-amber-600 dark:text-amber-400" />
                 <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
@@ -1821,13 +2008,21 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         <div className="flex flex-col md:flex-row gap-3 md:gap-2 items-stretch md:items-center">
           {/* Búsqueda - Ocupa más espacio */}
           <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+            {isSearchingServer ? (
+              <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500 animate-spin" size={16} />
+            ) : (
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+            )}
             <input
               type="text"
               placeholder="Buscar por nombre, teléfono, ejecutivo, coordinación..."
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="w-full h-9 pl-10 pr-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className={`w-full h-9 pl-10 pr-4 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                serverSearchResults !== null && filters.search.length >= 3 
+                  ? 'border-blue-400 dark:border-blue-500 ring-1 ring-blue-200 dark:ring-blue-800' 
+                  : 'border-gray-300 dark:border-gray-600'
+              }`}
             />
           </div>
           
