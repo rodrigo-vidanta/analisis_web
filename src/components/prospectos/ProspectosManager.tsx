@@ -1287,10 +1287,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           });
           
           setServerSearchResults(enrichedResults);
-          console.log(`🔍 Búsqueda servidor: ${enrichedResults.length} resultados para "${debouncedSearch}"`);
         } else {
           setServerSearchResults([]);
-          console.log(`🔍 Búsqueda servidor: 0 resultados para "${debouncedSearch}"`);
         }
       } catch (error) {
         console.error('❌ Error en búsqueda de servidor:', error);
@@ -1356,7 +1354,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     if (!user?.id) return;
     
     try {
-      console.log('📊 Cargando totales por etapa...');
       
       // Construir query base
       let query = analysisSupabase
@@ -1389,7 +1386,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         counts[etapa] = (counts[etapa] || 0) + 1;
       });
       
-      console.log('✅ Totales por etapa cargados:', counts);
       setEtapaTotals(counts);
     } catch (error) {
       console.error('❌ Error cargando totales por etapa:', error);
@@ -1551,9 +1547,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       if (user?.id) {
         const ejecutivosUnicos = [...new Set(enrichedProspectos.map((p: Prospecto) => p.ejecutivo_id).filter(Boolean))] as string[];
         if (ejecutivosUnicos.length > 0) {
-          console.log(`📦 Pre-cargando datos de backup para ${ejecutivosUnicos.length} ejecutivos únicos...`);
           await permissionsService.preloadBackupData(ejecutivosUnicos);
-          console.log(`✅ Datos de backup pre-cargados correctamente`);
         }
       }
 

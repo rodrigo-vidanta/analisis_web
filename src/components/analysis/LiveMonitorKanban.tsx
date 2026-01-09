@@ -352,7 +352,6 @@ const LiveMonitorKanban: React.FC = () => {
         latencyHint: AUDIO_CONFIG.LATENCY_HINT
       });
       
-      console.log(`[LiveMonitor Audio] AudioContext creado @ ${ctx.sampleRate}Hz`);
       
       const gainNode = ctx.createGain();
       gainNode.gain.value = audioVolume;
@@ -493,7 +492,6 @@ const LiveMonitorKanban: React.FC = () => {
       ws.binaryType = 'arraybuffer';
       
       ws.onopen = () => {
-        console.log(`[LiveMonitor Audio] ✅ Conexión WebSocket establecida`);
         setIsListeningLive(true);
         audioChunkCountRef.current = 0;
         setAudioStats({ chunks: 0 });
@@ -526,7 +524,6 @@ const LiveMonitorKanban: React.FC = () => {
       };
       
       ws.onclose = (event) => {
-        console.log(`[LiveMonitor Audio] WebSocket cerrado: ${event.code}`);
         if (event.code !== 1000) {
           setAudioError('Conexión de audio finalizada.');
         }
@@ -1000,7 +997,6 @@ const LiveMonitorKanban: React.FC = () => {
   const loadHistoryCalls = useCallback(async (reset: boolean = false) => {
     // Prevenir ejecuciones simultáneas
     if (isLoadingHistoryRef.current) {
-      console.log('⚠️ loadHistoryCalls ya está en ejecución, ignorando llamada duplicada');
       return;
     }
     
@@ -1014,11 +1010,9 @@ const LiveMonitorKanban: React.FC = () => {
         setHasMoreHistory(true);
         setTotalHistoryCount(0);
         hasInitialLoadRef.current = false;
-        console.log('🔄 Reset de historial - página: 0');
       }
       
       const pageToLoad = reset ? 0 : currentPageHistoryRef.current;
-      console.log(`📥 Iniciando carga batch ${pageToLoad + 1} (reset: ${reset})`);
       
       // Solo mostrar loading si no hay datos previos (evitar parpadeos en actualizaciones)
       if (allHistoryCallsLoaded.length === 0 || reset) {
@@ -1079,7 +1073,6 @@ const LiveMonitorKanban: React.FC = () => {
             const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
             if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
               ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
-              console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver historial de ${ejecutivosConBackup.length} ejecutivos como backup`);
             }
             
             const { data: prospectosEjecutivo, error: prospectosError } = await analysisSupabase
@@ -1254,9 +1247,7 @@ const LiveMonitorKanban: React.FC = () => {
               if (ejecutivoFilter && prospectosResult.length > 0) {
                 const ejecutivosUnicos = [...new Set(prospectosResult.map((p: any) => p.ejecutivo_id).filter(Boolean))] as string[];
                 if (ejecutivosUnicos.length > 0) {
-                  console.log(`📦 Pre-cargando datos de backup para ${ejecutivosUnicos.length} ejecutivos únicos...`);
                   await permissionsService.preloadBackupData(ejecutivosUnicos);
-                  console.log(`✅ Datos de backup pre-cargados correctamente`);
                 }
                 
                 // Filtrar prospectos usando el servicio de permisos (verifica prospect_assignments)
@@ -1466,9 +1457,6 @@ const LiveMonitorKanban: React.FC = () => {
       const enrichedCount = enrichedData.length;
       
       // Log solo en desarrollo y solo para batches importantes
-      if (pageToLoad === 0 || pageToLoad % 2 === 0) {
-        console.log(`📊 Carga batch ${pageToLoad + 1}: ${rawLoadedCount} llamadas crudas → ${enrichedCount} después de filtros`);
-      }
       
       let finalData: any[];
       
@@ -1484,7 +1472,6 @@ const LiveMonitorKanban: React.FC = () => {
         
         // Actualizar el total con el conteo real después de filtros (se irá actualizando al cargar más)
         setTotalHistoryCount(enrichedCount);
-        console.log(`📊 Reset: ${enrichedCount} cargadas (filtradas por permisos). HasMore: ${rawLoadedCount === HISTORY_BATCH_SIZE}`);
         
         hasInitialLoadRef.current = true;
       } else {
@@ -1504,7 +1491,6 @@ const LiveMonitorKanban: React.FC = () => {
           setHasMoreHistory(false);
           // Actualizar el total con la cantidad real después de filtros
           setTotalHistoryCount(updatedData.length);
-          console.log(`📊 No hay más datos disponibles. Total cargado: ${updatedData.length} (filtrado por permisos)`);
         } else {
           // Verificar si se cargaron menos que el batch size (significa que no hay más)
           const hasMore = rawLoadedCount === HISTORY_BATCH_SIZE;
@@ -1512,9 +1498,6 @@ const LiveMonitorKanban: React.FC = () => {
           // Actualizar el total con la cantidad real después de filtros
           setTotalHistoryCount(updatedData.length);
           // Log solo cada 2 batches para evitar spam
-          if (currentPageHistoryRef.current % 2 === 0) {
-            console.log(`📊 Agregadas ${enrichedCount} llamadas. Total: ${updatedData.length} (filtrado por permisos). HasMore: ${hasMore}`);
-          }
         }
       }
 
@@ -1566,9 +1549,6 @@ const LiveMonitorKanban: React.FC = () => {
       isLoadingHistoryRef.current = false;
       // Log solo en desarrollo - usar currentPageHistoryRef que siempre está disponible
       const currentPage = currentPageHistoryRef.current;
-      if (currentPage === 0 || currentPage % 3 === 0) {
-        console.log(`✅ Carga batch completada. Página: ${currentPage}, HasMore: ${hasMoreHistory}`);
-      }
     }
   }, [user?.id, hasMoreHistory]); // Incluir hasMoreHistory para que se actualice cuando cambie
 
@@ -1845,14 +1825,12 @@ const LiveMonitorKanban: React.FC = () => {
       // Solo loggear cada 10% para evitar spam
       const roundedPercentage = Math.floor(scrollPercentage / 10) * 10;
       if (roundedPercentage !== lastScrollCheck && roundedPercentage % 25 === 0) {
-        console.log(`📊 Scroll al ${roundedPercentage}% - loaded: ${allHistoryCallsLoaded.length}, filtered: ${filteredHistoryCalls.length}, hasMore: ${hasMoreHistory}`);
         lastScrollCheck = roundedPercentage;
       }
       
       // OPTIMIZACIÓN UX: Cargar al 75% del scroll (25% antes del final)
       // Esto hace la experiencia más suave y fluida
       if (scrollPercentage >= 75 && hasMoreHistory && !loadingMoreHistory && !isLoadingHistoryRef.current) {
-        console.log(`📊 Scroll al ${Math.round(scrollPercentage)}% - Cargando más llamadas...`);
         loadHistoryCalls(false);
         return;
       }
@@ -1860,7 +1838,6 @@ const LiveMonitorKanban: React.FC = () => {
       // Si no hay suficiente scroll Y hay más datos, cargar automáticamente
       // Aumentar límite a 1000 para permitir más cargas automáticas
       if (scrollHeight <= containerHeight + 50 && hasMoreHistory && !loadingMoreHistory && !isLoadingHistoryRef.current && allHistoryCallsLoaded.length < 1000) {
-        console.log(`📊 No hay suficiente scroll - Cargando más automáticamente...`);
         loadHistoryCalls(false);
         return;
       }
@@ -1903,7 +1880,6 @@ const LiveMonitorKanban: React.FC = () => {
   // Cargar historial cuando se cambia a la pestaña de historial (solo una vez)
   useEffect(() => {
     if (selectedTab === 'all' && user?.id && !hasInitialLoadRef.current) {
-      console.log('🔄 Cargando historial inicial desde tab change...');
       hasInitialLoadRef.current = true;
       loadHistoryCalls(true); // Reset al cambiar a historial
     }

@@ -164,7 +164,7 @@ const AudienciasManager: React.FC = () => {
           }
         }
       } catch (dbError) {
-        console.log('Error cargando audiencias de BD:', dbError);
+        // Error silencioso - usar lista vacía como fallback
       }
       
       setAudiences(dynamicAudiences);
@@ -996,7 +996,6 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
           cutoffDate.setDate(cutoffDate.getDate() - formData.dias_sin_contacto);
           const cutoffISO = cutoffDate.toISOString();
           
-          console.log(`🔍 Buscando prospectos con mensajes desde: ${cutoffISO} (últimos ${formData.dias_sin_contacto} días)`);
           
           // Usar paginación para obtener TODOS los prospectos con mensajes recientes
           let allRecentProspectIds: string[] = [];
@@ -1026,8 +1025,6 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
           
           // Eliminar duplicados
           excludeProspectoIds = [...new Set(allRecentProspectIds)] as string[];
-          console.log(`📊 Total mensajes procesados: ${allRecentProspectIds.length}`);
-          console.log(`📊 Prospectos únicos con actividad reciente (a EXCLUIR): ${excludeProspectoIds.length}`);
         }
         
         // Paso 2: Obtener IDs filtrados por etiquetas si aplica
@@ -1158,7 +1155,6 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                 .select('*', { count: 'exact', head: true })
                 .gte('fecha_hora', cutoffDate.toISOString());
               
-              console.log(`📊 Días sin contacto: ${formData.dias_sin_contacto}d, mensajes recientes: ${totalMessagesRecent}, prospectos filtrados: ${count}`);
             }
             setProspectCount(count || 0);
           }

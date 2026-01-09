@@ -262,7 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'y3p6822', date: '2026-01-09', author: 'Team', message: 'v2.2.33: 🧹 Limpieza total logs debug WhatsApp y Dashboard', isRelease: true },
+  { hash: 'z4q7933', date: '2026-01-09', author: 'Team', message: 'v2.2.33: 🧹 Limpieza completa ~70 console.logs (7 archivos)', isRelease: true },
   { hash: 'x2o5711', date: '2026-01-09', author: 'Team', message: 'v2.2.32: 🧹 Limpieza logs debug PhoneCache - Fix confirmado funcionando', isRelease: true },
   { hash: 'w1n4600', date: '2026-01-09', author: 'Team', message: 'v2.2.31: 🔒 Fix PhoneCache Async v2 - Backup y restauración de cache durante carga async', isRelease: true },
   { hash: 'v0m3499', date: '2026-01-09', author: 'Team', message: 'v2.2.30: 🔒 Fix Cache PhoneDisplay Batches - Fusión de cache en lugar de sobrescritura', isRelease: true },
@@ -352,6 +352,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-076', date: '2026-01-09 05:15', version: 'B7.2.23N7.2.13', status: 'success', duration: '21s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-075', date: '2026-01-09 02:15', version: 'B7.2.23N7.2.13', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-074', date: '2026-01-09 02:00', version: 'B7.2.22N7.2.12', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-073', date: '2026-01-09 01:45', version: 'B7.2.21N7.2.11', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },

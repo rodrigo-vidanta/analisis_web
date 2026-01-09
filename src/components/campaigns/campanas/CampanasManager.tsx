@@ -163,12 +163,6 @@ const CampanasManager: React.FC = () => {
       setTemplates(templatesData || []);
       setAudiences(audiencesData || []);
       
-      console.log('Loaded:', { 
-        campaigns: normalizedCampaigns.length, 
-        templates: templatesData?.length || 0, 
-        audiences: audiencesData?.length || 0 
-      });
-      
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error al cargar datos');
@@ -201,8 +195,6 @@ const CampanasManager: React.FC = () => {
             table: 'whatsapp_campaigns'
           },
           async (payload) => {
-            console.log('📡 Realtime campaign update:', payload.eventType);
-            
             if (payload.eventType === 'INSERT') {
               // Nueva campaña - cargar con joins
               const { data: newCampaign } = await analysisSupabase
@@ -257,9 +249,7 @@ const CampanasManager: React.FC = () => {
             }
           }
         )
-        .subscribe((status) => {
-          console.log('📡 Realtime subscription status:', status);
-        });
+        .subscribe();
       
       realtimeChannelRef.current = channel;
     };
@@ -1901,12 +1891,6 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           isCalculating: false
         });
         
-        console.log('Valid templates for B:', {
-          noVars: templatesNoVarsIds.length,
-          withVarsValid: validWithVarsIds.length,
-          total: templatesNoVarsIds.length + validWithVarsIds.length
-        });
-        
       } catch (error) {
         console.error('Error calculating valid templates for B:', error);
         // En caso de error, al menos mostrar las sin variables
@@ -2563,7 +2547,6 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       }
       
       const webhookResponse = await response.json();
-      console.log('✅ Webhook response:', webhookResponse);
       
       toast.success(isABTestPayload 
         ? '¡Campaña A/B enviada! Se actualizará automáticamente.' 

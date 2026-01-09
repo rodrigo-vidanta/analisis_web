@@ -513,14 +513,6 @@ const WhatsAppTemplatesManager: React.FC = () => {
 
   // Abrir modal de edición limitada (solo descripción, audiencias, variables)
   const handleLimitedEdit = (template: WhatsAppTemplate) => {
-    console.log('🔵 [handleLimitedEdit] Template recibido:', {
-      id: template.id,
-      name: template.name,
-      variable_mappings: template.variable_mappings,
-      variable_mappings_type: typeof template.variable_mappings,
-      classification: (template as any).classification,
-    });
-    
     // Parsear variable_mappings - puede venir en formato { mappings: [...], audience_ids: [...] } o como array directo
     let parsedMappings: VariableMapping[] = [];
     let audienceIds: string[] = [];
@@ -528,13 +520,10 @@ const WhatsAppTemplatesManager: React.FC = () => {
     if (template.variable_mappings) {
       let rawMappings: any = template.variable_mappings;
       
-      console.log('🔵 [handleLimitedEdit] rawMappings inicial:', rawMappings, 'tipo:', typeof rawMappings);
-      
       // Si viene como string, parsear
       if (typeof rawMappings === 'string') {
         try {
           rawMappings = JSON.parse(rawMappings);
-          console.log('🔵 [handleLimitedEdit] rawMappings después de parse:', rawMappings);
         } catch (e) {
           console.error('❌ Error parseando variable_mappings:', e);
           rawMappings = [];
@@ -543,25 +532,18 @@ const WhatsAppTemplatesManager: React.FC = () => {
       
       // Si tiene estructura con mappings y audience_ids (metadata)
       if (rawMappings && typeof rawMappings === 'object' && !Array.isArray(rawMappings)) {
-        console.log('🔵 [handleLimitedEdit] Es objeto (no array):', rawMappings);
         if (rawMappings.mappings && Array.isArray(rawMappings.mappings)) {
           parsedMappings = rawMappings.mappings;
-          console.log('🔵 [handleLimitedEdit] Mapeos encontrados en .mappings:', parsedMappings.length);
         } else if (Array.isArray(rawMappings)) {
           parsedMappings = rawMappings;
-          console.log('🔵 [handleLimitedEdit] rawMappings es array directo:', parsedMappings.length);
         }
         if (rawMappings.audience_ids && Array.isArray(rawMappings.audience_ids)) {
           audienceIds = rawMappings.audience_ids;
-          console.log('🔵 [handleLimitedEdit] Audiencias encontradas en metadata:', audienceIds.length);
         }
       } else if (Array.isArray(rawMappings)) {
         // Formato antiguo: solo array de mappings
         parsedMappings = rawMappings;
-        console.log('🔵 [handleLimitedEdit] rawMappings es array directo (formato antiguo):', parsedMappings.length);
       }
-    } else {
-      console.warn('⚠️ [handleLimitedEdit] template.variable_mappings es null/undefined');
     }
     
     // También intentar obtener de classification si existe
@@ -578,15 +560,8 @@ const WhatsAppTemplatesManager: React.FC = () => {
       }
       if (parsedClassification?.audience_ids && parsedClassification.audience_ids.length > 0) {
         audienceIds = parsedClassification.audience_ids;
-        console.log('🔵 [handleLimitedEdit] Audiencias encontradas en classification:', audienceIds.length);
       }
     }
-    
-    console.log('🔵 [handleLimitedEdit] Resultado final:', {
-      parsedMappings: parsedMappings.length,
-      audienceIds: audienceIds.length,
-      parsedMappings_sample: parsedMappings.slice(0, 2),
-    });
     
     const initialData = {
       description: template.description || '',
@@ -697,13 +672,8 @@ const WhatsAppTemplatesManager: React.FC = () => {
 
   // Guardar plantilla (crear o actualizar)
   const handleSave = async () => {
-    console.log('🔵 [handleSave] Iniciando guardado de plantilla...');
-    console.log('🔵 [handleSave] formData:', JSON.stringify(formData, null, 2));
-    console.log('🔵 [handleSave] editingTemplate:', editingTemplate);
-    
     try {
       setSaving(true);
-      console.log('🔵 [handleSave] Estado saving establecido a true');
       
       const errors: typeof validationErrors = {};
       
@@ -768,7 +738,6 @@ const WhatsAppTemplatesManager: React.FC = () => {
           );
 
           if (!validation.valid) {
-            console.log('❌ [handleSave] Error de validación:', validation.errors);
             // Agregar errores de validación a los errores existentes
             if (!errors.unmappedVariables) {
               errors.unmappedVariables = [];
@@ -779,7 +748,6 @@ const WhatsAppTemplatesManager: React.FC = () => {
 
       // Si hay errores, mostrarlos y detener el guardado
       if (Object.keys(errors).length > 0) {
-        console.log('❌ [handleSave] Errores de validación:', errors);
         setValidationErrors(errors);
         setSaving(false);
         return;
@@ -788,19 +756,13 @@ const WhatsAppTemplatesManager: React.FC = () => {
       // Limpiar errores si la validación pasa
       setValidationErrors({});
 
-      console.log('✅ [handleSave] Validaciones pasadas, guardando...');
-
       if (editingTemplate) {
         // Actualizar
-        console.log('🔄 [handleSave] Actualizando plantilla:', editingTemplate.id);
         const result = await whatsappTemplatesService.updateTemplate(editingTemplate.id, formData);
-        console.log('✅ [handleSave] Plantilla actualizada:', result);
         toast.success('Plantilla actualizada exitosamente');
       } else {
         // Crear
-        console.log('➕ [handleSave] Creando nueva plantilla...');
         const result = await whatsappTemplatesService.createTemplate(formData);
-        console.log('✅ [handleSave] Plantilla creada:', result);
         
         // Si se está importando desde una sugerencia, vincularla
         if (importingSuggestion) {
@@ -809,9 +771,8 @@ const WhatsAppTemplatesManager: React.FC = () => {
               importingSuggestion.id,
               result.id
             );
-            console.log('✅ [handleSave] Sugerencia vinculada a plantilla');
           } catch (linkError: any) {
-            console.error('⚠️ [handleSave] Error vinculando sugerencia:', linkError);
+            console.error('⚠️ Error vinculando sugerencia:', linkError);
             // No fallar el guardado si hay error al vincular
           }
           setImportingSuggestion(null);
@@ -820,16 +781,10 @@ const WhatsAppTemplatesManager: React.FC = () => {
         toast.success('Plantilla creada exitosamente');
       }
 
-      console.log('✅ [handleSave] Guardado exitoso, cerrando modal...');
       setIsModalOpen(false);
       await loadTemplates();
-      console.log('✅ [handleSave] Plantillas recargadas');
     } catch (error: any) {
-      console.error('❌ [handleSave] Error completo:', error);
-      console.error('❌ [handleSave] Error stack:', error.stack);
-      console.error('❌ [handleSave] Error code:', error.code);
-      console.error('❌ [handleSave] Error message:', error.message);
-      console.error('❌ [handleSave] Error status:', error.status);
+      console.error('❌ Error guardando plantilla:', error.message);
       
       // Si es un error 400, mostrar modal de error
       if (error.status === 400 || (error.message && error.message.includes('400'))) {
@@ -851,7 +806,6 @@ const WhatsAppTemplatesManager: React.FC = () => {
         toast.error(errorMessage);
       }
     } finally {
-      console.log('🔵 [handleSave] Finalizando, estableciendo saving a false');
       setSaving(false);
     }
   };
@@ -928,11 +882,9 @@ const WhatsAppTemplatesManager: React.FC = () => {
   const handleSync = async () => {
     try {
       setSyncing(true);
-      console.log('🔄 Iniciando sincronización global desde uChat...');
       
       const result = await whatsappTemplatesService.syncTemplatesFromUChat();
       
-      console.log('✅ Sincronización global completada:', result);
       
       // Manejar diferentes formatos de respuesta
       const syncedCount = result?.synced ?? (Array.isArray(result?.templates) ? result.templates.length : 1);
@@ -954,11 +906,9 @@ const WhatsAppTemplatesManager: React.FC = () => {
   const handleSyncSingle = async (templateId: string) => {
     try {
       setSyncingTemplateId(templateId);
-      console.log(`🔄 Sincronizando plantilla individual: ${templateId}`);
       
       const result = await whatsappTemplatesService.syncSingleTemplateFromUChat(templateId);
       
-      console.log('✅ Sincronización individual completada:', result);
       toast.success(`Plantilla "${result.name}" sincronizada exitosamente`);
       
       // Recargar plantillas después de sincronizar
@@ -4285,7 +4235,7 @@ const AudienceSelectorTab: React.FC<AudienceSelectorTabProps> = ({
           }
         }
       } catch (dbError) {
-        console.log('Error cargando audiencias de BD:', dbError);
+        // Error silencioso - usar lista vacía como fallback
       }
       
       setAudiences(dynamicAudiences);
@@ -4986,12 +4936,6 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
       };
       setOriginalFormData(initialData);
       setHasInitialized(true);
-      console.log('🔵 [LimitedEditModal] Inicializando originalFormData:', {
-        description: initialData.description,
-        audience_ids: initialData.audience_ids.length,
-        variable_mappings: initialData.variable_mappings.length,
-        mappings: initialData.variable_mappings.map(m => ({ var: m.variable_number, table: m.table_name, field: m.field_name })),
-      });
     }
   }, [isOpen, formData, hasInitialized]);
 
@@ -5015,13 +4959,11 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
   // Detectar si hay cambios
   const hasChanges = useMemo(() => {
     if (!originalFormData) {
-      console.log('🔵 [LimitedEditModal] hasChanges: originalFormData es null');
       return false;
     }
     
     // Comparar descripción
     if (formData.description !== originalFormData.description) {
-      console.log('🔵 [LimitedEditModal] hasChanges: descripción cambió');
       return true;
     }
     
@@ -5029,10 +4971,6 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
     const originalAudiences = [...originalFormData.audience_ids].sort();
     const currentAudiences = [...formData.audience_ids].sort();
     if (JSON.stringify(originalAudiences) !== JSON.stringify(currentAudiences)) {
-      console.log('🔵 [LimitedEditModal] hasChanges: audiencias cambiaron', {
-        original: originalAudiences,
-        current: currentAudiences,
-      });
       return true;
     }
     
@@ -5043,16 +4981,9 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
     const currentMappingsStr = JSON.stringify(currentMappings);
     
     if (originalMappingsStr !== currentMappingsStr) {
-      console.log('🔵 [LimitedEditModal] hasChanges: mapeos cambiaron', {
-        originalCount: originalMappings.length,
-        currentCount: currentMappings.length,
-        original: originalMappings.map(m => ({ var: m.variable_number, table: m.table_name, field: m.field_name })),
-        current: currentMappings.map(m => ({ var: m.variable_number, table: m.table_name, field: m.field_name })),
-      });
       return true;
     }
     
-    console.log('🔵 [LimitedEditModal] hasChanges: no hay cambios detectados');
     return false;
   }, [formData, originalFormData]);
 
@@ -5063,25 +4994,12 @@ const LimitedEditModal: React.FC<LimitedEditModalProps> = ({
       return !mapping;
     });
     
-    if (unmappedVariables.length > 0) {
-      console.log('⚠️ [LimitedEditModal] Variables sin mapear:', unmappedVariables);
-    }
-    
     return {
       unmappedVariables: unmappedVariables.length > 0 ? unmappedVariables : undefined,
     };
   }, [variables, formData.variable_mappings]);
 
   const canSave = hasChanges && (!validationErrors.unmappedVariables || validationErrors.unmappedVariables.length === 0);
-  
-  console.log('🔵 [LimitedEditModal] Estado del botón guardar:', {
-    hasChanges,
-    unmappedVariables: validationErrors.unmappedVariables?.length || 0,
-    canSave,
-    formDataMappingsCount: formData.variable_mappings.length,
-    originalMappingsCount: originalFormData?.variable_mappings.length || 0,
-    variablesCount: variables.length,
-  });
 
   if (!template) return null;
 
