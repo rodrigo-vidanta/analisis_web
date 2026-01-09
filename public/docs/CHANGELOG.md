@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### 🔒 v2.2.30 (B7.2.20N7.2.10) - Fix Cache PhoneDisplay en Batches Subsecuentes [09-01-2026]
+
+#### 🎯 Fix Crítico
+Corregido bug donde al cargar batches adicionales en el módulo de WhatsApp, los teléfonos de prospectos (incluso con `id_dynamics`) dejaban de verse correctamente.
+
+#### 🐛 Problema Identificado
+- Al cargar batch 2+, el cache `prospectosDataRef` se **sobrescribía** completamente
+- Esto borraba los datos de prospectos del batch 1, causando que `PhoneDisplay` no encontrara los datos
+- Resultado: teléfonos visibles inicialmente desaparecían al cargar más conversaciones
+
+#### ✅ Solución Implementada
+**LiveChatCanvas.tsx:**
+- Lógica de cache ahora **fusiona** datos en batches subsecuentes (`reset: false`)
+- En reset (`reset: true`): Limpia cache y lo reinicializa completamente
+- En batches adicionales: Agrega nuevos datos sin borrar los existentes
+- Logs de debug para monitorear estado del cache
+
+#### 📁 Archivos Modificados
+- `src/components/chat/LiveChatCanvas.tsx` - Fusión de cache en lugar de sobrescritura
+
+---
+
 ### 🔄 v2.2.27 (B7.2.17N7.2.7) - Totales Reales en Prospectos [08-01-2026]
 
 #### 🎯 Mejora Principal

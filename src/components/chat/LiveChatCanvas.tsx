@@ -3452,7 +3452,9 @@ const LiveChatCanvas: React.FC = () => {
         setHasMoreConversations(true);
         setTotalConversationsCount(0);
         hasInitialConversationsLoadRef.current = false;
-        console.log('🔄 Reset de conversaciones - página: 0');
+        // ✅ FIX v6.4.1: Limpiar cache de prospectos en reset para evitar datos obsoletos
+        prospectosDataRef.current.clear();
+        console.log('🔄 Reset de conversaciones - página: 0, cache de prospectos limpiado');
       }
       
       const pageToLoad = reset ? 0 : currentConversationsPageRef.current;
@@ -3636,17 +3638,28 @@ const LiveChatCanvas: React.FC = () => {
       const prospectosData = prospectosIdsArray.length > 0
         ? await loadProspectosInBatches(prospectosIdsArray)
             .then(map => {
-              // Guardar en ref para acceso desde handlers
-              prospectosDataRef.current = map;
+              // ✅ FIX v6.4.1: FUSIONAR datos en lugar de sobrescribir para preservar datos de batches anteriores
+              if (reset) {
+                // Reset: Sobrescribir todo el cache
+                prospectosDataRef.current = map;
+                console.log(`🔄 [PhoneCache] Reset - Cache inicializado con ${map.size} prospectos`);
+              } else {
+                // Batch adicional: Fusionar nuevos datos con los existentes
+                const prevSize = prospectosDataRef.current.size;
+                map.forEach((value, key) => {
+                  prospectosDataRef.current.set(key, value);
+                });
+                console.log(`✅ [PhoneCache] Fusión - ${map.size} nuevos + ${prevSize} existentes = ${prospectosDataRef.current.size} total`);
+              }
               // Forzar actualización del filtro cuando se carguen los prospectos
               setProspectosDataVersion(prev => prev + 1);
-              return map;
+              return prospectosDataRef.current;
             })
             .catch((err) => {
               console.error('❌ [LiveChatCanvas] Error general cargando prospectos:', err);
-              return new Map();
+              return prospectosDataRef.current; // Mantener datos existentes en caso de error
             })
-        : new Map();
+        : prospectosDataRef.current; // Mantener datos existentes si no hay nuevos IDs
 
       // ============================================
       // PASO 2: Cargar coordinaciones y ejecutivos en batch (ahora que tenemos los IDs)
