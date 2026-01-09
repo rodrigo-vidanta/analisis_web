@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
@@ -12,6 +12,7 @@ import { permissionsService } from '../services/permissionsService';
 import { Mail, Wrench } from 'lucide-react';
 import { NotificationControl } from './dashboard/NotificationControl';
 import { ThemeSelector, type ThemeMode } from './ThemeSelector';
+import { NotificationSystem } from './notifications/NotificationSystem';
 
 // ============================================
 // COMPONENTES DE ANIMACIÓN PARA THEME TOGGLE
@@ -579,6 +580,14 @@ const Header = ({
                 variant="default"
               />
 
+              {/* Sistema de Notificaciones - Solo para coordinadores, supervisores y ejecutivos */}
+              <NotificationSystem 
+                onNavigateToProspecto={(prospectoId) => {
+                  onModeChange?.('live-chat');
+                  localStorage.setItem('livechat-prospect-id', prospectoId);
+                }}
+              />
+
               {/* Usuario y logout */}
               {user && (
                 <div className="flex items-center space-x-3">
@@ -968,6 +977,14 @@ const Header = ({
               currentTheme={currentThemeMode}
               onThemeChange={handleThemeChange}
               variant="default"
+            />
+
+            {/* Sistema de Notificaciones - Solo para coordinadores, supervisores y ejecutivos */}
+            <NotificationSystem 
+              onNavigateToProspecto={(prospectoId) => {
+                onModeChange?.('live-chat');
+                localStorage.setItem('livechat-prospect-id', prospectoId);
+              }}
             />
 
             {/* Reset button minimalista */}

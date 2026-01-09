@@ -7,6 +7,7 @@ import useAnalysisPermissions from '../hooks/useAnalysisPermissions';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
+import { permissionsService } from '../services/permissionsService';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import type { TokenLimits } from '../services/tokenService';
 import { getLogoComponent, getSuggestedLogo, type LogoType } from './logos/LogoCatalog';
@@ -518,7 +519,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   // Permisos efectivos (rol base + grupos asignados)
   const { isAdmin } = useEffectivePermissions();
   const isCoordinador = user?.role_name === 'coordinador';
+  const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
   const { config } = useSystemConfig();
+  
+  // Verificar si es coordinador de la coordinación CALIDAD (acceso al Dashboard Ejecutivo)
+  useEffect(() => {
+    const checkCoordinadorCalidad = async () => {
+      if (user?.id && isCoordinador) {
+        try {
+          const result = await permissionsService.isCoordinadorCalidad(user.id);
+          setIsCoordinadorCalidad(result);
+        } catch {
+          setIsCoordinadorCalidad(false);
+        }
+      } else {
+        setIsCoordinadorCalidad(false);
+      }
+    };
+    checkCoordinadorCalidad();
+  }, [user?.id, isCoordinador]);
   const { activeCallNotification, clearCallNotification } = useNotificationStore();
   const [isRinging, setIsRinging] = useState(false);
   const processedCallsRef = useRef<Set<string>>(new Set());
@@ -737,8 +756,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     onClick: () => setAppMode('campaigns')
   } : null;
 
-  // Dashboard Ejecutivo - Solo Admin y Coordinadores de Calidad
-  const dashboardItem: MenuItemProps | null = (isAdmin || isCoordinador) ? {
+  // Dashboard Ejecutivo - Solo Admin y Coordinadores de la coordinación CALIDAD
+  // Los coordinadores de otras coordinaciones (VEN, I360, etc.) NO deben ver este menú
+  const dashboardItem: MenuItemProps | null = (isAdmin || isCoordinadorCalidad) ? {
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />

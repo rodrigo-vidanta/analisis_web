@@ -2474,11 +2474,44 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         baseWhere += ` AND (cantidad_menores IS NULL OR cantidad_menores = 0)`;
       }
       
-      // Filtro de etiquetas (requiere join con whatsapp_conversation_labels en SystemUI)
-      // Nota: Las etiquetas están en otra base de datos, así que primero
-      // necesitamos obtener los IDs de prospectos que tienen esas etiquetas
-      // Esto se debe hacer en el webhook de N8N ya que requiere acceso a SystemUI
-      // Por ahora, agregamos una nota en el payload para que N8N aplique este filtro
+      // Filtro de etiquetas (requiere consulta a SystemUI)
+      // Obtener los IDs de prospectos que tienen las etiquetas seleccionadas
+      // y agregarlos directamente al WHERE clause
+      if (audience?.etiquetas && audience.etiquetas.length > 0) {
+        try {
+          const { data: labeledProspects, error: labelError } = await supabaseSystemUI
+            .from('whatsapp_conversation_labels')
+            .select('prospecto_id')
+            .in('label_id', audience.etiquetas)
+            .eq('label_type', 'preset');
+          
+          if (labelError) {
+            console.error('Error fetching labeled prospects for WHERE:', labelError);
+            toast.error('Error al obtener prospectos con etiquetas');
+            throw labelError;
+          }
+          
+          if (labeledProspects && labeledProspects.length > 0) {
+            // Obtener IDs únicos
+            const prospectoIds = [...new Set(labeledProspects.map(lp => lp.prospecto_id))];
+            // Agregar al WHERE clause
+            // Escapar los UUIDs para SQL (aunque son UUIDs válidos, es buena práctica)
+            const escapedIds = prospectoIds.map(id => `'${id}'`).join(',');
+            baseWhere += ` AND id IN (${escapedIds})`;
+            console.log(`[Campaign] Filtro etiquetas: ${prospectoIds.length} prospectos encontrados`);
+          } else {
+            // No hay prospectos con esas etiquetas - la campaña no debería continuar
+            console.warn('[Campaign] No se encontraron prospectos con las etiquetas seleccionadas');
+            toast.error('No hay prospectos con las etiquetas seleccionadas');
+            setSaving(false);
+            return;
+          }
+        } catch (labelQueryError) {
+          console.error('Error querying labels:', labelQueryError);
+          setSaving(false);
+          return;
+        }
+      }
       
       // WHERE para variante A (prospectos CON variables)
       let whereA = baseWhere;
