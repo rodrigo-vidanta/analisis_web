@@ -13,7 +13,8 @@ import {
   MapPin, Building2, Loader2, CheckCircle2, XCircle
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
-import { ParaphraseModal } from './ParaphraseModal';
+// DEPRECATED: ParaphraseModal deshabilitado temporalmente
+// import { ParaphraseModal } from './ParaphraseModal';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -220,14 +221,17 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
   
   // Envío
   const [showSendModal, setShowSendModal] = useState(false);
-  const [caption, setCaption] = useState('');
+  // DEPRECATED: Caption deshabilitado temporalmente
+  // const [caption, setCaption] = useState('');
+  const caption = ''; // Siempre vacío mientras está deprecado
   const [sending, setSending] = useState(false);
   const [sendingProgress, setSendingProgress] = useState<{ current: number; total: number } | null>(null);
   const isSendingRef = useRef(false);
   
-  // Parafraseo
-  const [showParaphraseModal, setShowParaphraseModal] = useState(false);
-  const [textToParaphrase, setTextToParaphrase] = useState('');
+  // DEPRECATED: Parafraseo deshabilitado temporalmente
+  // const [showParaphraseModal, setShowParaphraseModal] = useState(false);
+  // const [textToParaphrase, setTextToParaphrase] = useState('');
+  const showParaphraseModal = false; // Siempre false mientras está deprecado
   
   // Virtualización
   const [visibleCount, setVisibleCount] = useState(IMAGES_PER_BATCH);
@@ -271,7 +275,7 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
     loadImages();
     loadProspectoData();
     setSelectedImages([]);
-    setCaption('');
+    // DEPRECATED: setCaption(''); - caption deshabilitado
     setVisibleCount(IMAGES_PER_BATCH);
   }, [isOpen, selectedConversation?.id]);
 
@@ -443,11 +447,15 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
   // SEND HANDLERS
   // ============================================
   
-  const handleCaptionChange = useCallback((value: string) => {
-    let cleaned = value.replace(/[\n\r]/g, ' ');
-    cleaned = cleaned.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s.,!?¿¡]/g, '');
-    if (cleaned.length > 80) cleaned = cleaned.substring(0, 80);
-    setCaption(cleaned);
+  // DEPRECATED: Caption deshabilitado temporalmente
+  // const handleCaptionChange = useCallback((value: string) => {
+  //   let cleaned = value.replace(/[\n\r]/g, ' ');
+  //   cleaned = cleaned.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s.,!?¿¡]/g, '');
+  //   if (cleaned.length > 80) cleaned = cleaned.substring(0, 80);
+  //   setCaption(cleaned);
+  // }, []);
+  const handleCaptionChange = useCallback((_value: string) => {
+    // DEPRECATED: No hace nada mientras caption está deshabilitado
   }, []);
 
   const handleOpenSendModal = useCallback(() => {
@@ -461,7 +469,7 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
   // Ref para mantener las imágenes a enviar (se congela al iniciar el envío)
   const imagesToSendRef = useRef<SelectedImage[]>([]);
 
-  // Enviar imágenes - SIEMPRE pasa por parafraseo si hay texto
+  // Enviar imágenes - Envía directamente sin caption (DEPRECATED: parafraseo)
   const handleSendImages = useCallback(async () => {
     if (selectedImages.length === 0) return;
 
@@ -474,16 +482,18 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
     imagesToSendRef.current = [...selectedImages];
     console.log('🔒 Imágenes congeladas para envío:', imagesToSendRef.current.map(s => s.item.nombre_archivo));
 
-    // Si hay caption, SIEMPRE mostrar modal de parafraseo (obligatorio)
-    if (caption.trim()) {
-      setTextToParaphrase(caption);
-      setShowSendModal(false);
-      setShowParaphraseModal(true);
-    } else {
-      // Sin caption, enviar directamente
-      executeImageSend('');
-    }
-  }, [selectedImages, prospectoData, caption]);
+    // DEPRECATED: Lógica de caption/parafraseo comentada
+    // if (caption.trim()) {
+    //   setTextToParaphrase(caption);
+    //   setShowSendModal(false);
+    //   setShowParaphraseModal(true);
+    // } else {
+    //   executeImageSend('');
+    // }
+    
+    // Enviar directamente sin caption
+    executeImageSend('');
+  }, [selectedImages, prospectoData]);
 
   // Función que ejecuta el envío real (separada para evitar closures)
   const executeImageSend = async (finalCaption: string) => {
@@ -513,10 +523,10 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
     }
 
     // CERRAR TODO INMEDIATAMENTE antes de empezar el envío
-    setShowParaphraseModal(false);
+    // DEPRECATED: setShowParaphraseModal(false); - parafraseo deshabilitado
     setShowSendModal(false);
     setSelectedImages([]);
-    setCaption('');
+    // DEPRECATED: setCaption(''); - caption deshabilitado
     onClose();
 
     console.log('📤 Iniciando envío de', imagesToSend.length, 'imágenes');
@@ -1095,8 +1105,9 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
       </AnimatePresence>
 
       {/* ============================================
-          PARAPHRASE MODAL
+          DEPRECATED: PARAPHRASE MODAL - Deshabilitado temporalmente
           ============================================ */}
+      {/* 
       <AnimatePresence>
         {showParaphraseModal && (
           <ParaphraseModal
@@ -1104,7 +1115,6 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
             originalText={textToParaphrase}
             context="input_send_image_livechat"
             onSelect={(paraphrasedText) => {
-              // Ejecutar envío inmediatamente con el texto seleccionado
               executeImageSend(paraphrasedText);
             }}
             onCancel={() => {
@@ -1114,6 +1124,7 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
           />
         )}
       </AnimatePresence>
+      */}
     </>
   );
 
@@ -1439,9 +1450,16 @@ const SendModalV2: React.FC<SendModalV2Props> = ({
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {selectedImages.length > 1 
+                  ? 'Se enviarán las imágenes seleccionadas'
+                  : 'Confirma el envío de la imagen'}
+              </p>
+              {/* DEPRECATED: Texto sobre mensaje opcional
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {selectedImages.length > 1 
                   ? 'El mensaje se adjuntará solo a la última imagen'
                   : 'Agrega un mensaje opcional'}
               </p>
+              */}
             </div>
           </div>
           <button
@@ -1479,16 +1497,18 @@ const SendModalV2: React.FC<SendModalV2Props> = ({
                 <span className="absolute -top-2 -left-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-md">
                   {idx + 1}
                 </span>
+                {/* DEPRECATED: Indicador de mensaje en última imagen
                 {idx === selectedImages.length - 1 && selectedImages.length > 1 && (
                   <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-purple-500 text-white text-[10px] font-medium rounded-full whitespace-nowrap">
                     + mensaje
                   </span>
                 )}
+                */}
               </motion.div>
             ))}
           </div>
 
-          {/* Caption Input */}
+          {/* DEPRECATED: Caption Input - Deshabilitado temporalmente
           <div>
             <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               <Sparkles className="w-4 h-4 text-purple-500" />
@@ -1508,6 +1528,7 @@ const SendModalV2: React.FC<SendModalV2Props> = ({
               Solo letras, números y puntuación básica (.,!?¿¡)
             </p>
           </div>
+          */}
 
           {/* Sending Progress */}
           {sendingProgress && (
@@ -1558,17 +1579,19 @@ const SendModalV2: React.FC<SendModalV2Props> = ({
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Enviando...</span>
               </>
-            ) : caption.trim() ? (
-              <>
-                <Sparkles className="w-4 h-4" />
-                <span>Parafrasear y Enviar</span>
-              </>
             ) : (
               <>
                 <Send className="w-4 h-4" />
                 <span>Enviar</span>
               </>
             )}
+            {/* DEPRECATED: Lógica de parafraseo en botón
+            ) : caption.trim() ? (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Parafrasear y Enviar</span>
+              </>
+            */}
           </motion.button>
         </div>
       </motion.div>

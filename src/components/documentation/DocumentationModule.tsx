@@ -262,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'b6s9155', date: '2026-01-09', author: 'Team', message: 'v2.2.35: 📷 Deprecar caption/parafraseo en ImageCatalogModal - Funcionalidad comentada para reactivar', isRelease: true },
   { hash: 'a5r8044', date: '2026-01-09', author: 'Team', message: 'v2.2.34: 📷 ImageCatalogModalV2 - Selección múltiple, cache thumbnails, fix race condition N8N 8s', isRelease: true },
   { hash: 'z4q7933', date: '2026-01-09', author: 'Team', message: 'v2.2.33: 🧹 Limpieza completa ~70 console.logs (7 archivos)', isRelease: true },
   { hash: 'x2o5711', date: '2026-01-09', author: 'Team', message: 'v2.2.32: 🧹 Limpieza logs debug PhoneCache - Fix confirmado funcionando', isRelease: true },
@@ -353,6 +354,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-078', date: '2026-01-09 11:45', version: 'B7.2.25N7.2.15', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-077', date: '2026-01-09 06:45', version: 'B7.2.24N7.2.14', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-076', date: '2026-01-09 05:15', version: 'B7.2.23N7.2.13', status: 'success', duration: '21s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-075', date: '2026-01-09 02:15', version: 'B7.2.23N7.2.13', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -428,8 +430,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.34', highlight: true },
-  { label: 'Release', value: 'B7.2.24N7.2.14', highlight: false },
+  { label: 'Version', value: 'v2.2.35', highlight: true },
+  { label: 'Release', value: 'B7.2.25N7.2.15', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '09 Ene 2026', highlight: false },
 ];

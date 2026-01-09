@@ -1,0 +1,7 @@
+# Configuración de la función generar-url-optimizada
+# Deshabilitar verificación JWT para permitir acceso desde N8N
+# La autenticación se maneja mediante un token en el body
+
+[functions.generar-url-optimizada]
+verify_jwt = false
+
