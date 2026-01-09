@@ -262,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 't8k1277', date: '2026-01-09', author: 'Team', message: 'v2.2.28: 🔒 Fix Crítico PhoneDisplay Lista Conversaciones - Teléfonos protegidos en ConversationItem', isRelease: true },
   { hash: 's7j0166', date: '2026-01-08', author: 'Team', message: 'v2.2.27: 📊 Totales Reales Prospectos - Contadores BD en Kanban y DataGrid, badge header visible', isRelease: true },
   { hash: 'r6i9055', date: '2026-01-08', author: 'Team', message: 'v2.2.26: 🔄 Realtime id_dynamics/etapa - Teléfonos actualizan sin reload en WhatsApp, Dashboard, Prospectos', isRelease: true },
   { hash: 'q5h8944', date: '2026-01-08', author: 'Team', message: 'v2.2.25: 🔐 Seguridad Números Telefónicos - Hook usePhoneVisibility, PhoneDisplay, permisos por rol y etapa', isRelease: true },
@@ -346,6 +347,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-070', date: '2026-01-09 02:00', version: 'B7.2.18N7.2.8', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-069', date: '2026-01-09 01:30', version: 'B7.2.17N7.2.7', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-068', date: '2026-01-09 00:15', version: 'B7.2.16N7.2.6', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-067', date: '2026-01-08 23:45', version: 'B7.2.15N7.2.5', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -413,10 +415,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.27', highlight: true },
-  { label: 'Release', value: 'B7.2.17N7.2.7', highlight: false },
+  { label: 'Version', value: 'v2.2.28', highlight: true },
+  { label: 'Release', value: 'B7.2.18N7.2.8', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '08 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '09 Ene 2026', highlight: false },
 ];
 
 // ============================================

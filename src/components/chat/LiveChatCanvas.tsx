@@ -66,7 +66,7 @@ import { ParaphraseModal } from './ParaphraseModal';
 import { botPauseService } from '../../services/botPauseService';
 import { Pause } from 'lucide-react';
 import { ProspectDetailSidebar } from './ProspectDetailSidebar';
-import { PhoneDisplay } from '../shared/PhoneDisplay';
+import { PhoneDisplay, PhoneText } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
 import ModerationService from '../../services/moderationService';
 import ParaphraseLogService from '../../services/paraphraseLogService';
@@ -837,6 +837,8 @@ interface ConversationItemProps {
   userRole: string | undefined;
   userId?: string;
   labels: ConversationLabel[];
+  /** Datos del prospecto para PhoneDisplay (id_dynamics, etapa) */
+  prospectoData?: { id_dynamics?: string | null; etapa?: string | null } | null;
   onLabelsClick: (e: React.MouseEvent) => void;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -855,6 +857,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
   userRole,
   userId,
   labels,
+  prospectoData,
   onLabelsClick,
   onSelect,
   onContextMenu,
@@ -925,8 +928,16 @@ const ConversationItem = React.memo<ConversationItemProps>(({
             </div>
           </div>
           
-          <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{conversation.customer_phone}</p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{conversation.metadata?.etapa}</p>
+          <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">
+            <PhoneText 
+              phone={conversation.customer_phone || conversation.numero_telefono} 
+              prospecto={{ 
+                id_dynamics: prospectoData?.id_dynamics || conversation.metadata?.id_dynamics, 
+                etapa: prospectoData?.etapa || conversation.metadata?.etapa 
+              }} 
+            />
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{prospectoData?.etapa || conversation.metadata?.etapa}</p>
           
           {/* Etiquetas WhatsApp */}
           {labels.length > 0 && (
@@ -6497,6 +6508,7 @@ const LiveChatCanvas: React.FC = () => {
                 userRole={user?.role_name}
                 userId={user?.id}
                 labels={prospectoLabels[conversation.prospecto_id] || []}
+                prospectoData={prospectoData ? { id_dynamics: prospectoData.id_dynamics, etapa: prospectoData.etapa } : null}
                 onLabelsClick={(e) => handleOpenLabelsModal({
                   id: conversation.prospecto_id,
                   name: conversation.customer_name || 'Conversación'

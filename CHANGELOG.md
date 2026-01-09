@@ -41,6 +41,39 @@ Implementación de contadores de totales reales en el módulo de Prospectos. Los
 
 ---
 
+### 🔒 v2.2.28 (B7.2.18N7.2.8) - Fix Crítico: PhoneDisplay en Lista Conversaciones [09-01-2026]
+
+#### 🐛 Problema Corregido
+Los teléfonos se mostraban inicialmente sin enmascarar en la lista de conversaciones de WhatsApp, y después de cargar los batches se ocultaban incorrectamente (incluso para prospectos con `id_dynamics`).
+
+#### 🔧 Causa Raíz
+En el componente `ConversationItem` (línea 928), el teléfono se mostraba directamente sin usar `PhoneDisplay`:
+```tsx
+// ANTES (sin protección)
+<p>{conversation.customer_phone}</p>
+
+// DESPUÉS (con protección)
+<PhoneText phone={...} prospecto={{ id_dynamics, etapa }} />
+```
+
+#### ✅ Correcciones Aplicadas
+
+1. **ConversationItemProps actualizado:**
+   - Agregado `prospectoData?: { id_dynamics?: string | null; etapa?: string | null }`
+   - Se pasa desde el render con datos del cache
+
+2. **PhoneText en lista de conversaciones:**
+   - Reemplazado `{conversation.customer_phone}` por `<PhoneText ... />`
+   - Ahora respeta las reglas de visibilidad por rol
+
+3. **Import actualizado:**
+   - Agregado `PhoneText` a la importación de `PhoneDisplay`
+
+#### 📁 Archivo Modificado
+- `src/components/chat/LiveChatCanvas.tsx`
+
+---
+
 ### 🔄 v2.2.26 (B7.2.16N7.2.6) - Realtime para id_dynamics y etapa [08-01-2026]
 
 #### 🎯 Mejora Principal
