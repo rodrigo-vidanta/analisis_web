@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 🧹 v2.2.33 (B7.2.23N7.2.13) - Limpieza Total Logs Debug [09-01-2026]
+
+#### 🎯 Limpieza
+Eliminados todos los logs de debug de:
+- **LiveChatCanvas.tsx**: ~37 console.log eliminados (scroll, batches, etiquetas, búsqueda)
+- **ConversacionesWidget.tsx**: 4 console.log eliminados (canViewConversation)
+
+---
+
 ### 🧹 v2.2.32 (B7.2.22N7.2.12) - Limpieza Logs Debug [09-01-2026]
 
 #### 🎯 Limpieza

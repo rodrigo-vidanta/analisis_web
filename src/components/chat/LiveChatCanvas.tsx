@@ -1580,8 +1580,6 @@ const LiveChatCanvas: React.FC = () => {
     
     // Si hay búsqueda >= 3 chars O filtro de no leídos, y hay más batches
     if (needsAggressiveLoading && hasMoreConversations) {
-      const reason = filterByUnread ? 'Filtro no leídos' : `Búsqueda: "${debouncedSearchTerm}"`;
-      console.log(`🔍 [v6.6.0] ${reason} - Cargando todos los batches...`);
       setIsSearchingAllBatches(true);
       
       // Cargar batches cada 500ms hasta completar
@@ -1624,8 +1622,6 @@ const LiveChatCanvas: React.FC = () => {
   // Efecto para finalizar estado de búsqueda cuando ya no hay más batches
   useEffect(() => {
     if (!hasMoreConversations && isSearchingAllBatches) {
-      const reason = filterByUnread ? 'Filtro no leídos' : 'Búsqueda';
-      console.log(`✅ [v6.6.0] ${reason} completado - Todos los batches cargados`);
       setIsSearchingAllBatches(false);
     }
   }, [hasMoreConversations, isSearchingAllBatches, filterByUnread]);
@@ -2470,7 +2466,6 @@ const LiveChatCanvas: React.FC = () => {
     // Verificar si hay un prospecto específico para seleccionar
     const prospectoId = localStorage.getItem('livechat-prospect-id');
     if (prospectoId && conversations.length > 0) {
-      console.log('🔍 [LiveChat] Detectado prospectoId en localStorage, buscando conversación...');
       // Pequeño delay para asegurar que las conversaciones estén completamente procesadas
       setTimeout(() => {
         const stillInStorage = localStorage.getItem('livechat-prospect-id');
@@ -2503,7 +2498,6 @@ const LiveChatCanvas: React.FC = () => {
       
       // Si no hay conversación seleccionada o no es la correcta, buscar
       if (!selectedConversation) {
-        console.log('🔍 [LiveChat] No hay conversación seleccionada, buscando...');
         setTimeout(() => {
           selectConversationByProspectId(prospectoId);
         }, 300);
@@ -2538,16 +2532,8 @@ const LiveChatCanvas: React.FC = () => {
       
       const scrollPercentage = ((scrollTop + containerHeight) / scrollHeight) * 100;
       
-      // Log solo cada 25% para evitar spam
-      const roundedPercentage = Math.floor(scrollPercentage / 10) * 10;
-      if (roundedPercentage !== lastScrollCheck && roundedPercentage % 25 === 0) {
-        console.log(`📊 Scroll conversaciones al ${roundedPercentage}% - loaded: ${allConversationsLoaded.length}, visible: ${filteredConversations.length}, hasMore: ${hasMoreConversations}`);
-        lastScrollCheck = roundedPercentage;
-      }
-      
       // Cargar al 75% del scroll (25% antes del final)
       if (scrollPercentage >= 75 && hasMoreConversations && !loadingMoreConversations && !isLoadingConversationsRef.current) {
-        console.log(`📊 Scroll al ${Math.round(scrollPercentage)}% - Cargando más conversaciones...`);
         loadConversations('', false); // Cargar siguiente página sin reset
         return;
       }
@@ -2571,7 +2557,6 @@ const LiveChatCanvas: React.FC = () => {
         );
       
       if (shouldLoadMore) {
-        console.log(`📊 Carga automática - Conversaciones: ${allConversationsLoaded.length}, Scroll: ${Math.round(scrollHeight)}/${Math.round(containerHeight)}`);
         loadConversations('', false);
         return;
       }
@@ -2719,16 +2704,12 @@ const LiveChatCanvas: React.FC = () => {
   ]);
 
   const selectConversationByProspectId = (prospectoId: string) => {
-    console.log('🔍 Buscando conversación para prospecto:', prospectoId);
-    console.log('📋 Conversaciones disponibles:', conversations.length);
-    
     // Método 1: Buscar por prospect_id en metadata
     let conversation = conversations.find(conv => 
       conv.metadata?.prospect_id === prospectoId || conv.metadata?.prospecto_id === prospectoId
     );
     
     if (conversation) {
-      console.log('✅ Conversación encontrada por prospect_id en metadata:', conversation.id);
       // ✅ Selección automática desde localStorage - NO marcar como leída
       isManualSelectionRef.current = false;
       setSelectedConversation(conversation);
@@ -2739,7 +2720,6 @@ const LiveChatCanvas: React.FC = () => {
     conversation = conversations.find(conv => conv.prospecto_id === prospectoId);
     
     if (conversation) {
-      console.log('✅ Conversación encontrada por prospecto_id directo:', conversation.id);
       // ✅ Selección automática desde localStorage - NO marcar como leída
       isManualSelectionRef.current = false;
       setSelectedConversation(conversation);
@@ -2769,7 +2749,6 @@ const LiveChatCanvas: React.FC = () => {
       );
 
       if (conversation) {
-        console.log('✅ Conversación encontrada por whatsapp exacto:', conversation.id);
         // ✅ Selección automática desde localStorage - NO marcar como leída
         isManualSelectionRef.current = false;
         setSelectedConversation(conversation);
@@ -2795,7 +2774,6 @@ const LiveChatCanvas: React.FC = () => {
         );
         
         if (conversation) {
-          console.log('✅ Conversación encontrada por variación de teléfono:', conversation.id);
           // ✅ Selección automática desde localStorage - NO marcar como leída
           isManualSelectionRef.current = false;
           setSelectedConversation(conversation);
@@ -2812,7 +2790,6 @@ const LiveChatCanvas: React.FC = () => {
         );
 
         if (conversation) {
-          console.log('✅ Conversación encontrada por id_uchat:', conversation.id);
           // ✅ Selección automática desde localStorage - NO marcar como leída
           isManualSelectionRef.current = false;
           setSelectedConversation(conversation);
@@ -2821,7 +2798,6 @@ const LiveChatCanvas: React.FC = () => {
       }
 
       // Si no se encontró, intentar buscar en la base de datos directamente
-      console.log('⚠️ No se encontró conversación en memoria, buscando en BD...');
       const { data: uchatConv, error: uchatError } = await supabaseSystemUI
         .from('uchat_conversations')
         .select('*')
@@ -2838,8 +2814,6 @@ const LiveChatCanvas: React.FC = () => {
           isManualSelectionRef.current = false; // ✅ Asegurar que es selección automática
           selectConversationByProspectId(prospectoId);
         }, 500);
-      } else {
-        console.log('ℹ️ No se encontró conversación activa para este prospecto');
       }
 
     } catch (error) {
@@ -3438,7 +3412,6 @@ const LiveChatCanvas: React.FC = () => {
   const loadConversations = async (searchTerm = '', reset = false) => {
     // ⚠️ PROTECCIÓN: Prevenir ejecuciones simultáneas
     if (isLoadingConversationsRef.current) {
-      console.log('⚠️ loadConversations ya está en ejecución, ignorando');
       return;
     }
     
@@ -3454,11 +3427,9 @@ const LiveChatCanvas: React.FC = () => {
         hasInitialConversationsLoadRef.current = false;
         // ✅ FIX v6.4.1: Limpiar cache de prospectos en reset para evitar datos obsoletos
         prospectosDataRef.current.clear();
-        console.log('🔄 Reset de conversaciones - página: 0, cache de prospectos limpiado');
       }
       
       const pageToLoad = reset ? 0 : currentConversationsPageRef.current;
-      console.log(`📥 Cargando batch ${pageToLoad + 1} de conversaciones (reset: ${reset})`);
       
       // Solo mostrar loading completo en carga inicial
       if (allConversationsLoaded.length === 0 || reset) {
@@ -3479,7 +3450,6 @@ const LiveChatCanvas: React.FC = () => {
           
           if (!countError && countData !== null) {
             setTotalConversationsCount(countData);
-            console.log(`📊 Total de conversaciones en BD: ${countData}`);
           }
         } catch (err) {
           console.error('Error obteniendo conteo total:', err);
@@ -3761,7 +3731,6 @@ const LiveChatCanvas: React.FC = () => {
           
           if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
             ejecutivosIdsParaFiltrar.push(...ejecutivosConBackup.map(e => e.id));
-            console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver conversaciones de ${ejecutivosConBackup.length} ejecutivos como backup`);
           }
         } catch (error) {
           console.error('Error obteniendo ejecutivos donde es backup:', error);
@@ -3952,16 +3921,13 @@ const LiveChatCanvas: React.FC = () => {
         if (rawLoadedCount < CONVERSATIONS_BATCH_SIZE) {
           // El RPC no devolvió un batch completo, no hay más datos en BD
           setHasMoreConversations(false);
-          console.log(`📊 Reset: ${filtered.length} filtradas. Fin de BD (batch: ${rawLoadedCount}/${CONVERSATIONS_BATCH_SIZE})`);
         } else if (totalConversationsCount > 0) {
           // Batch completo, verificar si hay más en la BD
           const hasMore = CONVERSATIONS_BATCH_SIZE < totalConversationsCount;
           setHasMoreConversations(hasMore);
-          console.log(`📊 Reset: ${filtered.length} filtradas de ${rawLoadedCount} en batch. Total BD: ${totalConversationsCount}. HasMore: ${hasMore}`);
         } else {
           // Sin conteo, asumir que hay más si el batch está lleno
           setHasMoreConversations(true);
-          console.log(`📊 Reset: ${filtered.length} filtradas. Continuando carga...`);
         }
         hasInitialConversationsLoadRef.current = true;
       } else {
@@ -3985,22 +3951,18 @@ const LiveChatCanvas: React.FC = () => {
           if (rawLoadedCount === 0) {
             // El RPC no devolvió nada, realmente no hay más
             setHasMoreConversations(false);
-            console.log(`📊 No hay más conversaciones en BD. Total filtrado: ${updatedData.length} de ${totalConversationsCount}`);
           } else if (rawLoadedCount < CONVERSATIONS_BATCH_SIZE) {
             // El RPC devolvió menos del límite, significa que llegamos al final de la BD
             setHasMoreConversations(false);
-            console.log(`📊 Fin de conversaciones en BD (batch incompleto: ${rawLoadedCount}). Total filtrado: ${updatedData.length}`);
           } else if (totalConversationsCount > 0) {
             // El RPC devolvió un batch completo, puede haber más
             // Verificar si ya cargamos todas las conversaciones posibles
             const totalLoadedFromDB = (currentConversationsPageRef.current + 1) * CONVERSATIONS_BATCH_SIZE;
             const hasMore = totalLoadedFromDB < totalConversationsCount;
             setHasMoreConversations(hasMore);
-            console.log(`📊 Agregadas ${filtered.length} conversaciones (de ${rawLoadedCount} en batch). Total filtrado: ${updatedData.length}. HasMore: ${hasMore}`);
           } else {
             // Sin conteo total, asumir que hay más si el batch está lleno
             setHasMoreConversations(true);
-            console.log(`📊 Agregadas ${filtered.length} conversaciones. Continuando carga...`);
           }
           
           return updatedData;
@@ -4039,7 +4001,6 @@ const LiveChatCanvas: React.FC = () => {
     
     // Si las etiquetas ya fueron precargadas, no recargar (optimización)
     if (allUserLabelsLoadedRef.current) {
-      console.log(`🏷️ [Optimización] Etiquetas ya precargadas, omitiendo batch`);
       return;
     }
     
@@ -4089,7 +4050,6 @@ const LiveChatCanvas: React.FC = () => {
     if (!user?.id || allUserLabelsLoadedRef.current) return;
     
     try {
-      console.log('🏷️ [v6.4.0] Precargando datos y etiquetas del usuario...');
       
       // Obtener filtros de permisos
       const { permissionsService } = await import('../../services/permissionsService');
@@ -4103,7 +4063,6 @@ const LiveChatCanvas: React.FC = () => {
       if (isUserAdmin) {
         // Admin: NO precargar (allConversationsLoaded está vacío en este punto)
         // Permitir que cada batch cargue sus etiquetas on-demand
-        console.log('👑 [Admin] Permitiendo carga on-demand de etiquetas en batches');
         setUserConversationsCount(totalConversationsCount);
         // NO setear allUserLabelsLoadedRef.current para permitir carga en batches
         return;
@@ -4154,7 +4113,6 @@ const LiveChatCanvas: React.FC = () => {
           }
         }
         
-        console.log(`✅ [v6.4.0] Ejecutivo tiene ${prospectoIds.length} prospectos asignados`);
       } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
         // Coordinador: obtener todos los prospectos de sus coordinaciones
         const BATCH_SIZE = 500;
@@ -4182,7 +4140,6 @@ const LiveChatCanvas: React.FC = () => {
           }
         }
         
-        console.log(`✅ [v6.4.0] Coordinador tiene ${prospectoIds.length} prospectos en sus coordinaciones`);
       }
       
       // Establecer conteo real del usuario
@@ -4190,12 +4147,10 @@ const LiveChatCanvas: React.FC = () => {
       
       // Precargar etiquetas de TODOS los prospectos del usuario
       if (prospectoIds.length > 0) {
-        console.log(`🏷️ [v6.4.0] Precargando etiquetas de ${prospectoIds.length} prospectos...`);
         try {
           const labelsMap = await whatsappLabelsService.getBatchProspectosLabels(prospectoIds);
           // v6.4.1: MEZCLAR con etiquetas existentes (por si el primer batch ya cargó algunas)
           setProspectoLabels(prev => ({ ...prev, ...labelsMap }));
-          console.log(`✅ [v6.4.0] Etiquetas precargadas para ${Object.keys(labelsMap).length} prospectos`);
         } catch (err) {
           console.error('Error precargando etiquetas:', err);
         }
@@ -4203,7 +4158,6 @@ const LiveChatCanvas: React.FC = () => {
       
       // Marcar como cargadas DESPUÉS de establecer las etiquetas
       allUserLabelsLoadedRef.current = true;
-      console.log(`✅ [Precarga] Flag establecido - batches subsecuentes no cargarán etiquetas (optimización)`);
     } catch (error) {
       console.error('❌ [v6.4.0] Error en precarga de datos:', error);
     }
@@ -7783,7 +7737,6 @@ const LiveChatCanvas: React.FC = () => {
         onClose={() => setShowImageCatalog(false)}
         onSendImage={async (imageData) => {
           // Este callback ya maneja el envío en el modal
-          console.log('Imagen enviada:', imageData);
         }}
         selectedConversation={selectedConversation}
         onPauseBot={pauseBot}

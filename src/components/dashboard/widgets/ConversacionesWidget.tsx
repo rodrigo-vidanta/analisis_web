@@ -621,7 +621,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       // Pero esto requiere verificación adicional que no tenemos aquí
       // Por ahora, excluir conversaciones sin prospect_id para ejecutivos
       if (user?.role_name === 'ejecutivo') {
-        console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Conversación sin prospect_id, denegando acceso`);
         return false;
       }
       // Para coordinadores, necesitaríamos verificar la coordinación de otra manera
@@ -643,13 +642,11 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             .maybeSingle();
           
           if (!data) {
-            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} no encontrado en BD, denegando acceso`);
             return false;
           }
           
           // Verificar si tiene ejecutivo_id asignado
           if (!data.ejecutivo_id) {
-            console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} sin ejecutivo_id asignado, denegando acceso`);
             return false;
           }
           
@@ -671,7 +668,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       } else {
         // Prospecto está en el mapa, verificar ejecutivo_id
         if (!prospectoData.ejecutivo_id) {
-          console.log(`🚫 [canViewConversation] Ejecutivo ${userId}: Prospecto ${prospectId} sin ejecutivo_id en mapa, denegando acceso`);
           return false;
         }
         
