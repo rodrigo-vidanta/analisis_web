@@ -262,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'f0w3599', date: '2026-01-09', author: 'Team', message: 'v2.2.39: 📢 Campañas - Filtro etiquetas en WHERE, sugerencias con nombre y coordinación usuario', isRelease: true },
   { hash: 'e9v2488', date: '2026-01-09', author: 'Team', message: 'v2.2.38: 🔔 Sistema Notificaciones Realtime - Toast superior derecha, sonido, auto-asignación', isRelease: true },
   { hash: 'd8u1377', date: '2026-01-09', author: 'Team', message: 'v2.2.37: 🔍 Búsqueda Múltiple Prospectos - Lista nombres, orden entrada, scrollbar invisible', isRelease: true },
   { hash: 'c7t0266', date: '2026-01-09', author: 'Team', message: 'v2.2.36: 🔄 Reasignación Masiva Prospectos - Modal progreso, barra simulada, coordinadores destino', isRelease: true },
@@ -357,6 +358,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-082', date: '2026-01-09 19:30', version: 'B7.2.29N7.2.19', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-081', date: '2026-01-09 17:30', version: 'B7.2.28N7.2.18', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-080', date: '2026-01-09 13:30', version: 'B7.2.27N7.2.17', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-079', date: '2026-01-09 13:00', version: 'B7.2.26N7.2.16', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -436,8 +438,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.38', highlight: true },
-  { label: 'Release', value: 'B7.2.28N7.2.18', highlight: false },
+  { label: 'Version', value: 'v2.2.39', highlight: true },
+  { label: 'Release', value: 'B7.2.29N7.2.19', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '09 Ene 2026', highlight: false },
 ];

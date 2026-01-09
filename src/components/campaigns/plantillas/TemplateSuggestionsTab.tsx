@@ -17,6 +17,7 @@ import { whatsappTemplateSuggestionsService, type TemplateSuggestion } from '../
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions';
 import { whatsappTemplatesService } from '../../../services/whatsappTemplatesService';
+import { supabaseSystemUI } from '../../../config/supabaseSystemUI';
 import type { CreateTemplateInput } from '../../../types/whatsappTemplates';
 
 interface TemplateSuggestionsTabProps {
@@ -33,6 +34,9 @@ const TemplateSuggestionsTab: React.FC<TemplateSuggestionsTabProps> = ({ onImpor
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionModal, setShowRejectionModal] = useState(false);
+  
+  // Mapa de IDs de usuario a información (nombre y coordinación)
+  const [userInfo, setUserInfo] = useState<Map<string, { name: string; coordinacion?: string }>>(new Map());
 
   useEffect(() => {
     loadSuggestions();
@@ -47,12 +51,63 @@ const TemplateSuggestionsTab: React.FC<TemplateSuggestionsTabProps> = ({ onImpor
       }
       const data = await whatsappTemplateSuggestionsService.getAllSuggestions(filters);
       setSuggestions(data);
+      
+      // Obtener información de usuarios (nombre y coordinación)
+      const uniqueUserIds = [...new Set(data.map(s => s.suggested_by).filter(Boolean))];
+      
+      if (uniqueUserIds.length > 0) {
+        try {
+          const { data: usersData, error: usersError } = await supabaseSystemUI
+            .from('auth_users')
+            .select(`
+              id, 
+              full_name, 
+              email,
+              coordinacion_id,
+              coordinaciones:coordinacion_id (
+                codigo,
+                nombre
+              )
+            `)
+            .in('id', uniqueUserIds);
+          
+          if (usersError) {
+            console.error('Error fetching user info:', usersError);
+          } else if (usersData) {
+            const infoMap = new Map<string, { name: string; coordinacion?: string }>();
+            usersData.forEach((u: any) => {
+              // Usar full_name, o email antes del @, o ID como fallback
+              const displayName = u.full_name || u.email?.split('@')[0] || u.id.substring(0, 8);
+              // Obtener coordinación (puede venir como array o objeto)
+              const coordinacion = Array.isArray(u.coordinaciones) 
+                ? u.coordinaciones[0] 
+                : u.coordinaciones;
+              const coordDisplay = coordinacion 
+                ? `${coordinacion.codigo || ''} ${coordinacion.nombre || ''}`.trim()
+                : undefined;
+              
+              infoMap.set(u.id, { 
+                name: displayName, 
+                coordinacion: coordDisplay 
+              });
+            });
+            setUserInfo(infoMap);
+          }
+        } catch (userError) {
+          console.error('Error loading user info:', userError);
+        }
+      }
     } catch (error: any) {
       console.error('Error cargando sugerencias:', error);
       toast.error('Error al cargar sugerencias');
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Helper para obtener información del usuario
+  const getUserDisplayInfo = (userId: string): { name: string; coordinacion?: string } => {
+    return userInfo.get(userId) || { name: `Usuario ${userId.substring(0, 8)}...` };
   };
 
   const handleUpdateStatus = async (suggestionId: string, status: 'APPROVED' | 'REJECTED') => {
@@ -151,9 +206,16 @@ const TemplateSuggestionsTab: React.FC<TemplateSuggestionsTabProps> = ({ onImpor
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
                   {suggestion.name}
                 </h3>
-                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  <User className="w-3 h-3" />
-                  <span>Usuario ID: {suggestion.suggested_by.substring(0, 8)}...</span>
+                <div className="flex flex-col gap-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">{getUserDisplayInfo(suggestion.suggested_by).name}</span>
+                  </div>
+                  {getUserDisplayInfo(suggestion.suggested_by).coordinacion && (
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 pl-4 truncate">
+                      {getUserDisplayInfo(suggestion.suggested_by).coordinacion}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
