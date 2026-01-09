@@ -351,14 +351,17 @@ const DynamicsCRMManager: React.FC = () => {
       // 2. BUSCAR EN DYNAMICS CRM
       // ============================================
       let searchResult;
+      
+      // Siempre incluir id_prospecto en la búsqueda
+      const baseRequest = { id_prospecto: prospecto.id };
 
       if (prospecto.id_dynamics) {
-        searchResult = await dynamicsLeadService.searchLead({ id_dynamics: prospecto.id_dynamics });
+        searchResult = await dynamicsLeadService.searchLead({ ...baseRequest, id_dynamics: prospecto.id_dynamics });
       } else if (prospecto.email) {
-        searchResult = await dynamicsLeadService.searchLead({ email: prospecto.email });
+        searchResult = await dynamicsLeadService.searchLead({ ...baseRequest, email: prospecto.email });
       } else if (prospecto.telefono_principal || prospecto.whatsapp) {
         const phone = prospecto.telefono_principal || prospecto.whatsapp;
-        searchResult = await dynamicsLeadService.searchLead({ phone: phone! });
+        searchResult = await dynamicsLeadService.searchLead({ ...baseRequest, phone: phone! });
       } else {
         toast.error('El prospecto no tiene ID de Dynamics, email ni teléfono para buscar');
         setIsLoadingDynamics(false);

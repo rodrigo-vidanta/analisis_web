@@ -95,6 +95,8 @@ export interface LeadSearchRequest {
   id_dynamics?: string;
   email?: string;
   phone?: string;
+  /** ID del prospecto en la tabla local (prospectos.id) */
+  id_prospecto?: string;
 }
 
 export interface LeadSearchResponse {
@@ -163,6 +165,12 @@ class DynamicsLeadService {
 
       // Construir payload según el tipo de búsqueda
       const payload: Record<string, string> = {};
+      
+      // Siempre incluir id_prospecto si está disponible
+      if (request.id_prospecto) {
+        payload.id_prospecto = request.id_prospecto;
+      }
+      
       if (request.id_dynamics) {
         payload.id_dynamics = request.id_dynamics;
       } else if (request.email) {

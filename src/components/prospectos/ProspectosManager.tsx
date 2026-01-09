@@ -23,7 +23,7 @@ import {
   Calendar, MapPin, Building, DollarSign, Clock, Tag,
   ChevronRight, Eye, EyeOff, Edit, Star, TrendingUp, Activity,
   FileText, MessageSquare, CheckCircle, AlertTriangle, Network,
-  LayoutGrid, Table2, PhoneCall, Heart, Loader2
+  LayoutGrid, Table2, PhoneCall, Heart, Loader2, Shuffle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analysisSupabase } from '../../config/analysisSupabase';
@@ -35,6 +35,7 @@ import { permissionsService } from '../../services/permissionsService';
 import { prospectsViewPreferencesService } from '../../services/prospectsViewPreferencesService';
 import type { ViewType } from '../../services/prospectsViewPreferencesService';
 import ProspectosKanban from './ProspectosKanban';
+import { BulkReassignmentTab } from './BulkReassignmentTab';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { BulkAssignmentModal } from '../shared/BulkAssignmentModal';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
@@ -981,6 +982,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [viewType, setViewType] = useState<ViewType>('kanban');
   const [collapsedColumns, setCollapsedColumns] = useState<string[]>([]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  
+  // Estado para pestaña activa (solo admin/admin_operativo/coordinador_calidad pueden ver reasignación)
+  const [activeTab, setActiveTab] = useState<'prospectos' | 'reassignment'>('prospectos');
   
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -1958,7 +1962,48 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="h-full flex flex-col">
+      {/* Pestañas principales - solo visible para admin/admin_operativo/coordinador_calidad */}
+      {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
+        <div className="flex-shrink-0 px-6 pt-4 pb-0 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab('prospectos')}
+              className={`relative px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all ${
+                activeTab === 'prospectos'
+                  ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-t border-l border-r border-gray-200 dark:border-gray-700 -mb-px'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Users size={16} />
+                <span>Prospectos</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('reassignment')}
+              className={`relative px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all ${
+                activeTab === 'reassignment'
+                  ? 'bg-white dark:bg-gray-800 text-violet-600 dark:text-violet-400 border-t border-l border-r border-gray-200 dark:border-gray-700 -mb-px'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Shuffle size={16} />
+                <span>Reasignación Masiva</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Contenido según pestaña activa */}
+      {activeTab === 'reassignment' && (isAdmin || isAdminOperativo || isCoordinadorCalidad) ? (
+        <div className="flex-1 overflow-hidden">
+          <BulkReassignmentTab />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto p-6 space-y-6">
       {/* Filtros con Toggle de Vista */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -2604,6 +2649,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           
           {/* Infinite Scroll ya no es necesario - todos los prospectos están cargados */}
         </motion.div>
+      )}
+        </div>
       )}
 
       {/* Menú contextual de asignación */}
