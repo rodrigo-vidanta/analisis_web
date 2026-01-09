@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Wand2, Sparkles, Loader2, ShieldAlert, AlertTriangle, Ban } from 'lucide-react';
 import ModerationService from '../../services/moderationService';
 import type { ModerationWarning } from '../../services/moderationService';
@@ -280,8 +281,11 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      style={{ zIndex: 2147483647 }} // Z-index máximo para estar encima de todo
+    >
       <div className="relative w-full max-w-4xl mx-4 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className={`px-6 py-4 text-white ${
@@ -528,6 +532,9 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
       </div>
     </div>
   );
+
+  // Usar createPortal para renderizar en el body y asegurar z-index correcto
+  return createPortal(modalContent, document.body);
 };
 
 export default ParaphraseModal;

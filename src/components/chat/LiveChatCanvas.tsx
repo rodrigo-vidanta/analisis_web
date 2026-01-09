@@ -61,7 +61,7 @@ import { permissionsService } from '../../services/permissionsService';
 import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 import { automationService } from '../../services/automationService';
 import { MultimediaMessage, needsBubble } from './MultimediaMessage';
-import { ImageCatalogModal } from './ImageCatalogModal';
+import { ImageCatalogModalV2 } from './ImageCatalogModalV2';
 import { ParaphraseModal } from './ParaphraseModal';
 import { botPauseService } from '../../services/botPauseService';
 import { Pause } from 'lucide-react';
@@ -7731,12 +7731,12 @@ const LiveChatCanvas: React.FC = () => {
         </div>
       )}
       
-      {/* Modal de Catálogo de Imágenes */}
-      <ImageCatalogModal
+      {/* Modal de Catálogo de Imágenes V2 - Con selección múltiple */}
+      <ImageCatalogModalV2
         isOpen={showImageCatalog}
         onClose={() => setShowImageCatalog(false)}
-        onSendImage={async (imageData) => {
-          // Este callback ya maneja el envío en el modal
+        onSendImage={async () => {
+          // Este callback ya no se usa directamente, el modal V2 maneja todo internamente
         }}
         selectedConversation={selectedConversation}
         onPauseBot={pauseBot}
@@ -7744,7 +7744,7 @@ const LiveChatCanvas: React.FC = () => {
           // UI optimista: Mostrar imagen inmediatamente como "enviando"
           if (!selectedConversation) return;
           
-          const tempId = `temp_${Date.now()}`;
+          const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const conversationId = selectedConversation.id;
 
           const optimisticMessage: Message = {

@@ -5,7 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, livechat_auth',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, livechat_auth, x-request-id',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -16,35 +16,51 @@ serve(async (req) => {
   }
 
   try {
+    // Usar X-Request-ID del cliente o generar uno nuevo
+    const clientRequestId = req.headers.get('x-request-id')
+    const requestId = clientRequestId || `proxy_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+    
     // Leer el payload del request
     const payload = await req.json()
     
-    console.log('📤 Proxy recibió payload:', payload)
+    // Extraer datos para logging
+    const imageFile = payload?.[0]?.imagenes?.[0]?.archivo || 'unknown'
+    const hasCaption = !!payload?.[0]?.caption
+    const payloadRequestId = payload?.[0]?.request_id || 'no-id'
+    
+    console.log(`\n${'='.repeat(60)}`)
+    console.log(`📤 [${requestId}] NUEVA IMAGEN`)
+    console.log(`   Archivo: ${imageFile}`)
+    console.log(`   Caption: ${hasCaption ? 'SÍ' : 'NO'}`)
+    console.log(`   Payload ID: ${payloadRequestId}`)
+    console.log(`   Timestamp: ${new Date().toISOString()}`)
+    console.log(`${'='.repeat(60)}`)
     
     // Webhook de Railway
     const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/send-img'
     
-    // Hacer request al webhook
+    // Hacer request al webhook con request ID para trazabilidad
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'livechat_auth': '2025_livechat_auth'
+        'livechat_auth': '2025_livechat_auth',
+        'x-request-id': requestId
       },
       body: JSON.stringify(payload)
     })
     
-    console.log('📥 Respuesta del webhook:', response.status, response.statusText)
+    console.log(`📥 [${requestId}] Respuesta: ${response.status} ${response.statusText}`)
     
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('❌ Error del webhook:', errorText)
+      console.error(`❌ [${requestId}] Error del webhook:`, errorText)
       throw new Error(`Webhook Error: ${response.status} - ${errorText}`)
     }
     
     const responseData = await response.json()
-    console.log('✅ Respuesta exitosa:', responseData)
+    console.log(`✅ [${requestId}] Éxito para archivo: ${imageFile}`)
     
     return new Response(
       JSON.stringify(responseData),
