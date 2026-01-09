@@ -310,11 +310,27 @@ export const BulkReassignmentTab: React.FC = () => {
       // Filtros - verificar que query tiene los métodos necesarios
       if (query && typeof query.or === 'function') {
         if (debouncedSearch) {
-          const searchDigits = debouncedSearch.replace(/\D/g, '');
-          if (searchDigits.length >= 6) {
-            query = query.or(`whatsapp.ilike.%${searchDigits}%,email.ilike.%${debouncedSearch}%`);
+          // Detectar si es búsqueda múltiple (separada por comas o saltos de línea)
+          const searchTerms = debouncedSearch
+            .split(/[,\n]/)
+            .map(t => t.trim())
+            .filter(t => t.length > 0);
+          
+          if (searchTerms.length > 1) {
+            // Búsqueda múltiple: crear filtro OR para cada término
+            const orConditions = searchTerms.map(term => {
+              const escapedTerm = term.replace(/[%_]/g, '\\$&'); // Escapar caracteres especiales
+              return `nombre_completo.ilike.%${escapedTerm}%,nombre_whatsapp.ilike.%${escapedTerm}%`;
+            }).join(',');
+            query = query.or(orConditions);
           } else {
-            query = query.or(`nombre_completo.ilike.%${debouncedSearch}%,nombre_whatsapp.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+            // Búsqueda simple
+            const searchDigits = debouncedSearch.replace(/\D/g, '');
+            if (searchDigits.length >= 6) {
+              query = query.or(`whatsapp.ilike.%${searchDigits}%,email.ilike.%${debouncedSearch}%`);
+            } else {
+              query = query.or(`nombre_completo.ilike.%${debouncedSearch}%,nombre_whatsapp.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+            }
           }
         }
         if (filterCoordinacion && typeof query.eq === 'function') {
@@ -331,14 +347,53 @@ export const BulkReassignmentTab: React.FC = () => {
         }
       }
 
+      // Para búsqueda múltiple, aumentar el límite de resultados
+      const searchTerms = debouncedSearch.split(/[,\n]/).map(t => t.trim()).filter(t => t.length > 0);
+      const isMultiSearch = searchTerms.length > 1;
+      const effectivePageSize = isMultiSearch ? Math.max(PAGE_SIZE, searchTerms.length * 2) : PAGE_SIZE;
+
       const { data, error, count } = await query
         .order('created_at', { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(page * effectivePageSize, (page + 1) * effectivePageSize - 1);
 
       if (error) throw error;
       
       // Enriquecer datos con nombres de coordinación y ejecutivo
-      const enrichedData = await enrichProspectosWithNames(data || []);
+      let enrichedData = await enrichProspectosWithNames(data || []);
+      
+      // Para búsqueda múltiple, ordenar resultados según el orden de entrada
+      if (isMultiSearch && enrichedData.length > 0) {
+        const normalizeText = (text: string) => 
+          text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        
+        // Crear mapa de posiciones según orden de entrada
+        const orderMap = new Map<string, number>();
+        searchTerms.forEach((term, index) => {
+          orderMap.set(normalizeText(term), index);
+        });
+        
+        // Ordenar prospectos según el orden de entrada
+        enrichedData = enrichedData.sort((a, b) => {
+          const nameA = normalizeText(a.nombre_completo || a.nombre_whatsapp || '');
+          const nameB = normalizeText(b.nombre_completo || b.nombre_whatsapp || '');
+          
+          // Buscar el índice del término que coincide con cada prospecto
+          let indexA = searchTerms.length; // Por defecto al final
+          let indexB = searchTerms.length;
+          
+          for (const [term, index] of orderMap) {
+            if (nameA.includes(term) || term.includes(nameA.split(' ')[0])) {
+              indexA = Math.min(indexA, index);
+            }
+            if (nameB.includes(term) || term.includes(nameB.split(' ')[0])) {
+              indexB = Math.min(indexB, index);
+            }
+          }
+          
+          return indexA - indexB;
+        });
+      }
+      
       setProspectos(enrichedData);
       setTotalCount(count || 0);
     } catch (error) {
@@ -983,16 +1038,28 @@ export const BulkReassignmentTab: React.FC = () => {
           {/* Barra de filtros */}
           <div className="flex-shrink-0 p-4 space-y-3 bg-white/50 dark:bg-gray-800/50 border-b border-slate-200 dark:border-gray-700">
             
-            {/* Búsqueda */}
+            {/* Búsqueda - Soporta múltiples nombres separados por comas o saltos de línea */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="text"
+              <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+              <textarea
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por nombre, teléfono o email..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all"
+                placeholder="Buscar nombre, teléfono o email (soporta lista)"
+                rows={searchTerm.includes('\n') || searchTerm.includes(',') ? 4 : 1}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all resize-none scrollbar-none"
+                style={{ 
+                  minHeight: searchTerm.includes('\n') || searchTerm.includes(',') ? '100px' : '42px',
+                  maxHeight: '150px',
+                  overflowY: 'auto',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
+                }}
               />
+              {(searchTerm.includes('\n') || searchTerm.includes(',')) && (
+                <div className="absolute right-3 top-2 px-2 py-0.5 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full">
+                  {searchTerm.split(/[,\n]/).filter(t => t.trim()).length} nombres
+                </div>
+              )}
             </div>
 
             {/* Filtros en grid */}
