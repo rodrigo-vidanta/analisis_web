@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### 🔒 v2.2.31 (B7.2.21N7.2.11) - Fix PhoneCache Async v2 [09-01-2026]
+
+#### 🎯 Fix Adicional
+Mejora en la preservación del cache de prospectos durante cargas async.
+
+#### 🐛 Problema Adicional Detectado
+- Durante la carga async de un nuevo batch, el cache podría vaciarse inesperadamente
+- Condición de carrera entre la lectura del cache y la actualización async
+
+#### ✅ Solución Implementada (v6.4.2)
+**LiveChatCanvas.tsx:**
+- Backup del cache ANTES de iniciar la carga async (`cacheBeforeLoad`)
+- Detección y restauración automática si el cache se vació durante la carga
+- Logs de debug mejorados para diagnosticar problemas de cache
+- Mensaje de advertencia cuando se detecta pérdida de cache
+
+#### 📁 Archivos Modificados
+- `src/components/chat/LiveChatCanvas.tsx` - Protección contra pérdida de cache async
+
+---
+
 ### 🔒 v2.2.30 (B7.2.20N7.2.10) - Fix Cache PhoneDisplay en Batches Subsecuentes [09-01-2026]
 
 #### 🎯 Fix Crítico

@@ -3635,6 +3635,10 @@ const LiveChatCanvas: React.FC = () => {
         return resultMap;
       };
       
+      // ✅ FIX v6.4.2: Preservar cache existente ANTES de cargar nuevos datos
+      const cacheBeforeLoad = new Map(prospectosDataRef.current);
+      console.log(`📋 [PhoneCache] Antes de carga batch - Cache tiene ${cacheBeforeLoad.size} prospectos, IDs a cargar: ${prospectosIdsArray.length}`);
+      
       const prospectosData = prospectosIdsArray.length > 0
         ? await loadProspectosInBatches(prospectosIdsArray)
             .then(map => {
@@ -3644,8 +3648,18 @@ const LiveChatCanvas: React.FC = () => {
                 prospectosDataRef.current = map;
                 console.log(`🔄 [PhoneCache] Reset - Cache inicializado con ${map.size} prospectos`);
               } else {
-                // Batch adicional: Fusionar nuevos datos con los existentes
+                // Batch adicional: Fusionar nuevos datos CON LOS EXISTENTES
                 const prevSize = prospectosDataRef.current.size;
+                
+                // ✅ FIX v6.4.2: Verificar que el cache no se perdió durante la carga async
+                if (prevSize === 0 && cacheBeforeLoad.size > 0) {
+                  console.warn(`⚠️ [PhoneCache] Cache se vació durante carga async! Restaurando ${cacheBeforeLoad.size} prospectos`);
+                  cacheBeforeLoad.forEach((value, key) => {
+                    prospectosDataRef.current.set(key, value);
+                  });
+                }
+                
+                // Agregar los nuevos datos
                 map.forEach((value, key) => {
                   prospectosDataRef.current.set(key, value);
                 });
@@ -3659,7 +3673,10 @@ const LiveChatCanvas: React.FC = () => {
               console.error('❌ [LiveChatCanvas] Error general cargando prospectos:', err);
               return prospectosDataRef.current; // Mantener datos existentes en caso de error
             })
-        : prospectosDataRef.current; // Mantener datos existentes si no hay nuevos IDs
+        : (() => {
+            console.log(`ℹ️ [PhoneCache] Sin IDs nuevos - Manteniendo cache con ${prospectosDataRef.current.size} prospectos`);
+            return prospectosDataRef.current;
+          })();
 
       // ============================================
       // PASO 2: Cargar coordinaciones y ejecutivos en batch (ahora que tenemos los IDs)

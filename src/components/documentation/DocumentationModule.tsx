@@ -262,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'w1n4600', date: '2026-01-09', author: 'Team', message: 'v2.2.31: 🔒 Fix PhoneCache Async v2 - Backup y restauración de cache durante carga async', isRelease: true },
   { hash: 'v0m3499', date: '2026-01-09', author: 'Team', message: 'v2.2.30: 🔒 Fix Cache PhoneDisplay Batches - Fusión de cache en lugar de sobrescritura', isRelease: true },
   { hash: 'u9l2388', date: '2026-01-09', author: 'Team', message: 'v2.2.29: 🔍 Búsqueda Global Prospectos - Normalización acentos, búsqueda servidor para prospectos no cargados', isRelease: true },
   { hash: 't8k1277', date: '2026-01-09', author: 'Team', message: 'v2.2.28: 🔒 Fix Crítico PhoneDisplay Lista Conversaciones - Teléfonos protegidos en ConversationItem', isRelease: true },
@@ -349,6 +350,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-073', date: '2026-01-09 01:45', version: 'B7.2.21N7.2.11', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-072', date: '2026-01-09 01:30', version: 'B7.2.20N7.2.10', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-070', date: '2026-01-09 02:00', version: 'B7.2.18N7.2.8', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-069', date: '2026-01-09 01:30', version: 'B7.2.17N7.2.7', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -419,8 +421,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.30', highlight: true },
-  { label: 'Release', value: 'B7.2.20N7.2.10', highlight: false },
+  { label: 'Version', value: 'v2.2.31', highlight: true },
+  { label: 'Release', value: 'B7.2.21N7.2.11', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '09 Ene 2026', highlight: false },
 ];
