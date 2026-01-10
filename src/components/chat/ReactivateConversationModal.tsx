@@ -483,13 +483,14 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         let value = prospectoData[mapping.field_name];
         
         // Fallbacks especiales para campos que pueden tener alternativas
+        // NOTA: La tabla prospectos NO tiene columna 'primer_nombre', se usa 'nombre'
         if ((value === null || value === undefined || value === '') && mapping.field_name === 'titulo') {
-          // Si no hay título, usar primer_nombre o nombre como fallback
-          value = prospectoData.primer_nombre || prospectoData.nombre || 
+          // Si no hay título, usar nombre como fallback
+          value = prospectoData.nombre || 
                   (prospectoData.nombre_completo?.split(' ')[0]) || '';
         }
-        if ((value === null || value === undefined || value === '') && mapping.field_name === 'primer_nombre') {
-          // Si no hay primer_nombre, usar nombre o parte del nombre_completo
+        if ((value === null || value === undefined || value === '') && (mapping.field_name === 'nombre' || mapping.field_name === 'primer_nombre')) {
+          // Si no hay nombre, usar parte del nombre_completo
           value = prospectoData.nombre || (prospectoData.nombre_completo?.split(' ')[0]) || '';
         }
         
@@ -1045,6 +1046,21 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   const handleSubmitSuggestion = async () => {
     if (!user?.id || !suggestionName.trim() || !suggestionText.trim() || !suggestionJustification.trim()) {
       toast.error('Por favor completa todos los campos');
+      return;
+    }
+
+    // Validación uChat: Las variables no pueden estar al principio ni al final del mensaje
+    const trimmedText = suggestionText.trim();
+    
+    // Verificar si el texto comienza con una variable
+    if (/^\{\{[^}]+\}\}/.test(trimmedText)) {
+      toast.error('El mensaje no puede comenzar con una variable. Por regla de uChat, debes agregar texto antes de la primera variable.');
+      return;
+    }
+    
+    // Verificar si el texto termina con una variable
+    if (/\{\{[^}]+\}\}$/.test(trimmedText)) {
+      toast.error('El mensaje no puede terminar con una variable. Por regla de uChat, debes agregar texto después de la última variable.');
       return;
     }
 

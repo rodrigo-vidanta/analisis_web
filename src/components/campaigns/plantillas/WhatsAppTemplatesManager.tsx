@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService } from '../../../services/whatsappTemplatesService';
+import { whatsappTemplateSuggestionsService } from '../../../services/whatsappTemplateSuggestionsService';
 import type {
   WhatsAppTemplate,
   CreateTemplateInput,
@@ -1133,10 +1134,14 @@ const WhatsAppTemplatesManager: React.FC = () => {
     setImportingSuggestion(suggestion);
     
     // Mapeo de nombres de variable a configuración de mapeo
+    // NOTA: La tabla prospectos NO tiene columna 'primer_nombre', se usa 'nombre'
     const variableNameToMapping: Record<string, { table_name: string; field_name: string; display_name: string }> = {
       'titulo': { table_name: 'prospectos', field_name: 'titulo', display_name: 'Título' },
-      'primer_nombre': { table_name: 'prospectos', field_name: 'primer_nombre', display_name: 'Primer Nombre' },
+      'primer_nombre': { table_name: 'prospectos', field_name: 'nombre', display_name: 'Primer Nombre' },
+      'nombre': { table_name: 'prospectos', field_name: 'nombre', display_name: 'Nombre' },
       'primer_apellido': { table_name: 'prospectos', field_name: 'apellido_paterno', display_name: 'Primer Apellido' },
+      'apellido_paterno': { table_name: 'prospectos', field_name: 'apellido_paterno', display_name: 'Apellido Paterno' },
+      'nombre_completo': { table_name: 'prospectos', field_name: 'nombre_completo', display_name: 'Nombre Completo' },
       'ejecutivo_nombre': { table_name: 'system', field_name: 'ejecutivo_nombre', display_name: 'Nombre Ejecutivo' },
       'fecha_actual': { table_name: 'system', field_name: 'fecha_actual', display_name: 'Fecha Actual' },
     };

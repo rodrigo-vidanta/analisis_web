@@ -467,18 +467,33 @@ class WhatsAppTemplatesService {
           throw new Error(`Error del servidor (${response.status}): ${responseText || response.statusText}`);
         }
 
+        // Función helper para extraer mensaje de error
+        const extractErrorMessage = (err: any): string => {
+          if (!err) return '';
+          if (typeof err === 'string') return err;
+          if (typeof err === 'object') {
+            // Intentar diferentes propiedades comunes de error
+            return err.message || err.error || err.details || JSON.stringify(err);
+          }
+          return String(err);
+        };
+
         // Si el response es 400, crear un error específico
         if (response.status === 400) {
-          const error = new Error(result.error || result.message || `Error ${response.status}`);
+          const errorMsg = extractErrorMessage(result.error) || extractErrorMessage(result.message) || `Error ${response.status}`;
+          const error = new Error(errorMsg);
           (error as any).status = 400;
+          (error as any).details = result; // Guardar detalles completos para debugging
           throw error;
         }
 
         if (!response.ok || !result.success) {
-          const error = new Error(result.error || result.message || `Error ${response.status}`);
+          const errorMsg = extractErrorMessage(result.error) || extractErrorMessage(result.message) || `Error ${response.status}`;
+          const error = new Error(errorMsg);
           if (response.status === 400) {
             (error as any).status = 400;
           }
+          (error as any).details = result;
           throw error;
         }
 
@@ -1129,15 +1144,26 @@ class WhatsAppTemplatesService {
    */
   async getTableExampleData(tableName: string, fieldName: string): Promise<string | null> {
     try {
-      // Verificar si es un campo anidado (JSONB)
-      const isNestedField = fieldName.includes('.');
+      // Mapeo de corrección para campos que ya no existen o fueron renombrados
+      // Esto maneja mapeos antiguos que pueden existir en plantillas existentes
+      const fieldCorrections: Record<string, Record<string, string>> = {
+        prospectos: {
+          'primer_nombre': 'nombre', // primer_nombre no existe, usar nombre
+        },
+      };
       
-      let selectField = fieldName;
+      // Aplicar corrección si existe
+      const correctedFieldName = fieldCorrections[tableName]?.[fieldName] || fieldName;
+      
+      // Verificar si es un campo anidado (JSONB)
+      const isNestedField = correctedFieldName.includes('.');
+      
+      let selectField = correctedFieldName;
       let nestedPath: string[] = [];
       
       if (isNestedField) {
         // Para campos anidados como "datos_proceso.numero_personas"
-        const parts = fieldName.split('.');
+        const parts = correctedFieldName.split('.');
         selectField = parts[0]; // "datos_proceso"
         nestedPath = parts.slice(1); // ["numero_personas"]
       }
@@ -1149,7 +1175,7 @@ class WhatsAppTemplatesService {
         query = analysisSupabase
           .from(tableName)
           .select(selectField)
-          .not(isNestedField ? selectField : fieldName, 'is', null)
+          .not(isNestedField ? selectField : correctedFieldName, 'is', null)
           .limit(5);
       } else {
         query = analysisSupabase.from(tableName).select(selectField).limit(1);
