@@ -8,6 +8,9 @@ function App() {
       <MainApp />
       <Toaster 
         position="top-center"
+        containerStyle={{
+          zIndex: 99999, // Por encima de todos los modales (z-50 = 50)
+        }}
         toastOptions={{
           duration: 4000,
           style: {
