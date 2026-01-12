@@ -67,6 +67,323 @@ interface FormData {
 }
 
 // ============================================
+// INFRACTIONS GRID COMPONENT
+// ============================================
+
+interface InfractionEvent {
+  id: string;
+  type: 'block' | 'warning' | 'login_fail' | 'inactive' | 'archived' | 'session' | 'unblocked';
+  description: string;
+  date?: string;
+  severity: 'critical' | 'warning' | 'info' | 'success';
+}
+
+interface ModerationWarningRecord {
+  id: string;
+  input_text: string;
+  warning_reason: string;
+  warning_category: string;
+  created_at: string;
+}
+
+const UserInfractionsGrid: React.FC<{ user: UserV2 }> = ({ user }) => {
+  const [warnings, setWarnings] = useState<ModerationWarningRecord[]>([]);
+  const [loadingWarnings, setLoadingWarnings] = useState(false);
+  const [selectedWarningId, setSelectedWarningId] = useState<string | null>(null);
+
+  // Cargar warnings reales de la BD por email del usuario
+  useEffect(() => {
+    const loadWarnings = async () => {
+      if (!user.email) return;
+      
+      setLoadingWarnings(true);
+      try {
+        // Buscar por user_email ya que es el campo que se usa para registrar warnings
+        const { data, error } = await supabaseSystemUIAdmin
+          .from('content_moderation_warnings')
+          .select('id, input_text, warning_reason, warning_category, created_at')
+          .eq('user_email', user.email)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        if (!error && data) {
+          setWarnings(data);
+        }
+      } catch {
+        // Tabla no existe o error de conexión, ignorar silenciosamente
+      } finally {
+        setLoadingWarnings(false);
+      }
+    };
+    
+    loadWarnings();
+  }, [user.email]);
+
+  // Obtener warning completo por ID
+  const getWarningById = (warningId: string): ModerationWarningRecord | undefined => {
+    const id = warningId.replace('warning-', '');
+    return warnings.find(w => w.id === id);
+  };
+
+  // Generar eventos basados en el estado actual del usuario + warnings reales
+  const events = useMemo<InfractionEvent[]>(() => {
+    const result: InfractionEvent[] = [];
+    
+    // Warnings reales de la BD (si existen)
+    if (warnings.length > 0) {
+      warnings.forEach((w, index) => {
+        result.push({
+          id: `warning-${w.id}`,
+          type: 'warning',
+          description: w.warning_reason || `Infracción: ${w.warning_category}`,
+          date: w.created_at,
+          severity: 'warning'
+        });
+      });
+    }
+    
+    // Bloqueo por moderación (estado actual)
+    if (user.is_blocked) {
+      result.unshift({
+        id: 'blocked',
+        type: 'block',
+        description: `Bloqueado por moderación${user.warning_count ? ` (${user.warning_count} infracciones)` : ''}`,
+        severity: 'critical'
+      });
+    }
+    
+    // Usuario fue desbloqueado pero tiene historial de warnings
+    if (!user.is_blocked && user.warning_count && user.warning_count > 0) {
+      result.unshift({
+        id: 'unblocked',
+        type: 'unblocked',
+        description: `Desbloqueado (${user.warning_count} infracción${user.warning_count > 1 ? 'es' : ''} previa${user.warning_count > 1 ? 's' : ''})`,
+        severity: 'success'
+      });
+    }
+    
+    // Cuenta inactiva
+    if (!user.is_active && !user.archivado) {
+      result.push({
+        id: 'inactive',
+        type: 'inactive',
+        description: 'Cuenta desactivada',
+        severity: 'warning'
+      });
+    }
+    
+    // Cuenta archivada
+    if (user.archivado) {
+      result.push({
+        id: 'archived',
+        type: 'archived',
+        description: 'Usuario archivado',
+        severity: 'info'
+      });
+    }
+    
+    // Último login (si fue hace más de 30 días)
+    if (user.last_login) {
+      const lastLoginDate = new Date(user.last_login);
+      const daysSinceLogin = Math.floor((Date.now() - lastLoginDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSinceLogin > 30) {
+        result.push({
+          id: 'session',
+          type: 'session',
+          description: `Sin actividad hace ${daysSinceLogin} días`,
+          date: user.last_login,
+          severity: 'info'
+        });
+      }
+    } else if (!user.is_blocked && !user.warning_count) {
+      // Solo mostrar "nunca ha iniciado sesión" si no hay otros eventos
+      result.push({
+        id: 'no_login',
+        type: 'session',
+        description: 'Nunca ha iniciado sesión',
+        severity: 'info'
+      });
+    }
+    
+    return result.slice(0, 10); // Máximo 10 eventos
+  }, [user, warnings]);
+
+  // Configuración de iconos y colores por tipo
+  const getEventStyle = (event: InfractionEvent) => {
+    switch (event.type) {
+      case 'block':
+        return { icon: Lock, bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-600 dark:text-red-400', border: 'border-red-200 dark:border-red-800' };
+      case 'warning':
+        return { icon: AlertTriangle, bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' };
+      case 'login_fail':
+        return { icon: XCircle, bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800' };
+      case 'inactive':
+        return { icon: XCircle, bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' };
+      case 'archived':
+        return { icon: Archive, bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', border: 'border-slate-200 dark:border-slate-700' };
+      case 'session':
+        return { icon: User, bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-200 dark:border-blue-800' };
+      case 'unblocked':
+        return { icon: LockOpen, bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' };
+      default:
+        return { icon: AlertTriangle, bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' };
+    }
+  };
+
+  // Si está cargando, mostrar loading
+  if (loadingWarnings) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-5 bg-gradient-to-b from-red-500 to-orange-500 rounded-full" />
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            Historial
+          </h4>
+        </div>
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+          <Loader2 className="w-4 h-4 text-gray-400 animate-spin flex-shrink-0" />
+          <span className="text-xs text-gray-500 dark:text-gray-400">Cargando historial...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no hay eventos, mostrar estado limpio
+  if (events.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-5 bg-gradient-to-b from-red-500 to-orange-500 rounded-full" />
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            Historial
+          </h4>
+        </div>
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+          <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+          <span className="text-xs text-emerald-700 dark:text-emerald-300">Sin infracciones registradas</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="w-1 h-5 bg-gradient-to-b from-red-500 to-orange-500 rounded-full" />
+        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+          Historial
+        </h4>
+        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+          {events.length}
+        </span>
+      </div>
+      
+      {/* Grid minimalista con expansión */}
+      <div className="space-y-2">
+        {events.map((event) => {
+          const style = getEventStyle(event);
+          const IconComponent = style.icon;
+          const isWarning = event.type === 'warning' && event.id.startsWith('warning-');
+          const isExpanded = selectedWarningId === event.id;
+          const warningDetails = isWarning ? getWarningById(event.id) : null;
+          
+          return (
+            <motion.div
+              key={event.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="overflow-hidden"
+            >
+              <div
+                onClick={() => isWarning && setSelectedWarningId(isExpanded ? null : event.id)}
+                className={`flex items-center gap-3 p-2.5 rounded-lg border ${style.border} ${style.bg} ${
+                  isWarning ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
+                }`}
+              >
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${style.bg}`}>
+                  <IconComponent className={`w-3.5 h-3.5 ${style.text}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-medium ${isExpanded ? '' : 'truncate'} ${style.text}`}>
+                    {event.description}
+                  </p>
+                  {event.date && (
+                    <p className="text-[10px] text-gray-500 dark:text-gray-500">
+                      {new Date(event.date).toLocaleDateString('es-MX', { 
+                        day: 'numeric', 
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  )}
+                </div>
+                {isWarning && (
+                  <svg 
+                    className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </div>
+              
+              {/* Panel de detalles expandible */}
+              <AnimatePresence>
+                {isExpanded && warningDetails && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-1 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 space-y-3">
+                      {/* Mensaje del usuario */}
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                          Mensaje del usuario
+                        </p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 p-2 rounded border border-gray-200 dark:border-gray-700 font-mono">
+                          "{warningDetails.input_text}"
+                        </p>
+                      </div>
+                      
+                      {/* Razón del warning */}
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                          Razón de la infracción
+                        </p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+                          {warningDetails.warning_reason}
+                        </p>
+                      </div>
+                      
+                      {/* Categoría */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Categoría:
+                        </span>
+                        <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">
+                          {warningDetails.warning_category}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // COMPONENT
 // ============================================
 
@@ -583,6 +900,9 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Section: Historial de Infracciones */}
+              <UserInfractionsGrid user={user} />
             </div>
 
             {/* Right Column - Role, Permissions & Status */}
