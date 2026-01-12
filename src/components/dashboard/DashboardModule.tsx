@@ -150,6 +150,320 @@ interface CRMSalesData {
   allSalesDetails: SaleDetail[]; // Todos los detalles para el modal
 }
 
+// ============================================
+// MODAL DE VISTA PREVIA DE CONVERSACIÓN
+// ============================================
+
+interface ConversationMessage {
+  id: string;
+  contenido: string;
+  rol: 'Prospecto' | 'Bot' | 'Agente';
+  fecha_hora: string;
+  adjuntos?: string;
+  sender_name?: string;
+}
+
+interface ConversationPreviewModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  prospectoId: string;
+  clienteName: string;
+  onNavigateToWhatsApp: () => void;
+}
+
+const ConversationPreviewModal: React.FC<ConversationPreviewModalProps> = ({
+  isOpen,
+  onClose,
+  prospectoId,
+  clienteName,
+  onNavigateToWhatsApp
+}) => {
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && prospectoId) {
+      loadMessages();
+    }
+  }, [isOpen, prospectoId]);
+
+  useEffect(() => {
+    // Scroll al final cuando se cargan los mensajes
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  const loadMessages = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('id, contenido, rol, fecha_hora, adjuntos')
+        .eq('prospecto_id', prospectoId)
+        .order('fecha_hora', { ascending: true });
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error cargando mensajes:', error);
+      toast.error('Error al cargar la conversación');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString('es-MX', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('es-MX', { 
+      weekday: 'short',
+      day: 'numeric', 
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const renderAdjuntos = (adjuntosStr: string | undefined) => {
+    if (!adjuntosStr) return null;
+    try {
+      const adjuntos = typeof adjuntosStr === 'string' ? JSON.parse(adjuntosStr) : adjuntosStr;
+      if (!Array.isArray(adjuntos) || adjuntos.length === 0) return null;
+
+      return (
+        <div className="mt-2 space-y-2">
+          {adjuntos.map((adjunto: any, idx: number) => {
+            const filename = adjunto.filename || adjunto.archivo || '';
+            const url = adjunto.url || adjunto.media_url || '';
+            const isImage = filename.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) || 
+                           (adjunto.tipo || '').toLowerCase().includes('image');
+
+            if (isImage && url) {
+              return (
+                <img 
+                  key={idx}
+                  src={url} 
+                  alt="Imagen" 
+                  className="max-w-full max-h-48 rounded-lg cursor-pointer hover:opacity-90"
+                  onClick={() => window.open(url, '_blank')}
+                  loading="lazy"
+                />
+              );
+            }
+
+            if (url) {
+              return (
+                <a 
+                  key={idx}
+                  href={url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-blue-500 hover:underline text-sm"
+                >
+                  📎 {filename || 'Archivo adjunto'}
+                </a>
+              );
+            }
+
+            return null;
+          })}
+        </div>
+      );
+    } catch {
+      return null;
+    }
+  };
+
+  // Agrupar mensajes por día
+  const groupedMessages = useMemo(() => {
+    const groups: { date: string; messages: ConversationMessage[] }[] = [];
+    let currentDate = '';
+
+    messages.forEach(msg => {
+      const msgDate = formatDate(msg.fecha_hora);
+      if (msgDate !== currentDate) {
+        currentDate = msgDate;
+        groups.push({ date: msgDate, messages: [msg] });
+      } else {
+        groups[groups.length - 1].messages.push(msg);
+      }
+    });
+
+    return groups;
+  }, [messages]);
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ duration: 0.2 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+        >
+          {/* Header */}
+          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-green-500 to-emerald-600">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{clienteName}</h3>
+                  <p className="text-sm text-white/80">
+                    {messages.length} mensajes
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    onClose();
+                    onNavigateToWhatsApp();
+                  }}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Ir a WhatsApp
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={onClose}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </motion.button>
+              </div>
+            </div>
+          </div>
+
+          {/* Mensajes */}
+          <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <RefreshCw className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-2" />
+                  <p className="text-gray-500">Cargando conversación...</p>
+                </div>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-gray-400">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No hay mensajes en esta conversación</p>
+                </div>
+              </div>
+            ) : (
+              groupedMessages.map((group, groupIdx) => (
+                <div key={groupIdx}>
+                  {/* Separador de fecha */}
+                  <div className="flex justify-center mb-4">
+                    <span className="px-3 py-1 text-xs text-gray-500 bg-white dark:bg-gray-700 rounded-full shadow-sm">
+                      {group.date}
+                    </span>
+                  </div>
+
+                  {/* Mensajes del día */}
+                  {group.messages.map((message, msgIdx) => {
+                    const isCustomer = message.rol === 'Prospecto';
+                    const isBot = message.rol === 'Bot';
+
+                    return (
+                      <motion.div
+                        key={message.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: msgIdx * 0.02 }}
+                        className={`flex mb-3 ${isCustomer ? 'justify-start' : 'justify-end'}`}
+                      >
+                        <div className={`max-w-[80%] ${isCustomer ? 'order-1' : 'order-2'}`}>
+                          {/* Burbuja del mensaje */}
+                          <div className={`relative px-3 py-2 rounded-2xl shadow-sm ${
+                            isCustomer 
+                              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-md'
+                              : isBot
+                                ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-br-md'
+                                : 'bg-gradient-to-br from-purple-500 to-indigo-500 text-white rounded-br-md'
+                          }`}>
+                            {/* Etiqueta de remitente */}
+                            {!isCustomer && (
+                              <div className="text-[10px] font-medium opacity-80 mb-1">
+                                {isBot ? '🤖 Bot' : '👤 Agente'}
+                              </div>
+                            )}
+
+                            {/* Contenido */}
+                            {message.contenido && (
+                              <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                                {message.contenido.replace(/\\n/g, '\n')}
+                              </div>
+                            )}
+
+                            {/* Adjuntos */}
+                            {renderAdjuntos(message.adjuntos)}
+
+                            {/* Hora */}
+                            <div className={`text-[10px] mt-1 ${
+                              isCustomer ? 'text-gray-400' : 'text-white/70'
+                            } text-right`}>
+                              {formatTime(message.fecha_hora)}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Footer */}
+          <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Vista previa de solo lectura
+              </p>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  onClose();
+                  onNavigateToWhatsApp();
+                }}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Abrir en WhatsApp
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 // Datos del funnel por coordinación
 interface FunnelCoordData {
   coordinacionId: string;
@@ -1476,6 +1790,13 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   const [selectedCoord, setSelectedCoord] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
+  // Estado para modal de vista previa de conversación
+  const [conversationPreview, setConversationPreview] = useState<{
+    isOpen: boolean;
+    prospectoId: string;
+    clienteName: string;
+  }>({ isOpen: false, prospectoId: '', clienteName: '' });
+  
   const formatMoney = (amount: number) => {
     if (amount >= 1000000) return `$${(amount / 1000000).toFixed(2)}M`;
     if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
@@ -1683,10 +2004,12 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                             {sale.cliente && sale.prospectoId ? (
                               <button
                                 onClick={() => {
-                                  // Navegar al módulo de WhatsApp con la conversación del prospecto
-                                  localStorage.setItem('livechat-prospect-id', sale.prospectoId!);
-                                  window.dispatchEvent(new CustomEvent('navigate-to-livechat', { detail: sale.prospectoId }));
-                                  setIsDetailModalOpen(false);
+                                  // Abrir modal de vista previa de conversación
+                                  setConversationPreview({
+                                    isOpen: true,
+                                    prospectoId: sale.prospectoId!,
+                                    clienteName: sale.cliente!
+                                  });
                                 }}
                                 className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs font-medium truncate max-w-[150px] hover:underline cursor-pointer transition-colors flex items-center gap-1"
                                 title={`Ver conversación de ${sale.cliente}`}
@@ -1972,6 +2295,20 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
         renderContent={renderWidgetContent}
       />
       <DetailModal />
+      
+      {/* Modal de vista previa de conversación */}
+      <ConversationPreviewModal
+        isOpen={conversationPreview.isOpen}
+        onClose={() => setConversationPreview({ isOpen: false, prospectoId: '', clienteName: '' })}
+        prospectoId={conversationPreview.prospectoId}
+        clienteName={conversationPreview.clienteName}
+        onNavigateToWhatsApp={() => {
+          // Navegar al módulo de WhatsApp
+          localStorage.setItem('livechat-prospect-id', conversationPreview.prospectoId);
+          window.dispatchEvent(new CustomEvent('navigate-to-livechat', { detail: conversationPreview.prospectoId }));
+          setIsDetailModalOpen(false);
+        }}
+      />
     </>
   );
 };
