@@ -2734,7 +2734,7 @@ const LiveChatCanvas: React.FC = () => {
     try {
       const { data: prospecto, error } = await analysisSupabase
         .from('prospectos')
-        .select('whatsapp, id_uchat')
+        .select('whatsapp, id_uchat, nombre_completo, nombre_whatsapp')
         .eq('id', prospectoId)
         .single();
 
@@ -2809,29 +2809,41 @@ const LiveChatCanvas: React.FC = () => {
 
       if (!waError && waConv) {
         // Procesar la conversación encontrada para agregarla al estado
+        // IMPORTANTE: El id de la conversación DEBE ser el prospecto_id
+        // porque loadMessagesAndBlocks busca mensajes por prospecto_id usando conversation.id
+        const customerName = waConv.nombre_contacto || prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre';
         const processedConv: UChatConversation = {
-          id: waConv.id,
+          id: prospectoId,  // ← CRÍTICO: Debe ser prospecto_id para que carguen los mensajes
           conversation_id: waConv.id,
           customer_phone: waConv.numero_telefono || prospecto.whatsapp,
-          customer_name: waConv.nombre_contacto || 'Sin nombre',
+          customer_name: customerName,
+          nombre_contacto: customerName,
           status: 'active',
           estado: waConv.estado || 'activo',
           tipo: waConv.tipo || 'whatsapp',
           created_at: waConv.created_at,
           updated_at: waConv.last_message_at || waConv.updated_at,
           last_message_at: waConv.last_message_at,
-          prospecto_id: waConv.prospecto_id,
+          prospecto_id: prospectoId,
           message_count: 0,
           metadata: {
-            prospect_id: waConv.prospecto_id,
-            prospecto_id: waConv.prospecto_id
+            prospect_id: prospectoId,
+            prospecto_id: prospectoId
           }
         };
 
         // Agregar a la lista de conversaciones y seleccionar
         setConversations(prev => {
           // Evitar duplicados
-          if (prev.some(c => c.id === processedConv.id)) {
+          if (prev.some(c => c.id === prospectoId || c.prospecto_id === prospectoId)) {
+            return prev;
+          }
+          return [processedConv, ...prev];
+        });
+        
+        // También agregar a allConversationsLoaded para consistencia
+        setAllConversationsLoaded(prev => {
+          if (prev.some(c => c.id === prospectoId || c.prospecto_id === prospectoId)) {
             return prev;
           }
           return [processedConv, ...prev];
@@ -2841,7 +2853,7 @@ const LiveChatCanvas: React.FC = () => {
         setTimeout(() => {
           isManualSelectionRef.current = false;
           setSelectedConversation(processedConv);
-        }, 100);
+        }, 150);
         return;
       }
 
