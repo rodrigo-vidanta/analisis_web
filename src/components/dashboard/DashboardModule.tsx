@@ -136,6 +136,7 @@ interface SaleDetail {
   statusCRM: string;
   ejecutivo: string;
   cliente?: string;
+  prospectoId?: string;
 }
 
 interface CRMSalesData {
@@ -1678,8 +1679,26 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                               </span>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-xs truncate max-w-[150px]" title={sale.cliente || '-'}>
-                            {sale.cliente || '-'}
+                          <td className="py-3 px-4">
+                            {sale.cliente && sale.prospectoId ? (
+                              <button
+                                onClick={() => {
+                                  // Navegar al módulo de WhatsApp con la conversación del prospecto
+                                  localStorage.setItem('livechat-prospect-id', sale.prospectoId!);
+                                  window.dispatchEvent(new CustomEvent('navigate-to-livechat', { detail: sale.prospectoId }));
+                                  setIsDetailModalOpen(false);
+                                }}
+                                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs font-medium truncate max-w-[150px] hover:underline cursor-pointer transition-colors flex items-center gap-1"
+                                title={`Ver conversación de ${sale.cliente}`}
+                              >
+                                <MessageSquare className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{sale.cliente}</span>
+                              </button>
+                            ) : (
+                              <span className="text-gray-600 dark:text-gray-400 text-xs truncate max-w-[150px]" title={sale.cliente || '-'}>
+                                {sale.cliente || '-'}
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-xs">
                             {formatDate(sale.fecha)}
@@ -2734,7 +2753,7 @@ const DashboardModule: React.FC = () => {
       // Consultar crm_data donde transactions no sea null ni vacío
       const { data: crmRecords, error } = await analysisSupabase
         .from('crm_data')
-        .select('status_crm, transactions, coordinacion, created_at, propietario, nombre')
+        .select('status_crm, transactions, coordinacion, created_at, propietario, nombre, prospecto_id')
         .not('transactions', 'is', null)
         .gte('created_at', CRM_START_DATE)
         .range(0, 9999);
@@ -2854,7 +2873,8 @@ const DashboardModule: React.FC = () => {
                   coordinacion: coordName,
                   statusCRM: record.status_crm || 'N/A',
                   ejecutivo: record.propietario || 'Sin asignar',
-                  cliente: record.nombre || undefined
+                  cliente: record.nombre || undefined,
+                  prospectoId: record.prospecto_id || undefined
                 });
               }
             });
