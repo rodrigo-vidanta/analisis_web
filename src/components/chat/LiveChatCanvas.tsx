@@ -2797,21 +2797,70 @@ const LiveChatCanvas: React.FC = () => {
         }
       }
 
-      // Si no se encontró, intentar buscar en la base de datos directamente
+      // Si no se encontró en conversaciones cargadas, buscar directamente en BD
+      // Primero buscar en conversaciones_whatsapp (fuente principal)
+      const { data: waConv, error: waError } = await analysisSupabase
+        .from('conversaciones_whatsapp')
+        .select('*')
+        .eq('prospecto_id', prospectoId)
+        .order('ultimo_mensaje', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!waError && waConv) {
+        // Procesar la conversación encontrada para agregarla al estado
+        const processedConv: UChatConversation = {
+          id: waConv.id,
+          conversation_id: waConv.id,
+          customer_phone: waConv.telefono || prospecto.whatsapp,
+          customer_name: waConv.nombre_contacto || 'Sin nombre',
+          status: 'active',
+          estado: waConv.estado || 'activo',
+          tipo: waConv.tipo || 'whatsapp',
+          created_at: waConv.created_at,
+          updated_at: waConv.ultimo_mensaje || waConv.updated_at,
+          last_message_at: waConv.ultimo_mensaje,
+          prospecto_id: waConv.prospecto_id,
+          coordinacion_id: waConv.coordinacion_id,
+          message_count: waConv.total_mensajes || 0,
+          metadata: {
+            prospect_id: waConv.prospecto_id,
+            prospecto_id: waConv.prospecto_id
+          }
+        };
+
+        // Agregar a la lista de conversaciones y seleccionar
+        setConversations(prev => {
+          // Evitar duplicados
+          if (prev.some(c => c.id === processedConv.id)) {
+            return prev;
+          }
+          return [processedConv, ...prev];
+        });
+
+        // Seleccionar después de agregar
+        setTimeout(() => {
+          isManualSelectionRef.current = false;
+          setSelectedConversation(processedConv);
+        }, 100);
+        return;
+      }
+
+      // Fallback: buscar en uchat_conversations (maybeSingle para evitar error 406)
       const { data: uchatConv, error: uchatError } = await supabaseSystemUI
         .from('uchat_conversations')
         .select('*')
-        .or(`customer_phone.eq.${prospecto.whatsapp},conversation_id.eq.${prospecto.id_uchat || ''},metadata->>prospect_id.eq.${prospectoId}`)
+        .or(`customer_phone.eq.${prospecto.whatsapp || ''},conversation_id.eq.${prospecto.id_uchat || ''}`)
         .eq('status', 'active')
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (!uchatError && uchatConv) {
         // Recargar conversaciones para incluir esta (sin reset)
         await loadConversations('', false);
         // Intentar seleccionar después de recargar (selección automática - NO marcar como leída)
         setTimeout(() => {
-          isManualSelectionRef.current = false; // ✅ Asegurar que es selección automática
+          isManualSelectionRef.current = false;
           selectConversationByProspectId(prospectoId);
         }, 500);
       }
