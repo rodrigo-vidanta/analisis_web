@@ -2803,7 +2803,7 @@ const LiveChatCanvas: React.FC = () => {
         .from('conversaciones_whatsapp')
         .select('*')
         .eq('prospecto_id', prospectoId)
-        .order('ultimo_mensaje', { ascending: false })
+        .order('last_message_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -2812,17 +2812,16 @@ const LiveChatCanvas: React.FC = () => {
         const processedConv: UChatConversation = {
           id: waConv.id,
           conversation_id: waConv.id,
-          customer_phone: waConv.telefono || prospecto.whatsapp,
+          customer_phone: waConv.numero_telefono || prospecto.whatsapp,
           customer_name: waConv.nombre_contacto || 'Sin nombre',
           status: 'active',
           estado: waConv.estado || 'activo',
           tipo: waConv.tipo || 'whatsapp',
           created_at: waConv.created_at,
-          updated_at: waConv.ultimo_mensaje || waConv.updated_at,
-          last_message_at: waConv.ultimo_mensaje,
+          updated_at: waConv.last_message_at || waConv.updated_at,
+          last_message_at: waConv.last_message_at,
           prospecto_id: waConv.prospecto_id,
-          coordinacion_id: waConv.coordinacion_id,
-          message_count: waConv.total_mensajes || 0,
+          message_count: 0,
           metadata: {
             prospect_id: waConv.prospecto_id,
             prospecto_id: waConv.prospecto_id
