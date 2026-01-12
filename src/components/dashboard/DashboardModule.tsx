@@ -156,11 +156,10 @@ interface CRMSalesData {
 
 interface ConversationMessage {
   id: string;
-  contenido: string;
+  mensaje: string;
   rol: 'Prospecto' | 'Bot' | 'Agente';
   fecha_hora: string;
-  adjuntos?: string;
-  sender_name?: string;
+  adjuntos?: any;
 }
 
 interface ConversationPreviewModalProps {
@@ -171,6 +170,36 @@ interface ConversationPreviewModalProps {
   onNavigateToWhatsApp: () => void;
 }
 
+// Cache para URLs de multimedia
+const getMediaFromCache = (key: string): string | null => {
+  const cachedData = localStorage.getItem(`media_${key}`);
+  if (cachedData) {
+    try {
+      const parsed = JSON.parse(cachedData);
+      const now = Date.now();
+      if (parsed.url && parsed.timestamp && (now - parsed.timestamp) < 25 * 60 * 1000) {
+        return parsed.url;
+      } else {
+        localStorage.removeItem(`media_${key}`);
+      }
+    } catch {
+      localStorage.removeItem(`media_${key}`);
+    }
+  }
+  return null;
+};
+
+const saveMediaToCache = (key: string, url: string): void => {
+  try {
+    localStorage.setItem(`media_${key}`, JSON.stringify({
+      url,
+      timestamp: Date.now()
+    }));
+  } catch {
+    // Ignorar errores de localStorage lleno
+  }
+};
+
 const ConversationPreviewModal: React.FC<ConversationPreviewModalProps> = ({
   isOpen,
   onClose,
@@ -180,6 +209,7 @@ const ConversationPreviewModal: React.FC<ConversationPreviewModalProps> = ({
 }) => {
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -200,7 +230,7 @@ const ConversationPreviewModal: React.FC<ConversationPreviewModalProps> = ({
     try {
       const { data, error } = await analysisSupabase
         .from('mensajes_whatsapp')
-        .select('id, contenido, rol, fecha_hora, adjuntos')
+        .select('id, mensaje, rol, fecha_hora, adjuntos')
         .eq('prospecto_id', prospectoId)
         .order('fecha_hora', { ascending: true });
 
@@ -230,49 +260,172 @@ const ConversationPreviewModal: React.FC<ConversationPreviewModalProps> = ({
     });
   };
 
-  const renderAdjuntos = (adjuntosStr: string | undefined) => {
-    if (!adjuntosStr) return null;
+  // Función para generar URL firmada
+  const generateMediaUrl = async (filename: string, bucket: string = 'whatsapp-media'): Promise<string | null> => {
+    const cacheKey = `${bucket}/${filename}`;
+    
+    // Verificar cache primero
+    const cachedUrl = getMediaFromCache(cacheKey);
+    if (cachedUrl) return cachedUrl;
+
     try {
-      const adjuntos = typeof adjuntosStr === 'string' ? JSON.parse(adjuntosStr) : adjuntosStr;
+      const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-token': '93fbcfc4-ccc9-4023-b820-86ef98f10122'
+        },
+        body: JSON.stringify({
+          filename: filename,
+          bucket: bucket,
+          expirationMinutes: 30
+        })
+      });
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const url = data[0]?.url || data.url;
+
+      if (url) {
+        saveMediaToCache(cacheKey, url);
+        return url;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Cargar URLs de adjuntos cuando hay mensajes
+  useEffect(() => {
+    const loadMediaUrls = async () => {
+      const urlsToLoad: { key: string; filename: string; bucket: string }[] = [];
+      
+      messages.forEach((msg) => {
+        if (!msg.adjuntos) return;
+        try {
+          const adjuntos = typeof msg.adjuntos === 'string' ? JSON.parse(msg.adjuntos) : msg.adjuntos;
+          if (!Array.isArray(adjuntos)) return;
+          
+          adjuntos.forEach((adj: any, adjIdx: number) => {
+            const filename = adj.filename || adj.archivo;
+            if (filename) {
+              const key = `${msg.id}-${adjIdx}`;
+              const bucket = adj.bucket || 'whatsapp-media';
+              // Solo cargar si no está ya en el estado
+              if (!mediaUrls[key]) {
+                urlsToLoad.push({ key, filename, bucket });
+              }
+            }
+          });
+        } catch {
+          // Ignorar errores de parsing
+        }
+      });
+
+      // Cargar URLs en paralelo (máximo 5 a la vez)
+      for (let i = 0; i < urlsToLoad.length; i += 5) {
+        const batch = urlsToLoad.slice(i, i + 5);
+        const results = await Promise.all(
+          batch.map(async ({ key, filename, bucket }) => {
+            const url = await generateMediaUrl(filename, bucket);
+            return { key, url };
+          })
+        );
+        
+        const newUrls: Record<string, string> = {};
+        results.forEach(({ key, url }) => {
+          if (url) newUrls[key] = url;
+        });
+        
+        if (Object.keys(newUrls).length > 0) {
+          setMediaUrls(prev => ({ ...prev, ...newUrls }));
+        }
+      }
+    };
+
+    if (messages.length > 0) {
+      loadMediaUrls();
+    }
+  }, [messages]);
+
+  const renderAdjuntos = (adjuntosData: any, messageId: string) => {
+    if (!adjuntosData) return null;
+    try {
+      const adjuntos = typeof adjuntosData === 'string' ? JSON.parse(adjuntosData) : adjuntosData;
       if (!Array.isArray(adjuntos) || adjuntos.length === 0) return null;
 
+      // Separar imágenes de otros adjuntos
+      const images = adjuntos.filter((adj: any) => {
+        const filename = adj.filename || adj.archivo || '';
+        const tipoLower = (adj.tipo || '').toLowerCase();
+        return filename.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) || 
+               tipoLower.includes('imagen') || tipoLower.includes('image');
+      });
+      const otherFiles = adjuntos.filter((adj: any) => {
+        const filename = adj.filename || adj.archivo || '';
+        const tipoLower = (adj.tipo || '').toLowerCase();
+        return !(filename.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) || 
+                 tipoLower.includes('imagen') || tipoLower.includes('image'));
+      });
+
       return (
-        <div className="mt-2 space-y-2">
-          {adjuntos.map((adjunto: any, idx: number) => {
-            const filename = adjunto.filename || adjunto.archivo || '';
-            const url = adjunto.url || adjunto.media_url || '';
-            const isImage = filename.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) || 
-                           (adjunto.tipo || '').toLowerCase().includes('image');
+        <div className="mt-1.5">
+          {/* Grilla de imágenes - horizontal y compacta */}
+          {images.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {images.map((adjunto: any, adjIdx: number) => {
+                const filename = adjunto.filename || adjunto.archivo || '';
+                const directUrl = adjunto.url || adjunto.media_url || '';
+                const mediaKey = `${messageId}-${adjIdx}`;
+                const loadedUrl = mediaUrls[mediaKey] || directUrl;
 
-            if (isImage && url) {
-              return (
-                <img 
-                  key={idx}
-                  src={url} 
-                  alt="Imagen" 
-                  className="max-w-full max-h-48 rounded-lg cursor-pointer hover:opacity-90"
-                  onClick={() => window.open(url, '_blank')}
-                  loading="lazy"
-                />
-              );
-            }
+                if (loadedUrl) {
+                  return (
+                    <img 
+                      key={adjIdx}
+                      src={loadedUrl} 
+                      alt="Imagen" 
+                      className="w-[50px] h-[50px] rounded object-cover cursor-pointer hover:opacity-80 hover:scale-105 transition-all border border-white/30"
+                      onClick={() => window.open(loadedUrl, '_blank')}
+                      loading="lazy"
+                    />
+                  );
+                } else {
+                  return (
+                    <div key={adjIdx} className="w-[50px] h-[50px] bg-white/20 rounded flex items-center justify-center">
+                      <RefreshCw className="w-3 h-3 text-white/60 animate-spin" />
+                    </div>
+                  );
+                }
+              })}
+            </div>
+          )}
 
-            if (url) {
-              return (
-                <a 
-                  key={idx}
-                  href={url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-blue-500 hover:underline text-sm"
-                >
-                  📎 {filename || 'Archivo adjunto'}
-                </a>
-              );
-            }
+          {/* Otros archivos */}
+          {otherFiles.length > 0 && (
+            <div className="mt-1 space-y-0.5">
+              {otherFiles.map((adjunto: any, adjIdx: number) => {
+                const filename = adjunto.filename || adjunto.archivo || '';
+                const directUrl = adjunto.url || adjunto.media_url || '';
+                const mediaKey = `${messageId}-${images.length + adjIdx}`;
+                const loadedUrl = mediaUrls[mediaKey] || directUrl;
 
-            return null;
-          })}
+                return (
+                  <a 
+                    key={adjIdx}
+                    href={loadedUrl || '#'} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[10px] opacity-80 hover:opacity-100"
+                  >
+                    📎 <span className="truncate max-w-[80px]">{filename || 'Archivo'}</span>
+                  </a>
+                );
+              })}
+            </div>
+          )}
         </div>
       );
     } catch {
@@ -306,7 +459,7 @@ const ConversationPreviewModal: React.FC<ConversationPreviewModalProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[110]"
         onClick={onClose}
       >
         <motion.div
@@ -412,14 +565,14 @@ const ConversationPreviewModal: React.FC<ConversationPreviewModalProps> = ({
                             )}
 
                             {/* Contenido */}
-                            {message.contenido && (
+                            {message.mensaje && (
                               <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                                {message.contenido.replace(/\\n/g, '\n')}
+                                {message.mensaje.replace(/\\n/g, '\n')}
                               </div>
                             )}
 
                             {/* Adjuntos */}
-                            {renderAdjuntos(message.adjuntos)}
+                            {renderAdjuntos(message.adjuntos, message.id)}
 
                             {/* Hora */}
                             <div className={`text-[10px] mt-1 ${

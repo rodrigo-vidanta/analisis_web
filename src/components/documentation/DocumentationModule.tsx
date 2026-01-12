@@ -262,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'l6c9105', date: '2026-01-12', author: 'Team', message: 'v2.2.48: 💬 Modal Vista Previa Conversación Dashboard - Imágenes en grilla, URLs firmadas', isRelease: true },
   { hash: 'k5b8004', date: '2026-01-12', author: 'Team', message: 'v2.2.44: 🔧 Fix navegación WhatsApp - Búsqueda directa en conversaciones_whatsapp, maybeSingle', isRelease: true },
   { hash: 'j4a7903', date: '2026-01-12', author: 'Team', message: 'v2.2.43: 💬 Dashboard Ventas - Click en nombre cliente navega a WhatsApp del prospecto', isRelease: true },
   { hash: 'i3z6802', date: '2026-01-12', author: 'Team', message: 'v2.2.42: 🔧 Fix Toast z-index para modales - Validación variables inicio/fin en sugerencias', isRelease: true },
@@ -363,6 +364,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-088', date: '2026-01-12 18:30', version: 'B7.2.38N7.2.28', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-087', date: '2026-01-12 17:00', version: 'B7.2.34N7.2.24', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-086', date: '2026-01-12 16:30', version: 'B7.2.33N7.2.23', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-085', date: '2026-01-12 12:45', version: 'B7.2.32N7.2.22', status: 'success', duration: '16m', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -448,8 +450,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.44', highlight: true },
-  { label: 'Release', value: 'B7.2.34N7.2.24', highlight: false },
+  { label: 'Version', value: 'v2.2.48', highlight: true },
+  { label: 'Release', value: 'B7.2.38N7.2.28', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '12 Ene 2026', highlight: false },
 ];
