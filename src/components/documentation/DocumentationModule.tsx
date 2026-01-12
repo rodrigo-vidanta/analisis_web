@@ -262,6 +262,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'i3z6802', date: '2026-01-12', author: 'Team', message: 'v2.2.42: 🔧 Fix Toast z-index para modales - Validación variables inicio/fin en sugerencias', isRelease: true },
   { hash: 'h2y5701', date: '2026-01-12', author: 'Team', message: 'v2.2.41: 👤 Grid Historial Infracciones - Panel edición usuario, tabla content_moderation_warnings', isRelease: true },
   { hash: 'g1x4600', date: '2026-01-10', author: 'Team', message: 'v2.2.40: 🔧 Fix plantillas - Mapeo primer_nombre→nombre, validación variables inicio/fin, import sugerencias', isRelease: true },
   { hash: 'f0w3599', date: '2026-01-09', author: 'Team', message: 'v2.2.39: 📢 Campañas - Filtro etiquetas en WHERE, sugerencias con nombre y coordinación usuario', isRelease: true },
@@ -360,6 +361,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-085', date: '2026-01-12 12:45', version: 'B7.2.32N7.2.22', status: 'success', duration: '16m', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-084', date: '2026-01-12 12:00', version: 'B7.2.31N7.2.21', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-083', date: '2026-01-10 00:15', version: 'B7.2.30N7.2.20', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-082', date: '2026-01-09 19:30', version: 'B7.2.29N7.2.19', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -442,8 +444,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.41', highlight: true },
-  { label: 'Release', value: 'B7.2.31N7.2.21', highlight: false },
+  { label: 'Version', value: 'v2.2.42', highlight: true },
+  { label: 'Release', value: 'B7.2.32N7.2.22', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '12 Ene 2026', highlight: false },
 ];
