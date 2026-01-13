@@ -5,7 +5,7 @@ import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
   // Versión actual - v2.2.0: Migración System_UI → PQNC_AI
-  const version = 'B7.3.0N7.3.0';
+  const version = 'B8.0.0N2.2.0';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division
