@@ -19,7 +19,7 @@ export const DefaultLogo: React.FC<DefaultLogoProps> = ({ onClick, isCollapsed =
   }
 
   return (
-    <button
+    <div
       onClick={onClick}
       className="hover:opacity-90 transition-opacity cursor-pointer"
       style={{ marginTop: '2px', marginLeft: '8px' }}
@@ -42,7 +42,7 @@ export const DefaultLogo: React.FC<DefaultLogoProps> = ({ onClick, isCollapsed =
       >
         PQNC
       </div>
-    </button>
+    </div>
   );
 };
 

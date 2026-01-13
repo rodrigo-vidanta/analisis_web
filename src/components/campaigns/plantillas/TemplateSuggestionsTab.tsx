@@ -64,10 +64,7 @@ const TemplateSuggestionsTab: React.FC<TemplateSuggestionsTabProps> = ({ onImpor
               full_name, 
               email,
               coordinacion_id,
-              coordinaciones:coordinacion_id (
-                codigo,
-                nombre
-              )
+              auth_roles(name)
             `)
             .in('id', uniqueUserIds);
           

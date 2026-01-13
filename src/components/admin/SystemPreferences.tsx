@@ -31,7 +31,7 @@ import {
   ChevronRight,
   Sparkles
 } from 'lucide-react';
-import { pqncSupabase as supabase } from '../../config/pqncSupabase';
+import { analysisSupabase as supabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { systemConfigEvents } from '../../utils/systemConfigEvents';
 import { LOGO_CATALOG, type LogoType, getSuggestedLogo, isLogoAvailable } from '../logos/LogoCatalog';

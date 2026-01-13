@@ -1003,13 +1003,35 @@ const LiveMonitorKanban: React.FC = () => {
     isLoadingHistoryRef.current = true;
     
     try {
-      // Si es reset, resetear estados
+      // Si es reset, resetear estados y obtener COUNT total
       if (reset) {
         currentPageHistoryRef.current = 0;
         setAllHistoryCallsLoaded([]);
         setHasMoreHistory(true);
-        setTotalHistoryCount(0);
         hasInitialLoadRef.current = false;
+        
+        // Obtener COUNT total del usuario (con permisos) al inicio
+        try {
+          let countQuery = analysisSupabase
+            .from('llamadas_ventas')
+            .select('*', { count: 'exact', head: true });
+          
+          // Aplicar filtros de permisos al COUNT
+          if (!isAdminCheck) {
+            if (ejecutivoFilter && coordinacionesFilter) {
+              countQuery = countQuery
+                .in('prospectos.ejecutivo_id', [ejecutivoFilter])
+                .in('prospectos.coordinacion_id', coordinacionesFilter);
+            } else if (coordinacionesFilter) {
+              countQuery = countQuery.in('prospectos.coordinacion_id', coordinacionesFilter);
+            }
+          }
+          
+          const { count } = await countQuery;
+          setTotalHistoryCount(count || 0);
+        } catch (e) {
+          setTotalHistoryCount(0);
+        }
       }
       
       const pageToLoad = reset ? 0 : currentPageHistoryRef.current;
@@ -1280,19 +1302,23 @@ const LiveMonitorKanban: React.FC = () => {
               const ejecutivoIds = [...new Set(prospectosResult.map(p => p.ejecutivo_id).filter(Boolean))];
               const coordinacionIds = [...new Set(prospectosResult.map(p => p.coordinacion_id).filter(Boolean))];
               
-              // Cargar ejecutivos y coordinaciones en paralelo para mejor rendimiento
+              // ⚡ OPTIMIZACIÓN POST-MIGRACIÓN: Batch loading con 1 query en lugar de N queries
               const [ejecutivosData, coordinacionesData] = await Promise.all([
-                ejecutivoIds.length > 0 ? Promise.all(
-                  ejecutivoIds.map(async (ejecId) => {
+                ejecutivoIds.length > 0 ? (async () => {
                   try {
-                    const ejecutivo = await coordinacionService.getEjecutivoById(ejecId);
-                      return ejecutivo ? [ejecId, ejecutivo] : null;
+                    const { data: ejecutivosArray } = await supabaseSystemUI
+                      .from('auth_users')
+                      .select('id, email, full_name, first_name, last_name, phone, coordinacion_id, is_active, auth_roles!inner(name)')
+                      .in('id', ejecutivoIds)
+                      .eq('auth_roles.name', 'ejecutivo')
+                      .eq('is_active', true);
+                    
+                    return Object.fromEntries((ejecutivosArray || []).map(e => [e.id, e]));
                   } catch (err) {
-                    console.error(`Error loading ejecutivo ${ejecId}:`, err);
-                      return null;
-                    }
-                  })
-                ).then(results => Object.fromEntries(results.filter(Boolean) as [string, any][])) : {},
+                    console.error('Error loading ejecutivos batch:', err);
+                    return {};
+                  }
+                })() : {},
                 coordinacionIds.length > 0 ? Promise.all(
                   coordinacionIds.map(async (coordId) => {
                   try {
@@ -1470,8 +1496,7 @@ const LiveMonitorKanban: React.FC = () => {
         // NOTA: No usamos totalHistoryCount porque ese conteo no aplica filtros de permisos
         setHasMoreHistory(rawLoadedCount === HISTORY_BATCH_SIZE);
         
-        // Actualizar el total con el conteo real después de filtros (se irá actualizando al cargar más)
-        setTotalHistoryCount(enrichedCount);
+        // NO actualizar totalHistoryCount aquí - ya se seteo en reset con el COUNT total
         
         hasInitialLoadRef.current = true;
       } else {
@@ -1489,14 +1514,12 @@ const LiveMonitorKanban: React.FC = () => {
         // CRÍTICO: Si no se cargaron datos nuevos (0 llamadas), no hay más
         if (rawLoadedCount === 0 || enrichedCount === 0) {
           setHasMoreHistory(false);
-          // Actualizar el total con la cantidad real después de filtros
-          setTotalHistoryCount(updatedData.length);
+          // NO actualizar totalHistoryCount - mantener el COUNT total
         } else {
           // Verificar si se cargaron menos que el batch size (significa que no hay más)
           const hasMore = rawLoadedCount === HISTORY_BATCH_SIZE;
           setHasMoreHistory(hasMore);
-          // Actualizar el total con la cantidad real después de filtros
-          setTotalHistoryCount(updatedData.length);
+          // NO actualizar totalHistoryCount - mantener el COUNT total
           // Log solo cada 2 batches para evitar spam
         }
       }

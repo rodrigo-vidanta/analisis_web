@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Lock, Upload, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, Loader2, Trash2 } from 'lucide-react';
-import { pqncSupabase as supabase } from '../../config/pqncSupabase';
-import { pqncSupabaseAdmin as supabaseAdmin } from '../../config/pqncSupabase';
-import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI as supabase, supabaseSystemUIAdmin as supabaseAdmin } from '../../config/supabaseSystemUI';
 import { userProfileEvents } from '../../utils/userProfileEvents';
 import toast from 'react-hot-toast';
 
@@ -102,7 +100,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
       const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
       
       // Usar cliente admin de PQNC (donde está el bucket user-avatars)
-      // El bucket está en hmmfuhqgvsehkizlfzga.supabase.co, no en zbylezfyagwrxoecioup
+      // El bucket está en PQNC_AI (glsmifhkoaifvaegsozd.supabase.co)
       // Verificar que el cliente esté configurado correctamente
       console.log('🔍 Configuración del cliente:', {
         fileName,

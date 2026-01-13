@@ -402,7 +402,7 @@ class CoordinacionService {
         .from('auth_users')
         .select('*', { count: 'exact', head: true })
         .eq('coordinacion_id', coordinacionId)
-        .eq('is_ejecutivo', true);
+        .eq('auth_roles.name', 'ejecutivo');
 
       if (countError) throw countError;
 
@@ -509,13 +509,10 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          coordinaciones:coordinacion_id (
-            codigo,
-            nombre
-          )
+          auth_roles!inner(name)
         `)
         .eq('coordinacion_id', coordinacionId)
-        .eq('is_ejecutivo', true)
+        .eq('auth_roles.name', 'ejecutivo')
         .eq('is_active', true)
         .order('full_name');
 
@@ -601,13 +598,10 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          coordinaciones:coordinacion_id (
-            codigo,
-            nombre
-          )
+          auth_roles!inner(name)
         `)
         .in('id', ids)
-        .eq('is_ejecutivo', true);
+        .eq('auth_roles.name', 'ejecutivo');
 
       if (error) throw error;
 
@@ -662,15 +656,16 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          coordinaciones:coordinacion_id (
-            codigo,
-            nombre
-          )
+          auth_roles!inner(name)
         `)
         .eq('id', ejecutivoId)
-        .single();
+        .eq('is_active', true)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error en getEjecutivoById:', error);
+        return null;
+      }
 
       if (!data) return null;
 
@@ -718,10 +713,7 @@ class CoordinacionService {
         .select(`
           user_id,
           coordinacion_id,
-          coordinaciones:coordinacion_id (
-            codigo,
-            nombre
-          )
+          auth_roles!inner(name)
         `)
         .eq('coordinacion_id', coordinacionId);
 
@@ -845,10 +837,7 @@ class CoordinacionService {
         .select(`
           user_id,
           coordinacion_id,
-          coordinaciones:coordinacion_id (
-            codigo,
-            nombre
-          )
+          auth_roles!inner(name)
         `)
         .eq('coordinacion_id', coordinacionId); // CRÍTICO: Solo esta coordinación específica
 
@@ -968,10 +957,7 @@ class CoordinacionService {
         .select(`
           user_id,
           coordinacion_id,
-          coordinaciones:coordinacion_id (
-            codigo,
-            nombre
-          )
+          auth_roles!inner(name)
         `);
 
       let coordinadores: Ejecutivo[] = [];
@@ -1116,12 +1102,9 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          coordinaciones:coordinacion_id (
-            codigo,
-            nombre
-          )
+          auth_roles!inner(name)
         `)
-        .eq('is_ejecutivo', true)
+        .eq('auth_roles.name', 'ejecutivo')
         .order('full_name');
 
       if (error) throw error;
@@ -1170,7 +1153,7 @@ class CoordinacionService {
           updated_at: new Date().toISOString(),
         })
         .eq('id', ejecutivoId)
-        .eq('is_ejecutivo', true);
+        .eq('auth_roles.name', 'ejecutivo');
 
       // Registrar en logs si existe la tabla
       try {

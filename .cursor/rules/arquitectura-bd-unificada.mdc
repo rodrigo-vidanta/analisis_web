@@ -1,0 +1,171 @@
+---
+alwaysApply: true
+---
+
+# Arquitectura de Base de Datos Unificada
+
+**Fecha de Vigencia:** 13 de Enero 2025  
+**Versión:** v2.2.0
+
+---
+
+## ⚠️ CAMBIO ARQUITECTÓNICO CRÍTICO
+
+A partir del **13 de Enero 2025**, la arquitectura de bases de datos cambió de **2 proyectos separados** a **1 proyecto unificado**.
+
+---
+
+## Nueva Arquitectura (ACTUAL)
+
+### Base de Datos Principal: PQNC_AI
+
+**URL:** `https://glsmifhkoaifvaegsozd.supabase.co`  
+**Proyecto:** glsmifhkoaifvaegsozd
+
+**Contiene TODO:**
+- ✅ Autenticación (auth_users, auth_roles, auth_sessions)
+- ✅ Permisos (permissions, auth_*_permissions, permission_groups)
+- ✅ Coordinaciones (coordinaciones, auth_user_coordinaciones)
+- ✅ Prospectos (prospectos, prospect_assignments)
+- ✅ Llamadas (llamadas_ventas, call_analysis_summary)
+- ✅ WhatsApp (conversaciones_whatsapp, mensajes_whatsapp)
+- ✅ Configuración (system_config, app_themes, api_auth_tokens)
+- ✅ Moderación (content_moderation_warnings, user_warning_counters)
+- ✅ Logs (auth_login_logs, paraphrase_logs, assignment_logs)
+
+---
+
+## Clientes de Supabase en el Código
+
+### analysisSupabase (PRINCIPAL - USAR SIEMPRE)
+
+**Archivo:** `src/config/analysisSupabase.ts`  
+**Variables env:**
+- `VITE_ANALYSIS_SUPABASE_URL` (glsmifhkoaifvaegsozd)
+- `VITE_ANALYSIS_SUPABASE_ANON_KEY`
+- `VITE_ANALYSIS_SUPABASE_SERVICE_KEY`
+
+**Uso:** **TODO** - Auth, prospectos, llamadas, WhatsApp, configuración
+
+### supabaseSystemUI (REDIRIGIDO a PQNC_AI)
+
+**Archivo:** `src/config/supabaseSystemUI.ts`  
+**Variables env:**
+- `VITE_SYSTEM_UI_SUPABASE_URL` (ahora apunta a glsmifhkoaifvaegsozd)
+- `VITE_SYSTEM_UI_SUPABASE_ANON_KEY` (mismo que ANALYSIS)
+- `VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY` (mismo que ANALYSIS)
+
+**Uso:** Auth, usuarios, permisos (MIGRADO a PQNC_AI desde 2025-01-13)
+
+**⚠️ Nota:** Este cliente ahora apunta a PQNC_AI, NO a system_ui. Mantiene el nombre por compatibilidad con código existente.
+
+---
+
+## Edge Functions (Separadas)
+
+**Ubicación:** System_UI (zbylezfyagwrxoecioup.supabase.co)  
+**Variables env:**
+- `VITE_EDGE_FUNCTIONS_URL` (zbylezfyagwrxoecioup)
+- `VITE_EDGE_FUNCTIONS_ANON_KEY` (de system_ui)
+
+**Funciones:**
+- send-img-proxy
+- n8n-proxy
+- anthropic-proxy
+- error-analisis-proxy
+- generar-url-optimizada
+
+**Razón:** Permanecen en system_ui donde ya están desplegadas. No requieren migración.
+
+---
+
+## Reglas de Desarrollo
+
+### ✅ CORRECTO
+
+```typescript
+// Consultar usuarios
+const { data } = await supabaseSystemUI.from('auth_users').select('*');
+// ✅ Ahora consulta PQNC_AI (glsmifhkoaifvaegsozd)
+
+// Consultar prospectos
+const { data } = await analysisSupabase.from('prospectos').select('*');
+// ✅ Consulta PQNC_AI (glsmifhkoaifvaegsozd)
+
+// Llamar Edge Function
+const url = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/send-img-proxy`;
+// ✅ Llama a system_ui (zbylezfyagwrxoecioup) donde está desplegada
+```
+
+### ❌ INCORRECTO
+
+```typescript
+// NO usar pqncSupabase (SupaPQNC - proyecto prohibido)
+const { data } = await pqncSupabase.from('auth_users').select('*');
+// ❌ Consulta hmmfuhqgvsehkizlfzga (proyecto PROHIBIDO)
+
+// NO asumir que system_ui tiene datos actuales
+const { data } = await makeDirectCallToSystemUI('zbylezfyagwrxoecioup');
+// ❌ System_UI es SOLO backup, puede tener datos desactualizados
+```
+
+---
+
+## Optimizaciones Disponibles
+
+### JOINs Directos
+
+Ahora que TODO está en PQNC_AI, puedes hacer JOINs nativos:
+
+```typescript
+// ANTES (2 queries)
+const prospectos = await analysisSupabase.from('prospectos').select('*');
+const ejecutivos = await supabaseSystemUI.from('auth_users').in('id', ids);
+
+// AHORA (1 query con JOIN)
+const { data } = await analysisSupabase
+  .from('prospectos')
+  .select(`
+    *,
+    ejecutivo:ejecutivo_id (full_name, email, phone),
+    coordinacion:coordinacion_id (nombre, codigo)
+  `);
+```
+
+### Vistas Pre-calculadas
+
+```typescript
+// Usar vistas optimizadas
+const { data } = await analysisSupabase
+  .from('prospectos_con_ejecutivo_y_coordinacion')
+  .select('*');
+  
+// Ya incluye: ejecutivo_nombre, coordinacion_nombre, etc.
+```
+
+---
+
+## Migración Histórica
+
+**Antes (hasta 12 Enero 2025):**
+- System_UI: Auth, usuarios, permisos, coordinaciones
+- PQNC_AI: Prospectos, llamadas, WhatsApp
+
+**Después (desde 13 Enero 2025):**
+- PQNC_AI: **TODO** (BD unificada)
+- System_UI: Solo backup y Edge Functions
+
+**Documentación completa:** `docs/MIGRACION_SYSTEM_UI_A_PQNC_AI_COMPLETA.md`
+
+---
+
+## Referencias
+
+- [Documentación Maestra de Migración](../docs/MIGRACION_SYSTEM_UI_A_PQNC_AI_COMPLETA.md)
+- [Nueva Arquitectura BD Unificada](../docs/NUEVA_ARQUITECTURA_BD_UNIFICADA.md)
+- [Plan de Optimizaciones con JOINs](../docs/PLAN_OPTIMIZACIONES_JOINS.md)
+- [Reporte de Optimizaciones](../docs/REPORTE_OPTIMIZACIONES_BD_UNIFICADA.md)
+
+---
+
+**IMPORTANTE:** Al desarrollar nuevas features, usar SIEMPRE `analysisSupabase` o `supabaseSystemUI` (ambos apuntan a PQNC_AI). NO usar `pqncSupabase` (proyecto prohibido).

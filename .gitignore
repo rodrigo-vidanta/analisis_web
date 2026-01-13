@@ -38,3 +38,6 @@ MCP_CHANGELOG.local.md
 MCP_SCHEMAS.local.md
 *.local.md
 mcp-backups/
+.env.local.bak*
+.env.local.backup*
+.env*.bak*

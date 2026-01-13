@@ -26,7 +26,7 @@ import {
 import toast from 'react-hot-toast';
 import type { Role, Coordinacion } from '../types';
 import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
-import { pqncSupabaseAdmin } from '../../../../config/pqncSupabase';
+import { supabaseSystemUIAdmin as pqncSupabaseAdmin } from '../../../../config/supabaseSystemUI';
 import { groupsService, type PermissionGroup } from '../../../../services/groupsService';
 
 // ============================================

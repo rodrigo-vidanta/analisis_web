@@ -42,9 +42,13 @@ class AutomationService {
       // Obtener coordinadores operativos de esta coordinación (excluyendo calidad)
       const { data: coordinadores } = await supabaseSystemUI
         .from('auth_users')
-        .select('id, full_name, role_name')
+        .select(`
+          id, 
+          full_name,
+          auth_roles!inner(name)
+        `)
         .eq('coordinacion_id', coordinacionId)
-        .eq('role_name', 'coordinador')
+        .eq('auth_roles.name', 'coordinador')
         .eq('is_active', true)
         .eq('is_operativo', true);
 

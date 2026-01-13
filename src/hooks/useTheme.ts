@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { pqncSupabase as supabase } from '../config/pqncSupabase';
+import { analysisSupabase as supabase } from '../config/analysisSupabase';
 
 export type ThemeMode = 'light' | 'dark';
 

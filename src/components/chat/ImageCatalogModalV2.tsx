@@ -586,8 +586,9 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
         const payload = [payloadItem];
         console.log(`   📦 Payload:`, JSON.stringify(payload));
 
-        const proxyUrl = `${import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL}/functions/v1/send-img-proxy`;
-        const authToken = import.meta.env.VITE_SYSTEM_UI_SUPABASE_ANON_KEY;
+        // Usar Edge Functions URL específica (pueden estar en proyecto diferente)
+        const proxyUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL || import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL}/functions/v1/send-img-proxy`;
+        const authToken = import.meta.env.VITE_EDGE_FUNCTIONS_ANON_KEY || import.meta.env.VITE_SYSTEM_UI_SUPABASE_ANON_KEY;
         
         // Enviar (el request_id ya viaja dentro del payload)
         const response = await fetch(proxyUrl, {

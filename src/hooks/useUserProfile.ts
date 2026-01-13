@@ -41,11 +41,7 @@ export const useUserProfile = () => {
           first_name,
           last_name,
           coordinacion_id,
-          auth_roles!inner(name),
-          coordinaciones:coordinacion_id (
-            codigo,
-            nombre
-          )
+          auth_roles!inner(name)
         `)
         .eq('id', user.id)
         .single();
@@ -53,6 +49,17 @@ export const useUserProfile = () => {
       if (userError) {
         console.error('Error loading user data:', userError);
         return;
+      }
+      
+      // Obtener coordinación por separado si existe coordinacion_id
+      let coordinacionData = null;
+      if (userData?.coordinacion_id) {
+        const { data: coordData } = await supabase
+          .from('coordinaciones')
+          .select('codigo, nombre')
+          .eq('id', userData.coordinacion_id)
+          .maybeSingle();
+        coordinacionData = coordData;
       }
 
       // Luego obtener avatar por separado
@@ -69,9 +76,7 @@ export const useUserProfile = () => {
       }
 
       if (userData) {
-        const coordinacion = Array.isArray(userData.coordinaciones) 
-          ? userData.coordinaciones[0] 
-          : userData.coordinaciones;
+        const coordinacion = coordinacionData;
 
         setProfile({
           ...userData,

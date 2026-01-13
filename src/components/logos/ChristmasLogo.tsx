@@ -124,7 +124,7 @@ export const ChristmasLogo: React.FC<ChristmasLogoProps> = ({ onClick, isCollaps
   }
 
   return (
-    <button
+    <div
       onClick={handleClick}
       className="christmas-text-container hover:opacity-90 transition-opacity cursor-pointer"
       style={{ marginTop: '2px', marginLeft: '8px' }}
@@ -137,7 +137,7 @@ export const ChristmasLogo: React.FC<ChristmasLogoProps> = ({ onClick, isCollaps
         style={{ height: '46px' }}
       />
       <ChristmasLightsOverlay showSnow={showSnow} />
-    </button>
+    </div>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
+import { supabaseSystemUIAdmin as pqncSupabaseAdmin } from '../../config/supabaseSystemUI';
 import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
 import { userProfileEvents } from '../../utils/userProfileEvents';
 

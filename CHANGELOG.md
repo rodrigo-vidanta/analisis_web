@@ -2,6 +2,60 @@
 
 ## [Unreleased]
 
+### 🔔 v2.2.50 (B7.2.50N7.2.40) - Migración Sistema Notificaciones a PQNC_AI Unificado [13-01-2026]
+
+#### 🎯 Migración Completa a Base de Datos Unificada
+
+**Cambio Arquitectónico Crítico:**
+- ✅ Migración completa de `system_ui` a `pqnc_ai` (base unificada)
+- ✅ Todas las referencias a `supabaseSystemUI` eliminadas
+- ✅ Sistema ahora usa exclusivamente `pqncSupabase`
+- ✅ Realtime funcionando correctamente en base unificada
+
+**Actualizaciones de Base de Datos:**
+- Tabla `user_notifications` actualizada con nuevas columnas:
+  - `notification_type` (new_message, new_call)
+  - `module` (live-chat, live-monitor)
+  - `message_id`, `conversation_id`, `customer_name`, `customer_phone`, `message_preview`
+  - `call_id`, `call_status`, `prospect_id`
+  - `is_muted` (silenciar notificaciones)
+- Índices optimizados para performance
+- Realtime habilitado y funcionando
+
+**Servicios Actualizados:**
+- `userNotificationService.ts`: Migrado a `pqncSupabase`
+- `notificationService.ts`: Migrado a `pqncSupabase`
+- Validaciones agregadas para verificar configuración de cliente
+
+**Componentes Actualizados:**
+- `NotificationBell.tsx`: Usa `pqncSupabase`
+- `NotificationListener.tsx`: Verifica permisos antes de crear notificaciones
+- `useNotifications.ts`: Hook funcionando correctamente
+
+**Funcionalidades:**
+- ✅ Notificaciones individuales por usuario
+- ✅ Realtime funcionando correctamente
+- ✅ Auto-reset al ingresar a módulos (live-chat, live-monitor)
+- ✅ Sonido de notificación tipo WhatsApp
+- ✅ Silenciar/Activar notificaciones
+- ✅ Verificación de permisos antes de crear notificaciones
+
+**Documentación Creada:**
+- `docs/NOTIFICATIONS_SYSTEM_COMPLETE.md` - Documentación exhaustiva del sistema final
+- Actualización de CHANGELOG y VERSIONS
+
+**Archivos Modificados:**
+- `src/services/userNotificationService.ts`
+- `src/services/notificationService.ts`
+- `src/components/notifications/NotificationBell.tsx`
+- `src/components/notifications/NotificationListener.tsx`
+- `src/hooks/useNotifications.ts`
+- Scripts SQL para actualizar estructura de tabla
+
+**Estado:** ✅ Completado y en Producción
+
+---
+
 ### 🔔 v2.2.49 (B7.2.49N7.2.39) - Sistema Notificaciones Completo [13-01-2026]
 
 #### 🎯 Sistema de Notificaciones Realtime

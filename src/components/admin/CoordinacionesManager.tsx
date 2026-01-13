@@ -103,9 +103,9 @@ const CoordinacionesManager: React.FC = () => {
           if (!archivado) {
             const { count } = await supabaseSystemUIAdmin
               .from('auth_users')
-              .select('*', { count: 'exact', head: true })
+              .select('id, auth_roles!inner(name)', { count: 'exact', head: true })
               .eq('coordinacion_id', coord.id)
-              .eq('is_ejecutivo', true)
+              .eq('auth_roles.name', 'ejecutivo')
               .eq('is_active', true);
             ejecutivosCount = count || 0;
           }

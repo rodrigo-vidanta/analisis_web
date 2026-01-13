@@ -18,7 +18,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
-import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
+import { supabaseSystemUIAdmin as pqncSupabaseAdmin } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';

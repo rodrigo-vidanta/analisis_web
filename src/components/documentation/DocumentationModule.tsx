@@ -221,6 +221,7 @@ const documentationSections: DocSection[] = [
     title: 'Notificaciones',
     icon: Icons.bell,
     docs: [
+      { id: 'notifications-complete', name: 'Sistema de Notificaciones Completo', path: '/docs/NOTIFICATIONS_SYSTEM_COMPLETE.md', description: 'Documentación exhaustiva del sistema final migrado a PQNC_AI' },
       { id: 'readme-notifications', name: 'README Notificaciones', path: '/docs/README_NOTIFICATIONS.md', description: 'Documentacion completa del sistema de notificaciones realtime' },
       { id: 'changelog-notifications', name: 'Changelog Notificaciones', path: '/docs/CHANGELOG_NOTIFICATIONS.md', description: 'Historial de cambios del sistema de notificaciones' },
     ]

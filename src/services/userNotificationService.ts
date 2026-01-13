@@ -9,8 +9,7 @@
  * - Soporte para silenciar notificaciones
  */
 
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
-import { analysisSupabase } from '../config/analysisSupabase';
+import { analysisSupabase as supabaseSystemUI } from '../config/analysisSupabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface UserNotification {
@@ -62,7 +61,12 @@ class UserNotificationService {
     try {
       console.log(`🔍 [UserNotificationService] Consultando notificaciones para usuario: ${this.userId}`);
       
-      const { data, error, count } = await supabaseSystemUI
+      if (!pqncSupabase) {
+        console.error('❌ [UserNotificationService] pqncSupabase no está configurado');
+        return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+      }
+
+      const { data, error, count } = await pqncSupabase
         .from('user_notifications')
         .select('notification_type, is_read', { count: 'exact' })
         .eq('user_id', this.userId)
@@ -115,7 +119,9 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      const { error } = await supabaseSystemUI
+      if (!pqncSupabase) return false;
+
+      const { error } = await pqncSupabase
         .from('user_notifications')
         .update({
           is_read: true,
@@ -143,7 +149,9 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      let query = supabaseSystemUI
+      if (!pqncSupabase) return false;
+
+      let query = pqncSupabase
         .from('user_notifications')
         .update({
           is_read: true,
@@ -177,14 +185,16 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      const { error } = await supabaseSystemUI.rpc('mark_message_notifications_as_read', {
+      if (!pqncSupabase) return false;
+
+      const { error } = await pqncSupabase.rpc('mark_message_notifications_as_read', {
         p_conversation_id: conversationId,
         p_user_id: this.userId,
       });
 
       if (error) {
         // Si la función RPC no existe, usar UPDATE directo
-        const { error: updateError } = await supabaseSystemUI
+        const { error: updateError } = await pqncSupabase
           .from('user_notifications')
           .update({
             is_read: true,
@@ -215,14 +225,16 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      const { error } = await supabaseSystemUI.rpc('mark_call_notifications_as_read', {
+      if (!pqncSupabase) return false;
+
+      const { error } = await pqncSupabase.rpc('mark_call_notifications_as_read', {
         p_call_id: callId,
         p_user_id: this.userId,
       });
 
       if (error) {
         // Si la función RPC no existe, usar UPDATE directo
-        const { error: updateError } = await supabaseSystemUI
+        const { error: updateError } = await pqncSupabase
           .from('user_notifications')
           .update({
             is_read: true,
@@ -253,7 +265,9 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      const { error } = await supabaseSystemUI
+      if (!pqncSupabase) return false;
+
+      const { error } = await pqncSupabase
         .from('user_notifications')
         .update({ is_muted: isMuted })
         .eq('id', notificationId)
@@ -278,8 +292,10 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
+      if (!pqncSupabase) return false;
+
       // Verificar si hay alguna notificación sin silenciar
-      const { data, error } = await supabaseSystemUI
+      const { data, error } = await pqncSupabase
         .from('user_notifications')
         .select('is_muted')
         .eq('user_id', this.userId)
@@ -319,7 +335,12 @@ class UserNotificationService {
       this.realtimeChannels.get(channelName)?.unsubscribe();
     }
 
-    const channel = supabaseSystemUI
+    if (!pqncSupabase) {
+      console.warn('⚠️ [UserNotificationService] pqncSupabase no está configurado');
+      return () => {};
+    }
+
+    const channel = pqncSupabase
       .channel(channelName)
       .on(
         'postgres_changes',

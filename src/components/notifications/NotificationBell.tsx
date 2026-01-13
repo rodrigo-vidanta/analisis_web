@@ -13,7 +13,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+// pqncSupabase removido - ya no se usa (migración 2025-01-13)
 import { userNotificationService } from '../../services/userNotificationService';
 import { Bell, MessageSquare, Phone, Volume2, VolumeX } from 'lucide-react';
 
@@ -277,7 +277,13 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ darkMode = false })
     
     // Actualizar todas las notificaciones no leídas para silenciar/activar sonido
     try {
-      const { error } = await supabaseSystemUI
+      if (!pqncSupabase) {
+        console.error('Error: pqncSupabase no está configurado');
+        setIsMuted(!newMutedState);
+        return;
+      }
+
+      const { error } = await pqncSupabase
         .from('user_notifications')
         .update({ is_muted: newMutedState })
         .eq('user_id', user.id)

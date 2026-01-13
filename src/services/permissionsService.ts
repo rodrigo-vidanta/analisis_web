@@ -836,9 +836,7 @@ class PermissionsService {
         .from('auth_user_coordinaciones')
         .select(`
           coordinacion_id,
-          coordinaciones:coordinacion_id (
-            codigo
-          )
+          auth_roles(name)
         `)
         .eq('user_id', userId);
 

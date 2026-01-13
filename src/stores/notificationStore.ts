@@ -102,6 +102,7 @@ interface NotificationState {
   closeDropdown: () => void;
   setSubscribed: (value: boolean) => void;
   clearAll: () => void;
+  triggerCallNotification: (callId: string, checkpoint: string) => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -225,5 +226,28 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       isDropdownOpen: false,
       isSubscribed: false,
     });
+  },
+  
+  // Trigger notificación de llamada (para checkpoint #5)
+  triggerCallNotification: (callId: string, checkpoint: string) => {
+    // Reproducir sonido de notificación
+    playNotificationSound();
+    
+    // Mostrar toast genérico
+    const notification: UserNotification = {
+      id: `call-${callId}-${Date.now()}`,
+      user_id: '',
+      type: 'nuevo_prospecto',
+      title: `Checkpoint ${checkpoint}`,
+      message: `Llamada ${callId} alcanzó ${checkpoint}`,
+      metadata: { call_id: callId, checkpoint },
+      is_read: false,
+      clicked: false,
+      created_at: new Date().toISOString(),
+      read_at: null,
+      expires_at: null,
+    };
+    
+    get().showToastNotification(notification);
   },
 }));

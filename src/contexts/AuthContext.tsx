@@ -559,8 +559,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Evaluators - verificar con RPC
     if (authState.user.role_name === 'evaluator') {
       try {
-        const { pqncSupabase } = await import('../config/pqncSupabase');
-        const { data, error } = await pqncSupabase.rpc('get_evaluator_analysis_config', {
+        const { analysisSupabase } = await import('../config/analysisSupabase');
+        const { data, error } = await analysisSupabase.rpc('get_evaluator_analysis_config', {
           p_target_user_id: authState.user.id
         });
 

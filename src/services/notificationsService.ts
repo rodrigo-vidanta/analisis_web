@@ -256,7 +256,11 @@ class NotificationsService {
       if (ejecutivoId) {
         const { data: ejecutivo } = await supabaseSystemUI
           .from('auth_users')
-          .select('id, full_name, role_name')
+          .select(`
+            id, 
+            full_name,
+            auth_roles(name)
+          `)
           .eq('id', ejecutivoId)
           .eq('is_active', true)
           .single();
@@ -288,10 +292,14 @@ class NotificationsService {
           // Obtener datos de esos usuarios (coordinadores y supervisores)
           const { data: usersData } = await supabaseSystemUI
             .from('auth_users')
-            .select('id, full_name, role_name')
+            .select(`
+              id, 
+              full_name,
+              auth_roles!inner(name)
+            `)
             .in('id', userIds)
             .eq('is_active', true)
-            .in('role_name', ['coordinador', 'supervisor']);
+            .in('auth_roles.name', ['coordinador', 'supervisor']);
 
           if (usersData) {
             for (const u of usersData) {
@@ -393,10 +401,15 @@ class NotificationsService {
       // Verificar que el ejecutivo existe y está activo en SystemUI
       const { data: ejecutivo } = await supabaseSystemUI
         .from('auth_users')
-        .select('id, full_name, role_name, is_active')
+        .select(`
+          id, 
+          full_name, 
+          is_active,
+          auth_roles!inner(name)
+        `)
         .eq('id', prospecto.ejecutivo_id)
         .eq('is_active', true)
-        .eq('role_name', 'ejecutivo')
+        .eq('auth_roles.name', 'ejecutivo')
         .single();
 
       if (!ejecutivo) {
@@ -451,10 +464,13 @@ class NotificationsService {
       if (prospecto.ejecutivo_id) {
         const { data: ejecutivo } = await supabaseSystemUI
           .from('auth_users')
-          .select('id')
+          .select(`
+            id,
+            auth_roles!inner(name)
+          `)
           .eq('id', prospecto.ejecutivo_id)
           .eq('is_active', true)
-          .eq('role_name', 'ejecutivo')
+          .eq('auth_roles.name', 'ejecutivo')
           .single();
 
         if (ejecutivo) {

@@ -1,5 +1,103 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión B7.2.50N7.2.40 (Enero 2026) - Migración Sistema Notificaciones a PQNC_AI
+
+### 🎯 RELEASE - Base de Datos Unificada para Notificaciones
+
+#### Resumen Ejecutivo
+Migración completa del sistema de notificaciones de `system_ui` (legacy) a `pqnc_ai` (base unificada). Todas las funcionalidades de notificaciones ahora operan desde una sola base de datos, eliminando dependencias de bases de datos separadas.
+
+#### Cambios Arquitectónicos
+
+**Migración de Base de Datos:**
+- **ANTES**: `user_notifications` en System_UI (zbylezfyagwrxoecioup)
+- **AHORA**: `user_notifications` en PQNC_AI (glsmifhkoaifvaegsozd)
+- **Cliente**: Cambio de `supabaseSystemUI` a `pqncSupabase`
+
+**Actualización de Estructura:**
+- Columnas agregadas: `notification_type`, `module`, `message_id`, `conversation_id`, `customer_name`, `customer_phone`, `message_preview`, `call_id`, `call_status`, `prospect_id`, `is_muted`
+- Índices optimizados para consultas frecuentes
+- Realtime habilitado y funcionando
+
+#### Funcionalidades Preservadas
+
+✅ **Notificaciones en Tiempo Real:**
+- Nuevos mensajes en Live Chat
+- Nuevas llamadas en Live Monitor
+- Actualizaciones instantáneas vía Supabase Realtime
+
+✅ **Gestión de Notificaciones:**
+- Contador de no leídas en tiempo real
+- Marcar como leídas individualmente
+- Auto-reset al ingresar a módulos
+- Silenciar/Activar notificaciones
+
+✅ **Seguridad:**
+- Verificación de permisos antes de crear notificaciones
+- Solo usuarios con acceso al prospecto reciben notificaciones
+- RLS configurado correctamente
+
+#### Optimizaciones
+
+**Performance:**
+- Índices en columnas frecuentemente consultadas
+- Carga lazy de notificaciones (solo cuando se abre dropdown)
+- Limpieza automática de suscripciones Realtime
+
+**Código:**
+- Validaciones agregadas para verificar configuración de cliente
+- Manejo de errores mejorado
+- Logs de debugging estructurados
+
+#### Documentación
+
+**Nueva Documentación:**
+- `docs/NOTIFICATIONS_SYSTEM_COMPLETE.md` - Documentación exhaustiva del sistema final
+- Incluye arquitectura, flujos, troubleshooting y referencias
+
+**Documentación Actualizada:**
+- CHANGELOG.md - Entrada completa de migración
+- VERSIONS.md - Esta entrada
+
+#### Archivos Principales
+
+**Servicios:**
+- `src/services/userNotificationService.ts`
+- `src/services/notificationService.ts`
+
+**Componentes:**
+- `src/components/notifications/NotificationBell.tsx`
+- `src/components/notifications/NotificationListener.tsx`
+
+**Hooks:**
+- `src/hooks/useNotifications.ts`
+
+**Scripts SQL:**
+- Actualización de estructura de `user_notifications`
+- Habilitación de Realtime
+- Creación de índices
+
+#### Estado del Sistema
+
+✅ **Migración Completada**  
+✅ **Todas las Funcionalidades Operativas**  
+✅ **Realtime Funcionando Correctamente**  
+✅ **Sin Errores de Linting**  
+✅ **Documentación Completa**
+
+#### Compatibilidad
+
+**Breaking Changes:**
+- ⚠️ Sistema ya no usa `supabaseSystemUI` para notificaciones
+- ⚠️ Todas las referencias deben usar `pqncSupabase`
+
+**Backward Compatibility:**
+- ✅ Interfaz de servicios mantiene misma estructura
+- ✅ Componentes funcionan igual para usuarios finales
+- ✅ No requiere cambios en código que consume los servicios
+
+---
+
 ## Versión B7.1.8N7.0.8 (Enero 2026) - Infinite Scroll Dual: Live Monitor + Live Chat
 
 ### 🎯 RELEASE - Escalabilidad y Performance en Módulos Críticos

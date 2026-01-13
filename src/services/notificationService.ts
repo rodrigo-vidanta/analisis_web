@@ -8,7 +8,6 @@
  * - Nuevas llamadas en Live Monitor
  */
 
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { analysisSupabase } from '../config/analysisSupabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -60,7 +59,12 @@ class NotificationService {
     }
 
     try {
-      const { data, error } = await supabaseSystemUI
+      if (!analysisSupabase) {
+        console.warn('⚠️ NotificationService: analysisSupabase no está configurado');
+        return [];
+      }
+
+      const { data, error } = await analysisSupabase
         .from('user_notifications')
         .select('*')
         .eq('user_id', this.userId)
@@ -96,7 +100,11 @@ class NotificationService {
     }
 
     try {
-      const { data, error } = await supabaseSystemUI
+      if (!analysisSupabase) {
+        return { total: 0, unread: 0, byType: { new_message: 0, new_call: 0 } };
+      }
+
+      const { data, error } = await analysisSupabase
         .from('user_notifications')
         .select('notification_type, is_read')
         .eq('user_id', this.userId);
@@ -135,7 +143,9 @@ class NotificationService {
     if (!this.userId) return false;
 
     try {
-      const { error } = await supabaseSystemUI
+      if (!analysisSupabase) return false;
+
+      const { error } = await analysisSupabase
         .from('user_notifications')
         .update({ 
           is_read: true, 
@@ -171,7 +181,9 @@ class NotificationService {
     if (!this.userId) return false;
 
     try {
-      let query = supabaseSystemUI
+      if (!analysisSupabase) return false;
+
+      let query = analysisSupabase
         .from('user_notifications')
         .update({ 
           is_read: true, 
@@ -212,7 +224,12 @@ class NotificationService {
    */
   async createNotification(notification: Omit<UserNotification, 'id' | 'created_at' | 'is_read' | 'read_at'>): Promise<string | null> {
     try {
-      const { data, error } = await supabaseSystemUI
+      if (!analysisSupabase) {
+        console.warn('⚠️ NotificationService: analysisSupabase no está configurado');
+        return null;
+      }
+
+      const { data, error } = await analysisSupabase
         .from('user_notifications')
         .insert({
           ...notification,
@@ -257,7 +274,12 @@ class NotificationService {
       this.realtimeChannels.get(channelName)?.unsubscribe();
     }
 
-    const channel = supabaseSystemUI
+    if (!analysisSupabase) {
+      console.warn('⚠️ NotificationService: analysisSupabase no está configurado');
+      return () => {};
+    }
+
+    const channel = analysisSupabase
       .channel(channelName)
       .on(
         'postgres_changes',

@@ -29,9 +29,11 @@ import { createClient } from '@supabase/supabase-js';
 // ============================================
 // Creamos un cliente nuevo cada vez para evitar problemas de cache
 
-const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || '';
-const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_ANON_KEY || '';
+// ⚠️ MIGRACIÓN 2025-01-13: Ahora usa las mismas variables que analysisSupabase (PQNC_AI)
+// Las credenciales están en la tabla api_auth_tokens que fue migrada a PQNC_AI
+const SUPABASE_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_SERVICE_KEY || import.meta.env.VITE_SUPABASE_SERVICE_KEY || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 const getSupabaseClient = () => {
   const key = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;

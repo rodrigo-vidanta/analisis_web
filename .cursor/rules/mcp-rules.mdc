@@ -8,8 +8,8 @@ alwaysApply: true
 
 | MCP | Proyecto | URL | Uso |
 |-----|----|----|-----|
-| `Supa_PQNC_AI` | pqnc_ai | `glsmifhkoaifvaegsozd.supabase.co` | Llamadas, prospectos, Live Monitor, WhatsApp |
-| `SystemUI_AuthDB` | system_ui | `zbylezfyagwrxoecioup.supabase.co` | Usuarios, auth, permisos, config |
+| `Supa_PQNC_AI` | pqnc_ai (UNIFICADO) | `glsmifhkoaifvaegsozd.supabase.co` | **TODO:** Auth, usuarios, permisos, prospectos, llamadas, WhatsApp, coordinaciones, configuración |
+| `SystemUI_AuthDB` | system_ui (BACKUP) | `zbylezfyagwrxoecioup.supabase.co` | **SOLO BACKUP** - No usar para datos de producción (migración 2025-01-13) |
 
 ## ⛔ MCPs PROHIBIDOS
 
@@ -31,21 +31,24 @@ alwaysApply: true
 
 ### 3. Cuándo Usar Cada MCP
 
-| Contexto | MCP a usar |
-|----|---|
-| Análisis de llamadas | `Supa_PQNC_AI` |
-| Live Monitor | `Supa_PQNC_AI` |
-| Prospectos | `Supa_PQNC_AI` |
-| Conversaciones WhatsApp | `Supa_PQNC_AI` |
-| Métricas de ventas | `Supa_PQNC_AI` |
-| Usuarios del sistema | `SystemUI_AuthDB` |
-| Sesiones y auth | `SystemUI_AuthDB` |
-| Permisos y roles | `SystemUI_AuthDB` |
-| Mensajes admin | `SystemUI_AuthDB` |
-| Bot pause status | `SystemUI_AuthDB` |
-| Configuración sistema | `SystemUI_AuthDB` |
-| Coordinaciones | `SystemUI_AuthDB` |
-| Auth users | `SystemUI_AuthDB` |
+**⚠️ MIGRACIÓN 2025-01-13: TODO UNIFICADO EN PQNC_AI**
+
+| Contexto | MCP a usar | Notas |
+|----|---|---|
+| Análisis de llamadas | `Supa_PQNC_AI` | ✅ |
+| Live Monitor | `Supa_PQNC_AI` | ✅ |
+| Prospectos | `Supa_PQNC_AI` | ✅ |
+| Conversaciones WhatsApp | `Supa_PQNC_AI` | ✅ |
+| Métricas de ventas | `Supa_PQNC_AI` | ✅ |
+| **Usuarios del sistema** | `Supa_PQNC_AI` | ✅ **MIGRADO** |
+| **Sesiones y auth** | `Supa_PQNC_AI` | ✅ **MIGRADO** |
+| **Permisos y roles** | `Supa_PQNC_AI` | ✅ **MIGRADO** |
+| **Mensajes admin** | `Supa_PQNC_AI` | ✅ **MIGRADO** |
+| **Bot pause status** | `Supa_PQNC_AI` | ✅ **MIGRADO** |
+| **Configuración sistema** | `Supa_PQNC_AI` | ✅ **MIGRADO** |
+| **Coordinaciones** | `Supa_PQNC_AI` | ✅ **MIGRADO** |
+| **Auth users** | `Supa_PQNC_AI` | ✅ **MIGRADO** |
+| Backup/Auditoría histórica | `SystemUI_AuthDB` | Solo para consultas de respaldo |
 
 ### 4. Nomenclatura de Herramientas
 
@@ -119,11 +122,13 @@ Para acceso completo (DDL/DML), ejecutar en cada proyecto Supabase:
 
 ## ⚠️ Advertencias
 
-1. **Producción activa**: Ambos proyectos están en producción
-2. **Sin rollback automático**: Los cambios son permanentes
-3. **Credenciales en mcp.json**: NUNCA compartir ~/.cursor/mcp.json
-4. **Service Role Key**: Los MCPs usan service_role (acceso total)
-5. **Nombres de herramientas**: SIEMPRE usar prefijo `pqnc_` para herramientas de `Supa_PQNC_AI`. NO usar nombres sin prefijo para este MCP.
+1. **Producción activa**: PQNC_AI está en producción activa
+2. **System_UI es SOLO BACKUP**: NO usar para operaciones de producción (migración 2025-01-13)
+3. **Sin rollback automático**: Los cambios son permanentes
+4. **Credenciales en mcp.json**: NUNCA compartir ~/.cursor/mcp.json
+5. **Service Role Key**: Los MCPs usan service_role (acceso total)
+6. **Nombres de herramientas**: SIEMPRE usar prefijo `pqnc_` para herramientas de `Supa_PQNC_AI`
+7. **Edge Functions**: Permanecen en System_UI (zbylezfyagwrxoecioup) - usar VITE_EDGE_FUNCTIONS_*
 
 ## 🔧 Ejemplos de Uso
 

@@ -1,54 +1,127 @@
-# ☁️ Módulo AWS Manager
+# 🚀 PQNC QA AI Platform v2.1.0
 
-## Descripción
-Sistema completo de gestión de infraestructura AWS con consola unificada, métricas en tiempo real y monitoreo.
+**⚠️ ESTADO: PRODUCCIÓN ACTIVA**  
+**🌐 URL Producción**: https://d3m6zgat40u0u1.cloudfront.net  
+**📅 Última Actualización**: 25 de Noviembre 2025
 
-## Componentes
-- **AWSManager.tsx**: Componente principal con pestañas
-- **AWSOverviewOptimized.tsx**: Resumen con métricas dinámicas
-- **AWSConsoleUnified.tsx**: Consola unificada con agrupación de servicios
-- **AWSRealTimeMonitorOptimized.tsx**: Monitor en tiempo real
-- **InteractiveArchitectureDiagram.tsx**: Diagrama interactivo
-- **AWSMigrationController.tsx**: Herramientas de migración
+Plataforma empresarial completa para gestión de prospectos, análisis de llamadas con IA y monitoreo en tiempo real.
 
-## Servicios AWS
-- **ECS Fargate**: n8n-production cluster
-- **RDS PostgreSQL**: n8n-postgres instance
-- **CloudFront**: 2 distribuciones (frontend + n8n)
-- **S3**: pqnc-qa-ai-frontend bucket
-- **ALB**: n8n-alb load balancer
-- **ElastiCache**: 2 instancias Redis
+> **⚠️ IMPORTANTE**: Este es un entorno de producción activo. Ver [`.cursorrules`](.cursorrules) para reglas de desarrollo y despliegue.
 
-## Funcionalidades
+## 🎯 Módulos Principales
 
-### Resumen
-- Métricas dinámicas cada 5 segundos
-- Auto-refresh silencioso sin logs
-- Iconos vectoriales sin emojis
-- Datos reales de AWS
+### 🔧 Agent Studio
+Creación y gestión de agentes inteligentes de conversación.
 
-### Consola Unificada
-- Agrupación por funcionalidad (N8N, Frontend, Database, etc.)
-- Sidebar 3/5 pantalla con configuraciones
-- CLI Terminal integrado
-- Navegación a Monitor
+### 🧠 Análisis IA
+Análisis inteligente de llamadas con métricas, transcripción y gráficas radar.
 
-### Monitor
-- 7 servicios AWS reales sincronizados
-- Gráficas dinámicas por servicio
-- Métricas expandibles
+### 👥 PQNC Humans
+Análisis avanzado de llamadas con sistema de feedback y bookmarks.
 
-## Dependencias
-- **awsConsoleServiceProduction**: Servicio de descubrimiento AWS
-- **AWSMetricsService**: Métricas dinámicas con cache
-- **Lucide React**: Iconos vectoriales
+### 📺 Live Monitor
+Monitoreo en tiempo real de llamadas activas y transferencias.
 
-## Permisos
-- **Admin**: Acceso completo
-- **Developer**: Acceso completo (módulos no restringidos)
+### 💬 Live Chat
+Chat en tiempo real integrado con WhatsApp via UChat.
 
-## Datos
-- **Región**: us-west-2
-- **Servicios**: Detección automática
-- **Métricas**: Tiempo real con variación suave
-- **Estado**: running/available/pending desde AWS
+### 🤖 AI Models
+Gestión de modelos de IA, voces y generación de contenido.
+
+### 📝 Prompts Manager
+Gestión de prompts con versionado y métricas de performance.
+
+### ☁️ AWS Manager
+Gestión completa de infraestructura AWS con métricas en tiempo real.
+
+### 📊 Prospectos
+Sistema completo de gestión de prospectos con historial de llamadas.
+
+## 🛠️ Stack Tecnológico
+
+- **Frontend**: React 19 + TypeScript + Vite 7
+- **Styling**: Tailwind CSS + Framer Motion
+- **Estado**: Zustand
+- **Base de Datos**: 4 instancias Supabase especializadas
+- **Gráficas**: Chart.js
+- **Iconos**: Lucide React
+- **Despliegue**: AWS S3 + CloudFront (Producción)
+- **Infraestructura**: AWS us-west-2
+
+## 📊 Bases de Datos
+
+### analysisSupabase
+- **Prospectos**: Gestión completa de clientes
+- **Análisis IA**: Métricas y calificaciones
+- **Llamadas**: Historial y transcripciones
+
+### pqncSupabase  
+- **PQNC Humans**: Análisis avanzado
+- **Administración**: Usuarios y tokens
+
+### supabaseSystemUI
+- **Live Chat**: Conversaciones y mensajes
+- **Prompts**: Versionado y métricas
+
+### supabaseMain
+- **AI Models**: Modelos y configuraciones
+
+## 🚀 Instalación Rápida
+
+```bash
+npm install
+npm run dev
+```
+
+## 📋 Características v5.2.0
+
+- ✅ **Módulo Prospectos**: Data grid con 23+ prospectos reales
+- ✅ **Análisis IA**: Rediseñado con gráficas radar
+- ✅ **Live Chat**: Ordenamiento automático como WhatsApp
+- ✅ **AWS Manager**: 7 servicios monitoreados en tiempo real
+- ✅ **Navegación**: Integración completa entre módulos
+- ✅ **Performance**: Sin re-renders ni interrupciones
+
+## 🔗 Navegación Inteligente
+
+- **Prospectos ↔ Live Chat**: Navegación automática a conversación
+- **Prospectos → Análisis IA**: Click en llamada abre análisis
+- **Análisis IA ↔ Prospecto**: Click en nombre abre sidebar
+- **Sidebar chat**: Verde si activo, gris si inactivo
+
+## 🎨 UX Optimizada
+
+- Animaciones suaves con Framer Motion
+- Sin emojis, solo iconos vectoriales
+- Diseño minimalista y profesional
+- Auto-refresh silencioso
+- Sincronización inteligente sin interrupciones
+
+## 📄 Documentación
+
+Cada módulo incluye README específico con:
+- Descripción y componentes
+- Conexiones de base de datos
+- Dependencias y permisos
+- Funcionalidades y navegación
+
+Ver `/src/components/[modulo]/README.md` para detalles específicos.
+
+## 🚨 Reglas de Desarrollo y Despliegue
+
+**⚠️ ESTE ES UN ENTORNO DE PRODUCCIÓN**
+
+- ❌ **NO hacer despliegues automáticos** - Solo cuando se solicite explícitamente
+- ❌ **NO generar código con mocks** - Todo debe ser código de producción funcional
+- ❌ **NO hacer push a Git sin autorización** - Solo cuando se solicite explícitamente
+- ✅ Verificar impacto antes de cambios
+- ✅ Probar localmente antes de sugerir despliegue
+
+Ver [`.cursorrules`](.cursorrules) para reglas completas de desarrollo.
+
+## 📦 Despliegues
+
+- **Último Despliegue**: 25 de Noviembre 2025
+- **Versión**: v2.1.0-production-20251125
+- **Documentación**: Ver [`docs/DEPLOYMENT_PRODUCTION_2025-11-25.md`](docs/DEPLOYMENT_PRODUCTION_2025-11-25.md)
+- **Backups**: Disponibles en `backups/`

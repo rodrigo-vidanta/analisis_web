@@ -1549,6 +1549,10 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       // ⚡ OPTIMIZACIÓN CRÍTICA: Pre-cargar datos de backup SIEMPRE antes de verificar permisos
       // Esto evita múltiples requests simultáneas que causan ERR_INSUFFICIENT_RESOURCES
       if (user?.id) {
+        // Pre-cargar datos del USUARIO ACTUAL primero (para BackupBadgeWrapper)
+        await permissionsService.preloadBackupData([user.id]);
+        
+        // Luego pre-cargar datos de ejecutivos de los prospectos
         const ejecutivosUnicos = [...new Set(enrichedProspectos.map((p: Prospecto) => p.ejecutivo_id).filter(Boolean))] as string[];
         if (ejecutivosUnicos.length > 0) {
           await permissionsService.preloadBackupData(ejecutivosUnicos);
