@@ -12,7 +12,7 @@
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, X, MessageSquare, User, ChevronRight, Sparkles } from 'lucide-react';
+import { Bell, X, MessageSquare, User, ChevronRight, Sparkles, AlertTriangle, UserPlus } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { notificationsService } from '../../services/notificationsService';
 import type { UserNotification } from '../../services/notificationsService';
@@ -88,11 +88,13 @@ const NotificationBell: React.FC = () => {
 // ============================================
 
 const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void }> = ({ onNavigate }) => {
+  const { user } = useAuth();
   const { 
     notifications, 
     isDropdownOpen, 
     closeDropdown,
     markAsReadAndDelete,
+    markAllAsRead,
     isLoading 
   } = useNotificationStore();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -123,6 +125,12 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
     // Eliminar notificación
     await markAsReadAndDelete(notification.id);
     closeDropdown();
+  };
+
+  const handleClearAll = async () => {
+    if (user?.id && notifications.length > 0) {
+      await markAllAsRead(user.id);
+    }
   };
 
   const formatTime = (dateString: string) => {
@@ -164,12 +172,23 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
                   </span>
                 )}
               </div>
-              <button
-                onClick={closeDropdown}
-                className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center space-x-1">
+                {notifications.length > 0 && (
+                  <button
+                    onClick={handleClearAll}
+                    className="px-2 py-1 text-xs font-medium text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Limpiar todas"
+                  >
+                    Limpiar
+                  </button>
+                )}
+                <button
+                  onClick={closeDropdown}
+                  className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -191,41 +210,70 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
               </div>
             ) : (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {notifications.map((notification, index) => (
-                  <motion.button
-                    key={notification.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    onClick={() => handleNotificationClick(notification)}
-                    className="w-full px-4 py-3 flex items-start space-x-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left group"
-                  >
-                    {/* Icono */}
-                    <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
-                      <MessageSquare className="w-5 h-5 text-white" />
-                    </div>
-
-                    {/* Contenido */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                        {notification.title}
-                      </p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-xs text-slate-400 dark:text-slate-500">
-                          {formatTime(notification.created_at)}
-                        </span>
+                {notifications.map((notification, index) => {
+                  // Determinar icono y color según tipo de notificación
+                  const getIconAndColor = () => {
+                    switch (notification.type) {
+                      case 'requiere_atencion':
+                        return {
+                          icon: <AlertTriangle className="w-5 h-5 text-white" />,
+                          gradient: 'from-red-500 to-orange-600'
+                        };
+                      case 'prospecto_asignado':
+                        return {
+                          icon: <UserPlus className="w-5 h-5 text-white" />,
+                          gradient: 'from-green-500 to-emerald-600'
+                        };
+                      default:
+                        return {
+                          icon: <MessageSquare className="w-5 h-5 text-white" />,
+                          gradient: 'from-indigo-500 to-purple-600'
+                        };
+                    }
+                  };
+                  const { icon, gradient } = getIconAndColor();
+                  
+                  return (
+                    <motion.button
+                      key={notification.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      onClick={() => handleNotificationClick(notification)}
+                      className="w-full px-4 py-3 flex items-start space-x-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left group"
+                    >
+                      {/* Icono */}
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md`}>
+                        {icon}
                       </div>
-                    </div>
 
-                    {/* Flecha */}
-                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ChevronRight className="w-5 h-5 text-indigo-500" />
-                    </div>
-                  </motion.button>
-                ))}
+                      {/* Contenido */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                          {notification.title}
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                          {notification.metadata?.prospecto_nombre || notification.message}
+                        </p>
+                        {notification.type === 'requiere_atencion' && notification.metadata?.motivo && (
+                          <p className="text-xs text-red-500 dark:text-red-400 truncate mt-0.5">
+                            {notification.metadata.motivo}
+                          </p>
+                        )}
+                        <div className="flex items-center space-x-2 mt-1">
+                          <span className="text-xs text-slate-400 dark:text-slate-500">
+                            {formatTime(notification.created_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Flecha */}
+                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ChevronRight className="w-5 h-5 text-indigo-500" />
+                      </div>
+                    </motion.button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -298,7 +346,13 @@ const NotificationToast: React.FC<{ onNavigate: (prospectoId: string) => void }>
           >
             {/* Barra de progreso animada */}
             <motion.div
-              className="absolute top-0 left-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-600"
+              className={`absolute top-0 left-0 h-1 bg-gradient-to-r ${
+                toastNotification.type === 'requiere_atencion' 
+                  ? 'from-red-500 to-orange-500' 
+                  : toastNotification.type === 'prospecto_asignado'
+                    ? 'from-green-500 to-emerald-500'
+                    : 'from-indigo-500 to-purple-600'
+              }`}
               initial={{ width: '100%' }}
               animate={{ width: '0%' }}
               transition={{ duration: 5, ease: 'linear' }}
@@ -308,13 +362,25 @@ const NotificationToast: React.FC<{ onNavigate: (prospectoId: string) => void }>
             <div className="p-4 flex items-start space-x-3">
               {/* Icono animado */}
               <motion.div 
-                className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg"
+                className={`flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br ${
+                  toastNotification.type === 'requiere_atencion'
+                    ? 'from-red-500 via-orange-500 to-yellow-500'
+                    : toastNotification.type === 'prospecto_asignado'
+                      ? 'from-green-500 via-emerald-500 to-teal-500'
+                      : 'from-indigo-500 via-purple-500 to-pink-500'
+                } flex items-center justify-center shadow-lg`}
                 animate={{ 
-                  boxShadow: [
-                    '0 0 20px rgba(99, 102, 241, 0.4)',
-                    '0 0 40px rgba(99, 102, 241, 0.6)',
-                    '0 0 20px rgba(99, 102, 241, 0.4)',
-                  ]
+                  boxShadow: toastNotification.type === 'requiere_atencion'
+                    ? [
+                        '0 0 20px rgba(239, 68, 68, 0.4)',
+                        '0 0 40px rgba(239, 68, 68, 0.6)',
+                        '0 0 20px rgba(239, 68, 68, 0.4)',
+                      ]
+                    : [
+                        '0 0 20px rgba(99, 102, 241, 0.4)',
+                        '0 0 40px rgba(99, 102, 241, 0.6)',
+                        '0 0 20px rgba(99, 102, 241, 0.4)',
+                      ]
                 }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
@@ -322,7 +388,13 @@ const NotificationToast: React.FC<{ onNavigate: (prospectoId: string) => void }>
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 >
-                  <User className="w-6 h-6 text-white" />
+                  {toastNotification.type === 'requiere_atencion' ? (
+                    <AlertTriangle className="w-6 h-6 text-white" />
+                  ) : toastNotification.type === 'prospecto_asignado' ? (
+                    <UserPlus className="w-6 h-6 text-white" />
+                  ) : (
+                    <User className="w-6 h-6 text-white" />
+                  )}
                 </motion.div>
               </motion.div>
 
@@ -334,7 +406,16 @@ const NotificationToast: React.FC<{ onNavigate: (prospectoId: string) => void }>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
                   {getProspectoDisplayName()}
                 </p>
-                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1 font-medium group-hover:underline">
+                {toastNotification.type === 'requiere_atencion' && toastNotification.metadata?.motivo && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-0.5 line-clamp-1">
+                    {toastNotification.metadata.motivo}
+                  </p>
+                )}
+                <p className={`text-xs mt-1 font-medium group-hover:underline ${
+                  toastNotification.type === 'requiere_atencion' 
+                    ? 'text-red-500 dark:text-red-400' 
+                    : 'text-indigo-500 dark:text-indigo-400'
+                }`}>
                   Clic para ver conversacion
                 </p>
               </div>

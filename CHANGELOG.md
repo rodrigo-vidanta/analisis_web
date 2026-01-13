@@ -2,6 +2,48 @@
 
 ## [Unreleased]
 
+### 🔔 v2.2.49 (B7.2.49N7.2.39) - Sistema Notificaciones Completo [13-01-2026]
+
+#### 🎯 Sistema de Notificaciones Realtime
+
+**Funcionalidades Implementadas:**
+- **NotificationBell**: Campanita animada con contador de no leídas
+- **NotificationDropdown**: Lista desplegable de notificaciones pendientes
+- **NotificationToast**: Alerta flotante desde la derecha con animación spring
+- **Botón Limpiar**: Elimina todas las notificaciones del usuario
+- **Sonido**: Audio de notificación al recibir alertas en realtime
+
+**Triggers Automáticos en Base de Datos:**
+| Trigger | Evento | Destinatarios |
+|---------|--------|---------------|
+| `trigger_notify_new_prospecto` | INSERT prospecto con coordinación | Coordinadores/Supervisores |
+| `trigger_notify_ejecutivo_assigned` | UPDATE ejecutivo_id | Ejecutivo asignado |
+| `trigger_notify_requiere_atencion` | UPDATE requiere_atencion_humana=true | Ejecutivo o Coordinadores |
+
+**Tipos de Notificación:**
+- 🟣 `nuevo_prospecto`: Nuevo prospecto en coordinación (icono morado)
+- 🟢 `prospecto_asignado`: Prospecto asignado a ejecutivo (icono verde)
+- 🔴 `requiere_atencion`: Atención humana requerida (icono rojo + motivo)
+
+**Arquitectura:**
+- **Frontend**: React + Zustand + Framer Motion + Supabase Realtime
+- **Backend**: PostgreSQL triggers + Supabase Realtime WebSocket
+- **Base de Datos**: `user_notifications` en PQNC_AI (glsmifhkoaifvaegsozd)
+
+**Documentación Creada:**
+- `src/components/notifications/README_NOTIFICATIONS.md` - Documentación técnica completa
+- `src/components/notifications/CHANGELOG_NOTIFICATIONS.md` - Historial de cambios
+- `.cursor/rules/notifications-rules.mdc` - Regla de Cursor para contexto
+
+**Problemas Resueltos Durante Desarrollo:**
+1. Base de datos incorrecta (SystemUI vs PQNC_AI)
+2. RLS bloqueando acceso
+3. PostgREST cache desactualizado
+4. Realtime con cliente incorrecto
+5. Browser Autoplay Policy para audio
+
+---
+
 ### 🧹 v2.2.33 (B7.2.23N7.2.13) - Limpieza Total Logs Debug [09-01-2026]
 
 #### 🎯 Limpieza Completa

@@ -26,7 +26,6 @@ import { createClient } from '@supabase/supabase-js';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Cliente para notificaciones usando PQNC_AI (donde está la tabla user_notifications)
-// TODO: Mover estas credenciales a .env en producción
 const NOTIFICATIONS_SUPABASE_URL = 'https://glsmifhkoaifvaegsozd.supabase.co';
 const NOTIFICATIONS_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjY4Njc4NywiZXhwIjoyMDY4MjYyNzg3fQ.oyKsFpO_8ulE_m877kpDoxF-htfenoXjq0_GrFThrwI';
 
@@ -44,7 +43,7 @@ const notificationsClient = createClient(NOTIFICATIONS_SUPABASE_URL, NOTIFICATIO
 export interface UserNotification {
   id: string;
   user_id: string;
-  type: 'nuevo_prospecto' | 'prospecto_asignado' | 'mensaje_nuevo';
+  type: 'nuevo_prospecto' | 'prospecto_asignado' | 'mensaje_nuevo' | 'requiere_atencion';
   title: string;
   message: string;
   metadata: {
@@ -54,6 +53,7 @@ export interface UserNotification {
     coordinacion_nombre?: string;
     telefono?: string;
     action_url?: string;
+    motivo?: string;
   };
   is_read: boolean;
   clicked: boolean;
@@ -86,6 +86,11 @@ class NotificationsService {
 
   /**
    * Verifica si un usuario puede recibir notificaciones
+   * 
+   * ROLES PERMITIDOS:
+   * - Coordinadores (incluye calidad)
+   * - Supervisores
+   * - Ejecutivos
    */
   async canUserReceiveNotifications(userId: string, roleName: string): Promise<boolean> {
     // Roles excluidos nunca reciben notificaciones
@@ -94,40 +99,9 @@ class NotificationsService {
     }
 
     // Verificar si el rol base puede recibir notificaciones
+    // Coordinadores (todos, incluyendo calidad), supervisores y ejecutivos
     if (!ROLES_CON_NOTIFICACIONES.includes(roleName)) {
       return false;
-    }
-
-    // Si es coordinador, verificar que NO sea de calidad
-    if (roleName === 'coordinador') {
-      try {
-        // Verificar si está en un grupo que contenga "calidad"
-        const { data: userGroups, error } = await supabaseSystemUI
-          .from('user_permission_groups')
-          .select(`
-            group:group_id (
-              name
-            )
-          `)
-          .eq('user_id', userId);
-
-        if (error) {
-          console.warn('Error verificando grupos de coordinador:', error.message);
-          // En caso de error, permitir notificaciones por defecto
-          return true;
-        }
-
-        // Si está en el grupo "Calidad", NO recibe notificaciones
-        const esCalidad = userGroups?.some((ug: any) => 
-          ug.group?.name?.toLowerCase().includes('calidad')
-        );
-
-        return !esCalidad;
-      } catch (error) {
-        console.error('Error verificando permisos:', error);
-        // En caso de error, permitir notificaciones por defecto
-        return true;
-      }
     }
 
     return true;
@@ -139,19 +113,21 @@ class NotificationsService {
    */
   async getUnreadNotifications(userId: string): Promise<UserNotification[]> {
     try {
-      const url = `${NOTIFICATIONS_SUPABASE_URL}/rest/v1/user_notifications?select=*&user_id=eq.${userId}&is_read=eq.false&order=created_at.desc&limit=50`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'apikey': NOTIFICATIONS_SERVICE_KEY,
-          'Authorization': `Bearer ${NOTIFICATIONS_SERVICE_KEY}`,
-          'Accept': 'application/json'
-        }
-      });
-      
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
+      // Usar el cliente de Supabase directamente (más confiable)
+      const { data, error } = await notificationsClient
+        .from('user_notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('🔔 [NotificationsService] Error:', error);
+        return [];
+      }
+
+      return data || [];
     } catch (error) {
       console.error('Error obteniendo notificaciones:', error);
       return [];
@@ -163,7 +139,8 @@ class NotificationsService {
    */
   async getUnreadCount(userId: string): Promise<number> {
     try {
-      const { count, error } = await supabaseSystemUI
+      // Usar notificationsClient (PQNC_AI)
+      const { count, error } = await notificationsClient
         .from('user_notifications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
@@ -201,7 +178,8 @@ class NotificationsService {
    */
   async markAllAsRead(userId: string): Promise<boolean> {
     try {
-      const { error } = await supabaseSystemUI
+      // Usar notificationsClient (PQNC_AI)
+      const { error } = await notificationsClient
         .from('user_notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('user_id', userId)
@@ -220,7 +198,8 @@ class NotificationsService {
    */
   async createNotification(payload: NotificationPayload): Promise<UserNotification | null> {
     try {
-      const { data, error } = await supabaseSystemUI
+      // Usar notificationsClient (PQNC_AI)
+      const { data, error } = await notificationsClient
         .from('user_notifications')
         .insert({
           user_id: payload.user_id,
@@ -330,8 +309,8 @@ class NotificationsService {
     const nombreProspecto = prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Nuevo prospecto';
     
     try {
-      // Usar la función RPC para crear notificaciones
-      const { data, error } = await supabaseSystemUI.rpc('create_prospect_notifications', {
+      // Usar notificationsClient (PQNC_AI) para crear notificaciones
+      const { data, error } = await notificationsClient.rpc('create_prospect_notifications', {
         p_prospecto_id: prospecto.id,
         p_prospecto_nombre: nombreProspecto,
         p_coordinacion_id: prospecto.coordinacion_id || null,
@@ -362,7 +341,8 @@ class NotificationsService {
     const nombreProspecto = prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Nuevo prospecto';
     
     try {
-      const { data, error } = await supabaseSystemUI.rpc('create_assignment_notification', {
+      // Usar notificationsClient (PQNC_AI) para crear notificaciones
+      const { data, error } = await notificationsClient.rpc('create_assignment_notification', {
         p_prospecto_id: prospecto.id,
         p_prospecto_nombre: nombreProspecto,
         p_ejecutivo_id: prospecto.ejecutivo_id,
@@ -462,14 +442,28 @@ class NotificationsService {
 
   /**
    * Suscribe a cambios en las notificaciones del usuario
-   * Usa notificationsClient (service_role) para bypasear RLS en realtime
+   * Usa analysisSupabase (PQNC_AI con anon_key) que tiene realtime configurado
    */
   subscribeToUserNotifications(
     userId: string,
     callback: (notification: UserNotification) => void
   ): () => void {
-    this.notificationsChannel = notificationsClient
-      .channel(`user-notifications-${userId}`)
+    if (!analysisSupabase) {
+      console.error('🔔 [Realtime] analysisSupabase no está disponible');
+      return () => {};
+    }
+
+    // Limpiar canal anterior si existe
+    if (this.notificationsChannel) {
+      analysisSupabase.removeChannel(this.notificationsChannel);
+      this.notificationsChannel = null;
+    }
+
+    // Canal único con timestamp para evitar conflictos
+    const channelName = `user_notifications_${userId}_${Date.now()}`;
+    
+    this.notificationsChannel = analysisSupabase
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -485,8 +479,8 @@ class NotificationsService {
       .subscribe();
 
     return () => {
-      if (this.notificationsChannel) {
-        notificationsClient.removeChannel(this.notificationsChannel);
+      if (this.notificationsChannel && analysisSupabase) {
+        analysisSupabase.removeChannel(this.notificationsChannel);
         this.notificationsChannel = null;
       }
     };
@@ -527,7 +521,8 @@ class NotificationsService {
    */
   async cleanExpiredNotifications(): Promise<void> {
     try {
-      await supabaseSystemUI
+      // Usar notificationsClient (PQNC_AI)
+      await notificationsClient
         .from('user_notifications')
         .delete()
         .lt('expires_at', new Date().toISOString());

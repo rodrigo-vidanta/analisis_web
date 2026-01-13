@@ -15,20 +15,60 @@ import { create } from 'zustand';
 import { notificationsService } from '../services/notificationsService';
 import type { UserNotification } from '../services/notificationsService';
 
-// Audio de notificación
+// Audio de notificación con manejo de autoplay policy
 let notificationAudio: HTMLAudioElement | null = null;
+let audioUnlocked = false;
+
+// Pre-cargar el audio
+const initAudio = () => {
+  if (!notificationAudio) {
+    notificationAudio = new Audio('/sounds/notification.mp3');
+    notificationAudio.volume = 0.7;
+    notificationAudio.preload = 'auto';
+  }
+};
+
+// Desbloquear audio después de la primera interacción del usuario
+const unlockAudio = () => {
+  if (audioUnlocked) return;
+  
+  initAudio();
+  if (notificationAudio) {
+    // Reproducir silenciosamente para desbloquear
+    notificationAudio.volume = 0;
+    notificationAudio.play().then(() => {
+      notificationAudio!.pause();
+      notificationAudio!.currentTime = 0;
+      notificationAudio!.volume = 0.7;
+      audioUnlocked = true;
+      // Remover listeners una vez desbloqueado
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+    }).catch(() => {
+      // Ignorar error, se intentará de nuevo
+    });
+  }
+};
+
+// Registrar listeners para desbloquear audio
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', unlockAudio, { once: false, passive: true });
+  document.addEventListener('keydown', unlockAudio, { once: false, passive: true });
+  document.addEventListener('touchstart', unlockAudio, { once: false, passive: true });
+  initAudio();
+}
 
 const playNotificationSound = () => {
   try {
-    if (!notificationAudio) {
-      notificationAudio = new Audio('/sounds/notification.mp3');
+    initAudio();
+    if (notificationAudio) {
+      notificationAudio.currentTime = 0;
       notificationAudio.volume = 0.7;
+      notificationAudio.play().catch(err => {
+        console.log('🔔 Audio bloqueado (haz clic en la página para habilitarlo):', err.message);
+      });
     }
-    // Resetear y reproducir
-    notificationAudio.currentTime = 0;
-    notificationAudio.play().catch(err => {
-      console.log('🔔 No se pudo reproducir sonido (requiere interacción del usuario):', err.message);
-    });
   } catch (error) {
     console.error('Error reproduciendo sonido de notificación:', error);
   }

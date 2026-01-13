@@ -1,0 +1,163 @@
+# Reglas del Sistema de Notificaciones
+
+## Descripción
+Sistema de notificaciones en tiempo real estilo "redes sociales" para alertar a coordinadores, supervisores y ejecutivos sobre eventos importantes de prospectos.
+
+---
+
+## Arquitectura
+
+### Base de Datos Principal: PQNC_AI
+- **URL**: `glsmifhkoaifvaegsozd.supabase.co`
+- **Cliente**: `analysisSupabase` (de `src/config/analysisSupabase.ts`)
+- **Tabla**: `user_notifications`
+- **RLS**: DESHABILITADO (acceso directo)
+- **Realtime**: HABILITADO
+
+### Base de Datos Secundaria: SystemUI
+- **URL**: `zbylezfyagwrxoecioup.supabase.co`
+- **Cliente**: `supabaseSystemUI`
+- **Uso**: Consulta de `auth_users` para obtener roles y coordinaciones
+
+---
+
+## Archivos del Sistema
+
+| Archivo | Descripción |
+|---------|-------------|
+| `src/components/notifications/NotificationSystem.tsx` | Componente principal (Bell, Dropdown, Toast) |
+| `src/stores/notificationStore.ts` | Store Zustand para estado global |
+| `src/services/notificationsService.ts` | Servicio para interactuar con Supabase |
+| `public/sounds/notification.mp3` | Audio de alerta |
+| `src/components/notifications/README_NOTIFICATIONS.md` | Documentación completa |
+
+---
+
+## Tipos de Notificaciones
+
+```typescript
+type NotificationType = 
+  | 'nuevo_prospecto'      // Icono: MessageSquare (morado)
+  | 'prospecto_asignado'   // Icono: UserPlus (verde)
+  | 'requiere_atencion'    // Icono: AlertTriangle (rojo)
+  | 'mensaje_nuevo';       // Reservado para futuro
+```
+
+---
+
+## Triggers en Base de Datos
+
+### 1. Nuevo Prospecto → Coordinadores
+```
+Tabla: prospectos
+Evento: INSERT
+Condición: coordinacion_id NOT NULL AND ejecutivo_id IS NULL
+Función: notify_new_prospecto_to_coordinacion()
+Destinatarios: Coordinadores y supervisores de la coordinación
+```
+
+### 2. Asignación de Ejecutivo
+```
+Tabla: prospectos
+Evento: UPDATE OF ejecutivo_id
+Condición: ejecutivo_id cambió de NULL a valor
+Función: notify_ejecutivo_assigned()
+Destinatarios: El ejecutivo asignado
+```
+
+### 3. Requiere Atención Humana
+```
+Tabla: prospectos
+Evento: UPDATE OF requiere_atencion_humana
+Condición: Cambió de false/null a true
+Función: notify_requiere_atencion_humana()
+Destinatarios: Ejecutivo (si tiene) o Coordinadores (si no tiene)
+```
+
+---
+
+## Reglas Críticas
+
+### NUNCA hacer:
+1. ❌ Usar `supabaseSystemUI` para leer/escribir `user_notifications`
+2. ❌ Habilitar RLS en la tabla `user_notifications`
+3. ❌ Cambiar el cliente de realtime a SystemUI
+4. ❌ Eliminar los triggers sin crear alternativa
+
+### SIEMPRE hacer:
+1. ✅ Usar `analysisSupabase` para operaciones de notificaciones
+2. ✅ Mantener RLS deshabilitado en `user_notifications`
+3. ✅ Usar canal único con timestamp para realtime
+4. ✅ Verificar que `user_id` viene del AuthContext
+
+---
+
+## Flujo de Realtime
+
+```
+1. Trigger se dispara en tabla 'prospectos' (PQNC_AI)
+2. Función PL/pgSQL inserta en 'user_notifications'
+3. Supabase Realtime detecta INSERT
+4. Canal WebSocket envía payload
+5. notificationsService callback recibe notificación
+6. notificationStore.addNotification():
+   - Agrega a lista
+   - Incrementa contador
+   - Reproduce sonido
+   - Muestra toast
+```
+
+---
+
+## Debugging
+
+### Notificaciones no aparecen:
+1. Verificar que la tabla está en PQNC_AI
+2. Verificar que RLS está deshabilitado
+3. Verificar user_id correcto en consola
+
+### Realtime no funciona:
+1. Verificar que usa `analysisSupabase`
+2. Verificar que Realtime está habilitado para la tabla
+3. Revisar consola por CHANNEL_ERROR
+
+### Audio no suena:
+1. Requiere interacción previa del usuario (Browser Policy)
+2. Verificar que existe `/public/sounds/notification.mp3`
+
+---
+
+## Metadata de Notificación
+
+```typescript
+interface NotificationMetadata {
+  prospecto_id: string;      // UUID del prospecto
+  prospecto_nombre: string;  // Nombre a mostrar
+  coordinacion_id?: string;  // UUID coordinación
+  telefono?: string;         // WhatsApp del prospecto
+  motivo?: string;           // Solo en requiere_atencion
+  action_url: string;        // URL para navegación
+}
+```
+
+---
+
+## Dependencias
+
+- `@supabase/supabase-js` - Cliente Supabase
+- `zustand` - State management
+- `framer-motion` - Animaciones
+- `lucide-react` - Iconos (Bell, AlertTriangle, UserPlus, etc.)
+
+---
+
+## Documentación Relacionada
+
+- `src/components/notifications/README_NOTIFICATIONS.md` - Documentación técnica completa
+- `src/components/notifications/CHANGELOG_NOTIFICATIONS.md` - Historial de cambios
+- `docs/MCP_CATALOG.md` - Catálogo de conexiones MCP
+
+---
+
+**Última actualización:** 2026-01-13
+**Versión:** 1.0.0

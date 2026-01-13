@@ -119,6 +119,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
     </svg>
   ),
+  bell: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  ),
 };
 
 // ============================================
@@ -212,6 +217,15 @@ const documentationSections: DocSection[] = [
     ]
   },
   {
+    id: 'notifications',
+    title: 'Notificaciones',
+    icon: Icons.bell,
+    docs: [
+      { id: 'readme-notifications', name: 'README Notificaciones', path: '/docs/README_NOTIFICATIONS.md', description: 'Documentacion completa del sistema de notificaciones realtime' },
+      { id: 'changelog-notifications', name: 'Changelog Notificaciones', path: '/docs/CHANGELOG_NOTIFICATIONS.md', description: 'Historial de cambios del sistema de notificaciones' },
+    ]
+  },
+  {
     id: 'scheduled',
     title: 'Llamadas Programadas',
     icon: Icons.history,
@@ -263,6 +277,7 @@ const documentationSections: DocSection[] = [
 
 const gitCommits: GitCommit[] = [
   { hash: 'l6c9105', date: '2026-01-12', author: 'Team', message: 'v2.2.48: 💬 Modal Vista Previa Conversación Dashboard - Imágenes en grilla, URLs firmadas', isRelease: true },
+  { hash: 'l6c9105', date: '2026-01-13', author: 'Team', message: 'v2.2.49: 🔔 Sistema Notificaciones Completo - Triggers DB, 3 tipos, documentación, botón limpiar', isRelease: true },
   { hash: 'k5b8004', date: '2026-01-12', author: 'Team', message: 'v2.2.44: 🔧 Fix navegación WhatsApp - Búsqueda directa en conversaciones_whatsapp, maybeSingle', isRelease: true },
   { hash: 'j4a7903', date: '2026-01-12', author: 'Team', message: 'v2.2.43: 💬 Dashboard Ventas - Click en nombre cliente navega a WhatsApp del prospecto', isRelease: true },
   { hash: 'i3z6802', date: '2026-01-12', author: 'Team', message: 'v2.2.42: 🔧 Fix Toast z-index para modales - Validación variables inicio/fin en sugerencias', isRelease: true },
@@ -364,6 +379,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-089', date: '2026-01-13 01:00', version: 'B7.2.49N7.2.39', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-088', date: '2026-01-12 18:30', version: 'B7.2.38N7.2.28', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-087', date: '2026-01-12 17:00', version: 'B7.2.34N7.2.24', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-086', date: '2026-01-12 16:30', version: 'B7.2.33N7.2.23', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -450,10 +466,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.48', highlight: true },
-  { label: 'Release', value: 'B7.2.38N7.2.28', highlight: false },
+  { label: 'Version', value: 'v2.2.49', highlight: true },
+  { label: 'Release', value: 'B7.2.49N7.2.39', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '12 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '13 Ene 2026', highlight: false },
 ];
 
 // ============================================
