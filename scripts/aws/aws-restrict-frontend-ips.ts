@@ -17,7 +17,8 @@ const ALLOWED_IPS = [
   { ip: '189.178.124.238', label: 'IP del usuario 1' },
   { ip: '189.177.138.158', label: 'IP del usuario 2' },
   { ip: '189.203.97.130', label: 'drosales' },
-  { ip: '189.177.45.139', label: 'oficinaIA' },
+  { ip: '187.144.0.73', label: 'oficinaIA' },
+  { ip: '187.144.87.193', label: 'casa rodrigo' },
 ];
 
 const CLOUDFRONT_DISTRIBUTION_ID = 'E19ZID7TVR08JG';

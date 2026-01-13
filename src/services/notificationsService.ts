@@ -194,11 +194,32 @@ class NotificationsService {
   }
 
   /**
-   * Crea una nueva notificación
+   * Crea una nueva notificación con verificación de duplicados
+   * Evita duplicados si hay múltiples usuarios conectados escuchando los mismos cambios
    */
   async createNotification(payload: NotificationPayload): Promise<UserNotification | null> {
     try {
-      // Usar notificationsClient (PQNC_AI)
+      // Verificar si ya existe una notificación similar reciente (últimos 30 segundos)
+      const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+      const prospectoId = payload.metadata?.prospecto_id;
+
+      if (prospectoId) {
+        const { data: existing } = await notificationsClient
+          .from('user_notifications')
+          .select('id')
+          .eq('user_id', payload.user_id)
+          .eq('type', payload.type)
+          .gte('created_at', thirtySecondsAgo)
+          .limit(1);
+
+        // También verificar por prospecto_id en metadata
+        if (existing && existing.length > 0) {
+          // Ya existe una notificación reciente, no duplicar
+          return null;
+        }
+      }
+
+      // Insertar nueva notificación
       const { data, error } = await notificationsClient
         .from('user_notifications')
         .insert({
@@ -296,7 +317,11 @@ class NotificationsService {
   }
 
   /**
-   * Notifica a usuarios sobre un nuevo prospecto usando RPC
+   * Notifica a usuarios sobre un nuevo prospecto
+   * 
+   * ARQUITECTURA CROSS-DATABASE:
+   * 1. Consulta usuarios en SystemUI (auth_users, auth_user_coordinaciones)
+   * 2. Inserta notificaciones en PQNC_AI (user_notifications)
    */
   async notifyNewProspecto(prospecto: {
     id: string;
@@ -307,21 +332,41 @@ class NotificationsService {
     whatsapp?: string;
   }): Promise<{ success: boolean; notifications_created: number }> {
     const nombreProspecto = prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Nuevo prospecto';
+    let notificationsCreated = 0;
     
     try {
-      // Usar notificationsClient (PQNC_AI) para crear notificaciones
-      const { data, error } = await notificationsClient.rpc('create_prospect_notifications', {
-        p_prospecto_id: prospecto.id,
-        p_prospecto_nombre: nombreProspecto,
-        p_coordinacion_id: prospecto.coordinacion_id || null,
-        p_ejecutivo_id: prospecto.ejecutivo_id || null,
-        p_telefono: prospecto.whatsapp || null
-      });
+      // Obtener usuarios a notificar desde SystemUI
+      const users = await this.getUsersForProspectoNotification(
+        prospecto.coordinacion_id || null,
+        prospecto.ejecutivo_id || null
+      );
 
-      if (error) throw error;
-      
-      console.log('📬 Notificaciones creadas:', data);
-      return data as { success: boolean; notifications_created: number };
+      // Crear notificaciones en PQNC_AI
+      for (const user of users) {
+        const isAssignment = user.userId === prospecto.ejecutivo_id;
+        
+        const notification = await this.createNotification({
+          user_id: user.userId,
+          type: isAssignment ? 'prospecto_asignado' : 'nuevo_prospecto',
+          title: isAssignment ? 'Prospecto asignado' : 'Nuevo prospecto en tu coordinacion',
+          message: isAssignment 
+            ? `Se te ha asignado a ${nombreProspecto}`
+            : `${nombreProspecto} esta esperando atencion`,
+          metadata: {
+            prospecto_id: prospecto.id,
+            prospecto_nombre: nombreProspecto,
+            coordinacion_id: prospecto.coordinacion_id,
+            telefono: prospecto.whatsapp,
+            action_url: `/live-chat?prospecto=${prospecto.id}`
+          }
+        });
+
+        if (notification) {
+          notificationsCreated++;
+        }
+      }
+
+      return { success: true, notifications_created: notificationsCreated };
     } catch (error) {
       console.error('Error creando notificaciones:', error);
       return { success: false, notifications_created: 0 };
@@ -330,6 +375,10 @@ class NotificationsService {
 
   /**
    * Notifica a un ejecutivo cuando se le asigna un prospecto
+   * 
+   * ARQUITECTURA CROSS-DATABASE:
+   * 1. Verifica ejecutivo en SystemUI (auth_users)
+   * 2. Inserta notificación en PQNC_AI (user_notifications)
    */
   async notifyProspectoAssignment(prospecto: {
     id: string;
@@ -341,21 +390,127 @@ class NotificationsService {
     const nombreProspecto = prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Nuevo prospecto';
     
     try {
-      // Usar notificationsClient (PQNC_AI) para crear notificaciones
-      const { data, error } = await notificationsClient.rpc('create_assignment_notification', {
-        p_prospecto_id: prospecto.id,
-        p_prospecto_nombre: nombreProspecto,
-        p_ejecutivo_id: prospecto.ejecutivo_id,
-        p_telefono: prospecto.whatsapp || null
+      // Verificar que el ejecutivo existe y está activo en SystemUI
+      const { data: ejecutivo } = await supabaseSystemUI
+        .from('auth_users')
+        .select('id, full_name, role_name, is_active')
+        .eq('id', prospecto.ejecutivo_id)
+        .eq('is_active', true)
+        .eq('role_name', 'ejecutivo')
+        .single();
+
+      if (!ejecutivo) {
+        return { success: false };
+      }
+
+      // Crear notificación en PQNC_AI
+      const notification = await this.createNotification({
+        user_id: prospecto.ejecutivo_id,
+        type: 'prospecto_asignado',
+        title: 'Prospecto asignado',
+        message: `Se te ha asignado a ${nombreProspecto}`,
+        metadata: {
+          prospecto_id: prospecto.id,
+          prospecto_nombre: nombreProspecto,
+          telefono: prospecto.whatsapp,
+          action_url: `/live-chat?prospecto=${prospecto.id}`
+        }
       });
 
-      if (error) throw error;
-      
-      console.log('📋 Notificación de asignación creada:', data);
-      return data as { success: boolean };
+      return { success: !!notification };
     } catch (error) {
       console.error('Error creando notificación de asignación:', error);
       return { success: false };
+    }
+  }
+
+  /**
+   * Notifica cuando un prospecto requiere atención humana
+   * 
+   * ARQUITECTURA CROSS-DATABASE:
+   * 1. Consulta ejecutivo o coordinadores en SystemUI
+   * 2. Inserta notificación en PQNC_AI
+   */
+  async notifyRequiereAtencion(prospecto: {
+    id: string;
+    nombre_completo?: string;
+    nombre_whatsapp?: string;
+    coordinacion_id?: string;
+    ejecutivo_id?: string;
+    whatsapp?: string;
+    motivo_handoff?: string;
+  }): Promise<{ success: boolean; notifications_created: number }> {
+    const nombreProspecto = prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Prospecto';
+    const motivo = prospecto.motivo_handoff || 'Requiere atencion humana';
+    let notificationsCreated = 0;
+    
+    try {
+      const usersToNotify: string[] = [];
+
+      // Si tiene ejecutivo asignado, notificar al ejecutivo
+      if (prospecto.ejecutivo_id) {
+        const { data: ejecutivo } = await supabaseSystemUI
+          .from('auth_users')
+          .select('id')
+          .eq('id', prospecto.ejecutivo_id)
+          .eq('is_active', true)
+          .eq('role_name', 'ejecutivo')
+          .single();
+
+        if (ejecutivo) {
+          usersToNotify.push(ejecutivo.id);
+        }
+      }
+
+      // Si NO tiene ejecutivo pero tiene coordinación, notificar a coordinadores
+      if (usersToNotify.length === 0 && prospecto.coordinacion_id) {
+        const { data: userCoords } = await supabaseSystemUI
+          .from('auth_user_coordinaciones')
+          .select('user_id')
+          .eq('coordinacion_id', prospecto.coordinacion_id);
+
+        if (userCoords && userCoords.length > 0) {
+          const userIds = userCoords.map(uc => uc.user_id);
+
+          const { data: coordinadores } = await supabaseSystemUI
+            .from('auth_users')
+            .select('id')
+            .in('id', userIds)
+            .eq('is_active', true)
+            .in('role_name', ['coordinador', 'supervisor']);
+
+          if (coordinadores) {
+            usersToNotify.push(...coordinadores.map(c => c.id));
+          }
+        }
+      }
+
+      // Crear notificaciones en PQNC_AI
+      for (const userId of usersToNotify) {
+        const notification = await this.createNotification({
+          user_id: userId,
+          type: 'requiere_atencion',
+          title: 'Atencion humana requerida',
+          message: `${nombreProspecto}: ${motivo}`,
+          metadata: {
+            prospecto_id: prospecto.id,
+            prospecto_nombre: nombreProspecto,
+            motivo: motivo,
+            coordinacion_id: prospecto.coordinacion_id,
+            telefono: prospecto.whatsapp,
+            action_url: `/live-chat?prospecto=${prospecto.id}`
+          }
+        });
+
+        if (notification) {
+          notificationsCreated++;
+        }
+      }
+
+      return { success: true, notifications_created: notificationsCreated };
+    } catch (error) {
+      console.error('Error creando notificación de atención requerida:', error);
+      return { success: false, notifications_created: 0 };
     }
   }
 

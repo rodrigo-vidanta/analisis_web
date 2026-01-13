@@ -18,6 +18,7 @@ import { notificationsService } from '../../services/notificationsService';
 import type { UserNotification } from '../../services/notificationsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { useProspectosNotifications } from '../../hooks/useProspectosNotifications';
 
 // ============================================
 // NOTIFICATION BELL (ICONO CON CONTADOR)
@@ -465,6 +466,14 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
     setSubscribed,
     clearAll 
   } = useNotificationStore();
+
+  // Hook para escuchar cambios en prospectos y generar notificaciones automáticamente
+  // Solo coordinadores, supervisores y admins generan notificaciones (para evitar duplicados)
+  useProspectosNotifications({
+    userId: user?.id || '',
+    userRole: user?.role_name || '',
+    isActive: !!user?.id && ['coordinador', 'supervisor', 'admin'].includes(user?.role_name || '')
+  });
 
   // Cargar notificaciones al montar
   useEffect(() => {

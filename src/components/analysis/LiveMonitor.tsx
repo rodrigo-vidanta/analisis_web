@@ -3837,48 +3837,73 @@ Debería sonar MUCHO mejor ahora.`);
                     </h4>
                   </div>
                   
-                  {!isListening ? (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.5 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={toggleAudioMonitor}
-                      className="w-full px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center justify-center shadow-lg shadow-green-500/25"
-                    >
-                      <Volume2 className="w-4 h-4 mr-2" />
-                      Escuchar Llamada
-                    </motion.button>
-                  ) : (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.5 }}
-                      className="text-center"
-                    >
-                      <div className="flex justify-center mb-3">
-                        <motion.div
-                          animate={{ scale: [1, 1.2, 1] }}
-                          transition={{ repeat: Infinity, duration: 2 }}
-                          className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg"
+                  {(() => {
+                    const hasMonitorUrl = 'monitor_url' in prospect && prospect.monitor_url;
+                    
+                    if (!hasMonitorUrl) {
+                      // Sin URL de monitoreo - mostrar botón deshabilitado
+                      return (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.5 }}
+                          disabled
+                          className="w-full px-5 py-2.5 text-sm font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl cursor-not-allowed opacity-70 flex items-center justify-center"
+                          title="Esperando URL de monitoreo..."
                         >
-                          <Volume2 className="w-4 h-4 text-white" />
-                        </motion.div>
-                      </div>
-                      <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-3">
-                        Escuchando en tiempo real
-                      </p>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={toggleAudioMonitor}
-                        className="w-full px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 rounded-xl hover:from-red-700 hover:to-pink-700 transition-all duration-200 shadow-lg shadow-red-500/25"
+                          <Clock className="w-4 h-4 mr-2 animate-pulse" />
+                          Obteniendo URL...
+                        </motion.button>
+                      );
+                    }
+                    
+                    if (!isListening) {
+                      return (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.5 }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={toggleAudioMonitor}
+                          className="w-full px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center justify-center shadow-lg shadow-green-500/25"
+                        >
+                          <Volume2 className="w-4 h-4 mr-2" />
+                          Escuchar Llamada
+                        </motion.button>
+                      );
+                    }
+                    
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.5 }}
+                        className="text-center"
                       >
-                        Dejar de Escuchar
-                      </motion.button>
-                    </motion.div>
-                  )}
+                        <div className="flex justify-center mb-3">
+                          <motion.div
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ repeat: Infinity, duration: 2 }}
+                            className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg"
+                          >
+                            <Volume2 className="w-4 h-4 text-white" />
+                          </motion.div>
+                        </div>
+                        <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-3">
+                          Escuchando en tiempo real
+                        </p>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={toggleAudioMonitor}
+                          className="w-full px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 rounded-xl hover:from-red-700 hover:to-pink-700 transition-all duration-200 shadow-lg shadow-red-500/25"
+                        >
+                          Dejar de Escuchar
+                        </motion.button>
+                      </motion.div>
+                    );
+                  })()}
                 </motion.div>
 
                 {/* Controles de Llamada */}

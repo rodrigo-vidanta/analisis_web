@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ============================================
- * MCP Server: Supa_SystemUI
+ * MCP Server: AuthDB
  * ============================================
  * 
  * Proyecto: System UI Platform
@@ -46,14 +46,18 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
   process.exit(1);
 }
 
+// Log connection info for debugging
+console.error(`[SystemUI_AuthDB] Connecting to: ${SUPABASE_URL}`);
+console.error(`[SystemUI_AuthDB] Project ref from URL: ${SUPABASE_URL.match(/https:\/\/([^.]+)/)?.[1] || 'unknown'}`);
+
 // Initialize Supabase client with service role for full access
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-class SupaSystemUIServer {
+class SystemUIAuthDBServer {
   constructor() {
     this.server = new Server(
       {
-        name: 'Supa_SystemUI',
+        name: 'SystemUI_AuthDB',
         version: '2.0.0',
       },
       {
@@ -68,7 +72,7 @@ class SupaSystemUIServer {
     this.setupResourceHandlers();
     
     // Error handling
-    this.server.onerror = (error) => console.error('[MCP Supa_SystemUI Error]', error);
+    this.server.onerror = (error) => console.error('[MCP SystemUI_AuthDB Error]', error);
     process.on('SIGINT', async () => {
       await this.server.close();
       process.exit(0);
@@ -266,11 +270,23 @@ class SupaSystemUIServer {
             required: ['table'],
           },
         },
+        {
+          name: 'debug_connection',
+          description: 'Muestra información de diagnóstico sobre la conexión actual del MCP',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
       ],
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
+
+      // Log para debugging: ver qué herramienta se está llamando y desde qué servidor
+      console.error(`[SystemUI_AuthDB] Tool called: ${name}, Server: SystemUI_AuthDB, URL: ${SUPABASE_URL}`);
 
       try {
         switch (name) {
@@ -294,6 +310,8 @@ class SupaSystemUIServer {
             return await this.execSqlTransaction(args);
           case 'get_table_info':
             return await this.getTableInfo(args);
+          case 'debug_connection':
+            return await this.debugConnection();
           default:
             throw new McpError(
               ErrorCode.MethodNotFound,
@@ -312,6 +330,24 @@ class SupaSystemUIServer {
   setupResourceHandlers() {
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
       resources: [
+        {
+          uri: 'supabase://auth_users',
+          mimeType: 'application/json',
+          name: 'Auth Users',
+          description: 'Usuarios del sistema de autenticación',
+        },
+        {
+          uri: 'supabase://coordinaciones',
+          mimeType: 'application/json',
+          name: 'Coordinaciones',
+          description: 'Coordinaciones del sistema',
+        },
+        {
+          uri: 'supabase://auth_roles',
+          mimeType: 'application/json',
+          name: 'Auth Roles',
+          description: 'Roles de autenticación',
+        },
         {
           uri: 'supabase://admin_messages',
           mimeType: 'application/json',
@@ -375,6 +411,16 @@ class SupaSystemUIServer {
 
   async queryTable(args) {
     const { table, select = '*', filter = {}, limit = 50, order } = args;
+    
+    // Validación crítica: verificar que estamos usando la conexión correcta
+    const currentProjectRef = SUPABASE_URL?.match(/https:\/\/([^.]+)/)?.[1] || 'unknown';
+    const expectedProjectRef = 'zbylezfyagwrxoecioup';
+    if (currentProjectRef !== expectedProjectRef) {
+      console.error(`[SystemUI_AuthDB] ERROR: Wrong database! Current: ${currentProjectRef}, Expected: ${expectedProjectRef}`);
+      throw new Error(`Database mismatch: Expected ${expectedProjectRef} but connected to ${currentProjectRef}`);
+    }
+    
+    console.error(`[SystemUI_AuthDB] queryTable called for table: ${table}, Project: ${currentProjectRef}`);
     
     let query = supabase.from(table).select(select);
     
@@ -852,12 +898,40 @@ class SupaSystemUIServer {
     }
   }
 
+  async debugConnection() {
+    const projectRef = SUPABASE_URL?.match(/https:\/\/([^.]+)/)?.[1] || 'unknown';
+    const serverName = process.env.MCP_SERVER_NAME || 'UNKNOWN';
+    const serverFile = import.meta.url || __filename || 'unknown';
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            status: 'debug_info',
+            mcp_server: 'SystemUI_AuthDB',
+            env_server_name: serverName,
+            server_file: serverFile,
+            supabase_url: SUPABASE_URL,
+            project_ref: projectRef,
+            expected_project: 'zbylezfyagwrxoecioup',
+            connection_correct: projectRef === 'zbylezfyagwrxoecioup',
+            service_key_prefix: SUPABASE_SERVICE_ROLE_KEY?.substring(0, 50) + '...',
+            timestamp: new Date().toISOString(),
+          }, null, 2),
+        },
+      ],
+    };
+  }
+
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('Supa_SystemUI MCP server running on stdio');
+    console.error('[SystemUI_AuthDB] MCP server running on stdio');
+    console.error(`[SystemUI_AuthDB] Server name: SystemUI_AuthDB`);
+    console.error(`[SystemUI_AuthDB] Connected to: ${SUPABASE_URL}`);
   }
 }
 
-const server = new SupaSystemUIServer();
+const server = new SystemUIAuthDBServer();
 server.run().catch(console.error);

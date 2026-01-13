@@ -1340,20 +1340,28 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
                   </motion.div>
                 )}
                 
-                {/* Botón de Monitoreo de Audio - Solo para llamadas activas con monitor_url */}
-                {currentCall.call_status === 'activa' && currentCall.monitor_url && (
+                {/* Botón de Monitoreo de Audio - Siempre visible para llamadas activas */}
+                {currentCall.call_status === 'activa' && (
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={toggleAudioMonitoring}
+                    whileHover={{ scale: currentCall.monitor_url ? 1.02 : 1 }}
+                    whileTap={{ scale: currentCall.monitor_url ? 0.98 : 1 }}
+                    onClick={currentCall.monitor_url ? toggleAudioMonitoring : undefined}
+                    disabled={!currentCall.monitor_url}
                     className={`px-4 py-2 text-sm font-medium rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 ${
-                      isListening
+                      !currentCall.monitor_url
+                        ? 'text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-70'
+                        : isListening
                         ? 'text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-500/25'
                         : 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
                     }`}
-                    title={isListening ? 'Detener escucha' : 'Escuchar llamada en tiempo real'}
+                    title={!currentCall.monitor_url ? 'Esperando URL de monitoreo...' : isListening ? 'Detener escucha' : 'Escuchar llamada en tiempo real'}
                   >
-                    {isListening ? (
+                    {!currentCall.monitor_url ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Obteniendo URL...
+                      </>
+                    ) : isListening ? (
                       <>
                         <Headphones className={`w-4 h-4 ${isAudioPlaying ? 'animate-pulse' : ''}`} />
                         Escuchando...

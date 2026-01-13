@@ -46,8 +46,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
 }
 
 // Log connection info for debugging
-console.error(`[Supa_PQNC_AI] Connecting to: ${SUPABASE_URL}`);
-console.error(`[Supa_PQNC_AI] Project ref from URL: ${SUPABASE_URL.match(/https:\/\/([^.]+)/)?.[1] || 'unknown'}`);
+console.error(`[PQNC_AI_Database] Connecting to: ${SUPABASE_URL}`);
+console.error(`[PQNC_AI_Database] Project ref from URL: ${SUPABASE_URL.match(/https:\/\/([^.]+)/)?.[1] || 'unknown'}`);
 
 // Initialize Supabase client with service role for full access
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -56,7 +56,7 @@ class SupaPQNCAIServer {
   constructor() {
     this.server = new Server(
       {
-        name: 'Supa_PQNC_AI',
+        name: 'PQNC_AI_Database',
         version: '2.0.0',
       },
       {
@@ -71,7 +71,7 @@ class SupaPQNCAIServer {
     this.setupResourceHandlers();
     
     // Error handling
-    this.server.onerror = (error) => console.error('[MCP Supa_PQNC_AI Error]', error);
+    this.server.onerror = (error) => console.error('[MCP PQNC_AI_Database Error]', error);
     process.on('SIGINT', async () => {
       await this.server.close();
       process.exit(0);
@@ -82,7 +82,7 @@ class SupaPQNCAIServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
         {
-          name: 'query_table',
+          name: 'pqnc_query_table',
           description: 'Consulta una tabla de Supabase con filtros opcionales. Soporta eq, neq, gt, lt, gte, lte, like, ilike.',
           inputSchema: {
             type: 'object',
@@ -115,7 +115,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'execute_rpc',
+          name: 'pqnc_execute_rpc',
           description: 'Ejecuta una función RPC de Supabase',
           inputSchema: {
             type: 'object',
@@ -134,7 +134,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'execute_sql',
+          name: 'pqnc_execute_sql',
           description: 'Ejecuta SQL arbitrario en Supabase (CREATE TABLE, CREATE FUNCTION, INSERT, UPDATE, DELETE, SELECT, etc.)',
           inputSchema: {
             type: 'object',
@@ -152,7 +152,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'insert_data',
+          name: 'pqnc_insert_data',
           description: 'Inserta datos en una tabla específica',
           inputSchema: {
             type: 'object',
@@ -171,7 +171,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'update_data',
+          name: 'pqnc_update_data',
           description: 'Actualiza datos en una tabla específica',
           inputSchema: {
             type: 'object',
@@ -195,7 +195,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'delete_data',
+          name: 'pqnc_delete_data',
           description: 'Elimina datos de una tabla específica. ⚠️ OPERACIÓN DESTRUCTIVA',
           inputSchema: {
             type: 'object',
@@ -214,7 +214,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'get_database_schema',
+          name: 'pqnc_get_database_schema',
           description: 'Obtiene el esquema completo de la base de datos con tablas, columnas y funciones',
           inputSchema: {
             type: 'object',
@@ -223,7 +223,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'backup_table',
+          name: 'pqnc_backup_table',
           description: 'Hace backup completo de una tabla en formato JSON',
           inputSchema: {
             type: 'object',
@@ -237,7 +237,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'exec_sql_transaction',
+          name: 'pqnc_exec_sql_transaction',
           description: 'Ejecuta múltiples queries SQL en una sola transacción (COMMIT o ROLLBACK automático)',
           inputSchema: {
             type: 'object',
@@ -256,7 +256,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'get_table_info',
+          name: 'pqnc_get_table_info',
           description: 'Obtiene información detallada de una tabla específica (columnas, tipos, constraints)',
           inputSchema: {
             type: 'object',
@@ -270,7 +270,7 @@ class SupaPQNCAIServer {
           },
         },
         {
-          name: 'debug_connection',
+          name: 'pqnc_debug_connection',
           description: 'Muestra información de diagnóstico sobre la conexión actual del MCP',
           inputSchema: {
             type: 'object',
@@ -285,31 +285,31 @@ class SupaPQNCAIServer {
       const { name, arguments: args } = request.params;
 
       // Log para debugging: ver qué herramienta se está llamando y desde qué servidor
-      console.error(`[Supa_PQNC_AI] Tool called: ${name}, Server: Supa_PQNC_AI, URL: ${SUPABASE_URL}`);
+      console.error(`[PQNC_AI_Database] Tool called: ${name}, Server: PQNC_AI_Database, URL: ${SUPABASE_URL}`);
 
       try {
         switch (name) {
-          case 'query_table':
+          case 'pqnc_query_table':
             return await this.queryTable(args);
-          case 'execute_rpc':
+          case 'pqnc_execute_rpc':
             return await this.executeRpc(args);
-          case 'execute_sql':
+          case 'pqnc_execute_sql':
             return await this.executeSql(args);
-          case 'insert_data':
+          case 'pqnc_insert_data':
             return await this.insertData(args);
-          case 'update_data':
+          case 'pqnc_update_data':
             return await this.updateData(args);
-          case 'delete_data':
+          case 'pqnc_delete_data':
             return await this.deleteData(args);
-          case 'get_database_schema':
+          case 'pqnc_get_database_schema':
             return await this.getDatabaseSchema(args);
-          case 'backup_table':
+          case 'pqnc_backup_table':
             return await this.backupTable(args);
-          case 'exec_sql_transaction':
+          case 'pqnc_exec_sql_transaction':
             return await this.execSqlTransaction(args);
-          case 'get_table_info':
+          case 'pqnc_get_table_info':
             return await this.getTableInfo(args);
-          case 'debug_connection':
+          case 'pqnc_debug_connection':
             return await this.debugConnection();
           default:
             throw new McpError(
@@ -411,11 +411,11 @@ class SupaPQNCAIServer {
     const currentProjectRef = SUPABASE_URL?.match(/https:\/\/([^.]+)/)?.[1] || 'unknown';
     const expectedProjectRef = 'glsmifhkoaifvaegsozd';
     if (currentProjectRef !== expectedProjectRef) {
-      console.error(`[Supa_PQNC_AI] ERROR: Wrong database! Current: ${currentProjectRef}, Expected: ${expectedProjectRef}`);
+      console.error(`[PQNC_AI_Database] ERROR: Wrong database! Current: ${currentProjectRef}, Expected: ${expectedProjectRef}`);
       throw new Error(`Database mismatch: Expected ${expectedProjectRef} but connected to ${currentProjectRef}`);
     }
     
-    console.error(`[Supa_PQNC_AI] queryTable called for table: ${table}, Project: ${currentProjectRef}`);
+    console.error(`[PQNC_AI_Database] queryTable called for table: ${table}, Project: ${currentProjectRef}`);
     
     let query = supabase.from(table).select(select);
     
@@ -926,7 +926,7 @@ class SupaPQNCAIServer {
           type: 'text',
           text: JSON.stringify({
             status: 'debug_info',
-            mcp_server: 'Supa_PQNC_AI',
+            mcp_server: 'PQNC_AI_Database',
             env_server_name: serverName,
             server_file: serverFile,
             supabase_url: SUPABASE_URL,
@@ -944,9 +944,9 @@ class SupaPQNCAIServer {
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('[Supa_PQNC_AI] MCP server running on stdio');
-    console.error(`[Supa_PQNC_AI] Server name: Supa_PQNC_AI`);
-    console.error(`[Supa_PQNC_AI] Connected to: ${SUPABASE_URL}`);
+    console.error('[PQNC_AI_Database] MCP server running on stdio');
+    console.error(`[PQNC_AI_Database] Server name: PQNC_AI_Database`);
+    console.error(`[PQNC_AI_Database] Connected to: ${SUPABASE_URL}`);
   }
 }
 

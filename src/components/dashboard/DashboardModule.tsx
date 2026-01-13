@@ -629,15 +629,19 @@ interface FunnelCoordData {
 // CONSTANTES
 // ============================================
 
-const COORDINACIONES_CALIDAD = ['CALIDAD', 'VEN', 'I360', 'COBACA', 'MVP'];
-
-// Colores para coordinaciones en el funnel
-const COORD_COLORS: Record<string, string> = {
-  'CALIDAD': '#3B82F6',
-  'VEN': '#F59E0B',
-  'I360': '#10B981',
-  'COBACA': '#8B5CF6',
-  'MVP': '#EC4899'
+// Función helper para obtener colores de coordinaciones dinámicamente
+// Usa el código de la coordinación para mantener consistencia visual
+const getCoordColor = (codigo: string | null | undefined): string => {
+  if (!codigo) return '#6B7280';
+  const colorMap: Record<string, string> = {
+    'CALIDAD': '#3B82F6',
+    'VEN': '#F59E0B',
+    'I360': '#10B981',
+    'APEX': '#10B981', // I360 renombrado a APEX
+    'COBACA': '#8B5CF6',
+    'MVP': '#EC4899'
+  };
+  return colorMap[codigo.toUpperCase()] || '#6B7280';
 };
 
 const TIME_PERIODS: { value: TimePeriod; label: string }[] = [
@@ -927,17 +931,25 @@ const FilterSelector: React.FC<FilterSelectorProps> = ({
     };
   }, [showCoordDropdown]);
   
+  // Obtener coordinaciones operativas (excluyendo CALIDAD) dinámicamente
+  // Esto permite que los cambios de nombre/código se reflejen automáticamente
   const coordsCalidad = useMemo(() => 
-    coordinaciones.filter(c => COORDINACIONES_CALIDAD.includes(c.codigo?.toUpperCase())),
+    coordinaciones.filter(c => {
+      const codigo = c.codigo?.toUpperCase() || '';
+      // Incluir todas las coordinaciones operativas excepto CALIDAD
+      return codigo !== 'CALIDAD' && c.is_operativo !== false && !c.archivado;
+    }),
     [coordinaciones]
   );
 
   const selectedCoordNames = useMemo(() => {
     if (filters.coordinaciones === 'global') return 'Global (Todas)';
     if (Array.isArray(filters.coordinaciones)) {
-      const names = filters.coordinaciones.map(id => 
-        coordinaciones.find(c => c.id === id)?.codigo || id
-      );
+      // Usar nombre primero, luego código como fallback, luego ID
+      const names = filters.coordinaciones.map(id => {
+        const coord = coordinaciones.find(c => c.id === id);
+        return coord?.nombre || coord?.codigo || id;
+      });
       if (names.length === 1) return names[0];
       if (names.length === coordsCalidad.length) return 'Comparativa (Todas)';
       return `Comparativa (${names.length})`;
@@ -1679,7 +1691,7 @@ const FunnelContent: React.FC<{
         textinfo: 'value+percent previous' as const,
         textfont: { size: isExpandedView ? 13 : 11, color: 'white' }, // Texto más grande
         marker: { 
-          color: coord.color || COORD_COLORS[coord.coordinacionNombre.toUpperCase()] || '#6B7280',
+          color: coord.color || getCoordColor(coord.coordinacionNombre) || '#6B7280',
           line: { width: 1, color: 'rgba(255,255,255,0.3)' },
           cornerradius: 6 // Esquinas redondeadas
         } as any,
@@ -2483,8 +2495,17 @@ const DashboardModule: React.FC = () => {
   // Clave para localStorage
   const STORAGE_KEY = 'pqnc_dashboard_filters';
   
-  // Coordinaciones por defecto (códigos)
-  const DEFAULT_COORD_CODES = ['VEN', 'I360', 'COBACA', 'MVP'];
+  // Función para obtener IDs de coordinaciones operativas por defecto
+  // Se calcula dinámicamente cuando se cargan las coordinaciones
+  const getDefaultCoordinacionIds = (coords: Coordinacion[]): string[] => {
+    // Obtener coordinaciones operativas (excluyendo CALIDAD) y retornar sus IDs
+    return coords
+      .filter(c => {
+        const codigo = c.codigo?.toUpperCase() || '';
+        return codigo !== 'CALIDAD' && c.is_operativo !== false && !c.archivado;
+      })
+      .map(c => c.id);
+  };
   
   // Cargar filtros desde localStorage o usar valores por defecto
   const getInitialFilters = (): DashboardFilters => {
@@ -2617,10 +2638,8 @@ const DashboardModule: React.FC = () => {
         
         // Aplicar coordinaciones por defecto si es la primera vez
         if (filters.coordinaciones === 'pending_default' && !defaultsApplied) {
-          // Buscar IDs de las coordinaciones por defecto
-          const defaultCoordIds = data
-            .filter(c => DEFAULT_COORD_CODES.includes(c.codigo?.toUpperCase() || ''))
-            .map(c => c.id);
+          // Obtener IDs de coordinaciones operativas dinámicamente
+          const defaultCoordIds = getDefaultCoordinacionIds(data);
           
           if (defaultCoordIds.length > 0) {
             setFilters(prev => ({
@@ -2723,8 +2742,8 @@ const DashboardModule: React.FC = () => {
           const counts = coordStatusCounts[coordId] || { noContestadas: 0, atendidas: 0, transferidas: 0, total: 0 };
           return {
             coordId,
-            coordName: coord?.codigo || coord?.nombre || 'N/A',
-            coordColor: COORD_COLORS[(coord?.codigo || '').toUpperCase()] || '#6B7280',
+            coordName: coord?.nombre || coord?.codigo || 'N/A',
+            coordColor: getCoordColor(coord?.codigo),
             ...counts
           };
         }).filter(c => c.total > 0);
@@ -3175,7 +3194,7 @@ const DashboardModule: React.FC = () => {
             coordName: coord?.nombre || 'Desconocida',
             coordCode: coord?.codigo || 'N/A',
             count,
-            color: COORD_COLORS[coord?.codigo?.toUpperCase() || ''] || '#6B7280'
+            color: getCoordColor(coord?.codigo)
           };
         })
         .filter(a => !EXCLUDED_COORDS.includes(a.coordCode.toUpperCase())) // Filtrar excluidas
@@ -3218,8 +3237,8 @@ const DashboardModule: React.FC = () => {
 
           coordDataMap[coordId] = {
             coordinacionId: coordId,
-            coordinacionNombre: coord.codigo || coord.nombre,
-            color: COORD_COLORS[coord.codigo?.toUpperCase()] || '#6B7280',
+            coordinacionNombre: coord.nombre || coord.codigo || 'N/A',
+            color: getCoordColor(coord.codigo),
             stages: coordStages
           };
         }

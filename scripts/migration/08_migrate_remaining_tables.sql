@@ -1,0 +1,78 @@
+-- Script para migrar las tablas restantes de system_ui a pqnc_ai
+-- Este script debe ejecutarse DESPUÉS de crear las tablas faltantes en pqnc_ai
+-- Fecha: 2025-01-13
+
+-- ============================================
+-- NOTA IMPORTANTE
+-- ============================================
+-- Este script asume que las tablas ya existen en pqnc_ai
+-- Si no existen, primero ejecutar scripts de creación de tablas
+-- Los datos se migran usando INSERT ... ON CONFLICT DO NOTHING
+-- para evitar duplicados
+
+-- ============================================
+-- TABLAS DE AUTENTICACIÓN Y USUARIOS
+-- ============================================
+
+-- auth_roles (debe migrarse primero por foreign keys)
+-- INSERT INTO auth_roles (id, name, display_name, description, permissions, is_active, created_at)
+-- SELECT id, name, display_name, description, permissions, is_active, created_at
+-- FROM backup_migration_20250113.auth_roles
+-- ON CONFLICT (id) DO UPDATE SET
+--     name = EXCLUDED.name,
+--     display_name = EXCLUDED.display_name,
+--     description = EXCLUDED.description,
+--     permissions = EXCLUDED.permissions,
+--     is_active = EXCLUDED.is_active;
+
+-- auth_users
+-- INSERT INTO auth_users (
+--     id, email, password_hash, full_name, first_name, last_name, phone,
+--     role_id, coordinacion_id, is_active, email_verified, last_login,
+--     created_at, updated_at, is_coordinator, is_ejecutivo,
+--     failed_login_attempts, locked_until, id_colaborador, id_dynamics,
+--     must_change_password, archivado, is_operativo, backup_id,
+--     telefono_original, has_backup
+-- )
+-- SELECT 
+--     id, email, password_hash, full_name, first_name, last_name, phone,
+--     role_id, coordinacion_id, is_active, email_verified, last_login,
+--     created_at, updated_at, is_coordinator, is_ejecutivo,
+--     failed_login_attempts, locked_until, id_colaborador, id_dynamics,
+--     must_change_password, archivado, is_operativo, backup_id,
+--     telefono_original, has_backup
+-- FROM backup_migration_20250113.auth_users
+-- ON CONFLICT (id) DO UPDATE SET
+--     email = EXCLUDED.email,
+--     password_hash = EXCLUDED.password_hash,
+--     full_name = EXCLUDED.full_name,
+--     first_name = EXCLUDED.first_name,
+--     last_name = EXCLUDED.last_name,
+--     phone = EXCLUDED.phone,
+--     role_id = EXCLUDED.role_id,
+--     coordinacion_id = EXCLUDED.coordinacion_id,
+--     is_active = EXCLUDED.is_active,
+--     email_verified = EXCLUDED.email_verified,
+--     last_login = EXCLUDED.last_login,
+--     updated_at = EXCLUDED.updated_at,
+--     is_coordinator = EXCLUDED.is_coordinator,
+--     is_ejecutivo = EXCLUDED.is_ejecutivo,
+--     failed_login_attempts = EXCLUDED.failed_login_attempts,
+--     locked_until = EXCLUDED.locked_until,
+--     id_colaborador = EXCLUDED.id_colaborador,
+--     id_dynamics = EXCLUDED.id_dynamics,
+--     must_change_password = EXCLUDED.must_change_password,
+--     archivado = EXCLUDED.archivado,
+--     is_operativo = EXCLUDED.is_operativo,
+--     backup_id = EXCLUDED.backup_id,
+--     telefono_original = EXCLUDED.telefono_original,
+--     has_backup = EXCLUDED.has_backup;
+
+-- ============================================
+-- VERIFICACIÓN POST-MIGRACIÓN
+-- ============================================
+
+-- Contar registros migrados por tabla
+-- SELECT 'auth_roles' as tabla, COUNT(*) as total FROM auth_roles
+-- UNION ALL
+-- SELECT 'auth_users' as tabla, COUNT(*) as total FROM auth_users;

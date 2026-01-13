@@ -5182,13 +5182,14 @@ const LiveMonitorKanban: React.FC = () => {
                             </div>
                           ) : (
                           <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
+                            whileHover={{ scale: 1 }}
+                            whileTap={{ scale: 1 }}
                             disabled
-                            className="w-full bg-gray-400 text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center opacity-50 cursor-not-allowed"
+                            className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center opacity-70 cursor-not-allowed"
+                            title="Esperando URL de monitoreo..."
                           >
-                            <Volume2 className="w-4 h-4 mr-2" />
-                              Audio no disponible
+                            <Clock className="w-4 h-4 mr-2 animate-pulse" />
+                            Obteniendo URL...
                           </motion.button>
                           )}
 

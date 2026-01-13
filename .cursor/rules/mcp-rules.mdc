@@ -9,7 +9,7 @@ alwaysApply: true
 | MCP | Proyecto | URL | Uso |
 |-----|----|----|-----|
 | `Supa_PQNC_AI` | pqnc_ai | `glsmifhkoaifvaegsozd.supabase.co` | Llamadas, prospectos, Live Monitor, WhatsApp |
-| `Supa_SystemUI` | system_ui | `zbylezfyagwrxoecioup.supabase.co` | Usuarios, auth, permisos, config |
+| `SystemUI_AuthDB` | system_ui | `zbylezfyagwrxoecioup.supabase.co` | Usuarios, auth, permisos, config |
 
 ## ⛔ MCPs PROHIBIDOS
 
@@ -38,38 +38,64 @@ alwaysApply: true
 | Prospectos | `Supa_PQNC_AI` |
 | Conversaciones WhatsApp | `Supa_PQNC_AI` |
 | Métricas de ventas | `Supa_PQNC_AI` |
-| Usuarios del sistema | `Supa_SystemUI` |
-| Sesiones y auth | `Supa_SystemUI` |
-| Permisos y roles | `Supa_SystemUI` |
-| Mensajes admin | `Supa_SystemUI` |
-| Bot pause status | `Supa_SystemUI` |
-| Configuración sistema | `Supa_SystemUI` |
+| Usuarios del sistema | `SystemUI_AuthDB` |
+| Sesiones y auth | `SystemUI_AuthDB` |
+| Permisos y roles | `SystemUI_AuthDB` |
+| Mensajes admin | `SystemUI_AuthDB` |
+| Bot pause status | `SystemUI_AuthDB` |
+| Configuración sistema | `SystemUI_AuthDB` |
+| Coordinaciones | `SystemUI_AuthDB` |
+| Auth users | `SystemUI_AuthDB` |
 
 ### 4. Nomenclatura de Herramientas
 
-```
-mcp_Supa_PQNC_AI_query_table      # Consultar tabla en PQNC AI
-mcp_Supa_PQNC_AI_insert_data      # Insertar en PQNC AI
-mcp_Supa_PQNC_AI_update_data      # Actualizar en PQNC AI
-mcp_Supa_PQNC_AI_delete_data      # Eliminar en PQNC AI (⚠️)
-mcp_Supa_PQNC_AI_execute_sql      # SQL en PQNC AI
-mcp_Supa_PQNC_AI_get_database_schema  # Esquema de PQNC AI
+**⚠️ IMPORTANTE: Prefijos únicos para evitar conflictos**
 
-mcp_Supa_SystemUI_query_table     # Consultar tabla en SystemUI
-mcp_Supa_SystemUI_insert_data     # Insertar en SystemUI
-mcp_Supa_SystemUI_update_data     # Actualizar en SystemUI
-mcp_Supa_SystemUI_delete_data     # Eliminar en SystemUI (⚠️)
-mcp_Supa_SystemUI_execute_sql     # SQL en SystemUI
-mcp_Supa_SystemUI_get_database_schema  # Esquema de SystemUI
+Las herramientas de `Supa_PQNC_AI` usan el prefijo `pqnc_` para evitar conflictos de enrutamiento en Cursor. Las herramientas de `SystemUI_AuthDB` mantienen nombres sin prefijo.
+
+#### Herramientas de Supa_PQNC_AI (con prefijo `pqnc_`)
+
 ```
+mcp_Supa_PQNC_AI_pqnc_query_table           # Consultar tabla en PQNC AI
+mcp_Supa_PQNC_AI_pqnc_insert_data          # Insertar en PQNC AI
+mcp_Supa_PQNC_AI_pqnc_update_data          # Actualizar en PQNC AI
+mcp_Supa_PQNC_AI_pqnc_delete_data          # Eliminar en PQNC AI (⚠️)
+mcp_Supa_PQNC_AI_pqnc_execute_sql          # SQL en PQNC AI
+mcp_Supa_PQNC_AI_pqnc_get_database_schema  # Esquema de PQNC AI
+mcp_Supa_PQNC_AI_pqnc_execute_rpc         # Ejecutar RPC en PQNC AI
+mcp_Supa_PQNC_AI_pqnc_backup_table         # Backup de tabla en PQNC AI
+mcp_Supa_PQNC_AI_pqnc_get_table_info       # Info de tabla en PQNC AI
+mcp_Supa_PQNC_AI_pqnc_exec_sql_transaction # Transacción SQL en PQNC AI
+mcp_Supa_PQNC_AI_pqnc_debug_connection     # Debug conexión PQNC AI
+```
+
+#### Herramientas de SystemUI_AuthDB (sin prefijo)
+
+```
+mcp_SystemUI_AuthDB_query_table            # Consultar tabla en SystemUI
+mcp_SystemUI_AuthDB_insert_data            # Insertar en SystemUI
+mcp_SystemUI_AuthDB_update_data            # Actualizar en SystemUI
+mcp_SystemUI_AuthDB_delete_data            # Eliminar en SystemUI (⚠️)
+mcp_SystemUI_AuthDB_execute_sql            # SQL en SystemUI
+mcp_SystemUI_AuthDB_get_database_schema    # Esquema de SystemUI
+mcp_SystemUI_AuthDB_execute_rpc            # Ejecutar RPC en SystemUI
+mcp_SystemUI_AuthDB_backup_table           # Backup de tabla en SystemUI
+mcp_SystemUI_AuthDB_get_table_info         # Info de tabla en SystemUI
+mcp_SystemUI_AuthDB_exec_sql_transaction  # Transacción SQL en SystemUI
+mcp_SystemUI_AuthDB_debug_connection       # Debug conexión SystemUI
+```
+
+**Nota:** El prefijo `pqnc_` fue implementado para resolver conflictos de enrutamiento cuando ambos MCPs tienen herramientas con los mismos nombres. Esto garantiza que Cursor pueda distinguir correctamente entre los servidores.
 
 ### 5. Flujo de Trabajo Recomendado
 
-1. **Consultar primero**: Usar `query_table` o `execute_sql` SELECT antes de modificar
-2. **Backup si es destructivo**: Usar `backup_table` antes de DELETE/UPDATE masivo
-3. **Ejecutar cambio**: Realizar la operación
-4. **Documentar**: Registrar en `MCP_CHANGELOG.local.md`
-5. **Verificar**: Consultar de nuevo para confirmar el resultado
+1. **Identificar MCP correcto**: Usar `Supa_PQNC_AI` para datos de PQNC, `SystemUI_AuthDB` para usuarios/auth
+2. **Usar nombres correctos**: Recordar que `Supa_PQNC_AI` requiere prefijo `pqnc_` en todas las herramientas
+3. **Consultar primero**: Usar `pqnc_query_table` o `query_table` (según MCP) o `execute_sql` SELECT antes de modificar
+4. **Backup si es destructivo**: Usar `pqnc_backup_table` o `backup_table` antes de DELETE/UPDATE masivo
+5. **Ejecutar cambio**: Realizar la operación con el nombre correcto de herramienta
+6. **Documentar**: Registrar en `MCP_CHANGELOG.local.md`
+7. **Verificar**: Consultar de nuevo para confirmar el resultado
 
 ### 6. Requisitos de Setup
 
@@ -85,8 +111,8 @@ Para acceso completo (DDL/DML), ejecutar en cada proyecto Supabase:
 | Archivo | Descripción | En Git |
 |---|----|----|
 | `~/.cursor/mcp.json` | Configuración global de MCPs | No |
-| `mcp-supa-pqnc-ai-server.ts` | Servidor MCP PQNC AI | Sí |
-| `mcp-supa-system-ui-server.ts` | Servidor MCP SystemUI | Sí |
+| `mcp-pqnc-ai-server.ts` | Servidor MCP PQNC AI | Sí |
+| `mcp-systemui-server.ts` | Servidor MCP SystemUI | Sí |
 | `enable_full_access_mcp.sql` | Script de habilitación | Sí |
 | `MCP_CHANGELOG.local.md` | Log local de cambios | **No** |
 | `docs/MCP_CATALOG.md` | Documentación completa | Sí |
@@ -97,3 +123,30 @@ Para acceso completo (DDL/DML), ejecutar en cada proyecto Supabase:
 2. **Sin rollback automático**: Los cambios son permanentes
 3. **Credenciales en mcp.json**: NUNCA compartir ~/.cursor/mcp.json
 4. **Service Role Key**: Los MCPs usan service_role (acceso total)
+5. **Nombres de herramientas**: SIEMPRE usar prefijo `pqnc_` para herramientas de `Supa_PQNC_AI`. NO usar nombres sin prefijo para este MCP.
+
+## 🔧 Ejemplos de Uso
+
+### Consultar tabla en PQNC AI
+```typescript
+// ✅ CORRECTO
+mcp_Supa_PQNC_AI_pqnc_query_table({ table: 'prospectos', limit: 10 })
+
+// ❌ INCORRECTO (no funcionará)
+mcp_Supa_PQNC_AI_query_table({ table: 'prospectos', limit: 10 })
+```
+
+### Consultar tabla en SystemUI
+```typescript
+// ✅ CORRECTO
+mcp_SystemUI_AuthDB_query_table({ table: 'auth_users', limit: 10 })
+```
+
+### Debug de conexión
+```typescript
+// PQNC AI
+mcp_Supa_PQNC_AI_pqnc_debug_connection()
+
+// SystemUI
+mcp_SystemUI_AuthDB_debug_connection()
+```
