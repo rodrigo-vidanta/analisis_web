@@ -279,6 +279,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '5a5b882', date: '2026-01-14', author: 'Team', message: 'v2.2.1: B8.0.1N2.2.0 - Edge Functions migradas a PQNC_AI + correcciones post-migración', isRelease: true },
   { hash: 'l6c9105', date: '2026-01-12', author: 'Team', message: 'v2.2.48: 💬 Modal Vista Previa Conversación Dashboard - Imágenes en grilla, URLs firmadas', isRelease: true },
   { hash: 'l6c9105', date: '2026-01-13', author: 'Team', message: 'v2.2.49: 🔔 Sistema Notificaciones Completo - Triggers DB, 3 tipos, documentación, botón limpiar', isRelease: true },
   { hash: 'k5b8004', date: '2026-01-12', author: 'Team', message: 'v2.2.44: 🔧 Fix navegación WhatsApp - Búsqueda directa en conversaciones_whatsapp, maybeSingle', isRelease: true },
@@ -469,10 +470,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.49', highlight: true },
-  { label: 'Release', value: 'B7.2.49N7.2.39', highlight: false },
+  { label: 'Version', value: 'v2.2.1', highlight: true },
+  { label: 'Release', value: 'B8.0.1N2.2.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '13 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '14 Ene 2026', highlight: false },
 ];
 
 // ============================================
