@@ -6,9 +6,15 @@
  * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
  *
  * 1. Este servicio gestiona coordinaciones y asignaciones de prospectos
- * 2. Todas las operaciones se realizan en System_UI (zbylezfyagwrxoecioup.supabase.co)
- * 3. Las asignaciones se sincronizan con la base de análisis cuando es necesario
- * 4. Cualquier cambio debe documentarse en docs/ROLES_PERMISOS_README.md
+ * 2. Todas las operaciones se realizan en PQNC_AI (glsmifhkoaifvaegsozd.supabase.co)
+ *    - MIGRADO desde System_UI el 2025-01-13
+ *    - supabaseSystemUI ahora apunta a PQNC_AI
+ * 3. Cualquier cambio debe documentarse en docs/ROLES_PERMISOS_README.md
+ *
+ * ⚠️ TABLAS DE COORDINACIONES DE USUARIOS (2026-01-14):
+ * - ✅ USAR: auth_user_coordinaciones (única fuente de verdad)
+ * - ❌ NO USAR: coordinador_coordinaciones (VIEW eliminada)
+ * - ❌ NO USAR: coordinador_coordinaciones_legacy (solo backup histórico)
  */
 
 import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
@@ -705,7 +711,10 @@ class CoordinacionService {
   /**
    * Obtiene todos los supervisores de una coordinación específica
    * IMPORTANTE: Solo obtiene supervisores que están asignados a esta coordinación específica
-   * a través de la tabla coordinador_coordinaciones (misma tabla que coordinadores)
+   * a través de la tabla auth_user_coordinaciones (única fuente de verdad)
+   * 
+   * ⚠️ MIGRACIÓN 2026-01-14: VIEW coordinador_coordinaciones ELIMINADA
+   * Usar SIEMPRE auth_user_coordinaciones
    */
   async getSupervisoresByCoordinacion(coordinacionId: string): Promise<Ejecutivo[]> {
     try {
@@ -832,7 +841,10 @@ class CoordinacionService {
   /**
    * Obtiene todos los coordinadores de una coordinación específica
    * IMPORTANTE: Solo obtiene coordinadores que están asignados a esta coordinación específica
-   * a través de la tabla coordinador_coordinaciones
+   * a través de la tabla auth_user_coordinaciones (única fuente de verdad)
+   * 
+   * ⚠️ MIGRACIÓN 2026-01-14: VIEW coordinador_coordinaciones ELIMINADA
+   * Usar SIEMPRE auth_user_coordinaciones
    */
   async getCoordinadoresByCoordinacion(coordinacionId: string): Promise<Ejecutivo[]> {
     try {
@@ -871,7 +883,7 @@ class CoordinacionService {
       }
 
       // Obtener datos de los coordinadores (solo los que están en la lista)
-      // IMPORTANTE: Solo obtener coordinadores que están en coordinador_coordinaciones para esta coordinación específica
+      // IMPORTANTE: Solo obtener coordinadores que están en auth_user_coordinaciones para esta coordinación específica
       const { data: usersData, error: usersError } = await supabaseSystemUI
         .from('auth_users')
         .select(`

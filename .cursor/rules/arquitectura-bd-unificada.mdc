@@ -145,6 +145,50 @@ const { data } = await analysisSupabase
 
 ---
 
+## ⛔ Tablas/Views DEPRECADAS
+
+**Actualizado: 2026-01-14**
+
+### Tabla de Coordinaciones de Usuarios
+
+| Tabla/View | Estado | Usar en su lugar |
+|------------|--------|------------------|
+| `coordinador_coordinaciones` | ❌ **ELIMINADA** | `auth_user_coordinaciones` |
+| `coordinador_coordinaciones_legacy` | ⚠️ Solo backup histórico | `auth_user_coordinaciones` |
+
+### Uso Correcto
+
+```typescript
+// ✅ CORRECTO - Obtener coordinaciones de un usuario
+const { data } = await supabaseSystemUI
+  .from('auth_user_coordinaciones')
+  .select('coordinacion_id')
+  .eq('user_id', userId);
+
+// ✅ CORRECTO - Insertar relación usuario-coordinación
+await supabaseSystemUI
+  .from('auth_user_coordinaciones')
+  .insert({
+    user_id: userId,
+    coordinacion_id: coordId,
+    assigned_by: currentUserId
+  });
+
+// ❌ INCORRECTO - NUNCA usar tablas legacy
+.from('coordinador_coordinaciones')        // VIEW eliminada
+.from('coordinador_coordinaciones_legacy') // Solo backup
+```
+
+### Historial de Migración
+
+| Fecha | Acción |
+|-------|--------|
+| Dic 2025 | Creada `auth_user_coordinaciones` (nueva) |
+| 2025-12-29 | Migración de código completada |
+| 2026-01-14 | VIEW `coordinador_coordinaciones` eliminada |
+
+---
+
 ## Migración Histórica
 
 **Antes (hasta 12 Enero 2025):**

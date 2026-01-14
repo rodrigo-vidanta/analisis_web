@@ -843,24 +843,13 @@ export function useUserManagement(): UseUserManagementReturn {
       const newRole = roles.find(r => r.id === updates.role_id);
       
       // Función helper para limpiar todas las relaciones de coordinador
+      // FIX 2026-01-14: Solo usar auth_user_coordinaciones (tabla legacy eliminada del código)
       const cleanAllCoordinadorRelations = async (userId: string) => {
-        // Limpiar auth_user_coordinaciones (nueva tabla)
+        // Limpiar auth_user_coordinaciones (única fuente de verdad)
         await supabaseSystemUIAdmin
           .from('auth_user_coordinaciones')
           .delete()
           .eq('user_id', userId);
-        
-        // ⚠️ TRANSICIÓN: Limpiar tabla legacy también (durante migración)
-        // TODO: Eliminar después de validar que todo funciona
-        try {
-          await supabaseSystemUIAdmin
-            .from('coordinador_coordinaciones')
-            .delete()
-            .eq('coordinador_id', userId);
-        } catch (error) {
-          // No crítico - tabla legacy puede no existir en futuro
-          console.warn('Limpieza de tabla legacy (ignorar si no existe):', error);
-        }
       };
       
       if ((newRole?.name === 'coordinador' || newRole?.name === 'supervisor') && updates.coordinaciones_ids) {

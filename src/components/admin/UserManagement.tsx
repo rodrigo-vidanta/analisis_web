@@ -329,8 +329,8 @@ const UserManagement: React.FC = () => {
           // Cargar información de coordinaciones para cada usuario
           const usersWithCoordinaciones = await Promise.all(
             usersWithBlockStatus.map(async (user) => {
-              if (user.role_name === 'ejecutivo') {
-                // Para ejecutivos: cargar coordinacion_id desde auth_users
+              if (user.role_name === 'ejecutivo' || user.role_name === 'supervisor') {
+                // FIX 2026-01-14: Para ejecutivos y supervisores: cargar coordinacion_id desde auth_users
                 const { data: systemUser } = await supabaseSystemUIAdmin
                   .from('auth_users')
                   .select('coordinacion_id')
@@ -373,7 +373,8 @@ const UserManagement: React.FC = () => {
                 position: user.position || '',
               };
               
-              if (mappedUser.role_name === 'ejecutivo') {
+              if (mappedUser.role_name === 'ejecutivo' || mappedUser.role_name === 'supervisor') {
+                // FIX 2026-01-14: Incluir supervisores en la carga de coordinacion_id
                 return { ...mappedUser, coordinacion_id: user.coordinacion_id };
               } else if (mappedUser.role_name === 'coordinador') {
                 // Fallback: migrado a auth_user_coordinaciones (2025-12-29)
@@ -1142,17 +1143,8 @@ const UserManagement: React.FC = () => {
             .delete()
             .eq('user_id', selectedUser.id);
           
-          // ⚠️ TRANSICIÓN: Limpiar tabla legacy coordinador_coordinaciones también (durante migración)
-          // TODO: Eliminar después de validar que todo funciona solo con auth_user_coordinaciones
-          try {
-            await supabaseSystemUIAdmin
-              .from('coordinador_coordinaciones')
-              .delete()
-              .eq('coordinador_id', selectedUser.id);
-          } catch (legacyError) {
-            // No crítico - tabla legacy puede no existir en futuro
-            console.warn('Limpieza de tabla legacy coordinador_coordinaciones (ignorar si no existe):', legacyError);
-          }
+          // ⚠️ 2026-01-14: Tabla legacy coordinador_coordinaciones ELIMINADA del código
+          // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
           const { error: coordUpdateError } = await supabaseSystemUIAdmin
             .from('auth_users')
@@ -1178,17 +1170,8 @@ const UserManagement: React.FC = () => {
             .delete()
             .eq('user_id', selectedUser.id);
           
-          // ⚠️ TRANSICIÓN: Limpiar relaciones en tabla legacy también (durante migración)
-          // TODO: Eliminar después de validar
-          try {
-            await supabaseSystemUIAdmin
-              .from('coordinador_coordinaciones')
-              .delete()
-              .eq('coordinador_id', selectedUser.id);
-          } catch (legacyError) {
-            // No crítico - tabla legacy puede no existir en futuro
-            console.warn('Limpieza de tabla legacy (ignorar si no existe):', legacyError);
-          }
+          // ⚠️ 2026-01-14: Tabla legacy coordinador_coordinaciones ELIMINADA del código
+          // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
           const { error: coordClearError } = await supabaseSystemUIAdmin
             .from('auth_users')
@@ -1566,6 +1549,48 @@ const UserManagement: React.FC = () => {
       } catch (error) {
         console.error('Error cargando coordinaciones del coordinador:', error);
       }
+    } else if (user.role_name === 'supervisor') {
+      // ============================================
+      // FIX 2026-01-14: Manejar supervisores correctamente
+      // Los supervisores pueden tener:
+      // 1. coordinacion_id directo en auth_users
+      // 2. Relaciones en auth_user_coordinaciones (múltiples coordinaciones)
+      // ============================================
+      try {
+        // Primero cargar datos del usuario para obtener coordinacion_id directo
+        const { data: systemUser, error: systemError } = await supabaseSystemUIAdmin
+          .from('auth_users')
+          .select('coordinacion_id, id_dynamics')
+          .eq('id', user.id)
+          .single();
+        
+        if (!systemError && systemUser) {
+          // Si tiene coordinacion_id directo, usarlo
+          if (systemUser.coordinacion_id) {
+            coordinacionId = systemUser.coordinacion_id;
+          }
+          // Actualizar id_dynamics en el usuario seleccionado
+          if (systemUser.id_dynamics) {
+            setSelectedUser({ ...user, id_dynamics: systemUser.id_dynamics });
+          }
+        }
+        
+        // También cargar desde tabla intermedia (supervisores pueden tener múltiples coordinaciones)
+        const { data: relaciones, error: relacionesError } = await supabaseSystemUIAdmin
+          .from('auth_user_coordinaciones')
+          .select('coordinacion_id')
+          .eq('user_id', user.id);
+        
+        if (!relacionesError && relaciones && relaciones.length > 0) {
+          coordinacionesIds = relaciones.map(r => r.coordinacion_id);
+          // Si no tenía coordinacion_id directo pero sí en tabla intermedia, usar el primero
+          if (!coordinacionId && coordinacionesIds.length > 0) {
+            coordinacionId = coordinacionesIds[0];
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando coordinaciones del supervisor:', error);
+      }
     } else if (user.role_name === 'ejecutivo') {
       // Para ejecutivos: cargar desde campo coordinacion_id e id_dynamics
       try {
@@ -1584,6 +1609,27 @@ const UserManagement: React.FC = () => {
         }
       } catch (error) {
         console.error('Error cargando coordinación del ejecutivo:', error);
+      }
+    } else {
+      // ============================================
+      // FIX 2026-01-14: Para cualquier otro rol, cargar coordinacion_id si existe
+      // Esto cubre admin, admin_operativo, evaluator, etc.
+      // ============================================
+      try {
+        const { data: systemUser, error: systemError } = await supabaseSystemUIAdmin
+          .from('auth_users')
+          .select('coordinacion_id, id_dynamics')
+          .eq('id', user.id)
+          .single();
+        
+        if (!systemError && systemUser) {
+          coordinacionId = systemUser.coordinacion_id || '';
+          if (systemUser.id_dynamics) {
+            setSelectedUser({ ...user, id_dynamics: systemUser.id_dynamics });
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando datos del usuario:', error);
       }
     }
     
