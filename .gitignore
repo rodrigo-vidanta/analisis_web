@@ -41,3 +41,6 @@ mcp-backups/
 .env.local.bak*
 .env.local.backup*
 .env*.bak*
+
+# Supabase CLI temp files
+supabase/.temp/

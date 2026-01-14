@@ -488,12 +488,23 @@ class NotificationsService {
         if (userCoords && userCoords.length > 0) {
           const userIds = userCoords.map(uc => uc.user_id);
 
+          // ============================================
+          // CORRECCIÓN 2025-01-14: Usar JOIN con auth_roles
+          // ============================================
+          // La tabla auth_users NO tiene columna 'role_name' directamente.
+          // El rol se obtiene via FK 'role_id' → 'auth_roles.id'.
+          // Usamos 'auth_roles!inner(name)' para hacer el JOIN y filtrar.
+          // 
+          // PROPÓSITO: Obtener coordinadores/supervisores de la coordinación
+          // para notificarles cuando un prospecto requiere atención humana
+          // y NO tiene ejecutivo asignado.
+          // ============================================
           const { data: coordinadores } = await supabaseSystemUI
             .from('auth_users')
-            .select('id')
+            .select('id, auth_roles!inner(name)')
             .in('id', userIds)
             .eq('is_active', true)
-            .in('role_name', ['coordinador', 'supervisor']);
+            .in('auth_roles.name', ['coordinador', 'supervisor']);
 
           if (coordinadores) {
             usersToNotify.push(...coordinadores.map(c => c.id));

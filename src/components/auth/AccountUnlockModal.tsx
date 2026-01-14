@@ -1,10 +1,13 @@
 /**
  * Modal para solicitar desbloqueo de cuenta
+ * 
+ * Fix 2026-01-14: Agregado campo de email editable para casos donde 
+ * el email no se captura correctamente del formulario de login
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Unlock, AlertTriangle } from 'lucide-react';
+import { X, Unlock, AlertTriangle, Mail } from 'lucide-react';
 import { adminMessagesService } from '../../services/adminMessagesService';
 import toast from 'react-hot-toast';
 
@@ -23,22 +26,63 @@ const AccountUnlockModal: React.FC<AccountUnlockModalProps> = ({
 }) => {
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
+  // Estado local para el email - permite edición si viene vacío
+  const [localEmail, setLocalEmail] = useState(userEmail || '');
+  const [emailError, setEmailError] = useState('');
+
+  // Sincronizar con prop cuando cambia
+  useEffect(() => {
+    if (userEmail) {
+      setLocalEmail(userEmail);
+    }
+  }, [userEmail]);
+
+  // Resetear estado cuando se cierra el modal
+  useEffect(() => {
+    if (!isOpen) {
+      setSuccess(false);
+      setEmailError('');
+    }
+  }, [isOpen]);
+
+  // Validar formato de email
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validar email antes de enviar
+    const emailToSend = localEmail.trim().toLowerCase();
+    
+    if (!emailToSend) {
+      setEmailError('Por favor ingresa tu correo electrónico');
+      toast.error('Por favor ingresa tu correo electrónico');
+      return;
+    }
+
+    if (!isValidEmail(emailToSend)) {
+      setEmailError('Por favor ingresa un correo electrónico válido');
+      toast.error('Por favor ingresa un correo electrónico válido');
+      return;
+    }
+
+    setEmailError('');
     setSending(true);
+    
     try {
       // Crear mensaje para administradores
       const message = await adminMessagesService.createMessage({
         category: 'user_unblock_request',
-        title: `Solicitud de desbloqueo de cuenta - ${userEmail}`,
-        message: `El usuario ${userEmail} solicita desbloquear su cuenta.\n\nLa cuenta fue bloqueada después de 4 intentos fallidos de inicio de sesión.\n\nBloqueado hasta: ${lockedUntil || '30 minutos desde el bloqueo'}`,
-        sender_email: userEmail,
+        title: `Solicitud de desbloqueo de cuenta - ${emailToSend}`,
+        message: `El usuario ${emailToSend} solicita desbloquear su cuenta.\n\nLa cuenta fue bloqueada después de 4 intentos fallidos de inicio de sesión.\n\nBloqueado hasta: ${lockedUntil || '30 minutos desde el bloqueo'}`,
+        sender_email: emailToSend,
         priority: 'urgent',
         recipient_role: 'admin',
         metadata: {
-          user_email: userEmail,
+          user_email: emailToSend,
           request_type: 'account_unlock',
           locked_until: lockedUntil || null
         }
@@ -147,10 +191,53 @@ const AccountUnlockModal: React.FC<AccountUnlockModalProps> = ({
                 Para desbloquear tu cuenta, envía una solicitud al administrador. El administrador se pondrá en contacto contigo pronto.
               </p>
 
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  <strong>Correo:</strong> {userEmail}
-                </p>
+              {/* Campo de email - editable si viene vacío o si hay error */}
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+                  <Mail className="w-4 h-4" />
+                  <span>Correo Electrónico</span>
+                </label>
+                {userEmail && !emailError ? (
+                  // Si tenemos email válido, mostrar como texto con opción de editar
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 flex items-center justify-between">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {localEmail}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setLocalEmail('')}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  // Si no hay email o hubo error, mostrar campo de texto
+                  <div>
+                    <input
+                      type="email"
+                      value={localEmail}
+                      onChange={(e) => {
+                        setLocalEmail(e.target.value);
+                        setEmailError('');
+                      }}
+                      placeholder="tu-correo@empresa.com"
+                      className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                        emailError 
+                          ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+                          : 'border-gray-200 dark:border-gray-700 focus:ring-blue-500/20 focus:border-blue-500'
+                      }`}
+                      autoComplete="email"
+                      autoFocus
+                    />
+                    {emailError && (
+                      <p className="mt-1 text-xs text-red-500">{emailError}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Ingresa el correo electrónico con el que intentaste iniciar sesión
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center space-x-3 pt-4">
@@ -163,7 +250,7 @@ const AccountUnlockModal: React.FC<AccountUnlockModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={sending}
+                  disabled={sending || !localEmail.trim()}
                   className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   {sending ? (

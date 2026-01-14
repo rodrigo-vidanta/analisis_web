@@ -1,0 +1,202 @@
+# Reglas de Edge Functions - PQNC QA AI Platform
+
+## 📋 Información General
+
+| Propiedad | Valor |
+|-----------|-------|
+| **Ubicación Local** | `supabase/functions/` |
+| **Proyecto Activo** | system_ui (zbylezfyagwrxoecioup) |
+| **Proyecto Destino** | pqnc_ai (glsmifhkoaifvaegsozd) |
+| **Runtime** | Deno (Supabase Edge Runtime) |
+| **Documentación** | `docs/EDGE_FUNCTIONS_CATALOG.md` |
+
+---
+
+## ⚠️ REGLAS CRÍTICAS
+
+### 1. Variables de Entorno
+
+**NUNCA hardcodear tokens o API keys en el código.**
+
+```typescript
+// ❌ INCORRECTO
+const AUTH_TOKEN = 'mi-token-secreto';
+
+// ✅ CORRECTO
+const AUTH_TOKEN = Deno.env.get('SEND_MESSAGE_AUTH');
+if (!AUTH_TOKEN) {
+  throw new Error('SEND_MESSAGE_AUTH no configurado');
+}
+```
+
+### 2. CORS Headers Obligatorios
+
+**SIEMPRE incluir headers CORS y manejar preflight:**
+
+```typescript
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+serve(async (req) => {
+  // Manejar preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+  // ... resto del código
+});
+```
+
+### 3. Manejo de Errores
+
+**SIEMPRE capturar y loggear errores:**
+
+```typescript
+try {
+  // ... código
+} catch (error) {
+  console.error('❌ Error en [nombre-funcion]:', error);
+  
+  return new Response(
+    JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Error desconocido',
+      success: false 
+    }),
+    { 
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    }
+  );
+}
+```
+
+---
+
+## 📁 Estructura de Archivos
+
+Cada Edge Function debe tener esta estructura:
+
+```
+supabase/functions/
+└── nombre-funcion-proxy/
+    ├── index.ts      # Código principal
+    └── deno.json     # Configuración Deno (opcional)
+```
+
+### Contenido de `deno.json`:
+
+```json
+{
+  "imports": {
+    "std/": "https://deno.land/std@0.168.0/"
+  }
+}
+```
+
+---
+
+## 🏷️ Nomenclatura
+
+### Nombres de Funciones
+
+| Patrón | Uso | Ejemplo |
+|--------|-----|---------|
+| `{servicio}-proxy` | Proxy a webhook N8N | `send-message-proxy` |
+| `{api}-proxy` | Proxy a API externa | `anthropic-proxy` |
+| `{accion}-{entidad}-proxy` | Acción específica | `dynamics-lead-proxy` |
+
+### Variables de Entorno
+
+| Patrón | Uso | Ejemplo |
+|--------|-----|---------|
+| `{SERVICIO}_AUTH` | Token de autenticación | `SEND_MESSAGE_AUTH` |
+| `{API}_API_KEY` | API Key externa | `ANTHROPIC_API_KEY` |
+| `{SERVICIO}_TOKEN` | Token genérico | `DYNAMICS_TOKEN` |
+
+---
+
+## 🔧 Comandos de Deployment
+
+```bash
+# Prerequisitos
+npm install -g supabase
+supabase login
+supabase link --project-ref glsmifhkoaifvaegsozd
+
+# Desplegar función específica
+supabase functions deploy send-message-proxy
+
+# Configurar secret
+supabase secrets set SEND_MESSAGE_AUTH=<valor>
+
+# Ver logs
+supabase functions logs send-message-proxy --tail
+
+# Listar funciones
+supabase functions list
+```
+
+---
+
+## 📊 Catálogo de Funciones
+
+### Críticas (🔴 Alta Prioridad)
+
+| Función | Variable de Entorno | Webhook N8N |
+|---------|--------------------|----|
+| `send-message-proxy` | `SEND_MESSAGE_AUTH` | `/webhook/send-message` |
+| `send-img-proxy` | Header fijo | `/webhook/send-img` |
+| `whatsapp-templates-send-proxy` | `WHATSAPP_TEMPLATES_AUTH` | `/webhook/whatsapp-templates-send` |
+| `anthropic-proxy` | `ANTHROPIC_API_KEY` | API Anthropic directa |
+
+### Media Prioridad (🟡)
+
+| Función | Variable de Entorno | Webhook N8N |
+|---------|--------------------|----|
+| `pause-bot-proxy` | `PAUSE_BOT_AUTH` | `/webhook/pause_bot` |
+| `whatsapp-templates-proxy` | `WHATSAPP_TEMPLATES_AUTH` | `/webhook/whatsapp-templates` |
+| `dynamics-lead-proxy` | `DYNAMICS_TOKEN` | `/webhook/lead-info` |
+| `dynamics-reasignar-proxy` | `DYNAMICS_TOKEN` | `/webhook/reasignar-prospecto` |
+| `transfer-request-proxy` | `TRANSFER_REQUEST_AUTH` | `/webhook/transfer-request` |
+| `broadcast-proxy` | `BROADCAST_AUTH` | `/webhook/broadcast` |
+| `error-analisis-proxy` | `ERROR_ANALISIS_AUTH` | `/webhook/error-analisis` |
+
+### Baja Prioridad (🟢)
+
+| Función | Variable de Entorno | Webhook N8N |
+|---------|--------------------|----|
+| `tools-proxy` | `TOOLS_AUTH` | `/webhook/tools` |
+| `timeline-proxy` | `TIMELINE_AUTH` | `/webhook/timeline` |
+| `n8n-proxy` | `N8N_PROXY_AUTH` | Dinámico |
+| `generar-url-optimizada` | `GENERAR_URL_AUTH` | `/webhook/generar-url` |
+
+---
+
+## 🔗 Referencias
+
+- **Documentación Completa:** `docs/EDGE_FUNCTIONS_CATALOG.md`
+- **Inventario Webhooks N8N:** `docs/INVENTARIO_WEBHOOKS_N8N.md`
+- **Tokens en BD:** Tabla `api_auth_tokens` en PQNC_AI
+- **Supabase Docs:** https://supabase.com/docs/guides/functions
+
+---
+
+## 📝 Checklist para Nueva Edge Function
+
+1. [ ] Crear directorio en `supabase/functions/{nombre}-proxy/`
+2. [ ] Crear `index.ts` con estructura estándar
+3. [ ] Incluir headers CORS
+4. [ ] Incluir manejo de errores
+5. [ ] Usar variables de entorno para tokens
+6. [ ] Agregar logs descriptivos con emojis
+7. [ ] Documentar en `docs/EDGE_FUNCTIONS_CATALOG.md`
+8. [ ] Agregar variable de entorno a la lista
+9. [ ] Probar localmente: `supabase functions serve`
+10. [ ] Desplegar: `supabase functions deploy`
+11. [ ] Configurar secrets en Supabase
+
+---
+
+**Última actualización:** 14 de Enero 2026

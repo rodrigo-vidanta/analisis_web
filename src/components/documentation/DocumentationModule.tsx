@@ -249,7 +249,9 @@ const documentationSections: DocSection[] = [
     title: 'Integraciones',
     icon: Icons.integrations,
     docs: [
+      { id: 'edge-functions', name: 'Catálogo Edge Functions', path: '/docs/EDGE_FUNCTIONS_CATALOG.md', description: 'Documentación completa de Edge Functions (proxies N8N/APIs)' },
       { id: 'whatsapp', name: 'WhatsApp API', path: '/docs/WHATSAPP_TEMPLATES_API.md', description: 'API de plantillas de WhatsApp' },
+      { id: 'webhooks-n8n', name: 'Inventario Webhooks N8N', path: '/docs/INVENTARIO_WEBHOOKS_N8N.md', description: 'Lista de webhooks consumidos desde N8N' },
     ]
   },
   {

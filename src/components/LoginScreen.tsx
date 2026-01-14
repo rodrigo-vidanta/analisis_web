@@ -15,6 +15,8 @@ const LoginScreen: React.FC = () => {
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [lockedUntil, setLockedUntil] = useState<string | undefined>();
+  // Guardar el email del último intento de login (para el modal de desbloqueo)
+  const [lastAttemptedEmail, setLastAttemptedEmail] = useState('');
   const { login, isLoading, error } = useAuth();
   const { config } = useSystemConfig();
 
@@ -72,6 +74,10 @@ const LoginScreen: React.FC = () => {
     
     // Normalizar email a minúsculas para comparación case-insensitive
     const normalizedEmail = email.trim().toLowerCase();
+    
+    // Guardar el email del intento de login para el modal de desbloqueo
+    // Esto asegura que el email esté disponible incluso si el usuario lo borra después
+    setLastAttemptedEmail(normalizedEmail);
     
     // Asegurar que el email se guarde/elimine según el estado de "recordarme"
     // (esto ya se hace en el useEffect, pero lo hacemos aquí también para asegurar)
@@ -310,7 +316,7 @@ const LoginScreen: React.FC = () => {
       <AccountUnlockModal
         isOpen={showUnlockModal}
         onClose={() => setShowUnlockModal(false)}
-        userEmail={email}
+        userEmail={lastAttemptedEmail || email}
         lockedUntil={lockedUntil}
       />
     </>

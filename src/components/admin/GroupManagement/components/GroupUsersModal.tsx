@@ -35,11 +35,19 @@ interface GroupUsersModalProps {
   onRefresh: () => void;
 }
 
+// ============================================
+// INTERFAZ DE USUARIO BÁSICO
+// ============================================
+// CORRECCIÓN 2025-01-14: 
+// La tabla auth_users NO tiene columna 'role_name' directamente.
+// El rol se obtiene via JOIN con 'auth_roles' usando 'role_id'.
+// El campo 'role_name' se mapea después de la consulta.
+// ============================================
 interface UserBasic {
   id: string;
   email: string;
   full_name: string;
-  role_name: string;
+  role_name: string; // Mapeado desde auth_roles.name
   is_active: boolean;
   avatar_url?: string;
   coordinacion_id?: string;
@@ -87,14 +95,34 @@ const GroupUsersModal: React.FC<GroupUsersModalProps> = ({
   const loadAllUsers = useCallback(async () => {
     try {
       setLoadingUsers(true);
+      
+      // ============================================
+      // CORRECCIÓN 2025-01-14: Usar JOIN con auth_roles
+      // ============================================
+      // La tabla auth_users NO tiene columna 'role_name'.
+      // Usamos 'auth_roles(name)' para obtener el nombre del rol.
+      // Luego mapeamos el resultado para aplanar la estructura.
+      // ============================================
       const { data, error } = await supabaseSystemUIAdmin
         .from('auth_users')
-        .select('id, email, full_name, role_name, is_active, avatar_url, coordinacion_id')
+        .select('id, email, full_name, is_active, avatar_url, coordinacion_id, auth_roles(name)')
         .eq('is_active', true)
         .order('full_name');
 
       if (error) throw error;
-      setAllUsers(data || []);
+      
+      // Mapear resultado para extraer role_name desde auth_roles
+      const mappedUsers: UserBasic[] = (data || []).map((user: any) => ({
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role_name: user.auth_roles?.name || 'Sin rol', // Extraer nombre del rol
+        is_active: user.is_active,
+        avatar_url: user.avatar_url,
+        coordinacion_id: user.coordinacion_id
+      }));
+      
+      setAllUsers(mappedUsers);
     } catch (err) {
       console.error('Error cargando usuarios:', err);
     } finally {
