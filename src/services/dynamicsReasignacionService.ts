@@ -1,4 +1,7 @@
 /**
+// DEBUG: Solo logs en desarrollo
+const DEBUG = import.meta.env.DEV;
+
  * ============================================
  * SERVICIO DE REASIGNACIÓN VÍA N8N/DYNAMICS
  * ============================================
@@ -99,7 +102,7 @@ class DynamicsReasignacionService {
    * @returns Resultado de la operación
    */
   async reasignarProspecto(request: ReasignacionRequest): Promise<ReasignacionResponse> {
-    console.log('🔄 [DynamicsReasignacion] Iniciando reasignación vía webhook:', {
+    DEBUG && console.log('🔄 [DynamicsReasignacion] Iniciando reasignación vía webhook:', {
       prospecto_id: request.prospecto_id,
       nuevo_ejecutivo_id: request.nuevo_ejecutivo_id,
       nueva_coordinacion_id: request.nueva_coordinacion_id,
@@ -115,7 +118,7 @@ class DynamicsReasignacionService {
         return webhookResponse;
       }
 
-      console.log('✅ [DynamicsReasignacion] Webhook respondió exitosamente');
+      DEBUG && console.log('✅ [DynamicsReasignacion] Webhook respondió exitosamente');
 
       // 2. Si el webhook fue exitoso, actualizar localmente
       const localUpdateResult = await this.actualizarLocalmente(request);
@@ -136,7 +139,7 @@ class DynamicsReasignacionService {
         };
       }
 
-      console.log('✅ [DynamicsReasignacion] Reasignación completada exitosamente');
+      DEBUG && console.log('✅ [DynamicsReasignacion] Reasignación completada exitosamente');
       
       return {
         success: true,
@@ -261,8 +264,8 @@ class DynamicsReasignacionService {
       // Obtener credenciales de forma segura desde BD
       const { url, token } = await getReasignacionCredentials();
       
-      console.log('📤 [DynamicsReasignacion] Enviando al webhook:', url);
-      console.log(`⏱️ [DynamicsReasignacion] Timeout configurado: ${WEBHOOK_TIMEOUT_MS / 1000} segundos`);
+      DEBUG && console.log('📤 [DynamicsReasignacion] Enviando al webhook:', url);
+      DEBUG && console.log(`⏱️ [DynamicsReasignacion] Timeout configurado: ${WEBHOOK_TIMEOUT_MS / 1000} segundos`);
       
       const payload = {
         prospecto_id: request.prospecto_id,
@@ -272,7 +275,7 @@ class DynamicsReasignacionService {
         motivo: 'cambio desde UI'
       };
 
-      console.log('📋 [DynamicsReasignacion] Payload completo:', JSON.stringify(payload, null, 2));
+      DEBUG && console.log('📋 [DynamicsReasignacion] Payload completo:', JSON.stringify(payload, null, 2));
 
       // Crear AbortController para el timeout
       const controller = new AbortController();
@@ -294,7 +297,7 @@ class DynamicsReasignacionService {
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          console.log('✅ [DynamicsReasignacion] Webhook respondió con 200');
+          DEBUG && console.log('✅ [DynamicsReasignacion] Webhook respondió con 200');
           
           // Intentar leer el body de respuesta
           let responseData = null;
@@ -501,7 +504,7 @@ class DynamicsReasignacionService {
         console.warn('Error registrando log (no crítico):', logError);
       }
 
-      console.log('✅ [DynamicsReasignacion] Actualización local completada');
+      DEBUG && console.log('✅ [DynamicsReasignacion] Actualización local completada');
       
       return {
         success: true,

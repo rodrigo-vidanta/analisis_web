@@ -950,14 +950,19 @@ class CoordinacionService {
    */
   async getAllCoordinadores(): Promise<Ejecutivo[]> {
     try {
-      // Obtener coordinadores directamente de auth_users
-      // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
+      // ============================================
+      // CORRECCIÓN 2026-01-14: Eliminar JOIN inválido con auth_roles
+      // ============================================
+      // La tabla auth_user_coordinaciones NO tiene FK a auth_roles.
+      // Solo tiene FK a auth_users y coordinaciones.
+      // El rol se determina via auth_users.is_coordinator o auth_users.role_id
+      // ============================================
       const { data: coordinadorCoordinaciones, error: ccError } = await supabaseSystemUI
         .from('auth_user_coordinaciones')
         .select(`
           user_id,
           coordinacion_id,
-          auth_roles!inner(name)
+          coordinaciones(codigo, nombre)
         `);
 
       let coordinadores: Ejecutivo[] = [];

@@ -20,6 +20,11 @@ import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { ProspectValidationModal } from './ProspectValidationModal';
 import toast from 'react-hot-toast';
 
+// ============================================
+// DEBUG MODE: Solo mostrar logs en desarrollo
+// ============================================
+const DEBUG = import.meta.env.DEV;
+
 interface AssignmentContextMenuProps {
   prospectId: string;
   coordinacionId?: string;
@@ -90,14 +95,14 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
   // Actualizar ejecutivoId local cuando cambia el prop
   useEffect(() => {
-    console.log('📋 AssignmentContextMenu - Props recibidos:', {
+    DEBUG && DEBUG && console.log('📋 AssignmentContextMenu - Props recibidos:', {
       prospectId,
       coordinacionId,
       ejecutivoId: initialEjecutivoId,
       isOpen
     });
     setCurrentEjecutivoId(initialEjecutivoId);
-    console.log('✅ Estado local ejecutivoId actualizado:', initialEjecutivoId);
+    DEBUG && console.log('✅ Estado local ejecutivoId actualizado:', initialEjecutivoId);
   }, [initialEjecutivoId, prospectId, coordinacionId, isOpen]);
 
   // Cargar ejecutivos según el rol del usuario
@@ -179,7 +184,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       let todasCoordinaciones: any[] = [];
       try {
         todasCoordinaciones = await coordinacionService.getCoordinaciones();
-        console.log(`📋 [loadAllEjecutivos] Todas las coordinaciones encontradas: ${todasCoordinaciones.length}`);
+        DEBUG && console.log(`📋 [loadAllEjecutivos] Todas las coordinaciones encontradas: ${todasCoordinaciones.length}`);
       } catch (coordError) {
         console.error('Error obteniendo coordinaciones:', coordError);
         toast.error('Error al cargar coordinaciones. Mostrando todos los ejecutivos activos.');
@@ -192,12 +197,12 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       let allCoordinadores: Ejecutivo[] = [];
       if (isAdmin || isAdminOperativo || esCoordCalidad) {
         try {
-          console.log(`🔍 [loadAllEjecutivos] Cargando coordinadores para admin/admin operativo/coord. calidad`);
+          DEBUG && console.log(`🔍 [loadAllEjecutivos] Cargando coordinadores para admin/admin operativo/coord. calidad`);
           
           // Intentar obtener todos los coordinadores directamente (más eficiente)
           try {
             const todosCoordinadores = await coordinacionService.getAllCoordinadores();
-            console.log(`📋 [loadAllEjecutivos] getAllCoordinadores() devolvió ${todosCoordinadores.length} coordinadores`);
+            DEBUG && console.log(`📋 [loadAllEjecutivos] getAllCoordinadores() devolvió ${todosCoordinadores.length} coordinadores`);
             
             // IMPORTANTE: Para administradores y administradores operativos, mostrar TODOS los coordinadores activos
             // No filtrar por coordinaciones activas - deben poder asignar a cualquier coordinador activo
@@ -211,7 +216,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
               return isActive && hasCoordinacion;
             });
             
-            console.log(`✅ [loadAllEjecutivos] ${allCoordinadores.length} coordinadores filtrados de ${todosCoordinadores.length} totales`);
+            DEBUG && console.log(`✅ [loadAllEjecutivos] ${allCoordinadores.length} coordinadores filtrados de ${todosCoordinadores.length} totales`);
             if (allCoordinadores.length === 0 && todosCoordinadores.length > 0) {
               console.warn(`⚠️ [loadAllEjecutivos] Todos los coordinadores fueron filtrados. Muestra de coordinadores:`, todosCoordinadores.slice(0, 5).map(c => ({
                 nombre: c.full_name,
@@ -226,7 +231,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
             const coordinadoresPromises = todasCoordinaciones.map(async (coord) => {
               try {
                 const coordinadores = await coordinacionService.getCoordinadoresByCoordinacion(coord.id);
-                console.log(`📋 [loadAllEjecutivos] Coordinación ${coord.nombre} (${coord.id}): ${coordinadores.length} coordinadores encontrados`);
+                DEBUG && console.log(`📋 [loadAllEjecutivos] Coordinación ${coord.nombre} (${coord.id}): ${coordinadores.length} coordinadores encontrados`);
                 return coordinadores;
               } catch (error) {
                 console.error(`❌ [loadAllEjecutivos] Error cargando coordinadores de ${coord.nombre}:`, error);
@@ -247,7 +252,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
               new Map(allCoordinadores.map(coord => [coord.id, coord])).values()
             );
             
-            console.log(`✅ [loadAllEjecutivos] Cargados ${uniqueCoordinadores.length} coordinadores únicos para asignación (de ${allCoordinadores.length} totales antes de deduplicar)`);
+            DEBUG && console.log(`✅ [loadAllEjecutivos] Cargados ${uniqueCoordinadores.length} coordinadores únicos para asignación (de ${allCoordinadores.length} totales antes de deduplicar)`);
             allCoordinadores = uniqueCoordinadores;
           }
         } catch (coordError) {
@@ -266,11 +271,11 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         return isActive && hasCoordinacion;
       });
       
-      console.log(`✅ [loadAllEjecutivos] ${ejecutivosFiltrados.length} ejecutivos activos cargados (de ${allEjecutivos.length} totales)`);
+      DEBUG && console.log(`✅ [loadAllEjecutivos] ${ejecutivosFiltrados.length} ejecutivos activos cargados (de ${allEjecutivos.length} totales)`);
       
       // Agregar coordinadores activos a la lista (admin, admin operativo y coordinadores de Calidad)
       if (isAdmin || isAdminOperativo || esCoordCalidad) {
-        console.log(`🔍 [loadAllEjecutivos] Agregando ${allCoordinadores.length} coordinadores ya filtrados a la lista`);
+        DEBUG && console.log(`🔍 [loadAllEjecutivos] Agregando ${allCoordinadores.length} coordinadores ya filtrados a la lista`);
         
         // Marcar todos como coordinadores (por si acaso)
         const coordinadoresMarcados = allCoordinadores.map(c => ({
@@ -278,7 +283,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           is_coordinator: true
         }));
         
-        console.log(`✅ [loadAllEjecutivos] ${coordinadoresMarcados.length} coordinadores agregados a la lista`);
+        DEBUG && console.log(`✅ [loadAllEjecutivos] ${coordinadoresMarcados.length} coordinadores agregados a la lista`);
         
         ejecutivosFiltrados = [...ejecutivosFiltrados, ...coordinadoresMarcados];
       }
@@ -286,8 +291,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       // NOTA: Coordinadores de Calidad pueden reasignar a CUALQUIER ejecutivo o coordinador
       // sin restricciones de id_dynamics o teléfono (igual que admins)
       if (esCoordCalidad && !isAdmin && !isAdminOperativo) {
-        console.log(`🔍 [loadAllEjecutivos] Coordinador de CALIDAD - Acceso completo a todos los ejecutivos/coordinadores`);
-        console.log(`✅ [loadAllEjecutivos] ${ejecutivosFiltrados.length} ejecutivos/coordinadores disponibles para reasignación`);
+        DEBUG && console.log(`🔍 [loadAllEjecutivos] Coordinador de CALIDAD - Acceso completo a todos los ejecutivos/coordinadores`);
+        DEBUG && console.log(`✅ [loadAllEjecutivos] ${ejecutivosFiltrados.length} ejecutivos/coordinadores disponibles para reasignación`);
       }
       
       // Si no hay ejecutivos filtrados pero hay ejecutivos activos, mostrar todos los activos
@@ -432,8 +437,8 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   // ACTUALIZACIÓN: Modal de loading bloqueante + timeout optimista de 30 segundos
   // Si no hay error en los primeros 30 segundos, asumimos éxito y actualizamos UI
   const executeAssignment = async (ejecutivoIdToAssign: string) => {
-    console.log('🚀 executeAssignment iniciado:', ejecutivoIdToAssign);
-    console.log('📋 Estado actual:', {
+    DEBUG && console.log('🚀 executeAssignment iniciado:', ejecutivoIdToAssign);
+    DEBUG && console.log('📋 Estado actual:', {
       ejecutivosCount: ejecutivos.length,
       prospectId,
       currentEjecutivoId,
@@ -446,7 +451,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
     
     if (!ejecutivoSeleccionado) {
       console.error('❌ Ejecutivo no encontrado en lista');
-      console.log('📋 Ejecutivos disponibles:', ejecutivos.map(e => ({ id: e.id, name: e.full_name })));
+      DEBUG && console.log('📋 Ejecutivos disponibles:', ejecutivos.map(e => ({ id: e.id, name: e.full_name })));
       toast.error('Ejecutivo no encontrado');
       return;
     }
@@ -465,14 +470,14 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
     let coordinacionIdToUse: string | undefined;
     
     try {
-      console.log('✅ Ejecutivo encontrado:', {
+      DEBUG && console.log('✅ Ejecutivo encontrado:', {
         id: ejecutivoSeleccionado.id,
         name: ejecutivoSeleccionado.full_name,
         coordinacion_id: ejecutivoSeleccionado.coordinacion_id
       });
 
       if (isAdmin || isAdminOperativo || isCoordinadorCalidad) {
-        console.log('👤 Usuario admin/admin operativo/coord. calidad, usando coordinación del ejecutivo');
+        DEBUG && console.log('👤 Usuario admin/admin operativo/coord. calidad, usando coordinación del ejecutivo');
         if (!ejecutivoSeleccionado.coordinacion_id) {
           console.error('❌ Ejecutivo no tiene coordinación asignada');
           toast.error('El ejecutivo seleccionado no tiene coordinación asignada');
@@ -482,7 +487,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         }
         coordinacionIdToUse = ejecutivoSeleccionado.coordinacion_id;
       } else {
-        console.log('👤 Usuario coordinador, usando coordinación propia');
+        DEBUG && console.log('👤 Usuario coordinador, usando coordinación propia');
         if (!currentCoordinacionId) {
           console.error('❌ No hay coordinación del coordinador');
           toast.error('No se puede asignar: falta coordinación del coordinador');
@@ -499,7 +504,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         ? `Reasignación desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : isAdminOperativo ? ' (Admin Operativo)' : ''}`
         : `Asignación manual desde ${user?.full_name || user?.email}${isAdmin ? ' (Admin)' : isAdminOperativo ? ' (Admin Operativo)' : ''}`;
 
-      console.log('🔍 Intentando asignar prospecto:', {
+      DEBUG && console.log('🔍 Intentando asignar prospecto:', {
         prospectId,
         coordinacionIdToUse,
         ejecutivoIdToAssign,
@@ -516,7 +521,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       
       optimisticTimeoutId = setTimeout(() => {
         if (!hasError && !hasCompleted) {
-          console.log('⏱️ Timeout optimista alcanzado (30s) - Asumiendo éxito y actualizando UI');
+          DEBUG && console.log('⏱️ Timeout optimista alcanzado (30s) - Asumiendo éxito y actualizando UI');
           hasCompleted = true;
           
           // Actualizar el estado local del ejecutivo asignado
@@ -556,7 +561,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         reason
       );
 
-      console.log('📦 Resultado de asignación:', result);
+      DEBUG && console.log('📦 Resultado de asignación:', result);
 
       // Cancelar el timeout optimista si ya respondió
       if (optimisticTimeoutId) {
@@ -571,7 +576,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
       // Si ya se completó por timeout optimista, no hacer nada más
       if (hasCompleted) {
-        console.log('✅ La UI ya fue actualizada por timeout optimista');
+        DEBUG && console.log('✅ La UI ya fue actualizada por timeout optimista');
         return;
       }
 
@@ -579,7 +584,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
       // Actualizar el estado local del ejecutivo asignado
       setCurrentEjecutivoId(ejecutivoIdToAssign);
-      console.log('✅ Ejecutivo asignado actualizado localmente:', ejecutivoIdToAssign);
+      DEBUG && console.log('✅ Ejecutivo asignado actualizado localmente:', ejecutivoIdToAssign);
 
       // Mostrar toast de éxito
       toast.success(
@@ -633,7 +638,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
   };
 
   const handleAssign = async (ejecutivoIdToAssign: string, skipValidation = false) => {
-    console.log('🔍 handleAssign llamado:', {
+    DEBUG && console.log('🔍 handleAssign llamado:', {
       ejecutivoIdToAssign,
       skipValidation,
       isAdmin,
@@ -648,14 +653,14 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
     // Si es admin, admin operativo o coordinador de Calidad, saltar validación directamente
     if (isAdmin || isAdminOperativo || isCoordinadorCalidad) {
-      console.log('✅ Usuario admin/admin operativo/coord. calidad, saltando validación');
+      DEBUG && console.log('✅ Usuario admin/admin operativo/coord. calidad, saltando validación');
       await executeAssignment(ejecutivoIdToAssign);
       return;
     }
 
     // VALIDACIÓN: Solo para coordinadores normales - verificar id_dynamics antes de asignar
     if (!skipValidation && isCoordinador && !isAdmin && !isAdminOperativo && !isCoordinadorCalidad) {
-      console.log('🔍 Validación para coordinador iniciada');
+      DEBUG && console.log('🔍 Validación para coordinador iniciada');
       let prospect: { id_dynamics?: string | null; nombre_completo?: string | null; nombre_whatsapp?: string | null; email?: string | null; whatsapp?: string | null } | null = null;
 
       // Intentar usar datos iniciales si están disponibles
@@ -723,7 +728,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
     }
 
     // Ejecutar la asignación
-    console.log('✅ Validación pasada, ejecutando asignación');
+    DEBUG && console.log('✅ Validación pasada, ejecutando asignación');
     await executeAssignment(ejecutivoIdToAssign);
   };
 
@@ -762,7 +767,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
       if (result.success) {
         // Actualizar el estado local del ejecutivo asignado (remover)
         setCurrentEjecutivoId(undefined);
-        console.log('✅ Ejecutivo desasignado, estado local actualizado');
+        DEBUG && console.log('✅ Ejecutivo desasignado, estado local actualizado');
         
         toast.success('Ejecutivo desasignado exitosamente');
         onAssignmentComplete?.();
@@ -940,7 +945,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
                   <button
                     key={ejecutivo.id}
                     onClick={() => {
-                      console.log('🔍 Click en ejecutivo:', {
+                      DEBUG && console.log('🔍 Click en ejecutivo:', {
                         ejecutivoId: ejecutivo.id,
                         ejecutivoName: ejecutivo.full_name,
                         isInactive,
@@ -955,7 +960,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
                         return;
                       }
                       
-                      console.log('✅ Ejecutivo activo, llamando handleAssign');
+                      DEBUG && console.log('✅ Ejecutivo activo, llamando handleAssign');
                       handleAssign(ejecutivo.id);
                     }}
                     disabled={assigning === ejecutivo.id || isInactive}
