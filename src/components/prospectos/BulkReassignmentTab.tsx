@@ -192,8 +192,8 @@ export const BulkReassignmentTab: React.FC = () => {
         ]);
         setCoordinaciones(coordData);
         setEjecutivos(ejData);
-      } catch (error) {
-        console.error('Error cargando datos iniciales:', error);
+      } catch {
+        // Error cargando datos iniciales
       }
     };
     loadInitialData();
@@ -249,16 +249,9 @@ export const BulkReassignmentTab: React.FC = () => {
           // Combinar: primero coordinadores (siempre habilitados), luego ejecutivos
           const combined = [...coordinadoresMarcados, ...ejecutivosSinDuplicar];
           
-          console.log('📋 Destino cargado:', {
-            coordinadores: coordinadoresMarcados.length,
-            ejecutivos: ejecutivosSinDuplicar.length,
-            total: combined.length
-          });
-          
           setTargetEjecutivos(combined);
           setTargetEjecutivoId('');
-        } catch (error) {
-          console.error('Error cargando ejecutivos/coordinadores destino:', error);
+        } catch {
           setTargetEjecutivos([]);
         }
       };
@@ -303,8 +296,8 @@ export const BulkReassignmentTab: React.FC = () => {
         if (filteredQuery && typeof filteredQuery.eq === 'function') {
           query = filteredQuery;
         }
-      } catch (permError) {
-        console.warn('Error aplicando filtros de permisos, usando query base:', permError);
+      } catch {
+        // Error aplicando filtros, usar query base
       }
 
       // Filtros - verificar que query tiene los métodos necesarios
@@ -396,8 +389,7 @@ export const BulkReassignmentTab: React.FC = () => {
       
       setProspectos(enrichedData);
       setTotalCount(count || 0);
-    } catch (error) {
-      console.error('Error cargando prospectos:', error);
+    } catch {
       toast.error('Error al cargar prospectos');
     } finally {
       setIsLoading(false);
@@ -485,13 +477,6 @@ export const BulkReassignmentTab: React.FC = () => {
     const coordinacionDestino = targetCoordinacionId;
     const prospectosAReasignar = [...selectedProspectos]; // Copia para evitar mutaciones
     
-    console.log('🚀 [BulkReassignment] Iniciando reasignación masiva:', {
-      ejecutivoDestino,
-      coordinacionDestino,
-      totalProspectos: prospectosAReasignar.length,
-      prospectoIds: prospectosAReasignar.map(p => p.id)
-    });
-    
     abortControllerRef.current = new AbortController();
     pauseRef.current = false;
 
@@ -526,13 +511,6 @@ export const BulkReassignmentTab: React.FC = () => {
         const estimatedProgress = Math.min(95, (elapsed / ESTIMATED_TIME_PER_ITEM) * 100);
         setSimulatedProgress(estimatedProgress);
       }, PROGRESS_UPDATE_INTERVAL);
-
-      console.log(`📤 [BulkReassignment] Procesando ${i + 1}/${prospectosAReasignar.length}:`, {
-        prospectoId: prospecto.id,
-        prospectoNombre: prospecto.nombre_completo,
-        ejecutivoDestino,
-        coordinacionDestino
-      });
 
       try {
         const requestData = await dynamicsReasignacionService.enriquecerDatosReasignacion(
@@ -607,7 +585,6 @@ export const BulkReassignmentTab: React.FC = () => {
     setSelectedProspectos([]);
     
     // Re-render silencioso: recargar prospectos para mostrar nueva asignación
-    console.log('🔄 [BulkReassignment] Recargando prospectos con nueva asignación...');
     await loadProspectos();
   }, [targetCoordinacionId, targetEjecutivoId, selectedIds, selectedProspectos, user?.id, loadProspectos]);
 

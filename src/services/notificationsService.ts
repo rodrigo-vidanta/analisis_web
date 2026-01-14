@@ -398,7 +398,13 @@ class NotificationsService {
     const nombreProspecto = prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Nuevo prospecto';
     
     try {
-      // Verificar que el ejecutivo existe y está activo en SystemUI
+      // ============================================
+      // CORRECCIÓN 2026-01-14: Aceptar ejecutivos Y coordinadores
+      // ============================================
+      // Los prospectos pueden ser asignados tanto a ejecutivos como a
+      // coordinadores (ej: coordinadores de CALIDAD). El filtro anterior
+      // solo buscaba "ejecutivo" y causaba error 406 con coordinadores.
+      // ============================================
       const { data: ejecutivo } = await supabaseSystemUI
         .from('auth_users')
         .select(`
@@ -409,8 +415,8 @@ class NotificationsService {
         `)
         .eq('id', prospecto.ejecutivo_id)
         .eq('is_active', true)
-        .eq('auth_roles.name', 'ejecutivo')
-        .single();
+        .in('auth_roles.name', ['ejecutivo', 'coordinador'])
+        .maybeSingle();
 
       if (!ejecutivo) {
         return { success: false };
@@ -462,6 +468,9 @@ class NotificationsService {
 
       // Si tiene ejecutivo asignado, notificar al ejecutivo
       if (prospecto.ejecutivo_id) {
+        // ============================================
+        // CORRECCIÓN 2026-01-14: Aceptar ejecutivos Y coordinadores
+        // ============================================
         const { data: ejecutivo } = await supabaseSystemUI
           .from('auth_users')
           .select(`
@@ -470,8 +479,8 @@ class NotificationsService {
           `)
           .eq('id', prospecto.ejecutivo_id)
           .eq('is_active', true)
-          .eq('auth_roles.name', 'ejecutivo')
-          .single();
+          .in('auth_roles.name', ['ejecutivo', 'coordinador'])
+          .maybeSingle();
 
         if (ejecutivo) {
           usersToNotify.push(ejecutivo.id);

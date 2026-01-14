@@ -2,6 +2,54 @@
 
 ## [Unreleased]
 
+### 🔧 v2.2.2 (B8.0.2N2.2.0) - Correcciones Post-Migración BD Unificada [14-01-2026]
+
+#### 🎯 Correcciones Críticas de Consultas y Seguridad
+
+**Errores Corregidos:**
+- ✅ **Error 406 al reasignar a coordinadores**: `getEjecutivosByIds()` ahora incluye rol 'coordinador'
+- ✅ **Error 400 en Reasignación Masiva**: JOINs inválidos `auth_roles!inner(name)` en `auth_user_coordinaciones` corregidos
+- ✅ **Error query.or is not a function**: Verificación robusta de PostgrestFilterBuilder en `ProspectosManager.tsx`
+- ✅ **Notificaciones a coordinadores**: Funciones `notifyProspectoAssignment` y `notifyRequiereAtencion` sin filtro de rol
+
+**Eliminación de Logs Sensibles (69 logs removidos):**
+- `src/services/dynamicsReasignacionService.ts` - 0 logs (todos eliminados)
+- `src/services/assignmentService.ts` - 0 logs (12 eliminados)
+- `src/components/shared/AssignmentContextMenu.tsx` - 0 logs (45 eliminados)
+- `src/components/prospectos/BulkReassignmentTab.tsx` - 0 logs (8 eliminados)
+- `src/services/coordinacionService.ts` - Logs de debug eliminados
+
+**Funciones Corregidas:**
+| Archivo | Función | Corrección |
+|---------|---------|------------|
+| `coordinacionService.ts` | `getEjecutivosByIds()` | `.in('auth_roles.name', ['ejecutivo', 'coordinador'])` |
+| `coordinacionService.ts` | `getCoordinadoresByCoordinacion()` | Eliminado `auth_roles!inner(name)` inválido |
+| `coordinacionService.ts` | `getSupervisoresByCoordinacion()` | Eliminado `auth_roles!inner(name)` inválido |
+| `notificationsService.ts` | `notifyProspectoAssignment()` | Eliminado filtro `.eq('auth_roles.name', 'ejecutivo')` |
+| `notificationsService.ts` | `notifyRequiereAtencion()` | Eliminado filtro `.eq('auth_roles.name', 'ejecutivo')` |
+| `ProspectosManager.tsx` | `searchInServer()` | Validación `typeof query.or === 'function'` |
+
+**Archivos Modificados (8):**
+- `src/services/coordinacionService.ts`
+- `src/services/notificationsService.ts`
+- `src/services/assignmentService.ts`
+- `src/services/dynamicsReasignacionService.ts`
+- `src/components/prospectos/ProspectosManager.tsx`
+- `src/components/prospectos/BulkReassignmentTab.tsx`
+- `src/components/shared/AssignmentContextMenu.tsx`
+- `src/components/Footer.tsx`
+
+**Impacto:**
+- ✅ Reasignación a coordinadores funciona correctamente
+- ✅ Reasignación masiva sin errores 400
+- ✅ Búsqueda de prospectos sin errores
+- ✅ Consola limpia sin exposición de datos sensibles
+- ✅ Notificaciones llegan a coordinadores y ejecutivos
+
+**Estado:** ✅ Completado - Pendiente deploy
+
+---
+
 ### 🔔 v2.2.50 (B7.2.50N7.2.40) - Migración Sistema Notificaciones a PQNC_AI Unificado [13-01-2026]
 
 #### 🎯 Migración Completa a Base de Datos Unificada

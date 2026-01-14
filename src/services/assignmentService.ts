@@ -81,8 +81,7 @@ class AssignmentService {
         coordinacion_id: coordinacionId,
         message: 'Prospecto asignado automáticamente a coordinación',
       };
-    } catch (error) {
-      console.error('Error asignando prospecto a coordinación:', error);
+    } catch {
       return {
         success: false,
         message: 'Error al asignar prospecto',
@@ -136,8 +135,7 @@ class AssignmentService {
         ejecutivo_id: ejecutivoId,
         message: 'Prospecto asignado automáticamente a ejecutivo',
       };
-    } catch (error) {
-      console.error('Error asignando prospecto a ejecutivo:', error);
+    } catch {
       return {
         success: false,
         message: 'Error al asignar prospecto a ejecutivo',
@@ -217,8 +215,7 @@ class AssignmentService {
         coordinacion_id: assignment?.coordinacion_id,
         message: 'Prospecto asignado automáticamente a ejecutivo (ID CRM detectado)',
       };
-    } catch (error) {
-      console.error('Error verificando y asignando prospecto con CRM:', error);
+    } catch {
       return {
         success: false,
         message: 'Error al verificar y asignar prospecto',
@@ -278,8 +275,7 @@ class AssignmentService {
         coordinacion_id: coordinacionId,
         message: 'Prospecto asignado manualmente a coordinación',
       };
-    } catch (error) {
-      console.error('Error asignando prospecto manualmente:', error);
+    } catch {
       return {
         success: false,
         message: 'Error al asignar prospecto manualmente',
@@ -305,14 +301,6 @@ class AssignmentService {
     reason?: string
   ): Promise<AssignmentResult> {
     try {
-      console.log('🔍 Iniciando asignación manual vía webhook Dynamics:', {
-        prospectId,
-        coordinacionId,
-        ejecutivoId,
-        assignedBy,
-        reason
-      });
-
       // 1. Enriquecer datos para el webhook
       const requestData = await dynamicsReasignacionService.enriquecerDatosReasignacion(
         prospectId,
@@ -322,25 +310,16 @@ class AssignmentService {
         reason
       );
 
-      console.log('📦 Datos enriquecidos para webhook:', {
-        id_dynamics: requestData.id_dynamics,
-        nuevo_ejecutivo_nombre: requestData.nuevo_ejecutivo_nombre,
-        nueva_coordinacion_nombre: requestData.nueva_coordinacion_nombre
-      });
-
       // 2. Enviar al webhook de N8N/Dynamics
       const result = await dynamicsReasignacionService.reasignarProspecto(requestData);
 
       if (!result.success) {
-        console.error('❌ Error en reasignación vía webhook:', result.error);
         return {
           success: false,
           message: result.message || 'Error al reasignar prospecto vía Dynamics',
           error: result.error,
         };
       }
-
-      console.log('✅ Reasignación completada exitosamente vía webhook');
 
       return {
         success: true,
@@ -349,7 +328,6 @@ class AssignmentService {
         message: 'Prospecto reasignado exitosamente vía Dynamics',
       };
     } catch (error) {
-      console.error('❌ Error asignando prospecto manualmente a ejecutivo:', error);
       return {
         success: false,
         message: 'Error al asignar prospecto manualmente',
@@ -535,8 +513,7 @@ class AssignmentService {
 
       if (error && error.code !== 'PGRST116') throw error;
       return data || null;
-    } catch (error) {
-      console.error('Error obteniendo asignación:', error);
+    } catch {
       return null;
     }
   }
@@ -560,9 +537,8 @@ class AssignmentService {
           assignment_date: new Date().toISOString(),
         })
         .eq('id', prospectId);
-    } catch (error) {
-      console.error('Error sincronizando coordinacion_id:', error);
-      // No lanzar error, solo loguear
+    } catch {
+      // No lanzar error, sincronización falló silenciosamente
     }
   }
 
@@ -581,8 +557,7 @@ class AssignmentService {
         if (ejecutivo) {
           ejecutivoNombre = ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || null;
         }
-      } catch (error) {
-        console.warn('No se pudo obtener nombre del ejecutivo para asesor_asignado:', error);
+      } catch {
         // Continuar sin el nombre, solo actualizar ejecutivo_id
       }
 
@@ -601,9 +576,8 @@ class AssignmentService {
         .from('prospectos')
         .update(updateData)
         .eq('id', prospectId);
-    } catch (error) {
-      console.error('Error sincronizando ejecutivo_id:', error);
-      // No lanzar error, solo loguear
+    } catch {
+      // No lanzar error, sincronización falló silenciosamente
     }
   }
 

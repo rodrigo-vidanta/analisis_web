@@ -1,7 +1,4 @@
 /**
-// DEBUG: Solo logs en desarrollo
-const DEBUG = import.meta.env.DEV;
-
  * ============================================
  * SERVICIO DE REASIGNACIÓN VÍA N8N/DYNAMICS
  * ============================================
@@ -102,29 +99,18 @@ class DynamicsReasignacionService {
    * @returns Resultado de la operación
    */
   async reasignarProspecto(request: ReasignacionRequest): Promise<ReasignacionResponse> {
-    DEBUG && console.log('🔄 [DynamicsReasignacion] Iniciando reasignación vía webhook:', {
-      prospecto_id: request.prospecto_id,
-      nuevo_ejecutivo_id: request.nuevo_ejecutivo_id,
-      nueva_coordinacion_id: request.nueva_coordinacion_id,
-      id_dynamics: request.id_dynamics
-    });
-
     try {
       // 1. Enviar solicitud al webhook de N8N
       const webhookResponse = await this.enviarWebhook(request);
       
       if (!webhookResponse.success) {
-        console.error('❌ [DynamicsReasignacion] Webhook retornó error:', webhookResponse.error);
         return webhookResponse;
       }
-
-      DEBUG && console.log('✅ [DynamicsReasignacion] Webhook respondió exitosamente');
 
       // 2. Si el webhook fue exitoso, actualizar localmente
       const localUpdateResult = await this.actualizarLocalmente(request);
       
       if (!localUpdateResult.success) {
-        console.warn('⚠️ [DynamicsReasignacion] Error actualizando localmente:', localUpdateResult.error);
         // Aún así consideramos éxito porque Dynamics se actualizó
         return {
           success: true,
@@ -138,8 +124,6 @@ class DynamicsReasignacionService {
           }
         };
       }
-
-      DEBUG && console.log('✅ [DynamicsReasignacion] Reasignación completada exitosamente');
       
       return {
         success: true,
@@ -154,7 +138,6 @@ class DynamicsReasignacionService {
       };
 
     } catch (error) {
-      console.error('❌ [DynamicsReasignacion] Error inesperado:', error);
       return {
         success: false,
         message: 'Error al reasignar prospecto',
@@ -184,16 +167,16 @@ class DynamicsReasignacionService {
     let nuevoEjecutivo: { full_name?: string; nombre_completo?: string; email?: string } | null = null;
     try {
       nuevoEjecutivo = await coordinacionService.getEjecutivoById(nuevoEjecutivoId);
-    } catch (error) {
-      console.warn('Error obteniendo datos del nuevo ejecutivo:', error);
+    } catch {
+      // Error obteniendo datos del nuevo ejecutivo (no crítico)
     }
 
     // Obtener datos de la nueva coordinación
     let nuevaCoordinacion: { nombre?: string; codigo?: string } | null = null;
     try {
       nuevaCoordinacion = await coordinacionService.getCoordinacionById(nuevaCoordinacionId);
-    } catch (error) {
-      console.warn('Error obteniendo datos de la nueva coordinación:', error);
+    } catch {
+      // Error obteniendo datos de la nueva coordinación (no crítico)
     }
 
     // Obtener datos del usuario que reasigna (incluyendo rol desde auth_roles)
@@ -212,9 +195,7 @@ class DynamicsReasignacionService {
         .eq('id', reasignadoPorId)
         .maybeSingle();
       
-      if (error) {
-        console.warn('Error obteniendo datos del usuario que reasigna:', error.message);
-      } else if (data) {
+      if (!error && data) {
         // Extraer el nombre del rol desde el join
         const roleName = Array.isArray(data.auth_roles) 
           ? data.auth_roles[0]?.name 
@@ -226,8 +207,8 @@ class DynamicsReasignacionService {
           role_name: roleName || undefined
         };
       }
-    } catch (error) {
-      console.warn('Error obteniendo datos del usuario que reasigna:', error);
+    } catch {
+      // Error obteniendo datos del usuario que reasigna (no crítico)
     }
 
     return {
@@ -264,9 +245,6 @@ class DynamicsReasignacionService {
       // Obtener credenciales de forma segura desde BD
       const { url, token } = await getReasignacionCredentials();
       
-      DEBUG && console.log('📤 [DynamicsReasignacion] Enviando al webhook:', url);
-      DEBUG && console.log(`⏱️ [DynamicsReasignacion] Timeout configurado: ${WEBHOOK_TIMEOUT_MS / 1000} segundos`);
-      
       const payload = {
         prospecto_id: request.prospecto_id,
         nuevo_ejecutivo_id: request.nuevo_ejecutivo_id,
@@ -274,8 +252,6 @@ class DynamicsReasignacionService {
         user_email: request.reasignado_por_email,
         motivo: 'cambio desde UI'
       };
-
-      DEBUG && console.log('📋 [DynamicsReasignacion] Payload completo:', JSON.stringify(payload, null, 2));
 
       // Crear AbortController para el timeout
       const controller = new AbortController();
@@ -297,8 +273,6 @@ class DynamicsReasignacionService {
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          DEBUG && console.log('✅ [DynamicsReasignacion] Webhook respondió con 200');
-          
           // Intentar leer el body de respuesta
           let responseData = null;
           try {
@@ -332,7 +306,6 @@ class DynamicsReasignacionService {
           };
         } else {
           const errorText = await response.text();
-          console.error('❌ [DynamicsReasignacion] Webhook respondió con error:', response.status, errorText);
           
           // Mostrar toast de error
           toast.error(
@@ -360,8 +333,6 @@ class DynamicsReasignacionService {
         
         // Verificar si fue un timeout
         if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          console.error('⏱️ [DynamicsReasignacion] Timeout - El webhook no respondió en 120 segundos');
-          
           toast.error(
             `⏱️ Timeout: Dynamics no respondió en 2 minutos\nLa reasignación puede haberse completado. Verifica en Dynamics.`,
             {
@@ -385,8 +356,6 @@ class DynamicsReasignacionService {
         throw fetchError;
       }
     } catch (error) {
-      console.error('❌ [DynamicsReasignacion] Error de red al llamar webhook:', error);
-      
       // Mostrar toast de error de conexión
       toast.error(
         `❌ Error de conexión con Dynamics\n${error instanceof Error ? error.message : 'Error de red'}`,
@@ -426,8 +395,8 @@ class DynamicsReasignacionService {
           if (ejecutivo) {
             ejecutivoNombre = ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || null;
           }
-        } catch (error) {
-          console.warn('No se pudo obtener nombre del ejecutivo:', error);
+        } catch {
+          // No se pudo obtener nombre del ejecutivo (no crítico)
         }
       }
 
@@ -500,11 +469,9 @@ class DynamicsReasignacionService {
             assigned_by: request.reasignado_por_id,
             reason: request.motivo || 'Reasignación vía webhook Dynamics'
           });
-      } catch (logError) {
-        console.warn('Error registrando log (no crítico):', logError);
+      } catch {
+        // Error registrando log (no crítico)
       }
-
-      DEBUG && console.log('✅ [DynamicsReasignacion] Actualización local completada');
       
       return {
         success: true,
@@ -512,7 +479,6 @@ class DynamicsReasignacionService {
       };
 
     } catch (error) {
-      console.error('❌ [DynamicsReasignacion] Error en actualización local:', error);
       return {
         success: false,
         message: 'Error actualizando datos locales',

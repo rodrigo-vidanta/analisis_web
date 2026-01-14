@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.1: Edge Functions migradas a PQNC_AI
-  const version = 'B8.0.1N2.2.0';
+  // Versión actual - v2.2.2: Correcciones post-migración BD unificada
+  const version = 'B8.0.2N2.2.0';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

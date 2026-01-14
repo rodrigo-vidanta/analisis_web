@@ -1239,9 +1239,11 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         // Aplicar filtros de permisos
         if (user?.id) {
           const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
-          if (filteredQuery && typeof filteredQuery === 'object') {
+          // Verificar que filteredQuery es un PostgrestFilterBuilder válido (tiene método .or)
+          if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.or === 'function') {
             query = filteredQuery;
           }
+          // Si filteredQuery no es válido, mantener la query original
         }
         
         // Buscar por teléfono (búsqueda exacta con LIKE)
@@ -1368,18 +1370,18 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       if (user?.id) {
         try {
           const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
-          if (filteredQuery) {
+          // Verificar que filteredQuery es un PostgrestFilterBuilder válido
+          if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.select === 'function') {
             query = filteredQuery;
           }
-        } catch (permError) {
-          console.error('❌ Error aplicando filtros de permisos para totales:', permError);
+        } catch {
+          // Error aplicando filtros - continuar con query original
         }
       }
       
       const { data, error } = await query;
       
       if (error) {
-        console.error('❌ Error cargando totales por etapa:', error);
         return;
       }
       
@@ -1435,8 +1437,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       if (user?.id) {
         try {
           const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
-          // Si applyProspectFilters retorna algo, es válido (la función interna ya valida)
-          if (filteredQuery && typeof filteredQuery === 'object') {
+          // Verificar que filteredQuery es un PostgrestFilterBuilder válido
+          if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.select === 'function') {
             query = filteredQuery;
             
             // Guardar los filtros aplicados para usar en fallback si es necesario

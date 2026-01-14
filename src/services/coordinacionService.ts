@@ -578,7 +578,13 @@ class CoordinacionService {
   }
 
   /**
-   * OPTIMIZACIÓN: Obtiene múltiples ejecutivos en batch
+   * OPTIMIZACIÓN: Obtiene múltiples usuarios asignables en batch
+   * ============================================
+   * CORRECCIÓN 2026-01-14: Incluir ejecutivos Y coordinadores
+   * ============================================
+   * Los administradores pueden reasignar prospectos tanto a ejecutivos
+   * como a coordinadores. El filtro anterior solo buscaba "ejecutivo"
+   * lo cual causaba error 406 cuando se intentaba asignar a un coordinador.
    */
   async getEjecutivosByIds(ids: string[]): Promise<Map<string, Ejecutivo>> {
     try {
@@ -601,7 +607,7 @@ class CoordinacionService {
           auth_roles!inner(name)
         `)
         .in('id', ids)
-        .eq('auth_roles.name', 'ejecutivo');
+        .in('auth_roles.name', ['ejecutivo', 'coordinador']);
 
       if (error) throw error;
 
@@ -706,14 +712,17 @@ class CoordinacionService {
       // Primero obtener la coordinación para tener su información
       const coordinacion = await this.getCoordinacionById(coordinacionId);
       
-      // Obtener supervisores a través de la tabla intermedia auth_user_coordinaciones
-      // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
+      // ============================================
+      // CORRECCIÓN 2026-01-14: Eliminar JOIN inválido con auth_roles
+      // ============================================
+      // La tabla auth_user_coordinaciones NO tiene FK a auth_roles.
+      // Solo tiene FK a auth_users y coordinaciones.
+      // ============================================
       const { data: supervisorCoordinaciones, error: scError } = await supabaseSystemUI
         .from('auth_user_coordinaciones')
         .select(`
           user_id,
-          coordinacion_id,
-          auth_roles!inner(name)
+          coordinacion_id
         `)
         .eq('coordinacion_id', coordinacionId);
 
@@ -830,16 +839,19 @@ class CoordinacionService {
       // Primero obtener la coordinación para tener su información
       const coordinacion = await this.getCoordinacionById(coordinacionId);
       
-      // Obtener coordinadores SOLO a través de la tabla intermedia auth_user_coordinaciones
-      // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
+      // ============================================
+      // CORRECCIÓN 2026-01-14: Eliminar JOIN inválido con auth_roles
+      // ============================================
+      // La tabla auth_user_coordinaciones NO tiene FK a auth_roles.
+      // Solo tiene FK a auth_users y coordinaciones.
+      // ============================================
       const { data: coordinadorCoordinaciones, error: ccError } = await supabaseSystemUI
         .from('auth_user_coordinaciones')
         .select(`
           user_id,
-          coordinacion_id,
-          auth_roles!inner(name)
+          coordinacion_id
         `)
-        .eq('coordinacion_id', coordinacionId); // CRÍTICO: Solo esta coordinación específica
+        .eq('coordinacion_id', coordinacionId);
 
       if (ccError) {
         throw ccError;
@@ -939,7 +951,6 @@ class CoordinacionService {
       
       return resultado;
     } catch (error) {
-      console.error('Error obteniendo coordinadores:', error);
       throw error;
     }
   }
