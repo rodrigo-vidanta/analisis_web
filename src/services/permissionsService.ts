@@ -832,27 +832,32 @@ class PermissionsService {
 
       // Obtener todas las coordinaciones del coordinador
       // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data: relaciones, error: relError } = await supabaseSystemUIAdmin
         .from('auth_user_coordinaciones')
-        .select(`
-          coordinacion_id,
-          auth_roles(name)
-        `)
+        .select('coordinacion_id')
         .eq('user_id', userId);
 
-      if (error) {
-        console.error('Error verificando si es coordinador de calidad:', error);
+      if (relError || !relaciones || relaciones.length === 0) {
         this.calidadCache.set(userId, { data: false, timestamp: Date.now() });
         return false;
       }
 
-      // Verificar si alguna de sus coordinaciones es la de Calidad
-      const isCalidad = (data || []).some((row: any) => {
-        const coordinacion = Array.isArray(row.coordinaciones) 
-          ? row.coordinaciones[0] 
-          : row.coordinaciones;
-        return coordinacion?.codigo?.toUpperCase() === COORDINACION_CALIDAD_CODIGO;
-      });
+      // Obtener códigos de coordinaciones por separado (sin embed)
+      const coordIds = relaciones.map(r => r.coordinacion_id);
+      const { data: coordinaciones, error: coordError } = await supabaseSystemUIAdmin
+        .from('coordinaciones')
+        .select('codigo')
+        .in('id', coordIds);
+
+      if (coordError || !coordinaciones) {
+        this.calidadCache.set(userId, { data: false, timestamp: Date.now() });
+        return false;
+      }
+
+      // Verificar si alguna de sus coordinaciones es CALIDAD
+      const isCalidad = coordinaciones.some((coord: any) => 
+        coord.codigo?.toUpperCase() === COORDINACION_CALIDAD_CODIGO
+      );
 
       // Guardar en caché
       this.calidadCache.set(userId, { data: isCalidad, timestamp: Date.now() });
