@@ -770,6 +770,16 @@ class ElevenLabsService {
    */
   async validateApiKey(): Promise<{ valid: boolean; error?: string }> {
     try {
+      // Primero verificar si tenemos una API key válida (no placeholder)
+      const hasKey = await this.ensureApiKey();
+      if (!hasKey) {
+        return { 
+          valid: false, 
+          error: 'API key no configurada. Configúrala en Administración > Credenciales API' 
+        };
+      }
+      
+      // Si tenemos key, validar con ElevenLabs API
       await this.getUserInfo();
       return { valid: true };
     } catch (error) {
