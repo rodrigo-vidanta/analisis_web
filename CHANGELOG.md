@@ -2,6 +2,50 @@
 
 ## [Unreleased]
 
+### ⚡ v2.2.55 (B8.1.3N2.3.1) - Optimización LiveChat con Vista Materializada [15-01-2026]
+
+#### 🎯 Optimización de Rendimiento
+
+**Problema Resuelto:**
+- ❌ Carga inicial lenta con múltiples queries encadenadas (8-15 queries)
+- ❌ Complejidad O(n²) por JOINs client-side con prospectos, coordinaciones, ejecutivos
+- ❌ Realtime se desconectaba al bloquear/desbloquear el equipo
+
+**Solución Implementada:**
+- ✅ **Vista materializada**: `mv_conversaciones_dashboard` pre-calcula JOINs
+- ✅ **RPC optimizado**: `get_dashboard_conversations()` con filtros de permisos en servidor
+- ✅ **Feature flag**: `VITE_USE_OPTIMIZED_LIVECHAT=true` para activación gradual
+- ✅ **Visibilitychange listener**: Reconexión automática de Realtime al despertar equipo
+
+**Mejora de Rendimiento:**
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Queries iniciales | 8-15 | 1 + 2 paralelas |
+| Tiempo carga (estimado) | 2-4s | 0.3-0.8s |
+| Fallback | N/A | Automático a legacy |
+
+**Archivos Nuevos:**
+- `src/services/optimizedConversationsService.ts` - Servicio de carga optimizada
+
+**Archivos Modificados:**
+- `src/components/chat/LiveChatCanvas.tsx` - Wrapper con feature flag + visibilitychange
+- `src/components/chat/CHANGELOG_LIVECHAT.md` - Documentación v6.7.0
+
+**BD Changes (PQNC_AI):**
+- Vista materializada: `mv_conversaciones_dashboard` (1,885 registros, 6 índices)
+- Función RPC: `get_dashboard_conversations(p_user_id, p_is_admin, p_ejecutivo_ids, p_coordinacion_ids, p_limit, p_offset)`
+
+**Activación:**
+```bash
+# En .env para activar
+VITE_USE_OPTIMIZED_LIVECHAT=true
+
+# Para rollback instantáneo
+VITE_USE_OPTIMIZED_LIVECHAT=false
+```
+
+---
+
 ### 🔔 v2.2.54 (B8.1.2N2.3.1) - Sistema Notificaciones Completo con Triggers BD [15-01-2026]
 
 #### 🎯 Arquitectura Nueva de Notificaciones

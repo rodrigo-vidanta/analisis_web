@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.54: Sistema Notificaciones Completo - Triggers BD únicos, 3 tipos, anti-duplicados
-  const version = 'B8.1.2N2.3.1';
+  // Versión actual - v2.2.55: Optimización LiveChat - Vista materializada, RPC permisos, visibilitychange fix
+  const version = 'B8.1.3N2.3.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

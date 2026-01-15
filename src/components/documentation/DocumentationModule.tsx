@@ -284,6 +284,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'd4e5f6g', date: '2026-01-15', author: 'Team', message: 'v2.2.55: B8.1.3N2.3.1 - Optimización LiveChat: Vista materializada, RPC permisos, visibilitychange fix', isRelease: true },
   { hash: 'c3d4e5f', date: '2026-01-15', author: 'Team', message: 'v2.2.54: B8.1.2N2.3.1 - Sistema Notificaciones: Triggers BD únicos, 3 tipos, anti-duplicados', isRelease: true },
   { hash: 'b2c3d4e', date: '2026-01-15', author: 'Team', message: 'v2.2.53: B8.1.1N2.3.0 - Fix redirección inicio: Admin también inicia en Dashboard Operativo', isRelease: true },
   { hash: 'f9e8d7c', date: '2026-01-15', author: 'Team', message: 'v2.3.0: B8.1.0N2.3.0 - Seguridad Enterprise: RLS + Edge Functions + AWS WAF', isRelease: true },
