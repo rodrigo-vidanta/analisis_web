@@ -18,6 +18,7 @@
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLiveActivityStore } from '../../stores/liveActivityStore';
 import { CallCard } from './CallCard';
@@ -235,6 +236,18 @@ export const LiveCallActivityWidget: React.FC = () => {
     window.dispatchEvent(new CustomEvent('live-activity-transfer', { 
       detail: { callId: call.call_id } 
     }));
+    
+    // Mostrar toast informativo
+    toast('Abriendo modal de transferencia...', {
+      icon: '📞',
+      duration: 2000,
+      position: 'top-right',
+      style: {
+        background: '#1f2937',
+        color: '#fff',
+        border: '1px solid #374151'
+      }
+    });
   }, []);
   
   // No renderizar si no está habilitado o no tiene acceso
