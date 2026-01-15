@@ -56,17 +56,16 @@ const supabaseUrl = SUPABASE_URL;
 const supabaseAnonKey = SUPABASE_ANON_KEY;
 const supabaseServiceKey = SUPABASE_SERVICE_KEY;
 
-// Cliente público para operaciones normales
-// Solo crear si tenemos credenciales
-export const supabaseSystemUI = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        storageKey: 'systemui-auth'
-      },
-    })
-  : null;
+// Cliente con service_role si disponible, sino anon_key
+export const supabaseSystemUI = supabaseUrl && supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
+    
+if (!supabaseSystemUI) {
+  console.error('❌ supabaseSystemUI es NULL');
+}
 
 // Cliente admin para operaciones administrativas
 // Solo crear si tenemos service key

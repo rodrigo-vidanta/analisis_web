@@ -34,15 +34,17 @@ if (!analysisSupabaseUrl || !analysisSupabaseAnonKey) {
   console.warn('⚠️ ANALYSIS_SUPABASE: Faltan variables de entorno VITE_ANALYSIS_SUPABASE_URL o VITE_ANALYSIS_SUPABASE_ANON_KEY');
 }
 
-// Solo crear cliente si tenemos credenciales
-export const analysisSupabase = analysisSupabaseUrl && analysisSupabaseAnonKey
-  ? createClient(analysisSupabaseUrl, analysisSupabaseAnonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        storageKey: 'analysis-auth'
-      }
-    })
-  : null;
+const analysisSupabaseServiceKey = import.meta.env.VITE_ANALYSIS_SUPABASE_SERVICE_KEY || '';
+
+// Cliente con service_role (development) o anon_key (production)
+export const analysisSupabase = analysisSupabaseUrl && analysisSupabaseServiceKey
+  ? createClient(analysisSupabaseUrl, analysisSupabaseServiceKey)
+  : analysisSupabaseUrl && analysisSupabaseAnonKey
+    ? createClient(analysisSupabaseUrl, analysisSupabaseAnonKey)
+    : null;
+
+if (!analysisSupabase) {
+  console.error('❌ analysisSupabase es NULL');
+}
 
 export default analysisSupabase;

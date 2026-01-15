@@ -598,16 +598,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return 'direccion';
     }
 
-    // Dashboard Operativo como pantalla de inicio para ejecutivo, coordinador y admin operativo
-    if (['ejecutivo', 'coordinador', 'administrador_operativo'].includes(authState.user.role_name)) {
+    // Dashboard Operativo como pantalla de inicio para ejecutivo, coordinador, admin operativo y admin
+    if (['ejecutivo', 'coordinador', 'administrador_operativo', 'admin'].includes(authState.user.role_name)) {
       // Verificar que el usuario tenga acceso a al menos uno de los módulos del dashboard
       if (canAccessModule('prospectos') || canAccessModule('live-chat') || canAccessModule('live-monitor')) {
         return 'operative-dashboard';
       }
     }
     
-    // AI Models para productor, admin y developer
-    if (['productor', 'admin', 'developer'].includes(authState.user.role_name)) {
+    // AI Models para productor y developer (admin ahora va a operative-dashboard)
+    if (['productor', 'developer'].includes(authState.user.role_name)) {
       return 'ai-models';
     }
     

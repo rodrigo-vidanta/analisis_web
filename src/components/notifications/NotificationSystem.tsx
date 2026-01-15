@@ -18,7 +18,9 @@ import { notificationsService } from '../../services/notificationsService';
 import type { UserNotification } from '../../services/notificationsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserProfile } from '../../hooks/useUserProfile';
-import { useProspectosNotifications } from '../../hooks/useProspectosNotifications';
+// NOTA: useProspectosNotifications fue removido - las notificaciones ahora son
+// generadas por un trigger de base de datos (fn_notify_prospecto_changes)
+// para evitar duplicados cuando múltiples clientes están conectados
 
 // ============================================
 // NOTIFICATION BELL (ICONO CON CONTADOR)
@@ -467,13 +469,11 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
     clearAll 
   } = useNotificationStore();
 
-  // Hook para escuchar cambios en prospectos y generar notificaciones automáticamente
-  // Solo coordinadores, supervisores y admins generan notificaciones (para evitar duplicados)
-  useProspectosNotifications({
-    userId: user?.id || '',
-    userRole: user?.role_name || '',
-    isActive: !!user?.id && ['coordinador', 'supervisor', 'admin'].includes(user?.role_name || '')
-  });
+  // ARQUITECTURA v2 (2026-01-15):
+  // Las notificaciones son generadas por un trigger de base de datos
+  // (fn_notify_prospecto_changes) que se ejecuta en INSERT/UPDATE de prospectos.
+  // Esto elimina duplicados causados por múltiples clientes frontend conectados.
+  // El frontend solo escucha via Realtime y muestra las notificaciones.
 
   // Cargar notificaciones al montar
   useEffect(() => {

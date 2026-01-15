@@ -5,7 +5,7 @@ import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
   // Versión actual - v2.2.52: Dashboard Ejecutivos - Métricas de rendimiento con RPC optimizado
-  const version = 'B8.0.5N2.2.0';
+  const version = 'B8.1.0N2.3.0';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

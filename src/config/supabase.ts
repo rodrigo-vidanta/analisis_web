@@ -11,15 +11,17 @@ import { createClient } from '@supabase/supabase-js';
  * - Service keys solo para operaciones que requieren bypass de RLS
  * 
  * ✅ CONFIGURACIÓN REQUERIDA EN .env:
- * # Main DB (plantillas y agentes)
- * VITE_MAIN_SUPABASE_URL=https://rnhejbuubpbnojalljso.supabase.co
- * VITE_MAIN_SUPABASE_ANON_KEY=<tu_anon_key>
- * VITE_MAIN_SUPABASE_SERVICE_KEY=<tu_service_key>
+ * # Main DB (plantillas y agentes) - DEPRECADO
+ * # Este cliente ya no se usa en producción
+ * # VITE_MAIN_SUPABASE_URL=https://[tu-proyecto].supabase.co
+ * # VITE_MAIN_SUPABASE_ANON_KEY=<tu_anon_key>
  * 
- * # PQNC DB (autenticación y análisis)
+ * # PQNC DB (autenticación y análisis) - ACTIVO
  * VITE_PQNC_SUPABASE_URL=https://hmmfuhqgvsehkizlfzga.supabase.co
  * VITE_PQNC_SUPABASE_ANON_KEY=<tu_anon_key>
- * VITE_PQNC_SUPABASE_SERVICE_KEY=<tu_service_key>
+ * 
+ * ⚠️ IMPORTANTE: NUNCA usar VITE_ prefix para service_role keys
+ * Service keys solo deben estar en variables SIN VITE_ prefix (para scripts Node.js)
  */
 
 // Base de datos principal para plantillas y agentes

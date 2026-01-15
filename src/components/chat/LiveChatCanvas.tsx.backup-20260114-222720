@@ -91,7 +91,6 @@ import { scheduledCallsService } from '../../services/scheduledCallsService';
 import { getApiToken } from '../../services/apiTokensService';
 import { WhatsAppLabelsModal } from './WhatsAppLabelsModal';
 import { whatsappLabelsService, type ConversationLabel } from '../../services/whatsappLabelsService';
-import { optimizedConversationsService, USE_OPTIMIZED_VIEW } from '../../services/optimizedConversationsService';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -1381,54 +1380,13 @@ const LiveChatCanvas: React.FC = () => {
     
     const initializeChat = async () => {
       // Inicialización con reset (carga primera página)
-      await loadConversationsWrapper('', true); // Reset en carga inicial
+      await loadConversations('', true); // Reset en carga inicial
       setupRealtimeSubscription();
     };
     
     initializeChat();
     
-    // ============================================
-    // FIX: Reconectar Realtime cuando el equipo despierta
-    // ============================================
-    // Cuando el equipo se bloquea/suspende, los WebSockets mueren.
-    // Este listener detecta cuando la pestaña vuelve a ser visible
-    // y fuerza una reconexión de los canales Realtime.
-    // ============================================
-    let visibilityTimeout: number | null = null;
-    let lastVisibilityChange = 0;
-    
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        
-        // Debounce: ignorar si pasaron menos de 5 segundos desde la última reconexión
-        if (now - lastVisibilityChange < 5000) {
-          return;
-        }
-        lastVisibilityChange = now;
-        
-        // Cancelar timeout anterior si existe
-        if (visibilityTimeout) {
-          clearTimeout(visibilityTimeout);
-        }
-        
-        // Dar un pequeño delay para que el sistema se estabilice
-        visibilityTimeout = window.setTimeout(() => {
-          visibilityTimeout = null;
-          // Solo reconectar si no estamos en proceso de setup
-          if (!isSettingUpRef.current && !isUnmountingRef.current) {
-            // Forzar reconexión limpiando y reconfigurando
-            cleanupRealtimeChannels();
-            setupRealtimeSubscription();
-          }
-        }, 1500);
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       isUnmountingRef.current = true; // Marcar que estamos desmontando (hot reload)
       
       // ✅ CRÍTICO: Resetear flags al desmontar para evitar que se mantengan entre navegaciones
@@ -1641,7 +1599,7 @@ const LiveChatCanvas: React.FC = () => {
           return;
         }
         
-        await loadConversationsWrapper('', false);
+        await loadConversations('', false);
       };
       
       // Cargar primer batch inmediatamente
@@ -2576,7 +2534,7 @@ const LiveChatCanvas: React.FC = () => {
       
       // Cargar al 75% del scroll (25% antes del final)
       if (scrollPercentage >= 75 && hasMoreConversations && !loadingMoreConversations && !isLoadingConversationsRef.current) {
-        loadConversationsWrapper('', false); // Cargar siguiente página sin reset
+        loadConversations('', false); // Cargar siguiente página sin reset
         return;
       }
       
@@ -2599,7 +2557,7 @@ const LiveChatCanvas: React.FC = () => {
         );
       
       if (shouldLoadMore) {
-        loadConversationsWrapper('', false);
+        loadConversations('', false);
         return;
       }
     };
@@ -2910,7 +2868,7 @@ const LiveChatCanvas: React.FC = () => {
 
       if (!uchatError && uchatConv) {
         // Recargar conversaciones para incluir esta (sin reset)
-        await loadConversationsWrapper('', false);
+        await loadConversations('', false);
         // Intentar seleccionar después de recargar (selección automática - NO marcar como leída)
         setTimeout(() => {
           isManualSelectionRef.current = false;
@@ -3511,8 +3469,7 @@ const LiveChatCanvas: React.FC = () => {
   // MÉTODOS DE CARGA
   // ============================================
 
-  // Método legacy (original) - usado cuando VITE_USE_OPTIMIZED_LIVECHAT=false
-  const loadConversationsLegacy = async (searchTerm = '', reset = false) => {
+  const loadConversations = async (searchTerm = '', reset = false) => {
     // ⚠️ PROTECCIÓN: Prevenir ejecuciones simultáneas
     if (isLoadingConversationsRef.current) {
       return;
@@ -4090,191 +4047,6 @@ const LiveChatCanvas: React.FC = () => {
       setLoading(false);
       setLoadingMoreConversations(false);
       isLoadingConversationsRef.current = false;
-    }
-  };
-
-  // ============================================
-  // MÉTODO OPTIMIZADO CON VISTA MATERIALIZADA
-  // ============================================
-  // Usa mv_conversaciones_dashboard para carga inicial rápida
-  // Feature flag: VITE_USE_OPTIMIZED_LIVECHAT=true
-  // ============================================
-  const loadConversationsOptimized = async (searchTerm = '', reset = false) => {
-    if (isLoadingConversationsRef.current) return;
-    
-    isLoadingConversationsRef.current = true;
-    
-    try {
-      if (reset) {
-        currentConversationsPageRef.current = 0;
-        setAllConversationsLoaded([]);
-        setHasMoreConversations(true);
-        setTotalConversationsCount(0);
-        hasInitialConversationsLoadRef.current = false;
-        prospectosDataRef.current.clear();
-      }
-      
-      const pageToLoad = reset ? 0 : currentConversationsPageRef.current;
-      
-      if (allConversationsLoaded.length === 0 || reset) {
-        setLoading(true);
-      } else {
-        setLoadingMoreConversations(true);
-      }
-      
-      const from = pageToLoad * CONVERSATIONS_BATCH_SIZE;
-      
-      // Obtener filtros de permisos
-      let isAdmin = false;
-      let ejecutivoIds: string[] = [];
-      let coordinacionIds: string[] = [];
-      
-      if (user?.id) {
-        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
-        const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
-        
-        ejecutivoFilterRef.current = ejecutivoFilter;
-        coordinacionesFilterRef.current = coordinacionesFilter;
-        isAdminRef.current = !ejecutivoFilter && !coordinacionesFilter;
-        isAdmin = !ejecutivoFilter && !coordinacionesFilter;
-        
-        if (ejecutivoFilter) {
-          ejecutivoIds = [ejecutivoFilter];
-          // Obtener backups
-          try {
-            const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
-            const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
-              .from('auth_users')
-              .select('id')
-              .eq('backup_id', ejecutivoFilter)
-              .eq('has_backup', true);
-            
-            if (ejecutivosConBackup) {
-              ejecutivoIds.push(...ejecutivosConBackup.map(e => e.id));
-            }
-          } catch (error) {
-            console.error('Error obteniendo backups:', error);
-          }
-          ejecutivosIdsRef.current = ejecutivoIds;
-        }
-        
-        if (coordinacionesFilter) {
-          coordinacionIds = coordinacionesFilter;
-        }
-      }
-      
-      // ⚡ CARGA OPTIMIZADA: Una sola query a la vista materializada
-      const dashboardConversations = await optimizedConversationsService.loadConversations({
-        userId: user?.id,
-        isAdmin,
-        ejecutivoIds: ejecutivoIds.length > 0 ? ejecutivoIds : undefined,
-        coordinacionIds: coordinacionIds.length > 0 ? coordinacionIds : undefined,
-        limit: CONVERSATIONS_BATCH_SIZE,
-        offset: from,
-      });
-      
-      // Obtener conteo solo en primera carga
-      if (pageToLoad === 0) {
-        const count = await optimizedConversationsService.getConversationsCount({
-          userId: user?.id,
-          isAdmin,
-        });
-        setTotalConversationsCount(count);
-      }
-      
-      // Convertir al formato esperado por el componente
-      const convertedConversations = dashboardConversations.map(conv => 
-        optimizedConversationsService.convertToConversationFormat(conv)
-      );
-      
-      // Actualizar prospectosDataRef
-      const prospectosMap = optimizedConversationsService.buildProspectosDataMap(dashboardConversations);
-      if (reset) {
-        prospectosDataRef.current = prospectosMap;
-      } else {
-        prospectosMap.forEach((value, key) => {
-          prospectosDataRef.current.set(key, value);
-        });
-      }
-      setProspectosDataVersion(prev => prev + 1);
-      
-      // Actualizar llamadas activas
-      const activeCallsSet = optimizedConversationsService.buildActiveCallsSet(dashboardConversations);
-      setProspectsWithActiveCalls(prev => {
-        const newSet = new Set(prev);
-        activeCallsSet.forEach(id => newSet.add(id));
-        return newSet;
-      });
-      
-      // Cargar datos complementarios en paralelo (bot pause, labels)
-      const prospectoIds = dashboardConversations.map(c => c.prospecto_id);
-      if (prospectoIds.length > 0 && user?.id) {
-        const complementaryData = await optimizedConversationsService.loadComplementaryData(
-          prospectoIds,
-          user.id
-        );
-        
-        // Actualizar bot pause status
-        const pauseStatusObj: Record<string, any> = {};
-        complementaryData.botPauseStatus.forEach((value, key) => {
-          pauseStatusObj[key] = value;
-        });
-        setBotPauseStatus(prev => ({ ...prev, ...pauseStatusObj }));
-        
-        // Actualizar labels
-        setProspectoLabels(prev => ({ ...prev, ...complementaryData.labels }));
-      }
-      
-      // Actualizar estado de conversaciones
-      if (reset) {
-        setAllConversationsLoaded(convertedConversations);
-        setConversations(convertedConversations);
-      } else {
-        const existingIds = new Set(allConversationsLoaded.map(c => c.id));
-        const newConversations = convertedConversations.filter(c => !existingIds.has(c.id));
-        
-        if (newConversations.length > 0) {
-          const merged = [...allConversationsLoaded, ...newConversations];
-          setAllConversationsLoaded(merged);
-          setConversations(merged);
-        }
-      }
-      
-      // Verificar si hay más páginas
-      const hasMore = dashboardConversations.length === CONVERSATIONS_BATCH_SIZE;
-      setHasMoreConversations(hasMore);
-      
-      if (hasMore) {
-        currentConversationsPageRef.current = pageToLoad + 1;
-      }
-      
-      hasInitialConversationsLoadRef.current = true;
-      
-      // Log silenciado para producción
-      
-    } catch (error) {
-      console.error('❌ [Optimized] Error loading conversations:', error);
-      // Fallback a método legacy si falla
-      console.warn('⚠️ Falling back to legacy method...');
-      isLoadingConversationsRef.current = false;
-      await loadConversationsLegacy(searchTerm, reset);
-      return;
-    } finally {
-      setLoading(false);
-      setLoadingMoreConversations(false);
-      isLoadingConversationsRef.current = false;
-    }
-  };
-
-  // ============================================
-  // WRAPPER: Decide qué método usar según feature flag
-  // ============================================
-  const loadConversationsWrapper = async (searchTerm = '', reset = false) => {
-    if (USE_OPTIMIZED_VIEW) {
-      // Usando vista materializada optimizada
-      await loadConversationsOptimized(searchTerm, reset);
-    } else {
-      await loadConversationsLegacy(searchTerm, reset);
     }
   };
 

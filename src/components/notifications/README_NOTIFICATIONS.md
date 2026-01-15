@@ -2,14 +2,14 @@
 
 ## Índice
 1. [Resumen Ejecutivo](#resumen-ejecutivo)
-2. [Arquitectura del Sistema](#arquitectura-del-sistema)
+2. [Arquitectura del Sistema v2.0](#arquitectura-del-sistema-v20)
 3. [Flujo de Datos](#flujo-de-datos)
 4. [Componentes Frontend](#componentes-frontend)
 5. [Backend y Base de Datos](#backend-y-base-de-datos)
-6. [Triggers Automáticos](#triggers-automáticos)
+6. [Trigger Unificado](#trigger-unificado)
 7. [Tipos de Notificaciones](#tipos-de-notificaciones)
 8. [Troubleshooting](#troubleshooting)
-9. [Historial de Problemas Resueltos](#historial-de-problemas-resueltos)
+9. [Historial de Versiones](#historial-de-versiones)
 
 ---
 
@@ -18,13 +18,15 @@
 El sistema de notificaciones proporciona alertas en tiempo real estilo "redes sociales" para coordinadores, supervisores y ejecutivos. Las notificaciones aparecen como:
 
 1. **Bell Icon**: Campanita con contador de no leídas
-2. **Dropdown**: Lista desplegable de notificaciones pendientes
+2. **Dropdown**: Lista desplegable de notificaciones pendientes con botón "Limpiar"
 3. **Toast**: Notificación flotante desde la derecha con animación y sonido
 4. **Realtime**: Actualizaciones instantáneas via Supabase Realtime
 
 ---
 
-## Arquitectura del Sistema
+## Arquitectura del Sistema v2.0
+
+> **ACTUALIZACIÓN 2026-01-15**: Migración a BD unificada PQNC_AI + Trigger único
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -32,7 +34,7 @@ El sistema de notificaciones proporciona alertas en tiempo real estilo "redes so
 ├─────────────────────────────────────────────────────────────────────┤
 │  NotificationSystem.tsx                                             │
 │  ├── NotificationBell (campanita + contador)                        │
-│  ├── NotificationDropdown (lista de notificaciones)                 │
+│  ├── NotificationDropdown (lista + botón Limpiar)                   │
 │  └── NotificationToast (alerta flotante)                            │
 │                                                                     │
 │  notificationStore.ts (Zustand)                                     │
@@ -41,101 +43,112 @@ El sistema de notificaciones proporciona alertas en tiempo real estilo "redes so
 │  ├── toastNotification                                              │
 │  └── playNotificationSound()                                        │
 │                                                                     │
-│  notificationsService.ts                                            │
+│  notificationsService.ts (SIMPLIFICADO v2.0)                        │
 │  ├── getUnreadNotifications()                                       │
 │  ├── markAsReadAndDelete()                                          │
-│  ├── markAllAsRead()                                                │
+│  ├── markAllAsRead() ← BOTÓN LIMPIAR                                │
 │  └── subscribeToUserNotifications() ← REALTIME                      │
+│                                                                     │
+│  ⚠️ useProspectosNotifications.ts (DEPRECADO)                       │
+│     Ya no genera notificaciones - todo lo maneja el trigger de BD   │
 └─────────────────────────────────────────────────────────────────────┘
-                              │
-                              │ Supabase Realtime (WebSocket)
-                              ▼
+                             │
+                             │ Supabase Realtime (WebSocket)
+                             ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    SUPABASE - PQNC_AI                               │
+│                    SUPABASE - PQNC_AI (UNIFICADA)                   │
 │                (glsmifhkoaifvaegsozd.supabase.co)                   │
 ├─────────────────────────────────────────────────────────────────────┤
-│  TABLA: user_notifications                                          │
+│                                                                     │
+│  TABLA: prospectos                                                  │
+│  ├── id, nombre_completo, coordinacion_id, ejecutivo_id            │
+│  ├── requiere_atencion_humana, motivo_handoff                       │
+│  └── ... otros campos ...                                           │
+│                                                                     │
+│  TRIGGER: trigger_notify_prospecto_changes ◀────────────────────    │
+│  ├── Evento: AFTER INSERT OR UPDATE OF ejecutivo_id,                │
+│  │           requiere_atencion_humana                               │
+│  └── Función: fn_notify_prospecto_changes()                         │
+│                                                                     │
+│  FUNCIÓN: fn_notify_prospecto_changes() ────────────────────────    │
+│  ├── CASO 1: INSERT + coordinacion_id + no ejecutivo                │
+│  │           → Notifica a coordinadores/supervisores                │
+│  ├── CASO 2: UPDATE ejecutivo_id (null → valor)                     │
+│  │           → Notifica al ejecutivo asignado                       │
+│  └── CASO 3: UPDATE requiere_atencion_humana (false → true)         │
+│              → Notifica a ejecutivo o coordinadores                 │
+│                                                                     │
+│  TABLA: user_notifications ─────────────────────────────────────    │
 │  ├── id (UUID, PK)                                                  │
-│  ├── user_id (UUID, FK → auth_users en SystemUI)                    │
+│  ├── user_id (UUID, FK → auth_users)                                │
 │  ├── type (TEXT: nuevo_prospecto|prospecto_asignado|requiere...)    │
 │  ├── title (TEXT)                                                   │
 │  ├── message (TEXT)                                                 │
 │  ├── metadata (JSONB: prospecto_id, nombre, motivo, etc.)           │
 │  ├── is_read (BOOLEAN, default false)                               │
-│  ├── clicked (BOOLEAN, default false)                               │
 │  ├── created_at (TIMESTAMPTZ)                                       │
-│  ├── read_at (TIMESTAMPTZ, nullable)                                │
 │  └── expires_at (TIMESTAMPTZ, default +7 días)                      │
 │                                                                     │
-│  TRIGGERS en tabla 'prospectos':                                    │
-│  ├── trigger_notify_new_prospecto (INSERT)                          │
-│  ├── trigger_notify_ejecutivo_assigned (UPDATE ejecutivo_id)        │
-│  └── trigger_notify_requiere_atencion (UPDATE requiere_atencion...) │
-│                                                                     │
-│  FUNCIONES:                                                         │
-│  ├── notify_new_prospecto_to_coordinacion()                         │
-│  ├── notify_ejecutivo_assigned()                                    │
-│  └── notify_requiere_atencion_humana()                              │
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-                              │ FK user_id
-                              ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    SUPABASE - SystemUI                              │
-│                (zbylezfyagwrxoecioup.supabase.co)                   │
-├─────────────────────────────────────────────────────────────────────┤
-│  TABLA: auth_users                                                  │
-│  ├── id (UUID) ← user_id de notificaciones                         │
-│  ├── email                                                          │
-│  ├── full_name                                                      │
-│  ├── role_name (ejecutivo, coordinador, supervisor, etc.)           │
-│  └── is_active                                                      │
+│  TABLA: auth_users (MIGRADA desde SystemUI)                         │
+│  ├── id (UUID)                                                      │
+│  ├── full_name, email, is_active                                    │
+│  └── role_id → auth_roles                                           │
 │                                                                     │
 │  TABLA: auth_user_coordinaciones                                    │
 │  ├── user_id (FK → auth_users)                                      │
-│  └── coordinacion_id (UUID)                                         │
+│  └── coordinacion_id (FK → coordinaciones)                          │
+│                                                                     │
+│  TABLA: auth_roles                                                  │
+│  └── id, name (coordinador, supervisor, ejecutivo, etc.)            │
+│                                                                     │
+│  TABLA: coordinaciones                                              │
+│  └── id, nombre                                                     │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+### Ventajas de la Arquitectura v2.0
+
+| Aspecto | v1.0 (Frontend) | v2.0 (Trigger BD) |
+|---------|-----------------|-------------------|
+| Duplicados | ❌ Posibles si múltiples clientes conectados | ✅ Imposibles (un solo trigger) |
+| Cross-database | ❌ Requería queries a SystemUI | ✅ Todo en PQNC_AI |
+| Latencia | ⚠️ Frontend procesa → inserta | ✅ Trigger instantáneo |
+| Mantenibilidad | ❌ Código en frontend + backend | ✅ Solo un trigger |
+| Fiabilidad | ⚠️ Depende del estado del cliente | ✅ Ejecuta siempre que hay evento |
 
 ---
 
 ## Flujo de Datos
 
-### 1. Carga Inicial
-```
-Usuario inicia sesión
-    │
-    ▼
-AuthContext proporciona user.id
-    │
-    ▼
-NotificationSystem se monta
-    │
-    ├──► fetchNotifications() → analysisSupabase.from('user_notifications')
-    │                              .select('*')
-    │                              .eq('user_id', userId)
-    │                              .eq('is_read', false)
-    │
-    └──► subscribeToUserNotifications() → analysisSupabase
-                                            .channel('user_notifications_${userId}_${timestamp}')
-                                            .on('postgres_changes', { event: 'INSERT' })
-```
+### 1. Generación de Notificación (Trigger de BD)
 
-### 2. Nueva Notificación (Realtime)
 ```
-Trigger se dispara en tabla 'prospectos'
+Usuario/Sistema modifica tabla prospectos
     │
     ▼
-Función PL/pgSQL inserta en 'user_notifications'
+Trigger trigger_notify_prospecto_changes se dispara
     │
     ▼
-Supabase Realtime detecta INSERT
+Función fn_notify_prospecto_changes() evalúa:
+    │
+    ├──► INSERT + coordinacion_id + !ejecutivo_id
+    │        → Loop: INSERT en user_notifications para cada coordinador/supervisor
+    │
+    ├──► UPDATE ejecutivo_id (null → valor)
+    │        → INSERT en user_notifications para el ejecutivo
+    │
+    └──► UPDATE requiere_atencion_humana (false → true)
+             → INSERT en user_notifications para ejecutivo o coordinadores
+    │
+    ▼
+Supabase Realtime detecta INSERT en user_notifications
     │
     ▼
 WebSocket envía payload al frontend
     │
     ▼
-notificationsService.subscribeToUserNotifications callback
+subscribeToUserNotifications callback
     │
     ▼
 notificationStore.addNotification()
@@ -146,14 +159,39 @@ notificationStore.addNotification()
     └──► showToastNotification()
 ```
 
+### 2. Carga Inicial (Usuario inicia sesión)
+
+```
+Usuario inicia sesión
+    │
+    ▼
+AuthContext proporciona user.id
+    │
+    ▼
+NotificationSystem se monta
+    │
+    ├──► loadNotifications() → notificationsClient
+    │                           .from('user_notifications')
+    │                           .select('*')
+    │                           .eq('user_id', userId)
+    │                           .eq('is_read', false)
+    │
+    └──► subscribeToUserNotifications() → analysisSupabase
+                                            .channel('user_notifications_${userId}_${timestamp}')
+                                            .on('postgres_changes', { event: 'INSERT' })
+```
+
 ### 3. Usuario hace clic en notificación
+
 ```
 Usuario hace clic
     │
     ▼
 handleNotificationClick()
     │
-    ├──► onNavigate(prospecto_id) → Navega a LiveChat
+    ├──► localStorage.set('livechat-prospect-id', prospectoId)
+    │
+    ├──► window.dispatchEvent('navigate-to-livechat')
     │
     └──► markAsReadAndDelete() → DELETE de user_notifications
 ```
@@ -166,25 +204,35 @@ handleNotificationClick()
 
 | Archivo | Ubicación | Descripción |
 |---------|-----------|-------------|
-| `NotificationSystem.tsx` | `src/components/notifications/` | Componente principal que agrupa Bell, Dropdown y Toast |
-| `notificationStore.ts` | `src/stores/` | Store Zustand para estado global de notificaciones |
-| `notificationsService.ts` | `src/services/` | Servicio para interactuar con Supabase |
+| `NotificationSystem.tsx` | `src/components/notifications/` | Componente principal: Bell, Dropdown, Toast |
+| `notificationStore.ts` | `src/stores/` | Store Zustand para estado global |
+| `notificationsService.ts` | `src/services/` | Servicio simplificado (solo lectura + realtime) |
 | `notification.mp3` | `public/sounds/` | Audio de alerta |
+| `useProspectosNotifications.ts` | `src/hooks/` | **DEPRECADO** - No usar |
 
 ### NotificationSystem.tsx
 
-Exporta un único componente `<NotificationSystem />` que internamente contiene:
-
 ```tsx
-<div className="relative">
-  <NotificationBell />           {/* Campanita con contador */}
-  <NotificationDropdown />       {/* Lista desplegable */}
-  <NotificationToast />          {/* Alerta flotante */}
-</div>
+export const NotificationSystem: React.FC<NotificationSystemProps> = ({ 
+  onNavigateToProspecto 
+}) => {
+  // ARQUITECTURA v2 (2026-01-15):
+  // Las notificaciones son generadas por un trigger de base de datos
+  // (fn_notify_prospecto_changes) que se ejecuta en INSERT/UPDATE de prospectos.
+  // Esto elimina duplicados causados por múltiples clientes frontend conectados.
+  // El frontend solo escucha via Realtime y muestra las notificaciones.
+  
+  return (
+    <>
+      <div className="relative">
+        <NotificationBell />           {/* Campanita con contador */}
+        <NotificationDropdown />       {/* Lista + botón Limpiar */}
+      </div>
+      <NotificationToast />            {/* Alerta flotante */}
+    </>
+  );
+};
 ```
-
-**Props:**
-- `onNavigateToProspecto: (prospectoId: string) => void` - Callback para navegar al LiveChat
 
 ### notificationStore.ts (Zustand)
 
@@ -196,16 +244,18 @@ interface NotificationState {
   toastNotification: UserNotification | null;
   showToast: boolean;
   isLoading: boolean;
+  isSubscribed: boolean;
   
   // Actions
-  setNotifications: (notifications: UserNotification[]) => void;
+  loadNotifications: (userId: string) => Promise<void>;
   addNotification: (notification: UserNotification) => void;
   markAsReadAndDelete: (notificationId: string) => Promise<void>;
-  markAllAsRead: (userId: string) => Promise<void>;
+  markAllAsRead: (userId: string) => Promise<void>;  // Botón Limpiar
   toggleDropdown: () => void;
   closeDropdown: () => void;
-  showToastNotification: (notification: UserNotification) => void;
   hideToast: () => void;
+  setSubscribed: (value: boolean) => void;
+  clearAll: () => void;
 }
 ```
 
@@ -213,28 +263,25 @@ interface NotificationState {
 
 ## Backend y Base de Datos
 
-### Conexiones a Supabase
+### Base de Datos Unificada: PQNC_AI
 
-| Cliente | Proyecto | URL | Uso |
-|---------|----------|-----|-----|
-| `analysisSupabase` | PQNC_AI | glsmifhkoaifvaegsozd.supabase.co | Lectura/escritura de `user_notifications`, Realtime |
-| `supabaseSystemUI` | SystemUI | zbylezfyagwrxoecioup.supabase.co | Consulta de `auth_users` para roles |
+> **IMPORTANTE**: Desde 2026-01-13, todo está en PQNC_AI. SystemUI está deprecado.
 
-### ⚠️ IMPORTANTE: Base de Datos Correcta
+| Tabla | Descripción |
+|-------|-------------|
+| `prospectos` | Tabla principal - genera eventos para notificaciones |
+| `user_notifications` | Almacena notificaciones pendientes |
+| `auth_users` | Usuarios del sistema (migrada desde SystemUI) |
+| `auth_roles` | Roles (coordinador, supervisor, ejecutivo, etc.) |
+| `auth_user_coordinaciones` | Relación usuario ↔ coordinación |
+| `coordinaciones` | Catálogo de coordinaciones |
 
-**La tabla `user_notifications` está en PQNC_AI, NO en SystemUI.**
-
-Esto es crítico porque:
-1. Los triggers están en la tabla `prospectos` de PQNC_AI
-2. Realtime está habilitado en PQNC_AI para esta tabla
-3. RLS está DESHABILITADO en la tabla para permitir acceso directo
-
-### Esquema de la Tabla
+### Esquema de user_notifications
 
 ```sql
 CREATE TABLE user_notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,  -- FK lógico a auth_users en SystemUI
+    user_id UUID NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('nuevo_prospecto', 'prospecto_asignado', 'mensaje_nuevo', 'requiere_atencion')),
     title TEXT NOT NULL,
     message TEXT NOT NULL,
@@ -255,81 +302,88 @@ ALTER TABLE user_notifications DISABLE ROW LEVEL SECURITY;
 
 ---
 
-## Triggers Automáticos
+## Trigger Unificado
 
-### 1. Nuevo Prospecto → Coordinadores
-
-**Trigger:** `trigger_notify_new_prospecto`
-**Evento:** `AFTER INSERT ON prospectos`
-**Condición:** `coordinacion_id IS NOT NULL AND ejecutivo_id IS NULL`
+### fn_notify_prospecto_changes()
 
 ```sql
-CREATE OR REPLACE FUNCTION notify_new_prospecto_to_coordinacion()
+CREATE OR REPLACE FUNCTION fn_notify_prospecto_changes()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_user_id UUID;
+  v_prospecto_nombre TEXT;
+  v_coordinacion_nombre TEXT;
 BEGIN
-    IF NEW.coordinacion_id IS NOT NULL AND NEW.ejecutivo_id IS NULL THEN
-        -- Notifica a coordinadores y supervisores de la coordinación
-        INSERT INTO user_notifications (user_id, type, title, message, metadata)
-        SELECT au.id, 'nuevo_prospecto', 'Nuevo prospecto en tu coordinacion', ...
-        FROM auth_users au
-        JOIN auth_user_coordinaciones auc ON au.id = auc.user_id
-        WHERE auc.coordinacion_id = NEW.coordinacion_id
-          AND au.role_name IN ('coordinador', 'supervisor');
+  -- Obtener nombre del prospecto
+  v_prospecto_nombre := COALESCE(NEW.nombre_completo, NEW.nombre_whatsapp, 'Nuevo prospecto');
+  
+  -- Obtener nombre de coordinación si existe
+  IF NEW.coordinacion_id IS NOT NULL THEN
+    SELECT nombre INTO v_coordinacion_nombre 
+    FROM coordinaciones 
+    WHERE id = NEW.coordinacion_id;
+  END IF;
+  
+  -- ========================================
+  -- CASO 1: NUEVO PROSPECTO (INSERT)
+  -- Notificar a coordinadores de la coordinación
+  -- ========================================
+  IF TG_OP = 'INSERT' AND NEW.coordinacion_id IS NOT NULL AND NEW.ejecutivo_id IS NULL THEN
+    FOR v_user_id IN 
+      SELECT DISTINCT u.id
+      FROM auth_users u
+      INNER JOIN auth_roles r ON u.role_id = r.id
+      INNER JOIN auth_user_coordinaciones uc ON u.id = uc.user_id
+      WHERE uc.coordinacion_id = NEW.coordinacion_id
+        AND u.is_active = true
+        AND r.name IN ('coordinador', 'supervisor')
+    LOOP
+      INSERT INTO user_notifications (user_id, type, title, message, metadata, expires_at)
+      VALUES (v_user_id, 'nuevo_prospecto', 'Nuevo prospecto en tu coordinacion', ...);
+    END LOOP;
+    
+  -- ========================================
+  -- CASO 2: ASIGNACIÓN DE EJECUTIVO (UPDATE)
+  -- ========================================
+  ELSIF TG_OP = 'UPDATE' AND OLD.ejecutivo_id IS NULL AND NEW.ejecutivo_id IS NOT NULL THEN
+    IF EXISTS (SELECT 1 FROM auth_users u INNER JOIN auth_roles r ON u.role_id = r.id
+               WHERE u.id = NEW.ejecutivo_id AND u.is_active = true
+               AND r.name IN ('ejecutivo', 'coordinador')) THEN
+      INSERT INTO user_notifications (user_id, type, title, message, metadata, expires_at)
+      VALUES (NEW.ejecutivo_id, 'prospecto_asignado', 'Prospecto asignado', ...);
     END IF;
-    RETURN NEW;
+    
+  -- ========================================
+  -- CASO 3: REQUIERE ATENCIÓN HUMANA (UPDATE)
+  -- ========================================
+  ELSIF TG_OP = 'UPDATE' 
+    AND (OLD.requiere_atencion_humana IS NULL OR OLD.requiere_atencion_humana = false) 
+    AND NEW.requiere_atencion_humana = true THEN
+    
+    IF NEW.ejecutivo_id IS NOT NULL THEN
+      -- Notificar al ejecutivo
+      INSERT INTO user_notifications (...);
+    ELSIF NEW.coordinacion_id IS NOT NULL THEN
+      -- Notificar a coordinadores
+      FOR v_user_id IN SELECT ... LOOP
+        INSERT INTO user_notifications (...);
+      END LOOP;
+    END IF;
+  END IF;
+  
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### 2. Ejecutivo Asignado → Ejecutivo
-
-**Trigger:** `trigger_notify_ejecutivo_assigned`
-**Evento:** `AFTER UPDATE OF ejecutivo_id ON prospectos`
-**Condición:** `ejecutivo_id cambió de NULL a un valor`
+### Trigger
 
 ```sql
-CREATE OR REPLACE FUNCTION notify_ejecutivo_assigned()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.ejecutivo_id IS NOT NULL 
-       AND (OLD.ejecutivo_id IS NULL OR OLD.ejecutivo_id != NEW.ejecutivo_id) THEN
-        -- Notifica al ejecutivo asignado
-        INSERT INTO user_notifications (user_id, type, title, message, metadata)
-        VALUES (NEW.ejecutivo_id, 'prospecto_asignado', 'Prospecto asignado', ...);
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-### 3. Requiere Atención Humana → Ejecutivo o Coordinadores
-
-**Trigger:** `trigger_notify_requiere_atencion`
-**Evento:** `AFTER UPDATE OF requiere_atencion_humana ON prospectos`
-**Condición:** `requiere_atencion_humana cambió de false/null a true`
-
-```sql
-CREATE OR REPLACE FUNCTION notify_requiere_atencion_humana()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.requiere_atencion_humana = true 
-       AND (OLD.requiere_atencion_humana IS NULL OR OLD.requiere_atencion_humana = false) THEN
-        
-        IF NEW.ejecutivo_id IS NOT NULL THEN
-            -- Notifica al ejecutivo
-            INSERT INTO user_notifications (...) VALUES (NEW.ejecutivo_id, 'requiere_atencion', ...);
-        ELSIF NEW.coordinacion_id IS NOT NULL THEN
-            -- Notifica a coordinadores de la coordinación
-            INSERT INTO user_notifications (...)
-            SELECT au.id, 'requiere_atencion', ...
-            FROM auth_users au
-            JOIN auth_user_coordinaciones auc ON au.id = auc.user_id
-            WHERE auc.coordinacion_id = NEW.coordinacion_id;
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER trigger_notify_prospecto_changes
+AFTER INSERT OR UPDATE OF ejecutivo_id, requiere_atencion_humana
+ON prospectos
+FOR EACH ROW
+EXECUTE FUNCTION fn_notify_prospecto_changes();
 ```
 
 ---
@@ -338,21 +392,21 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 | Tipo | Icono | Color | Cuándo se genera |
 |------|-------|-------|------------------|
-| `nuevo_prospecto` | MessageSquare | Indigo/Purple | Nuevo prospecto llega a coordinación sin ejecutivo |
-| `prospecto_asignado` | UserPlus | Green/Emerald | Se asigna ejecutivo a un prospecto |
-| `requiere_atencion` | AlertTriangle | Red/Orange | Se activa flag `requiere_atencion_humana` |
-| `mensaje_nuevo` | MessageSquare | Indigo/Purple | (Reservado para futuro uso) |
+| `nuevo_prospecto` | MessageSquare | Indigo/Purple | INSERT: prospecto con coordinación sin ejecutivo |
+| `prospecto_asignado` | UserPlus | Green/Emerald | UPDATE: ejecutivo_id de NULL a valor |
+| `requiere_atencion` | AlertTriangle | Red/Orange | UPDATE: requiere_atencion_humana de false a true |
 
 ### Estructura del Metadata
 
 ```typescript
 interface NotificationMetadata {
-  prospecto_id: string;      // UUID del prospecto
-  prospecto_nombre: string;  // Nombre para mostrar
-  coordinacion_id?: string;  // UUID de la coordinación
-  telefono?: string;         // WhatsApp del prospecto
-  motivo?: string;           // Motivo de atención humana (solo en requiere_atencion)
-  action_url: string;        // URL para navegar al hacer clic
+  prospecto_id: string;           // UUID del prospecto
+  prospecto_nombre: string;       // Nombre para mostrar
+  coordinacion_id?: string;       // UUID de la coordinación
+  coordinacion_nombre?: string;   // Nombre de la coordinación
+  telefono?: string;              // WhatsApp del prospecto
+  motivo?: string;                // Motivo (solo en requiere_atencion)
+  action_url: string;             // URL para navegar
 }
 ```
 
@@ -360,114 +414,80 @@ interface NotificationMetadata {
 
 ## Troubleshooting
 
-### Las notificaciones no aparecen
+### Las notificaciones no llegan en realtime
 
-1. **Verificar conexión a la BD correcta:**
-   - Las notificaciones están en PQNC_AI (`glsmifhkoaifvaegsozd`)
-   - NO en SystemUI
+1. **Verificar canal de realtime:**
+   ```javascript
+   // En consola del navegador
+   // Buscar: "🔔 [Realtime] Suscribiendo a notificaciones:"
+   // Verificar estado: "SUBSCRIBED"
+   ```
 
-2. **Verificar RLS:**
+2. **Verificar RLS deshabilitado:**
    ```sql
-   -- Debe estar deshabilitado
    SELECT relrowsecurity FROM pg_class WHERE relname = 'user_notifications';
    -- Debe retornar: false
    ```
 
-3. **Verificar Realtime habilitado:**
+3. **Verificar que la tabla está en realtime:**
    ```sql
    SELECT * FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
    -- Debe incluir 'user_notifications'
    ```
 
-### Realtime no funciona
+### El trigger no genera notificaciones
 
-1. **Verificar que el canal se suscribe correctamente:**
-   - El canal debe usar `analysisSupabase` (PQNC_AI)
-   - El nombre del canal debe ser único (incluye timestamp)
+1. **Verificar que el trigger existe:**
+   ```sql
+   SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.prospectos'::regclass;
+   -- Debe incluir: trigger_notify_prospecto_changes
+   ```
 
-2. **Verificar user_id correcto:**
-   - El filtro del canal usa `user_id=eq.${userId}`
-   - Verificar que el userId del AuthContext coincide con los registros
+2. **Verificar que la función existe:**
+   ```sql
+   SELECT proname FROM pg_proc WHERE proname = 'fn_notify_prospecto_changes';
+   ```
+
+3. **Probar manualmente:**
+   ```sql
+   -- Simular asignación de ejecutivo
+   UPDATE prospectos 
+   SET ejecutivo_id = 'UUID_DEL_EJECUTIVO'
+   WHERE id = 'UUID_DEL_PROSPECTO' AND ejecutivo_id IS NULL;
+   ```
 
 ### Audio no suena
 
-1. **Browser Autoplay Policy:**
-   - El audio requiere interacción previa del usuario
-   - El sistema intenta resumir el AudioContext al primer clic/keydown
-
-2. **Archivo de audio:**
-   - Debe existir `/public/sounds/notification.mp3`
+- **Browser Autoplay Policy:** El audio requiere interacción previa del usuario
+- El sistema intenta resumir el AudioContext al primer clic/keydown
+- Verificar que existe: `/public/sounds/notification.mp3`
 
 ---
 
-## Historial de Problemas Resueltos
+## Historial de Versiones
 
-### Problema 1: Base de Datos Incorrecta
+### v2.0.0 (2026-01-15)
 
-**Síntoma:** Notificaciones insertadas pero no aparecían en UI
-**Causa:** El servicio buscaba en SystemUI pero la tabla real está en PQNC_AI
-**Solución:** Cambiar `supabaseSystemUI` por `analysisSupabase` en el servicio
+**CAMBIO ARQUITECTÓNICO MAYOR: Trigger de BD**
 
-### Problema 2: RLS Bloqueando Acceso
-
-**Síntoma:** Error 400 "permission denied" o arrays vacíos
-**Causa:** RLS habilitado bloqueaba al anon_key
-**Solución:** Deshabilitar RLS en la tabla `user_notifications`
-
-### Problema 3: PostgREST Cache Desactualizado
-
-**Síntoma:** Error "column does not exist" aunque la columna existía
-**Causa:** PostgREST no había recargado el schema
-**Solución:** Ejecutar `NOTIFY pgrst, 'reload schema';`
-
-### Problema 4: Realtime con Cliente Incorrecto
-
-**Síntoma:** `CHANNEL_ERROR` en consola
-**Causa:** Suscripción realtime usando cliente de SystemUI
-**Solución:** Usar `analysisSupabase` para la suscripción realtime
-
-### Problema 5: user_id Incorrecto
-
-**Síntoma:** Notificaciones no llegaban a usuario específico
-**Causa:** El user_id insertado no coincidía con el del AuthContext
-**Solución:** Verificar user_id desde consola y usar el correcto
-
----
-
-## Dependencias
-
-### NPM Packages
-- `@supabase/supabase-js` - Cliente Supabase
-- `zustand` - State management
-- `framer-motion` - Animaciones
-- `lucide-react` - Iconos
-
-### Archivos de Configuración
-- `src/config/analysisSupabase.ts` - Cliente PQNC_AI
-- `src/config/supabaseSystemUI.ts` - Cliente SystemUI
-- `src/contexts/AuthContext.tsx` - Contexto de autenticación
-
-### Variables de Entorno
-```env
-VITE_ANALYSIS_SUPABASE_URL=https://glsmifhkoaifvaegsozd.supabase.co
-VITE_ANALYSIS_SUPABASE_ANON_KEY=...
-VITE_SUPABASE_URL=https://zbylezfyagwrxoecioup.supabase.co
-VITE_SUPABASE_ANON_KEY=...
-```
-
----
-
-## Changelog
+- ✅ Nuevo trigger unificado `fn_notify_prospecto_changes`
+- ✅ Eliminación de generación desde frontend (evita duplicados)
+- ✅ Migración completa a PQNC_AI (sin dependencias de SystemUI)
+- ✅ Limpieza de 528 notificaciones duplicadas
+- ✅ Hook `useProspectosNotifications` deprecado
+- ✅ Servicio simplificado (solo lectura + realtime)
+- ✅ Documentación actualizada
 
 ### v1.0.0 (2026-01-13)
+
 - Implementación inicial del sistema de notificaciones
 - Campana con contador, dropdown y toast
-- Triggers automáticos para 3 tipos de eventos
+- Triggers en BD para 3 tipos de eventos
 - Sonido de notificación
-- Documentación completa
+- Documentación inicial
 
 ---
 
-**Última actualización:** 13 de Enero 2026
+**Última actualización:** 15 de Enero 2026
 **Autor:** Team PQNC
-**Versión:** 1.0.0
+**Versión:** 2.0.0

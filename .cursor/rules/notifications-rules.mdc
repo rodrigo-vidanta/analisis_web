@@ -1,23 +1,48 @@
-# Reglas del Sistema de Notificaciones
+# Reglas del Sistema de Notificaciones v2.0
 
 ## Descripción
 Sistema de notificaciones en tiempo real estilo "redes sociales" para alertar a coordinadores, supervisores y ejecutivos sobre eventos importantes de prospectos.
 
+**Versión:** 2.0.0 (2026-01-15)
+**Arquitectura:** Trigger de BD unificado (elimina duplicados)
+
 ---
 
-## Arquitectura
+## Arquitectura v2.0
 
-### Base de Datos Principal: PQNC_AI
+### Base de Datos: PQNC_AI (UNIFICADA)
 - **URL**: `glsmifhkoaifvaegsozd.supabase.co`
 - **Cliente**: `analysisSupabase` (de `src/config/analysisSupabase.ts`)
-- **Tabla**: `user_notifications`
-- **RLS**: DESHABILITADO (acceso directo)
-- **Realtime**: HABILITADO
+- **Tablas**: 
+  - `user_notifications` (notificaciones)
+  - `prospectos` (eventos que generan notificaciones)
+  - `auth_users`, `auth_roles`, `auth_user_coordinaciones` (migradas desde SystemUI)
+- **RLS**: DESHABILITADO en `user_notifications`
+- **Realtime**: HABILITADO en `user_notifications`
 
-### Base de Datos Secundaria: SystemUI
-- **URL**: `zbylezfyagwrxoecioup.supabase.co`
-- **Cliente**: `supabaseSystemUI`
-- **Uso**: Consulta de `auth_users` para obtener roles y coordinaciones
+### ⛔ SystemUI: DEPRECADO
+- Ya NO se usa para notificaciones
+- Tablas migradas a PQNC_AI
+- No usar `supabaseSystemUI` en código de notificaciones
+
+---
+
+## Trigger Unificado
+
+```
+Nombre:     trigger_notify_prospecto_changes
+Tabla:      prospectos
+Eventos:    AFTER INSERT OR UPDATE OF ejecutivo_id, requiere_atencion_humana
+Función:    fn_notify_prospecto_changes()
+```
+
+### Casos manejados por el trigger:
+
+| Caso | Evento | Condición | Destinatarios |
+|------|--------|-----------|---------------|
+| 1 | INSERT | coordinacion_id NOT NULL AND ejecutivo_id IS NULL | Coordinadores y supervisores de la coordinación |
+| 2 | UPDATE | ejecutivo_id cambia de NULL a valor | El ejecutivo asignado |
+| 3 | UPDATE | requiere_atencion_humana cambia de false/null a true | Ejecutivo (si tiene) o Coordinadores |
 
 ---
 
@@ -27,9 +52,11 @@ Sistema de notificaciones en tiempo real estilo "redes sociales" para alertar a 
 |---------|-------------|
 | `src/components/notifications/NotificationSystem.tsx` | Componente principal (Bell, Dropdown, Toast) |
 | `src/stores/notificationStore.ts` | Store Zustand para estado global |
-| `src/services/notificationsService.ts` | Servicio para interactuar con Supabase |
+| `src/services/notificationsService.ts` | Servicio simplificado (solo lectura + realtime) |
+| `src/hooks/useProspectosNotifications.ts` | **DEPRECADO** - No usar |
 | `public/sounds/notification.mp3` | Audio de alerta |
 | `src/components/notifications/README_NOTIFICATIONS.md` | Documentación completa |
+| `src/components/notifications/CHANGELOG_NOTIFICATIONS.md` | Historial de cambios |
 
 ---
 
@@ -37,70 +64,43 @@ Sistema de notificaciones en tiempo real estilo "redes sociales" para alertar a 
 
 ```typescript
 type NotificationType = 
-  | 'nuevo_prospecto'      // Icono: MessageSquare (morado)
-  | 'prospecto_asignado'   // Icono: UserPlus (verde)
-  | 'requiere_atencion'    // Icono: AlertTriangle (rojo)
+  | 'nuevo_prospecto'      // Icono: MessageSquare (morado) - coordinadores
+  | 'prospecto_asignado'   // Icono: UserPlus (verde) - ejecutivo asignado
+  | 'requiere_atencion'    // Icono: AlertTriangle (rojo) - urgente
   | 'mensaje_nuevo';       // Reservado para futuro
-```
-
----
-
-## Triggers en Base de Datos
-
-### 1. Nuevo Prospecto → Coordinadores
-```
-Tabla: prospectos
-Evento: INSERT
-Condición: coordinacion_id NOT NULL AND ejecutivo_id IS NULL
-Función: notify_new_prospecto_to_coordinacion()
-Destinatarios: Coordinadores y supervisores de la coordinación
-```
-
-### 2. Asignación de Ejecutivo
-```
-Tabla: prospectos
-Evento: UPDATE OF ejecutivo_id
-Condición: ejecutivo_id cambió de NULL a valor
-Función: notify_ejecutivo_assigned()
-Destinatarios: El ejecutivo asignado
-```
-
-### 3. Requiere Atención Humana
-```
-Tabla: prospectos
-Evento: UPDATE OF requiere_atencion_humana
-Condición: Cambió de false/null a true
-Función: notify_requiere_atencion_humana()
-Destinatarios: Ejecutivo (si tiene) o Coordinadores (si no tiene)
 ```
 
 ---
 
 ## Reglas Críticas
 
-### NUNCA hacer:
-1. ❌ Usar `supabaseSystemUI` para leer/escribir `user_notifications`
+### ⛔ NUNCA hacer:
+1. ❌ Usar `supabaseSystemUI` para notificaciones (está deprecado)
 2. ❌ Habilitar RLS en la tabla `user_notifications`
-3. ❌ Cambiar el cliente de realtime a SystemUI
-4. ❌ Eliminar los triggers sin crear alternativa
+3. ❌ Generar notificaciones desde el frontend (causa duplicados)
+4. ❌ Modificar el trigger `trigger_notify_prospecto_changes` sin backup
+5. ❌ Usar el hook `useProspectosNotifications` (deprecado)
 
-### SIEMPRE hacer:
-1. ✅ Usar `analysisSupabase` para operaciones de notificaciones
+### ✅ SIEMPRE hacer:
+1. ✅ Usar `analysisSupabase` o `notificationsClient` para operaciones
 2. ✅ Mantener RLS deshabilitado en `user_notifications`
-3. ✅ Usar canal único con timestamp para realtime
-4. ✅ Verificar que `user_id` viene del AuthContext
+3. ✅ Las notificaciones se generan SOLO por el trigger de BD
+4. ✅ El frontend SOLO escucha via Realtime y muestra
+5. ✅ Verificar que `user_id` viene del AuthContext
 
 ---
 
-## Flujo de Realtime
+## Flujo de Datos
 
 ```
-1. Trigger se dispara en tabla 'prospectos' (PQNC_AI)
-2. Función PL/pgSQL inserta en 'user_notifications'
-3. Supabase Realtime detecta INSERT
-4. Canal WebSocket envía payload
-5. notificationsService callback recibe notificación
-6. notificationStore.addNotification():
+1. Evento en tabla 'prospectos' (INSERT/UPDATE)
+2. Trigger trigger_notify_prospecto_changes se dispara
+3. Función fn_notify_prospecto_changes() evalúa condiciones
+4. INSERT en 'user_notifications' para usuarios correspondientes
+5. Supabase Realtime detecta INSERT
+6. WebSocket envía payload al frontend
+7. notificationsService.subscribeToUserNotifications callback
+8. notificationStore.addNotification():
    - Agrega a lista
    - Incrementa contador
    - Reproduce sonido
@@ -111,19 +111,32 @@ Destinatarios: Ejecutivo (si tiene) o Coordinadores (si no tiene)
 
 ## Debugging
 
-### Notificaciones no aparecen:
-1. Verificar que la tabla está en PQNC_AI
-2. Verificar que RLS está deshabilitado
-3. Verificar user_id correcto en consola
+### Notificaciones no se generan:
+```sql
+-- Verificar trigger existe
+SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.prospectos'::regclass;
+
+-- Verificar función existe
+SELECT proname FROM pg_proc WHERE proname = 'fn_notify_prospecto_changes';
+
+-- Probar manualmente (simular asignación)
+UPDATE prospectos SET ejecutivo_id = 'UUID' WHERE id = 'ID' AND ejecutivo_id IS NULL;
+
+-- Verificar notificación creada
+SELECT * FROM user_notifications ORDER BY created_at DESC LIMIT 5;
+```
 
 ### Realtime no funciona:
-1. Verificar que usa `analysisSupabase`
-2. Verificar que Realtime está habilitado para la tabla
-3. Revisar consola por CHANNEL_ERROR
+1. Verificar que usa `analysisSupabase` (no supabaseSystemUI)
+2. Verificar Realtime habilitado: 
+   ```sql
+   SELECT * FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
+   ```
+3. Verificar en consola: buscar "🔔 [Realtime]" logs
 
 ### Audio no suena:
-1. Requiere interacción previa del usuario (Browser Policy)
-2. Verificar que existe `/public/sounds/notification.mp3`
+- Requiere interacción previa del usuario (Browser Autoplay Policy)
+- Verificar que existe `/public/sounds/notification.mp3`
 
 ---
 
@@ -131,12 +144,13 @@ Destinatarios: Ejecutivo (si tiene) o Coordinadores (si no tiene)
 
 ```typescript
 interface NotificationMetadata {
-  prospecto_id: string;      // UUID del prospecto
-  prospecto_nombre: string;  // Nombre a mostrar
-  coordinacion_id?: string;  // UUID coordinación
-  telefono?: string;         // WhatsApp del prospecto
-  motivo?: string;           // Solo en requiere_atencion
-  action_url: string;        // URL para navegación
+  prospecto_id: string;           // UUID del prospecto
+  prospecto_nombre: string;       // Nombre a mostrar
+  coordinacion_id?: string;       // UUID coordinación
+  coordinacion_nombre?: string;   // Nombre de coordinación
+  telefono?: string;              // WhatsApp del prospecto
+  motivo?: string;                // Solo en requiere_atencion
+  action_url: string;             // URL para navegación
 }
 ```
 
@@ -153,11 +167,12 @@ interface NotificationMetadata {
 
 ## Documentación Relacionada
 
-- `src/components/notifications/README_NOTIFICATIONS.md` - Documentación técnica completa
+- `src/components/notifications/README_NOTIFICATIONS.md` - Documentación técnica
 - `src/components/notifications/CHANGELOG_NOTIFICATIONS.md` - Historial de cambios
+- `.cursor/rules/unified-database-architecture.mdc` - Arquitectura BD unificada
 - `docs/MCP_CATALOG.md` - Catálogo de conexiones MCP
 
 ---
 
-**Última actualización:** 2026-01-13
-**Versión:** 1.0.0
+**Última actualización:** 2026-01-15
+**Versión:** 2.0.0

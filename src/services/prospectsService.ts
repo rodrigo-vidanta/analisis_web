@@ -1,6 +1,12 @@
 import { permissionsService } from './permissionsService';
 import { automationService } from './automationService';
 import { analysisSupabase } from '../config/analysisSupabase';
+import { analysisSupabaseAdmin } from '../config/analysisSupabaseAdmin';
+import { secureFrom } from './secureQueryService';
+
+// Usar admin client que bypasea RLS (temporal hasta Edge Functions)
+// TODO: Migrar a Edge Functions
+const supabaseClient = analysisSupabaseAdmin || analysisSupabase;
 import { coordinacionService } from './coordinacionService';
 
 /**

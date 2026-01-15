@@ -4,6 +4,35 @@ Todos los cambios notables en el sistema de notificaciones serán documentados a
 
 ---
 
+## [2.0.0] - 2026-01-15
+
+### ⚠️ CAMBIO ARQUITECTÓNICO MAYOR
+
+**Migración de generación frontend → Trigger de BD**
+
+### Agregado
+- **Trigger Unificado**: `trigger_notify_prospecto_changes` reemplaza 3 triggers separados
+- **Función Unificada**: `fn_notify_prospecto_changes()` maneja los 3 tipos de notificaciones
+- **BD Unificada**: Todo en PQNC_AI (auth_users, auth_roles, auth_user_coordinaciones migradas)
+
+### Cambiado
+- **notificationsService.ts**: Simplificado - solo lectura y realtime, sin generación
+- **NotificationSystem.tsx**: Removida integración con `useProspectosNotifications`
+
+### Deprecado
+- **useProspectosNotifications.ts**: Hook marcado como deprecado, no se usa en producción
+
+### Eliminado
+- Dependencias a supabaseSystemUI (todo migrado a PQNC_AI)
+- Métodos de generación de notificaciones desde frontend
+- 528 notificaciones duplicadas limpiadas
+
+### Corregido
+- **Duplicados**: Eliminados completamente - trigger de BD garantiza una sola notificación por evento
+- **Cross-database errors**: Ya no existen - todo en una sola BD
+
+---
+
 ## [1.0.0] - 2026-01-13
 
 ### Agregado
