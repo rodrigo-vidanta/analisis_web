@@ -634,6 +634,12 @@ class LogMonitorService {
    */
   async getAllAvailableTags(): Promise<string[]> {
     try {
+      // Verificar disponibilidad del cliente
+      if (!supabaseLogMonitor) {
+        console.warn('⚠️ LogMonitorService: Cliente no disponible para getAllAvailableTags');
+        return [];
+      }
+
       const { data, error } = await supabaseLogMonitor
         .from('ui_error_log_tags')
         .select('tag_name')

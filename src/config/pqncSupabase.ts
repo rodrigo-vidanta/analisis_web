@@ -20,13 +20,9 @@ const pqncSupabaseUrl = import.meta.env.VITE_PQNC_SUPABASE_URL || '';
 const pqncSupabaseServiceRoleKey = import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || '';
 const pqncSupabaseAnonKey = import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || '';
 
-// Validación en desarrollo
-if (!pqncSupabaseUrl || !pqncSupabaseAnonKey) {
-  console.warn('⚠️ PQNC: Faltan variables de entorno VITE_PQNC_SUPABASE_URL o VITE_PQNC_SUPABASE_ANON_KEY');
-}
-if (!pqncSupabaseServiceRoleKey) {
-  console.warn('⚠️ PQNC: VITE_PQNC_SUPABASE_SERVICE_KEY no configurada - operaciones admin no funcionarán');
-}
+// Validación en desarrollo - Solo mostrar si se intenta usar activamente
+// PQNC_QA es una BD separada para feedback, bookmarks, PQNC Dashboard
+// Las credenciales deben configurarse en .env cuando el módulo se necesite
 
 // Cliente principal para operaciones normales
 // Solo crear si tenemos credenciales

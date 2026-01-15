@@ -30,13 +30,9 @@ const logMonitorSupabaseUrl = import.meta.env.VITE_LOGMONITOR_SUPABASE_URL || ''
 const logMonitorAnonKey = import.meta.env.VITE_LOGMONITOR_SUPABASE_ANON_KEY || '';
 const logMonitorServiceKey = import.meta.env.VITE_LOGMONITOR_SUPABASE_SERVICE_KEY || '';
 
-// Validación en desarrollo
-if (!logMonitorSupabaseUrl || !logMonitorAnonKey) {
-  console.error('⚠️ LOGMONITOR: Faltan variables de entorno VITE_LOGMONITOR_SUPABASE_URL o VITE_LOGMONITOR_SUPABASE_ANON_KEY');
-}
-if (!logMonitorServiceKey) {
-  console.warn('⚠️ LOGMONITOR: VITE_LOGMONITOR_SUPABASE_SERVICE_KEY no configurada - operaciones admin no funcionarán');
-}
+// Validación en desarrollo - Solo mostrar si se intenta usar activamente
+// LOGMONITOR es una BD separada para sistema de logs (dffuwdzybhypxfzrmdcz)
+// Las credenciales deben configurarse en .env cuando el módulo se necesite
 
 // Cliente público para operaciones normales (lectura)
 // Solo crear si tenemos las credenciales necesarias

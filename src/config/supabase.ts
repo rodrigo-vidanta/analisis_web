@@ -35,12 +35,13 @@ const pqncSupabaseAnonKey = import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || '';
 const pqncSupabaseServiceKey = import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || '';
 
 // Validación en desarrollo
-if (!mainSupabaseUrl || !mainSupabaseAnonKey) {
-  console.warn('⚠️ MAIN_SUPABASE: Faltan variables de entorno VITE_MAIN_SUPABASE_URL o VITE_MAIN_SUPABASE_ANON_KEY');
-}
-if (!pqncSupabaseUrl || !pqncSupabaseAnonKey) {
-  console.warn('⚠️ PQNC_SUPABASE: Faltan variables de entorno VITE_PQNC_SUPABASE_URL o VITE_PQNC_SUPABASE_ANON_KEY');
-}
+// MAIN_SUPABASE: DEPRECADO - Ya no se usa, todo migrado a PQNC_AI
+// if (!mainSupabaseUrl || !mainSupabaseAnonKey) {
+//   console.warn('⚠️ MAIN_SUPABASE: Faltan variables de entorno');
+// }
+
+// PQNC_SUPABASE: Solo requerido para módulos específicos (feedbackService, bookmarks)
+// Las credenciales se configuran vía VITE_PQNC_SUPABASE_* cuando el módulo se usa
 
 // Cliente principal para plantillas y agentes
 // Solo crear si tenemos credenciales

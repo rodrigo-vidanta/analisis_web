@@ -284,6 +284,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'e5f6g7h', date: '2026-01-15', author: 'Team', message: 'v2.2.56: B8.1.4N2.3.1 - Restauración PQNC_QA + LOGMONITOR: Credenciales seguras en .env', isRelease: true },
   { hash: 'd4e5f6g', date: '2026-01-15', author: 'Team', message: 'v2.2.55: B8.1.3N2.3.1 - Optimización LiveChat: Vista materializada, RPC permisos, visibilitychange fix', isRelease: true },
   { hash: 'c3d4e5f', date: '2026-01-15', author: 'Team', message: 'v2.2.54: B8.1.2N2.3.1 - Sistema Notificaciones: Triggers BD únicos, 3 tipos, anti-duplicados', isRelease: true },
   { hash: 'b2c3d4e', date: '2026-01-15', author: 'Team', message: 'v2.2.53: B8.1.1N2.3.0 - Fix redirección inicio: Admin también inicia en Dashboard Operativo', isRelease: true },
@@ -488,8 +489,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.54', highlight: true },
-  { label: 'Release', value: 'B8.1.2N2.3.1', highlight: false },
+  { label: 'Version', value: 'v2.2.56', highlight: true },
+  { label: 'Release', value: 'B8.1.4N2.3.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '15 Ene 2026', highlight: false },
 ];

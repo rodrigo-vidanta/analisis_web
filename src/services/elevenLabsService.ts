@@ -84,26 +84,59 @@ export interface VoiceSettings {
 }
 
 /**
- * 🔒 SEGURIDAD (Actualizado 2025-12-23):
- * - API key DEBE estar en variables de entorno (.env)
- * - NO usar fallbacks hardcodeados
+ * 🔒 SEGURIDAD (Actualizado 2026-01-15):
+ * - API key se obtiene desde la BD (api_auth_tokens) usando credentialsService
+ * - Fallback a variable de entorno si está configurada
+ * - NO hardcodear keys
  * 
- * ✅ CONFIGURACIÓN REQUERIDA EN .env:
- * VITE_ELEVENLABS_API_KEY=<tu_api_key>
+ * ✅ CONFIGURACIÓN:
+ * Opción 1: Agregar en BD → api_auth_tokens (module_name: 'ElevenLabs', token_key: 'API_KEY')
+ * Opción 2: Variable de entorno VITE_ELEVENLABS_API_KEY (menos seguro)
  */
 class ElevenLabsService {
-  private apiKey: string;
+  private apiKey: string = '';
+  private apiKeyLoaded: boolean = false;
   private baseUrl = 'https://api.elevenlabs.io/v1';
 
   constructor() {
+    // Intentar cargar desde env var inmediatamente (para compatibilidad)
     this.apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
     
-    if (!this.apiKey) {
-      console.warn('⚠️ ElevenLabsService: VITE_ELEVENLABS_API_KEY no configurada - funcionalidades de voz no disponibles');
+    // No mostrar warning en constructor - se verificará cuando se use
+    // La key se cargará desde BD cuando sea necesario
+  }
+
+  /**
+   * Carga la API key desde la BD si no está disponible
+   */
+  private async ensureApiKey(): Promise<boolean> {
+    if (this.apiKey) return true;
+    if (this.apiKeyLoaded) return !!this.apiKey;
+
+    try {
+      // Importación dinámica para evitar dependencias circulares
+      const { credentialsService } = await import('./credentialsService');
+      const key = await credentialsService.getCredentialByModule('ElevenLabs', 'API_KEY');
+      if (key) {
+        this.apiKey = key;
+        this.apiKeyLoaded = true;
+        return true;
+      }
+    } catch (err) {
+      // Silenciar error - el servicio simplemente no estará disponible
     }
+    
+    this.apiKeyLoaded = true;
+    return !!this.apiKey;
   }
 
   private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
+    // Asegurar que tenemos la API key antes de hacer cualquier request
+    const hasKey = await this.ensureApiKey();
+    if (!hasKey) {
+      throw new Error('ElevenLabs API key no configurada. Agrégala en BD (api_auth_tokens) o .env');
+    }
+
     const url = `${this.baseUrl}${endpoint}`;
     
     // No establecer Content-Type para FormData (el navegador lo hace automáticamente)

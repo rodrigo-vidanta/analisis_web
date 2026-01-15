@@ -534,6 +534,12 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
 
   // Configurar suscripción en tiempo real - solo depende de activeTab
   const setupRealtimeSubscription = useCallback(() => {
+    // Verificar si el cliente está disponible
+    if (!supabaseLogMonitor) {
+      console.warn('⚠️ LogDashboard: Cliente LogMonitor no disponible - Realtime deshabilitado');
+      return;
+    }
+
     if (realtimeChannelRef.current) {
       supabaseLogMonitor.removeChannel(realtimeChannelRef.current);
     }
@@ -617,11 +623,14 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
 
   // Configurar suscripción solo una vez al montar
   useEffect(() => {
-    setupRealtimeSubscription();
+    // Solo configurar si el cliente está disponible
+    if (supabaseLogMonitor) {
+      setupRealtimeSubscription();
+    }
     
     return () => {
       // Limpiar suscripción al desmontar
-      if (realtimeChannelRef.current) {
+      if (realtimeChannelRef.current && supabaseLogMonitor) {
         supabaseLogMonitor.removeChannel(realtimeChannelRef.current);
         realtimeChannelRef.current = null;
       }
@@ -1132,6 +1141,35 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
       handleAllTimeFilter();
     }
   };
+
+  // Verificar si el cliente de LogMonitor está disponible
+  if (!supabaseLogMonitor) {
+    return (
+      <div className="h-[calc(100vh-200px)] flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-md text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+            Credenciales No Configuradas
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            El módulo de Log Monitor requiere credenciales de la base de datos LogMonitor (dffuwdzybhypxfzrmdcz).
+          </p>
+          <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 text-left text-sm">
+            <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">Para configurar:</p>
+            <ol className="list-decimal list-inside text-gray-600 dark:text-gray-400 space-y-1">
+              <li>Ir a <strong>Administración → Credenciales API</strong></li>
+              <li>Buscar módulo <strong>"Supabase LOGMONITOR"</strong></li>
+              <li>Configurar <strong>ANON_KEY</strong> con la anon key del proyecto</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-200px)] flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">

@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.55: Optimización LiveChat - Vista materializada, RPC permisos, visibilitychange fix
-  const version = 'B8.1.3N2.3.1';
+  // Versión actual - v2.2.56: Restauración PQNC_QA + LOGMONITOR - Credenciales seguras .env.local/.env.production
+  const version = 'B8.1.4N2.3.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division
