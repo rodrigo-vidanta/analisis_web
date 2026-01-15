@@ -107,27 +107,39 @@ class ElevenLabsService {
   }
 
   /**
+   * Verifica si una API key es válida (no vacía ni placeholder)
+   */
+  private isValidApiKey(key: string | null | undefined): boolean {
+    if (!key) return false;
+    if (key.startsWith('PLACEHOLDER')) return false;
+    if (key.length < 20) return false; // Las keys de ElevenLabs son largas
+    return true;
+  }
+
+  /**
    * Carga la API key desde la BD si no está disponible
    */
   private async ensureApiKey(): Promise<boolean> {
-    if (this.apiKey) return true;
-    if (this.apiKeyLoaded) return !!this.apiKey;
+    if (this.isValidApiKey(this.apiKey)) return true;
+    if (this.apiKeyLoaded) return this.isValidApiKey(this.apiKey);
 
     try {
       // Importación dinámica para evitar dependencias circulares
       const { credentialsService } = await import('./credentialsService');
       const key = await credentialsService.getCredentialByModule('ElevenLabs', 'API_KEY');
-      if (key) {
-        this.apiKey = key;
+      if (this.isValidApiKey(key)) {
+        this.apiKey = key!;
         this.apiKeyLoaded = true;
         return true;
+      } else if (key?.startsWith('PLACEHOLDER')) {
+        console.warn('⚠️ ElevenLabs: API key es un placeholder - configurar en Administración > Credenciales');
       }
     } catch (err) {
       // Silenciar error - el servicio simplemente no estará disponible
     }
     
     this.apiKeyLoaded = true;
-    return !!this.apiKey;
+    return this.isValidApiKey(this.apiKey);
   }
 
   private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
