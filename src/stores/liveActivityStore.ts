@@ -56,12 +56,16 @@ interface LiveActivityState {
   isWidgetEnabled: boolean;
   isWidgetVisible: boolean;
   isLoading: boolean;
+  isLoadingCalls: boolean; // Flag para evitar cargas concurrentes
   
   // Transcripción en vivo por llamada
   liveTranscriptions: Record<string, TranscriptEntry[]>;
   
   // IDs de llamadas que ya reprodujeron sonido (evitar duplicados)
   notifiedCallIds: Set<string>;
+  
+  // IDs de llamadas zombie ya reportadas (evitar logs repetitivos)
+  reportedZombieIds: Set<string>;
   
   // Suscripción activa
   realtimeChannel: any | null;
@@ -120,8 +124,10 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
   isWidgetEnabled: false,
   isWidgetVisible: true,
   isLoading: false,
+  isLoadingCalls: false,
   liveTranscriptions: {},
   notifiedCallIds: new Set(),
+  reportedZombieIds: new Set(),
   realtimeChannel: null,
   currentUserId: null,
   currentUserRole: null,
@@ -218,7 +224,9 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       expandedCallId: null,
       liveTranscriptions: {},
       notifiedCallIds: new Set(),
-      realtimeChannel: null
+      reportedZombieIds: new Set(),
+      realtimeChannel: null,
+      isLoadingCalls: false
     });
   },
   
@@ -227,34 +235,65 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
    * Incluye verificación de "llamadas zombies" (activas sin actualizar en mucho tiempo)
    */
   loadActiveCalls: async () => {
+    const state = get();
+    
+    // Evitar cargas concurrentes
+    if (state.isLoadingCalls) {
+      return;
+    }
+    
+    set({ isLoadingCalls: true });
+    
     try {
       const classifiedCalls = await liveMonitorKanbanOptimized.getClassifiedCalls();
       let activeCalls = classifiedCalls.active as WidgetCallData[];
       
-      // FILTRO DE LLAMADAS ZOMBIES: Remover llamadas "activas" que no se han actualizado
-      // en más de 5 minutos - probablemente el webhook de finalización nunca llegó
-      const ZOMBIE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutos
+      // FILTRO DE LLAMADAS ZOMBIES MEJORADO:
+      // - Para llamadas creadas hace menos de 10 minutos: NO aplicar filtro (son nuevas)
+      // - Para llamadas creadas hace más de 10 minutos: verificar updated_at
+      const ZOMBIE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutos
+      const NEW_CALL_GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutos de gracia para llamadas nuevas
       const now = Date.now();
       
+      const currentReportedZombies = get().reportedZombieIds;
+      const newReportedZombies = new Set(currentReportedZombies);
+      
       activeCalls = activeCalls.filter(call => {
-        const updatedAt = call.updated_at ? new Date(call.updated_at).getTime() : 0;
+        const createdAt = call.created_at ? new Date(call.created_at).getTime() : now;
+        const updatedAt = call.updated_at ? new Date(call.updated_at).getTime() : createdAt;
+        const timeSinceCreation = now - createdAt;
         const timeSinceUpdate = now - updatedAt;
         
+        // Si la llamada es reciente (menos de 10 min de creada), no aplicar filtro zombie
+        if (timeSinceCreation < NEW_CALL_GRACE_PERIOD_MS) {
+          return true; // Mantener en el widget
+        }
+        
+        // Para llamadas antiguas, verificar si está zombie (sin actualizar en 10+ minutos)
         if (timeSinceUpdate > ZOMBIE_THRESHOLD_MS) {
-          console.warn(`[LiveActivityStore] Llamada zombie detectada: ${call.call_id} - sin actualizar por ${Math.round(timeSinceUpdate / 60000)} minutos`);
+          // Solo loguear si no se ha reportado antes
+          if (!currentReportedZombies.has(call.call_id)) {
+            console.warn(`[LiveActivityStore] Llamada zombie detectada: ${call.call_id} - sin actualizar por ${Math.round(timeSinceUpdate / 60000)} minutos`);
+            newReportedZombies.add(call.call_id);
+          }
           return false; // Excluir del widget
         }
         return true;
       });
       
+      // Actualizar set de zombies reportados si cambió
+      if (newReportedZombies.size !== currentReportedZombies.size) {
+        set({ reportedZombieIds: newReportedZombies });
+      }
+      
       // Detectar nuevas llamadas para notificar
-      const state = get();
-      const currentCallIds = new Set(state.widgetCalls.map(c => c.call_id));
+      const currentState = get();
+      const currentCallIds = new Set(currentState.widgetCalls.map(c => c.call_id));
       
       activeCalls.forEach(call => {
-        if (!currentCallIds.has(call.call_id) && !state.hasCallBeenNotified(call.call_id)) {
+        if (!currentCallIds.has(call.call_id) && !currentState.hasCallBeenNotified(call.call_id)) {
           // Nueva llamada - reproducir sonido si widget está activo
-          if (state.isWidgetEnabled) {
+          if (currentState.isWidgetEnabled) {
             playNotificationSound();
             get().markCallNotified(call.call_id);
           }
@@ -264,6 +303,8 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       set({ widgetCalls: activeCalls });
     } catch (error) {
       console.error('[LiveActivityStore] Error loading calls:', error);
+    } finally {
+      set({ isLoadingCalls: false });
     }
   },
   
