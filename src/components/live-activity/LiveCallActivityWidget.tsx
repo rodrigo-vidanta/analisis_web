@@ -21,8 +21,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLiveActivityStore } from '../../stores/liveActivityStore';
+import type { WidgetCallData } from '../../stores/liveActivityStore';
 import { CallCard } from './CallCard';
 import { ExpandedCallPanel } from './ExpandedCallPanel';
+import { TransferModal } from '../analysis/TransferModal';
+import type { TransferCallData } from '../analysis/TransferModal';
 
 // Configuración de audio WebSocket
 const AUDIO_CONFIG = {
@@ -53,6 +56,10 @@ export const LiveCallActivityWidget: React.FC = () => {
   const audioWebSocketRef = useRef<WebSocket | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
+  
+  // Estado del modal de transferencia
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferCall, setTransferCall] = useState<TransferCallData | null>(null);
   
   // Inicializar store cuando el usuario está autenticado
   useEffect(() => {
@@ -242,27 +249,43 @@ export const LiveCallActivityWidget: React.FC = () => {
     }
   }, [startAudioMonitoring]);
   
-  const handleTransfer = useCallback((call: { call_id: string; control_url?: string }) => {
+  // Abrir modal de transferencia
+  const handleTransfer = useCallback((call: WidgetCallData) => {
     console.log('[LiveActivityWidget] handleTransfer llamado:', { 
       call_id: call.call_id,
       control_url: call.control_url
     });
     
-    // Emitir evento para que LiveMonitorKanban maneje la transferencia
-    window.dispatchEvent(new CustomEvent('live-activity-transfer', { 
-      detail: { callId: call.call_id } 
-    }));
+    // Convertir WidgetCallData a TransferCallData
+    const transferData: TransferCallData = {
+      call_id: call.call_id,
+      control_url: call.control_url,
+      prospecto_id: call.prospecto_id,
+      nombre_completo: call.nombre_completo,
+      nombre_whatsapp: call.nombre_whatsapp,
+      whatsapp: call.whatsapp,
+      checkpoint_venta_actual: call.checkpoint_venta_actual,
+      destino_preferido: call.destino_preferido,
+      principales_objeciones: call.principales_objeciones,
+      fecha_llamada: call.fecha_llamada,
+      duracion_segundos: call.duracion_segundos
+    };
     
-    // Mostrar toast informativo
-    toast('Ve a Llamadas IA para completar la transferencia', {
-      icon: '📞',
+    setTransferCall(transferData);
+    setShowTransferModal(true);
+  }, []);
+  
+  // Cerrar modal de transferencia
+  const closeTransferModal = useCallback(() => {
+    setShowTransferModal(false);
+    setTransferCall(null);
+  }, []);
+  
+  // Callback cuando la transferencia es exitosa
+  const handleTransferSuccess = useCallback(() => {
+    toast.success('Llamada transferida exitosamente', {
       duration: 3000,
-      position: 'top-right',
-      style: {
-        background: '#1f2937',
-        color: '#fff',
-        border: '1px solid #374151'
-      }
+      position: 'top-right'
     });
   }, []);
   
@@ -340,6 +363,15 @@ export const LiveCallActivityWidget: React.FC = () => {
   // Renderizar en portal para estar sobre todo
   return createPortal(
     <>
+      {/* Modal de Transferencia Reutilizable - z-index 200 para estar sobre el panel expandido */}
+      <TransferModal
+        isOpen={showTransferModal}
+        onClose={closeTransferModal}
+        call={transferCall}
+        onTransferSuccess={handleTransferSuccess}
+        zIndex={200}
+      />
+      
       {/* Panel expandido - pegado al borde derecho */}
       <AnimatePresence>
         {expandedCall && (

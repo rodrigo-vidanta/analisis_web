@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.61: Panel Lateral - Animación botón escuchar, modal transferencia independiente
-  const version = 'B8.1.9N2.3.1';
+  // Versión actual - v2.2.62: Panel Lateral - Modal transferencia global reutilizable
+  const version = 'B8.2.0N2.3.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division
