@@ -30,6 +30,7 @@ const DB_URLS: Record<string, string> = {
 const ALLOWED_TABLES: Record<string, string[]> = {
   'PQNC_QA': [
     'calls',
+    'call_segments',
     'call_feedback',
     'bookmarks',
     'user_bookmarks',

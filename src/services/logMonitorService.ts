@@ -25,6 +25,8 @@ import {
   type EnvironmentType
 } from '../config/supabaseLogMonitor';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+// SEGURIDAD: Cliente seguro que usa Edge Function cuando service_key no está disponible
+import { logMonitorSecureClient } from './logMonitorSecureClient';
 
 // URL del proxy Edge Function para análisis de IA (evita problemas de CORS)
 // Proyecto: Log Monitor (dffuwdzybhypxfzrmdcz)
@@ -65,9 +67,23 @@ export interface AIAnalysisRequest {
 class LogMonitorService {
   /**
    * Verificar si el cliente de LogMonitor está disponible
+   * Ahora siempre retorna true porque tenemos el cliente seguro como fallback
    */
   private isClientAvailable(): boolean {
-    return supabaseLogMonitorAdmin !== null;
+    // Cliente local disponible O cliente seguro (Edge Function) disponible
+    return supabaseLogMonitorAdmin !== null || logMonitorSecureClient.isAvailable();
+  }
+
+  /**
+   * Obtener el cliente apropiado (local o seguro)
+   */
+  private getClient() {
+    // Preferir cliente local si está disponible
+    if (supabaseLogMonitorAdmin) {
+      return supabaseLogMonitorAdmin;
+    }
+    // Fallback a cliente seguro (Edge Function)
+    return logMonitorSecureClient;
   }
 
   /**
@@ -97,7 +113,7 @@ class LogMonitorService {
       } = options;
 
       // Construir query base - usar admin client para evitar problemas de RLS con tablas UI
-      let query = supabaseLogMonitorAdmin!
+      let query = this.getClient()
         .from('error_log')
         .select(`
           *,
@@ -971,7 +987,7 @@ class LogMonitorService {
       }
 
       // Obtener todos los logs con estado UI (usar admin client para evitar problemas de RLS)
-      let query = supabaseLogMonitorAdmin!
+      let query = this.getClient()
         .from('error_log')
         .select(`
           *,

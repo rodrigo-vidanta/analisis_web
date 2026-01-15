@@ -19,7 +19,8 @@ import React, { useState, useEffect, useMemo, useCallback, startTransition } fro
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 // import Chart from 'chart.js/auto';
-import { pqncSupabaseAdmin } from '../../config/pqncSupabase';
+// SEGURIDAD: Usar cliente seguro que usa Edge Function cuando service_key no está disponible
+import { pqncSecureClient } from '../../services/pqncSecureClient';
 import { definirConfiguracion, calcularQualityScorePonderado, calcularProbabilidadConversion, type PonderacionConfig } from './ponderacionConfig';
 import DetailedCallView from './DetailedCallView';
 // RETROALIMENTACIÓN: Importaciones para el sistema de feedback
@@ -165,7 +166,7 @@ const PQNCDashboard: React.FC = () => {
   // TEMPORAL: Consultar tipos de call_result únicos
   const queryUniqueCallResults = async () => {
     try {
-      const { data, error } = await pqncSupabaseAdmin
+      const { data, error } = await pqncSecureClient
         .from('calls')
         .select('call_result')
         .not('call_result', 'is', null);
@@ -266,11 +267,11 @@ const PQNCDashboard: React.FC = () => {
 
     try {
       // Construir la consulta base
-      let countQuery = pqncSupabaseAdmin
+      let countQuery = pqncSecureClient
         .from('calls')
         .select('*', { count: 'exact', head: true });
       
-      let dataQuery = pqncSupabaseAdmin
+      let dataQuery = pqncSecureClient
         .from('calls')
         .select(`
           id,
@@ -551,7 +552,7 @@ const PQNCDashboard: React.FC = () => {
       };
       
       // Buscar solo registros más recientes que la última sincronización
-      const { data: newRecords, error } = await pqncSupabaseAdmin
+      const { data: newRecords, error } = await pqncSecureClient
         .from('calls')
         .select(`
           id,
@@ -597,7 +598,7 @@ const PQNCDashboard: React.FC = () => {
         setLastSyncTime(new Date().toISOString());
         
         // Actualizar conteo total sin afectar filtros
-        const { count } = await pqncSupabaseAdmin
+        const { count } = await pqncSecureClient
           .from('calls')
           .select('*', { count: 'exact', head: true });
         
@@ -845,7 +846,7 @@ const PQNCDashboard: React.FC = () => {
   const loadTranscript = async (callId: string) => {
     try {
       
-      const { data, error } = await pqncSupabaseAdmin
+      const { data, error } = await pqncSecureClient
         .from('call_segments')
         .select('*')
         .eq('call_id', callId)
@@ -871,7 +872,7 @@ const PQNCDashboard: React.FC = () => {
 
   const loadDetailedCallData = async (callId: string): Promise<CallRecord | null> => {
     try {
-      const { data, error } = await pqncSupabaseAdmin
+      const { data, error } = await pqncSecureClient
         .from('calls')
         .select(`
           id,
@@ -949,7 +950,7 @@ const PQNCDashboard: React.FC = () => {
     try {
       
       // 1. CONSULTA OPTIMIZADA: Solo contar registros totales
-      const { count: totalCount, error: countError } = await pqncSupabaseAdmin
+      const { count: totalCount, error: countError } = await pqncSecureClient
         .from('calls')
         .select('*', { count: 'exact', head: true });
 
@@ -959,7 +960,7 @@ const PQNCDashboard: React.FC = () => {
       }
 
       // 2. CONSULTA OPTIMIZADA: Solo campos para score ponderado y duración
-      const { data: metricsData, error: metricsError } = await pqncSupabaseAdmin
+      const { data: metricsData, error: metricsError } = await pqncSecureClient
         .from('calls')
         .select(`
           quality_score,
