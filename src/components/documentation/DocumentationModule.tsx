@@ -240,9 +240,13 @@ const documentationSections: DocSection[] = [
     title: 'Seguridad',
     icon: Icons.security,
     docs: [
-      { id: 'permission-groups', name: 'Sistema de Grupos de Permisos', path: '/docs/PERMISSION_GROUPS_SYSTEM.md', description: 'Sistema de grupos tipo Active Directory (Nuevo)' },
-      { id: 'permissions', name: 'Sistema de Permisos (Legacy)', path: '/docs/PERMISSIONS_SYSTEM_README.md', description: 'Sistema de roles y permisos original' },
-      { id: 'duplicate-prevention', name: 'Prevención de Duplicados', path: '/docs/DUPLICATE_MESSAGE_PREVENTION.md', description: 'Sistema anti-duplicación de mensajes' },
+      { id: 'enterprise-security', name: 'Seguridad Enterprise Implementada', path: '/docs/SEGURIDAD_ENTERPRISE_IMPLEMENTADA.md', description: 'Arquitectura RLS + Edge Functions + AWS WAF' },
+      { id: 'security-timeline', name: 'Timeline Implementación', path: '/docs/SEGURIDAD_ENTERPRISE_TIMELINE.md', description: 'Historial de iteraciones técnicas' },
+      { id: 'architecture-diagram', name: 'Diagrama Arquitectura', path: '/docs/DIAGRAMA_ARQUITECTURA_SEGURIDAD.md', description: 'Flujos de datos y capas de defensa' },
+      { id: 'pentesting-report', name: 'Reporte Pentesting', path: '/docs/REPORTE_PENTESTING_FINAL.md', description: 'Validación de seguridad' },
+      { id: 'permission-groups', name: 'Sistema de Grupos de Permisos', path: '/docs/PERMISSION_GROUPS_SYSTEM.md', description: 'Sistema de grupos tipo Active Directory' },
+      { id: 'permissions', name: 'Sistema de Permisos', path: '/docs/PERMISSIONS_SYSTEM_README.md', description: 'Sistema de roles y permisos' },
+      { id: 'duplicate-prevention', name: 'Prevención de Duplicados', path: '/docs/DUPLICATE_MESSAGE_PREVENTION.md', description: 'Anti-duplicación mensajes' },
     ]
   },
   {
@@ -280,6 +284,8 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'b2c3d4e', date: '2026-01-15', author: 'Team', message: 'v2.2.53: B8.1.1N2.3.0 - Fix redirección inicio: Admin también inicia en Dashboard Operativo', isRelease: true },
+  { hash: 'f9e8d7c', date: '2026-01-15', author: 'Team', message: 'v2.3.0: B8.1.0N2.3.0 - Seguridad Enterprise: RLS + Edge Functions + AWS WAF', isRelease: true },
   { hash: 'a1b2c3d', date: '2026-01-15', author: 'Team', message: 'v2.2.52: B8.0.5N2.2.0 - Dashboard Ejecutivos: Pestaña métricas, RPC optimizado, tiempo respuesta post-handoff', isRelease: true },
   { hash: '8d8e115', date: '2026-01-14', author: 'Team', message: 'v2.2.51: B8.0.4N2.2.0 - Fix contador historial Llamadas IA: COUNT al inicio independiente de pestaña', isRelease: true },
   { hash: '7c7d004', date: '2026-01-14', author: 'Team', message: 'v2.2.50: B8.0.3N2.2.0 - Optimización BD: 50 índices + 6 RLS eliminados, validaciones completas', isRelease: true },
@@ -388,6 +394,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-092', date: '2026-01-15 18:00', version: 'B8.1.0N2.3.0', status: 'success', duration: '18s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-091', date: '2026-01-15 00:45', version: 'B8.0.5N2.2.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-090', date: '2026-01-14 22:15', version: 'B8.0.4N2.2.0', status: 'success', duration: '30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-089', date: '2026-01-13 01:00', version: 'B7.2.49N7.2.39', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -477,8 +484,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.52', highlight: true },
-  { label: 'Release', value: 'B8.0.5N2.2.0', highlight: false },
+  { label: 'Version', value: 'v2.2.53', highlight: true },
+  { label: 'Release', value: 'B8.1.1N2.3.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '15 Ene 2026', highlight: false },
 ];

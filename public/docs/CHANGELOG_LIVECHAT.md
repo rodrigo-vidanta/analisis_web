@@ -17,6 +17,40 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v6.7.0** - Enero 2026
+**Estado:** 🔄 En desarrollo (Feature Flag)
+
+#### **🚀 Optimización con Vista Materializada**
+- **Vista nueva:** `mv_conversaciones_dashboard` - Pre-calcula JOINs con prospectos, coordinaciones y ejecutivos
+- **RPC optimizado:** `get_dashboard_conversations()` - Filtros de permisos en servidor
+- **Reducción de queries:** De 8-15 queries encadenadas a 1 query + 2 paralelas
+- **Tiempo de carga:** Mejora estimada de 70-90% en carga inicial
+
+#### **🔧 Feature Flag**
+- **Variable:** `VITE_USE_OPTIMIZED_LIVECHAT=true` para activar
+- **Fallback:** Si falla, cae automáticamente al método legacy
+- **Rollback:** Instantáneo cambiando el flag a `false`
+
+#### **📁 Archivos Nuevos**
+- `src/services/optimizedConversationsService.ts` - Servicio de carga optimizada
+- Vista materializada en BD: `mv_conversaciones_dashboard`
+- Función RPC: `get_dashboard_conversations(p_user_id, p_is_admin, p_ejecutivo_ids, p_coordinacion_ids, p_limit, p_offset)`
+
+#### **📁 Archivos Modificados**
+- `src/components/chat/LiveChatCanvas.tsx` - Wrapper con feature flag
+
+#### **🗄️ Base de Datos**
+- **Vista materializada:** `mv_conversaciones_dashboard` con 1,885 conversaciones
+- **Índices:** 6 índices optimizados para filtros comunes
+- **RPC:** `get_dashboard_conversations` con filtros de permisos integrados
+
+#### **⚠️ Notas de Implementación**
+- Realtime NO cambia - sigue usando tablas base
+- Labels y bot_pause siguen cargándose en paralelo (tablas de System UI)
+- La vista debe refrescarse periódicamente (30s recomendado)
+
+---
+
 ### **v6.2.0** - Enero 2025
 **Estado:** ✅ Producción
 

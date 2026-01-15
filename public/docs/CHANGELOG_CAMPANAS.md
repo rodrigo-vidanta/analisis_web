@@ -1,5 +1,30 @@
 # 📋 CHANGELOG - MÓDULO DE CAMPAÑAS
 
+## [2.3.1] - 2026-01-08
+
+### 🛠️ Correcciones de Bugs
+
+#### Filtro de Menores (3 estados)
+- **Antes**: Botón "Hijos" y sub-filtro duplicado "Con/Sin menores"
+- **Ahora**: Botón único "Menores" con ciclo de 3 estados:
+  1. Neutral (gris): "Menores" - sin filtro
+  2. Activo (rosa): "Con menores" - `cantidad_menores > 0`
+  3. Inverso (slate): "Sin menores" - `cantidad_menores IS NULL OR = 0`
+- Eliminado sub-filtro duplicado
+
+#### Limpieza de Filtros
+- **Estado Civil**: Corregida lógica de limpieza (`as EstadoCivil || null` → condicional explícito)
+- **Tiene Email**: Corregido botón "Todos" con lógica redundante
+- **Destinos**: Agregado botón "Limpiar"
+- **Viaja Con + Menores**: Agregado botón "Limpiar" que resetea ambos filtros
+- **Etiquetas**: Agregado botón "Limpiar" en el indicador de selección
+
+### 🔧 Mejoras UX
+- Todos los filtros ahora tienen botón "Limpiar" visible cuando hay selección
+- Contador de prospectos se recalcula correctamente al limpiar
+
+---
+
 ## [2.3.0] - 2025-01-08
 
 ### ✨ Nuevas Funcionalidades
