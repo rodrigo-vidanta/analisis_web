@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.53: Fix redirección inicio - Admin también inicia en Dashboard Operativo
-  const version = 'B8.1.1N2.3.0';
+  // Versión actual - v2.2.54: Sistema Notificaciones Completo - Triggers BD únicos, 3 tipos, anti-duplicados
+  const version = 'B8.1.2N2.3.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

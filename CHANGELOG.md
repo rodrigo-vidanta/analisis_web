@@ -2,6 +2,46 @@
 
 ## [Unreleased]
 
+### 🔔 v2.2.54 (B8.1.2N2.3.1) - Sistema Notificaciones Completo con Triggers BD [15-01-2026]
+
+#### 🎯 Arquitectura Nueva de Notificaciones
+
+**Problema Resuelto:**
+- ❌ Notificaciones duplicadas generadas desde el frontend
+- ❌ Errores cross-database al consultar auth_users desde PQNC_AI
+- ❌ RLS bloqueando escrituras en user_notifications
+
+**Solución Implementada:**
+- ✅ **Trigger único en BD**: `trigger_notify_prospecto_changes` en tabla `prospectos`
+- ✅ **Función PL/pgSQL**: `fn_notify_prospecto_changes()` maneja los 3 tipos de notificaciones
+- ✅ **Frontend simplificado**: Solo escucha realtime, no genera notificaciones
+- ✅ **Anti-duplicados**: Lógica server-side elimina duplicados automáticamente
+
+**Tipos de Notificación Soportados:**
+| Tipo | Trigger | Destinatarios |
+|------|---------|---------------|
+| `nuevo_prospecto` | INSERT con coordinacion_id sin ejecutivo_id | Coordinadores de la coordinación |
+| `prospecto_asignado` | UPDATE de ejecutivo_id | Ejecutivo asignado |
+| `requiere_atencion` | UPDATE de requiere_atencion_humana = true | Ejecutivo asignado o Coordinadores |
+
+**Archivos Modificados:**
+- `src/services/notificationsService.ts` - Removida lógica de generación
+- `src/components/notifications/NotificationSystem.tsx` - Botón "Limpiar", iconos por tipo
+- `src/stores/notificationStore.ts` - markAllAsRead, unlock audio
+- `src/hooks/useProspectosNotifications.ts` - **ELIMINADO** (funcionalidad movida a trigger)
+
+**Documentación Añadida:**
+- `src/components/notifications/README_NOTIFICATIONS.md`
+- `src/components/notifications/CHANGELOG_NOTIFICATIONS.md`
+- `.cursor/rules/notifications-rules.mdc`
+
+**BD Changes (PQNC_AI):**
+- Función: `fn_notify_prospecto_changes()`
+- Trigger: `trigger_notify_prospecto_changes` AFTER INSERT OR UPDATE OF ejecutivo_id, requiere_atencion_humana
+- RLS deshabilitado en `user_notifications` para service_role
+
+---
+
 ### 🔧 v2.2.2 (B8.0.2N2.2.0) - Correcciones Post-Migración BD Unificada [14-01-2026]
 
 #### 🎯 Correcciones Críticas de Consultas y Seguridad
