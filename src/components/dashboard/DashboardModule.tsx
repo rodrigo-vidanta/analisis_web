@@ -45,6 +45,7 @@ import type { CallStatusGranular } from '../../services/callStatusClassifier';
 import { coordinacionService } from '../../services/coordinacionService';
 import type { Coordinacion } from '../../services/coordinacionService';
 import toast from 'react-hot-toast';
+import { ProspectosMetricsWidget, type GlobalTimePeriod } from './widgets/ProspectosMetricsWidget';
 
 // ============================================
 // CONTEXT PARA VISTA EXPANDIDA
@@ -1593,6 +1594,17 @@ interface FunnelWidgetProps {
   assignmentByCoord?: CoordAssignment[];
 }
 
+// Tipo para períodos del funnel expandido
+type FunnelPeriod = 'week' | 'month' | '6months' | 'year';
+
+// Opciones de período para el selector del funnel
+const FUNNEL_PERIOD_OPTIONS: { value: FunnelPeriod; label: string; shortLabel: string }[] = [
+  { value: 'week', label: 'Última semana', shortLabel: '7d' },
+  { value: 'month', label: 'Último mes', shortLabel: '30d' },
+  { value: '6months', label: 'Últimos 6 meses', shortLabel: '6m' },
+  { value: 'year', label: 'Último año', shortLabel: '1a' },
+];
+
 // Componente interno para contenido del funnel
 const FunnelContent: React.FC<{
   funnelData: FunnelCoordData[];
@@ -1612,6 +1624,143 @@ const FunnelContent: React.FC<{
   isExpandedView
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Estados para la vista expandida
+  const [viewType, setViewType] = useState<'funnel' | 'trends'>('trends'); // 'trends' por default
+  const [funnelPeriod, setFunnelPeriod] = useState<FunnelPeriod>('month');
+  const [conversionTrends, setConversionTrends] = useState<{
+    stage: string;
+    data: { date: string; rate: number; count: number }[];
+  }[]>([]);
+  const [isLoadingTrends, setIsLoadingTrends] = useState(false);
+
+  // Cargar datos de tendencias de conversión cuando se expande
+  useEffect(() => {
+    if (!isExpandedView || viewType !== 'trends') return;
+    
+    const loadConversionTrends = async () => {
+      setIsLoadingTrends(true);
+      try {
+        const end = new Date();
+        const start = new Date();
+        
+        switch (funnelPeriod) {
+          case 'week': start.setDate(start.getDate() - 7); break;
+          case 'month': start.setMonth(start.getMonth() - 1); break;
+          case '6months': start.setMonth(start.getMonth() - 6); break;
+          case 'year': start.setFullYear(start.getFullYear() - 1); break;
+        }
+
+        // Obtener prospectos con fecha de creación y etapa
+        if (!analysisSupabase) {
+          console.error('analysisSupabase not initialized');
+          return;
+        }
+        
+        const { data: prospectos, error } = await analysisSupabase
+          .from('prospectos')
+          .select('id, created_at, etapa')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        if (!prospectos || prospectos.length === 0) {
+          setConversionTrends([]);
+          return;
+        }
+
+        // Definir etapas del funnel en orden
+        const funnelStagesOrder = [
+          'Validando membresia',
+          'Prospecto calificado',
+          'Agendando cita',
+          'Cita confirmada',
+          'En seguimiento',
+          'Certificado'
+        ];
+
+        // Función para formatear fecha según período
+        const formatDate = (date: Date): string => {
+          if (funnelPeriod === 'week') {
+            const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            return `${days[date.getDay()]} ${date.getDate()}`;
+          } else if (funnelPeriod === 'month') {
+            return `${date.getDate()}/${date.getMonth() + 1}`;
+          } else {
+            const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            return `${months[date.getMonth()]} ${date.getFullYear().toString().slice(2)}`;
+          }
+        };
+
+        // Agrupar prospectos por fecha
+        const byDate = new Map<string, { total: number; byStage: Record<string, number> }>();
+        
+        prospectos.forEach(p => {
+          const dateKey = formatDate(new Date(p.created_at));
+          const current = byDate.get(dateKey) || { total: 0, byStage: {} };
+          current.total++;
+          const etapa = p.etapa || 'Nuevo prospecto';
+          current.byStage[etapa] = (current.byStage[etapa] || 0) + 1;
+          byDate.set(dateKey, current);
+        });
+
+        // Calcular acumulados para cada etapa
+        // Para cada etapa, el % de conversión es: (prospectos en esa etapa + etapas posteriores) / (prospectos desde etapa anterior + posteriores)
+        const getStageIndex = (etapa: string): number => {
+          const idx = funnelStagesOrder.indexOf(etapa);
+          return idx >= 0 ? idx : -1;
+        };
+
+        // Calcular tendencias por etapa
+        const trends = funnelStagesOrder.map((stageName, stageIdx) => {
+          const data: { date: string; rate: number; count: number }[] = [];
+          
+          // Acumular datos
+          let runningTotal = 0;
+          let runningInStageOrLater = 0;
+          let runningInPrevStageOrLater = 0;
+          
+          Array.from(byDate.entries()).forEach(([dateKey, dayData]) => {
+            // Contar prospectos en esta etapa o posteriores
+            let inStageOrLater = 0;
+            let inPrevStageOrLater = 0;
+            
+            Object.entries(dayData.byStage).forEach(([etapa, count]) => {
+              const etapaIdx = getStageIndex(etapa);
+              if (etapaIdx >= stageIdx) inStageOrLater += count;
+              if (stageIdx > 0 && etapaIdx >= stageIdx - 1) inPrevStageOrLater += count;
+            });
+            
+            runningTotal += dayData.total;
+            runningInStageOrLater += inStageOrLater;
+            runningInPrevStageOrLater += inPrevStageOrLater;
+            
+            // Para la primera etapa, el % es vs total
+            // Para las demás, el % es vs etapa anterior
+            let rate = 0;
+            if (stageIdx === 0) {
+              rate = runningTotal > 0 ? (runningInStageOrLater / runningTotal) * 100 : 0;
+            } else {
+              rate = runningInPrevStageOrLater > 0 ? (runningInStageOrLater / runningInPrevStageOrLater) * 100 : 0;
+            }
+            
+            data.push({ date: dateKey, rate, count: inStageOrLater });
+          });
+          
+          return { stage: stageName, data };
+        });
+
+        setConversionTrends(trends);
+      } catch (err) {
+        console.error('Error loading conversion trends:', err);
+      } finally {
+        setIsLoadingTrends(false);
+      }
+    };
+
+    loadConversionTrends();
+  }, [isExpandedView, viewType, funnelPeriod]);
   
   // Colores del funnel de conversión (6 etapas)
   const FUNNEL_COLORS = [
@@ -1752,35 +1901,179 @@ const FunnelContent: React.FC<{
     return grandTotal > 0 ? (last / grandTotal * 100) : 0;
   }, [globalStages, totalProspects]);
 
+  // Colores para cada etapa en los gráficos de tendencia
+  const TREND_COLORS = ['#3B82F6', '#6366F1', '#8B5CF6', '#F59E0B', '#EC4899', '#10B981'];
+
   return (
     <div ref={containerRef} className="h-full w-full flex flex-col">
-        {/* Gráfico Plotly con animación de entrada */}
-        <motion.div 
-          key={animationKey}
-          className="flex-1"
-          initial={{ opacity: 0, scaleY: 0.3, originY: 1 }}
-          animate={{ opacity: 1, scaleY: 1 }}
-          transition={{ 
-            duration: 1.2, 
-            ease: [0.34, 1.56, 0.64, 1],
-            opacity: { duration: 0.6 }
-          }}
-        >
-          <Plot
-            data={plotlyData as any}
-            layout={{
-              ...layout,
-              width: undefined,
-              height: isExpandedView ? 550 : 420,
-              autosize: true
-            } as any}
-            config={config}
-            style={{ width: '100%', height: isExpandedView ? '550px' : '420px' }}
-            useResizeHandler={true}
-          />
-        </motion.div>
+        {/* Header con selectores (solo vista expandida) */}
+        {isExpandedView && (
+          <div className="flex items-center justify-between mb-4 flex-shrink-0">
+            {/* Toggle de vista (carrusel) */}
+            <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <button
+                onClick={() => setViewType('trends')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                  viewType === 'trends'
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                Tendencias
+              </button>
+              <button
+                onClick={() => setViewType('funnel')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                  viewType === 'funnel'
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Funnel
+              </button>
+            </div>
+
+            {/* Selector de período (solo para vista de tendencias) */}
+            {viewType === 'trends' && (
+              <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                {FUNNEL_PERIOD_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => setFunnelPeriod(option.value)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      funnelPeriod === option.value
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {option.shortLabel}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Vista de Tendencias de Conversión (6 gráficos de línea) */}
+        {isExpandedView && viewType === 'trends' ? (
+          <div className="flex-1 overflow-y-auto">
+            {isLoadingTrends ? (
+              <div className="flex items-center justify-center h-[400px]">
+                <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+              </div>
+            ) : conversionTrends.length > 0 ? (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {conversionTrends.map((trend, idx) => (
+                  <div 
+                    key={trend.stage}
+                    className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">
+                        {trend.stage}
+                      </h4>
+                      <span 
+                        className="text-xs font-bold px-2 py-0.5 rounded-full"
+                        style={{ 
+                          backgroundColor: `${TREND_COLORS[idx]}20`,
+                          color: TREND_COLORS[idx]
+                        }}
+                      >
+                        {trend.data.length > 0 ? `${trend.data[trend.data.length - 1].rate.toFixed(1)}%` : '0%'}
+                      </span>
+                    </div>
+                    <div className="h-[120px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={trend.data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id={`colorTrend${idx}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={TREND_COLORS[idx]} stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor={TREND_COLORS[idx]} stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <XAxis 
+                            dataKey="date" 
+                            tick={{ fontSize: 9, fill: '#9CA3AF' }} 
+                            tickLine={false}
+                            axisLine={false}
+                            interval="preserveStartEnd"
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 9, fill: '#9CA3AF' }} 
+                            tickLine={false}
+                            axisLine={false}
+                            domain={[0, 100]}
+                            tickFormatter={(v) => `${v}%`}
+                            width={35}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#1F2937', 
+                              border: 'none', 
+                              borderRadius: '8px',
+                              fontSize: '11px',
+                              color: '#F3F4F6'
+                            }}
+                            labelStyle={{ color: '#9CA3AF' }}
+                            formatter={(value: number) => [`${value.toFixed(1)}%`, 'Conversión']}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="rate" 
+                            stroke={TREND_COLORS[idx]} 
+                            strokeWidth={2}
+                            fill={`url(#colorTrend${idx})`}
+                            dot={false}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">
+                      {idx === 0 
+                        ? '% del total que llegó a esta etapa'
+                        : `% desde ${conversionTrends[idx - 1]?.stage || 'etapa anterior'}`
+                      }
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[400px] text-gray-400">
+                Sin datos de tendencias para el período seleccionado
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Vista de Funnel (Plotly) */
+          <motion.div 
+            key={animationKey}
+            className="flex-1"
+            initial={{ opacity: 0, scaleY: 0.3, originY: 1 }}
+            animate={{ opacity: 1, scaleY: 1 }}
+            transition={{ 
+              duration: 1.2, 
+              ease: [0.34, 1.56, 0.64, 1],
+              opacity: { duration: 0.6 }
+            }}
+          >
+            <Plot
+              data={plotlyData as any}
+              layout={{
+                ...layout,
+                width: undefined,
+                height: isExpandedView ? 550 : 420,
+                autosize: true
+              } as any}
+              config={config}
+              style={{ width: '100%', height: isExpandedView ? '550px' : '420px' }}
+              useResizeHandler={true}
+            />
+          </motion.div>
+        )}
         
-        {/* Información adicional (solo expandido) */}
+        {/* Información adicional (solo expandido, en ambas vistas) */}
         {isExpandedView && (
           <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3532,7 +3825,19 @@ const DashboardModule: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 p-6">
       <FilterSelector filters={filters} onFiltersChange={setFilters} coordinaciones={coordinaciones} isLoading={isLoading} />
 
-      {/* Fila 1: Funnel de Conversión - Ancho completo, ARRIBA */}
+      {/* Fila 0: Widget de Métricas de Prospectos Nuevos - AL INICIO */}
+      <div className="mb-6">
+        <ProspectosMetricsWidget
+          coordinacionIds={getSelectedCoordinacionIds()}
+          coordinaciones={coordinaciones}
+          isExpanded={expandedWidget === 'prospectosMetrics'}
+          onToggleExpand={() => setExpandedWidget(expandedWidget === 'prospectosMetrics' ? null : 'prospectosMetrics')}
+          isLoading={isLoading}
+          globalPeriod={filters.period as GlobalTimePeriod}
+        />
+      </div>
+
+      {/* Fila 1: Funnel de Conversión - Ancho completo */}
       <div className="mb-6">
         <FunnelWidget
           funnelData={funnelCoordData}

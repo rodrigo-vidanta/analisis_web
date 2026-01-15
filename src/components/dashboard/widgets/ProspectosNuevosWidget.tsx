@@ -607,12 +607,14 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
       ejecutivosMapRef.current = ejecutivosMapData;
       
       // Obtener fechas del último mensaje para cada prospecto
+      // Usamos range para evitar el límite de 1000 registros de Supabase
       const prospectoIds = requierenAtencion.map(p => p.id);
       const { data: lastMessagesData } = await analysisSupabase
         .from('mensajes_whatsapp')
         .select('prospecto_id, fecha_hora')
         .in('prospecto_id', prospectoIds)
-        .order('fecha_hora', { ascending: false });
+        .order('fecha_hora', { ascending: false })
+        .range(0, 9999);
       
       // Crear un mapa de fecha_ultimo_mensaje por prospecto
       const lastMessageMap = new Map<string, string>();

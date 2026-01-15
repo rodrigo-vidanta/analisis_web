@@ -1003,35 +1003,13 @@ const LiveMonitorKanban: React.FC = () => {
     isLoadingHistoryRef.current = true;
     
     try {
-      // Si es reset, resetear estados y obtener COUNT total
+      // Si es reset, resetear estados (el COUNT total ya se calcula en el useEffect inicial)
       if (reset) {
         currentPageHistoryRef.current = 0;
         setAllHistoryCallsLoaded([]);
         setHasMoreHistory(true);
         hasInitialLoadRef.current = false;
-        
-        // Obtener COUNT total del usuario (con permisos) al inicio
-        try {
-          let countQuery = analysisSupabase
-            .from('llamadas_ventas')
-            .select('*', { count: 'exact', head: true });
-          
-          // Aplicar filtros de permisos al COUNT
-          if (!isAdminCheck) {
-            if (ejecutivoFilter && coordinacionesFilter) {
-              countQuery = countQuery
-                .in('prospectos.ejecutivo_id', [ejecutivoFilter])
-                .in('prospectos.coordinacion_id', coordinacionesFilter);
-            } else if (coordinacionesFilter) {
-              countQuery = countQuery.in('prospectos.coordinacion_id', coordinacionesFilter);
-            }
-          }
-          
-          const { count } = await countQuery;
-          setTotalHistoryCount(count || 0);
-        } catch (e) {
-          setTotalHistoryCount(0);
-        }
+        // NOTA: No reseteamos totalHistoryCount aquí - se mantiene el valor calculado por el useEffect
       }
       
       const pageToLoad = reset ? 0 : currentPageHistoryRef.current;
@@ -1914,6 +1892,129 @@ const LiveMonitorKanban: React.FC = () => {
       hasInitialLoadRef.current = false;
     }
   }, [selectedTab]);
+
+  // ============================================
+  // COUNT TOTAL DEL HISTORIAL (INDEPENDIENTE DE LA PESTAÑA)
+  // ============================================
+  // Este useEffect obtiene el total de llamadas según los permisos del usuario
+  // Se ejecuta al montar el componente, independientemente de la pestaña activa
+  useEffect(() => {
+    const fetchTotalHistoryCount = async () => {
+      if (!user?.id || !analysisSupabase) {
+        setTotalHistoryCount(0);
+        return;
+      }
+
+      try {
+        // Obtener permisos del usuario
+        const permissions = await permissionsService.getUserPermissions(user.id);
+        
+        // Administrador Operativo NO puede ver historial
+        if (permissions?.role === 'administrador_operativo') {
+          setTotalHistoryCount(0);
+          return;
+        }
+        
+        const isAdminUser = permissions?.role === 'admin';
+        
+        if (isAdminUser) {
+          // Admin ve todas las llamadas
+          const { count, error } = await analysisSupabase
+            .from('llamadas_ventas')
+            .select('*', { count: 'exact', head: true });
+          
+          if (!error) {
+            setTotalHistoryCount(count || 0);
+          }
+        } else {
+          // Obtener filtros según rol
+          const ejecutivoFilterId = await permissionsService.getEjecutivoFilter(user.id);
+          const coordinacionesFilterIds = await permissionsService.getCoordinacionesFilter(user.id);
+          const esCoordinadorCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+          
+          // Coordinador de Calidad ve todas las llamadas (como admin)
+          if (esCoordinadorCalidad) {
+            const { count, error } = await analysisSupabase
+              .from('llamadas_ventas')
+              .select('*', { count: 'exact', head: true });
+            
+            if (!error) {
+              setTotalHistoryCount(count || 0);
+            }
+            return;
+          }
+          
+          // Si es ejecutivo, contar llamadas de sus prospectos (incluyendo backups)
+          if (ejecutivoFilterId) {
+            // Obtener IDs de ejecutivos donde este ejecutivo es backup
+            const ejecutivosIds = [ejecutivoFilterId];
+            
+            if (supabaseSystemUI) {
+              const { data: ejecutivosConBackup } = await supabaseSystemUI
+                .from('auth_users')
+                .select('id')
+                .eq('backup_id', ejecutivoFilterId)
+                .eq('has_backup', true);
+              
+              if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+                ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+              }
+            }
+            
+            // Primero obtener los prospectos del ejecutivo
+            const { data: prospectos } = await analysisSupabase
+              .from('prospectos')
+              .select('id')
+              .in('ejecutivo_id', ejecutivosIds);
+            
+            if (prospectos && prospectos.length > 0) {
+              const prospectoIds = prospectos.map(p => p.id);
+              
+              // Contar llamadas de esos prospectos
+              const { count, error } = await analysisSupabase
+                .from('llamadas_ventas')
+                .select('*', { count: 'exact', head: true })
+                .in('prospecto', prospectoIds);
+              
+              if (!error) {
+                setTotalHistoryCount(count || 0);
+              }
+            } else {
+              setTotalHistoryCount(0);
+            }
+          } else if (coordinacionesFilterIds && coordinacionesFilterIds.length > 0) {
+            // Coordinador: contar llamadas de prospectos en sus coordinaciones
+            const { data: prospectos } = await analysisSupabase
+              .from('prospectos')
+              .select('id')
+              .in('coordinacion_id', coordinacionesFilterIds);
+            
+            if (prospectos && prospectos.length > 0) {
+              const prospectoIds = prospectos.map(p => p.id);
+              
+              const { count, error } = await analysisSupabase
+                .from('llamadas_ventas')
+                .select('*', { count: 'exact', head: true })
+                .in('prospecto', prospectoIds);
+              
+              if (!error) {
+                setTotalHistoryCount(count || 0);
+              }
+            } else {
+              setTotalHistoryCount(0);
+            }
+          } else {
+            setTotalHistoryCount(0);
+          }
+        }
+      } catch (error) {
+        console.error('Error calculando total de historial:', error);
+        setTotalHistoryCount(0);
+      }
+    };
+
+    fetchTotalHistoryCount();
+  }, [user?.id]);
 
   // OPTIMIZACIÓN: Aplicar filtros solo cuando cambia allHistoryCallsLoaded
   // PERO SOLO si NO está cargando más (evita vaciar la tabla)
@@ -3994,7 +4095,7 @@ const LiveMonitorKanban: React.FC = () => {
                   </svg>
                   <span>Historial</span>
                   <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {totalHistoryCount > 0 ? totalHistoryCount : (allHistoryCallsLoaded.length > 0 ? allHistoryCallsLoaded.length : allCallsWithAnalysis.length)}
+                    {totalHistoryCount}
                   </span>
                 </div>
               </button>
@@ -4753,7 +4854,7 @@ const LiveMonitorKanban: React.FC = () => {
                   <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <span className="text-sm text-slate-600 dark:text-slate-400">
-                        Mostrando {filteredHistoryCalls.length} de {totalHistoryCount > 0 ? totalHistoryCount : allHistoryCallsLoaded.length} llamadas
+                        Mostrando {filteredHistoryCalls.length} de {totalHistoryCount} llamadas
                       </span>
                     </div>
                     

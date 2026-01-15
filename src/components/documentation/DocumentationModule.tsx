@@ -280,6 +280,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '8d8e115', date: '2026-01-14', author: 'Team', message: 'v2.2.51: B8.0.4N2.2.0 - Fix contador historial Llamadas IA: COUNT al inicio independiente de pestaña', isRelease: true },
   { hash: '7c7d004', date: '2026-01-14', author: 'Team', message: 'v2.2.50: B8.0.3N2.2.0 - Optimización BD: 50 índices + 6 RLS eliminados, validaciones completas', isRelease: true },
   { hash: '6b6c993', date: '2026-01-14', author: 'Team', message: 'v2.2.2: B8.0.2N2.2.0 - Correcciones post-migración: Error 406 coordinadores, logs sensibles, JOINs', isRelease: true },
   { hash: '5a5b882', date: '2026-01-14', author: 'Team', message: 'v2.2.1: B8.0.1N2.2.0 - Edge Functions migradas a PQNC_AI + correcciones post-migración', isRelease: true },
@@ -473,8 +474,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.50', highlight: true },
-  { label: 'Release', value: 'B8.0.3N2.2.0', highlight: false },
+  { label: 'Version', value: 'v2.2.51', highlight: true },
+  { label: 'Release', value: 'B8.0.4N2.2.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '14 Ene 2026', highlight: false },
 ];
