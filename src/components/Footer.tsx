@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.58: Fix ElevenLabsService - credencial restaurada desde BD
-  const version = 'B8.1.6N2.3.1';
+  // Versión actual - v2.2.59: Panel Lateral - Llamadas activas en tiempo real como side-widget
+  const version = 'B8.1.7N2.3.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

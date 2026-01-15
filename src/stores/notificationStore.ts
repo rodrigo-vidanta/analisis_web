@@ -74,6 +74,13 @@ const playNotificationSound = () => {
   }
 };
 
+// Tipo para notificación de llamada activa (checkpoint #5)
+interface ActiveCallNotification {
+  callId: string;
+  checkpoint: string;
+  timestamp: number;
+}
+
 interface NotificationState {
   // Notificaciones
   notifications: UserNotification[];
@@ -90,6 +97,9 @@ interface NotificationState {
   // Suscripciones activas
   isSubscribed: boolean;
   
+  // Notificación de llamada activa (para animación del Sidebar)
+  activeCallNotification: ActiveCallNotification | null;
+  
   // Acciones
   loadNotifications: (userId: string) => Promise<void>;
   addNotification: (notification: UserNotification) => void;
@@ -103,6 +113,7 @@ interface NotificationState {
   setSubscribed: (value: boolean) => void;
   clearAll: () => void;
   triggerCallNotification: (callId: string, checkpoint: string) => void;
+  clearCallNotification: () => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -114,6 +125,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   showToast: false,
   isDropdownOpen: false,
   isSubscribed: false,
+  activeCallNotification: null,
 
   // Cargar notificaciones desde la base de datos
   loadNotifications: async (userId: string) => {
@@ -225,15 +237,22 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       showToast: false,
       isDropdownOpen: false,
       isSubscribed: false,
+      activeCallNotification: null,
     });
   },
   
   // Trigger notificación de llamada (para checkpoint #5)
   triggerCallNotification: (callId: string, checkpoint: string) => {
-    // Reproducir sonido de notificación
-    playNotificationSound();
+    // Actualizar activeCallNotification para que el Sidebar pueda reaccionar
+    set({
+      activeCallNotification: {
+        callId,
+        checkpoint,
+        timestamp: Date.now()
+      }
+    });
     
-    // Mostrar toast genérico
+    // Mostrar toast genérico (el sonido lo maneja el Sidebar o el LiveActivityWidget)
     const notification: UserNotification = {
       id: `call-${callId}-${Date.now()}`,
       user_id: '',
@@ -249,5 +268,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     };
     
     get().showToastNotification(notification);
+  },
+  
+  // Limpiar notificación de llamada activa
+  clearCallNotification: () => {
+    set({ activeCallNotification: null });
   },
 }));

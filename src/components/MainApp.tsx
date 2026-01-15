@@ -45,6 +45,8 @@ import ChangePasswordModal from './auth/ChangePasswordModal';
 import Timeline from './direccion/Timeline';
 // Hook de inactividad
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
+// Panel Lateral (llamadas activas en tiempo real)
+import { LiveCallActivityWidget } from './live-activity';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -542,6 +544,8 @@ function MainApp() {
       <>
         {/* <NotificationListener /> */}
         {renderContent()}
+        {/* Panel Lateral - Llamadas en tiempo real */}
+        <LiveCallActivityWidget />
       </>
     );
   }
@@ -560,6 +564,8 @@ function MainApp() {
         >
           {renderContent()}
         </LinearLayout>
+        {/* Panel Lateral - Llamadas en tiempo real */}
+        <LiveCallActivityWidget />
       </div>
     );
   }
@@ -614,6 +620,9 @@ function MainApp() {
           <Footer />
         </div>
       </div>
+      
+      {/* Live Activity Widget - Global overlay */}
+      <LiveCallActivityWidget />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import useAnalysisPermissions from '../hooks/useAnalysisPermissions';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useNotificationStore } from '../stores/notificationStore';
+import { useLiveActivityStore } from '../stores/liveActivityStore';
 import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 import { permissionsService } from '../services/permissionsService';
 import TokenUsageIndicator from './TokenUsageIndicator';
@@ -568,11 +569,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     setAppMode('operative-dashboard');
   };
 
+  // Verificar si el Live Activity Widget está activo
+  const isLiveActivityWidgetEnabled = useLiveActivityStore(state => state.isWidgetEnabled);
+  
   // Escuchar notificaciones de llamadas y activar animación
   useEffect(() => {
     if (!activeCallNotification || activeCallNotification.checkpoint !== 'checkpoint #5') {
       setIsRinging(false);
       return;
+    }
+    
+    // Si el Live Activity Widget está activo, NO reproducir sonido aquí
+    // El widget se encarga de la notificación de audio
+    if (isLiveActivityWidgetEnabled) {
+      // Solo activar animación visual del logo, sin sonido
+      setIsRinging(true);
+      
+      // Auto-detener después de 5 segundos
+      const deactivateTimer = setTimeout(() => {
+        setIsRinging(false);
+        clearCallNotification();
+      }, 5000);
+      
+      return () => clearTimeout(deactivateTimer);
     }
     
     // Evitar procesar la misma llamada múltiples veces (una vez por callId único)
@@ -617,7 +636,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       clearTimeout(activateTimer);
       clearTimeout(deactivateTimer);
     };
-  }, [activeCallNotification?.timestamp, activeCallNotification?.checkpoint, activeCallNotification?.callId, clearCallNotification]);
+  }, [activeCallNotification?.timestamp, activeCallNotification?.checkpoint, activeCallNotification?.callId, clearCallNotification, isLiveActivityWidgetEnabled]);
 
   const handleAnalysisChange = (mode: 'natalia' | 'pqnc') => {
     setAnalysisMode(mode);
