@@ -284,6 +284,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'j0k1l2m', date: '2026-01-15', author: 'Team', message: 'v2.2.61: B8.1.9N2.3.1 - Panel Lateral: Animación botón escuchar, modal transferencia independiente', isRelease: true },
   { hash: 'i9j0k1l', date: '2026-01-15', author: 'Team', message: 'v2.2.60: B8.1.8N2.3.1 - Panel Lateral: Botones escuchar/transferir funcionales, filtro zombies mejorado', isRelease: true },
   { hash: 'h8i9j0k', date: '2026-01-15', author: 'Team', message: 'v2.2.59: B8.1.7N2.3.1 - Panel Lateral: Llamadas activas en tiempo real, side-widget, transcripción', isRelease: true },
   { hash: 'g7h8i9j', date: '2026-01-15', author: 'Team', message: 'v2.2.58: B8.1.6N2.3.1 - Fix ElevenLabsService: Credencial restaurada, detección placeholders', isRelease: true },
@@ -401,6 +402,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-100', date: '2026-01-15 22:15', version: 'B8.1.9N2.3.1', status: 'success', duration: '23s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-099', date: '2026-01-15 21:00', version: 'B8.1.8N2.3.1', status: 'success', duration: '24s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-098', date: '2026-01-15 19:35', version: 'B8.1.7N2.3.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-097', date: '2026-01-15 13:30', version: 'B8.1.6N2.3.1', status: 'success', duration: '32s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -498,8 +500,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.60', highlight: true },
-  { label: 'Release', value: 'B8.1.8N2.3.1', highlight: false },
+  { label: 'Version', value: 'v2.2.61', highlight: true },
+  { label: 'Release', value: 'B8.1.9N2.3.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '15 Ene 2026', highlight: false },
 ];

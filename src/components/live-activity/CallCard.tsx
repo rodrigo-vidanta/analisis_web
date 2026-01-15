@@ -24,8 +24,10 @@ import type { WidgetCallData } from '../../stores/liveActivityStore';
 interface CallCardProps {
   call: WidgetCallData;
   isExpanded: boolean;
+  isListening?: boolean;
   onExpand: () => void;
   onListen: () => void;
+  onStopListening?: () => void;
   onTransfer: () => void;
 }
 
@@ -56,8 +58,10 @@ const formatDuration = (seconds: number | undefined): string => {
 export const CallCard: React.FC<CallCardProps> = ({
   call,
   isExpanded,
+  isListening = false,
   onExpand,
   onListen,
+  onStopListening,
   onTransfer
 }) => {
   const checkpointConfig = useMemo(() => 
@@ -75,11 +79,18 @@ export const CallCard: React.FC<CallCardProps> = ({
 
   const handleListenClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onListen();
+    console.log('[CallCard] Botón Escuchar clickeado, monitor_url:', call.monitor_url, 'isListening:', isListening);
+    
+    if (isListening && onStopListening) {
+      onStopListening();
+    } else {
+      onListen();
+    }
   };
 
   const handleTransferClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('[CallCard] Botón Transferir clickeado, call_id:', call.call_id);
     onTransfer();
   };
 
@@ -200,11 +211,29 @@ export const CallCard: React.FC<CallCardProps> = ({
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={handleListenClick}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
-          disabled={!call.monitor_url}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-all shadow-lg ${
+            isListening
+              ? 'bg-red-600 hover:bg-red-500 shadow-red-500/30 animate-pulse'
+              : call.monitor_url 
+                ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20' 
+                : 'bg-gray-600 hover:bg-gray-500 shadow-gray-500/20'
+          }`}
         >
-          <Headphones className="w-4 h-4" />
-          <span>Escuchar</span>
+          {isListening ? (
+            <>
+              {/* Indicador de escucha activa */}
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+              </span>
+              <span>Escuchando...</span>
+            </>
+          ) : (
+            <>
+              <Headphones className="w-4 h-4" />
+              <span>Escuchar</span>
+            </>
+          )}
         </motion.button>
         
         {/* Botón Transferir */}

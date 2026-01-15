@@ -226,21 +226,37 @@ export const LiveCallActivityWidget: React.FC = () => {
   }, [collapseCall, stopAudioMonitoring]);
   
   const handleListen = useCallback((call: { call_id: string; monitor_url?: string }) => {
+    console.log('[LiveActivityWidget] handleListen llamado:', { 
+      call_id: call.call_id, 
+      monitor_url: call.monitor_url 
+    });
+    
     if (call.monitor_url) {
       startAudioMonitoring(call.monitor_url, call.call_id);
+    } else {
+      console.warn('[LiveActivityWidget] No hay monitor_url disponible para esta llamada');
+      toast.error('No hay URL de monitoreo disponible para esta llamada', {
+        duration: 3000,
+        position: 'top-right'
+      });
     }
   }, [startAudioMonitoring]);
   
-  const handleTransfer = useCallback((call: { call_id: string }) => {
+  const handleTransfer = useCallback((call: { call_id: string; control_url?: string }) => {
+    console.log('[LiveActivityWidget] handleTransfer llamado:', { 
+      call_id: call.call_id,
+      control_url: call.control_url
+    });
+    
     // Emitir evento para que LiveMonitorKanban maneje la transferencia
     window.dispatchEvent(new CustomEvent('live-activity-transfer', { 
       detail: { callId: call.call_id } 
     }));
     
     // Mostrar toast informativo
-    toast('Abriendo modal de transferencia...', {
+    toast('Ve a Llamadas IA para completar la transferencia', {
       icon: '📞',
-      duration: 2000,
+      duration: 3000,
       position: 'top-right',
       style: {
         background: '#1f2937',
@@ -415,8 +431,10 @@ export const LiveCallActivityWidget: React.FC = () => {
                   <CallCard
                     call={call}
                     isExpanded={false}
+                    isListening={isListening && listeningCallId === call.call_id}
                     onExpand={() => handleExpand(call.call_id)}
                     onListen={() => handleListen(call)}
+                    onStopListening={stopAudioMonitoring}
                     onTransfer={() => handleTransfer(call)}
                   />
                 </div>
