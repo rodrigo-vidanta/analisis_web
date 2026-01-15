@@ -280,6 +280,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'a1b2c3d', date: '2026-01-15', author: 'Team', message: 'v2.2.52: B8.0.5N2.2.0 - Dashboard Ejecutivos: Pestaña métricas, RPC optimizado, tiempo respuesta post-handoff', isRelease: true },
   { hash: '8d8e115', date: '2026-01-14', author: 'Team', message: 'v2.2.51: B8.0.4N2.2.0 - Fix contador historial Llamadas IA: COUNT al inicio independiente de pestaña', isRelease: true },
   { hash: '7c7d004', date: '2026-01-14', author: 'Team', message: 'v2.2.50: B8.0.3N2.2.0 - Optimización BD: 50 índices + 6 RLS eliminados, validaciones completas', isRelease: true },
   { hash: '6b6c993', date: '2026-01-14', author: 'Team', message: 'v2.2.2: B8.0.2N2.2.0 - Correcciones post-migración: Error 406 coordinadores, logs sensibles, JOINs', isRelease: true },
@@ -387,6 +388,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-091', date: '2026-01-15 00:45', version: 'B8.0.5N2.2.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-090', date: '2026-01-14 22:15', version: 'B8.0.4N2.2.0', status: 'success', duration: '30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-089', date: '2026-01-13 01:00', version: 'B7.2.49N7.2.39', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-088', date: '2026-01-12 18:30', version: 'B7.2.38N7.2.28', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -475,10 +477,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.51', highlight: true },
-  { label: 'Release', value: 'B8.0.4N2.2.0', highlight: false },
+  { label: 'Version', value: 'v2.2.52', highlight: true },
+  { label: 'Release', value: 'B8.0.5N2.2.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '14 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '15 Ene 2026', highlight: false },
 ];
 
 // ============================================

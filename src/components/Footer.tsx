@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.51: Fix contador historial Llamadas IA
-  const version = 'B8.0.4N2.2.0';
+  // Versión actual - v2.2.52: Dashboard Ejecutivos - Métricas de rendimiento con RPC optimizado
+  const version = 'B8.0.5N2.2.0';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

@@ -46,6 +46,7 @@ import { coordinacionService } from '../../services/coordinacionService';
 import type { Coordinacion } from '../../services/coordinacionService';
 import toast from 'react-hot-toast';
 import { ProspectosMetricsWidget, type GlobalTimePeriod } from './widgets/ProspectosMetricsWidget';
+import { EjecutivosMetricsWidget } from './widgets/EjecutivosMetricsWidget';
 
 // ============================================
 // CONTEXT PARA VISTA EXPANDIDA
@@ -2824,6 +2825,7 @@ const DashboardModule: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedWidget, setExpandedWidget] = useState<string | null>(null);
   const [defaultsApplied, setDefaultsApplied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'metricas' | 'ejecutivos'>('metricas');
   
   // Guardar filtros en localStorage cuando cambien
   useEffect(() => {
@@ -3825,63 +3827,106 @@ const DashboardModule: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 p-6">
       <FilterSelector filters={filters} onFiltersChange={setFilters} coordinaciones={coordinaciones} isLoading={isLoading} />
 
-      {/* Fila 0: Widget de Métricas de Prospectos Nuevos - AL INICIO */}
-      <div className="mb-6">
-        <ProspectosMetricsWidget
+      {/* Pestañas de navegación */}
+      <div className="mb-6 flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setActiveTab('metricas')}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-all ${
+            activeTab === 'metricas'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            <span>Métricas Generales</span>
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab('ejecutivos')}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-all ${
+            activeTab === 'ejecutivos'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            <span>Ejecutivos</span>
+          </div>
+        </button>
+      </div>
+
+      {/* Contenido según pestaña activa */}
+      {activeTab === 'metricas' && (
+        <>
+          {/* Fila 0: Widget de Métricas de Prospectos Nuevos - AL INICIO */}
+          <div className="mb-6">
+            <ProspectosMetricsWidget
+              coordinacionIds={getSelectedCoordinacionIds()}
+              coordinaciones={coordinaciones}
+              isExpanded={expandedWidget === 'prospectosMetrics'}
+              onToggleExpand={() => setExpandedWidget(expandedWidget === 'prospectosMetrics' ? null : 'prospectosMetrics')}
+              isLoading={isLoading}
+              globalPeriod={filters.period as GlobalTimePeriod}
+            />
+          </div>
+
+          {/* Fila 1: Funnel de Conversión - Ancho completo */}
+          <div className="mb-6">
+            <FunnelWidget
+              funnelData={funnelCoordData}
+              globalStages={pipelineStages}
+              trackingStages={trackingStagesData}
+              isExpanded={expandedWidget === 'pipeline'}
+              onToggleExpand={() => setExpandedWidget(expandedWidget === 'pipeline' ? null : 'pipeline')}
+              isLoading={isLoading}
+              isGlobal={isGlobalView}
+              totalProspects={totalProspectsReal}
+              assignmentByCoord={assignmentByCoord}
+            />
+          </div>
+
+          {/* Fila 2: Estado de Llamadas - Ancho completo */}
+          <div className="mb-6">
+            <CallStatusWidget
+              data={callStatusData}
+              coordData={callStatusByCoord}
+              isExpanded={expandedWidget === 'callStatus'}
+              onToggleExpand={() => setExpandedWidget(expandedWidget === 'callStatus' ? null : 'callStatus')}
+              isLoading={isLoading}
+              totalCalls={totalCalls}
+              isComparative={!isGlobalView}
+            />
+          </div>
+
+          {/* Fila 3: Métricas de Comunicación y Ventas por Origen - 2 columnas */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CommunicationWidget
+              metrics={communicationMetrics}
+              isExpanded={expandedWidget === 'communication'}
+              onToggleExpand={() => setExpandedWidget(expandedWidget === 'communication' ? null : 'communication')}
+              isLoading={isLoading}
+            />
+
+            <CRMSalesWidget
+              data={crmSalesData}
+              isExpanded={expandedWidget === 'crm'}
+              onToggleExpand={() => setExpandedWidget(expandedWidget === 'crm' ? null : 'crm')}
+              isLoading={isLoading}
+              period={filters.period}
+            />
+          </div>
+        </>
+      )}
+
+      {activeTab === 'ejecutivos' && (
+        <EjecutivosMetricsWidget
           coordinacionIds={getSelectedCoordinacionIds()}
           coordinaciones={coordinaciones}
-          isExpanded={expandedWidget === 'prospectosMetrics'}
-          onToggleExpand={() => setExpandedWidget(expandedWidget === 'prospectosMetrics' ? null : 'prospectosMetrics')}
-          isLoading={isLoading}
-          globalPeriod={filters.period as GlobalTimePeriod}
+          period={filters.period as GlobalTimePeriod}
         />
-      </div>
-
-      {/* Fila 1: Funnel de Conversión - Ancho completo */}
-      <div className="mb-6">
-        <FunnelWidget
-          funnelData={funnelCoordData}
-          globalStages={pipelineStages}
-          trackingStages={trackingStagesData}
-          isExpanded={expandedWidget === 'pipeline'}
-          onToggleExpand={() => setExpandedWidget(expandedWidget === 'pipeline' ? null : 'pipeline')}
-          isLoading={isLoading}
-          isGlobal={isGlobalView}
-          totalProspects={totalProspectsReal}
-          assignmentByCoord={assignmentByCoord}
-        />
-      </div>
-
-      {/* Fila 2: Estado de Llamadas - Ancho completo */}
-      <div className="mb-6">
-        <CallStatusWidget
-          data={callStatusData}
-          coordData={callStatusByCoord}
-          isExpanded={expandedWidget === 'callStatus'}
-          onToggleExpand={() => setExpandedWidget(expandedWidget === 'callStatus' ? null : 'callStatus')}
-          isLoading={isLoading}
-          totalCalls={totalCalls}
-          isComparative={!isGlobalView}
-        />
-      </div>
-
-      {/* Fila 3: Métricas de Comunicación y Ventas por Origen - 2 columnas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <CommunicationWidget
-          metrics={communicationMetrics}
-          isExpanded={expandedWidget === 'communication'}
-          onToggleExpand={() => setExpandedWidget(expandedWidget === 'communication' ? null : 'communication')}
-          isLoading={isLoading}
-        />
-
-        <CRMSalesWidget
-          data={crmSalesData}
-          isExpanded={expandedWidget === 'crm'}
-          onToggleExpand={() => setExpandedWidget(expandedWidget === 'crm' ? null : 'crm')}
-          isLoading={isLoading}
-          period={filters.period}
-        />
-      </div>
+      )}
     </div>
   );
 };
