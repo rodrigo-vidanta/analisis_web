@@ -284,6 +284,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'f6g7h8i', date: '2026-01-15', author: 'Team', message: 'v2.2.57: B8.1.5N2.3.1 - Clientes seguros PQNC + LogMonitor con Edge Function multi-db-proxy', isRelease: true },
   { hash: 'e5f6g7h', date: '2026-01-15', author: 'Team', message: 'v2.2.56: B8.1.4N2.3.1 - Restauración PQNC_QA + LOGMONITOR: Credenciales seguras en .env', isRelease: true },
   { hash: 'd4e5f6g', date: '2026-01-15', author: 'Team', message: 'v2.2.55: B8.1.3N2.3.1 - Optimización LiveChat: Vista materializada, RPC permisos, visibilitychange fix', isRelease: true },
   { hash: 'c3d4e5f', date: '2026-01-15', author: 'Team', message: 'v2.2.54: B8.1.2N2.3.1 - Sistema Notificaciones: Triggers BD únicos, 3 tipos, anti-duplicados', isRelease: true },
@@ -397,6 +398,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-096', date: '2026-01-15 13:00', version: 'B8.1.5N2.3.1', status: 'success', duration: '15s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-095', date: '2026-01-15 12:30', version: 'B8.1.4N2.3.1', status: 'success', duration: '27s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-094', date: '2026-01-16 00:15', version: 'B8.1.3N2.3.1', status: 'success', duration: '40s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-093', date: '2026-01-15 22:30', version: 'B8.1.2N2.3.1', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -490,8 +492,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.56', highlight: true },
-  { label: 'Release', value: 'B8.1.4N2.3.1', highlight: false },
+  { label: 'Version', value: 'v2.2.57', highlight: true },
+  { label: 'Release', value: 'B8.1.5N2.3.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '15 Ene 2026', highlight: false },
 ];
