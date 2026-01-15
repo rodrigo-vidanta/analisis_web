@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.57: Clientes seguros PQNC + LogMonitor - Edge Function multi-db-proxy
-  const version = 'B8.1.5N2.3.1';
+  // Versión actual - v2.2.58: Fix ElevenLabsService - credencial restaurada desde BD
+  const version = 'B8.1.6N2.3.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

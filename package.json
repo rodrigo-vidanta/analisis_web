@@ -1,7 +1,7 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "2.2.57",
+  "version": "2.2.58",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",
