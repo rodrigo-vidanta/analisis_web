@@ -15,8 +15,10 @@
 
 import { create } from 'zustand';
 import { analysisSupabase } from '../config/analysisSupabase';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { liveMonitorKanbanOptimized } from '../services/liveMonitorKanbanOptimized';
 import { userUIPreferencesService } from '../services/userUIPreferencesService';
+import { permissionsService } from '../services/permissionsService';
 import type { LiveCallData } from '../services/liveMonitorService';
 
 // Tipo para entrada de transcripción
@@ -232,7 +234,9 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
   
   /**
    * Carga llamadas activas desde el servicio optimizado
-   * Incluye verificación de "llamadas zombies" (activas sin actualizar en mucho tiempo)
+   * Incluye:
+   * - Filtrado por permisos del usuario (igual que LiveMonitorKanban)
+   * - Verificación de "llamadas zombies" (activas sin actualizar en mucho tiempo)
    */
   loadActiveCalls: async () => {
     const state = get();
@@ -242,17 +246,98 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       return;
     }
     
+    // Verificar que tenemos userId
+    const userId = state.currentUserId;
+    if (!userId) {
+      return;
+    }
+    
     set({ isLoadingCalls: true });
     
     try {
       const classifiedCalls = await liveMonitorKanbanOptimized.getClassifiedCalls();
       let activeCalls = classifiedCalls.active as WidgetCallData[];
       
-      // FILTRO DE LLAMADAS ZOMBIES MEJORADO:
-      // - Para llamadas creadas hace menos de 10 minutos: NO aplicar filtro (son nuevas)
-      // - Para llamadas creadas hace más de 10 minutos: verificar updated_at
+      // ============================================
+      // FILTRADO POR PERMISOS DEL USUARIO
+      // Replica la lógica de LiveMonitorKanban
+      // ============================================
+      
+      const permissions = await permissionsService.getUserPermissions(userId);
+      
+      if (permissions) {
+        const isAdmin = permissions.role === 'admin';
+        const isAdminOperativo = permissions.role === 'administrador_operativo';
+        const isCoordinadorCalidad = permissions.role === 'coordinador' 
+          ? await permissionsService.isCoordinadorCalidad(userId)
+          : false;
+        
+        // Admin, Admin Operativo y Coordinador Calidad ven TODO (sin filtro)
+        const hasFullAccess = isAdmin || isAdminOperativo || isCoordinadorCalidad;
+        
+        if (!hasFullAccess) {
+          // Obtener filtros específicos del usuario
+          const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+          const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+          
+          if (ejecutivoFilter) {
+            // ============================================
+            // EJECUTIVO: Solo ve llamadas de SUS prospectos
+            // + prospectos de ejecutivos donde es BACKUP
+            // ============================================
+            
+            // Obtener IDs de ejecutivos donde este usuario es backup
+            const { data: ejecutivosConBackup } = await supabaseSystemUI
+              .from('auth_users')
+              .select('id')
+              .eq('backup_id', ejecutivoFilter)
+              .eq('has_backup', true);
+            
+            const ejecutivosIds = [ejecutivoFilter];
+            if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+              ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+            }
+            
+            // Obtener IDs de prospectos asignados a estos ejecutivos
+            const { data: prospectosAsignados } = await analysisSupabase
+              .from('prospectos')
+              .select('id')
+              .in('ejecutivo_id', ejecutivosIds);
+            
+            const prospectosIds = new Set(prospectosAsignados?.map(p => p.id) || []);
+            
+            // Filtrar llamadas: solo las de prospectos asignados
+            activeCalls = activeCalls.filter(call => 
+              call.prospecto_id && prospectosIds.has(call.prospecto_id)
+            );
+            
+          } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+            // ============================================
+            // COORDINADOR/SUPERVISOR: Ve llamadas de prospectos
+            // en sus coordinaciones asignadas
+            // ============================================
+            
+            // Obtener IDs de prospectos en las coordinaciones del usuario
+            const { data: prospectosCoordinacion } = await analysisSupabase
+              .from('prospectos')
+              .select('id')
+              .in('coordinacion_id', coordinacionesFilter);
+            
+            const prospectosIds = new Set(prospectosCoordinacion?.map(p => p.id) || []);
+            
+            // Filtrar llamadas: solo las de prospectos en sus coordinaciones
+            activeCalls = activeCalls.filter(call => 
+              call.prospecto_id && prospectosIds.has(call.prospecto_id)
+            );
+          }
+        }
+      }
+      
+      // ============================================
+      // FILTRO DE LLAMADAS ZOMBIES
+      // ============================================
       const ZOMBIE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutos
-      const NEW_CALL_GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutos de gracia para llamadas nuevas
+      const NEW_CALL_GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutos de gracia
       const now = Date.now();
       
       const currentReportedZombies = get().reportedZombieIds;
@@ -266,17 +351,16 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
         
         // Si la llamada es reciente (menos de 10 min de creada), no aplicar filtro zombie
         if (timeSinceCreation < NEW_CALL_GRACE_PERIOD_MS) {
-          return true; // Mantener en el widget
+          return true;
         }
         
-        // Para llamadas antiguas, verificar si está zombie (sin actualizar en 10+ minutos)
+        // Para llamadas antiguas, verificar si está zombie
         if (timeSinceUpdate > ZOMBIE_THRESHOLD_MS) {
-          // Solo loguear si no se ha reportado antes
           if (!currentReportedZombies.has(call.call_id)) {
             console.warn(`[LiveActivityStore] Llamada zombie detectada: ${call.call_id} - sin actualizar por ${Math.round(timeSinceUpdate / 60000)} minutos`);
             newReportedZombies.add(call.call_id);
           }
-          return false; // Excluir del widget
+          return false;
         }
         return true;
       });
