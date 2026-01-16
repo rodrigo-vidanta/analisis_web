@@ -1,12 +1,45 @@
-# 🚀 PQNC QA AI Platform v2.1.0
+# 🚀 PQNC QA AI Platform v2.2.65
 
 **⚠️ ESTADO: PRODUCCIÓN ACTIVA**  
-**🌐 URL Producción**: https://d3m6zgat40u0u1.cloudfront.net  
-**📅 Última Actualización**: 25 de Noviembre 2025
+**🌐 URL Producción**: https://ai.vidavacations.com  
+**📅 Última Actualización**: 16 de Enero 2026  
+**🔒 Arquitectura de Seguridad**: v3.0
 
 Plataforma empresarial completa para gestión de prospectos, análisis de llamadas con IA y monitoreo en tiempo real.
 
-> **⚠️ IMPORTANTE**: Este es un entorno de producción activo. Ver [`.cursorrules`](.cursorrules) para reglas de desarrollo y despliegue.
+> **⚠️ IMPORTANTE**: Este es un entorno de producción activo. Ver las reglas en `.cursor/rules/` para desarrollo y despliegue.
+
+---
+
+## 🔒 Arquitectura de Seguridad (v3.0 - Enero 2026)
+
+### Cambios Críticos
+
+| Aspecto | Estado Actual |
+|---------|---------------|
+| **Clientes `*Admin`** | ❌ **ELIMINADOS** del codebase |
+| **RLS (Row Level Security)** | ⚠️ **DESHABILITADO** en 61 tablas |
+| **Bundle de Producción** | ✅ Solo expone `anon_key` |
+| **Edge Functions** | ✅ Migradas a PQNC_AI |
+
+### Reglas Obligatorias
+
+```typescript
+// ❌ PROHIBIDO - Estos clientes ya no existen
+import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+
+// ✅ CORRECTO - Usar clientes normales
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { analysisSupabase } from '../config/analysisSupabase';
+```
+
+### Documentación
+
+- **Arquitectura Completa**: `docs/ARQUITECTURA_SEGURIDAD_2026.md`
+- **Reglas de Seguridad**: `.cursor/rules/security-rules.mdc`
+- **Arquitectura BD**: `.cursor/rules/arquitectura-bd-unificada.mdc`
+
+---
 
 ## 🎯 Módulos Principales
 
@@ -48,23 +81,27 @@ Sistema completo de gestión de prospectos con historial de llamadas.
 - **Despliegue**: AWS S3 + CloudFront (Producción)
 - **Infraestructura**: AWS us-west-2
 
-## 📊 Bases de Datos
+## 📊 Base de Datos Unificada (Enero 2025)
 
-### analysisSupabase
-- **Prospectos**: Gestión completa de clientes
-- **Análisis IA**: Métricas y calificaciones
-- **Llamadas**: Historial y transcripciones
+### PQNC_AI (glsmifhkoaifvaegsozd) - **TODO UNIFICADO**
 
-### pqncSupabase  
-- **PQNC Humans**: Análisis avanzado
-- **Administración**: Usuarios y tokens
+| Dominio | Tablas |
+|---------|--------|
+| **Autenticación** | auth_users, auth_roles, auth_sessions |
+| **Permisos** | permissions, permission_groups |
+| **Prospectos** | prospectos, prospect_assignments |
+| **Llamadas** | llamadas_ventas, call_analysis_summary |
+| **WhatsApp** | conversaciones_whatsapp, mensajes_whatsapp |
+| **Configuración** | system_config, api_auth_tokens |
 
-### supabaseSystemUI
-- **Live Chat**: Conversaciones y mensajes
-- **Prompts**: Versionado y métricas
+### Clientes Supabase
 
-### supabaseMain
-- **AI Models**: Modelos y configuraciones
+| Cliente | Archivo | Uso |
+|---------|---------|-----|
+| `analysisSupabase` | `src/config/analysisSupabase.ts` | Principal - Todo |
+| `supabaseSystemUI` | `src/config/supabaseSystemUI.ts` | Auth, usuarios |
+
+> **⚠️ NOTA**: Ambos clientes apuntan a PQNC_AI. Los clientes `*Admin` fueron **ELIMINADOS**.
 
 ## 🚀 Instalación Rápida
 

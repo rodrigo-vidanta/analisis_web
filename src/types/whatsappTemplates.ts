@@ -479,10 +479,13 @@ export interface WhatsAppCampaign {
   audience?: WhatsAppAudience;
   
   // A/B Test
-  ab_template_b_id?: string | null;
-  ab_template_b?: WhatsAppTemplate; // Relación expandida
+  ab_group_id?: string | null; // ID que agrupa variantes A y B
+  ab_variant?: 'A' | 'B' | null; // Variante de esta campaña
   ab_distribution_a: number; // Porcentaje para variante A (0-100)
-  ab_linked_campaign_id?: string | null; // ID de campaña vinculada
+  
+  // Analítica adicional (desde v_campaign_analytics)
+  reply_rate_percent?: number;
+  effectiveness_score?: number;
   
   // Configuración de envío
   batch_size: number;

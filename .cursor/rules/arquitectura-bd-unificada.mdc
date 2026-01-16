@@ -4,14 +4,21 @@ alwaysApply: true
 
 # Arquitectura de Base de Datos Unificada
 
-**Fecha de Vigencia:** 13 de Enero 2025  
-**Versión:** v2.2.0
+**Fecha de Vigencia:** 16 de Enero 2026  
+**Versión:** v3.0.0
 
 ---
 
-## ⚠️ CAMBIO ARQUITECTÓNICO CRÍTICO
+## ⚠️ CAMBIOS ARQUITECTÓNICOS CRÍTICOS
 
-A partir del **13 de Enero 2025**, la arquitectura de bases de datos cambió de **2 proyectos separados** a **1 proyecto unificado**.
+### Migración de Enero 2025
+- BD unificada: de 2 proyectos a 1 (PQNC_AI)
+
+### Cambios de Seguridad Enero 2026
+- **Clientes `*Admin` ELIMINADOS** del codebase
+- **RLS DESHABILITADO** en todas las tablas (61)
+- **Solo `anon_key`** en bundle de producción
+- **Edge Functions migradas** a PQNC_AI
 
 ---
 
@@ -20,7 +27,8 @@ A partir del **13 de Enero 2025**, la arquitectura de bases de datos cambió de 
 ### Base de Datos Principal: PQNC_AI
 
 **URL:** `https://glsmifhkoaifvaegsozd.supabase.co`  
-**Proyecto:** glsmifhkoaifvaegsozd
+**Proyecto:** glsmifhkoaifvaegsozd  
+**RLS:** ⚠️ DESHABILITADO (acceso vía anon_key)
 
 **Contiene TODO:**
 - ✅ Autenticación (auth_users, auth_roles, auth_sessions)
@@ -32,50 +40,61 @@ A partir del **13 de Enero 2025**, la arquitectura de bases de datos cambió de 
 - ✅ Configuración (system_config, app_themes, api_auth_tokens)
 - ✅ Moderación (content_moderation_warnings, user_warning_counters)
 - ✅ Logs (auth_login_logs, paraphrase_logs, assignment_logs)
+- ✅ Edge Functions (multi-db-proxy, auth-admin-proxy)
 
 ---
 
 ## Clientes de Supabase en el Código
 
-### analysisSupabase (PRINCIPAL - USAR SIEMPRE)
+### ✅ analysisSupabase (PRINCIPAL - USAR SIEMPRE)
 
 **Archivo:** `src/config/analysisSupabase.ts`  
 **Variables env:**
 - `VITE_ANALYSIS_SUPABASE_URL` (glsmifhkoaifvaegsozd)
 - `VITE_ANALYSIS_SUPABASE_ANON_KEY`
-- `VITE_ANALYSIS_SUPABASE_SERVICE_KEY`
 
 **Uso:** **TODO** - Auth, prospectos, llamadas, WhatsApp, configuración
 
-### supabaseSystemUI (REDIRIGIDO a PQNC_AI)
+### ✅ supabaseSystemUI (REDIRIGIDO a PQNC_AI)
 
 **Archivo:** `src/config/supabaseSystemUI.ts`  
 **Variables env:**
 - `VITE_SYSTEM_UI_SUPABASE_URL` (ahora apunta a glsmifhkoaifvaegsozd)
 - `VITE_SYSTEM_UI_SUPABASE_ANON_KEY` (mismo que ANALYSIS)
-- `VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY` (mismo que ANALYSIS)
 
 **Uso:** Auth, usuarios, permisos (MIGRADO a PQNC_AI desde 2025-01-13)
 
-**⚠️ Nota:** Este cliente ahora apunta a PQNC_AI, NO a system_ui. Mantiene el nombre por compatibilidad con código existente.
+### ❌ Clientes ELIMINADOS (NUNCA USAR)
+
+| Cliente | Estado | Razón |
+|---------|--------|-------|
+| `supabaseSystemUIAdmin` | **ELIMINADO** | Exponía `service_role_key` |
+| `analysisSupabaseAdmin` | **ELIMINADO** | Exponía `service_role_key` |
+| `pqncSupabaseAdmin` | **ELIMINADO** | Proyecto prohibido |
+
+**⚠️ CRÍTICO:** Si ves código usando estos clientes, está DESACTUALIZADO. Reemplazar por clientes normales.
 
 ---
 
-## Edge Functions (Separadas)
+## Edge Functions
 
-**Ubicación:** System_UI (zbylezfyagwrxoecioup.supabase.co)  
+**⚠️ CAMBIO 2026-01-16: Edge Functions migradas a PQNC_AI**
+
+**Ubicación:** PQNC_AI (glsmifhkoaifvaegsozd.supabase.co)  
 **Variables env:**
-- `VITE_EDGE_FUNCTIONS_URL` (zbylezfyagwrxoecioup)
-- `VITE_EDGE_FUNCTIONS_ANON_KEY` (de system_ui)
+- `VITE_EDGE_FUNCTIONS_URL` = `https://glsmifhkoaifvaegsozd.supabase.co`
+- `VITE_ANALYSIS_SUPABASE_ANON_KEY` (para Authorization)
 
-**Funciones:**
-- send-img-proxy
-- n8n-proxy
-- anthropic-proxy
-- error-analisis-proxy
-- generar-url-optimizada
+**Funciones Principales:**
 
-**Razón:** Permanecen en system_ui donde ya están desplegadas. No requieren migración.
+| Función | Uso | Secrets |
+|---------|-----|---------|
+| `multi-db-proxy` | Proxy a PQNC_QA y LOGMONITOR | `PQNC_QA_SERVICE_KEY`, `LOGMONITOR_SERVICE_KEY` |
+| `auth-admin-proxy` | Operaciones admin | `SUPABASE_SERVICE_ROLE_KEY` |
+| `send-img-proxy` | Envío imágenes WhatsApp | `N8N_WEBHOOK_URL` |
+| `anthropic-proxy` | API Anthropic | `ANTHROPIC_API_KEY` |
+
+**⚠️ IMPORTANTE:** Los secrets están en Supabase, NO en el código frontend.
 
 ---
 
@@ -86,27 +105,31 @@ A partir del **13 de Enero 2025**, la arquitectura de bases de datos cambió de 
 ```typescript
 // Consultar usuarios
 const { data } = await supabaseSystemUI.from('auth_users').select('*');
-// ✅ Ahora consulta PQNC_AI (glsmifhkoaifvaegsozd)
+// ✅ Consulta PQNC_AI con anon_key (RLS deshabilitado)
 
 // Consultar prospectos
 const { data } = await analysisSupabase.from('prospectos').select('*');
-// ✅ Consulta PQNC_AI (glsmifhkoaifvaegsozd)
+// ✅ Consulta PQNC_AI con anon_key
 
 // Llamar Edge Function
-const url = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/send-img-proxy`;
-// ✅ Llama a system_ui (zbylezfyagwrxoecioup) donde está desplegada
+const url = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/multi-db-proxy`;
+// ✅ Llama a PQNC_AI (glsmifhkoaifvaegsozd)
 ```
 
 ### ❌ INCORRECTO
 
 ```typescript
-// NO usar pqncSupabase (SupaPQNC - proyecto prohibido)
-const { data } = await pqncSupabase.from('auth_users').select('*');
-// ❌ Consulta hmmfuhqgvsehkizlfzga (proyecto PROHIBIDO)
+// ❌ PROHIBIDO - Clientes Admin ELIMINADOS
+const { data } = await supabaseSystemUIAdmin.from('auth_users').select('*');
+// Error: supabaseSystemUIAdmin ya no existe
 
-// NO asumir que system_ui tiene datos actuales
-const { data } = await makeDirectCallToSystemUI('zbylezfyagwrxoecioup');
-// ❌ System_UI es SOLO backup, puede tener datos desactualizados
+// ❌ PROHIBIDO - No usar pqncSupabase
+const { data } = await pqncSupabase.from('auth_users').select('*');
+// Consulta hmmfuhqgvsehkizlfzga (proyecto PROHIBIDO)
+
+// ❌ PROHIBIDO - No usar service_key en frontend
+const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+// Las service_key NO deben estar en producción
 ```
 
 ---

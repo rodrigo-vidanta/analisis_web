@@ -159,10 +159,12 @@ const { data } = await supabase
 2. **System_UI es SOLO BACKUP**: NO usar para operaciones de producción (migración 2025-01-13)
 3. **Sin rollback automático**: Los cambios son permanentes
 4. **Credenciales en mcp.json**: NUNCA compartir ~/.cursor/mcp.json
-5. **Service Role Key**: Los MCPs usan service_role (acceso total)
+5. **Service Role Key**: Los MCPs usan service_role (acceso total) - SOLO para desarrollo
 6. **Nombres de herramientas**: SIEMPRE usar prefijo `pqnc_` para herramientas de `Supa_PQNC_AI`
-7. **Edge Functions**: Permanecen en System_UI (zbylezfyagwrxoecioup) - usar VITE_EDGE_FUNCTIONS_*
+7. **Edge Functions**: ⚠️ **MIGRADAS a PQNC_AI** (glsmifhkoaifvaegsozd) desde 2026-01-16
 8. **Tablas legacy**: NUNCA usar `coordinador_coordinaciones*` - usar `auth_user_coordinaciones`
+9. **RLS**: ⚠️ **DESHABILITADO** en 61 tablas (acceso con anon_key)
+10. **Clientes Admin**: ⚠️ **ELIMINADOS** del codebase - NO usar `*Admin` clients
 
 ## 🔧 Ejemplos de Uso
 

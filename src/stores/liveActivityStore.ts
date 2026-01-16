@@ -57,6 +57,12 @@ interface LiveActivityState {
   // Llamada expandida (null = ninguna)
   expandedCallId: string | null;
   
+  // Llamadas minimizadas a "cuña" (Set de call_ids)
+  minimizedCallIds: Set<string>;
+  
+  // Llamadas que el usuario abrió manualmente (no se auto-minimizan)
+  permanentOpenCallIds: Set<string>;
+  
   // Estado del widget
   isWidgetEnabled: boolean;
   isWidgetVisible: boolean;
@@ -88,6 +94,8 @@ interface LiveActivityState {
   removeCall: (callId: string) => void;
   expandCall: (callId: string) => void;
   collapseCall: () => void;
+  minimizeCall: (callId: string) => void;
+  restoreCall: (callId: string) => void;
   toggleWidget: (enabled: boolean) => Promise<void>;
   setWidgetVisible: (visible: boolean) => void;
   updateTranscription: (callId: string, entries: TranscriptEntry[]) => void;
@@ -126,6 +134,8 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
   // Estado inicial
   widgetCalls: [],
   expandedCallId: null,
+  minimizedCallIds: new Set<string>(),
+  permanentOpenCallIds: new Set<string>(),
   isWidgetEnabled: false,
   isWidgetVisible: true,
   isLoading: false,
@@ -526,6 +536,31 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
    */
   collapseCall: () => {
     set({ expandedCallId: null });
+  },
+  
+  /**
+   * Minimiza una llamada a "cuña" en el borde
+   */
+  minimizeCall: (callId: string) => {
+    const state = get();
+    const newMinimized = new Set(state.minimizedCallIds);
+    newMinimized.add(callId);
+    set({ minimizedCallIds: newMinimized });
+  },
+  
+  /**
+   * Restaura una llamada minimizada (la marca como permanente)
+   */
+  restoreCall: (callId: string) => {
+    const state = get();
+    const newMinimized = new Set(state.minimizedCallIds);
+    const newPermanent = new Set(state.permanentOpenCallIds);
+    newMinimized.delete(callId);
+    newPermanent.add(callId); // Marcar como permanentemente abierta
+    set({ 
+      minimizedCallIds: newMinimized,
+      permanentOpenCallIds: newPermanent
+    });
   },
   
   /**

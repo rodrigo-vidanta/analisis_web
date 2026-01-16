@@ -5,10 +5,12 @@
 | Propiedad | Valor |
 |-----------|-------|
 | **Ubicación Local** | `supabase/functions/` |
-| **Proyecto Activo** | system_ui (zbylezfyagwrxoecioup) |
-| **Proyecto Destino** | pqnc_ai (glsmifhkoaifvaegsozd) |
+| **Proyecto Activo** | ⚠️ **PQNC_AI (glsmifhkoaifvaegsozd)** |
+| **Proyecto Anterior** | ~~system_ui (zbylezfyagwrxoecioup)~~ MIGRADO |
 | **Runtime** | Deno (Supabase Edge Runtime) |
 | **Documentación** | `docs/EDGE_FUNCTIONS_CATALOG.md` |
+
+**⚠️ CAMBIO 2026-01-16:** Todas las Edge Functions ahora están en PQNC_AI
 
 ---
 
@@ -123,20 +125,26 @@ supabase/functions/
 # Prerequisitos
 npm install -g supabase
 supabase login
-supabase link --project-ref glsmifhkoaifvaegsozd
+supabase link --project-ref glsmifhkoaifvaegsozd  # PQNC_AI
 
 # Desplegar función específica
-supabase functions deploy send-message-proxy
+supabase functions deploy multi-db-proxy
+supabase functions deploy auth-admin-proxy
 
-# Configurar secret
-supabase secrets set SEND_MESSAGE_AUTH=<valor>
+# Configurar secrets (CRÍTICO - nunca en código)
+supabase secrets set PQNC_QA_SERVICE_KEY=eyJ...
+supabase secrets set LOGMONITOR_SERVICE_KEY=eyJ...
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJ...
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 
 # Ver logs
-supabase functions logs send-message-proxy --tail
+supabase functions logs multi-db-proxy --tail
 
 # Listar funciones
 supabase functions list
 ```
+
+**⚠️ IMPORTANTE:** Los secrets contienen `service_role_key`. NUNCA exponerlos en el frontend.
 
 ---
 

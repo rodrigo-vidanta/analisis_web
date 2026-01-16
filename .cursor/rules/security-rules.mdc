@@ -1,0 +1,206 @@
+---
+alwaysApply: true
+---
+
+# 🔒 Reglas de Seguridad - PQNC QA AI Platform
+
+**Fecha de Vigencia:** 16 de Enero 2026  
+**Versión:** v3.0  
+**CRÍTICO:** Estas reglas son OBLIGATORIAS para todo desarrollo
+
+---
+
+## ⛔ PROHIBICIONES ABSOLUTAS
+
+### 1. NUNCA Usar Clientes Admin
+
+Los clientes `*Admin` fueron **ELIMINADOS** del codebase. Si ves código que los usa, está DESACTUALIZADO.
+
+```typescript
+// ❌ PROHIBIDO - ESTOS CLIENTES YA NO EXISTEN
+import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { analysisSupabaseAdmin } from '../config/analysisSupabaseAdmin';
+import { pqncSupabaseAdmin } from '../config/pqncSupabase';
+
+// ✅ CORRECTO - Usar clientes normales
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { analysisSupabase } from '../config/analysisSupabase';
+```
+
+### 2. NUNCA Exponer Service Role Keys
+
+```typescript
+// ❌ PROHIBIDO - Nunca usar service_key en frontend
+const serviceKey = import.meta.env.VITE_*_SERVICE_KEY;
+const client = createClient(url, serviceKey);
+
+// ❌ PROHIBIDO - Nunca hardcodear keys
+const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...service_role...';
+
+// ✅ CORRECTO - Solo anon_key
+const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+const client = createClient(url, anonKey);
+```
+
+### 3. NUNCA Crear Nuevos Clientes Admin
+
+Si una funcionalidad requiere permisos elevados, usar Edge Functions:
+
+```typescript
+// ❌ PROHIBIDO - Crear cliente con service_role
+const adminClient = createClient(url, import.meta.env.VITE_SERVICE_KEY);
+await adminClient.from('users').update({ is_admin: true });
+
+// ✅ CORRECTO - Usar Edge Function
+await fetch(`${EDGE_FUNCTIONS_URL}/functions/v1/auth-admin-proxy`, {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${anonKey}` },
+  body: JSON.stringify({ action: 'updateUser', userId, data: { is_admin: true } })
+});
+```
+
+---
+
+## ✅ PATRONES CORRECTOS
+
+### Consultas a Base de Datos
+
+```typescript
+// ✅ CORRECTO - Usar cliente normal
+const { data, error } = await supabaseSystemUI
+  .from('auth_users')
+  .select('*')
+  .eq('id', userId);
+
+// ✅ CORRECTO - Usar analysisSupabase para datos de análisis
+const { data } = await analysisSupabase
+  .from('prospectos')
+  .select('*');
+```
+
+### Operaciones de Escritura
+
+```typescript
+// ✅ CORRECTO - INSERT/UPDATE/DELETE con cliente normal
+await supabaseSystemUI
+  .from('auth_users')
+  .update({ last_login: new Date().toISOString() })
+  .eq('id', userId);
+```
+
+### Edge Functions
+
+```typescript
+// ✅ CORRECTO - Llamar Edge Function
+const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+
+const response = await fetch(`${edgeFunctionsUrl}/functions/v1/mi-funcion`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${anonKey}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(payload)
+});
+```
+
+---
+
+## 🔧 Configuración de Ambiente
+
+### .env.production (SOLO ANON KEYS)
+
+```bash
+# ✅ CORRECTO - Solo anon_key en producción
+VITE_ANALYSIS_SUPABASE_URL=https://glsmifhkoaifvaegsozd.supabase.co
+VITE_ANALYSIS_SUPABASE_ANON_KEY=eyJ...anon...
+
+VITE_SYSTEM_UI_SUPABASE_URL=https://glsmifhkoaifvaegsozd.supabase.co
+VITE_SYSTEM_UI_SUPABASE_ANON_KEY=eyJ...anon...
+
+VITE_EDGE_FUNCTIONS_URL=https://glsmifhkoaifvaegsozd.supabase.co
+
+# ❌ NUNCA AGREGAR ESTAS LÍNEAS
+# VITE_ANALYSIS_SUPABASE_SERVICE_KEY=...
+# VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY=...
+```
+
+### .env.local (Desarrollo)
+
+```bash
+# En desarrollo puedes tener service_key para MCPs y testing
+# PERO: Nunca se usará en el bundle de producción
+VITE_ANALYSIS_SUPABASE_SERVICE_KEY=eyJ...service_role...
+```
+
+---
+
+## 🛡️ Estado de Seguridad Actual
+
+### RLS (Row Level Security)
+
+**Estado: DESHABILITADO en todas las tablas (61 tablas)**
+
+| Aspecto | Detalle |
+|---------|---------|
+| RLS | Deshabilitado |
+| Protección | Autenticación de aplicación (auth_users, auth_sessions) |
+| anon_key | Tiene acceso completo a todas las tablas |
+
+### Edge Functions
+
+**Ubicación: PQNC_AI (glsmifhkoaifvaegsozd)**
+
+| Función | Uso |
+|---------|-----|
+| `multi-db-proxy` | Acceso seguro a PQNC_QA y LOGMONITOR |
+| `auth-admin-proxy` | Operaciones admin de autenticación |
+
+---
+
+## 📋 Checklist Pre-Commit
+
+Antes de hacer commit/push, verificar:
+
+- [ ] No hay imports de clientes `*Admin`
+- [ ] No hay `service_role_key` hardcodeado
+- [ ] No hay variables `VITE_*_SERVICE_KEY` usadas en código frontend
+- [ ] `.env.production` solo tiene `anon_key`
+
+---
+
+## 📋 Checklist Pre-Deploy
+
+Antes de desplegar a producción:
+
+```bash
+# 1. Build limpio
+rm -rf dist
+npm run build
+
+# 2. Verificar bundle
+for jwt in $(grep -oh "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9[^\"']*" dist/assets/index-*.js | sort -u); do
+    payload=$(echo "$jwt" | cut -d. -f2 | base64 -d 2>/dev/null)
+    if echo "$payload" | grep -q "service_role"; then
+        echo "❌ ABORT: SERVICE_ROLE KEY EN BUNDLE"
+        exit 1
+    fi
+done
+echo "✅ Bundle seguro"
+
+# 3. Deploy
+./update-frontend.sh
+```
+
+---
+
+## 📚 Documentación Relacionada
+
+- **Arquitectura Completa:** `docs/ARQUITECTURA_SEGURIDAD_2026.md`
+- **Edge Functions:** `docs/EDGE_FUNCTIONS_CATALOG.md`
+- **Catálogo MCP:** `docs/MCP_CATALOG.md`
+
+---
+
+**⚠️ IMPORTANTE:** Cualquier violación de estas reglas puede exponer credenciales de producción y comprometer la seguridad del sistema.

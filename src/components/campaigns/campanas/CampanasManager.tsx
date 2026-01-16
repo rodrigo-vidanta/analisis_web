@@ -112,14 +112,12 @@ const CampanasManager: React.FC = () => {
     try {
       setLoading(true);
       
-      // Cargar campañas con joins explícitos (especificar FK para evitar ambigüedad PGRST201)
-      // Nota: Usamos !fk_column para indicar qué relación usar cuando hay múltiples FKs hacia la misma tabla
+      // Cargar campañas con join a template y audience
       const { data: campaignsData, error: campaignsError } = await analysisSupabase
         .from('whatsapp_campaigns')
         .select(`
           *,
           template:whatsapp_templates!template_id(*),
-          template_b:whatsapp_templates!ab_template_b_id(*),
           audience:whatsapp_audiences!audience_id(*)
         `)
         .order('created_at', { ascending: false });
@@ -128,12 +126,38 @@ const CampanasManager: React.FC = () => {
         console.error('Error loading campaigns:', campaignsError);
       }
       
-      // Normalizar datos de campañas para asegurar valores por defecto
-      const normalizedCampaigns = (campaignsData || []).map(c => ({
-        ...c,
-        campaign_type: c.campaign_type || 'standard',
-        ab_distribution_a: c.ab_distribution_a ?? 50,
-      }));
+      // Cargar analítica desde la vista v_campaign_analytics
+      const { data: analyticsData, error: analyticsError } = await analysisSupabase
+        .from('v_campaign_analytics')
+        .select('*');
+      
+      if (analyticsError) {
+        console.error('Error loading analytics:', analyticsError);
+      }
+      
+      // Crear mapa de analítica por campaign_id
+      const analyticsMap = new Map<string, any>();
+      (analyticsData || []).forEach(a => {
+        analyticsMap.set(a.campaign_id, a);
+      });
+      
+      // Normalizar y enriquecer campañas con analítica
+      const normalizedCampaigns = (campaignsData || []).map(c => {
+        const analytics = analyticsMap.get(c.id);
+        return {
+          ...c,
+          campaign_type: c.campaign_type || 'standard',
+          ab_distribution_a: c.ab_distribution_a ?? 50,
+          // Añadir datos de analítica desde la vista
+          sent_count: analytics?.actual_sends ?? c.sent_count ?? 0,
+          delivered_count: analytics?.delivered_count ?? 0,
+          read_count: analytics?.read_count ?? 0,
+          replied_count: analytics?.total_replies ?? 0,
+          failed_count: analytics?.sent_failed ?? 0,
+          reply_rate_percent: analytics?.reply_rate_percent ?? 0,
+          effectiveness_score: analytics?.effectiveness_score ?? 0,
+        };
+      });
       
       // Cargar plantillas activas (sin filtro is_deleted para más flexibilidad)
       const { data: templatesData, error: templatesError } = await analysisSupabase
@@ -202,10 +226,16 @@ const CampanasManager: React.FC = () => {
                 .select(`
                   *,
                   template:whatsapp_templates!template_id(*),
-                  template_b:whatsapp_templates!ab_template_b_id(*),
                   audience:whatsapp_audiences!audience_id(*)
                 `)
                 .eq('id', payload.new.id)
+                .single();
+              
+              // Cargar analítica para esta campaña
+              const { data: analytics } = await analysisSupabase
+                .from('v_campaign_analytics')
+                .select('*')
+                .eq('campaign_id', payload.new.id)
                 .single();
               
               if (newCampaign) {
@@ -214,6 +244,12 @@ const CampanasManager: React.FC = () => {
                     ...newCampaign,
                     campaign_type: newCampaign.campaign_type || 'standard',
                     ab_distribution_a: newCampaign.ab_distribution_a ?? 50,
+                    // Datos de analítica
+                    sent_count: analytics?.actual_sends ?? 0,
+                    delivered_count: analytics?.delivered_count ?? 0,
+                    read_count: analytics?.read_count ?? 0,
+                    replied_count: analytics?.total_replies ?? 0,
+                    failed_count: analytics?.sent_failed ?? 0,
                   },
                   ...prev
                 ]);
@@ -226,10 +262,16 @@ const CampanasManager: React.FC = () => {
                 .select(`
                   *,
                   template:whatsapp_templates!template_id(*),
-                  template_b:whatsapp_templates!ab_template_b_id(*),
                   audience:whatsapp_audiences!audience_id(*)
                 `)
                 .eq('id', payload.new.id)
+                .single();
+              
+              // Cargar analítica actualizada
+              const { data: updatedAnalytics } = await analysisSupabase
+                .from('v_campaign_analytics')
+                .select('*')
+                .eq('campaign_id', payload.new.id)
                 .single();
               
               if (updatedCampaign) {
@@ -239,6 +281,12 @@ const CampanasManager: React.FC = () => {
                         ...updatedCampaign,
                         campaign_type: updatedCampaign.campaign_type || 'standard',
                         ab_distribution_a: updatedCampaign.ab_distribution_a ?? 50,
+                        // Datos de analítica
+                        sent_count: updatedAnalytics?.actual_sends ?? updatedCampaign.sent_count ?? 0,
+                        delivered_count: updatedAnalytics?.delivered_count ?? 0,
+                        read_count: updatedAnalytics?.read_count ?? 0,
+                        replied_count: updatedAnalytics?.total_replies ?? 0,
+                        failed_count: updatedAnalytics?.sent_failed ?? 0,
                       }
                     : c
                 ));
@@ -1202,104 +1250,186 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ groupedCampaign, index, onE
               </span>
             </div>
             
-            {/* Barras de progreso por variante */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Barras de progreso por variante: 3 estados */}
+            <div className="grid grid-cols-2 gap-3">
               {/* Variante A */}
-              <div>
-                <div className="flex items-center justify-between text-[8px] text-blue-600 dark:text-blue-400 mb-0.5">
-                  <span>Enviados A</span>
-                  <span>
-                    {isABGroup && variantA && variantA.total_recipients > 0
-                      ? Math.round((variantA.sent_count / variantA.total_recipients) * 100)
-                      : 0}%
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[8px]">
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold">Variante A</span>
+                  <span className="text-purple-500 font-medium">
+                    {variantA && variantA.sent_count > 0
+                      ? Math.round((variantA.replied_count / variantA.sent_count) * 100)
+                      : 0}% resp
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden bg-blue-200/50 dark:bg-blue-900/50">
+                {/* Barra 3 colores: [Respondidos|Enviados sin resp|No enviados] */}
+                <div className="flex h-2 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                  {/* Respondidos (púrpura) */}
                   <div 
-                    className="bg-blue-500 h-full transition-all duration-500" 
+                    className="bg-purple-500 transition-all duration-500" 
                     style={{ 
-                      width: `${isABGroup && variantA && variantA.total_recipients > 0
-                        ? Math.min(100, (variantA.sent_count / variantA.total_recipients) * 100)
+                      width: `${variantA && variantA.total_recipients > 0
+                        ? Math.min(100, (variantA.replied_count / variantA.total_recipients) * 100)
                         : 0}%` 
                     }}
                   />
+                  {/* Enviados sin respuesta (azul) */}
+                  <div 
+                    className="bg-blue-400 transition-all duration-500" 
+                    style={{ 
+                      width: `${variantA && variantA.total_recipients > 0
+                        ? Math.min(100, ((variantA.sent_count - variantA.replied_count) / variantA.total_recipients) * 100)
+                        : 0}%` 
+                    }}
+                  />
+                  {/* No enviados = fondo gris (flex-1 no necesario, ya está el bg) */}
+                </div>
+                {/* Stats con iconos */}
+                <div className="flex items-center justify-between text-[8px] text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-0.5">
+                    <Send className="w-2.5 h-2.5 text-blue-500" />
+                    <span>{variantA?.sent_count || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <Eye className="w-2.5 h-2.5 text-emerald-500" />
+                    <span>{variantA?.read_count || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <MessageSquare className="w-2.5 h-2.5 text-purple-500" />
+                    <span>{variantA?.replied_count || 0}</span>
+                  </div>
                 </div>
               </div>
               
               {/* Variante B */}
-              <div>
-                <div className="flex items-center justify-between text-[8px] text-pink-600 dark:text-pink-400 mb-0.5">
-                  <span>Enviados B</span>
-                  <span>
-                    {isABGroup && variantB && variantB.total_recipients > 0
-                      ? Math.round((variantB.sent_count / variantB.total_recipients) * 100)
-                      : 0}%
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[8px]">
+                  <span className="text-pink-600 dark:text-pink-400 font-semibold">Variante B</span>
+                  <span className="text-purple-500 font-medium">
+                    {variantB && variantB.sent_count > 0
+                      ? Math.round((variantB.replied_count / variantB.sent_count) * 100)
+                      : 0}% resp
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden bg-pink-200/50 dark:bg-pink-900/50">
+                {/* Barra 3 colores: [Respondidos|Enviados sin resp|No enviados] */}
+                <div className="flex h-2 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                  {/* Respondidos (púrpura) */}
                   <div 
-                    className="bg-pink-500 h-full transition-all duration-500" 
+                    className="bg-purple-500 transition-all duration-500" 
                     style={{ 
-                      width: `${isABGroup && variantB && variantB.total_recipients > 0
-                        ? Math.min(100, (variantB.sent_count / variantB.total_recipients) * 100)
+                      width: `${variantB && variantB.total_recipients > 0
+                        ? Math.min(100, (variantB.replied_count / variantB.total_recipients) * 100)
                         : 0}%` 
                     }}
                   />
+                  {/* Enviados sin respuesta (rosa) */}
+                  <div 
+                    className="bg-pink-400 transition-all duration-500" 
+                    style={{ 
+                      width: `${variantB && variantB.total_recipients > 0
+                        ? Math.min(100, ((variantB.sent_count - variantB.replied_count) / variantB.total_recipients) * 100)
+                        : 0}%` 
+                    }}
+                  />
+                  {/* No enviados = fondo gris */}
+                </div>
+                {/* Stats con iconos */}
+                <div className="flex items-center justify-between text-[8px] text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-0.5">
+                    <Send className="w-2.5 h-2.5 text-pink-500" />
+                    <span>{variantB?.sent_count || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <Eye className="w-2.5 h-2.5 text-emerald-500" />
+                    <span>{variantB?.read_count || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <MessageSquare className="w-2.5 h-2.5 text-purple-500" />
+                    <span>{variantB?.replied_count || 0}</span>
+                  </div>
                 </div>
               </div>
             </div>
             
-            {/* Estadísticas por variante para grupos A/B */}
-            {isABGroup && variantA && variantB && (
-              <div className="mt-2 grid grid-cols-2 gap-2 text-[9px]">
-                <div className="text-center p-1 bg-blue-100/50 dark:bg-blue-900/30 rounded">
-                  <span className="text-blue-700 dark:text-blue-300">
-                    ✓ {variantA.sent_count} env | ↩ {variantA.replied_count} resp
-                  </span>
-                </div>
-                <div className="text-center p-1 bg-pink-100/50 dark:bg-pink-900/30 rounded">
-                  <span className="text-pink-700 dark:text-pink-300">
-                    ✓ {variantB.sent_count} env | ↩ {variantB.replied_count} resp
-                  </span>
-                </div>
+            {/* Leyenda */}
+            <div className="mt-2 flex items-center justify-center gap-3 text-[7px] text-gray-400">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1.5 rounded-sm bg-purple-500" />
+                <span>Resp</span>
               </div>
-            )}
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1.5 rounded-sm bg-blue-400" />
+                <span>Env</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1.5 rounded-sm bg-gray-200 dark:bg-gray-700" />
+                <span>Pend</span>
+              </div>
+            </div>
           </div>
         ) : (
-          // Barra de progreso para campaña estándar
-          <div className="mb-3 p-2 bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/20 dark:to-emerald-900/20 rounded-lg">
-            <div className="flex items-center justify-between text-[10px] font-medium mb-1">
+          // Barra de progreso para campaña estándar - 3 colores
+          <div className="mb-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+            <div className="flex items-center justify-between text-[10px] font-medium mb-2">
               <span className="text-gray-600 dark:text-gray-400">
-                Progreso de envío
+                Tasa de respuesta
               </span>
-              <span className="text-blue-600 dark:text-blue-400">
-                {stats.totalRecipients > 0 
-                  ? Math.round((stats.sentCount / stats.totalRecipients) * 100) 
+              <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                {stats.sentCount > 0 
+                  ? Math.round((stats.repliedCount / stats.sentCount) * 100) 
                   : 0}%
               </span>
             </div>
-            {/* Barra de progreso */}
-            <div className="h-1.5 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+            {/* Barra 3 colores: [Respondidos|Enviados sin resp|No enviados] */}
+            <div className="flex h-2.5 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+              {/* Respondidos (púrpura) */}
               <div 
-                className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full transition-all duration-500" 
+                className="bg-purple-500 transition-all duration-500" 
                 style={{ 
                   width: `${stats.totalRecipients > 0 
-                    ? Math.min(100, (stats.sentCount / stats.totalRecipients) * 100) 
+                    ? Math.min(100, (stats.repliedCount / stats.totalRecipients) * 100) 
                     : 0}%` 
                 }}
               />
+              {/* Enviados sin respuesta (azul) */}
+              <div 
+                className="bg-blue-400 transition-all duration-500" 
+                style={{ 
+                  width: `${stats.totalRecipients > 0 
+                    ? Math.min(100, ((stats.sentCount - stats.repliedCount) / stats.totalRecipients) * 100) 
+                    : 0}%` 
+                }}
+              />
+              {/* No enviados = fondo gris */}
             </div>
-            {/* Estadísticas de envío */}
-            <div className="mt-2 flex items-center justify-center gap-4 text-[9px]">
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-100/50 dark:bg-blue-900/30 rounded">
-                <span className="text-blue-700 dark:text-blue-300">
-                  ✓ {stats.sentCount.toLocaleString()} enviados
-                </span>
+            {/* Leyenda */}
+            <div className="mt-2 flex items-center justify-center gap-3 text-[8px] text-gray-400">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1.5 rounded-sm bg-purple-500" />
+                <span>Resp</span>
               </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-100/50 dark:bg-emerald-900/30 rounded">
-                <span className="text-emerald-700 dark:text-emerald-300">
-                  ↩ {stats.repliedCount.toLocaleString()} respuestas
-                </span>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1.5 rounded-sm bg-blue-400" />
+                <span>Env</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1.5 rounded-sm bg-gray-200 dark:bg-gray-700" />
+                <span>Pend</span>
+              </div>
+            </div>
+            {/* Estadísticas con iconos */}
+            <div className="mt-2.5 flex items-center justify-center gap-3 text-[9px]">
+              <div className="flex items-center gap-1 px-2 py-1 bg-blue-100/50 dark:bg-blue-900/30 rounded">
+                <Send className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                <span className="text-blue-700 dark:text-blue-300">{stats.sentCount.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100/50 dark:bg-emerald-900/30 rounded">
+                <Eye className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-emerald-700 dark:text-emerald-300">{stats.readCount.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-1 px-2 py-1 bg-purple-100/50 dark:bg-purple-900/30 rounded">
+                <MessageSquare className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                <span className="text-purple-700 dark:text-purple-300">{stats.repliedCount.toLocaleString()}</span>
               </div>
             </div>
           </div>

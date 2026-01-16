@@ -240,7 +240,8 @@ const documentationSections: DocSection[] = [
     title: 'Seguridad',
     icon: Icons.security,
     docs: [
-      { id: 'enterprise-security', name: 'Seguridad Enterprise Implementada', path: '/docs/SEGURIDAD_ENTERPRISE_IMPLEMENTADA.md', description: 'Arquitectura RLS + Edge Functions + AWS WAF' },
+      { id: 'security-architecture-2026', name: '🔒 Arquitectura Seguridad 2026', path: '/docs/ARQUITECTURA_SEGURIDAD_2026.md', description: 'ACTUAL: RLS deshabilitado, solo anon_key, clientes Admin eliminados' },
+      { id: 'enterprise-security', name: 'Seguridad Enterprise (Legacy)', path: '/docs/SEGURIDAD_ENTERPRISE_IMPLEMENTADA.md', description: 'Arquitectura anterior RLS + Edge Functions + AWS WAF' },
       { id: 'security-timeline', name: 'Timeline Implementación', path: '/docs/SEGURIDAD_ENTERPRISE_TIMELINE.md', description: 'Historial de iteraciones técnicas' },
       { id: 'architecture-diagram', name: 'Diagrama Arquitectura', path: '/docs/DIAGRAMA_ARQUITECTURA_SEGURIDAD.md', description: 'Flujos de datos y capas de defensa' },
       { id: 'pentesting-report', name: 'Reporte Pentesting', path: '/docs/REPORTE_PENTESTING_FINAL.md', description: 'Validación de seguridad' },
@@ -284,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'n4o5p6q', date: '2026-01-16', author: 'Team', message: 'v2.2.66: B8.3.1N2.3.1 - Campañas: Barra progreso 3 colores (resp/env/pend), iconos vectoriales, analytics views', isRelease: true },
   { hash: 'm3n4o5p', date: '2026-01-16', author: 'Team', message: 'v2.2.65: B8.2.3N2.3.1 - Panel Lateral: Nombre ejecutivo asignado + Estados botón Escuchar (Marcando/Listo)', isRelease: true },
   { hash: 'l2m3n4o', date: '2026-01-16', author: 'Team', message: 'v2.2.64: B8.2.2N2.3.1 - Panel Lateral: Filtrado por permisos de usuario (ejecutivo, coordinador, admin)', isRelease: true },
   { hash: '11eea59', date: '2026-01-15', author: 'Team', message: 'v2.2.63: B8.2.1N2.3.1 - FIX SEGURIDAD: Eliminar SERVICE_ROLE keys hardcodeadas, Edge Functions auth-admin-proxy', isRelease: true },
@@ -294,6 +296,7 @@ const gitCommits: GitCommit[] = [
   { hash: 'g7h8i9j', date: '2026-01-15', author: 'Team', message: 'v2.2.58: B8.1.6N2.3.1 - Fix ElevenLabsService: Credencial restaurada, detección placeholders', isRelease: true },
   { hash: 'f6g7h8i', date: '2026-01-15', author: 'Team', message: 'v2.2.57: B8.1.5N2.3.1 - Clientes seguros PQNC + LogMonitor con Edge Function multi-db-proxy', isRelease: true },
   { hash: 'e5f6g7h', date: '2026-01-15', author: 'Team', message: 'v2.2.56: B8.1.4N2.3.1 - Restauración PQNC_QA + LOGMONITOR: Credenciales seguras en .env', isRelease: true },
+  { hash: 'e5f6g7h', date: '2026-01-16', author: 'Team', message: 'v2.2.65: B8.3.0N2.3.1 - Documentación Seguridad 2026: Reglas actualizadas, arquitectura RLS-OFF, clientes Admin eliminados', isRelease: true },
   { hash: 'd4e5f6g', date: '2026-01-15', author: 'Team', message: 'v2.2.55: B8.1.3N2.3.1 - Optimización LiveChat: Vista materializada, RPC permisos, visibilitychange fix', isRelease: true },
   { hash: 'c3d4e5f', date: '2026-01-15', author: 'Team', message: 'v2.2.54: B8.1.2N2.3.1 - Sistema Notificaciones: Triggers BD únicos, 3 tipos, anti-duplicados', isRelease: true },
   { hash: 'b2c3d4e', date: '2026-01-15', author: 'Team', message: 'v2.2.53: B8.1.1N2.3.0 - Fix redirección inicio: Admin también inicia en Dashboard Operativo', isRelease: true },
@@ -507,8 +510,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.64', highlight: true },
-  { label: 'Release', value: 'B8.2.2N2.3.1', highlight: false },
+  { label: 'Version', value: 'v2.2.65', highlight: true },
+  { label: 'Release', value: 'B8.3.0N2.3.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '16 Ene 2026', highlight: false },
 ];

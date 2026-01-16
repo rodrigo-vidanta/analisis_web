@@ -17,6 +17,7 @@ import {
   Headphones, 
   ArrowRightLeft,
   ChevronRight,
+  ChevronLeft,
   PhoneCall,
   UserCheck
 } from 'lucide-react';
@@ -30,6 +31,7 @@ interface CallCardProps {
   onListen: () => void;
   onStopListening?: () => void;
   onTransfer: () => void;
+  onMinimize: () => void;
 }
 
 // Configuración de checkpoints
@@ -63,7 +65,8 @@ export const CallCard: React.FC<CallCardProps> = ({
   onExpand,
   onListen,
   onStopListening,
-  onTransfer
+  onTransfer,
+  onMinimize
 }) => {
   const checkpointConfig = useMemo(() => 
     getCheckpointConfig(call.checkpoint_venta_actual), 
@@ -273,11 +276,15 @@ export const CallCard: React.FC<CallCardProps> = ({
           <span>Transferir</span>
         </motion.button>
         
-        {/* Botón Expandir */}
+        {/* Botón Minimizar (colapsar a cuña) */}
         <motion.button
           whileHover={{ scale: 1.1, x: 2 }}
           whileTap={{ scale: 0.9 }}
-          onClick={onExpand}
+          onClick={(e) => {
+            e.stopPropagation();
+            onMinimize();
+          }}
+          title="Minimizar"
           className="p-2.5 bg-gray-700/70 hover:bg-gray-600 text-white rounded-xl transition-all"
         >
           <ChevronRight className="w-5 h-5" />
