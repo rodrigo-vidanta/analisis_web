@@ -1125,7 +1125,7 @@ class LogMonitorService {
   async getUserInfo(userId: string): Promise<{ full_name?: string; email?: string } | null> {
     try {
       const { data, error } = await supabaseSystemUI
-        .from('auth_user_profiles')
+        .from('user_profiles_v2')
         .select('full_name, email')
         .eq('id', userId)
         .single();

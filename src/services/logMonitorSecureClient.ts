@@ -8,15 +8,39 @@
  * 
  * Mantiene compatibilidad con código existente.
  * 
+ * 🔒 SEGURIDAD (Actualizado 2026-01-16):
+ * - Requiere JWT de usuario autenticado para llamar al proxy
+ * - El multi-db-proxy valida el JWT antes de ejecutar queries
+ * 
  * Autor: Darig Samuel Rosales Robledo
  * Fecha: 15 Enero 2026
  */
 
 import { supabaseLogMonitorAdmin } from '../config/supabaseLogMonitor';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // URL de la Edge Function (en PQNC_AI)
-const EDGE_FUNCTIONS_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
+const EDGE_FUNCTIONS_URL = import.meta.env.VITE_EDGE_FUNCTIONS_URL || import.meta.env.VITE_ANALYSIS_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
 const EDGE_FUNCTIONS_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+
+/**
+ * Obtener el JWT del usuario autenticado
+ * Necesario para que multi-db-proxy valide la autenticación
+ */
+async function getAuthToken(): Promise<string> {
+  try {
+    if (supabaseSystemUI) {
+      const { data: { session } } = await supabaseSystemUI.auth.getSession();
+      if (session?.access_token) {
+        return session.access_token;
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ [LogMonitorSecureClient] Error obteniendo sesión:', error);
+  }
+  // Fallback a anon_key si no hay sesión
+  return EDGE_FUNCTIONS_ANON_KEY || '';
+}
 
 // Determinar si usar Edge Function (producción) o cliente directo (desarrollo)
 const USE_EDGE_FUNCTION = !supabaseLogMonitorAdmin;
@@ -269,13 +293,22 @@ class LogMonitorQueryBuilder<T = unknown> {
         ? `${this.orderColumn}.${this.orderAscending ? 'asc' : 'desc'}`
         : undefined;
 
+      // Obtener JWT del usuario autenticado
+      const authToken = await getAuthToken();
+      if (!authToken) {
+        return {
+          data: null,
+          error: { message: 'No hay sesión de usuario. Por favor, inicia sesión.' },
+        };
+      }
+
       const response = await fetch(
         `${EDGE_FUNCTIONS_URL}/functions/v1/multi-db-proxy`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${EDGE_FUNCTIONS_ANON_KEY}`,
+            'Authorization': `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             database: 'LOGMONITOR',
@@ -292,9 +325,17 @@ class LogMonitorQueryBuilder<T = unknown> {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || errorData.error || `HTTP ${response.status}`;
+        // Mensaje más amigable para errores de autenticación
+        if (response.status === 401) {
+          return {
+            data: null,
+            error: { message: 'Sesión expirada. Por favor, inicia sesión nuevamente.' },
+          };
+        }
         return {
           data: null,
-          error: { message: errorData.error || `HTTP ${response.status}` },
+          error: { message: errorMessage },
         };
       }
 
@@ -358,13 +399,18 @@ class LogMonitorInsertBuilder<T = unknown> {
 
     // Usar Edge Function
     try {
+      const authToken = await getAuthToken();
+      if (!authToken) {
+        return { data: null, error: { message: 'No hay sesión de usuario' } };
+      }
+
       const response = await fetch(
         `${EDGE_FUNCTIONS_URL}/functions/v1/multi-db-proxy`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${EDGE_FUNCTIONS_ANON_KEY}`,
+            'Authorization': `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             database: 'LOGMONITOR',
@@ -444,13 +490,18 @@ class LogMonitorUpdateBuilder<T = unknown> {
 
     // Usar Edge Function
     try {
+      const authToken = await getAuthToken();
+      if (!authToken) {
+        return { data: null, error: { message: 'No hay sesión de usuario' } };
+      }
+
       const response = await fetch(
         `${EDGE_FUNCTIONS_URL}/functions/v1/multi-db-proxy`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${EDGE_FUNCTIONS_ANON_KEY}`,
+            'Authorization': `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             database: 'LOGMONITOR',
@@ -521,13 +572,18 @@ class LogMonitorDeleteBuilder<T = unknown> {
 
     // Usar Edge Function
     try {
+      const authToken = await getAuthToken();
+      if (!authToken) {
+        return { data: null, error: { message: 'No hay sesión de usuario' } };
+      }
+
       const response = await fetch(
         `${EDGE_FUNCTIONS_URL}/functions/v1/multi-db-proxy`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${EDGE_FUNCTIONS_ANON_KEY}`,
+            'Authorization': `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             database: 'LOGMONITOR',

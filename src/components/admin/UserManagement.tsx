@@ -215,7 +215,7 @@ const UserManagement: React.FC = () => {
       setLoading(true);
       // Usar auth_user_profiles (vista sin RLS) que ya incluye datos del rol
       const { data, error } = await supabaseSystemUI
-        .from('auth_user_profiles')
+        .from('user_profiles_v2')
         .select('*')
         .order('created_at', { ascending: false });
 

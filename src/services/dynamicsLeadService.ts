@@ -32,7 +32,10 @@ export function clearDynamicsCredentialsCache() {
   cachedCredentials = null;
   // También limpiar el cache del servicio de credenciales
   credentialsService.clearCache();
-  console.log('🔄 [DynamicsLead] Cache de credenciales limpiado (ambos servicios)');
+  // Log sin datos sensibles
+  if (import.meta.env.DEV) {
+    console.log('🔄 [DynamicsLead] Cache de credenciales limpiado');
+  }
 }
 
 // Función para obtener credenciales de forma segura
@@ -143,7 +146,10 @@ class DynamicsLeadService {
   async searchLead(request: LeadSearchRequest): Promise<LeadSearchResponse> {
     const searchType = request.id_dynamics ? 'id_dynamics' : request.email ? 'email' : 'phone';
 
-    console.log(`🔍 [DynamicsLead] Buscando lead por ${searchType}:`, request);
+    // Solo log en desarrollo, sin datos sensibles (email, phone)
+    if (import.meta.env.DEV) {
+      console.log(`🔍 [DynamicsLead] Buscando lead por ${searchType}`);
+    }
 
     try {
       // Obtener credenciales de forma segura desde BD
@@ -220,7 +226,10 @@ class DynamicsLeadService {
       }
 
       const data = await response.json();
-      console.log('✅ [DynamicsLead] Respuesta recibida:', data);
+      // Solo log en desarrollo, sin exponer datos del lead
+      if (import.meta.env.DEV) {
+        console.log('✅ [DynamicsLead] Respuesta recibida');
+      }
 
       // El webhook devuelve un array, tomamos el primer elemento
       const leadData = Array.isArray(data) ? data[0] : data;

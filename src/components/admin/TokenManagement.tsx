@@ -34,7 +34,7 @@ import {
   Music
 } from 'lucide-react';
 import { type TokenLimits } from '../../services/tokenService';
-import { supabaseAdmin } from '../../config/supabase';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 
 interface UserTokenConfig extends TokenLimits {
   email: string;
@@ -65,8 +65,7 @@ const TokenManagement: React.FC = () => {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(config => 
         config.full_name.toLowerCase().includes(query) ||
-        config.email.toLowerCase().includes(query) ||
-        config.department?.toLowerCase().includes(query)
+        config.email.toLowerCase().includes(query)
       );
     }
 
@@ -83,40 +82,50 @@ const TokenManagement: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      // Verificar que el cliente esté disponible
+      if (!supabaseSystemUI) {
+        throw new Error('Cliente de base de datos no disponible');
+      }
+
       // Cargar usuarios productores (ordenados por fecha de creación, más recientes primero)
-      const { data: usersData, error: usersError } = await supabaseAdmin
-        .from('auth_users')
+      // Usamos la vista segura auth_users_safe
+      const { data: usersData, error: usersError } = await supabaseSystemUI
+        .from('auth_users_safe')
         .select(`
           id,
           email,
           full_name,
-          department,
           is_active,
           role_id,
-          created_at,
-          auth_roles(name)
+          created_at
         `)
-        .eq('auth_roles.name', 'productor')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (usersError) throw usersError;
 
-      const productorUsers = usersData?.map(user => {
-        // auth_roles viene como objeto por el inner join
-        const authRoles = user.auth_roles as unknown as { name: string } | null;
-        return {
+      // Obtener roles para filtrar productores
+      const { data: rolesData } = await supabaseSystemUI
+        .from('auth_roles')
+        .select('id, name')
+        .eq('name', 'productor')
+        .single();
+
+      const productorRoleId = rolesData?.id;
+
+      const productorUsers = (usersData || [])
+        .filter(user => productorRoleId && user.role_id === productorRoleId)
+        .map(user => ({
           id: user.id,
           email: user.email,
           full_name: user.full_name || user.email,
-          department: user.department || 'Sin departamento',
-          role_name: authRoles?.name || 'productor',
+          department: 'Productor', // Campo legacy, ya no en BD
+          role_name: 'productor',
           is_active: user.is_active
-        };
-      }) || [];
+        }));
 
       // Cargar configuraciones de tokens existentes
-      const { data: tokensData, error: tokensError } = await supabaseAdmin
+      const { data: tokensData, error: tokensError } = await supabaseSystemUI
         .from('ai_token_limits')
         .select('*');
 
@@ -155,10 +164,12 @@ const TokenManagement: React.FC = () => {
       const finalMonthlyLimit = monthlyLimit === 0 ? -1 : monthlyLimit;
       const finalDailyLimit = dailyLimit === 0 ? -1 : dailyLimit;
 
-      console.log('💾 Actualizando límites para usuario:', { userId, monthlyLimit: finalMonthlyLimit, dailyLimit: finalDailyLimit });
+      if (!supabaseSystemUI) {
+        throw new Error('Cliente de base de datos no disponible');
+      }
 
       // Verificar si el registro ya existe
-      const { data: existingRecord, error: checkError } = await supabaseAdmin
+      const { data: existingRecord, error: checkError } = await supabaseSystemUI
         .from('ai_token_limits')
         .select('user_id')
         .eq('user_id', userId)
@@ -170,7 +181,7 @@ const TokenManagement: React.FC = () => {
 
       if (existingRecord) {
         // Actualizar registro existente
-        const { error } = await supabaseAdmin
+        const { error } = await supabaseSystemUI
           .from('ai_token_limits')
           .update({
             monthly_limit: finalMonthlyLimit,
@@ -180,7 +191,6 @@ const TokenManagement: React.FC = () => {
           .eq('user_id', userId);
 
         if (error) throw error;
-        console.log('✅ Registro existente actualizado');
       } else {
         // Crear nuevo registro
         const tokenData = {
@@ -199,12 +209,11 @@ const TokenManagement: React.FC = () => {
           updated_at: new Date().toISOString()
         };
 
-        const { error } = await supabaseAdmin
+        const { error } = await supabaseSystemUI
           .from('ai_token_limits')
           .insert([tokenData]);
 
         if (error) throw error;
-        console.log('✅ Nuevo registro creado');
       }
 
       console.log('✅ Límites de tokens actualizados exitosamente');
@@ -223,7 +232,11 @@ const TokenManagement: React.FC = () => {
     try {
       setSaving(userId);
       
-      const { error } = await supabaseAdmin
+      if (!supabaseSystemUI) {
+        throw new Error('Cliente de base de datos no disponible');
+      }
+
+      const { error } = await supabaseSystemUI
         .from('ai_token_limits')
         .update({
           current_month_usage: 0,
@@ -234,7 +247,6 @@ const TokenManagement: React.FC = () => {
 
       if (error) throw error;
 
-      console.log('✅ Uso de tokens reiniciado para usuario:', userId);
       await loadData();
     } catch (error) {
       console.error('❌ Error reiniciando tokens:', error);

@@ -5,7 +5,8 @@ alwaysApply: true
 # Arquitectura de Base de Datos Unificada
 
 **Fecha de Vigencia:** 16 de Enero 2026  
-**Versión:** v3.0.0
+**Versión:** v3.1.0  
+**Última limpieza:** 16 de Enero 2026 20:52 UTC
 
 ---
 
@@ -173,14 +174,21 @@ const { data } = await analysisSupabase
 
 ## ⛔ Tablas/Views DEPRECADAS
 
-**Actualizado: 2026-01-14**
+**Actualizado: 2026-01-16**
 
-### Tabla de Coordinaciones de Usuarios
+### Tablas Legacy ELIMINADAS
 
-| Tabla/View | Estado | Usar en su lugar |
-|------------|--------|------------------|
-| `coordinador_coordinaciones` | ❌ **ELIMINADA** | `auth_user_coordinaciones` |
-| `coordinador_coordinaciones_legacy` | ⚠️ Solo backup histórico | `auth_user_coordinaciones` |
+| Tabla/View | Estado | Eliminada | Reemplazo |
+|---|-----|-----------|-----------|
+| `coordinador_coordinaciones` | ❌ **ELIMINADA** | 2026-01-14 | `auth_user_coordinaciones` |
+| `coordinador_coordinaciones_legacy` | ❌ **ELIMINADA** | 2026-01-16 | `auth_user_coordinaciones` |
+| `user_notifications_legacy` | ❌ **ELIMINADA** | 2026-01-16 | `user_notifications` |
+| `prospectos_duplicate` | ❌ **ELIMINADA** | 2026-01-16 | `prospectos` |
+| `auth_user_profiles` | ❌ **ELIMINADA** | 2026-01-16 | `user_profiles_v2` |
+
+### ⚠️ VULNERABILIDAD CORREGIDA (2026-01-16)
+- `auth_user_profiles` **exponía `password_hash`** (vulnerabilidad crítica)
+- **Solución:** Vista eliminada, código migrado a `user_profiles_v2` (segura)
 
 ### Uso Correcto
 
@@ -200,9 +208,17 @@ await supabaseSystemUI
     assigned_by: currentUserId
   });
 
-// ❌ INCORRECTO - NUNCA usar tablas legacy
-.from('coordinador_coordinaciones')        // VIEW eliminada
-.from('coordinador_coordinaciones_legacy') // Solo backup
+// ✅ CORRECTO - Obtener perfil de usuario (seguro, sin password_hash)
+const { data } = await supabaseSystemUI
+  .from('user_profiles_v2')
+  .select('*')
+  .eq('id', userId);
+
+// ❌ INCORRECTO - NUNCA usar tablas/vistas eliminadas
+.from('coordinador_coordinaciones')        // VIEW eliminada 2026-01-14
+.from('coordinador_coordinaciones_legacy') // Tabla eliminada 2026-01-16
+.from('auth_user_profiles')                // VIEW eliminada 2026-01-16 (exponía password_hash)
+.from('user_notifications_legacy')         // Tabla eliminada 2026-01-16
 ```
 
 ### Historial de Migración
@@ -212,6 +228,7 @@ await supabaseSystemUI
 | Dic 2025 | Creada `auth_user_coordinaciones` (nueva) |
 | 2025-12-29 | Migración de código completada |
 | 2026-01-14 | VIEW `coordinador_coordinaciones` eliminada |
+| 2026-01-16 | Limpieza completa: 3 tablas legacy, 1 vista insegura, 7 funciones obsoletas eliminadas |
 
 ---
 

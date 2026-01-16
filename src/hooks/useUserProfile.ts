@@ -113,7 +113,7 @@ export const useUserProfile = () => {
       // Si no existe user_profiles_v2, usar auth_user_profiles (legacy)
       if (userError?.code === '42P01' || !userData) {
         const { data: legacyData, error: legacyError } = await supabase!
-          .from('auth_user_profiles')
+          .from('user_profiles_v2')
           .select(`
             id,
             email,

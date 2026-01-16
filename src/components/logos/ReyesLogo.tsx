@@ -282,7 +282,7 @@ export const ReyesLogo: React.FC<ReyesLogoProps> = ({ onClick, isCollapsed = fal
   }
 
   return (
-    <button
+    <div
       onClick={handleClick}
       className="relative hover:opacity-90 transition-opacity cursor-pointer"
       style={{ marginTop: '2px', marginLeft: '8px' }}
@@ -306,7 +306,7 @@ export const ReyesLogo: React.FC<ReyesLogoProps> = ({ onClick, isCollapsed = fal
         {/* Estela de cometa al hacer clic */}
         {showCometTail && <CometTail />}
       </div>
-    </button>
+    </div>
   );
 };
 

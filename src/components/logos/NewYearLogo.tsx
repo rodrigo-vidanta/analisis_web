@@ -231,7 +231,7 @@ export const NewYearLogo: React.FC<NewYearLogoProps> = ({ onClick, isCollapsed =
   }
 
   return (
-    <button
+    <div
       onClick={handleClick}
       className="relative hover:opacity-90 transition-opacity cursor-pointer"
       style={{ marginTop: '2px', marginLeft: '8px' }}
@@ -254,7 +254,7 @@ export const NewYearLogo: React.FC<NewYearLogoProps> = ({ onClick, isCollapsed =
         {/* Contador regresivo debajo del logo */}
         <NewYearCountdown />
       </div>
-    </button>
+    </div>
   );
 };
 

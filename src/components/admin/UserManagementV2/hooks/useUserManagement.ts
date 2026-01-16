@@ -163,7 +163,7 @@ export function useUserManagement(): UseUserManagementReturn {
       
       // Usar auth_user_profiles (vista sin RLS) que ya incluye datos del rol
       const { data, error: queryError } = await supabaseSystemUI
-        .from('auth_user_profiles')
+        .from('user_profiles_v2')
         .select('*')
         .order('created_at', { ascending: false });
 

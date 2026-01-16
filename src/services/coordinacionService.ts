@@ -498,9 +498,10 @@ class CoordinacionService {
    */
   async getEjecutivosByCoordinacion(coordinacionId: string): Promise<Ejecutivo[]> {
     try {
-      // Usar auth_user_profiles (vista sin RLS) para lectura
+      // Usar user_profiles_v2 (vista segura sin password_hash)
+      // NOTA: user_profiles_v2 YA incluye role_name, no necesita JOIN
       const { data, error } = await supabaseSystemUI
-        .from('auth_user_profiles')
+        .from('user_profiles_v2')
         .select(`
           id,
           email,
@@ -515,10 +516,10 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          auth_roles(name)
+          role_name
         `)
         .eq('coordinacion_id', coordinacionId)
-        .eq('auth_roles.name', 'ejecutivo')
+        .eq('role_name', 'ejecutivo')
         .eq('is_active', true)
         .order('full_name');
 
@@ -596,9 +597,9 @@ class CoordinacionService {
     try {
       if (ids.length === 0) return new Map();
 
-      // Usar auth_user_profiles (vista sin RLS) que ya incluye role_name
+      // Usar user_profiles_v2 (vista segura sin password_hash) que ya incluye role_name
       const { data, error } = await supabaseSystemUI
-        .from('auth_user_profiles')
+        .from('user_profiles_v2')
         .select(`
           id,
           email,

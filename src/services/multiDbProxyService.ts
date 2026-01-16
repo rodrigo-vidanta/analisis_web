@@ -9,11 +9,21 @@
  * 
  * Autor: Darig Samuel Rosales Robledo
  * Fecha: 15 Enero 2026
+ * Actualizado: 16 Enero 2026 (agregado JWT authentication)
  */
+
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // URL de la Edge Function (en PQNC_AI)
 const EDGE_FUNCTIONS_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
-const EDGE_FUNCTIONS_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+
+/**
+ * Obtiene el JWT del usuario autenticado actual
+ */
+async function getAuthToken(): Promise<string | null> {
+  const { data: { session } } = await supabaseSystemUI!.auth.getSession();
+  return session?.access_token || null;
+}
 
 export type DatabaseName = 'PQNC_QA' | 'LOGMONITOR';
 export type Operation = 'select' | 'insert' | 'update' | 'delete';
@@ -46,13 +56,23 @@ export interface ProxyResponse<T = unknown> {
  */
 async function executeProxy<T = unknown>(request: ProxyRequest): Promise<ProxyResponse<T>> {
   try {
+    // Obtener JWT del usuario autenticado
+    const authToken = await getAuthToken();
+    
+    if (!authToken) {
+      return { 
+        data: null, 
+        error: 'Authentication required. Please login.' 
+      };
+    }
+
     const response = await fetch(
       `${EDGE_FUNCTIONS_URL}/functions/v1/multi-db-proxy`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${EDGE_FUNCTIONS_ANON_KEY}`,
+          'Authorization': `Bearer ${authToken}`, // Usar JWT del usuario, no anon_key
         },
         body: JSON.stringify(request),
       }

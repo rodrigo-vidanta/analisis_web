@@ -1335,7 +1335,7 @@ const LiveMonitorKanban: React.FC = () => {
                   try {
                     // Usar auth_user_profiles (vista sin RLS) que ya incluye role_name
                     const { data: ejecutivosArray } = await supabaseSystemUI
-                      .from('auth_user_profiles')
+                      .from('user_profiles_v2')
                       .select('id, email, full_name, first_name, last_name, phone, coordinacion_id, is_active, role_name')
                       .in('id', ejecutivoIds)
                       .eq('role_name', 'ejecutivo')

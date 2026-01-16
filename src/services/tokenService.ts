@@ -87,7 +87,7 @@ class TokenService {
       } else {
         // Fallback a auth_user_profiles (legacy)
         const { data: legacyData, error: legacyError } = await supabaseAdmin!
-          .from('auth_user_profiles')
+          .from('user_profiles_v2')
           .select('role_id, role_name')
           .eq('id', userId)
           .maybeSingle();

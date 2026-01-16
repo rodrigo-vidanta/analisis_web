@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
  * - Las variables de entorno VITE_SYSTEM_UI_* ahora apuntan a pqnc_ai
  * - El código del frontend NO cambia, solo la configuración subyacente
  * - Realtime habilitado para: auth_users, auth_sessions, user_notifications, etc.
- * - Funciones RPC migradas: authenticate_user, mark_*_notifications_as_read, etc.
+ * - Autenticación: Migrada a Supabase Auth nativo (auth.signInWithPassword)
  * 
  * 🔒 SEGURIDAD (Actualizado 2025-12-23):
  * - Las service keys DEBEN estar en variables de entorno (.env)

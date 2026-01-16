@@ -1,4 +1,18 @@
-import { supabase, supabaseAdmin } from '../config/supabase';
+/**
+ * ============================================
+ * AI MODELS DATABASE SERVICE
+ * ============================================
+ * 
+ * Servicio para operaciones de BD relacionadas con modelos de IA
+ * (generaciones de audio, preferencias de usuario, etc.)
+ * 
+ * 🔒 SEGURIDAD (Actualizado 2026-01-16):
+ * - Usa analysisSupabase (cliente normal con anon_key)
+ * - Las tablas ai_audio_generations y ai_user_preferences están en PQNC_AI
+ * - RLS permite acceso a usuarios autenticados
+ */
+
+import { analysisSupabase } from '../config/analysisSupabase';
 
 // Interfaz que coincide EXACTAMENTE con la estructura real de la BD
 export interface AudioGeneration {
@@ -57,7 +71,12 @@ class AIModelsDbService {
         created_at: new Date().toISOString()
       };
 
-      const { data, error } = await supabaseAdmin
+      if (!analysisSupabase) {
+        console.warn('⚠️ [AIModelsDbService] Cliente Supabase no disponible');
+        return { success: false, error: 'Cliente de base de datos no disponible' };
+      }
+
+      const { data, error } = await analysisSupabase
         .from('ai_audio_generations')
         .insert([dbRecord])
         .select('id')
@@ -81,7 +100,12 @@ class AIModelsDbService {
    */
   async getUserAudioHistory(userId: string, type?: 'tts' | 'stt' | 'sound_effect', limit: number = 100): Promise<{ success: boolean; data?: AudioGeneration[]; error?: string }> {
     try {
-      let query = supabaseAdmin
+      if (!analysisSupabase) {
+        console.warn('⚠️ [AIModelsDbService] Cliente Supabase no disponible');
+        return { success: false, data: [], error: 'Cliente de base de datos no disponible' };
+      }
+
+      let query = analysisSupabase
         .from('ai_audio_generations')
         .select('*')
         .eq('user_id', userId)
@@ -125,7 +149,11 @@ class AIModelsDbService {
    */
   async deleteAudioGeneration(id: string, userId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabaseAdmin
+      if (!analysisSupabase) {
+        return { success: false, error: 'Cliente de base de datos no disponible' };
+      }
+
+      const { error } = await analysisSupabase
         .from('ai_audio_generations')
         .delete()
         .eq('id', id)
@@ -147,7 +175,11 @@ class AIModelsDbService {
    */
   async updateAudioUrl(id: string, audioUrl: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabaseAdmin
+      if (!analysisSupabase) {
+        return { success: false, error: 'Cliente de base de datos no disponible' };
+      }
+
+      const { error } = await analysisSupabase
         .from('ai_audio_generations')
         .update({ audio_file_url: audioUrl })
         .eq('id', id);
@@ -189,7 +221,11 @@ class AIModelsDbService {
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabaseAdmin
+      if (!analysisSupabase) {
+        return { success: false, error: 'Cliente de base de datos no disponible' };
+      }
+
+      const { error } = await analysisSupabase
         .from('ai_user_preferences')
         .upsert([dbPreferences]);
 
@@ -209,7 +245,11 @@ class AIModelsDbService {
    */
   async getUserPreferences(userId: string): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
-      const { data, error } = await supabaseAdmin
+      if (!analysisSupabase) {
+        return { success: false, error: 'Cliente de base de datos no disponible' };
+      }
+
+      const { data, error } = await analysisSupabase
         .from('ai_user_preferences')
         .select('*')
         .eq('user_id', userId)

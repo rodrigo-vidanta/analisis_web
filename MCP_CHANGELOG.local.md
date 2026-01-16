@@ -6,7 +6,7 @@
 # 
 # ⚠️ ARCHIVO LOCAL - Ignorado por .gitignore
 # 
-# Última actualización: 2025-01-06
+# Última actualización: 2026-01-16
 
 ---
 
@@ -29,6 +29,73 @@ Cada cambio debe registrarse con el siguiente formato:
 ---
 
 ## 🔄 Registro de Cambios
+
+### [2026-01-16] [20:43-20:52 UTC] - LIMPIEZA COMPLETA DE BASE DE DATOS
+
+#### BACKUP de Tablas Legacy
+- **MCP:** Supa_PQNC_AI
+- **Operación:** BACKUP_TABLE
+- **Recursos:**
+  1. `coordinador_coordinaciones_legacy` - 4 registros
+  2. `user_notifications_legacy` - 27 registros
+  3. `prospectos_duplicate` - 0 registros (vacía)
+- **Estado:** ✅ Exitoso
+- **Timestamp:** 2026-01-16T20:43:09-11+00:00
+
+#### DROP de Vista Insegura (VULNERABILIDAD CRÍTICA)
+- **MCP:** Supa_PQNC_AI
+- **Operación:** DROP VIEW
+- **Vista:** `auth_user_profiles`
+- **Razón:** **EXPONÍA password_hash** (vulnerabilidad de seguridad)
+- **Reemplazo:** `user_profiles_v2` (vista segura sin password_hash)
+- **Archivos migrados:** 8 archivos de código
+- **Rollback SQL:** 
+  ```sql
+  -- NO RECOMENDADO - Vista insegura
+  -- Migrar a usar user_profiles_v2 en su lugar
+  ```
+- **Estado:** ✅ Exitoso
+- **Timestamp:** 2026-01-16T20:45:12+00:00
+
+#### DROP de Tablas Legacy
+- **MCP:** Supa_PQNC_AI
+- **Operación:** DROP TABLE CASCADE
+- **Tablas:**
+  1. `coordinador_coordinaciones_legacy` (reemplazada por `auth_user_coordinaciones`)
+  2. `user_notifications_legacy` (reemplazada por `user_notifications`)
+  3. `prospectos_duplicate` (tabla temporal vacía)
+- **Rollback SQL:**
+  ```sql
+  -- Ver CHANGELOG_LIMPIEZA_BD_2026-01-16.md sección Rollback
+  -- Backups disponibles vía MCP backup_table_data()
+  ```
+- **Estado:** ✅ Exitoso
+- **Timestamp:** 2026-01-16T20:45:18+00:00
+
+#### DROP de Funciones Obsoletas
+- **MCP:** Supa_PQNC_AI
+- **Operación:** DROP FUNCTION CASCADE
+- **Funciones:**
+  1. `fn_force_leido_false_on_insert` (v1-v5) - Mantener v6
+  2. `authenticate_user` (v1, v2) - Obsoleta (Supabase Auth nativo)
+  3. `create_company_direct`, `create_company_v2`, `create_company_v3` - Versiones antiguas
+- **Total eliminado:** 7 funciones
+- **Rollback SQL:** N/A (funciones obsoletas, no recuperables)
+- **Estado:** ✅ Exitoso
+- **Timestamp:** 2026-01-16T20:46:32-52+00:00
+
+#### Resumen de Limpieza
+- **Total recursos eliminados:** 11 (3 tablas + 1 vista + 7 funciones)
+- **Archivos de código modificados:** 9 (8 migraciones + 1 config)
+- **Vulnerabilidades corregidas:** 1 (CRÍTICA - auth_user_profiles)
+- **Build exitoso:** ✅ Sí (21.09s)
+- **Bundle verificado:** ✅ Seguro (0 service_role keys)
+- **Documentación creada:** 4 archivos
+- **Documentación actualizada:** 4 archivos
+- **Usuario:** Samuel Rosales
+- **Estado:** ✅ COMPLETADO AL 100%
+
+---
 
 ### [2025-01-06] [INICIAL] - Configuración MCP
 

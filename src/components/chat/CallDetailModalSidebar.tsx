@@ -350,6 +350,11 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
 
   const parseConversationToSegments = (conversacionData: any, callId: string, voiceSpeed: number = 1.04): any[] => {
     try {
+      // Manejar caso cuando conversacionData es null o undefined
+      if (!conversacionData) {
+        return [];
+      }
+
       let conversationText = '';
       
       if (typeof conversacionData === 'string') {
