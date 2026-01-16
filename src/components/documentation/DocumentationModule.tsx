@@ -362,6 +362,7 @@ const gitCommits: GitCommit[] = [
   { hash: 'i5f6g7h', date: '2025-12-23', author: 'Team', message: 'v2.1.45: LogDashboard - Búsqueda inteligente, filtros unificados y rediseño de tabs', isRelease: true },
   { hash: 'h4e5f6g', date: '2025-12-22', author: 'Team', message: 'v2.1.44: Dynamics CRM Manager - Vista completa de campos y datos desde System_UI', isRelease: true },
   { hash: 'g3d4e5f', date: '2025-12-22', author: 'Team', message: 'v2.1.43: Permisos Coordinadores de Calidad - Acceso Completo a Historial', isRelease: true },
+  { hash: 'b0e9f8g', date: '2026-01-16', author: 'Team', message: 'v2.2.70: Depuración post-migración auth (z_backup_auth_sessions + 13 Edge Functions)', isRelease: true },
   { hash: 'a9d8e7f', date: '2026-01-16', author: 'Team', message: 'v2.2.69: Fix logout limpio + Dynamics reasignación multi-rol + RLS user_ui_preferences', isRelease: true },
   { hash: '9b8c7d6', date: '2026-01-16', author: 'Team', message: 'v2.2.68: Permisos supervisores + Seguridad vistas (23) + Verificación backup/bloqueo', isRelease: true },
   { hash: '8a7b6c5', date: '2026-01-16', author: 'Team', message: 'v2.2.67: Limpieza BD (11 recursos obsoletos) + Corrección 7 bugs + Seguridad (auth_user_profiles)', isRelease: true },
@@ -514,8 +515,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.69', highlight: true },
-  { label: 'Release', value: 'B8.3.4N2.3.1', highlight: false },
+  { label: 'Version', value: 'v2.2.70', highlight: true },
+  { label: 'Release', value: 'B8.3.5N2.3.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '16 Ene 2026', highlight: false },
 ];
