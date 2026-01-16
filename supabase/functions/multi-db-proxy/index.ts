@@ -86,6 +86,54 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ============================================
+    // VERIFICACIÓN DE AUTENTICACIÓN
+    // ============================================
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verificar que es un JWT válido de Supabase (no solo anon_key)
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Decodificar JWT para verificar que es de un usuario autenticado
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        throw new Error('Invalid JWT format');
+      }
+      
+      // Decodificar payload
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      
+      // Verificar que tiene un user_id (sub) - indica que es un usuario autenticado
+      // y no solo una anon_key
+      const isAnon = payload.role === 'anon' && !payload.sub;
+      const isServiceRole = payload.role === 'service_role';
+      const isAuthenticated = payload.sub && payload.role === 'authenticated';
+      
+      // Solo permitir usuarios autenticados o service_role
+      if (!isAuthenticated && !isServiceRole) {
+        console.log('Access denied - role:', payload.role, 'sub:', payload.sub);
+        return new Response(
+          JSON.stringify({ error: 'Authentication required. Please login.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log('Access granted - user:', payload.sub, 'role:', payload.role);
+    } catch (jwtError) {
+      console.error('JWT validation error:', jwtError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Parsear body
     const body: ProxyRequest = await req.json();
     const { database, operation, table, select, data, filters, order, limit, single } = body;

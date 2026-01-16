@@ -140,22 +140,42 @@ VITE_ANALYSIS_SUPABASE_SERVICE_KEY=eyJ...service_role...
 
 ### RLS (Row Level Security)
 
-**Estado: DESHABILITADO en todas las tablas (61 tablas)**
+**Estado: HABILITADO con políticas seguras (actualizado 2026-01-16)**
 
-| Aspecto | Detalle |
-|---------|---------|
-| RLS | Deshabilitado |
-| Protección | Autenticación de aplicación (auth_users, auth_sessions) |
-| anon_key | Tiene acceso completo a todas las tablas |
+| Tabla | RLS | Política |
+|-------|-----|----------|
+| `auth_users` | ✅ | Solo `service_role` (password_hash protegido) |
+| `auth_sessions` | ✅ | Solo `service_role` |
+| `api_auth_tokens` | ✅ | Solo `service_role` |
+| `system_config` | ✅ | Lectura pública, escritura `service_role` |
+| `prospectos` | ✅ | Usuarios autenticados |
+| `llamadas_ventas` | ✅ | Usuarios autenticados |
+
+### Vistas Seguras
+
+| Vista | Descripción |
+|-------|-------------|
+| `auth_users_safe` | Datos de usuarios SIN `password_hash` |
+| `api_auth_tokens_safe` | Metadatos de tokens SIN `token_value` |
+
+### Funciones RPC Seguras
+
+| Función | Requiere Auth | Descripción |
+|---------|---------------|-------------|
+| `get_credential_value(module, key)` | ✅ | Obtiene tokens de API (solo autenticados) |
+| `check_account_locked(email)` | ❌ | Verifica bloqueo de cuenta |
+| `get_user_permissions(user_id)` | ✅ | Obtiene permisos del usuario |
 
 ### Edge Functions
 
 **Ubicación: PQNC_AI (glsmifhkoaifvaegsozd)**
 
-| Función | Uso |
-|---------|-----|
-| `multi-db-proxy` | Acceso seguro a PQNC_QA y LOGMONITOR |
-| `auth-admin-proxy` | Operaciones admin de autenticación |
+| Función | Requiere Auth | Uso |
+|---------|---------------|-----|
+| `multi-db-proxy` | ✅ JWT User | Acceso seguro a PQNC_QA y LOGMONITOR |
+| `auth-admin-proxy` | ✅ | Operaciones admin de autenticación |
+| `secure-query` | ✅ | Consultas seguras a PQNC_AI |
+| `pause-bot-proxy` | ✅ | Control de bot WhatsApp |
 
 ---
 
@@ -197,10 +217,46 @@ echo "✅ Bundle seguro"
 
 ## 📚 Documentación Relacionada
 
+- **Pentesting 2026-01-16:** `docs/PENTESTING_2026-01-16.md`
 - **Arquitectura Completa:** `docs/ARQUITECTURA_SEGURIDAD_2026.md`
 - **Edge Functions:** `docs/EDGE_FUNCTIONS_CATALOG.md`
 - **Catálogo MCP:** `docs/MCP_CATALOG.md`
 
 ---
 
+## 🔐 Acceso a Credenciales desde Frontend
+
+### Patrón Correcto (Post-RLS)
+
+```typescript
+// ❌ INCORRECTO - La tabla está bloqueada por RLS
+const { data } = await supabase.from('api_auth_tokens').select('token_value');
+
+// ✅ CORRECTO - Usar RPC (requiere usuario autenticado)
+const { data } = await supabase.rpc('get_credential_value', {
+  p_module_name: 'ElevenLabs',
+  p_token_key: 'API_KEY'
+});
+
+// ✅ CORRECTO - Usar vista segura para verificar existencia
+const { data } = await supabase.from('api_auth_tokens_safe').select('module_name,has_value');
+```
+
+### Acceso a Datos de Usuario
+
+```typescript
+// ❌ INCORRECTO - La tabla está bloqueada
+const { data } = await supabase.from('auth_users').select('*');
+
+// ✅ CORRECTO - Usar vista segura (sin password_hash)
+const { data } = await supabase.from('auth_users_safe').select('*');
+
+// ✅ CORRECTO - Usar Edge Function para operaciones admin
+await authAdminProxyService.updateUserField(userId, 'is_operativo', true);
+```
+
+---
+
 **⚠️ IMPORTANTE:** Cualquier violación de estas reglas puede exponer credenciales de producción y comprometer la seguridad del sistema.
+
+**Última auditoría:** 16 de Enero 2026 - ✅ APROBADA

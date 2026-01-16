@@ -16,9 +16,9 @@ alwaysApply: true
 
 ### Cambios de Seguridad Enero 2026
 - **Clientes `*Admin` ELIMINADOS** del codebase
-- **RLS DESHABILITADO** en todas las tablas (61)
+- **RLS HABILITADO** con políticas seguras (pentesting 2026-01-16)
 - **Solo `anon_key`** en bundle de producción
-- **Edge Functions migradas** a PQNC_AI
+- **Edge Functions migradas** a PQNC_AI con verificación de JWT
 
 ---
 
@@ -28,7 +28,7 @@ alwaysApply: true
 
 **URL:** `https://glsmifhkoaifvaegsozd.supabase.co`  
 **Proyecto:** glsmifhkoaifvaegsozd  
-**RLS:** ⚠️ DESHABILITADO (acceso vía anon_key)
+**RLS:** ✅ HABILITADO con políticas seguras (2026-01-16)
 
 **Contiene TODO:**
 - ✅ Autenticación (auth_users, auth_roles, auth_sessions)
@@ -87,14 +87,17 @@ alwaysApply: true
 
 **Funciones Principales:**
 
-| Función | Uso | Secrets |
-|---------|-----|---------|
-| `multi-db-proxy` | Proxy a PQNC_QA y LOGMONITOR | `PQNC_QA_SERVICE_KEY`, `LOGMONITOR_SERVICE_KEY` |
-| `auth-admin-proxy` | Operaciones admin | `SUPABASE_SERVICE_ROLE_KEY` |
-| `send-img-proxy` | Envío imágenes WhatsApp | `N8N_WEBHOOK_URL` |
-| `anthropic-proxy` | API Anthropic | `ANTHROPIC_API_KEY` |
+| Función | Requiere Auth | Uso | Secrets |
+|---------|---------------|-----|---------|
+| `multi-db-proxy` | ✅ JWT User | Proxy a PQNC_QA y LOGMONITOR | `PQNC_QA_SERVICE_KEY`, `LOGMONITOR_SERVICE_KEY` |
+| `auth-admin-proxy` | ✅ | Operaciones admin | `SUPABASE_SERVICE_ROLE_KEY` |
+| `secure-query` | ✅ | Consultas seguras PQNC_AI | `SUPABASE_SERVICE_ROLE_KEY` |
+| `send-img-proxy` | ✅ | Envío imágenes WhatsApp | `N8N_WEBHOOK_URL` |
+| `anthropic-proxy` | ✅ | API Anthropic | `ANTHROPIC_API_KEY` |
 
-**⚠️ IMPORTANTE:** Los secrets están en Supabase, NO en el código frontend.
+**⚠️ IMPORTANTE:** 
+- Los secrets están en Supabase Dashboard, NO en el código frontend
+- `multi-db-proxy` valida que el JWT sea de un usuario autenticado (no solo anon_key)
 
 ---
 

@@ -4,53 +4,26 @@
  * ============================================
  * 
  * Obtiene credenciales almacenadas en la tabla api_auth_tokens
- * de Supabase SystemUI para evitar hardcodear API keys.
+ * de Supabase PQNC_AI de forma SEGURA.
  * 
- * 📋 Tabla: api_auth_tokens (SystemUI)
- * 📍 Ubicación: zbylezfyagwrxoecioup.supabase.co
+ * 📋 Tabla: api_auth_tokens (PQNC_AI)
+ * 📍 Ubicación: glsmifhkoaifvaegsozd.supabase.co
  * 
- * ⚠️ REGLAS DE SEGURIDAD:
- * - Las credenciales se obtienen solo cuando se necesitan
- * - Se cachean en memoria por sesión (no localStorage)
- * - Nunca se exponen en logs ni consola
+ * ⚠️ ARQUITECTURA DE SEGURIDAD (2026-01-16):
+ * - Tabla `api_auth_tokens` tiene RLS restrictivo (solo service_role)
+ * - Vista `api_auth_tokens_safe` para listar metadatos (sin token_value)
+ * - Función RPC `get_credential_value(module, key)` para obtener tokens
+ * - RPC requiere usuario autenticado (JWT válido)
  * 
  * 🔗 Usado por:
  * - src/components/admin/ApiAuthTokensManager.tsx
  * - src/services/apiTokensService.ts
  * - src/services/n8nService.ts
  * - src/services/dynamicsLeadService.ts
- * - src/services/dynamicsReasignacionService.ts
+ * - src/services/elevenLabsService.ts
  */
 
-import { createClient } from '@supabase/supabase-js';
-
-// ============================================
-// CLIENTE SUPABASE FRESCO (sin cache)
-// ============================================
-// Creamos un cliente nuevo cada vez para evitar problemas de cache
-
-// ⚠️ SEGURIDAD (2026-01-16): Solo usar anon_key, NUNCA service_key en frontend
-// Las credenciales en api_auth_tokens requieren RLS policy especial
-const SUPABASE_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '';
-
-// ⚠️ NOTA: api_auth_tokens ahora solo es accesible por service_role
-// Para que este servicio funcione, necesitas:
-// 1. Usar Edge Function (get-credentials) para obtener tokens
-// 2. O habilitar política RLS para authenticated (menos seguro)
-const getSupabaseClient = () => {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn('⚠️ CredentialsService: Variables de entorno no configuradas');
-    return null;
-  }
-  
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  });
-};
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // ============================================
 // INTERFACES
@@ -67,6 +40,18 @@ export interface ApiAuthToken {
   endpoint_url?: string;
   is_active: boolean;
   version?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiAuthTokenSafe {
+  id: string;
+  module_name: string;
+  token_key: string;
+  description?: string;
+  is_active: boolean;
+  has_value: boolean;
+  token_length: number;
   created_at: string;
   updated_at: string;
 }
@@ -97,52 +82,16 @@ class CredentialsService {
    * Obtiene el cliente Supabase disponible
    */
   private getClient() {
-    const client = getSupabaseClient();
-    if (!client) {
+    if (!supabaseSystemUI) {
       console.error('❌ [CredentialsService] No hay cliente Supabase disponible');
-      console.error('⚠️ Verifica VITE_SYSTEM_UI_SUPABASE_URL y VITE_SYSTEM_UI_SUPABASE_ANON_KEY en .env');
-    }
-    return client;
-  }
-
-  /**
-   * Obtiene una credencial específica por su token_key
-   */
-  async getCredential(tokenKey: string): Promise<string | null> {
-    // Verificar cache
-    if (this.cache[tokenKey] && Date.now() < this.cacheExpiry) {
-      return this.cache[tokenKey];
-    }
-
-    const client = this.getClient();
-    if (!client) return null;
-
-    try {
-      const { data, error } = await client
-        .from('api_auth_tokens')
-        .select('token_value')
-        .eq('token_key', tokenKey)
-        .eq('is_active', true)
-        .single();
-
-      if (error || !data) {
-        console.warn(`⚠️ Credencial no encontrada: ${tokenKey}`);
-        return null;
-      }
-
-      // Guardar en cache
-      this.cache[tokenKey] = data.token_value;
-      this.cacheExpiry = Date.now() + this.CACHE_TTL;
-
-      return data.token_value;
-    } catch (err) {
-      console.error(`❌ Error obteniendo credencial ${tokenKey}:`, err);
       return null;
     }
+    return supabaseSystemUI;
   }
 
   /**
-   * Obtiene una credencial por módulo y key
+   * Obtiene una credencial usando la función RPC segura
+   * ⚠️ REQUIERE usuario autenticado (JWT válido)
    */
   async getCredentialByModule(
     moduleName: string,
@@ -159,24 +108,32 @@ class CredentialsService {
     if (!client) return null;
 
     try {
-      const { data, error } = await client
-        .from('api_auth_tokens')
-        .select('token_value')
-        .eq('module_name', moduleName)
-        .eq('token_key', tokenKey)
-        .eq('is_active', true)
-        .single();
+      // Usar función RPC segura (requiere autenticación)
+      const { data, error } = await client.rpc('get_credential_value', {
+        p_module_name: moduleName,
+        p_token_key: tokenKey
+      });
 
-      if (error || !data) {
-        console.warn(`⚠️ Credencial no encontrada: ${moduleName}.${tokenKey}`);
+      if (error) {
+        // Si el error es de autenticación, log silencioso
+        if (error.message?.includes('auth') || error.code === 'PGRST301') {
+          console.warn(`⚠️ [CredentialsService] Usuario no autenticado, credencial ${moduleName}.${tokenKey} no disponible`);
+        } else {
+          console.warn(`⚠️ Credencial no encontrada: ${moduleName}.${tokenKey}`, error.message);
+        }
+        return null;
+      }
+
+      if (!data) {
+        // No logear warning si es null (usuario no autenticado o credencial no existe)
         return null;
       }
 
       // Guardar en cache
-      this.cache[cacheKey] = data.token_value;
+      this.cache[cacheKey] = data;
       this.cacheExpiry = Date.now() + this.CACHE_TTL;
 
-      return data.token_value;
+      return data;
     } catch (err) {
       console.error(`❌ Error obteniendo credencial ${moduleName}.${tokenKey}:`, err);
       return null;
@@ -184,7 +141,43 @@ class CredentialsService {
   }
 
   /**
+   * Obtiene una credencial específica por su token_key (busca en todos los módulos)
+   */
+  async getCredential(tokenKey: string): Promise<string | null> {
+    // Primero verificar en cache por cualquier módulo
+    for (const key of Object.keys(this.cache)) {
+      if (key.endsWith(`:${tokenKey}`) && Date.now() < this.cacheExpiry) {
+        return this.cache[key];
+      }
+    }
+
+    // Buscar el módulo en la vista segura
+    const client = this.getClient();
+    if (!client) return null;
+
+    try {
+      const { data, error } = await client
+        .from('api_auth_tokens_safe')
+        .select('module_name')
+        .eq('token_key', tokenKey)
+        .eq('is_active', true)
+        .single();
+
+      if (error || !data) {
+        return null;
+      }
+
+      // Ahora obtener el valor usando RPC
+      return await this.getCredentialByModule(data.module_name, tokenKey);
+    } catch (err) {
+      console.error(`❌ Error obteniendo credencial ${tokenKey}:`, err);
+      return null;
+    }
+  }
+
+  /**
    * Obtiene todas las credenciales de un módulo
+   * ⚠️ REQUIERE usuario autenticado
    */
   async getModuleCredentials(moduleName: string): Promise<Record<string, string>> {
     const client = this.getClient();
@@ -194,30 +187,26 @@ class CredentialsService {
     }
 
     try {
-      const { data, error } = await client
-        .from('api_auth_tokens')
-        .select('token_key, token_value')
+      // Primero obtener las keys del módulo desde la vista segura
+      const { data: keysData, error: keysError } = await client
+        .from('api_auth_tokens_safe')
+        .select('token_key')
         .eq('module_name', moduleName)
         .eq('is_active', true);
 
-      if (error) {
-        console.error(`❌ [CredentialsService] Error consultando "${moduleName}":`, error.message);
+      if (keysError || !keysData || keysData.length === 0) {
         return {};
       }
 
-      if (!data || data.length === 0) {
-        return {};
-      }
-
+      // Obtener cada credencial usando RPC
       const result: Record<string, string> = {};
-      data.forEach((cred) => {
-        if (cred.token_value && cred.token_value.trim() !== '') {
-          result[cred.token_key] = cred.token_value;
-          this.cache[`${moduleName}:${cred.token_key}`] = cred.token_value;
+      for (const { token_key } of keysData) {
+        const value = await this.getCredentialByModule(moduleName, token_key);
+        if (value) {
+          result[token_key] = value;
         }
-      });
+      }
 
-      this.cacheExpiry = Date.now() + this.CACHE_TTL;
       return result;
     } catch (err) {
       console.error(`❌ [CredentialsService] Error obteniendo credenciales:`, err);
@@ -260,6 +249,7 @@ class CredentialsService {
 
   /**
    * Lista todos los módulos con credenciales configuradas
+   * (Usa vista segura - accesible sin autenticación)
    */
   async listModules(): Promise<string[]> {
     const client = this.getClient();
@@ -267,7 +257,7 @@ class CredentialsService {
 
     try {
       const { data, error } = await client
-        .from('api_auth_tokens')
+        .from('api_auth_tokens_safe')
         .select('module_name')
         .eq('is_active', true);
 
@@ -283,25 +273,20 @@ class CredentialsService {
 
   /**
    * Lista todas las credenciales (solo metadata, sin valores)
+   * (Usa vista segura - accesible sin autenticación)
    */
-  async listAllCredentials(): Promise<Array<{
-    id: string;
-    module_name: string;
-    token_key: string;
-    description?: string;
-    is_active: boolean;
-  }>> {
+  async listAllCredentials(): Promise<ApiAuthTokenSafe[]> {
     const client = this.getClient();
     if (!client) return [];
 
     try {
       const { data, error } = await client
-        .from('api_auth_tokens')
-        .select('id, module_name, token_key, description, is_active')
+        .from('api_auth_tokens_safe')
+        .select('*')
         .order('module_name');
 
       if (error || !data) return [];
-      return data;
+      return data as ApiAuthTokenSafe[];
     } catch (err) {
       console.error('❌ Error listando credenciales:', err);
       return [];
@@ -310,10 +295,50 @@ class CredentialsService {
 
   /**
    * Verifica si un módulo tiene credenciales configuradas
+   * (Usa vista segura)
    */
   async hasCredentials(moduleName: string): Promise<boolean> {
-    const modules = await this.listModules();
-    return modules.includes(moduleName);
+    const client = this.getClient();
+    if (!client) return false;
+
+    try {
+      const { data, error } = await client
+        .from('api_auth_tokens_safe')
+        .select('id')
+        .eq('module_name', moduleName)
+        .eq('is_active', true)
+        .eq('has_value', true)
+        .limit(1);
+
+      if (error) return false;
+      return data !== null && data.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Verifica si una credencial específica tiene valor
+   * (Usa vista segura)
+   */
+  async credentialHasValue(moduleName: string, tokenKey: string): Promise<boolean> {
+    const client = this.getClient();
+    if (!client) return false;
+
+    try {
+      const { data, error } = await client
+        .from('api_auth_tokens_safe')
+        .select('has_value')
+        .eq('module_name', moduleName)
+        .eq('token_key', tokenKey)
+        .eq('is_active', true)
+        .single();
+
+      if (error || !data) return false;
+      return data.has_value === true;
+    } catch {
+      return false;
+    }
   }
 }
 
