@@ -83,16 +83,19 @@ export const LiveCallActivityWidget: React.FC = () => {
   
   // Polling para actualizar llamadas cada 3 segundos
   useEffect(() => {
-    if (!isWidgetEnabled) return;
+    if (!isWidgetEnabled || !user?.id) return;
     
     const { loadActiveCalls } = useLiveActivityStore.getState();
     
     const interval = setInterval(() => {
-      loadActiveCalls();
+      // Solo cargar si el usuario sigue autenticado
+      if (user?.id) {
+        loadActiveCalls();
+      }
     }, 3000);
     
     return () => clearInterval(interval);
-  }, [isWidgetEnabled]);
+  }, [isWidgetEnabled, user?.id]);
   
   // Auto-minimizar llamadas después de 10 segundos si el usuario no interactuó
   // Ref para trackear cuando aparecieron las llamadas

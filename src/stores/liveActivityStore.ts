@@ -264,6 +264,17 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
     if (!userId) {
       return;
     }
+
+    // Verificar que hay sesión activa antes de hacer queries
+    const { data: { session } } = await supabaseSystemUI!.auth.getSession();
+    if (!session) {
+      // Sin sesión activa, limpiar y no intentar cargar
+      set({ 
+        widgetCalls: [],
+        isLoadingCalls: false 
+      });
+      return;
+    }
     
     set({ isLoadingCalls: true });
     

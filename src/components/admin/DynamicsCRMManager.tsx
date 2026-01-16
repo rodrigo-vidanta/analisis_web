@@ -193,20 +193,53 @@ const DynamicsCRMManager: React.FC = () => {
 
   // Cargar ejecutivos cuando cambia la coordinación seleccionada
   useEffect(() => {
-    const loadEjecutivos = async () => {
+    const loadEjecutivosYCoordinadores = async () => {
       if (!selectedCoordinacion) {
         setEjecutivosFiltered([]);
         return;
       }
       try {
-        const data = await coordinacionService.getEjecutivosByCoordinacion(selectedCoordinacion);
-        setEjecutivosFiltered(data);
+        // Cargar ejecutivos, coordinadores y supervisores en paralelo
+        const [ejecutivos, coordinadores, supervisores] = await Promise.all([
+          coordinacionService.getEjecutivosByCoordinacion(selectedCoordinacion),
+          coordinacionService.getCoordinadoresByCoordinacion(selectedCoordinacion),
+          coordinacionService.getSupervisoresByCoordinacion(selectedCoordinacion)
+        ]);
+        
+        // Crear set de IDs para evitar duplicados
+        const coordinadorIds = new Set(coordinadores.map(c => c.id));
+        const supervisorIds = new Set(supervisores.map(s => s.id));
+        
+        // Marcar coordinadores explícitamente
+        const coordinadoresMarcados = coordinadores.map(c => ({
+          ...c,
+          is_coordinator: true
+        }));
+        
+        // Marcar supervisores explícitamente  
+        const supervisoresMarcados = supervisores.map(s => ({
+          ...s,
+          is_supervisor: true
+        }));
+        
+        // Filtrar ejecutivos para evitar duplicados
+        const ejecutivosSinDuplicar = ejecutivos
+          .filter(e => !coordinadorIds.has(e.id) && !supervisorIds.has(e.id))
+          .map(e => ({
+            ...e,
+            is_coordinator: false
+          }));
+        
+        // Combinar: coordinadores primero, luego supervisores, luego ejecutivos
+        const combined = [...coordinadoresMarcados, ...supervisoresMarcados, ...ejecutivosSinDuplicar];
+        
+        setEjecutivosFiltered(combined);
       } catch (error) {
-        console.error('Error cargando ejecutivos:', error);
+        console.error('Error cargando ejecutivos y coordinadores:', error);
         setEjecutivosFiltered([]);
       }
     };
-    loadEjecutivos();
+    loadEjecutivosYCoordinadores();
   }, [selectedCoordinacion]);
 
   // ============================================
@@ -1143,17 +1176,65 @@ const DynamicsCRMManager: React.FC = () => {
                     className="w-full px-4 py-3 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 disabled:opacity-50"
                   >
                     <option value="">
-                      {selectedCoordinacion ? 'Selecciona un ejecutivo' : 'Primero selecciona coordinación'}
+                      {selectedCoordinacion ? 'Selecciona coordinador, supervisor o ejecutivo' : 'Primero selecciona coordinación'}
                     </option>
-                    {ejecutivosFiltered.map((ejec) => (
-                      <option key={ejec.id} value={ejec.id}>
-                        {ejec.full_name} {ejec.is_operativo === false ? '(No operativo)' : ''}
-                      </option>
-                    ))}
+                    
+                    {/* Coordinadores */}
+                    {ejecutivosFiltered.filter(e => e.is_coordinator === true).length > 0 && (
+                      <option disabled className="text-slate-500 font-semibold">── Coordinadores ──</option>
+                    )}
+                    {ejecutivosFiltered
+                      .filter(e => e.is_coordinator === true)
+                      .map(e => (
+                        <option key={e.id} value={e.id}>
+                          {e.full_name} (Coordinador)
+                        </option>
+                      ))}
+                    
+                    {/* Supervisores */}
+                    {ejecutivosFiltered.filter(e => e.is_supervisor === true).length > 0 && (
+                      <option disabled className="text-slate-500 font-semibold">── Supervisores ──</option>
+                    )}
+                    {ejecutivosFiltered
+                      .filter(e => e.is_supervisor === true)
+                      .map(e => (
+                        <option key={e.id} value={e.id}>
+                          {e.full_name} (Supervisor)
+                        </option>
+                      ))}
+                    
+                    {/* Ejecutivos operativos */}
+                    {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo === true).length > 0 && (
+                      <option disabled className="text-slate-500 font-semibold">── Ejecutivos ──</option>
+                    )}
+                    {ejecutivosFiltered
+                      .filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo === true)
+                      .map(e => (
+                        <option key={e.id} value={e.id}>
+                          {e.full_name}
+                        </option>
+                      ))}
+                    
+                    {/* Ejecutivos no operativos (deshabilitados) */}
+                    {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo !== true).length > 0 && (
+                      <option disabled className="text-slate-400">── No disponibles ──</option>
+                    )}
+                    {ejecutivosFiltered
+                      .filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo !== true)
+                      .map(e => (
+                        <option key={e.id} value={e.id} disabled className="text-slate-400">
+                          {e.full_name} (No operativo)
+                        </option>
+                      ))}
                   </select>
+                  {selectedCoordinacion && ejecutivosFiltered.length > 0 && (
+                    <p className="mt-1 text-xs text-slate-400">
+                      {ejecutivosFiltered.filter(e => e.is_coordinator === true).length} coordinadores, {ejecutivosFiltered.filter(e => e.is_supervisor === true).length} supervisores, {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo === true).length} ejecutivos operativos
+                    </p>
+                  )}
                   {selectedCoordinacion && ejecutivosFiltered.length === 0 && (
                     <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                      No hay ejecutivos activos en esta coordinación
+                      No hay coordinadores, supervisores ni ejecutivos activos en esta coordinación
                     </p>
                   )}
                 </div>
