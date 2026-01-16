@@ -6,7 +6,11 @@
  * Registra todos los intentos de inicio de sesión con información detallada
  */
 
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
+
+// Usar cliente normal en lugar de admin para evitar exponer service_role_key
+// RLS debe permitir que usuarios autenticados inserten sus propios logs
+const supabaseClient = supabaseSystemUI;
 
 export interface LoginLog {
   id: string;
@@ -68,7 +72,7 @@ class LoginLogService {
 
       // Llamar a la función SQL que maneja la lógica completa
       // IMPORTANTE: Orden de parámetros: obligatorios primero, opcionales al final
-      const { data, error } = await supabaseSystemUIAdmin.rpc('log_user_login', {
+      const { data, error } = await supabaseClient.rpc('log_user_login', {
         p_email: params.email,
         p_ip_address: ipAddress,
         p_user_agent: params.user_agent || navigator.userAgent,
@@ -114,7 +118,7 @@ class LoginLogService {
     }
   ): Promise<string | null> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseClient
         .from('auth_login_logs')
         .insert({
           user_id: params.user_id || null,
@@ -147,7 +151,7 @@ class LoginLogService {
    */
   async getUserLoginLogs(userId: string, limit: number = 50): Promise<LoginLog[]> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseClient
         .from('auth_login_logs')
         .select('*')
         .eq('user_id', userId)
@@ -167,7 +171,7 @@ class LoginLogService {
    */
   async getUserLoginSummary(userId: string): Promise<LoginSummary | null> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseClient
         .from('v_user_login_summary')
         .select('*')
         .eq('user_id', userId)
@@ -186,7 +190,7 @@ class LoginLogService {
    */
   async getSuspiciousLogs(limit: number = 100): Promise<LoginLog[]> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseClient
         .from('auth_login_logs')
         .select('*')
         .eq('is_suspicious', true)
@@ -206,7 +210,7 @@ class LoginLogService {
    */
   async updateSessionActivity(sessionToken: string): Promise<void> {
     try {
-      await supabaseSystemUIAdmin
+      await supabaseClient
         .from('auth_login_logs')
         .update({ last_activity: new Date().toISOString() })
         .eq('session_token', sessionToken)

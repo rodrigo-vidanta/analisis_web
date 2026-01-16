@@ -725,17 +725,15 @@ class AuthService {
   }
 
   private async updateLastLogin(userId: string): Promise<void> {
-    // Usar supabaseSystemUIAdmin para bypass de RLS
-    const { error } = await supabaseSystemUIAdmin
-      .from('auth_users')
-      .update({ 
-        last_login: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-    
-    if (error) {
-      console.error('Error actualizando last_login:', error);
+    // Usar Edge Function auth-admin-proxy para evitar exponer service_role_key
+    try {
+      const { updateLastLogin: updateLastLoginProxy } = await import('./authAdminProxyService');
+      const success = await updateLastLoginProxy(userId);
+      if (!success) {
+        console.warn('updateLastLogin: Edge Function retornó false');
+      }
+    } catch (error) {
+      console.error('Error actualizando last_login via proxy:', error);
     }
   }
 

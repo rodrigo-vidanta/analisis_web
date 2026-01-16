@@ -14,15 +14,10 @@
 import { analysisSupabase } from '../config/analysisSupabase';
 import { assignmentService } from './assignmentService';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
-import { createClient } from '@supabase/supabase-js';
 
-// Cliente para notificaciones usando PQNC_AI (service_role)
-const NOTIFICATIONS_SUPABASE_URL = 'https://glsmifhkoaifvaegsozd.supabase.co';
-const NOTIFICATIONS_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjY4Njc4NywiZXhwIjoyMDY4MjYyNzg3fQ.oyKsFpO_8ulE_m877kpDoxF-htfenoXjq0_GrFThrwI';
-
-const notificationsClient = createClient(NOTIFICATIONS_SUPABASE_URL, NOTIFICATIONS_SERVICE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false }
-});
+// Cliente para notificaciones - USAR analysisSupabase (anon_key + RLS)
+// SEGURIDAD: NUNCA hardcodear service_role keys en el frontend
+const notificationsClient = analysisSupabase;
 
 // ============================================
 // SERVICIO PRINCIPAL
