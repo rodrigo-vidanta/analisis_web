@@ -284,6 +284,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '11eea59', date: '2026-01-15', author: 'Team', message: 'v2.2.63: B8.2.1N2.3.1 - FIX SEGURIDAD: Eliminar SERVICE_ROLE keys hardcodeadas, Edge Functions auth-admin-proxy', isRelease: true },
   { hash: 'k1l2m3n', date: '2026-01-15', author: 'Team', message: 'v2.2.62: B8.2.0N2.3.1 - Panel Lateral: Modal transferencia global reutilizable en cualquier módulo', isRelease: true },
   { hash: 'j0k1l2m', date: '2026-01-15', author: 'Team', message: 'v2.2.61: B8.1.9N2.3.1 - Panel Lateral: Animación botón escuchar, modal transferencia independiente', isRelease: true },
   { hash: 'i9j0k1l', date: '2026-01-15', author: 'Team', message: 'v2.2.60: B8.1.8N2.3.1 - Panel Lateral: Botones escuchar/transferir funcionales, filtro zombies mejorado', isRelease: true },
@@ -502,8 +503,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.62', highlight: true },
-  { label: 'Release', value: 'B8.2.0N2.3.1', highlight: false },
+  { label: 'Version', value: 'v2.2.63', highlight: true },
+  { label: 'Release', value: 'B8.2.1N2.3.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '15 Ene 2026', highlight: false },
 ];
