@@ -7,7 +7,7 @@
  * de una llamada activa en el panel lateral derecho.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Phone, 
@@ -80,6 +80,44 @@ export const CallCard: React.FC<CallCardProps> = ({
   const displayCity = useMemo(() => {
     return call.ciudad_residencia || 'Ciudad no especificada';
   }, [call.ciudad_residencia]);
+  
+  // Estado para la duración que se actualiza cada segundo
+  const [liveDuration, setLiveDuration] = useState('0:00');
+  
+  // Actualizar duración cada segundo basándose en fecha_llamada
+  useEffect(() => {
+    const updateDuration = () => {
+      if (!call.fecha_llamada) {
+        // Fallback a duracion_segundos si no hay fecha_llamada
+        if (call.duracion_segundos && call.duracion_segundos > 0) {
+          const mins = Math.floor(call.duracion_segundos / 60);
+          const secs = call.duracion_segundos % 60;
+          setLiveDuration(`${mins}:${secs.toString().padStart(2, '0')}`);
+        } else {
+          setLiveDuration('0:00');
+        }
+        return;
+      }
+      const start = new Date(call.fecha_llamada);
+      const now = new Date();
+      const diff = Math.floor((now.getTime() - start.getTime()) / 1000);
+      if (diff < 0) {
+        setLiveDuration('0:00');
+        return;
+      }
+      const mins = Math.floor(diff / 60);
+      const secs = diff % 60;
+      setLiveDuration(`${mins}:${secs.toString().padStart(2, '0')}`);
+    };
+    
+    // Actualizar inmediatamente
+    updateDuration();
+    
+    // Luego cada segundo
+    const interval = setInterval(updateDuration, 1000);
+    
+    return () => clearInterval(interval);
+  }, [call.fecha_llamada, call.duracion_segundos]);
 
   const handleListenClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -173,10 +211,10 @@ export const CallCard: React.FC<CallCardProps> = ({
       {/* Info de llamada */}
       <div className="px-4 pb-3 pl-5">
         <div className="flex items-center gap-4 text-sm">
-          {/* Duración */}
+          {/* Duración en tiempo real */}
           <div className="flex items-center gap-1.5 text-gray-300">
             <Clock className="w-4 h-4 text-gray-500" />
-            <span className="font-medium">{formatDuration(call.duracion_segundos)}</span>
+            <span className="font-medium font-mono">{liveDuration}</span>
           </div>
           
           {/* Teléfono */}

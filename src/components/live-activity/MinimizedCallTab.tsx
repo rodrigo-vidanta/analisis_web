@@ -3,14 +3,14 @@
  * CUÑA MINIMIZADA - PANEL LATERAL
  * ============================================
  * 
- * Versión ultra-compacta de una llamada activa.
- * Aparece como una pequeña pestaña en el borde derecho
- * que el usuario puede expandir haciendo clic.
+ * Versión compacta de una llamada activa que mantiene
+ * la altura del card original pero se colapsa a una
+ * pestaña delgada al costado de la pantalla.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, User } from 'lucide-react';
+import { Phone, ChevronLeft, Clock } from 'lucide-react';
 import type { WidgetCallData } from '../../stores/liveActivityStore';
 
 interface MinimizedCallTabProps {
@@ -32,28 +32,61 @@ export const MinimizedCallTab: React.FC<MinimizedCallTabProps> = ({
     return name.substring(0, 2).toUpperCase();
   }, [call.nombre_completo, call.nombre_whatsapp]);
 
+  // Estado para la duración que se actualiza cada segundo
+  const [duration, setDuration] = useState('00:00');
+  
+  // Actualizar duración cada segundo
+  useEffect(() => {
+    const updateDuration = () => {
+      if (!call.fecha_llamada) {
+        setDuration('--:--');
+        return;
+      }
+      const start = new Date(call.fecha_llamada);
+      const now = new Date();
+      const diff = Math.floor((now.getTime() - start.getTime()) / 1000);
+      if (diff < 0) {
+        setDuration('00:00');
+        return;
+      }
+      const mins = Math.floor(diff / 60);
+      const secs = diff % 60;
+      setDuration(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+    };
+    
+    // Actualizar inmediatamente
+    updateDuration();
+    
+    // Luego cada segundo
+    const interval = setInterval(updateDuration, 1000);
+    
+    return () => clearInterval(interval);
+  }, [call.fecha_llamada]);
+
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: 50, scale: 0.8 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 50, scale: 0.8 }}
-      whileHover={{ scale: 1.05, x: -5 }}
-      whileTap={{ scale: 0.95 }}
+      initial={{ opacity: 0, x: 50, width: 320 }}
+      animate={{ opacity: 1, x: 0, width: 48 }}
+      exit={{ opacity: 0, x: 50, width: 320 }}
+      whileHover={{ width: 56, x: -4 }}
+      whileTap={{ scale: 0.98 }}
       transition={{ 
         type: 'spring', 
         stiffness: 400, 
-        damping: 25 
+        damping: 30,
+        width: { duration: 0.3 }
       }}
       onClick={onRestore}
       className="relative cursor-pointer group"
       style={{
-        marginRight: '-1px'
+        marginRight: '-1px',
+        height: '180px' // Altura similar al CallCard
       }}
     >
-      {/* Cuña principal */}
+      {/* Cuña principal - pestaña vertical */}
       <div className="
-        flex items-center gap-2 px-3 py-3
+        h-full flex flex-col items-center justify-between py-4 px-2
         bg-gray-900/95 backdrop-blur-xl
         border-l border-t border-b border-gray-600/50
         rounded-l-xl shadow-xl
@@ -61,33 +94,51 @@ export const MinimizedCallTab: React.FC<MinimizedCallTabProps> = ({
         hover:shadow-green-500/20
         transition-all duration-200
       ">
-        {/* Indicador pulsante */}
-        <div className="absolute top-0 left-0 bottom-0 w-1 bg-gradient-to-b from-green-400 via-emerald-500 to-green-400 rounded-l animate-pulse" />
+        {/* Indicador pulsante vertical */}
+        <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-gradient-to-b from-green-400 via-emerald-500 to-green-400 rounded-l animate-pulse" />
+        
+        {/* Flecha para expandir */}
+        <div className="text-gray-400 group-hover:text-green-400 transition-colors">
+          <ChevronLeft className="w-5 h-5" />
+        </div>
         
         {/* Avatar mini con iniciales */}
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg ml-1">
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
           <span className="text-xs font-bold text-white">{displayName}</span>
         </div>
         
         {/* Icono de teléfono con indicador en vivo */}
         <div className="relative">
-          <Phone className="w-4 h-4 text-green-400" />
-          <span className="absolute -top-1 -right-1 flex h-2 w-2">
+          <Phone className="w-5 h-5 text-green-400" />
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+          </span>
+        </div>
+        
+        {/* Duración vertical */}
+        <div className="flex flex-col items-center gap-0.5">
+          <Clock className="w-3.5 h-3.5 text-gray-500" />
+          <span className="text-[10px] text-gray-400 font-mono writing-mode-vertical">
+            {duration}
           </span>
         </div>
       </div>
       
       {/* Tooltip en hover */}
       <div className="
-        absolute right-full top-1/2 -translate-y-1/2 mr-2
+        absolute right-full top-1/2 -translate-y-1/2 mr-3
         opacity-0 group-hover:opacity-100
         transition-opacity duration-200
-        pointer-events-none
+        pointer-events-none z-10
       ">
-        <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
-          {call.nombre_completo || call.nombre_whatsapp || 'Llamada activa'}
+        <div className="bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl whitespace-nowrap border border-gray-700">
+          <div className="font-medium text-gray-100">
+            {call.nombre_completo || call.nombre_whatsapp || 'Llamada activa'}
+          </div>
+          <div className="text-gray-400 mt-0.5 text-[10px]">
+            Clic para expandir
+          </div>
         </div>
       </div>
     </motion.div>

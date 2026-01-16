@@ -382,10 +382,6 @@ export const LiveCallActivityWidget: React.FC = () => {
     ? widgetCalls.find(c => c.call_id === expandedCallId) 
     : null;
   
-  // Separar llamadas minimizadas de las normales
-  const normalCalls = widgetCalls.filter(c => !minimizedCallIds.has(c.call_id));
-  const minimizedCalls = widgetCalls.filter(c => minimizedCallIds.has(c.call_id));
-  
   // Parsear transcripción correctamente
   const getTranscription = (call: WidgetCallData): { role: string; content: string; timestamp: string }[] => {
     // Primero intentar liveTranscriptions del store
@@ -519,68 +515,69 @@ export const LiveCallActivityWidget: React.FC = () => {
         )}
       </AnimatePresence>
       
-      {/* Cards colapsadas y cuñas minimizadas */}
+      {/* Cards colapsadas y cuñas minimizadas - mismo contenedor para mantener posición */}
       <div 
         className="fixed top-0 right-0 bottom-0 z-[100] pointer-events-none"
         style={{ width: '320px' }}
       >
         <AnimatePresence>
           {!expandedCall && (
-          // Layout principal - cards normales arriba, cuñas minimizadas abajo
           <motion.div
             key="cards"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="h-full flex flex-col justify-between pt-20 pb-4"
+            className="h-full flex flex-col pt-20 pb-4 overflow-y-auto"
             style={{ maxHeight: '100vh', paddingRight: 0 }}
           >
-            {/* Cards normales (no minimizadas) */}
-            <div className="flex flex-col items-end gap-3 overflow-y-auto pointer-events-none flex-1">
-              <AnimatePresence>
-                {normalCalls.slice(0, 10).map((call) => (
-                  <div key={call.call_id} className="pointer-events-auto w-full flex justify-end">
-                    <CallCard
-                      call={call}
-                      isExpanded={false}
-                      isListening={isListening && listeningCallId === call.call_id}
-                      onExpand={() => handleExpand(call.call_id)}
-                      onListen={() => handleListen(call)}
-                      onStopListening={stopAudioMonitoring}
-                      onTransfer={() => handleTransfer(call)}
-                      onMinimize={() => handleMinimize(call.call_id)}
-                    />
-                  </div>
-                ))}
+            {/* Renderizar todas las llamadas en orden, ya sea como Card o como Tab minimizado */}
+            <div className="flex flex-col items-end gap-3 pointer-events-none">
+              <AnimatePresence mode="popLayout">
+                {widgetCalls.slice(0, 10).map((call) => {
+                  const isMinimized = minimizedCallIds.has(call.call_id);
+                  
+                  return (
+                    <motion.div 
+                      key={call.call_id} 
+                      layout
+                      className="pointer-events-auto w-full flex justify-end"
+                      transition={{
+                        layout: { type: 'spring', stiffness: 400, damping: 30 }
+                      }}
+                    >
+                      {isMinimized ? (
+                        <MinimizedCallTab
+                          call={call}
+                          onRestore={() => handleRestore(call.call_id)}
+                        />
+                      ) : (
+                        <CallCard
+                          call={call}
+                          isExpanded={false}
+                          isListening={isListening && listeningCallId === call.call_id}
+                          onExpand={() => handleExpand(call.call_id)}
+                          onListen={() => handleListen(call)}
+                          onStopListening={stopAudioMonitoring}
+                          onTransfer={() => handleTransfer(call)}
+                          onMinimize={() => handleMinimize(call.call_id)}
+                        />
+                      )}
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
               
-              {/* Indicador de más llamadas normales */}
-              {normalCalls.length > 10 && (
+              {/* Indicador de más llamadas */}
+              {widgetCalls.length > 10 && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   className="pointer-events-auto bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-l-lg text-sm text-gray-300 border-l border-t border-b border-gray-700 mr-0"
                 >
-                  +{normalCalls.length - 10} llamadas más
+                  +{widgetCalls.length - 10} llamadas más
                 </motion.div>
               )}
             </div>
-            
-            {/* Cuñas minimizadas - siempre al final */}
-            {minimizedCalls.length > 0 && (
-              <div className="flex flex-col items-end gap-2 mt-4 pointer-events-none">
-                <AnimatePresence>
-                  {minimizedCalls.map((call) => (
-                    <div key={`min-${call.call_id}`} className="pointer-events-auto flex justify-end">
-                      <MinimizedCallTab
-                        call={call}
-                        onRestore={() => handleRestore(call.call_id)}
-                      />
-                    </div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
           </motion.div>
           )}
         </AnimatePresence>
