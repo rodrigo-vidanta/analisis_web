@@ -512,6 +512,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Coordinadores tienen acceso a Live Monitor (ven todas las llamadas de su coordinación)
     if (authState.user.role_name === 'coordinador') return true;
     
+    // Supervisores tienen acceso a Live Monitor (ven llamadas de su coordinación)
+    if (authState.user.role_name === 'supervisor') return true;
+    
     // Ejecutivos tienen acceso a Live Monitor (solo ven llamadas de sus prospectos asignados)
     if (authState.user.role_name === 'ejecutivo') return true;
     

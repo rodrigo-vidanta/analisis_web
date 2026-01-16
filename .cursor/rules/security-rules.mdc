@@ -152,13 +152,21 @@ VITE_ANALYSIS_SUPABASE_SERVICE_KEY=eyJ...service_role...
 | `prospectos` | ✅ | Usuarios autenticados |
 | `llamadas_ventas` | ✅ | Usuarios autenticados |
 
-### Vistas Seguras
+### Vistas Seguras (Solo Usuarios Autenticados)
 
-| Vista | Descripción |
-|-------|-------------|
-| `auth_users_safe` | Datos de usuarios SIN `password_hash` |
-| `api_auth_tokens_safe` | Metadatos de tokens SIN `token_value` |
-| `user_profiles_v2` | Perfiles completos SIN `password_hash` (reemplaza `auth_user_profiles`) |
+**⚠️ ACTUALIZACIÓN 2026-01-16:** Todas las vistas requieren autenticación (`authenticated` role)
+
+| Vista | Descripción | Acceso |
+|-------|-------------|--------|
+| `auth_users_safe` | Datos de usuarios SIN `password_hash` | ✅ Solo authenticated |
+| `api_auth_tokens_safe` | Metadatos de tokens SIN `token_value` | ✅ Solo authenticated |
+| `user_profiles_v2` | Perfiles completos SIN `password_hash` | ✅ Solo authenticated |
+| **Todas las vistas** (23 total) | Analytics, WhatsApp, Llamadas, etc. | ✅ Solo authenticated |
+
+**Implementación:**
+- `REVOKE ALL` de rol `anon` en todas las vistas
+- `GRANT SELECT` solo a `authenticated` y `service_role`
+- Previene enumeración de datos sin login
 
 ### Funciones RPC Seguras
 

@@ -130,6 +130,39 @@ export const useAnalysisPermissions = () => {
       return;
     }
 
+    // Coordinadores: acceso a PQNC y Live Monitor
+    if (user.role_name === 'coordinador') {
+      setPermissions({ 
+        natalia: false,
+        pqnc: true,       // Coordinadores SÍ acceso a PQNC
+        liveMonitor: true,
+        loading: false 
+      });
+      return;
+    }
+
+    // Supervisores: SOLO Live Monitor (NO PQNC)
+    if (user.role_name === 'supervisor') {
+      setPermissions({ 
+        natalia: false,
+        pqnc: false,      // Supervisores NO acceso a PQNC
+        liveMonitor: true, // Solo Live Monitor
+        loading: false 
+      });
+      return;
+    }
+
+    // Ejecutivos: acceso a Live Monitor
+    if (user.role_name === 'ejecutivo') {
+      setPermissions({ 
+        natalia: false,
+        pqnc: false,
+        liveMonitor: true,
+        loading: false 
+      });
+      return;
+    }
+
     // Otros roles no tienen acceso
     setPermissions({ natalia: false, pqnc: false, liveMonitor: false, loading: false });
   };

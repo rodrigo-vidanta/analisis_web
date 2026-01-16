@@ -465,6 +465,7 @@ class AuthService {
     switch (module) {
       case 'analisis':
         if (role === 'direccion' || role === 'administrador_operativo') return false;
+        // Supervisores NO tienen acceso a PQNC Humans (solo Live Monitor)
         return ['admin', 'evaluator', 'developer', 'coordinador', 'ejecutivo'].includes(role);
       
       case 'ai-models':
