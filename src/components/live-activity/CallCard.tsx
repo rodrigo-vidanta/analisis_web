@@ -17,7 +17,8 @@ import {
   Headphones, 
   ArrowRightLeft,
   ChevronRight,
-  Wifi
+  PhoneCall,
+  UserCheck
 } from 'lucide-react';
 import type { WidgetCallData } from '../../stores/liveActivityStore';
 
@@ -81,11 +82,17 @@ export const CallCard: React.FC<CallCardProps> = ({
     e.stopPropagation();
     console.log('[CallCard] Botón Escuchar clickeado, monitor_url:', call.monitor_url, 'isListening:', isListening);
     
+    // Si está escuchando, detener
     if (isListening && onStopListening) {
       onStopListening();
-    } else {
+      return;
+    }
+    
+    // Solo permitir escuchar si hay monitor_url disponible
+    if (call.monitor_url) {
       onListen();
     }
+    // Si no hay monitor_url, el botón está deshabilitado y muestra "Marcando..."
   };
 
   const handleTransferClick = (e: React.MouseEvent) => {
@@ -186,10 +193,22 @@ export const CallCard: React.FC<CallCardProps> = ({
         </div>
       </div>
       
+      {/* Ejecutivo asignado */}
+      {call.ejecutivo_nombre && (
+        <div className="px-4 pb-2 pl-5">
+          <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-1.5 bg-amber-500/15 text-amber-300 px-2.5 py-1 rounded-lg">
+              <UserCheck className="w-3.5 h-3.5" />
+              <span className="font-medium truncate max-w-[200px]">{call.ejecutivo_nombre}</span>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Datos adicionales si hay */}
       {(call.destino_preferido || call.composicion_familiar_numero) && (
         <div className="px-4 pb-3 pl-5">
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm flex-wrap">
             {call.destino_preferido && (
               <span className="bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-lg font-medium">
                 📍 {call.destino_preferido}
@@ -206,17 +225,18 @@ export const CallCard: React.FC<CallCardProps> = ({
       
       {/* Acciones rápidas */}
       <div className="px-4 pb-4 pl-5 flex items-center gap-2">
-        {/* Botón Escuchar */}
+        {/* Botón Escuchar - 3 estados: Marcando (sin monitor_url), Listo (con monitor_url), Escuchando (activo) */}
         <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: call.monitor_url || isListening ? 1.03 : 1 }}
+          whileTap={{ scale: call.monitor_url || isListening ? 0.97 : 1 }}
           onClick={handleListenClick}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-all shadow-lg ${
+          disabled={!call.monitor_url && !isListening}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all shadow-lg ${
             isListening
-              ? 'bg-red-600 hover:bg-red-500 shadow-red-500/30 animate-pulse'
+              ? 'bg-red-600 hover:bg-red-500 shadow-red-500/30 animate-pulse text-white'
               : call.monitor_url 
-                ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20' 
-                : 'bg-gray-600 hover:bg-gray-500 shadow-gray-500/20'
+                ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20 text-white' 
+                : 'bg-amber-600/80 shadow-amber-500/20 text-amber-100 cursor-not-allowed'
           }`}
         >
           {isListening ? (
@@ -228,10 +248,16 @@ export const CallCard: React.FC<CallCardProps> = ({
               </span>
               <span>Escuchando...</span>
             </>
-          ) : (
+          ) : call.monitor_url ? (
             <>
               <Headphones className="w-4 h-4" />
               <span>Escuchar</span>
+            </>
+          ) : (
+            <>
+              {/* Estado "Marcando" - la llamada aún está conectando */}
+              <PhoneCall className="w-4 h-4 animate-pulse" />
+              <span>Marcando...</span>
             </>
           )}
         </motion.button>

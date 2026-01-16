@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.64: Panel Lateral - Filtrado por permisos de usuario
-  const version = 'B8.2.2N2.3.1';
+  // Versión actual - v2.2.65: Panel Lateral - Nombre ejecutivo + estados botón Escuchar
+  const version = 'B8.2.3N2.3.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

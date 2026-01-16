@@ -45,6 +45,9 @@ export interface WidgetCallData extends LiveCallData {
   conversacion_completa?: TranscriptEntry[];
   estado_civil?: string;
   telefono_principal?: string;
+  // Nombre del ejecutivo asignado al prospecto
+  ejecutivo_nombre?: string;
+  ejecutivo_id?: string;
 }
 
 interface LiveActivityState {
@@ -368,6 +371,66 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       // Actualizar set de zombies reportados si cambió
       if (newReportedZombies.size !== currentReportedZombies.size) {
         set({ reportedZombieIds: newReportedZombies });
+      }
+      
+      // ============================================
+      // ENRIQUECER CON NOMBRE DEL EJECUTIVO
+      // ============================================
+      if (activeCalls.length > 0) {
+        // Obtener IDs únicos de prospectos
+        const prospectosIds = [...new Set(activeCalls.map(c => c.prospecto_id).filter(Boolean))];
+        
+        if (prospectosIds.length > 0) {
+          // Obtener ejecutivo_id de cada prospecto
+          const { data: prospectosData } = await analysisSupabase
+            .from('prospectos')
+            .select('id, ejecutivo_id')
+            .in('id', prospectosIds);
+          
+          if (prospectosData && prospectosData.length > 0) {
+            // Obtener IDs únicos de ejecutivos
+            const ejecutivosIds = [...new Set(prospectosData.map(p => p.ejecutivo_id).filter(Boolean))];
+            
+            if (ejecutivosIds.length > 0) {
+              // Obtener nombres de ejecutivos
+              const { data: ejecutivosData } = await supabaseSystemUI
+                .from('auth_users')
+                .select('id, full_name')
+                .in('id', ejecutivosIds);
+              
+              // Crear mapa de ejecutivo_id -> nombre
+              const ejecutivosMap = new Map<string, string>();
+              ejecutivosData?.forEach(e => {
+                if (e.id && e.full_name) {
+                  ejecutivosMap.set(e.id, e.full_name);
+                }
+              });
+              
+              // Crear mapa de prospecto_id -> ejecutivo_id
+              const prospectoEjecutivoMap = new Map<string, string>();
+              prospectosData.forEach(p => {
+                if (p.id && p.ejecutivo_id) {
+                  prospectoEjecutivoMap.set(p.id, p.ejecutivo_id);
+                }
+              });
+              
+              // Enriquecer llamadas con nombre del ejecutivo
+              activeCalls = activeCalls.map(call => {
+                if (call.prospecto_id) {
+                  const ejecutivoId = prospectoEjecutivoMap.get(call.prospecto_id);
+                  if (ejecutivoId) {
+                    return {
+                      ...call,
+                      ejecutivo_id: ejecutivoId,
+                      ejecutivo_nombre: ejecutivosMap.get(ejecutivoId) || undefined
+                    };
+                  }
+                }
+                return call;
+              });
+            }
+          }
+        }
       }
       
       // Detectar nuevas llamadas para notificar
