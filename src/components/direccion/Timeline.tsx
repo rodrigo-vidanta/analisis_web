@@ -7,7 +7,7 @@ import { timelineService } from '../../services/timelineService';
 import type { TimelineActivity, ProcessedActivity, DuplicateCheck } from '../../services/timelineTypes';
 import { Plus, X, Calendar, Clock, CheckCircle2, Circle, Trash2, AlertCircle, Users, Trash, Edit2, Save, ChevronLeft, ChevronRight, Archive, MoreVertical, ArchiveRestore, Sun, Moon, Search, Tag, Paperclip, FileText, Image as ImageIcon, XCircle, Palette, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import TimelineCard from './TimelineCard';
 import TimelineActivityModal from './TimelineActivityModal';
 import { clsx } from 'clsx';
@@ -219,7 +219,7 @@ const Timeline: React.FC = () => {
 
   const loadAssignedNames = async () => {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('timeline_activities')
         .select('asignado_a')
         .eq('user_id', user?.id);
@@ -473,7 +473,7 @@ const Timeline: React.FC = () => {
     }
 
     try {
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('timeline_activities')
         .delete()
         .eq('user_id', user.id);

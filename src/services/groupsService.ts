@@ -13,7 +13,7 @@
  * - Compatible con el sistema de permisos existente
  */
 
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { MODULE_CATALOG, getModuleById, type ModuleDefinition, type PermissionAction } from '../config/permissionModules';
 
 // ============================================
@@ -134,7 +134,7 @@ class GroupsService {
    */
   async getGroups(includeSystem = true): Promise<PermissionGroup[]> {
     try {
-      let query = supabaseSystemUIAdmin
+      let query = supabaseSystemUI
         .from('permission_groups')
         .select('*')
         .eq('is_active', true)
@@ -175,7 +175,7 @@ class GroupsService {
    */
   async getGroupById(groupId: string): Promise<PermissionGroup | null> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('permission_groups')
         .select('*')
         .eq('id', groupId)
@@ -209,7 +209,7 @@ class GroupsService {
   async createGroup(input: CreateGroupInput, createdBy?: string): Promise<PermissionGroup> {
     try {
       // Crear el grupo
-      const { data: group, error: groupError } = await supabaseSystemUIAdmin
+      const { data: group, error: groupError } = await supabaseSystemUI
         .from('permission_groups')
         .insert({
           name: input.name.toLowerCase().replace(/\s+/g, '_'),
@@ -238,13 +238,13 @@ class GroupsService {
           scope_restriction: p.scope_restriction || 'none'
         }));
 
-        const { error: permError } = await supabaseSystemUIAdmin
+        const { error: permError } = await supabaseSystemUI
           .from('group_permissions')
           .insert(permissionsToInsert);
 
         if (permError) {
           // Rollback: eliminar el grupo si falla insertar permisos
-          await supabaseSystemUIAdmin
+          await supabaseSystemUI
             .from('permission_groups')
             .delete()
             .eq('id', group.id);
@@ -299,7 +299,7 @@ class GroupsService {
         updateData.is_active = input.is_active;
       }
 
-      const { data: updatedGroup, error: updateError } = await supabaseSystemUIAdmin
+      const { data: updatedGroup, error: updateError } = await supabaseSystemUI
         .from('permission_groups')
         .update(updateData)
         .eq('id', groupId)
@@ -311,7 +311,7 @@ class GroupsService {
       // Actualizar permisos si se proporcionaron
       if (input.permissions) {
         // Eliminar permisos existentes
-        await supabaseSystemUIAdmin
+        await supabaseSystemUI
           .from('group_permissions')
           .delete()
           .eq('group_id', groupId);
@@ -326,7 +326,7 @@ class GroupsService {
             scope_restriction: p.scope_restriction || 'none'
           }));
 
-          const { error: permError } = await supabaseSystemUIAdmin
+          const { error: permError } = await supabaseSystemUI
             .from('group_permissions')
             .insert(permissionsToInsert);
 
@@ -367,7 +367,7 @@ class GroupsService {
       }, deletedBy);
 
       // Eliminar grupo (cascade elimina permisos y asignaciones)
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('permission_groups')
         .delete()
         .eq('id', groupId);
@@ -390,7 +390,7 @@ class GroupsService {
    */
   async getGroupPermissions(groupId: string): Promise<GroupPermission[]> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('group_permissions')
         .select('*')
         .eq('group_id', groupId)
@@ -411,7 +411,7 @@ class GroupsService {
    */
   private async getGroupPermissionsCount(groupId: string): Promise<number> {
     try {
-      const { count, error } = await supabaseSystemUIAdmin
+      const { count, error } = await supabaseSystemUI
         .from('group_permissions')
         .select('*', { count: 'exact', head: true })
         .eq('group_id', groupId);
@@ -442,13 +442,13 @@ class GroupsService {
     try {
       // Si es primary, desmarcar otros grupos como primary
       if (isPrimary) {
-        await supabaseSystemUIAdmin
+        await supabaseSystemUI
           .from('user_permission_groups')
           .update({ is_primary: false })
           .eq('user_id', userId);
       }
 
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('user_permission_groups')
         .upsert({
           user_id: userId,
@@ -486,7 +486,7 @@ class GroupsService {
       // Registrar en auditoría antes de eliminar
       await this.logAudit('assignment', groupId, userId, 'unassigned', null, removedBy);
 
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('user_permission_groups')
         .delete()
         .eq('user_id', userId)
@@ -506,7 +506,7 @@ class GroupsService {
    */
   async getUserGroups(userId: string): Promise<UserGroupAssignment[]> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('user_permission_groups')
         .select(`
           *,
@@ -535,7 +535,7 @@ class GroupsService {
    */
   async getGroupUsers(groupId: string): Promise<UserGroupAssignment[]> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('user_permission_groups')
         .select(`
           *,
@@ -561,7 +561,7 @@ class GroupsService {
    */
   private async getGroupUsersCount(groupId: string): Promise<number> {
     try {
-      const { count, error } = await supabaseSystemUIAdmin
+      const { count, error } = await supabaseSystemUI
         .from('user_permission_groups')
         .select('*', { count: 'exact', head: true })
         .eq('group_id', groupId);
@@ -586,7 +586,7 @@ class GroupsService {
   ): Promise<boolean> {
     try {
       // Eliminar asignaciones actuales
-      await supabaseSystemUIAdmin
+      await supabaseSystemUI
         .from('user_permission_groups')
         .delete()
         .eq('user_id', userId);
@@ -601,7 +601,7 @@ class GroupsService {
           assigned_at: new Date().toISOString()
         }));
 
-        const { error } = await supabaseSystemUIAdmin
+        const { error } = await supabaseSystemUI
           .from('user_permission_groups')
           .insert(assignments);
 
@@ -630,7 +630,7 @@ class GroupsService {
    */
   async getUserEffectivePermissions(userId: string): Promise<EffectivePermission[]> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .rpc('get_user_effective_permissions', { p_user_id: userId });
 
       if (error) throw error;
@@ -651,7 +651,7 @@ class GroupsService {
     action: PermissionAction
   ): Promise<{ hasPermission: boolean; scopeRestriction: string }> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .rpc('user_has_permission', {
           p_user_id: userId,
           p_module: module,
@@ -723,7 +723,7 @@ class GroupsService {
     performedBy?: string
   ): Promise<void> {
     try {
-      await supabaseSystemUIAdmin
+      await supabaseSystemUI
         .from('group_audit_log')
         .insert({
           entity_type: entityType,
@@ -750,7 +750,7 @@ class GroupsService {
     limit?: number;
   }): Promise<GroupAuditLog[]> {
     try {
-      let query = supabaseSystemUIAdmin
+      let query = supabaseSystemUI
         .from('group_audit_log')
         .select('*')
         .order('performed_at', { ascending: false });
@@ -802,7 +802,7 @@ class GroupsService {
    */
   async getGroupsByBaseRole(baseRole: string): Promise<PermissionGroup[]> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('permission_groups')
         .select('*')
         .eq('base_role', baseRole)

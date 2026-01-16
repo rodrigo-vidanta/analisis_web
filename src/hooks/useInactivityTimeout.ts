@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 /**
  * Hook para detectar inactividad del usuario y hacer logout automático
@@ -51,7 +51,7 @@ export const useInactivityTimeout = () => {
             let coordinacionId: string | null = null;
             
             if (currentUser.role_name === 'ejecutivo') {
-              const { data: ejecutivoData } = await supabaseSystemUIAdmin
+              const { data: ejecutivoData } = await supabaseSystemUI
                 .from('auth_users')
                 .select('coordinacion_id')
                 .eq('id', currentUser.id)
@@ -60,7 +60,7 @@ export const useInactivityTimeout = () => {
             } else {
               // Supervisor: obtener primera coordinación de auth_user_coordinaciones
               // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
-              const { data: coordData } = await supabaseSystemUIAdmin
+              const { data: coordData } = await supabaseSystemUI
                 .from('auth_user_coordinaciones')
                 .select('coordinacion_id')
                 .eq('user_id', currentUser.id)
@@ -90,7 +90,7 @@ export const useInactivityTimeout = () => {
             }
 
             // Actualizar is_operativo a false
-            const { error: updateError } = await supabaseSystemUIAdmin
+            const { error: updateError } = await supabaseSystemUI
               .from('auth_users')
               .update({ 
                 is_operativo: false,
@@ -163,7 +163,7 @@ export const useInactivityTimeout = () => {
         if (currentUser.role_name === 'ejecutivo' && currentUser.id) {
           try {
             // Obtener coordinación del ejecutivo
-            const { data: ejecutivoData } = await supabaseSystemUIAdmin
+            const { data: ejecutivoData } = await supabaseSystemUI
               .from('auth_users')
               .select('coordinacion_id')
               .eq('id', currentUser.id)
@@ -191,7 +191,7 @@ export const useInactivityTimeout = () => {
             }
 
             // Actualizar is_operativo a false
-            const { error: updateError } = await supabaseSystemUIAdmin
+            const { error: updateError } = await supabaseSystemUI
               .from('auth_users')
               .update({ 
                 is_operativo: false,

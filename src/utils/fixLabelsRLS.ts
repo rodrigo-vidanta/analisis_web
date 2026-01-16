@@ -4,11 +4,11 @@
  * import('./utils/fixLabelsRLS').then(m => m.fixLabelsRLS())
  */
 
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 export async function fixLabelsRLS() {
-  if (!supabaseSystemUIAdmin) {
-    console.error('❌ supabaseSystemUIAdmin no está configurado');
+  if (!supabaseSystemUI) {
+    console.error('❌ supabaseSystemUI no está configurado');
     return;
   }
 
@@ -17,7 +17,7 @@ export async function fixLabelsRLS() {
   try {
     // Deshabilitar RLS temporalmente para limpiar
     console.log('1️⃣ Deshabilitando RLS...');
-    await supabaseSystemUIAdmin.rpc('exec_raw_sql', { 
+    await supabaseSystemUI.rpc('exec_raw_sql', { 
       sql: 'ALTER TABLE whatsapp_labels_custom DISABLE ROW LEVEL SECURITY' 
     });
 
@@ -40,7 +40,7 @@ export async function fixLabelsRLS() {
 
     for (const policyName of policiesToDrop) {
       try {
-        await supabaseSystemUIAdmin.rpc('exec_raw_sql', {
+        await supabaseSystemUI.rpc('exec_raw_sql', {
           sql: `DROP POLICY IF EXISTS ${policyName} ON whatsapp_labels_custom`
         });
       } catch (e) {
@@ -51,29 +51,29 @@ export async function fixLabelsRLS() {
     // Crear políticas nuevas
     console.log('3️⃣ Creando políticas nuevas...');
     
-    await supabaseSystemUIAdmin.rpc('exec_raw_sql', {
+    await supabaseSystemUI.rpc('exec_raw_sql', {
       sql: `CREATE POLICY labels_custom_select_final ON whatsapp_labels_custom FOR SELECT USING (auth.uid() = user_id)`
     });
     console.log('   ✓ SELECT policy');
 
-    await supabaseSystemUIAdmin.rpc('exec_raw_sql', {
+    await supabaseSystemUI.rpc('exec_raw_sql', {
       sql: `CREATE POLICY labels_custom_insert_final ON whatsapp_labels_custom FOR INSERT WITH CHECK (auth.uid() IS NOT NULL)`
     });
     console.log('   ✓ INSERT policy');
 
-    await supabaseSystemUIAdmin.rpc('exec_raw_sql', {
+    await supabaseSystemUI.rpc('exec_raw_sql', {
       sql: `CREATE POLICY labels_custom_update_final ON whatsapp_labels_custom FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id)`
     });
     console.log('   ✓ UPDATE policy');
 
-    await supabaseSystemUIAdmin.rpc('exec_raw_sql', {
+    await supabaseSystemUI.rpc('exec_raw_sql', {
       sql: `CREATE POLICY labels_custom_delete_final ON whatsapp_labels_custom FOR DELETE USING (auth.uid() = user_id)`
     });
     console.log('   ✓ DELETE policy');
 
     // Habilitar RLS
     console.log('4️⃣ Habilitando RLS...');
-    await supabaseSystemUIAdmin.rpc('exec_raw_sql', {
+    await supabaseSystemUI.rpc('exec_raw_sql', {
       sql: 'ALTER TABLE whatsapp_labels_custom ENABLE ROW LEVEL SECURITY'
     });
 

@@ -2,7 +2,7 @@
 // SERVICIO DE LOGGING DE ERRORES CRÍTICOS
 // ============================================
 
-import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // ============================================
 // TIPOS E INTERFACES
@@ -204,7 +204,7 @@ class ErrorLogService {
 
       // Intentar guardar en Supabase usando cliente admin para evitar problemas de RLS
       try {
-        const { data, error } = await supabaseSystemUIAdmin
+        const { data, error } = await supabaseSystemUI
           .from('log_server_config')
           .upsert(configToSave, { onConflict: 'id' })
           .select()

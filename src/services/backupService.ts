@@ -10,7 +10,7 @@
  * - Permisos de visualización para backups
  */
 
-import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { coordinacionService } from './coordinacionService';
 import { permissionsService } from './permissionsService';
 
@@ -54,7 +54,7 @@ class BackupService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Obtener teléfono del backup
-      const { data: backupData, error: backupError } = await supabaseSystemUIAdmin
+      const { data: backupData, error: backupError } = await supabaseSystemUI
         .from('auth_users')
         .select('phone')
         .eq('id', backupId)
@@ -67,7 +67,7 @@ class BackupService {
       const telefonoBackup = backupData.phone || '';
 
       // Obtener teléfono original del ejecutivo (si no existe, usar el actual)
-      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUIAdmin
+      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUI
         .from('auth_users')
         .select('phone, telefono_original')
         .eq('id', ejecutivoId)
@@ -80,7 +80,7 @@ class BackupService {
       const telefonoOriginal = ejecutivoData.telefono_original || ejecutivoData.phone || '';
 
       // Actualizar ejecutivo con backup y cambio de teléfono
-      const { error: updateError } = await supabaseSystemUIAdmin
+      const { error: updateError } = await supabaseSystemUI
         .from('auth_users')
         .update({
           backup_id: backupId,
@@ -112,7 +112,7 @@ class BackupService {
   async removeBackup(ejecutivoId: string): Promise<{ success: boolean; error?: string }> {
     try {
       // Obtener teléfono original
-      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUIAdmin
+      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUI
         .from('auth_users')
         .select('telefono_original')
         .eq('id', ejecutivoId)
@@ -125,7 +125,7 @@ class BackupService {
       const telefonoOriginal = ejecutivoData.telefono_original || '';
 
       // Restaurar teléfono original y limpiar backup
-      const { error: updateError } = await supabaseSystemUIAdmin
+      const { error: updateError } = await supabaseSystemUI
         .from('auth_users')
         .update({
           backup_id: null,
@@ -318,7 +318,7 @@ class BackupService {
    */
   async getBackupInfo(ejecutivoId: string): Promise<BackupInfo | null> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_users')
         .select(`
           id,
@@ -579,7 +579,7 @@ class BackupService {
    */
   async hasBackup(ejecutivoId: string): Promise<boolean> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_users')
         .select('has_backup')
         .eq('id', ejecutivoId)
@@ -620,7 +620,7 @@ class BackupService {
         backupData = cached.data;
       } else {
         // Consultar BD solo si no está en caché o expiró
-        const { data, error } = await supabaseSystemUIAdmin
+        const { data, error } = await supabaseSystemUI
           .from('auth_users')
           .select('backup_id, has_backup')
           .eq('id', currentUserId)
@@ -641,7 +641,7 @@ class BackupService {
       }
 
       // Obtener información del ejecutivo del cual es backup
-      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUIAdmin
+      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUI
         .from('auth_users')
         .select('id, full_name, email')
         .eq('id', backupData.backup_id)

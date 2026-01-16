@@ -541,8 +541,8 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
         if (ejecutivoFilter) {
           // Ejecutivo: verificar coordinación y ejecutivo_id
           // Obtener IDs de ejecutivos donde es backup
-          const { supabaseSystemUIAdmin } = await import('../../../config/supabaseSystemUI');
-          const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+          const { supabaseSystemUI } = await import('../../../config/supabaseSystemUI');
+          const { data: ejecutivosConBackup } = await supabaseSystemUI
             .from('auth_users')
             .select('id')
             .eq('backup_id', ejecutivoFilter)

@@ -6,7 +6,7 @@ import { secureFrom } from './secureQueryService';
 
 // Usar admin client que bypasea RLS (temporal hasta Edge Functions)
 // TODO: Migrar a Edge Functions
-const supabaseClient = analysisSupabaseAdmin || analysisSupabase;
+const supabaseClient = analysisSupabase;
 import { coordinacionService } from './coordinacionService';
 
 /**
@@ -468,8 +468,8 @@ class ProspectsService {
             
             if (ejecutivoFilter) {
               // Obtener IDs de ejecutivos donde es backup
-              const { supabaseSystemUIAdmin } = await import('../config/supabaseSystemUI');
-              const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+              const { supabaseSystemUI } = await import('../config/supabaseSystemUI');
+              const { data: ejecutivosConBackup } = await supabaseSystemUI
                 .from('auth_users')
                 .select('id')
                 .eq('backup_id', ejecutivoFilter)

@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { coordinacionService, type Coordinacion, type Ejecutivo } from '../../services/coordinacionService';
-import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { 
   Building2, Plus, Edit, Trash2, Power, PowerOff, BarChart3, Users, 
   X, Loader2, Search, Filter, XCircle 
@@ -84,7 +84,7 @@ const CoordinacionesManager: React.FC = () => {
     try {
       setLoading(true);
       // Cargar todas las coordinaciones (activas e inactivas)
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .select('*')
         .order('codigo');
@@ -101,7 +101,7 @@ const CoordinacionesManager: React.FC = () => {
           // Contar ejecutivos asignados (solo si no está archivada)
           let ejecutivosCount = 0;
           if (!archivado) {
-            const { count } = await supabaseSystemUIAdmin
+            const { count } = await supabaseSystemUI
               .from('auth_users')
               .select('id, auth_roles!inner(name)', { count: 'exact', head: true })
               .eq('coordinacion_id', coord.id)
@@ -180,7 +180,7 @@ const CoordinacionesManager: React.FC = () => {
         // Si falla por columnas nuevas, crear solo con campos básicos
         if (createError.code === 'PGRST204' || createError.message?.includes('archivado') || createError.message?.includes('is_operativo')) {
           console.warn('Usando fallback: creando solo con campos básicos');
-          await supabaseSystemUIAdmin
+          await supabaseSystemUI
             .from('coordinaciones')
             .insert({
               codigo: formData.codigo.trim().toUpperCase(),
@@ -216,7 +216,7 @@ const CoordinacionesManager: React.FC = () => {
       
       // Actualizar coordinación normalmente (sin archivado, eso se maneja en el botón de archivar)
       // Simplificar: solo actualizar campos básicos directamente
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('coordinaciones')
         .update({
           codigo: formData.codigo.trim().toUpperCase(),
@@ -577,7 +577,7 @@ const CoordinacionesManager: React.FC = () => {
                         try {
                           setLoading(true);
                           const nuevoEstado = !isOperativo;
-                          const { error } = await supabaseSystemUIAdmin
+                          const { error } = await supabaseSystemUI
                             .from('coordinaciones')
                             .update({ is_operativo: nuevoEstado, updated_at: new Date().toISOString() })
                             .eq('id', coord.id);
@@ -858,7 +858,7 @@ const CoordinacionesManager: React.FC = () => {
                                   try {
                                     setLoading(true);
                                     // Desarchivar: actualizar archivado a false e is_operativo a true
-                                    const { error } = await supabaseSystemUIAdmin
+                                    const { error } = await supabaseSystemUI
                                       .from('coordinaciones')
                                       .update({
                                         archivado: false,
@@ -871,7 +871,7 @@ const CoordinacionesManager: React.FC = () => {
                                     if (error) {
                                       // Si falla por columnas nuevas, usar solo is_active
                                       if (error.code === 'PGRST204' || error.message?.includes('archivado') || error.message?.includes('is_operativo')) {
-                                        const { error: fallbackError } = await supabaseSystemUIAdmin
+                                        const { error: fallbackError } = await supabaseSystemUI
                                           .from('coordinaciones')
                                           .update({
                                             is_active: true,

@@ -26,7 +26,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
-import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { uchatService, type UChatConversation } from '../../services/uchatService';
 import { Avatar } from '../shared/Avatar';
 
@@ -82,7 +82,7 @@ const AgentAssignmentModal: React.FC<AgentAssignmentModalProps> = ({
       setLoading(true);
       
       // Obtener agentes activos
-      const { data: agentsData, error } = await supabaseSystemUIAdmin
+      const { data: agentsData, error } = await supabaseSystemUI
         .from('auth_users')
         .select(`
           id,
@@ -101,7 +101,7 @@ const AgentAssignmentModal: React.FC<AgentAssignmentModalProps> = ({
       const agentsWithStats = await Promise.all(
         (agentsData || []).map(async (agent) => {
           try {
-            const { data: conversations } = await supabaseSystemUIAdmin
+            const { data: conversations } = await supabaseSystemUI
               .from('uchat_conversations')
               .select('id, status, created_at, last_message_at')
               .eq('assigned_agent_id', agent.id);

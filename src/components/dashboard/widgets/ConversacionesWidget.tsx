@@ -1575,8 +1575,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         
         // Obtener IDs de ejecutivos donde este ejecutivo es backup
         try {
-          const { supabaseSystemUIAdmin } = await import('../../../config/supabaseSystemUI');
-          const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+          const { supabaseSystemUI } = await import('../../../config/supabaseSystemUI');
+          const { data: ejecutivosConBackup } = await supabaseSystemUI
             .from('auth_users')
             .select('id')
             .eq('backup_id', ejecutivoFilter)

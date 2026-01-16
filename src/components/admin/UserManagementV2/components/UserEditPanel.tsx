@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { UserV2, Role, Coordinacion } from '../types';
-import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../../../config/supabaseSystemUI';
 import { groupsService, type PermissionGroup } from '../../../../services/groupsService';
 
 // ============================================
@@ -99,7 +99,7 @@ const UserInfractionsGrid: React.FC<{ user: UserV2 }> = ({ user }) => {
       setLoadingWarnings(true);
       try {
         // Buscar por user_email ya que es el campo que se usa para registrar warnings
-        const { data, error } = await supabaseSystemUIAdmin
+        const { data, error } = await supabaseSystemUI
           .from('content_moderation_warnings')
           .select('id, input_text, warning_reason, warning_category, created_at')
           .eq('user_email', user.email)
@@ -568,7 +568,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
   const handleArchive = useCallback(async () => {
     setIsArchiving(true);
     try {
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('auth_users')
         .update({
           archivado: true,

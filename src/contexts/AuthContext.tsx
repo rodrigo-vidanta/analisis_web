@@ -7,7 +7,7 @@ import { authService, type Permission, type AuthState, type LoginCredentials } f
 import { permissionsService } from '../services/permissionsService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
-import { supabaseSystemUI as supabase, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI as supabase, supabaseSystemUI } from '../config/supabaseSystemUI';
 import toast from 'react-hot-toast';
 
 // Tipos para el contexto
@@ -83,14 +83,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!authState.user?.id || !authState.isAuthenticated) {
       // Limpiar suscripción si no hay usuario autenticado
       if (backupRealtimeChannelRef.current) {
-        supabaseSystemUIAdmin.removeChannel(backupRealtimeChannelRef.current);
+        supabaseSystemUI.removeChannel(backupRealtimeChannelRef.current);
         backupRealtimeChannelRef.current = null;
       }
       return;
     }
 
     // Crear canal realtime para escuchar cambios en auth_users relacionados con backup
-    const channel = supabaseSystemUIAdmin
+    const channel = supabaseSystemUI
       .channel(`backup-updates-${authState.user.id}`)
       .on(
         'postgres_changes',
@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Cleanup al desmontar o cambiar de usuario
     return () => {
       if (backupRealtimeChannelRef.current) {
-        supabaseSystemUIAdmin.removeChannel(backupRealtimeChannelRef.current);
+        supabaseSystemUI.removeChannel(backupRealtimeChannelRef.current);
         backupRealtimeChannelRef.current = null;
       }
     };

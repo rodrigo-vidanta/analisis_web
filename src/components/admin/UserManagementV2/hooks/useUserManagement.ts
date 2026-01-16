@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../../../config/supabaseSystemUI';
 import { coordinacionService, type Coordinacion } from '../../../../services/coordinacionService';
 import { groupsService, type PermissionGroup } from '../../../../services/groupsService';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -161,7 +161,7 @@ export function useUserManagement(): UseUserManagementReturn {
       setLoading(true);
       setError(null);
       
-      const { data, error: queryError } = await supabaseSystemUIAdmin
+      const { data, error: queryError } = await supabaseSystemUI
         .from('auth_users')
         .select(`
           *,
@@ -179,7 +179,7 @@ export function useUserManagement(): UseUserManagementReturn {
 
       let coordMap: Record<string, Coordinacion> = {};
       if (coordIds.size > 0) {
-        const { data: coordData } = await supabaseSystemUIAdmin
+        const { data: coordData } = await supabaseSystemUI
           .from('coordinaciones')
           .select('*')
           .in('id', Array.from(coordIds));
@@ -208,7 +208,7 @@ export function useUserManagement(): UseUserManagementReturn {
       
       if (emails.length > 0) {
         // Buscar warnings por email para obtener el user_id de System_UI
-        const { data: warningsByEmail, error: emailError } = await supabaseSystemUIAdmin
+        const { data: warningsByEmail, error: emailError } = await supabaseSystemUI
           .from('content_moderation_warnings')
           .select('user_id, user_email')
           .in('user_email', emails);
@@ -226,7 +226,7 @@ export function useUserManagement(): UseUserManagementReturn {
           // Buscar contadores usando los user_id de System_UI
           const systemUserIds = Object.values(emailToSystemUserId);
           if (systemUserIds.length > 0) {
-            const { data: countersBySystemId, error: countersError } = await supabaseSystemUIAdmin
+            const { data: countersBySystemId, error: countersError } = await supabaseSystemUI
               .from('user_warning_counters')
               .select('*')
               .in('user_id', systemUserIds);
@@ -263,7 +263,7 @@ export function useUserManagement(): UseUserManagementReturn {
       const userCoordinacionesMap: Record<string, string[]> = {};
       
       if (coordinadorIds.length > 0) {
-        const { data: relaciones, error: relError } = await supabaseSystemUIAdmin
+        const { data: relaciones, error: relError } = await supabaseSystemUI
           .from('auth_user_coordinaciones')
           .select('user_id, coordinacion_id')
           .in('user_id', coordinadorIds);
@@ -279,7 +279,7 @@ export function useUserManagement(): UseUserManagementReturn {
       }
 
       // Cargar TODAS las coordinaciones para poder mapear nombres (para coordinadores)
-      const { data: allCoordinaciones } = await supabaseSystemUIAdmin
+      const { data: allCoordinaciones } = await supabaseSystemUI
         .from('coordinaciones')
         .select('id, nombre, codigo');
       
@@ -299,7 +299,7 @@ export function useUserManagement(): UseUserManagementReturn {
       if (userIds.length > 0) {
         // Obtener el último login exitoso por usuario usando una consulta agrupada
         // Nota: Supabase no soporta GROUP BY directo, así que obtenemos los más recientes
-        const { data: loginLogs, error: loginError } = await supabaseSystemUIAdmin
+        const { data: loginLogs, error: loginError } = await supabaseSystemUI
           .from('auth_login_logs')
           .select('user_id, created_at')
           .in('user_id', userIds)
@@ -401,7 +401,7 @@ export function useUserManagement(): UseUserManagementReturn {
     // Cargar asignaciones usuario-grupo (la tabla puede no existir aún)
     // Envuelto en try-catch separado para no detener la ejecución
     try {
-      const { data: assignments, error: assignError } = await supabaseSystemUIAdmin
+      const { data: assignments, error: assignError } = await supabaseSystemUI
         .from('user_permission_groups')
         .select('user_id, group_id');
       
@@ -423,7 +423,7 @@ export function useUserManagement(): UseUserManagementReturn {
 
   const loadRoles = useCallback(async () => {
     try {
-      const { data, error: rolesError } = await supabaseSystemUIAdmin
+      const { data, error: rolesError } = await supabaseSystemUI
         .from('auth_roles')
         .select('*')
         .eq('is_active', true)
@@ -827,7 +827,7 @@ export function useUserManagement(): UseUserManagementReturn {
     try {
       // 1. Manejar cambio de password (usa RPC, no update directo)
       if (updates.password && updates.password.length > 0) {
-        const { error: passwordError } = await supabaseSystemUIAdmin.rpc('change_user_password', {
+        const { error: passwordError } = await supabaseSystemUI.rpc('change_user_password', {
           p_user_id: userId,
           p_new_password: updates.password,
         });
@@ -846,7 +846,7 @@ export function useUserManagement(): UseUserManagementReturn {
       // FIX 2026-01-14: Solo usar auth_user_coordinaciones (tabla legacy eliminada del código)
       const cleanAllCoordinadorRelations = async (userId: string) => {
         // Limpiar auth_user_coordinaciones (única fuente de verdad)
-        await supabaseSystemUIAdmin
+        await supabaseSystemUI
           .from('auth_user_coordinaciones')
           .delete()
           .eq('user_id', userId);
@@ -864,7 +864,7 @@ export function useUserManagement(): UseUserManagementReturn {
             assigned_by: currentUserId || null
           }));
 
-          const { error: relacionesError } = await supabaseSystemUIAdmin
+          const { error: relacionesError } = await supabaseSystemUI
             .from('auth_user_coordinaciones')
             .insert(relaciones);
 
@@ -920,7 +920,7 @@ export function useUserManagement(): UseUserManagementReturn {
       if (Object.keys(filteredUpdates).length > 0) {
         console.log('Actualizando auth_users con campos:', filteredUpdates);
 
-        const { error } = await supabaseSystemUIAdmin
+        const { error } = await supabaseSystemUI
           .from('auth_users')
           .update({
             ...filteredUpdates,
@@ -953,7 +953,7 @@ export function useUserManagement(): UseUserManagementReturn {
       const targetUserId = user.system_ui_user_id || user.id;
       
       // Resetear contador de warnings en user_warning_counters
-      const { error: counterError } = await supabaseSystemUIAdmin
+      const { error: counterError } = await supabaseSystemUI
         .from('user_warning_counters')
         .update({
           is_blocked: false,

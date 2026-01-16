@@ -8,7 +8,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -85,7 +85,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ userId, onSuc
 
     try {
       // Verificar contraseña actual usando función RPC
-      const { data: authResult, error: authError } = await supabaseSystemUIAdmin.rpc(
+      const { data: authResult, error: authError } = await supabaseSystemUI.rpc(
         'authenticate_user',
         {
           user_email: '', // No necesario, solo verificamos password
@@ -94,7 +94,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ userId, onSuc
       );
 
       // Obtener email del usuario para verificar contraseña
-      const { data: userData, error: userError } = await supabaseSystemUIAdmin
+      const { data: userData, error: userError } = await supabaseSystemUI
         .from('auth_users')
         .select('email')
         .eq('id', userId)
@@ -105,7 +105,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ userId, onSuc
       }
 
       // Verificar contraseña actual
-      const { data: verifyResult, error: verifyError } = await supabaseSystemUIAdmin.rpc(
+      const { data: verifyResult, error: verifyError } = await supabaseSystemUI.rpc(
         'authenticate_user',
         {
           user_email: userData.email,
@@ -120,7 +120,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ userId, onSuc
       }
 
       // Cambiar contraseña usando función RPC
-      const { error: changeError } = await supabaseSystemUIAdmin.rpc('change_user_password', {
+      const { error: changeError } = await supabaseSystemUI.rpc('change_user_password', {
         p_user_id: userId,
         p_new_password: formData.newPassword,
       });
@@ -130,7 +130,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ userId, onSuc
       }
 
       // Actualizar must_change_password a false
-      const { error: updateError } = await supabaseSystemUIAdmin
+      const { error: updateError } = await supabaseSystemUI
         .from('auth_users')
         .update({
           must_change_password: false,

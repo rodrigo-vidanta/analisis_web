@@ -15,7 +15,7 @@
  * - Usar el panel Administración > Credenciales para gestionar tokens
  */
 
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // Tokens de emergencia (fallback solo si BD no está disponible)
 // ⚠️ ESTOS VALORES DEBEN COINCIDIR CON LA BD - NO EDITAR AQUÍ
@@ -49,7 +49,7 @@ export const getApiToken = async (tokenKey: string): Promise<string> => {
 
   try {
     // Intentar cargar desde BD
-    const { data, error } = await supabaseSystemUIAdmin
+    const { data, error } = await supabaseSystemUI
       .from('api_auth_tokens')
       .select('token_key, token_value')
       .eq('token_key', tokenKey)
@@ -88,7 +88,7 @@ export const getAllApiTokens = async (): Promise<Record<string, string>> => {
   }
 
   try {
-    const { data, error } = await supabaseSystemUIAdmin
+    const { data, error } = await supabaseSystemUI
       .from('api_auth_tokens')
       .select('token_key, token_value');
 

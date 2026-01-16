@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { supabaseSystemUIAdmin as pqncSupabaseAdmin } from '../../config/supabaseSystemUI';
-import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI as pqncSupabaseAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { userProfileEvents } from '../../utils/userProfileEvents';
 
 interface AvatarUploadProps {
@@ -57,7 +57,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
         .getPublicUrl(fileName);
 
       // La función RPC está en System UI, no en PQNC
-      const { error: dbError } = await supabaseSystemUIAdmin.rpc('upload_user_avatar', {
+      const { error: dbError } = await supabaseSystemUI.rpc('upload_user_avatar', {
         p_user_id: userId,
         p_avatar_url: publicUrl,
         p_filename: file.name,
@@ -87,7 +87,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
     setUploading(true);
     try {
       // Eliminar de base de datos (tabla está en System UI)
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('user_avatars')
         .delete()
         .eq('user_id', userId);

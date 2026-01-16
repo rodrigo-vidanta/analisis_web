@@ -19,11 +19,11 @@
 // SERVICIO PARA GESTIÓN DE TOKENS AI MODELS
 // ============================================
 
-// ⚠️ MIGRACIÓN 2026-01-15: Usar supabaseSystemUIAdmin (PQNC_AI) en lugar de supabaseAdmin
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+// ⚠️ MIGRACIÓN 2026-01-15: Usar supabaseSystemUI (PQNC_AI) en lugar de supabaseAdmin
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // Alias para compatibilidad con código existente
-const supabaseAdmin = supabaseSystemUIAdmin;
+const supabaseAdmin = supabaseSystemUI;
 
 export interface TokenLimits {
   user_id: string;

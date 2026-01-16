@@ -7,7 +7,7 @@
  * Base de datos: System UI (zbylezfyagwrxoecioup.supabase.co)
  */
 
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // Importar función MCP si está disponible (para uso futuro)
 declare global {
@@ -55,7 +55,7 @@ class AdminMessagesService {
   async createMessage(params: CreateAdminMessageParams): Promise<AdminMessage | null> {
     try {
       // Intentar primero con acceso directo a la tabla
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('admin_messages')
         .insert({
           category: params.category,
@@ -273,7 +273,7 @@ class AdminMessagesService {
     limit: number = 50
   ): Promise<AdminMessage[]> {
     try {
-      let query = supabaseSystemUIAdmin
+      let query = supabaseSystemUI
         .from('admin_messages')
         .select('*')
         .order('created_at', { ascending: false })
@@ -304,7 +304,7 @@ class AdminMessagesService {
    */
   async getUnreadCount(recipientRole: string = 'admin'): Promise<number> {
     try {
-      const { count, error } = await supabaseSystemUIAdmin
+      const { count, error } = await supabaseSystemUI
         .from('admin_messages')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending')
@@ -323,7 +323,7 @@ class AdminMessagesService {
    */
   async markAsRead(messageId: string, userId: string): Promise<boolean> {
     try {
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('admin_messages')
         .update({
           status: 'read',
@@ -349,7 +349,7 @@ class AdminMessagesService {
     note?: string
   ): Promise<boolean> {
     try {
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('admin_messages')
         .update({
           status: 'resolved',
@@ -372,7 +372,7 @@ class AdminMessagesService {
    */
   async archiveMessage(messageId: string): Promise<boolean> {
     try {
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('admin_messages')
         .update({
           status: 'archived'
@@ -393,7 +393,7 @@ class AdminMessagesService {
   async unlockUser(userEmail: string): Promise<boolean> {
     try {
       // Buscar usuario por email en System UI
-      const { data: user, error: findError } = await supabaseSystemUIAdmin
+      const { data: user, error: findError } = await supabaseSystemUI
         .from('auth_users')
         .select('id, email, locked_until, failed_login_attempts')
         .eq('email', userEmail)
@@ -405,7 +405,7 @@ class AdminMessagesService {
       }
 
       // Desbloquear usuario: resetear intentos fallidos y locked_until
-      const { error: updateError } = await supabaseSystemUIAdmin
+      const { error: updateError } = await supabaseSystemUI
         .from('auth_users')
         .update({
           failed_login_attempts: 0,
@@ -438,11 +438,11 @@ class AdminMessagesService {
     recipientRole: string,
     callback: (message: AdminMessage) => void
   ) {
-    let channel: ReturnType<typeof supabaseSystemUIAdmin.channel> | null = null;
+    let channel: ReturnType<typeof supabaseSystemUI.channel> | null = null;
     let isSubscribed = false;
 
     try {
-      channel = supabaseSystemUIAdmin
+      channel = supabaseSystemUI
         .channel(`admin_messages_${recipientRole}_${Date.now()}`) // Canal único para evitar conflictos
         .on(
           'postgres_changes',
@@ -479,7 +479,7 @@ class AdminMessagesService {
     return () => {
       if (channel && isSubscribed) {
         try {
-          supabaseSystemUIAdmin.removeChannel(channel);
+          supabaseSystemUI.removeChannel(channel);
         } catch (error) {
           // Ignorar errores al desconectar (puede ser que ya se cerró)
         }

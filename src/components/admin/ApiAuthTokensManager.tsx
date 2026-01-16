@@ -50,7 +50,7 @@ import {
   AlertCircle,
   Settings
 } from 'lucide-react';
-import { supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import toast from 'react-hot-toast';
 
 // ============================================
@@ -204,13 +204,13 @@ const ApiAuthTokensManager: React.FC = () => {
     try {
       setLoading(true);
       
-      if (!supabaseSystemUIAdmin) {
+      if (!supabaseSystemUI) {
         console.warn('⚠️ Supabase client not available');
         setTokens([]);
         return;
       }
       
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('api_auth_tokens')
         .select('*')
         .order('module_name');
@@ -369,7 +369,7 @@ const ApiAuthTokensManager: React.FC = () => {
       const now = new Date().toISOString();
 
       // Save to history
-      await supabaseSystemUIAdmin
+      await supabaseSystemUI
         ?.from('api_auth_tokens_history')
         .insert({
           token_id: editingToken.id,
@@ -385,7 +385,7 @@ const ApiAuthTokensManager: React.FC = () => {
         });
 
       // Update token
-      const { error } = await supabaseSystemUIAdmin!
+      const { error } = await supabaseSystemUI!
         .from('api_auth_tokens')
         .update({
           token_value: editForm.token_value.trim(),

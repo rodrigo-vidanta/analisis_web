@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Lock, Upload, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, Loader2, Trash2 } from 'lucide-react';
-import { supabaseSystemUI as supabase, supabaseSystemUIAdmin as supabaseAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI as supabase, supabaseSystemUI as supabaseAdmin } from '../../config/supabaseSystemUI';
 import { userProfileEvents } from '../../utils/userProfileEvents';
 import toast from 'react-hot-toast';
 
@@ -137,7 +137,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
         .getPublicUrl(fileName);
       
       // La función RPC está en System UI, no en PQNC
-      const { error: dbError } = await supabaseSystemUIAdmin.rpc('upload_user_avatar', {
+      const { error: dbError } = await supabaseSystemUI.rpc('upload_user_avatar', {
         p_user_id: userId,
         p_avatar_url: publicUrl,
         p_file_name: fileName,
@@ -168,7 +168,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setUploadingAvatar(true);
     try {
       // La tabla user_avatars está en System UI, no en PQNC
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('user_avatars')
         .delete()
         .eq('user_id', userId);

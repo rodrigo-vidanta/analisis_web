@@ -4,7 +4,7 @@
  */
 
 import { analysisSupabase } from '../config/analysisSupabase';
-import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { permissionsService } from './permissionsService';
 import { coordinacionService } from './coordinacionService';
 import { getApiToken } from './apiTokensService';
@@ -95,7 +95,7 @@ class ScheduledCallsService {
         if (ejecutivoFilter) {
           // Ejecutivo: solo sus prospectos asignados + prospectos de ejecutivos donde es backup
           // Obtener IDs de ejecutivos donde este ejecutivo es backup
-          const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUIAdmin
+          const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUI
             .from('auth_users')
             .select('id')
             .eq('backup_id', ejecutivoFilter)

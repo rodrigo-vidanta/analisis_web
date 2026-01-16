@@ -11,7 +11,7 @@
  * 4. Cualquier cambio debe documentarse en docs/ROLES_PERMISOS_README.md
  */
 
-import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // ============================================
 // CONSTANTES
@@ -502,7 +502,7 @@ class PermissionsService {
     
     try {
       // Cargar todos los datos de backup en una sola query
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_users')
         .select('id, backup_id, has_backup')
         .in('id', idsToLoad);
@@ -559,7 +559,7 @@ class PermissionsService {
     }
     
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_users')
         .select('id')
         .eq('backup_id', ejecutivoId)
@@ -696,7 +696,7 @@ class PermissionsService {
 
         // Coordinadores y Supervisores: obtener todas sus coordinaciones desde tabla intermedia
         // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
-        const { data, error } = await supabaseSystemUIAdmin
+        const { data, error } = await supabaseSystemUI
           .from('auth_user_coordinaciones')
           .select('coordinacion_id')
           .eq('user_id', userId);
@@ -832,7 +832,7 @@ class PermissionsService {
 
       // Obtener todas las coordinaciones del coordinador
       // Migrado de coordinador_coordinaciones → auth_user_coordinaciones (2025-12-29)
-      const { data: relaciones, error: relError } = await supabaseSystemUIAdmin
+      const { data: relaciones, error: relError } = await supabaseSystemUI
         .from('auth_user_coordinaciones')
         .select('coordinacion_id')
         .eq('user_id', userId);
@@ -844,7 +844,7 @@ class PermissionsService {
 
       // Obtener códigos de coordinaciones por separado (sin embed)
       const coordIds = relaciones.map(r => r.coordinacion_id);
-      const { data: coordinaciones, error: coordError } = await supabaseSystemUIAdmin
+      const { data: coordinaciones, error: coordError } = await supabaseSystemUI
         .from('coordinaciones')
         .select('codigo')
         .in('id', coordIds);
@@ -923,7 +923,7 @@ class PermissionsService {
         
         // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
         // Buscar ejecutivos que tienen backup_id = ejecutivoFilter
-        const { data: ejecutivosConBackup, error } = await supabaseSystemUIAdmin
+        const { data: ejecutivosConBackup, error } = await supabaseSystemUI
           .from('auth_users')
           .select('id')
           .eq('backup_id', ejecutivoFilter)
@@ -1000,7 +1000,7 @@ class PermissionsService {
       // Si es ejecutivo, filtrar por ejecutivo_id del prospecto + prospectos de ejecutivos donde es backup
       if (ejecutivoFilter) {
         // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
-        const { data: ejecutivosConBackup, error } = await supabaseSystemUIAdmin
+        const { data: ejecutivosConBackup, error } = await supabaseSystemUI
           .from('auth_users')
           .select('id')
           .eq('backup_id', ejecutivoFilter)
@@ -1066,7 +1066,7 @@ class PermissionsService {
       if (ejecutivoFilter) {
         // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
         // Buscar ejecutivos que tienen backup_id = ejecutivoFilter
-        const { data: ejecutivosConBackup, error } = await supabaseSystemUIAdmin
+        const { data: ejecutivosConBackup, error } = await supabaseSystemUI
           .from('auth_users')
           .select('id')
           .eq('backup_id', ejecutivoFilter)

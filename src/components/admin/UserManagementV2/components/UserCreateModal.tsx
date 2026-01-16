@@ -25,8 +25,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { Role, Coordinacion } from '../types';
-import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
-import { supabaseSystemUIAdmin as pqncSupabaseAdmin } from '../../../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../../../config/supabaseSystemUI';
+import { supabaseSystemUI as pqncSupabaseAdmin } from '../../../../config/supabaseSystemUI';
 import { groupsService, type PermissionGroup } from '../../../../services/groupsService';
 
 // ============================================
@@ -185,7 +185,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       setIsLoading(true);
 
       // Crear usuario usando función SQL
-      const { data: newUser, error: createError } = await supabaseSystemUIAdmin.rpc('create_user_with_role', {
+      const { data: newUser, error: createError } = await supabaseSystemUI.rpc('create_user_with_role', {
         user_email: formData.email.trim().toLowerCase(),
         user_password: formData.password,
         user_first_name: formData.first_name.trim(),
@@ -211,7 +211,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       // Si es coordinador o supervisor, asignar múltiples coordinaciones
       if ((selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && formData.coordinaciones_ids.length > 0) {
         // Actualizar flags del usuario
-        await supabaseSystemUIAdmin
+        await supabaseSystemUI
           .from('auth_users')
           .update({
             is_coordinator: selectedRole?.name === 'coordinador',
@@ -226,7 +226,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
           assigned_by: currentUserId || null
         }));
 
-        const { error: relacionesError } = await supabaseSystemUIAdmin
+        const { error: relacionesError } = await supabaseSystemUI
           .from('auth_user_coordinaciones')
           .insert(relaciones);
 
@@ -240,7 +240,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
 
       // Si es ejecutivo, asignar una sola coordinación
       if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id) {
-        const { error: updateError } = await supabaseSystemUIAdmin
+        const { error: updateError } = await supabaseSystemUI
           .from('auth_users')
           .update({
             coordinacion_id: formData.coordinacion_id,

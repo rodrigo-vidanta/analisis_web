@@ -16,7 +16,7 @@
  * Ver: dynamicsReasignacionService.ts
  */
 
-import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { analysisSupabase } from '../config/analysisSupabase';
 import { coordinacionService, type ProspectAssignment } from './coordinacionService';
 import { dynamicsReasignacionService } from './dynamicsReasignacionService';
@@ -239,14 +239,14 @@ class AssignmentService {
   ): Promise<AssignmentResult> {
     try {
       // Desactivar asignaciones anteriores
-      await supabaseSystemUIAdmin
+      await supabaseSystemUI
         .from('prospect_assignments')
         .update({ is_active: false, unassigned_at: new Date().toISOString() })
         .eq('prospect_id', prospectId)
         .eq('is_active', true);
 
       // Crear nueva asignación
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('prospect_assignments')
         .insert({
           prospect_id: prospectId,
@@ -259,7 +259,7 @@ class AssignmentService {
       if (error) throw error;
 
       // Registrar en logs
-      await supabaseSystemUIAdmin.from('assignment_logs').insert({
+      await supabaseSystemUI.from('assignment_logs').insert({
         prospect_id: prospectId,
         coordinacion_id: coordinacionId,
         action: 'assigned',
@@ -354,7 +354,7 @@ class AssignmentService {
           .eq('id', prospectId)
           .single(),
         // Consulta 2: Obtener asignación actual en prospect_assignments
-        supabaseSystemUIAdmin
+        supabaseSystemUI
           .from('prospect_assignments')
           .select('*')
           .eq('prospect_id', prospectId)
@@ -394,7 +394,7 @@ class AssignmentService {
       if (assignment) {
         // Actualizar asignación existente
         updatePromises.push(
-          supabaseSystemUIAdmin
+          supabaseSystemUI
             .from('prospect_assignments')
             .update({
               ejecutivo_id: null,
@@ -405,7 +405,7 @@ class AssignmentService {
         );
       } else {
         // Buscar cualquier asignación (activa o inactiva) o crear nueva
-        const { data: anyAssignment } = await supabaseSystemUIAdmin
+        const { data: anyAssignment } = await supabaseSystemUI
           .from('prospect_assignments')
           .select('id')
           .eq('prospect_id', prospectId)
@@ -415,7 +415,7 @@ class AssignmentService {
 
         if (anyAssignment) {
           updatePromises.push(
-            supabaseSystemUIAdmin
+            supabaseSystemUI
               .from('prospect_assignments')
               .update({
                 coordinacion_id: coordinacionId,
@@ -427,7 +427,7 @@ class AssignmentService {
           );
         } else {
           updatePromises.push(
-            supabaseSystemUIAdmin
+            supabaseSystemUI
               .from('prospect_assignments')
               .insert({
                 prospect_id: prospectId,
@@ -465,7 +465,7 @@ class AssignmentService {
       // OPTIMIZACIÓN: Registrar log de forma asíncrona (no bloquea la respuesta)
       (async () => {
         try {
-          await supabaseSystemUIAdmin
+          await supabaseSystemUI
             .from('assignment_logs')
             .insert({
               prospect_id: prospectId,

@@ -17,8 +17,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabaseSystemUI, supabaseSystemUIAdmin } from '../../config/supabaseSystemUI';
-import { supabaseSystemUIAdmin as pqncSupabaseAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI as pqncSupabaseAdmin } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
@@ -182,7 +182,7 @@ const UserManagement: React.FC = () => {
     if (!currentUser?.id) return;
     
     try {
-      const { data: relaciones } = await supabaseSystemUIAdmin
+      const { data: relaciones } = await supabaseSystemUI
         .from('auth_user_coordinaciones')
         .select('coordinacion_id')
         .eq('user_id', currentUser.id);
@@ -214,7 +214,7 @@ const UserManagement: React.FC = () => {
     try {
       setLoading(true);
       // Cargar usuarios directamente desde auth_users con información completa
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_users')
         .select(`
           *,
@@ -248,7 +248,7 @@ const UserManagement: React.FC = () => {
           
           if (emails.length > 0) {
             // Buscar warnings por email en System_UI (usar admin para bypass de RLS)
-            const { data: warningsByEmail, error: emailError } = await supabaseSystemUIAdmin
+            const { data: warningsByEmail, error: emailError } = await supabaseSystemUI
               .from('content_moderation_warnings')
               .select('user_id, user_email')
               .in('user_email', emails);
@@ -267,7 +267,7 @@ const UserManagement: React.FC = () => {
               // Buscar contadores usando los user_id de System_UI
               const systemUserIds = Object.values(emailToSystemUserId);
               if (systemUserIds.length > 0) {
-                const { data: countersBySystemId, error: countersError } = await supabaseSystemUIAdmin
+                const { data: countersBySystemId, error: countersError } = await supabaseSystemUI
                   .from('user_warning_counters')
                   .select('*')
                   .in('user_id', systemUserIds);
@@ -331,7 +331,7 @@ const UserManagement: React.FC = () => {
             usersWithBlockStatus.map(async (user) => {
               if (user.role_name === 'ejecutivo' || user.role_name === 'supervisor') {
                 // FIX 2026-01-14: Para ejecutivos y supervisores: cargar coordinacion_id desde auth_users
-                const { data: systemUser } = await supabaseSystemUIAdmin
+                const { data: systemUser } = await supabaseSystemUI
                   .from('auth_users')
                   .select('coordinacion_id')
                   .eq('id', user.id)
@@ -339,7 +339,7 @@ const UserManagement: React.FC = () => {
                 return { ...user, coordinacion_id: systemUser?.coordinacion_id };
               } else if (user.role_name === 'coordinador') {
                 // Para coordinadores: cargar coordinaciones desde tabla intermedia (nueva tabla)
-                const { data: relaciones } = await supabaseSystemUIAdmin
+                const { data: relaciones } = await supabaseSystemUI
                   .from('auth_user_coordinaciones')
                   .select('coordinacion_id')
                   .eq('user_id', user.id);
@@ -378,7 +378,7 @@ const UserManagement: React.FC = () => {
                 return { ...mappedUser, coordinacion_id: user.coordinacion_id };
               } else if (mappedUser.role_name === 'coordinador') {
                 // Fallback: migrado a auth_user_coordinaciones (2025-12-29)
-                const { data: relaciones } = await supabaseSystemUIAdmin
+                const { data: relaciones } = await supabaseSystemUI
                   .from('auth_user_coordinaciones')
                   .select('coordinacion_id')
                   .eq('user_id', user.id);
@@ -415,7 +415,7 @@ const UserManagement: React.FC = () => {
               return { ...mappedUser, coordinacion_id: user.coordinacion_id };
             } else if (mappedUser.role_name === 'coordinador') {
               // Fallback: migrado a auth_user_coordinaciones (2025-12-29)
-              const { data: relaciones } = await supabaseSystemUIAdmin
+              const { data: relaciones } = await supabaseSystemUI
                 .from('auth_user_coordinaciones')
                 .select('coordinacion_id')
                 .eq('user_id', user.id);
@@ -641,7 +641,7 @@ const UserManagement: React.FC = () => {
   const loadRoles = async () => {
     try {
       // Cargar roles desde System_UI donde están coordinador y ejecutivo
-      const { data: systemRoles, error: systemError } = await supabaseSystemUIAdmin
+      const { data: systemRoles, error: systemError } = await supabaseSystemUI
         .from('auth_roles')
         .select('*')
         .order('name');
@@ -660,7 +660,7 @@ const UserManagement: React.FC = () => {
 
   const loadPermissions = async () => {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_permissions')
         .select('*')
         .order('module, permission_name');
@@ -674,7 +674,7 @@ const UserManagement: React.FC = () => {
 
   const loadUserPermissions = async (userId: string) => {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_user_permissions')
         .select('*')
         .eq('user_id', userId);
@@ -741,7 +741,7 @@ const UserManagement: React.FC = () => {
       setLoading(true);
 
       // Crear usuario usando función SQL
-      const { data: newUser, error: createError } = await supabaseSystemUIAdmin.rpc('create_user_with_role', {
+      const { data: newUser, error: createError } = await supabaseSystemUI.rpc('create_user_with_role', {
         user_email: formData.email,
         user_password: formData.password,
         user_first_name: formData.first_name,
@@ -774,7 +774,7 @@ const UserManagement: React.FC = () => {
               .getPublicUrl(fileName);
 
             // La función RPC está en System UI, no en PQNC
-            await supabaseSystemUIAdmin.rpc('upload_user_avatar', {
+            await supabaseSystemUI.rpc('upload_user_avatar', {
               p_user_id: newUser[0].user_id,
               p_avatar_url: publicUrl,
               p_filename: fileName,
@@ -798,7 +798,7 @@ const UserManagement: React.FC = () => {
       if (selectedRole?.name === 'coordinador' && formData.coordinaciones_ids.length > 0 && newUser[0]?.user_id) {
         try {
           // Actualizar flags del usuario
-          const { error: updateError } = await supabaseSystemUIAdmin
+          const { error: updateError } = await supabaseSystemUI
             .from('auth_users')
             .update({
               is_coordinator: true,
@@ -817,7 +817,7 @@ const UserManagement: React.FC = () => {
             assigned_by: currentUser?.id || null
           }));
 
-          const { error: relacionesError } = await supabaseSystemUIAdmin
+          const { error: relacionesError } = await supabaseSystemUI
             .from('auth_user_coordinaciones')
             .insert(relaciones);
 
@@ -833,7 +833,7 @@ const UserManagement: React.FC = () => {
       if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id && newUser[0]?.user_id) {
         try {
           // Actualizar usuario en System_UI con coordinación y flags
-          const { error: updateError } = await supabaseSystemUIAdmin
+          const { error: updateError } = await supabaseSystemUI
             .from('auth_users')
             .update({
               coordinacion_id: formData.coordinacion_id,
@@ -926,7 +926,7 @@ const UserManagement: React.FC = () => {
       }
 
       // Cargar coordinación del ejecutivo
-      const { data: ejecutivoData } = await supabaseSystemUIAdmin
+      const { data: ejecutivoData } = await supabaseSystemUI
         .from('auth_users')
         .select('coordinacion_id')
         .eq('id', selectedUser.id)
@@ -951,7 +951,7 @@ const UserManagement: React.FC = () => {
     if (shouldDeleteAvatar) {
       // Eliminar avatar
       try {
-        const { error: deleteError } = await supabaseSystemUIAdmin
+        const { error: deleteError } = await supabaseSystemUI
           .from('user_avatars')
           .delete()
           .eq('user_id', selectedUser.id);
@@ -959,7 +959,7 @@ const UserManagement: React.FC = () => {
         if (deleteError) throw deleteError;
         
         // Actualizar usuario con avatar null
-        const { error: updateError } = await supabaseSystemUIAdmin.rpc('upload_user_avatar', {
+        const { error: updateError } = await supabaseSystemUI.rpc('upload_user_avatar', {
           p_user_id: selectedUser.id,
           p_avatar_url: null,
           p_file_name: null,
@@ -989,7 +989,7 @@ const UserManagement: React.FC = () => {
           .getPublicUrl(fileName);
         
         // La función RPC está en System UI, no en PQNC
-        const { error: updateError } = await supabaseSystemUIAdmin.rpc('upload_user_avatar', {
+        const { error: updateError } = await supabaseSystemUI.rpc('upload_user_avatar', {
           p_user_id: selectedUser.id,
           p_avatar_url: publicUrl,
           p_file_name: fileName,
@@ -1011,7 +1011,7 @@ const UserManagement: React.FC = () => {
       let currentIdDynamics = selectedUser.id_dynamics;
       if (!currentIdDynamics) {
         try {
-          const { data: systemUser } = await supabaseSystemUIAdmin
+          const { data: systemUser } = await supabaseSystemUI
             .from('auth_users')
             .select('id_dynamics')
             .eq('id', selectedUser.id)
@@ -1048,7 +1048,7 @@ const UserManagement: React.FC = () => {
       if ((isAdmin || isAdminOperativo) && formData.email && formData.email !== selectedUser.email) {
         const normalizedEmail = formData.email.trim().toLowerCase();
         // Verificar que el nuevo email no esté en uso por otro usuario
-        const { data: existingUser, error: checkError } = await supabaseSystemUIAdmin
+        const { data: existingUser, error: checkError } = await supabaseSystemUI
           .from('auth_users')
           .select('id, email')
           .ilike('email', normalizedEmail)
@@ -1065,7 +1065,7 @@ const UserManagement: React.FC = () => {
       }
 
       // Actualizar datos básicos del usuario
-      const { error: updateError } = await supabaseSystemUIAdmin
+      const { error: updateError } = await supabaseSystemUI
         .from('auth_users')
         .update(updateData)
         .eq('id', selectedUser.id);
@@ -1074,7 +1074,7 @@ const UserManagement: React.FC = () => {
 
       // Si se habilitó la edición de contraseña y se proporcionó una nueva contraseña, actualizarla
       if (isEditingPassword && formData.password.trim()) {
-        const { error: passwordError } = await supabaseSystemUIAdmin.rpc('change_user_password', {
+        const { error: passwordError } = await supabaseSystemUI.rpc('change_user_password', {
           p_user_id: selectedUser.id,
           p_new_password: formData.password
         });
@@ -1095,7 +1095,7 @@ const UserManagement: React.FC = () => {
       if (selectedRole?.name === 'coordinador') {
         try {
           // Actualizar flags del usuario
-          const { error: updateError } = await supabaseSystemUIAdmin
+          const { error: updateError } = await supabaseSystemUI
             .from('auth_users')
             .update({
               is_coordinator: true,
@@ -1109,7 +1109,7 @@ const UserManagement: React.FC = () => {
           }
 
           // Eliminar relaciones existentes (nueva tabla)
-          await supabaseSystemUIAdmin
+          await supabaseSystemUI
             .from('auth_user_coordinaciones')
             .delete()
             .eq('user_id', selectedUser.id);
@@ -1122,7 +1122,7 @@ const UserManagement: React.FC = () => {
               assigned_by: currentUser?.id || null
             }));
 
-            const { error: relacionesError } = await supabaseSystemUIAdmin
+            const { error: relacionesError } = await supabaseSystemUI
               .from('auth_user_coordinaciones')
               .insert(relaciones);
 
@@ -1138,7 +1138,7 @@ const UserManagement: React.FC = () => {
         // ⚠️ DOWNGRADE A EJECUTIVO: Limpiar TODAS las relaciones de coordinador
         try {
           // Limpiar relaciones de auth_user_coordinaciones si existían
-          await supabaseSystemUIAdmin
+          await supabaseSystemUI
             .from('auth_user_coordinaciones')
             .delete()
             .eq('user_id', selectedUser.id);
@@ -1146,7 +1146,7 @@ const UserManagement: React.FC = () => {
           // ⚠️ 2026-01-14: Tabla legacy coordinador_coordinaciones ELIMINADA del código
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
-          const { error: coordUpdateError } = await supabaseSystemUIAdmin
+          const { error: coordUpdateError } = await supabaseSystemUI
             .from('auth_users')
             .update({
               coordinacion_id: formData.coordinacion_id,
@@ -1165,7 +1165,7 @@ const UserManagement: React.FC = () => {
         // Si cambió a otro rol que no es coordinador ni ejecutivo, limpiar todo
         try {
           // Limpiar relaciones de auth_user_coordinaciones (nueva tabla)
-          await supabaseSystemUIAdmin
+          await supabaseSystemUI
             .from('auth_user_coordinaciones')
             .delete()
             .eq('user_id', selectedUser.id);
@@ -1173,7 +1173,7 @@ const UserManagement: React.FC = () => {
           // ⚠️ 2026-01-14: Tabla legacy coordinador_coordinaciones ELIMINADA del código
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
-          const { error: coordClearError } = await supabaseSystemUIAdmin
+          const { error: coordClearError } = await supabaseSystemUI
             .from('auth_users')
             .update({
               coordinacion_id: null,
@@ -1269,7 +1269,7 @@ const UserManagement: React.FC = () => {
       setError(null);
 
       // Archivar usuario (eliminación lógica)
-      const { error: archiveError } = await supabaseSystemUIAdmin
+      const { error: archiveError } = await supabaseSystemUI
         .from('auth_users')
         .update({ 
           archivado: true,
@@ -1305,7 +1305,7 @@ const UserManagement: React.FC = () => {
       setError(null);
 
       // Desarchivar usuario
-      const { error: unarchiveError } = await supabaseSystemUIAdmin
+      const { error: unarchiveError } = await supabaseSystemUI
         .from('auth_users')
         .update({ 
           archivado: false,
@@ -1377,7 +1377,7 @@ const UserManagement: React.FC = () => {
       }
 
       // Archivar usuario
-      const { error: archiveError } = await supabaseSystemUIAdmin
+      const { error: archiveError } = await supabaseSystemUI
         .from('auth_users')
         .update({ 
           archivado: true,
@@ -1434,7 +1434,7 @@ const UserManagement: React.FC = () => {
 
       // INTENTAR USAR FUNCIÓN RPC SI ESTÁ DISPONIBLE
       try {
-        const { data: result, error } = await supabaseSystemUIAdmin.rpc('configure_evaluator_analysis_permissions', {
+        const { data: result, error } = await supabaseSystemUI.rpc('configure_evaluator_analysis_permissions', {
           p_target_user_id: userId,
           p_natalia_access: nataliaAccess,
           p_pqnc_access: pqncAccess
@@ -1466,7 +1466,7 @@ const UserManagement: React.FC = () => {
   const removeAnalysisSubPermissions = async (userId: string) => {
     try {
       // Obtener role_id del usuario
-      const { data: userData } = await supabaseSystemUIAdmin
+      const { data: userData } = await supabaseSystemUI
         .from('auth_users')
         .select('role_id')
         .eq('id', userId)
@@ -1480,7 +1480,7 @@ const UserManagement: React.FC = () => {
         .map(p => p.id);
 
       if (analysisPermissionIds.length > 0) {
-        await supabaseSystemUIAdmin
+        await supabaseSystemUI
           .from('auth_role_permissions')
           .delete()
           .eq('role_id', userData.role_id)
@@ -1538,7 +1538,7 @@ const UserManagement: React.FC = () => {
     if (user.role_name === 'coordinador') {
       // Para coordinadores: cargar desde tabla intermedia (nueva tabla)
       try {
-        const { data: relaciones, error: relacionesError } = await supabaseSystemUIAdmin
+        const { data: relaciones, error: relacionesError } = await supabaseSystemUI
           .from('auth_user_coordinaciones')
           .select('coordinacion_id')
           .eq('user_id', user.id);
@@ -1558,7 +1558,7 @@ const UserManagement: React.FC = () => {
       // ============================================
       try {
         // Primero cargar datos del usuario para obtener coordinacion_id directo
-        const { data: systemUser, error: systemError } = await supabaseSystemUIAdmin
+        const { data: systemUser, error: systemError } = await supabaseSystemUI
           .from('auth_users')
           .select('coordinacion_id, id_dynamics')
           .eq('id', user.id)
@@ -1576,7 +1576,7 @@ const UserManagement: React.FC = () => {
         }
         
         // También cargar desde tabla intermedia (supervisores pueden tener múltiples coordinaciones)
-        const { data: relaciones, error: relacionesError } = await supabaseSystemUIAdmin
+        const { data: relaciones, error: relacionesError } = await supabaseSystemUI
           .from('auth_user_coordinaciones')
           .select('coordinacion_id')
           .eq('user_id', user.id);
@@ -1594,7 +1594,7 @@ const UserManagement: React.FC = () => {
     } else if (user.role_name === 'ejecutivo') {
       // Para ejecutivos: cargar desde campo coordinacion_id e id_dynamics
       try {
-        const { data: systemUser, error: systemError } = await supabaseSystemUIAdmin
+        const { data: systemUser, error: systemError } = await supabaseSystemUI
           .from('auth_users')
           .select('coordinacion_id, id_dynamics')
           .eq('id', user.id)
@@ -1616,7 +1616,7 @@ const UserManagement: React.FC = () => {
       // Esto cubre admin, admin_operativo, evaluator, etc.
       // ============================================
       try {
-        const { data: systemUser, error: systemError } = await supabaseSystemUIAdmin
+        const { data: systemUser, error: systemError } = await supabaseSystemUI
           .from('auth_users')
           .select('coordinacion_id, id_dynamics')
           .eq('id', user.id)
@@ -2039,7 +2039,7 @@ const UserManagement: React.FC = () => {
                                 }
                                 try {
                                   const nuevoEstado = e.target.checked;
-                                  await supabaseSystemUIAdmin
+                                  await supabaseSystemUI
                                     .from('auth_users')
                                     .update({ is_operativo: nuevoEstado })
                                     .eq('id', user.id);

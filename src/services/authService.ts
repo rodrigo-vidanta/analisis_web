@@ -19,7 +19,7 @@
 // SERVICIO DE AUTENTICACIÓN
 // ============================================
 
-import { supabaseSystemUI as supabase, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI as supabase, supabaseSystemUI } from '../config/supabaseSystemUI';
 import { errorLogService } from './errorLogService';
 import { loginLogService } from './loginLogService';
 
@@ -254,7 +254,7 @@ class AuthService {
           }
 
           // Actualizar is_operativo a true (para todos los ejecutivos que hacen login)
-          const { error: updateError } = await supabaseSystemUIAdmin
+          const { error: updateError } = await supabaseSystemUI
             .from('auth_users')
             .update({ 
               is_operativo: true,
@@ -369,7 +369,7 @@ class AuthService {
           }
 
           // Actualizar is_operativo a false
-          const { error: updateError } = await supabaseSystemUIAdmin
+          const { error: updateError } = await supabaseSystemUI
             .from('auth_users')
             .update({ 
               is_operativo: false,

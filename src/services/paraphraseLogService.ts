@@ -1,4 +1,4 @@
-import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // ============================================
 // SERVICIO DE LOGS DE PARÁFRASIS
@@ -178,7 +178,7 @@ export class ParaphraseLogService {
       }
 
       // Usar admin client para bypass de RLS (necesario porque estamos en PQNC_AI y consultando System_UI)
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('user_warning_counters')
         .select('*')
         .in('user_id', userIds);

@@ -17,7 +17,7 @@
  * - ❌ NO USAR: coordinador_coordinaciones_legacy (solo backup histórico)
  */
 
-import { supabaseSystemUI, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // ============================================
 // INTERFACES Y TIPOS
@@ -143,7 +143,7 @@ class CoordinacionService {
   async getCoordinacionesParaAsignacion(): Promise<Coordinacion[]> {
     try {
       // Obtener coordinaciones activas directamente (sin usar función RPC que no existe)
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .select('*')
         .eq('is_active', true);
@@ -246,7 +246,7 @@ class CoordinacionService {
         insertData.is_active = coordinacionData.archivado === false ? true : false;
       }
 
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .insert(insertData)
         .select()
@@ -263,7 +263,7 @@ class CoordinacionService {
             is_active: coordinacionData.archivado === false ? true : false,
           };
           
-          const { data: basicData, error: basicError } = await supabaseSystemUIAdmin
+          const { data: basicData, error: basicError } = await supabaseSystemUI
             .from('coordinaciones')
             .insert(basicInsertData)
             .select()
@@ -329,7 +329,7 @@ class CoordinacionService {
 
       // Intentar usar función RPC segura primero
       try {
-        const { data: rpcData, error: rpcError } = await supabaseSystemUIAdmin.rpc('update_coordinacion_safe', {
+        const { data: rpcData, error: rpcError } = await supabaseSystemUI.rpc('update_coordinacion_safe', {
           p_id: coordinacionId,
           p_codigo: updates.codigo || null,
           p_nombre: updates.nombre || null,
@@ -346,7 +346,7 @@ class CoordinacionService {
       }
 
       // Fallback: método directo con manejo de errores
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .update(updateData)
         .eq('id', coordinacionId)
@@ -370,7 +370,7 @@ class CoordinacionService {
             basicUpdateData.is_active = !updates.archivado;
           }
           
-          const { data: basicData, error: basicError } = await supabaseSystemUIAdmin
+          const { data: basicData, error: basicError } = await supabaseSystemUI
             .from('coordinaciones')
             .update(basicUpdateData)
             .eq('id', coordinacionId)
@@ -404,7 +404,7 @@ class CoordinacionService {
   async deleteCoordinacion(coordinacionId: string): Promise<void> {
     try {
       // Verificar que no tenga ejecutivos asignados
-      const { count, error: countError } = await supabaseSystemUIAdmin
+      const { count, error: countError } = await supabaseSystemUI
         .from('auth_users')
         .select('*', { count: 'exact', head: true })
         .eq('coordinacion_id', coordinacionId)
@@ -416,7 +416,7 @@ class CoordinacionService {
         throw new Error('No se puede eliminar una coordinación con ejecutivos asignados');
       }
 
-      const { error } = await supabaseSystemUIAdmin
+      const { error } = await supabaseSystemUI
         .from('coordinaciones')
         .delete()
         .eq('id', coordinacionId);
@@ -442,7 +442,7 @@ class CoordinacionService {
     error?: string;
   }> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin.rpc('archivar_coordinacion_y_reasignar', {
+      const { data, error } = await supabaseSystemUI.rpc('archivar_coordinacion_y_reasignar', {
         p_coordinacion_id: coordinacionId,
         p_nueva_coordinacion_id: nuevaCoordinacionId,
         p_usuario_id: usuarioId,
@@ -1174,7 +1174,7 @@ class CoordinacionService {
     assignedBy: string
   ): Promise<void> {
     try {
-      await supabaseSystemUIAdmin
+      await supabaseSystemUI
         .from('auth_users')
         .update({
           coordinacion_id: coordinacionId,
@@ -1185,7 +1185,7 @@ class CoordinacionService {
 
       // Registrar en logs si existe la tabla
       try {
-        await supabaseSystemUIAdmin.from('assignment_logs').insert({
+        await supabaseSystemUI.from('assignment_logs').insert({
           ejecutivo_id: ejecutivoId,
           coordinacion_id: coordinacionId,
           action: coordinacionId ? 'assigned' : 'unassigned',
@@ -1234,7 +1234,7 @@ class CoordinacionService {
       // Usar función RPC para crear usuario (maneja el hash de contraseña correctamente)
       const passwordToUse = ejecutivoData.password || 'Admin$2025'; // Contraseña por defecto
 
-      const { data, error } = await supabaseSystemUIAdmin.rpc('create_user_with_role', {
+      const { data, error } = await supabaseSystemUI.rpc('create_user_with_role', {
         user_email: ejecutivoData.email,
         user_password: passwordToUse,
         user_first_name: ejecutivoData.first_name || ejecutivoData.full_name.split(' ')[0] || '',
@@ -1257,7 +1257,7 @@ class CoordinacionService {
       const newUser = data[0];
 
       // Actualizar coordinacion_id e is_ejecutivo después de crear el usuario
-      const { error: updateError } = await supabaseSystemUIAdmin
+      const { error: updateError } = await supabaseSystemUI
         .from('auth_users')
         .update({
           coordinacion_id: coordinacionId,
@@ -1272,7 +1272,7 @@ class CoordinacionService {
       }
 
       // Obtener el ejecutivo creado con todos los campos
-      const { data: ejecutivoData, error: fetchError } = await supabaseSystemUIAdmin
+      const { data: ejecutivoData, error: fetchError } = await supabaseSystemUI
         .from('auth_users')
         .select(`
           id,
@@ -1327,7 +1327,7 @@ class CoordinacionService {
     }
   ): Promise<Ejecutivo> {
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_users')
         .update(updates)
         .eq('id', ejecutivoId)

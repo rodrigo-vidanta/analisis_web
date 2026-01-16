@@ -26,7 +26,7 @@ import {
   Layers,
   UserCheck
 } from 'lucide-react';
-import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../../../config/supabaseSystemUI';
 import type { UserV2, Permission, UserPermission } from '../types';
 import toast from 'react-hot-toast';
 import { groupsService, type PermissionGroup as GroupType } from '../../../../services/groupsService';
@@ -115,7 +115,7 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
       }
 
       // Cargar todos los permisos disponibles
-      const { data: allPermissions, error: permError } = await supabaseSystemUIAdmin
+      const { data: allPermissions, error: permError } = await supabaseSystemUI
         .from('auth_permissions')
         .select('*')
         .order('module')
@@ -124,7 +124,7 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
       if (permError) throw permError;
 
       // Cargar permisos del usuario
-      const { data: userPerms, error: userPermError } = await supabaseSystemUIAdmin
+      const { data: userPerms, error: userPermError } = await supabaseSystemUI
         .from('auth_user_permissions')
         .select('*')
         .eq('user_id', user.id);
@@ -251,7 +251,7 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
       // Eliminar permisos
       if (toRemove.length > 0) {
-        const { error: deleteError } = await supabaseSystemUIAdmin
+        const { error: deleteError } = await supabaseSystemUI
           .from('auth_user_permissions')
           .delete()
           .eq('user_id', user.id)
@@ -273,7 +273,7 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({
           };
         });
 
-        const { error: insertError } = await supabaseSystemUIAdmin
+        const { error: insertError } = await supabaseSystemUI
           .from('auth_user_permissions')
           .insert(permissionsToInsert);
 

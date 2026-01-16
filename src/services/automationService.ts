@@ -244,8 +244,8 @@ class AutomationService {
       
       if (assignment) {
         // Sincronizar coordinacion_id y ejecutivo_id en la conversación
-        const { supabaseSystemUIAdmin } = await import('../config/supabaseSystemUI');
-        await supabaseSystemUIAdmin
+        const { supabaseSystemUI } = await import('../config/supabaseSystemUI');
+        await supabaseSystemUI
           .from('uchat_conversations')
           .update({
             coordinacion_id: assignment.coordinacion_id,
@@ -259,8 +259,8 @@ class AutomationService {
         // Luego sincronizar la conversación
         const updatedAssignment = await assignmentService.getProspectAssignment(prospectId);
         if (updatedAssignment) {
-          const { supabaseSystemUIAdmin } = await import('../config/supabaseSystemUI');
-          await supabaseSystemUIAdmin
+          const { supabaseSystemUI } = await import('../config/supabaseSystemUI');
+          await supabaseSystemUI
             .from('uchat_conversations')
             .update({
               coordinacion_id: updatedAssignment.coordinacion_id,

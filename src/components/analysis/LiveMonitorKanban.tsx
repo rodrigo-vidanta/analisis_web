@@ -1108,8 +1108,8 @@ const LiveMonitorKanban: React.FC = () => {
           // Incluir prospectos de ejecutivos donde es backup
           if (ejecutivoFilter) {
             // Obtener IDs de ejecutivos donde este ejecutivo es backup
-            const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
-            const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUIAdmin
+            const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
+            const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUI
               .from('auth_users')
               .select('id')
               .eq('backup_id', ejecutivoFilter)
@@ -1261,8 +1261,8 @@ const LiveMonitorKanban: React.FC = () => {
               } else if (!isAdminCheck && !isCalidad) {
                 if (ejecutivoFilter) {
                   // Ejecutivo: obtener IDs de ejecutivos donde es backup
-                  const { supabaseSystemUIAdmin } = await import('../../config/supabaseSystemUI');
-                  const { data: ejecutivosConBackup } = await supabaseSystemUIAdmin
+                  const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
+                  const { data: ejecutivosConBackup } = await supabaseSystemUI
                     .from('auth_users')
                     .select('id')
                     .eq('backup_id', ejecutivoFilter)

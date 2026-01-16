@@ -1,7 +1,7 @@
 // Servicio proxy para n8n API (evita problemas de CORS)
 // Las llamadas van a través del backend que actúa como proxy
 
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 class N8nProxyService {
   private isDevelopmentMode = false; // Modo productivo activado
@@ -62,7 +62,7 @@ class N8nProxyService {
         return { success: true, workflows: realWorkflows };
       } else {
         // Usar proxy de Supabase en producción
-        const { data, error } = await supabaseSystemUIAdmin.functions.invoke('n8n-proxy', {
+        const { data, error } = await supabaseSystemUI.functions.invoke('n8n-proxy', {
           body: {
             endpoint: '/workflows',
             method: 'GET'
@@ -98,7 +98,7 @@ class N8nProxyService {
         return { success: true, workflow: { data: workflow } };
       } else {
         // Usar proxy de Supabase en producción
-        const { data, error } = await supabaseSystemUIAdmin.functions.invoke('n8n-proxy', {
+        const { data, error } = await supabaseSystemUI.functions.invoke('n8n-proxy', {
           body: {
             endpoint: `/workflows/${workflowId}`,
             method: 'GET'
@@ -126,7 +126,7 @@ class N8nProxyService {
         return { success: true, workflow: { data: workflowData } };
       } else {
         // Usar proxy de Supabase en producción
-        const { data, error } = await supabaseSystemUIAdmin.functions.invoke('n8n-proxy', {
+        const { data, error } = await supabaseSystemUI.functions.invoke('n8n-proxy', {
           body: {
             endpoint: `/workflows/${workflowId}`,
             method: 'PUT',

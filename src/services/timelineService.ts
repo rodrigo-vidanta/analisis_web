@@ -2,7 +2,7 @@
 // SERVICIO PARA TIMELINE DE DIRECCIÓN
 // ============================================
 
-import { supabaseSystemUI as supabase, supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI as supabase, supabaseSystemUI } from '../config/supabaseSystemUI';
 import toast from 'react-hot-toast';
 import type { TimelineActivity, ProcessedActivity, DuplicateCheck } from './timelineTypes';
 
@@ -123,7 +123,7 @@ class TimelineService {
           };
             
           // 2. Insertar padre
-            const { data: parentData, error: parentError } = await supabaseSystemUIAdmin
+            const { data: parentData, error: parentError } = await supabaseSystemUI
               .from('timeline_activities')
             .insert([activityToInsert])
               .select()
@@ -161,7 +161,7 @@ class TimelineService {
                 };
               });
 
-                const { data: subtasksData, error: subtasksError } = await supabaseSystemUIAdmin
+                const { data: subtasksData, error: subtasksError } = await supabaseSystemUI
                   .from('timeline_activities')
                   .insert(subtasksToInsert)
                   .select();
@@ -240,7 +240,7 @@ class TimelineService {
             }
           }));
 
-          const { data, error } = await supabaseSystemUIAdmin
+          const { data, error } = await supabaseSystemUI
             .from('timeline_activities')
             .insert(batchData)
             .select();
@@ -275,7 +275,7 @@ class TimelineService {
       
       // Gestión de metadata (merge inteligente)
       if (updates.parent_id !== undefined || updates.tags !== undefined || updates.attachments !== undefined || updates.metadata) {
-        const { data: current } = await supabaseSystemUIAdmin
+        const { data: current } = await supabaseSystemUI
           .from('timeline_activities')
           .select('metadata')
           .eq('id', id)
@@ -298,7 +298,7 @@ class TimelineService {
       
       delete updatesToApply.subtasks; // No enviar subtasks a BD
 
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('timeline_activities')
         .update(updatesToApply)
         .eq('id', id)
@@ -326,7 +326,7 @@ class TimelineService {
   // Actualizar fecha de actividad con lógica en cascada
   async updateActivityDate(id: string, newDate: string, userId: string): Promise<boolean> {
     try {
-      const { data: current, error: fetchError } = await supabaseSystemUIAdmin
+      const { data: current, error: fetchError } = await supabaseSystemUI
         .from('timeline_activities')
         .select('*')
         .eq('id', id)
@@ -358,7 +358,7 @@ class TimelineService {
       await this.updateActivity(id, { due_date: newDate });
 
       // Buscar hijos y actualizar
-      const { data: children } = await supabaseSystemUIAdmin
+      const { data: children } = await supabaseSystemUI
         .from('timeline_activities')
         .select('*')
         .eq('user_id', userId)

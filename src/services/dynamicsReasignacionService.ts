@@ -19,7 +19,7 @@
  */
 
 import { analysisSupabase } from '../config/analysisSupabase';
-import { supabaseSystemUIAdmin } from '../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { coordinacionService } from './coordinacionService';
 import { credentialsService } from './credentialsService';
 import toast from 'react-hot-toast';
@@ -182,7 +182,7 @@ class DynamicsReasignacionService {
     // Obtener datos del usuario que reasigna (incluyendo rol desde auth_roles)
     let reasignadoPor: { full_name?: string; email?: string; role_name?: string } | null = null;
     try {
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_users')
         .select(`
           full_name, 
@@ -422,7 +422,7 @@ class DynamicsReasignacionService {
       }
 
       // 2. Actualizar o crear registro en prospect_assignments (system_ui)
-      const { data: existingAssignment } = await supabaseSystemUIAdmin
+      const { data: existingAssignment } = await supabaseSystemUI
         .from('prospect_assignments')
         .select('id')
         .eq('prospect_id', request.prospecto_id)
@@ -431,7 +431,7 @@ class DynamicsReasignacionService {
 
       if (existingAssignment) {
         // Actualizar asignación existente
-        await supabaseSystemUIAdmin
+        await supabaseSystemUI
           .from('prospect_assignments')
           .update({
             coordinacion_id: request.nueva_coordinacion_id,
@@ -444,7 +444,7 @@ class DynamicsReasignacionService {
           .eq('id', existingAssignment.id);
       } else {
         // Crear nueva asignación
-        await supabaseSystemUIAdmin
+        await supabaseSystemUI
           .from('prospect_assignments')
           .insert({
             prospect_id: request.prospecto_id,
@@ -459,7 +459,7 @@ class DynamicsReasignacionService {
 
       // 3. Registrar en logs de asignación (no crítico)
       try {
-        await supabaseSystemUIAdmin
+        await supabaseSystemUI
           .from('assignment_logs')
           .insert({
             prospect_id: request.prospecto_id,

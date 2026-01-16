@@ -19,7 +19,7 @@ import {
   Building2
 } from 'lucide-react';
 import { groupsService, type PermissionGroup, type UserGroupAssignment } from '../../../../services/groupsService';
-import { supabaseSystemUIAdmin } from '../../../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../../../config/supabaseSystemUI';
 import { useAuth } from '../../../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { getAvatarGradient } from '../../../../utils/avatarGradient';
@@ -103,7 +103,7 @@ const GroupUsersModal: React.FC<GroupUsersModalProps> = ({
       // Usamos 'auth_roles(name)' para obtener el nombre del rol.
       // Luego mapeamos el resultado para aplanar la estructura.
       // ============================================
-      const { data, error } = await supabaseSystemUIAdmin
+      const { data, error } = await supabaseSystemUI
         .from('auth_users')
         .select('id, email, full_name, is_active, avatar_url, coordinacion_id, auth_roles(name)')
         .eq('is_active', true)
