@@ -1,37 +1,22 @@
 /**
  * ============================================
- * CLIENTE SUPABASE ADMIN - SERVICE_ROLE
+ * CLIENTE SUPABASE ADMIN - DEPRECADO
  * ============================================
  * 
- * ⚠️ IMPORTANTE: Este cliente bypasea RLS
- * Solo usar en servicios backend o con validación estricta
+ * ⚠️ ESTE ARCHIVO HA SIDO DEPRECADO POR SEGURIDAD
  * 
- * NUNCA importar directamente en componentes
- * Solo a través de servicios que validan permisos
+ * La service_role_key NUNCA debe estar en el bundle frontend.
+ * 
+ * ALTERNATIVAS:
+ * 1. Usar Edge Functions (auth-admin-proxy, multi-db-proxy)
+ * 2. Las operaciones admin se hacen via funciones serverless
+ * 
+ * Este archivo mantiene la exportación como null para 
+ * compatibilidad con código existente que lo importe.
  */
 
-import { createClient } from '@supabase/supabase-js';
-
-const analysisSupabaseUrl = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || '';
-const analysisSupabaseServiceKey = import.meta.env.VITE_ANALYSIS_SUPABASE_SERVICE_KEY || '';
-
-if (!analysisSupabaseServiceKey) {
-  console.warn('⚠️ SERVICE_KEY no configurada - Cliente admin no disponible');
-}
-
-// Cliente admin que bypasea RLS
-export const analysisSupabaseAdmin = analysisSupabaseUrl && analysisSupabaseServiceKey
-  ? createClient(analysisSupabaseUrl, analysisSupabaseServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false
-      },
-      global: {
-        headers: {
-          'x-client-info': 'pqnc-admin-secure'
-        }
-      }
-    })
-  : null;
+// ⚠️ DEPRECADO: Cliente admin ELIMINADO por seguridad
+// NUNCA usar service_role_key en frontend
+export const analysisSupabaseAdmin: null = null;
 
 export default analysisSupabaseAdmin;

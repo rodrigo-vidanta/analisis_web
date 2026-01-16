@@ -124,6 +124,22 @@ export async function validateSession(sessionToken: string): Promise<{
   };
 }
 
+/**
+ * Actualiza el estado is_operativo de un usuario
+ */
+export async function updateIsOperativo(userId: string, isOperativo: boolean): Promise<boolean> {
+  const result = await callAuthAdminProxy('updateIsOperativo', { userId, isOperativo });
+  return result.success === true;
+}
+
+/**
+ * Resetea los intentos fallidos de login
+ */
+export async function resetFailedAttempts(userId: string): Promise<boolean> {
+  const result = await callAuthAdminProxy('resetFailedAttempts', { userId });
+  return result.success === true;
+}
+
 // Export del servicio completo
 export const authAdminProxyService = {
   updateLastLogin,
@@ -131,7 +147,9 @@ export const authAdminProxyService = {
   getUserById,
   updateUserField,
   getExecutivesWithBackup,
-  validateSession
+  validateSession,
+  updateIsOperativo,
+  resetFailedAttempts
 };
 
 export default authAdminProxyService;

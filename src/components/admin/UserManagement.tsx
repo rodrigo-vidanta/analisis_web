@@ -213,13 +213,10 @@ const UserManagement: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      // Cargar usuarios directamente desde auth_users con información completa
+      // Usar auth_user_profiles (vista sin RLS) que ya incluye datos del rol
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
-        .select(`
-          *,
-          auth_roles!inner(id, name, display_name, description)
-        `)
+        .from('auth_user_profiles')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

@@ -300,8 +300,9 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
             // ============================================
             
             // Obtener IDs de ejecutivos donde este usuario es backup
+            // Usar auth_user_profiles (vista sin RLS)
             const { data: ejecutivosConBackup } = await supabaseSystemUI
-              .from('auth_users')
+              .from('auth_user_profiles')
               .select('id')
               .eq('backup_id', ejecutivoFilter)
               .eq('has_backup', true);
@@ -402,9 +403,9 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
             const ejecutivosIds = [...new Set(prospectosData.map(p => p.ejecutivo_id).filter(Boolean))];
             
             if (ejecutivosIds.length > 0) {
-              // Obtener nombres de ejecutivos
+              // Obtener nombres de ejecutivos usando vista sin RLS
               const { data: ejecutivosData } = await supabaseSystemUI
-                .from('auth_users')
+                .from('auth_user_profiles')
                 .select('id, full_name')
                 .in('id', ejecutivosIds);
               

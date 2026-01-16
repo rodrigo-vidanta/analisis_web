@@ -20,7 +20,7 @@
 // Maneja marcadores de llamadas por usuario con 5 colores
 // ============================================
 
-import { pqncSupabaseAdmin } from '../config/pqncSupabase';
+import { pqncQaProxy } from './multiDbProxyService';
 
 // ============================================
 // INTERFACES Y TIPOS
@@ -106,68 +106,33 @@ class BookmarkService {
    */
   async upsertBookmark(callId: string, userId: string, color: BookmarkColor, notes?: string): Promise<BookmarkData> {
     try {
-      // DEBUGGING ESPECÍFICO PARA ESTRELLA ROJA
-      if (color === 'red') {
-        console.log('🔴 SERVICIO - DEBUGGING ESTRELLA ROJA - Entrada:', {
-          callId,
-          userId,
-          color,
-          notes,
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Primero verificar si existe
+      const existing = await pqncQaProxy.select('call_bookmarks', {
+        filters: { call_id: callId, user_id: userId },
+        single: true
+      });
       
-      
-      const { data, error } = await pqncSupabaseAdmin
-        .from('call_bookmarks')
-        .upsert({
+      let result;
+      if (existing.data) {
+        // Update
+        result = await pqncQaProxy.update('call_bookmarks', {
+          bookmark_color: color,
+          notes: notes || null,
+          updated_at: new Date().toISOString()
+        }, { call_id: callId, user_id: userId });
+      } else {
+        // Insert
+        result = await pqncQaProxy.insert('call_bookmarks', {
           call_id: callId,
           user_id: userId,
           bookmark_color: color,
           notes: notes || null,
           updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'call_id,user_id',
-          ignoreDuplicates: false
-        })
-        .select('*')
-        .single();
+        });
+      }
       
-      if (error) {
-        console.error('❌ Error guardando bookmark:', error);
-        
-        // Si la tabla no existe o hay cualquier error, simular éxito para no romper UX
-        if (error.code === 'PGRST116' || error.message.includes('does not exist') || error.code === '42P01') {
-          console.warn('⚠️ Tabla call_bookmarks no existe, simulando guardado exitoso');
-          const simulatedBookmark = {
-            id: `temp-${Date.now()}`,
-            call_id: callId,
-            user_id: userId,
-            bookmark_color: color,
-            notes,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          
-          // DEBUGGING ESPECÍFICO PARA ESTRELLA ROJA
-          if (color === 'red') {
-            console.log('🔴 SERVICIO - DEBUGGING ESTRELLA ROJA - Simulando guardado:', simulatedBookmark);
-          }
-          
-          // Almacenar en localStorage como fallback temporal
-          const storageKey = `bookmark_${callId}_${userId}`;
-          localStorage.setItem(storageKey, JSON.stringify(simulatedBookmark));
-          
-          // DEBUGGING ESPECÍFICO PARA ESTRELLA ROJA
-          if (color === 'red') {
-            console.log('🔴 SERVICIO - DEBUGGING ESTRELLA ROJA - Guardado en localStorage con key:', storageKey);
-          }
-          
-          return simulatedBookmark;
-        }
-        
-        // Para otros errores, también simular éxito para mantener UX
-        console.warn('⚠️ Error de BD, simulando guardado exitoso para mantener UX');
+      if (result.error) {
+        console.warn('⚠️ Error guardando bookmark, usando localStorage:', result.error);
         const simulatedBookmark = {
           id: `temp-${Date.now()}`,
           call_id: callId,
@@ -184,7 +149,17 @@ class BookmarkService {
         return simulatedBookmark;
       }
       
-      return data;
+      const data = Array.isArray(result.data) ? result.data[0] : result.data;
+      
+      return {
+        id: data?.id || `temp-${Date.now()}`,
+        call_id: callId,
+        user_id: userId,
+        bookmark_color: color,
+        notes,
+        created_at: data?.created_at || new Date().toISOString(),
+        updated_at: data?.updated_at || new Date().toISOString()
+      };
       
     } catch (error) {
       console.error('💥 Error en upsertBookmark:', error);
@@ -199,22 +174,22 @@ class BookmarkService {
     try {
       console.log('🗑️ Eliminando bookmark...', { callId, userId });
       
-      const { error } = await pqncSupabaseAdmin
-        .from('call_bookmarks')
-        .delete()
-        .eq('call_id', callId)
-        .eq('user_id', userId);
+      const result = await pqncQaProxy.delete('call_bookmarks', { 
+        call_id: callId, 
+        user_id: userId 
+      });
       
-      if (error) {
-        // Si la tabla no existe, simular éxito
-        if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
-          console.warn('⚠️ Tabla call_bookmarks no existe, simulando eliminación');
-          return;
-        }
-        
-        console.error('❌ Error eliminando bookmark:', error);
-        throw new Error(`Error al eliminar bookmark: ${error.message}`);
+      if (result.error) {
+        console.warn('⚠️ Error eliminando bookmark:', result.error);
+        // También eliminar de localStorage
+        const storageKey = `bookmark_${callId}_${userId}`;
+        localStorage.removeItem(storageKey);
+        return;
       }
+      
+      // También eliminar de localStorage
+      const storageKey = `bookmark_${callId}_${userId}`;
+      localStorage.removeItem(storageKey);
       
       console.log('✅ Bookmark eliminado exitosamente');
       
@@ -229,39 +204,36 @@ class BookmarkService {
    */
   async getUserBookmarks(userId: string, callIds?: string[]): Promise<Map<string, BookmarkData>> {
     try {
-      
       // OPTIMIZACIÓN: Limitar callIds para evitar URLs muy largas
       if (callIds && callIds.length > 50) {
         callIds = callIds.slice(0, 50);
       }
       
-      let query = pqncSupabaseAdmin
-        .from('call_bookmarks')
-        .select('*')
-        .eq('user_id', userId);
-      
+      const filters: Record<string, unknown> = { user_id: userId };
       if (callIds && callIds.length > 0) {
-        query = query.in('call_id', callIds);
+        filters.call_id = { op: 'in', value: callIds };
       }
       
-      const { data, error } = await query;
+      const result = await pqncQaProxy.select('call_bookmarks', { filters });
       
-      if (error) {
-        // Si la tabla no existe, usar localStorage como fallback
-        if (error.code === 'PGRST116' || error.message.includes('does not exist') || error.code === '42P01') {
-          console.warn('⚠️ Tabla call_bookmarks no existe, usando localStorage');
-          return this.getBookmarksFromLocalStorage(userId, callIds);
-        }
-        
-        console.error('❌ Error obteniendo bookmarks:', error);
+      if (result.error) {
+        console.warn('⚠️ Error obteniendo bookmarks, usando localStorage:', result.error);
         return this.getBookmarksFromLocalStorage(userId, callIds);
       }
       
-      
-      // Convertir a Map para acceso rápido
       const bookmarkMap = new Map<string, BookmarkData>();
-      data?.forEach(bookmark => {
-        bookmarkMap.set(bookmark.call_id, bookmark);
+      const items = Array.isArray(result.data) ? result.data : [];
+      
+      items.forEach((bookmark: Record<string, unknown>) => {
+        bookmarkMap.set(bookmark.call_id as string, {
+          id: bookmark.id as string,
+          call_id: bookmark.call_id as string,
+          user_id: bookmark.user_id as string,
+          bookmark_color: bookmark.bookmark_color as BookmarkColor,
+          notes: bookmark.notes as string | undefined,
+          created_at: bookmark.created_at as string,
+          updated_at: bookmark.updated_at as string
+        });
       });
       
       return bookmarkMap;
@@ -277,38 +249,30 @@ class BookmarkService {
    */
   async getUserBookmarkStats(userId: string): Promise<BookmarkStats[]> {
     try {
+      const result = await pqncQaProxy.select('call_bookmarks', {
+        select: 'bookmark_color,created_at',
+        filters: { user_id: userId }
+      });
       
-      // Usar consulta directa en lugar de vista que no existe
-      const { data, error } = await pqncSupabaseAdmin
-        .from('call_bookmarks')
-        .select('bookmark_color, created_at')
-        .eq('user_id', userId);
-      
-      if (error) {
-        if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
-          console.warn('⚠️ Tabla call_bookmarks no existe aún');
-          return [];
-        }
-        
-        console.error('❌ Error obteniendo estadísticas:', error);
+      if (result.error) {
+        console.warn('⚠️ Error obteniendo estadísticas:', result.error);
         return [];
       }
       
-      // Calcular estadísticas manualmente
+      const items = Array.isArray(result.data) ? result.data : [];
       const stats: { [key in BookmarkColor]?: { count: number; lastUsed: string } } = {};
       
-      data?.forEach(bookmark => {
+      items.forEach((bookmark: Record<string, unknown>) => {
         const color = bookmark.bookmark_color as BookmarkColor;
         if (!stats[color]) {
-          stats[color] = { count: 0, lastUsed: bookmark.created_at };
+          stats[color] = { count: 0, lastUsed: bookmark.created_at as string };
         }
         stats[color]!.count++;
-        if (bookmark.created_at > stats[color]!.lastUsed) {
-          stats[color]!.lastUsed = bookmark.created_at;
+        if ((bookmark.created_at as string) > stats[color]!.lastUsed) {
+          stats[color]!.lastUsed = bookmark.created_at as string;
         }
       });
       
-      // Convertir a array
       return Object.entries(stats).map(([color, stat]) => ({
         color: color as BookmarkColor,
         count: stat!.count,
@@ -330,27 +294,23 @@ class BookmarkService {
    */
   async getCallsWithBookmark(userId: string, color?: BookmarkColor): Promise<string[]> {
     try {
-      let query = pqncSupabaseAdmin
-        .from('call_bookmarks')
-        .select('call_id')
-        .eq('user_id', userId);
-      
+      const filters: Record<string, unknown> = { user_id: userId };
       if (color) {
-        query = query.eq('bookmark_color', color);
+        filters.bookmark_color = color;
       }
       
-      const { data, error } = await query;
+      const result = await pqncQaProxy.select('call_bookmarks', {
+        select: 'call_id',
+        filters
+      });
       
-      if (error) {
-        if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
-          return [];
-        }
-        
-        console.error('❌ Error filtrando por bookmarks:', error);
+      if (result.error) {
+        console.warn('⚠️ Error filtrando por bookmarks:', result.error);
         return [];
       }
       
-      return data?.map(item => item.call_id) || [];
+      const items = Array.isArray(result.data) ? result.data : [];
+      return items.map((item: Record<string, unknown>) => item.call_id as string);
       
     } catch (error) {
       console.error('💥 Error en getCallsWithBookmark:', error);

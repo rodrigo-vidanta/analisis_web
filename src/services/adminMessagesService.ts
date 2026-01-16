@@ -98,162 +98,46 @@ class AdminMessagesService {
   /**
    * Crear mensaje usando HTTP directo con SQL ejecutado mediante función RPC
    * 
-   * 🔒 SEGURIDAD (Actualizado 2025-12-23):
-   * - Las keys se leen de variables de entorno
-   * - NO usar fallbacks hardcodeados
-   * 
-   * ⚠️ TODO FUTURO: Migrar a Edge Function autenticada
+   * 🔒 SEGURIDAD (Actualizado 2026-01-16):
+   * - Usa supabaseSystemUI con anon_key + RLS
+   * - Las políticas permiten INSERT para public/authenticated
+   * - NO se usa SERVICE_KEY en frontend
    */
   private async createMessageViaHTTP(params: CreateAdminMessageParams): Promise<AdminMessage | null> {
     try {
-      const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || '';
-      const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY || '';
-      
-      if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-        console.error('⚠️ AdminMessagesService: Variables de entorno no configuradas');
+      // ⚠️ SEGURIDAD: Usar cliente con anon_key, RLS permite INSERT
+      if (!supabaseSystemUI) {
+        console.error('⚠️ AdminMessagesService: Cliente Supabase no disponible');
         return null;
       }
 
-      // Escapar valores para SQL seguro
-      const escapeSQL = (str: string) => (str || '').replace(/'/g, "''").replace(/\\/g, '\\\\');
-      const metadataJson = JSON.stringify(params.metadata || {}).replace(/'/g, "''");
+      // Usar Supabase client directamente en lugar de HTTP con SERVICE_KEY
+      const { data, error } = await supabaseSystemUI
+        .from('admin_messages')
+        .insert({
+          category: params.category,
+          title: params.title,
+          message: params.message,
+          sender_id: params.sender_id || null,
+          sender_email: params.sender_email || null,
+          recipient_role: params.recipient_role || 'admin',
+          priority: params.priority || 'normal',
+          metadata: params.metadata || {},
+          status: 'pending'
+        })
+        .select()
+        .single();
       
-      // Construir SQL INSERT directo
-      const insertSQL = `
-        INSERT INTO admin_messages (
-          category, title, message, sender_id, sender_email,
-          recipient_role, priority, metadata, status
-        ) VALUES (
-          '${escapeSQL(params.category)}', 
-          '${escapeSQL(params.title)}', 
-          '${escapeSQL(params.message)}', 
-          ${params.sender_id ? `'${params.sender_id}'` : 'NULL'}, 
-          ${params.sender_email ? `'${escapeSQL(params.sender_email)}'` : 'NULL'}, 
-          '${escapeSQL(params.recipient_role || 'admin')}', 
-          '${escapeSQL(params.priority || 'normal')}', 
-          '${metadataJson}'::jsonb, 
-          'pending'
-        ) RETURNING row_to_json(admin_messages.*)::jsonb;
-      `;
-
-      // Intentar usar exec_sql para ejecutar SQL directo
-      const sqlResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
-          query: insertSQL
-        })
-      });
-
-      if (sqlResponse.ok) {
-        const sqlData = await sqlResponse.json();
-        console.log('✅ Mensaje creado via exec_sql:', sqlData);
-        
-        // exec_sql retorna TABLE(result JSONB), así que viene como array
-        if (Array.isArray(sqlData) && sqlData.length > 0) {
-          const result = sqlData[0];
-          // result.result contiene el JSONB del mensaje
-          if (result && result.result) {
-            const messageData = typeof result.result === 'string' 
-              ? JSON.parse(result.result) 
-              : result.result;
-            if (messageData.id) {
-              return messageData as AdminMessage;
-            }
-          }
-          // Si result tiene id directamente
-          if (result.id) {
-            return result as AdminMessage;
-          }
-        }
-        // Si viene como objeto directo
-        if (sqlData && typeof sqlData === 'object' && sqlData.id) {
-          return sqlData as AdminMessage;
-        }
-      } else {
-        const errorText = await sqlResponse.text();
-        console.log('⚠️ exec_sql no disponible:', errorText);
+      if (error) {
+        console.error('❌ Error insertando mensaje:', error);
+        return null;
       }
-
-      // Si exec_sql no funciona, intentar con insert_admin_message
-      const rpcResponse1 = await fetch(`${SUPABASE_URL}/rest/v1/rpc/insert_admin_message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
-          p_category: params.category,
-          p_title: params.title,
-          p_message: params.message,
-          p_sender_id: params.sender_id || null,
-          p_sender_email: params.sender_email || null,
-          p_recipient_role: params.recipient_role || 'admin',
-          p_priority: params.priority || 'normal',
-          p_metadata: params.metadata || {}
-        })
-      });
-
-      if (rpcResponse1.ok) {
-        const rpcData = await rpcResponse1.json();
-        console.log('✅ Mensaje creado via insert_admin_message:', rpcData);
-        
-        if (rpcData && typeof rpcData === 'object') {
-          if (rpcData.id) {
-            return rpcData as AdminMessage;
-          }
-          if (rpcData.category || rpcData.title) {
-            return rpcData as AdminMessage;
-          }
-        }
+      
+      if (data) {
+        console.log('✅ Mensaje creado via Supabase client:', data.id);
+        return data as AdminMessage;
       }
-
-      // Si insert_admin_message no funciona, intentar con create_admin_message
-      const rpcResponse2 = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_admin_message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
-          p_category: params.category,
-          p_title: params.title,
-          p_message: params.message,
-          p_sender_id: params.sender_id || null,
-          p_sender_email: params.sender_email || null,
-          p_recipient_role: params.recipient_role || 'admin',
-          p_priority: params.priority || 'normal',
-          p_metadata: params.metadata || {}
-        })
-      });
-
-      if (rpcResponse2.ok) {
-        const rpcData = await rpcResponse2.json();
-        console.log('✅ Mensaje creado via create_admin_message:', rpcData);
-        
-        if (rpcData && typeof rpcData === 'object') {
-          if (rpcData.id) {
-            return rpcData as AdminMessage;
-          }
-          if (rpcData.category || rpcData.title) {
-            return rpcData as AdminMessage;
-          }
-        }
-      } else {
-        const errorText2 = await rpcResponse2.text();
-        console.error('❌ Error en todas las funciones RPC:', errorText2);
-      }
-
-      console.error('⚠️ No se pudo crear el mensaje usando ningún método');
+      
       return null;
     } catch (error) {
       console.error('❌ Error creando mensaje via HTTP:', error);

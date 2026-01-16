@@ -24,27 +24,21 @@ import { createClient } from '@supabase/supabase-js';
  * Service keys solo deben estar en variables SIN VITE_ prefix (para scripts Node.js)
  */
 
-// Base de datos principal para plantillas y agentes
+// ⚠️ SEGURIDAD: NUNCA usar SERVICE_KEY en frontend
+// Todos los clientes ahora usan solo anon_key
+
+// Base de datos principal para plantillas y agentes (DEPRECADO)
 const mainSupabaseUrl = import.meta.env.VITE_MAIN_SUPABASE_URL || '';
 const mainSupabaseAnonKey = import.meta.env.VITE_MAIN_SUPABASE_ANON_KEY || '';
-const mainSupabaseServiceKey = import.meta.env.VITE_MAIN_SUPABASE_SERVICE_KEY || '';
 
 // Base de datos PQNC para autenticación y análisis
 const pqncSupabaseUrl = import.meta.env.VITE_PQNC_SUPABASE_URL || '';
 const pqncSupabaseAnonKey = import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || '';
-const pqncSupabaseServiceKey = import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || '';
 
-// Validación en desarrollo
 // MAIN_SUPABASE: DEPRECADO - Ya no se usa, todo migrado a PQNC_AI
-// if (!mainSupabaseUrl || !mainSupabaseAnonKey) {
-//   console.warn('⚠️ MAIN_SUPABASE: Faltan variables de entorno');
-// }
-
 // PQNC_SUPABASE: Solo requerido para módulos específicos (feedbackService, bookmarks)
-// Las credenciales se configuran vía VITE_PQNC_SUPABASE_* cuando el módulo se usa
 
-// Cliente principal para plantillas y agentes
-// Solo crear si tenemos credenciales
+// Cliente principal (DEPRECADO)
 export const supabaseMain = mainSupabaseUrl && mainSupabaseAnonKey
   ? createClient(mainSupabaseUrl, mainSupabaseAnonKey, {
       auth: {
@@ -54,17 +48,10 @@ export const supabaseMain = mainSupabaseUrl && mainSupabaseAnonKey
     })
   : null;
 
-export const supabaseMainAdmin = mainSupabaseUrl && mainSupabaseServiceKey
-  ? createClient(mainSupabaseUrl, mainSupabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-  : null;
+// ⚠️ DEPRECADO: Cliente admin ELIMINADO por seguridad
+export const supabaseMainAdmin: null = null;
 
 // ⚠️ DEPRECATED: Usar pqncSupabase desde src/config/pqncSupabase.ts
-// Cliente PQNC para autenticación y análisis
 export const supabase = pqncSupabaseUrl && pqncSupabaseAnonKey
   ? createClient(pqncSupabaseUrl, pqncSupabaseAnonKey, {
       auth: {
@@ -75,14 +62,8 @@ export const supabase = pqncSupabaseUrl && pqncSupabaseAnonKey
     })
   : null;
 
-export const supabaseAdmin = pqncSupabaseUrl && pqncSupabaseServiceKey
-  ? createClient(pqncSupabaseUrl, pqncSupabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-  : null;
+// ⚠️ DEPRECADO: Cliente admin ELIMINADO por seguridad
+export const supabaseAdmin: null = null;
 
 // Tipos TypeScript para las tablas
 export interface AgentCategory {

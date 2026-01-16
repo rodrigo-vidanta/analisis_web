@@ -17,15 +17,13 @@ import { createClient } from '@supabase/supabase-js';
  */
 
 const pqncSupabaseUrl = import.meta.env.VITE_PQNC_SUPABASE_URL || '';
-const pqncSupabaseServiceRoleKey = import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || '';
 const pqncSupabaseAnonKey = import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || '';
 
-// Validación en desarrollo - Solo mostrar si se intenta usar activamente
-// PQNC_QA es una BD separada para feedback, bookmarks, PQNC Dashboard
-// Las credenciales deben configurarse en .env cuando el módulo se necesite
+// ⚠️ SEGURIDAD: Este cliente es OPCIONAL y solo usa anon_key
+// Las operaciones a PQNC_QA ahora van via Edge Function: multi-db-proxy
+// No se requiere configurar en .env.production
 
-// Cliente principal para operaciones normales
-// Solo crear si tenemos credenciales
+// Cliente principal para operaciones normales (si se necesita conexión directa)
 export const pqncSupabase = pqncSupabaseUrl && pqncSupabaseAnonKey
   ? createClient(pqncSupabaseUrl, pqncSupabaseAnonKey, {
       auth: {
@@ -41,21 +39,8 @@ export const pqncSupabase = pqncSupabaseUrl && pqncSupabaseAnonKey
     })
   : null;
 
-// Cliente admin que puede acceder a todas las tablas sin restricciones RLS
-// Solo crear si tenemos service key
-export const pqncSupabaseAdmin = pqncSupabaseUrl && pqncSupabaseServiceRoleKey
-  ? createClient(pqncSupabaseUrl, pqncSupabaseServiceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        storageKey: 'pqnc-admin-auth'
-      },
-      global: {
-        headers: {
-          'x-client-info': 'pqnc-admin'
-        }
-      }
-    })
-  : null;
+// ⚠️ DEPRECADO: pqncSupabaseAdmin ELIMINADO por seguridad
+// Usar multi-db-proxy Edge Function para operaciones admin
+export const pqncSupabaseAdmin: null = null;
 
-export { pqncSupabaseUrl, pqncSupabaseAnonKey, pqncSupabaseServiceRoleKey };
+export { pqncSupabaseUrl, pqncSupabaseAnonKey };

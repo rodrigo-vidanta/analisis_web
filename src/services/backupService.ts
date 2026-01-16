@@ -8,6 +8,11 @@
  * - Cambio de teléfono al teléfono del backup
  * - Restauración de teléfono original al hacer login
  * - Permisos de visualización para backups
+ * 
+ * ⚠️ MIGRACIÓN 16 Enero 2026:
+ * - Las actualizaciones de backup ahora se hacen via update_user_metadata RPC
+ * - Los campos backup_id, has_backup, etc. están en user_metadata
+ * - Compatible con auth_users (legacy) y auth.users (Supabase Auth)
  */
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
@@ -47,53 +52,78 @@ class BackupService {
    * - Guarda el teléfono original
    * - Cambia el teléfono del ejecutivo al del backup
    * - Asigna el backup_id
+   * 
+   * Compatible con auth_users (legacy) y auth.users (Supabase Auth via RPC)
    */
   async assignBackup(
     ejecutivoId: string,
     backupId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Obtener teléfono del backup
-      const { data: backupData, error: backupError } = await supabaseSystemUI
+      // Intentar obtener teléfono del backup - primero auth_users (legacy)
+      let telefonoBackup = '';
+      const { data: backupData, error: backupError } = await supabaseSystemUI!
         .from('auth_users')
         .select('phone')
         .eq('id', backupId)
-        .single();
+        .maybeSingle();
 
       if (backupError || !backupData) {
-        return { success: false, error: 'Backup no encontrado' };
+        // Fallback: intentar user_profiles_v2
+        const { data: backupDataV2 } = await supabaseSystemUI!
+          .from('user_profiles_v2')
+          .select('phone')
+          .eq('id', backupId)
+          .maybeSingle();
+        
+        if (!backupDataV2) {
+          return { success: false, error: 'Backup no encontrado' };
+        }
+        telefonoBackup = backupDataV2.phone || '';
+      } else {
+        telefonoBackup = backupData.phone || '';
       }
 
-      const telefonoBackup = backupData.phone || '';
-
-      // Obtener teléfono original del ejecutivo (si no existe, usar el actual)
-      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUI
+      // Obtener teléfono original del ejecutivo
+      let telefonoOriginal = '';
+      const { data: ejecutivoData } = await supabaseSystemUI!
         .from('auth_users')
         .select('phone, telefono_original')
         .eq('id', ejecutivoId)
-        .single();
+        .maybeSingle();
 
-      if (ejecutivoError || !ejecutivoData) {
-        return { success: false, error: 'Ejecutivo no encontrado' };
+      if (ejecutivoData) {
+        telefonoOriginal = ejecutivoData.telefono_original || ejecutivoData.phone || '';
       }
 
-      const telefonoOriginal = ejecutivoData.telefono_original || ejecutivoData.phone || '';
-
-      // Actualizar ejecutivo con backup y cambio de teléfono
-      const { error: updateError } = await supabaseSystemUI
+      // Intentar actualizar via auth_users (legacy) primero
+      const { error: updateError } = await supabaseSystemUI!
         .from('auth_users')
         .update({
           backup_id: backupId,
-          telefono_original: telefonoOriginal, // Guardar teléfono original si no estaba guardado
-          phone: telefonoBackup, // Cambiar al teléfono del backup
+          telefono_original: telefonoOriginal,
+          phone: telefonoBackup,
           has_backup: true,
           updated_at: new Date().toISOString()
         })
         .eq('id', ejecutivoId);
 
       if (updateError) {
-        console.error('Error asignando backup:', updateError);
-        return { success: false, error: updateError.message };
+        // Fallback: intentar via RPC update_user_metadata (Supabase Auth)
+        const { error: rpcError } = await supabaseSystemUI!.rpc('update_user_metadata', {
+          p_user_id: ejecutivoId,
+          p_updates: {
+            backup_id: backupId,
+            original_phone: telefonoOriginal,
+            backup_phone: telefonoBackup,
+            has_backup: true
+          }
+        });
+
+        if (rpcError) {
+          console.error('Error asignando backup:', rpcError);
+          return { success: false, error: rpcError.message };
+        }
       }
 
       return { success: true };
@@ -108,37 +138,62 @@ class BackupService {
 
   /**
    * Remueve el backup de un ejecutivo y restaura su teléfono original
+   * Compatible con auth_users (legacy) y auth.users (Supabase Auth via RPC)
    */
   async removeBackup(ejecutivoId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Obtener teléfono original
-      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUI
+      // Obtener teléfono original - primero auth_users (legacy)
+      let telefonoOriginal = '';
+      const { data: ejecutivoData } = await supabaseSystemUI!
         .from('auth_users')
         .select('telefono_original')
         .eq('id', ejecutivoId)
-        .single();
+        .maybeSingle();
 
-      if (ejecutivoError || !ejecutivoData) {
-        return { success: false, error: 'Ejecutivo no encontrado' };
+      if (ejecutivoData) {
+        telefonoOriginal = ejecutivoData.telefono_original || '';
+      } else {
+        // Fallback: intentar user_profiles_v2
+        const { data: ejecutivoDataV2 } = await supabaseSystemUI!
+          .from('user_profiles_v2')
+          .select('original_phone')
+          .eq('id', ejecutivoId)
+          .maybeSingle();
+        
+        if (ejecutivoDataV2) {
+          telefonoOriginal = ejecutivoDataV2.original_phone || '';
+        }
       }
 
-      const telefonoOriginal = ejecutivoData.telefono_original || '';
-
-      // Restaurar teléfono original y limpiar backup
-      const { error: updateError } = await supabaseSystemUI
+      // Intentar actualizar via auth_users (legacy) primero
+      const { error: updateError } = await supabaseSystemUI!
         .from('auth_users')
         .update({
           backup_id: null,
-          phone: telefonoOriginal, // Restaurar teléfono original
-          telefono_original: null, // Limpiar teléfono original guardado
+          phone: telefonoOriginal,
+          telefono_original: null,
           has_backup: false,
           updated_at: new Date().toISOString()
         })
         .eq('id', ejecutivoId);
 
       if (updateError) {
-        console.error('Error removiendo backup:', updateError);
-        return { success: false, error: updateError.message };
+        // Fallback: intentar via RPC update_user_metadata (Supabase Auth)
+        const { error: rpcError } = await supabaseSystemUI!.rpc('update_user_metadata', {
+          p_user_id: ejecutivoId,
+          p_updates: {
+            backup_id: null,
+            phone: telefonoOriginal,
+            original_phone: null,
+            backup_phone: null,
+            has_backup: false
+          }
+        });
+
+        if (rpcError) {
+          console.error('Error removiendo backup:', rpcError);
+          return { success: false, error: rpcError.message };
+        }
       }
 
       return { success: true };

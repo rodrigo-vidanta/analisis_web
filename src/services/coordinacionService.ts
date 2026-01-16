@@ -498,9 +498,9 @@ class CoordinacionService {
    */
   async getEjecutivosByCoordinacion(coordinacionId: string): Promise<Ejecutivo[]> {
     try {
-      // Consulta con filtro is_active
+      // Usar auth_user_profiles (vista sin RLS) para lectura
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('auth_user_profiles')
         .select(`
           id,
           email,
@@ -515,7 +515,7 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          auth_roles!inner(name)
+          auth_roles(name)
         `)
         .eq('coordinacion_id', coordinacionId)
         .eq('auth_roles.name', 'ejecutivo')
@@ -596,8 +596,9 @@ class CoordinacionService {
     try {
       if (ids.length === 0) return new Map();
 
+      // Usar auth_user_profiles (vista sin RLS) que ya incluye role_name
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('auth_user_profiles')
         .select(`
           id,
           email,
@@ -610,10 +611,10 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          auth_roles!inner(name)
+          role_name
         `)
         .in('id', ids)
-        .in('auth_roles.name', ['ejecutivo', 'coordinador']);
+        .in('role_name', ['ejecutivo', 'coordinador']);
 
       if (error) throw error;
 
@@ -668,7 +669,7 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          auth_roles!inner(name)
+          auth_roles(name)
         `)
         .eq('id', ejecutivoId)
         .eq('is_active', true)
@@ -1130,7 +1131,7 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          auth_roles!inner(name)
+          auth_roles(name)
         `)
         .eq('auth_roles.name', 'ejecutivo')
         .order('full_name');

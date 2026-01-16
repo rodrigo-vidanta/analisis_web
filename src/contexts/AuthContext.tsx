@@ -1,6 +1,12 @@
 // ============================================
 // CONTEXTO DE AUTENTICACIÓN PARA REACT
 // ============================================
+// 
+// ⚠️ MIGRACIÓN 16 Enero 2026:
+// - Refactorizado para usar Supabase Auth nativo
+// - onAuthStateChange para detectar cambios de sesión
+// - Sesiones manejadas automáticamente por Supabase JWT
+//
 
 import React, { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { authService, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
@@ -53,6 +59,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Inicializar autenticación al cargar la aplicación
   useEffect(() => {
     initializeAuth();
+  }, []);
+
+  // ============================================
+  // SUSCRIPCIÓN A CAMBIOS DE AUTH (Supabase Auth nativo)
+  // ============================================
+  useEffect(() => {
+    // Suscribirse a cambios de autenticación de Supabase
+    const { data: { subscription } } = authService.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔐 Auth state change:', event);
+        
+        if (event === 'SIGNED_IN' && session) {
+          // Usuario acaba de iniciar sesión
+          const state = await authService.initialize();
+          setAuthState(state);
+        } else if (event === 'SIGNED_OUT') {
+          // Usuario cerró sesión
+          permissionsService.invalidateAllCache();
+          setAuthState({
+            user: null,
+            permissions: [],
+            isAuthenticated: false,
+            isLoading: false,
+            error: null
+          });
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          // Token fue refrescado - silencioso
+          console.log('🔐 Token refreshed');
+        } else if (event === 'USER_UPDATED' && session) {
+          // Usuario fue actualizado - recargar datos
+          await refreshUser(true);
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Refrescar datos del usuario (definir antes de usar en useEffect)
@@ -131,79 +175,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [authState.user?.id, authState.isAuthenticated]);
 
-  // Suscripción a broadcast para invalidación INSTANTÁNEA de sesión
+  // ============================================
+  // NOTA: Verificación de sesión legacy DEPRECADA
+  // ============================================
+  // Con Supabase Auth nativo, las sesiones se manejan automáticamente:
+  // - JWT con refresh automático
+  // - onAuthStateChange detecta cambios
+  // - No necesitamos auth_sessions custom ni broadcast manual
+  //
+  // Mantenemos cleanup de refs legacy por compatibilidad
   useEffect(() => {
-    // Solo activar si hay usuario autenticado
     if (!authState.isAuthenticated || !authState.user?.id) {
       if (sessionBroadcastChannelRef.current) {
-        supabase.removeChannel(sessionBroadcastChannelRef.current);
+        supabase?.removeChannel(sessionBroadcastChannelRef.current);
         sessionBroadcastChannelRef.current = null;
       }
       if (sessionCheckIntervalRef.current) {
         clearInterval(sessionCheckIntervalRef.current);
         sessionCheckIntervalRef.current = null;
       }
-      return;
     }
-
-    const currentToken = localStorage.getItem('auth_token');
-    const userId = authState.user.id;
-
-    // Crear canal de broadcast para este usuario
-    const channel = supabase
-      .channel(`session-invalidation-${userId}`)
-      .on('broadcast', { event: 'session_replaced' }, (payload) => {
-        const newSessionToken = payload.payload?.newSessionToken;
-        
-        // Si el token nuevo es diferente al nuestro, nos desconectaron
-        if (newSessionToken && newSessionToken !== currentToken) {
-          console.log('🔐 BROADCAST: Sesión reemplazada por otro dispositivo');
-          handleForceLogout('Iniciaste sesión en otro dispositivo');
-        }
-      })
-      .subscribe();
-
-    sessionBroadcastChannelRef.current = channel;
-
-    // Verificación de respaldo cada 60 segundos (por si falla el broadcast)
-    const checkSessionValidity = async () => {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        handleForceLogout('Token no encontrado');
-        return;
-      }
-
-      try {
-        // Usar maybeSingle() para evitar error 406 cuando no hay resultados
-        const { data, error } = await supabase
-          .from('auth_sessions')
-          .select('id')
-          .eq('session_token', token)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Error consultando sesión:', error);
-          return; // No forzar logout en caso de error de red
-        }
-
-        if (!data) {
-          console.log('🔐 Sesión eliminada de la BD - otro dispositivo inició sesión');
-          handleForceLogout('Iniciaste sesión en otro dispositivo');
-        }
-      } catch (err) {
-        console.error('Error verificando sesión:', err);
-      }
-    };
-
-    // Verificar al montar después de 5s (detecta si ya fue invalidada antes de suscribirse)
-    setTimeout(checkSessionValidity, 5000);
-
-    // Verificación de respaldo cada 2 minutos (solo emergencia, el broadcast es instantáneo)
-    sessionCheckIntervalRef.current = setInterval(checkSessionValidity, 120000);
 
     return () => {
       if (sessionBroadcastChannelRef.current) {
-        supabase.removeChannel(sessionBroadcastChannelRef.current);
+        supabase?.removeChannel(sessionBroadcastChannelRef.current);
         sessionBroadcastChannelRef.current = null;
       }
       if (sessionCheckIntervalRef.current) {

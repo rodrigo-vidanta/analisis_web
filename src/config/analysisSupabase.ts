@@ -34,14 +34,11 @@ if (!analysisSupabaseUrl || !analysisSupabaseAnonKey) {
   console.warn('⚠️ ANALYSIS_SUPABASE: Faltan variables de entorno VITE_ANALYSIS_SUPABASE_URL o VITE_ANALYSIS_SUPABASE_ANON_KEY');
 }
 
-const analysisSupabaseServiceKey = import.meta.env.VITE_ANALYSIS_SUPABASE_SERVICE_KEY || '';
-
-// Cliente con service_role (development) o anon_key (production)
-export const analysisSupabase = analysisSupabaseUrl && analysisSupabaseServiceKey
-  ? createClient(analysisSupabaseUrl, analysisSupabaseServiceKey)
-  : analysisSupabaseUrl && analysisSupabaseAnonKey
-    ? createClient(analysisSupabaseUrl, analysisSupabaseAnonKey)
-    : null;
+// ⚠️ SEGURIDAD: NUNCA usar service_role_key en el bundle frontend
+// El cliente SIEMPRE usa anon_key. Operaciones admin van via Edge Functions.
+export const analysisSupabase = analysisSupabaseUrl && analysisSupabaseAnonKey
+  ? createClient(analysisSupabaseUrl, analysisSupabaseAnonKey)
+  : null;
 
 if (!analysisSupabase) {
   console.error('❌ analysisSupabase es NULL');

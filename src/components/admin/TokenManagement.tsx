@@ -94,7 +94,7 @@ const TokenManagement: React.FC = () => {
           is_active,
           role_id,
           created_at,
-          auth_roles!inner(name)
+          auth_roles(name)
         `)
         .eq('auth_roles.name', 'productor')
         .eq('is_active', true)

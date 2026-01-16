@@ -32,11 +32,13 @@ const ALLOWED_TABLES: Record<string, string[]> = {
     'calls',
     'call_segments',
     'call_feedback',
+    'call_bookmarks',
     'bookmarks',
     'user_bookmarks',
     'call_results',
     'call_analysis',
     'agent_performance',
+    'auth_users',
   ],
   'LOGMONITOR': [
     'error_log',

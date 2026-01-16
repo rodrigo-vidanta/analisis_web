@@ -28,14 +28,12 @@ import { createClient } from '@supabase/supabase-js';
 // Configuración para la base de datos Log Monitor
 const logMonitorSupabaseUrl = import.meta.env.VITE_LOGMONITOR_SUPABASE_URL || '';
 const logMonitorAnonKey = import.meta.env.VITE_LOGMONITOR_SUPABASE_ANON_KEY || '';
-const logMonitorServiceKey = import.meta.env.VITE_LOGMONITOR_SUPABASE_SERVICE_KEY || '';
 
-// Validación en desarrollo - Solo mostrar si se intenta usar activamente
-// LOGMONITOR es una BD separada para sistema de logs (dffuwdzybhypxfzrmdcz)
-// Las credenciales deben configurarse en .env cuando el módulo se necesite
+// ⚠️ SEGURIDAD: Este cliente es OPCIONAL y solo usa anon_key
+// Las operaciones a LOGMONITOR ahora van via Edge Function: multi-db-proxy
+// No se requiere configurar en .env.production
 
 // Cliente público para operaciones normales (lectura)
-// Solo crear si tenemos las credenciales necesarias
 export const supabaseLogMonitor = logMonitorSupabaseUrl && logMonitorAnonKey
   ? createClient(logMonitorSupabaseUrl, logMonitorAnonKey, {
       auth: {
@@ -46,17 +44,9 @@ export const supabaseLogMonitor = logMonitorSupabaseUrl && logMonitorAnonKey
     })
   : null;
 
-// Cliente admin para operaciones administrativas (escritura)
-// Solo crear si tenemos service key configurada
-export const supabaseLogMonitorAdmin = logMonitorSupabaseUrl && logMonitorServiceKey
-  ? createClient(logMonitorSupabaseUrl, logMonitorServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        storageKey: 'logmonitor-admin'
-      }
-    })
-  : null;
+// ⚠️ DEPRECADO: supabaseLogMonitorAdmin ELIMINADO por seguridad
+// Usar multi-db-proxy Edge Function para operaciones admin
+export const supabaseLogMonitorAdmin: null = null;
 
 // Tipos para error_log
 export type ErrorType = 'mensaje' | 'llamada' | 'ui';

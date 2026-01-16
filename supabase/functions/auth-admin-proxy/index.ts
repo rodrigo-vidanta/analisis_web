@@ -43,7 +43,9 @@ const ALLOWED_OPERATIONS = [
   'getUserById',
   'updateUserField',
   'getExecutivesWithBackup',
-  'validateSession'
+  'validateSession',
+  'updateIsOperativo',
+  'resetFailedAttempts'
 ]
 
 // ============================================
@@ -226,6 +228,56 @@ serve(async (req) => {
         } else {
           result = { valid: true, userId: data.user_id }
         }
+        break
+      }
+
+      // ============================================
+      // UPDATE IS OPERATIVO
+      // ============================================
+      case 'updateIsOperativo': {
+        const { userId, isOperativo } = params
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'userId required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error } = await supabase
+          .from('auth_users')
+          .update({ 
+            is_operativo: isOperativo,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId)
+
+        if (error) throw error
+        result = { success: true }
+        break
+      }
+
+      // ============================================
+      // RESET FAILED ATTEMPTS
+      // ============================================
+      case 'resetFailedAttempts': {
+        const { userId } = params
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'userId required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error } = await supabase
+          .from('auth_users')
+          .update({ 
+            failed_login_attempts: 0,
+            locked_until: null
+          })
+          .eq('id', userId)
+
+        if (error) throw error
+        result = { success: true }
         break
       }
 

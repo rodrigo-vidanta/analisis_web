@@ -18,8 +18,13 @@
 // ============================================
 // SERVICIO PARA GESTIÓN DE TOKENS AI MODELS
 // ============================================
+//
+// ⚠️ MIGRACIÓN 16 Enero 2026:
+// - Refactorizado para usar Supabase Auth nativo
+// - Usa user_profiles_v2 (basada en auth.users) o auth_user_profiles (legacy)
+// - El rol se obtiene del user_metadata en el JWT
+//
 
-// ⚠️ MIGRACIÓN 2026-01-15: Usar supabaseSystemUI (PQNC_AI) en lugar de supabaseAdmin
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // Alias para compatibilidad con código existente
@@ -66,19 +71,40 @@ class TokenService {
    */
   async getUserTokenInfo(userId: string): Promise<TokenLimits | null> {
     try {
-      // Verificar si es admin primero
-      const { data: userData, error: userError } = await supabaseAdmin
-        .from('auth_users')
-        .select('role_id, auth_roles(name)')
+      // Verificar si es admin - primero intentar user_profiles_v2 (Supabase Auth)
+      // luego fallback a auth_user_profiles (legacy)
+      let userData: { role_id?: string; role_name?: string } | null = null;
+      
+      // Intentar user_profiles_v2 primero (basada en auth.users)
+      const { data: newData, error: newError } = await supabaseAdmin!
+        .from('user_profiles_v2')
+        .select('role_id, role_name')
         .eq('id', userId)
-        .single();
-
-      if (userError) {
-        console.error('❌ Error obteniendo datos de usuario:', userError);
+        .maybeSingle();
+      
+      if (!newError && newData) {
+        userData = newData;
+      } else {
+        // Fallback a auth_user_profiles (legacy)
+        const { data: legacyData, error: legacyError } = await supabaseAdmin!
+          .from('auth_user_profiles')
+          .select('role_id, role_name')
+          .eq('id', userId)
+          .maybeSingle();
+        
+        if (legacyError) {
+          console.error('❌ Error obteniendo datos de usuario:', legacyError);
+          return null;
+        }
+        userData = legacyData;
+      }
+      
+      if (!userData) {
+        console.warn('⚠️ Usuario no encontrado:', userId);
         return null;
       }
 
-      const isAdmin = userData?.auth_roles?.name === 'admin';
+      const isAdmin = userData?.role_name === 'admin';
 
       // Si es admin, retornar tokens ilimitados
       if (isAdmin) {

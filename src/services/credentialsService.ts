@@ -29,19 +29,22 @@ import { createClient } from '@supabase/supabase-js';
 // ============================================
 // Creamos un cliente nuevo cada vez para evitar problemas de cache
 
-// ⚠️ MIGRACIÓN 2025-01-13: Ahora usa las mismas variables que analysisSupabase (PQNC_AI)
-// Las credenciales están en la tabla api_auth_tokens que fue migrada a PQNC_AI
-const SUPABASE_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_SERVICE_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_SERVICE_KEY || import.meta.env.VITE_SUPABASE_SERVICE_KEY || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// ⚠️ SEGURIDAD (2026-01-16): Solo usar anon_key, NUNCA service_key en frontend
+// Las credenciales en api_auth_tokens requieren RLS policy especial
+const SUPABASE_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '';
 
+// ⚠️ NOTA: api_auth_tokens ahora solo es accesible por service_role
+// Para que este servicio funcione, necesitas:
+// 1. Usar Edge Function (get-credentials) para obtener tokens
+// 2. O habilitar política RLS para authenticated (menos seguro)
 const getSupabaseClient = () => {
-  const key = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
-  if (!SUPABASE_URL || !key) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('⚠️ CredentialsService: Variables de entorno no configuradas');
     return null;
   }
   
-  return createClient(SUPABASE_URL, key, {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
       persistSession: false,
       autoRefreshToken: false

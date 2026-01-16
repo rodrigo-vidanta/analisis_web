@@ -38,26 +38,28 @@ interface ConnectionTest {
 const DatabaseConfiguration: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
+  // ⚠️ SEGURIDAD: NUNCA exponer SERVICE_KEY en el bundle
+  // Solo mostrar URL y ANON_KEY (información pública)
   const [configs, setConfigs] = useState<Record<string, DatabaseConfig>>({
     main: {
       name: 'Base de Datos Principal (Agentes)',
       url: import.meta.env.VITE_MAIN_SUPABASE_URL || '',
       anonKey: import.meta.env.VITE_MAIN_SUPABASE_ANON_KEY || '',
-      serviceKey: import.meta.env.VITE_MAIN_SUPABASE_SERVICE_KEY || '',
+      serviceKey: '[PROTEGIDO]', // ⚠️ No exponer en frontend
       description: 'Almacena plantillas de agentes, categorías, prompts del sistema y herramientas.'
     },
     pqnc: {
       name: 'Base de Datos PQNC (Auth & Analysis)',
       url: import.meta.env.VITE_PQNC_SUPABASE_URL || '',
       anonKey: import.meta.env.VITE_PQNC_SUPABASE_ANON_KEY || '',
-      serviceKey: import.meta.env.VITE_PQNC_SUPABASE_SERVICE_KEY || '',
+      serviceKey: '[PROTEGIDO]', // ⚠️ No exponer en frontend
       description: 'Maneja autenticación, usuarios, permisos y análisis PQNC.'
     },
     natalia: {
       name: 'Base de Datos Natalia (Analysis)',
       url: import.meta.env.VITE_NATALIA_SUPABASE_URL || '',
       anonKey: import.meta.env.VITE_NATALIA_SUPABASE_ANON_KEY || '',
-      serviceKey: import.meta.env.VITE_NATALIA_SUPABASE_SERVICE_KEY || '',
+      serviceKey: '[PROTEGIDO]', // ⚠️ No exponer en frontend
       description: 'Almacena análisis y llamadas de Natalia.'
     }
   });
@@ -90,7 +92,7 @@ const DatabaseConfiguration: React.FC = () => {
           break;
         case 'pqnc':
           // Probar tabla de usuarios (la que sabemos que existe)
-          testQuery = client.from('auth_users').select('count').limit(1);
+          testQuery = client.from('auth_users_safe').select('count').limit(1);
           break;
         case 'natalia':
           // Probar tabla específica de análisis

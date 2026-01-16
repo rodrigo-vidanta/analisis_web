@@ -30,63 +30,43 @@ import { createClient } from '@supabase/supabase-js';
  */
 
 // Configuración para la base de datos System_UI
+// ⚠️ SEGURIDAD: Solo exportar URL y ANON_KEY, nunca SERVICE_KEY
 export const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_ANON_KEY || '';
-export const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY || '';
 
 // Log de inicialización para debugging (solo en desarrollo)
 if (import.meta.env.DEV) {
   console.log('📦 [SystemUI Config] Configuración cargada:', {
     hasUrl: !!SUPABASE_URL,
-    hasAnonKey: !!SUPABASE_ANON_KEY,
-    hasServiceKey: !!SUPABASE_SERVICE_KEY
+    hasAnonKey: !!SUPABASE_ANON_KEY
   });
 }
 
 // Validación en desarrollo
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ SYSTEM_UI: Faltan variables de entorno VITE_SYSTEM_UI_SUPABASE_URL o VITE_SYSTEM_UI_SUPABASE_ANON_KEY');
-  console.error('❌ Agrega estas variables a tu archivo .env');
-}
-if (!SUPABASE_SERVICE_KEY) {
-  console.warn('⚠️ SYSTEM_UI: VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY no configurada');
 }
 
 const supabaseUrl = SUPABASE_URL;
 const supabaseAnonKey = SUPABASE_ANON_KEY;
-const supabaseServiceKey = SUPABASE_SERVICE_KEY;
 
-// Cliente con service_role si disponible, sino anon_key
-export const supabaseSystemUI = supabaseUrl && supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+// ⚠️ SEGURIDAD: SIEMPRE usar anon_key en el frontend
+// Operaciones admin van via Edge Functions (auth-admin-proxy)
+export const supabaseSystemUI = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
     
 if (!supabaseSystemUI) {
   console.error('❌ supabaseSystemUI es NULL');
 }
 
-// Cliente admin para operaciones administrativas
-// Solo crear si tenemos service key
-// IMPORTANTE: Usar service key para bypass RLS
-export const supabaseSystemUIAdmin = supabaseUrl && supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        storageKey: 'systemui-admin'
-      },
-      db: {
-        schema: 'public'
-      },
-      global: {
-        headers: {
-          'x-client-info': 'systemui-admin-service'
-        }
-      }
-    })
-  : null;
+// ⚠️ DEPRECADO: supabaseSystemUIAdmin ELIMINADO por seguridad
+// Las operaciones admin ahora usan Edge Functions:
+//   - auth-admin-proxy para operaciones de autenticación
+//   - multi-db-proxy para consultas a otras BDs
+// 
+// Mantener esta exportación como null para compatibilidad temporal
+export const supabaseSystemUIAdmin: null = null;
 
 // Configuración del bucket
 export const SYSTEM_UI_BUCKET = 'system_ui';

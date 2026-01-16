@@ -35,12 +35,13 @@ class AutomationService {
   ): Promise<void> {
     try {
       // Obtener coordinadores operativos de esta coordinación (excluyendo calidad)
+      // Usar LEFT JOIN (sin !inner) para evitar error 406
       const { data: coordinadores } = await supabaseSystemUI
         .from('auth_users')
         .select(`
           id, 
           full_name,
-          auth_roles!inner(name)
+          auth_roles(name)
         `)
         .eq('coordinacion_id', coordinacionId)
         .eq('auth_roles.name', 'coordinador')
