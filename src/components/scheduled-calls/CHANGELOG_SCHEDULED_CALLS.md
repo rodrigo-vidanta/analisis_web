@@ -17,6 +17,38 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v1.4.0** - Enero 2026
+**Estado:** ✅ Producción
+
+#### **🐛 Fix Bug Calendario: Llamadas aparecían un día después**
+- **Problema resuelto:** Las llamadas programadas aparecían en el día incorrecto en el calendario lateral (ej: llamada del día 18 aparecía en día 19)
+- **Causa raíz:** Uso de `toISOString().split('T')[0]` que convierte fechas a UTC, causando desfase de día para llamadas en horarios tardíos
+- **Ejemplo del problema:** Una llamada programada para el 18 de enero a las 10pm (hora México) se guardaba como 19 de enero 04:00 UTC, y aparecía en día 19
+- **Solución implementada:**
+  - Nueva función `getLocalDateString()` que extrae año/mes/día respetando zona horaria local
+  - Usa `getFullYear()`, `getMonth()`, `getDate()` que devuelven valores en tiempo LOCAL
+  - Aplicada en CalendarSidebar.tsx y WeeklyView.tsx
+
+#### **📝 Archivos Modificados**
+- `src/components/scheduled-calls/CalendarSidebar.tsx` - getDaysInMonth, getCallsForDate, isToday, isSelected
+- `src/components/scheduled-calls/views/WeeklyView.tsx` - callsByDay, render de columnas
+
+#### **🔧 Implementación Técnica**
+```typescript
+// ❌ ANTES (convierte a UTC, puede cambiar el día)
+date.toISOString().split('T')[0]
+
+// ✅ AHORA (respeta zona horaria local)
+const getLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+```
+
+---
+
 ### **v1.3.0** - Diciembre 2025
 **Estado:** ✅ Producción
 

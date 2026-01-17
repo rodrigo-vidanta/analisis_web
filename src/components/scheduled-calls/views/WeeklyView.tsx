@@ -9,6 +9,17 @@ import toast from 'react-hot-toast';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../../services/callStatusClassifier';
 
+/**
+ * Obtiene la fecha en formato YYYY-MM-DD respetando la zona horaria LOCAL del usuario.
+ * IMPORTANTE: NO usar toISOString() ya que convierte a UTC y puede cambiar el día.
+ */
+const getLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 interface WeeklyViewProps {
   calls: ScheduledCall[];
   selectedDate: Date;
@@ -103,10 +114,13 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
     const grouped: Record<string, ScheduledCall[]> = {};
     
     weekDays.forEach(day => {
-      const dateString = day.toISOString().split('T')[0];
+      // Usar getLocalDateString para respetar zona horaria local
+      const dateString = getLocalDateString(day);
       grouped[dateString] = calls.filter(call => {
-        const callDate = new Date(call.fecha_programada).toISOString().split('T')[0];
-        return callDate === dateString;
+        // Convertir fecha_programada a fecha local para comparar correctamente
+        const callDate = new Date(call.fecha_programada);
+        const callDateString = getLocalDateString(callDate);
+        return callDateString === dateString;
       }).sort((a, b) => {
         const timeA = new Date(a.fecha_programada).getTime();
         const timeB = new Date(b.fecha_programada).getTime();
@@ -285,7 +299,8 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
   return (
     <div className="flex gap-1 sm:gap-1.5 md:gap-2 h-full px-1 sm:px-2 md:px-3 py-2 w-full">
         {weekDays.map((day, dayIndex) => {
-          const dateString = day.toISOString().split('T')[0];
+          // Usar getLocalDateString para respetar zona horaria local
+          const dateString = getLocalDateString(day);
           const dayCalls = callsByDay[dateString] || [];
           const isTodayDate = isToday(day);
 

@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'i2e8j4g', date: '2026-01-17', author: 'Team', message: 'v2.5.7: B10.1.7N2.5.7 - Fix bug calendario programación (llamadas día incorrecto)', isRelease: true },
   { hash: 'h1d7i3f', date: '2026-01-17', author: 'Team', message: 'v2.5.6: B10.1.6N2.5.6 - Deploy dynamics-lead-proxy Edge Function con auth correcto', isRelease: true },
   { hash: 'g0c6h2e', date: '2026-01-17', author: 'Team', message: 'v2.5.5: B10.1.5N2.5.5 - Fix Auth Edge Functions (pause-bot, dynamics-lead) + limpiar logs auth', isRelease: true },
   { hash: 'f9b5g1d', date: '2026-01-17', author: 'Team', message: 'v2.5.4: B10.1.4N2.5.4 - Fix transfer/tools-proxy 401: Simplificar Edge Functions (sin validación JWT redundante)', isRelease: true },
@@ -537,8 +538,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.6', highlight: true },
-  { label: 'Release', value: 'B10.1.6N2.5.6', highlight: false },
+  { label: 'Version', value: 'v2.5.7', highlight: true },
+  { label: 'Release', value: 'B10.1.7N2.5.7', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '17 Ene 2026', highlight: false },
 ];

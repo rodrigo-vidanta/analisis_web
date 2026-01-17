@@ -8,6 +8,17 @@ interface CalendarSidebarProps {
   scheduledCalls: Array<{ fecha_programada: string }>;
 }
 
+/**
+ * Obtiene la fecha en formato YYYY-MM-DD respetando la zona horaria LOCAL del usuario.
+ * IMPORTANTE: NO usar toISOString() ya que convierte a UTC y puede cambiar el día.
+ */
+const getLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({
   selectedDate,
   onDateSelect,
@@ -42,10 +53,10 @@ export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({
       days.push({ day: 0, date: null });
     }
 
-    // Días del mes
+    // Días del mes - usar getLocalDateString para respetar zona horaria local
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = getLocalDateString(date);
       days.push({ day, date: dateString });
     }
 
@@ -68,23 +79,25 @@ export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({
     return months;
   };
 
-  // Contar llamadas por fecha
+  // Contar llamadas por fecha - usa zona horaria LOCAL para comparar
   const getCallsForDate = (dateString: string) => {
     return scheduledCalls.filter(call => {
-      const callDate = new Date(call.fecha_programada).toISOString().split('T')[0];
-      return callDate === dateString;
+      // Convertir fecha_programada a fecha local para comparar correctamente
+      const callDate = new Date(call.fecha_programada);
+      const callDateString = getLocalDateString(callDate);
+      return callDateString === dateString;
     }).length;
   };
 
-  // Verificar si es hoy
+  // Verificar si es hoy - usa zona horaria LOCAL
   const isToday = (dateString: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(new Date());
     return dateString === today;
   };
 
-  // Verificar si está seleccionado
+  // Verificar si está seleccionado - usa zona horaria LOCAL
   const isSelected = (dateString: string) => {
-    const selected = selectedDate.toISOString().split('T')[0];
+    const selected = getLocalDateString(selectedDate);
     return dateString === selected;
   };
 

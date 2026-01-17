@@ -15,7 +15,7 @@ Se ha aplicado una **Response Headers Policy** a la distribución de CloudFront 
 
 | Header | Valor | Descripción |
 |--------|-------|-------------|
-| **Content-Security-Policy** | `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.vidavacations.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://glsmifhkoaifvaegsozd.supabase.co https://*.vidavacations.com https://api.ipify.org wss://*.supabase.co wss://*.vapi.ai; frame-src 'self' https://*.supabase.co;` | Controla qué recursos puede cargar el navegador |
+| **Content-Security-Policy** | `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.vidavacations.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' https://storage.vapi.ai https://*.supabase.co blob:; connect-src 'self' https://*.supabase.co https://glsmifhkoaifvaegsozd.supabase.co https://*.vidavacations.com https://api.ipify.org wss://*.supabase.co wss://*.vapi.ai; frame-src 'self' https://*.supabase.co;` | Controla qué recursos puede cargar el navegador |
 | **Strict-Transport-Security (HSTS)** | `max-age=31536000; includeSubDomains` | Fuerza conexiones HTTPS por 1 año |
 | **X-Frame-Options** | `DENY` | Previene clickjacking |
 | **X-XSS-Protection** | `1; mode=block` | Protección contra XSS |
@@ -82,7 +82,7 @@ curl -I https://ai.vidavacations.com
 ## 📝 Notas
 
 - Los headers se aplican automáticamente a todas las respuestas de CloudFront
-- El CSP está configurado para permitir recursos de Supabase, vidavacations.com, VAPI (WebSocket para escuchar llamadas) y api.ipify.org (para obtener IP del cliente)
+- El CSP está configurado para permitir recursos de Supabase, vidavacations.com, VAPI (WebSocket para escuchar llamadas y storage para archivos de audio), api.ipify.org (para obtener IP del cliente) y blob: (para medios generados en memoria)
 - HSTS está configurado para 1 año con includeSubDomains
 - X-Frame-Options está en DENY para máxima seguridad
 
