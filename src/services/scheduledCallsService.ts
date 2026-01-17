@@ -377,16 +377,19 @@ class ScheduledCallsService {
       const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       try {
-        // Obtener token de autenticación del servicio centralizado
         // Usar Edge Function en lugar de webhook directo
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/trigger-manual-proxy`;
+        
+        // Obtener JWT del usuario autenticado
+        const { data: { session } } = await analysisSupabase.auth.getSession();
+        const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
         
         const response = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify(payload),
           signal: controller.signal
