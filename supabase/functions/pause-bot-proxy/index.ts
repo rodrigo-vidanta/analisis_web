@@ -54,7 +54,21 @@ serve(async (req) => {
     }
 
     // Obtener payload del request
-    const { uchat_id, duration_minutes, paused_by } = await req.json();
+    // El frontend puede enviar:
+    // - ttl (en segundos) - formato original que espera N8N
+    // - duration_minutes - formato alternativo que convertimos a ttl
+    const body = await req.json();
+    const { uchat_id } = body;
+    
+    // Calcular TTL: priorizar ttl si existe, sino convertir duration_minutes a segundos
+    let ttl: number;
+    if (typeof body.ttl === 'number') {
+      ttl = body.ttl;
+    } else if (typeof body.duration_minutes === 'number') {
+      ttl = body.duration_minutes * 60; // Convertir minutos a segundos
+    } else {
+      ttl = 60; // Default: 1 minuto
+    }
     
     if (!uchat_id) {
       return new Response(
@@ -63,7 +77,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`⏸️ [pause-bot-proxy] ${paused_by === 'bot' ? 'Reanudando' : 'Pausando'} bot para ${uchat_id} (user: ${user.email})`);
+    console.log(`⏸️ [pause-bot-proxy] Bot para ${uchat_id} - TTL: ${ttl}s (user: ${user.email})`);
 
     // Obtener token desde secret (mismo que otros webhooks)
     const webhookToken = Deno.env.get('LIVECHAT_AUTH') || '';
@@ -78,13 +92,14 @@ serve(async (req) => {
     const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot';
 
     // Hacer request al webhook de N8N con autenticación
+    // El webhook N8N espera: { uchat_id, ttl } donde ttl es en segundos
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'livechat_auth': webhookToken, // Mismo header que otros webhooks
       },
-      body: JSON.stringify({ uchat_id, duration_minutes, paused_by }),
+      body: JSON.stringify({ uchat_id, ttl }),
     });
 
     if (!response.ok) {
@@ -108,7 +123,7 @@ serve(async (req) => {
       responseData = { success: true, message: 'Bot status updated' };
     }
 
-    console.log(`✅ [pause-bot-proxy] Bot ${paused_by === 'bot' ? 'reanudado' : 'pausado'} exitosamente`);
+    console.log(`✅ [pause-bot-proxy] Bot ${ttl === 0 ? 'reanudado' : 'pausado'} exitosamente (TTL: ${ttl}s)`);
 
     return new Response(
       JSON.stringify({ ...responseData, success: true }),

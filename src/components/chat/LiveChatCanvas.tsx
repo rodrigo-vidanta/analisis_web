@@ -5367,7 +5367,7 @@ const LiveChatCanvas: React.FC = () => {
             'Accept': 'application/json',
             'Authorization': `Bearer ${authToken}`
           },
-          body: JSON.stringify({ uchat_id: uchatId, duration_minutes: Math.ceil(ttlSec / 60), paused_by: 'user' }),
+          body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec }),
           signal: controller.signal
         });
         
@@ -5473,7 +5473,7 @@ const LiveChatCanvas: React.FC = () => {
             'Accept': 'application/json',
             'Authorization': `Bearer ${authToken}`
           },
-          body: JSON.stringify({ uchat_id: uchatId, duration_minutes: 0, paused_by: 'bot' }),
+          body: JSON.stringify({ uchat_id: uchatId, ttl: 0 }),
           signal: controller.signal
         });
         
