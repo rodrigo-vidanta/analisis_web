@@ -8,8 +8,8 @@ import { useSystemConfig } from '../hooks/useSystemConfig';
   const DEBUG_USER_SYNC = 'https://primary-dev-d75a.up.railway.app/webhook/user_sync';
 
   const Footer: React.FC = () => {
-  // Versión actual - v2.4.0: ULTRA-FORTIFICADO - 30 honeypots + Defensa activa
-  const version = 'B10.0.1N2.4.1';
+  // Versión actual - v2.5.0: CERTIFICACIÓN FINAL - 33 honeypots detectables
+  const version = 'B10.1.0N2.5.0';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {
