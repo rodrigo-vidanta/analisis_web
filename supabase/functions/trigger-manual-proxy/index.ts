@@ -9,7 +9,19 @@
  * Acciones soportadas:
  * - INSERT: Crear nueva llamada programada
  * - UPDATE: Actualizar llamada existente
- * - DELETE: Eliminar llamada programada
+ * - DELETE: Eliminar llamada programada (marcar como cancelada)
+ * 
+ * Esquema de tabla llamadas_programadas:
+ * - id (UUID)
+ * - fecha_programada (TIMESTAMPTZ)
+ * - prospecto (UUID - FK a prospectos)
+ * - estatus (TEXT: 'programada', 'ejecutada', 'cancelada', 'no contesto')
+ * - justificacion_llamada (TEXT)
+ * - creada (TIMESTAMPTZ)
+ * - llamada_ejecutada (UUID - FK a llamadas cuando se ejecuta)
+ * - id_llamada_dynamics (UUID)
+ * - programada_por_nombre (TEXT)
+ * - programada_por_id (UUID - FK a auth_users)
  * 
  * Fecha: 17 Enero 2026
  */
@@ -66,14 +78,26 @@ serve(async (req) => {
       user_id,
       justificacion,
       scheduled_timestamp,
-      schedule_type,
-      customer_phone,
       customer_name,
-      conversation_id,
       llamada_programada_id 
     } = payload;
 
     console.log(`📞 [trigger-manual-proxy] Acción: ${action} para prospecto: ${prospecto_id} (user: ${user.email})`);
+
+    // Obtener nombre del usuario que programa
+    let programadaPorNombre = customer_name || user.email;
+    try {
+      const { data: userData } = await supabase
+        .from('auth_users_safe')
+        .select('full_name')
+        .eq('id', user_id || user.id)
+        .single();
+      if (userData?.full_name) {
+        programadaPorNombre = userData.full_name;
+      }
+    } catch (e) {
+      console.log('No se pudo obtener nombre del usuario, usando email');
+    }
 
     let result;
 
@@ -84,15 +108,12 @@ serve(async (req) => {
           .from('llamadas_programadas')
           .insert({
             prospecto: prospecto_id,
-            programada_por: user_id || user.id,
-            motivo: justificacion || 'Llamada programada desde UI',
+            programada_por_id: user_id || user.id,
+            programada_por_nombre: programadaPorNombre,
+            justificacion_llamada: justificacion || 'Llamada programada desde UI',
             fecha_programada: scheduled_timestamp,
             estatus: 'programada',
-            telefono_cliente: customer_phone,
-            nombre_cliente: customer_name,
-            conversation_id: conversation_id,
-            tipo_programacion: schedule_type, // 'now' o 'scheduled'
-            created_at: new Date().toISOString()
+            creada: new Date().toISOString()
           })
           .select('id')
           .single();
@@ -119,12 +140,10 @@ serve(async (req) => {
         const { error } = await supabase
           .from('llamadas_programadas')
           .update({
-            motivo: justificacion,
+            justificacion_llamada: justificacion,
             fecha_programada: scheduled_timestamp,
-            telefono_cliente: customer_phone,
-            nombre_cliente: customer_name,
-            updated_at: new Date().toISOString(),
-            actualizada_por: user_id || user.id
+            programada_por_id: user_id || user.id,
+            programada_por_nombre: programadaPorNombre
           })
           .eq('id', llamada_programada_id);
 
@@ -151,9 +170,7 @@ serve(async (req) => {
         const { error } = await supabase
           .from('llamadas_programadas')
           .update({
-            estatus: 'cancelada',
-            updated_at: new Date().toISOString(),
-            cancelada_por: user_id || user.id
+            estatus: 'cancelada'
           })
           .eq('id', llamada_programada_id);
 
