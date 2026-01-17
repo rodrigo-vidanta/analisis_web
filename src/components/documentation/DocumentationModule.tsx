@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'd2e3f4g', date: '2026-01-16', author: 'Team', message: 'v2.2.72: B8.3.7N2.3.1 - Auditoría seguridad (9 RPCs verificadas + RLS completo)', isRelease: true },
   { hash: 'c1d2e3f', date: '2026-01-16', author: 'Team', message: 'v2.2.71: B8.3.6N2.3.1 - Panel Lateral: Fix contador tiempo real en vistas reducida y miniatura', isRelease: true },
   { hash: 'n4o5p6q', date: '2026-01-16', author: 'Team', message: 'v2.2.66: B8.3.1N2.3.1 - Campañas: Barra progreso 3 colores (resp/env/pend), iconos vectoriales, analytics views', isRelease: true },
   { hash: 'm3n4o5p', date: '2026-01-16', author: 'Team', message: 'v2.2.65: B8.2.3N2.3.1 - Panel Lateral: Nombre ejecutivo asignado + Estados botón Escuchar (Marcando/Listo)', isRelease: true },
@@ -516,8 +517,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.2.71', highlight: true },
-  { label: 'Release', value: 'B8.3.6N2.3.1', highlight: false },
+  { label: 'Version', value: 'v2.2.72', highlight: true },
+  { label: 'Release', value: 'B8.3.7N2.3.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '16 Ene 2026', highlight: false },
 ];

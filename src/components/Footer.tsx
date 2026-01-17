@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.2.71: Panel Lateral - Fix contador tiempo real en vistas reducida/miniatura
-  const version = 'B8.3.6N2.3.1';
+  // Versión actual - v2.2.72: Auditoría seguridad completa + RPCs + Depuración recursos
+  const version = 'B8.3.7N2.3.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division
