@@ -102,77 +102,35 @@ class ErrorLogService {
       // Ignorar errores de localStorage
     }
 
-    // Intentar cargar desde Supabase (usar cliente normal para lectura)
+    // Intentar cargar desde vista pública (solo 'enabled') - accesible sin auth
     try {
-      const { data, error } = await supabaseSystemUI
-        .from('log_server_config_safe')
-        .select('*')
-        .order('updated_at', { ascending: false })
-        .limit(1)
+      const { data: publicData } = await supabaseSystemUI
+        .from('log_config_public')
+        .select('enabled')
         .single();
 
-      // Si la tabla no existe (404 o PGRST116), usar configuración por defecto
-      if (error) {
-        if (error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('does not exist')) {
-          // Tabla no existe, usar configuración por defecto y guardar en localStorage
-          const defaultConfig: LogServerConfig = {
-            webhook_url: `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/error-log-proxy`,
-            webhook_auth_token: '', // Se carga desde BD (log_server_config)
-            enabled: true,
-            rate_limit: 300,
-            rate_limit_window: 1
-          };
-          
-          this.config = defaultConfig;
-          this.configCacheTime = now;
-          
-          // Guardar en localStorage como fallback
-          try {
-            localStorage.setItem(localStorageKey, JSON.stringify(defaultConfig));
-          } catch (e) {
-            // Ignorar errores de localStorage
-          }
-          
-          return this.config;
-        }
-        
-        // Otro tipo de error, usar configuración existente o por defecto
-        if (!this.config) {
-          this.config = {
-            webhook_url: `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/error-log-proxy`,
-            enabled: true,
-            rate_limit: 300,
-            rate_limit_window: 1
-          };
-        }
-        return this.config;
+      // Usar configuración por defecto con el estado de enabled de la BD
+      const defaultConfig: LogServerConfig = {
+        webhook_url: `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/error-log-proxy`,
+        webhook_auth_token: '', // Se carga post-auth si es necesario
+        enabled: publicData?.enabled ?? true,
+        rate_limit: 300,
+        rate_limit_window: 1
+      };
+      
+      this.config = defaultConfig;
+      this.configCacheTime = now;
+      
+      // Guardar en localStorage como fallback
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(defaultConfig));
+      } catch (e) {
+        // Ignorar errores de localStorage
       }
-
-      if (data) {
-        this.config = data as LogServerConfig;
-        this.configCacheTime = now;
-        
-        // Sincronizar con localStorage
-        try {
-          localStorage.setItem(localStorageKey, JSON.stringify(this.config));
-        } catch (e) {
-          // Ignorar errores de localStorage
-        }
-      } else {
-        // No hay datos, usar configuración por defecto
-        const defaultConfig: LogServerConfig = {
-          webhook_url: `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/error-log-proxy`,
-          enabled: true,
-          rate_limit: 300,
-          rate_limit_window: 1
-        };
-        this.config = defaultConfig;
-        this.configCacheTime = now;
-      }
-
+      
       return this.config;
-    } catch (error) {
-      // Error de red u otro error, usar configuración existente o por defecto
+    } catch (e) {
+      // Si falla (401, red, etc), usar defaults silenciosamente
       if (!this.config) {
         this.config = {
           webhook_url: `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/error-log-proxy`,
@@ -202,10 +160,10 @@ class ErrorLogService {
         // Ignorar errores de localStorage
       }
 
-      // Intentar guardar en Supabase usando cliente admin para evitar problemas de RLS
+      // Intentar guardar en Supabase (requiere usuario autenticado)
       try {
         const { data, error } = await supabaseSystemUI
-          .from('log_server_config_safe')
+          .from('log_server_config')
           .upsert(configToSave, { onConflict: 'id' })
           .select()
           .single();
