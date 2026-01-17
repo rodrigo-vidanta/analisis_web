@@ -45,6 +45,24 @@ serve(async (req) => {
       );
     }
 
+    // Validar que es un usuario real (no solo anon_key)
+    const jwt = authHeader.substring(7);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid user token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Webhook de Railway (URL desde secret)
     const WEBHOOK_URL = Deno.env.get('N8N_SEND_IMG_URL') || 'https://primary-dev-d75a.up.railway.app/webhook/send-img';
     const livechatAuth = Deno.env.get('LIVECHAT_AUTH') || '2025_livechat_auth';
