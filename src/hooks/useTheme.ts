@@ -20,14 +20,14 @@ export const useTheme = () => {
   // Cargar tema activo desde la base de datos
   const loadActiveTheme = async () => {
     try {
-      // Cargar configuración de tema activo
-      const { data: themeConfig, error: configError } = await supabase
-        .from('system_config')
-        .select('config_value')
-        .eq('config_key', 'app_theme')
-        .single();
+      // Cargar configuración de tema activo (vista pública - sin autenticación)
+      const { data: configData, error: configError } = await supabase
+        .from('system_config_public')
+        .select('config_key, config_value');
 
-      if (configError) {
+      const themeConfig = configData?.find(c => c.config_key === 'app_theme');
+
+      if (configError || !themeConfig) {
         console.log('No theme config found, using default');
         setCurrentTheme('default');
       } else {
@@ -38,11 +38,10 @@ export const useTheme = () => {
         applyThemeToDocument(activeThemeName);
       }
 
-      // Cargar temas disponibles
+      // Cargar temas disponibles (vista pública - sin autenticación)
       const { data: themes, error: themesError } = await supabase
-        .from('app_themes')
-        .select('theme_name, display_name, description, theme_config, is_active')
-        .order('display_name');
+        .from('app_themes_public')
+        .select('theme_name, display_name, theme_config, is_active');
 
       if (!themesError && themes) {
         setAvailableThemes(themes);

@@ -59,27 +59,22 @@ export const useSystemConfig = () => {
     try {
       setLoading(true);
       
-      // Obtener configuración de branding
-      const { data: brandingData } = await supabase
-        .from('system_config')
-        .select('config_value')
-        .eq('config_key', 'app_branding')
-        .single();
+      // Obtener configuración desde vista pública (accesible sin autenticación)
+      const { data: configData } = await supabase
+        .from('system_config_public')
+        .select('config_key, config_value');
 
-      // Obtener configuración de tema
-      const { data: themeData } = await supabase
-        .from('system_config')
-        .select('config_value')
-        .eq('config_key', 'app_theme')
-        .single();
+      // Extraer branding y tema de los resultados
+      const brandingData = configData?.find(c => c.config_key === 'app_branding');
+      const themeData = configData?.find(c => c.config_key === 'app_theme');
 
       const newConfig: SystemConfig = {};
       
-      if (brandingData?.config_value) {
+      if (brandingData) {
         newConfig.app_branding = brandingData.config_value;
       }
       
-      if (themeData?.config_value) {
+      if (themeData) {
         newConfig.app_theme = themeData.config_value;
       }
 
