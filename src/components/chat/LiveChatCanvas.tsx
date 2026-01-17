@@ -5355,12 +5355,17 @@ const LiveChatCanvas: React.FC = () => {
       try {
         // Usar Edge Function en lugar de webhook directo
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
+        
+        // Obtener JWT del usuario autenticado
+        const { data: { session } } = await analysisSupabase.auth.getSession();
+        const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+        
         const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify({ uchat_id: uchatId, duration_minutes: Math.ceil(ttlSec / 60), paused_by: 'user' }),
           signal: controller.signal
@@ -5456,12 +5461,17 @@ const LiveChatCanvas: React.FC = () => {
       try {
         // Usar Edge Function en lugar de webhook directo
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
+        
+        // Obtener JWT del usuario autenticado
+        const { data: { session } } = await analysisSupabase.auth.getSession();
+        const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+        
         const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify({ uchat_id: uchatId, duration_minutes: 0, paused_by: 'bot' }),
           signal: controller.signal
