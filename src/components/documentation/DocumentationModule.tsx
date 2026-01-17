@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'f9b5g1d', date: '2026-01-17', author: 'Team', message: 'v2.5.4: B10.1.4N2.5.4 - Fix transfer/tools-proxy 401: Simplificar Edge Functions (sin validación JWT redundante)', isRelease: true },
   { hash: 'e8a4f0c', date: '2026-01-17', author: 'Team', message: 'v2.5.3: B10.1.3N2.5.3 - Fix dynamics-reasignar-proxy: Auth correcto (Bearer + x-dynamics-token)', isRelease: true },
   { hash: '946d7f0', date: '2026-01-17', author: 'Team', message: 'v2.5.2: B10.1.2N2.5.2 - Fix Edge Functions: send-img JWT, trigger-manual INSERT BD, enum cancelada', isRelease: true },
   { hash: '31c4b0c', date: '2026-01-17', author: 'Team', message: 'fix(trigger-manual-proxy): Insertar directo en BD (webhook N8N no existe)', isRelease: false },
@@ -533,8 +534,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.3', highlight: true },
-  { label: 'Release', value: 'B10.1.3N2.5.3', highlight: false },
+  { label: 'Version', value: 'v2.5.4', highlight: true },
+  { label: 'Release', value: 'B10.1.4N2.5.4', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '17 Ene 2026', highlight: false },
 ];

@@ -8,8 +8,8 @@ import { useSystemConfig } from '../hooks/useSystemConfig';
   const DEBUG_USER_SYNC = 'https://primary-dev-d75a.up.railway.app/webhook/user_sync';
 
   const Footer: React.FC = () => {
-  // Versión actual - v2.5.3: Fix dynamics-reasignar-proxy (Auth correcto)
-  const version = 'B10.1.3N2.5.3';
+  // Versión actual - v2.5.4: Fix Edge Functions transfer/tools-proxy (401 Unauthorized)
+  const version = 'B10.1.4N2.5.4';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {
