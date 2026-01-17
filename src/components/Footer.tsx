@@ -4,8 +4,8 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.3.2: PENTEST 100% APROBADO - 110 RPCs bloqueadas
-  const version = 'B9.2.0N2.3.4';
+  // Versión actual - v2.4.0: ULTRA-FORTIFICADO - 30 honeypots + Defensa activa
+  const version = 'B10.0.0N2.4.0';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

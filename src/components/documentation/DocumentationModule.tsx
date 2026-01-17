@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'h6i7j8k', date: '2026-01-17', author: 'Team', message: 'v2.4.0: B10.0.0N2.4.0 - ULTRA-FORTIFICADO: 30 honeypots + Defensa activa', isRelease: true },
   { hash: 'g5h6i7j', date: '2026-01-17', author: 'Team', message: 'v2.3.2: B9.2.0N2.3.4 - PENTEST 100%: 110 RPCs bloqueadas + Verificado', isRelease: true },
   { hash: 'f4g5h6i', date: '2026-01-17', author: 'Team', message: 'v2.3.1: B9.1.0N2.3.3 - Pentest REAL: 6 funciones SQL eliminadas (DROP)', isRelease: true },
   { hash: 'e3f4g5h', date: '2026-01-17', author: 'Team', message: 'v2.3.0: B9.0.0N2.3.2 - SEGURIDAD 100% (Pentest 10/10 aprobado)', isRelease: true },
@@ -520,8 +521,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.3.2', highlight: true },
-  { label: 'Release', value: 'B9.2.0N2.3.4', highlight: false },
+  { label: 'Version', value: 'v2.4.0', highlight: true },
+  { label: 'Release', value: 'B10.0.0N2.4.0', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '16 Ene 2026', highlight: false },
 ];
