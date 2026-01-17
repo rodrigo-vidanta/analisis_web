@@ -251,9 +251,10 @@ class DynamicsReasignacionService {
       const payload = {
         prospecto_id: request.prospecto_id,
         nuevo_ejecutivo_id: request.nuevo_ejecutivo_id,
+        nueva_coordinacion_id: request.nueva_coordinacion_id,
         user_id: request.reasignado_por_id,
         user_email: request.reasignado_por_email,
-        motivo: 'cambio desde UI'
+        motivo: request.motivo || 'cambio desde UI'
       };
 
       // Crear AbortController para el timeout
@@ -261,11 +262,17 @@ class DynamicsReasignacionService {
       const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
       try {
+        // Obtener JWT del usuario autenticado para la Edge Function
+        const { data: { session } } = await analysisSupabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('No hay sesión de usuario activa');
+        }
+        
         const response = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${session.access_token}`
           },
           body: JSON.stringify(payload),
           signal: controller.signal

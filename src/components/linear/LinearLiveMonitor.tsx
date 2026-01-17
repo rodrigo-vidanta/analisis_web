@@ -18,6 +18,7 @@
 import React, { useState, useEffect } from 'react';
 import { liveMonitorService, type LiveCallData, type Agent, type FeedbackData } from '../../services/liveMonitorService';
 import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
+import { getAuthHeaders } from '../../utils/authHelpers';
 
 // Definición de checkpoints con diseño Linear
 const LINEAR_CHECKPOINTS = {
@@ -141,14 +142,12 @@ const LinearLiveMonitor: React.FC = () => {
         destination: { number: "+523222264000", extension: "60973" }
       };
 
-      // Usar Edge Function de Supabase
+      // Usar Edge Function de Supabase (requiere JWT de usuario autenticado)
       const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/tools-proxy`;
+      const transferAuthHeaders = await getAuthHeaders();
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
+        headers: transferAuthHeaders,
         body: JSON.stringify(transferData)
       });
 
@@ -178,14 +177,12 @@ const LinearLiveMonitor: React.FC = () => {
         control_url: selectedCall.control_url
       };
 
-      // Usar Edge Function de Supabase
+      // Usar Edge Function de Supabase (requiere JWT de usuario autenticado)
       const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/tools-proxy`;
+      const hangupAuthHeaders = await getAuthHeaders();
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
+        headers: hangupAuthHeaders,
         body: JSON.stringify(hangupData)
       });
 

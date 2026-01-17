@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'e8a4f0c', date: '2026-01-17', author: 'Team', message: 'v2.5.3: B10.1.3N2.5.3 - Fix dynamics-reasignar-proxy: Auth correcto (Bearer + x-dynamics-token)', isRelease: true },
   { hash: '946d7f0', date: '2026-01-17', author: 'Team', message: 'v2.5.2: B10.1.2N2.5.2 - Fix Edge Functions: send-img JWT, trigger-manual INSERT BD, enum cancelada', isRelease: true },
   { hash: '31c4b0c', date: '2026-01-17', author: 'Team', message: 'fix(trigger-manual-proxy): Insertar directo en BD (webhook N8N no existe)', isRelease: false },
   { hash: '50a9f7f', date: '2026-01-17', author: 'Team', message: 'fix(send-img): Usar JWT del usuario en lugar de anon_key', isRelease: false },
@@ -426,6 +427,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-108', date: '2026-01-17 20:10', version: 'B10.1.3N2.5.3', status: 'success', duration: '18s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-107', date: '2026-01-17 19:30', version: 'B10.1.2N2.5.2', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-106', date: '2026-01-17 16:30', version: 'B10.1.1N2.5.1', status: 'success', duration: '26s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-105', date: '2026-01-17 08:00', version: 'B10.0.1N2.4.1', status: 'success', duration: '23s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -531,8 +533,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.2', highlight: true },
-  { label: 'Release', value: 'B10.1.2N2.5.2', highlight: false },
+  { label: 'Version', value: 'v2.5.3', highlight: true },
+  { label: 'Release', value: 'B10.1.3N2.5.3', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '17 Ene 2026', highlight: false },
 ];

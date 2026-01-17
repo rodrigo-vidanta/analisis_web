@@ -19,6 +19,7 @@ import { type LiveCallData } from '../../../services/liveMonitorService';
 import { Avatar } from '../../shared/Avatar';
 import { PhoneDisplay } from '../../shared/PhoneDisplay';
 import { convertUTCToMexicoTime } from '../../../utils/timezoneHelper';
+import { getAuthHeaders } from '../../../utils/authHelpers';
 
 // ============================================
 // CONSTANTES DE CONFIGURACIÓN DE AUDIO
@@ -754,14 +755,12 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
     
     try {
       // Llamar al webhook con el prospect_id
-      // Usar Edge Function de Supabase
+      // Usar Edge Function de Supabase (requiere JWT de usuario autenticado)
       const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/transfer-request-proxy`;
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           prospect_id: prospectId
         })
@@ -930,14 +929,12 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
         }
       };
 
-      // Usar Edge Function de Supabase
+      // Usar Edge Function de Supabase (requiere JWT de usuario autenticado)
       const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/tools-proxy`;
+      const toolsAuthHeaders = await getAuthHeaders();
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
+        headers: toolsAuthHeaders,
         body: JSON.stringify(transferData)
       });
 

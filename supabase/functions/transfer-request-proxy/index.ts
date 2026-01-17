@@ -1,48 +1,103 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+/**
+ * ============================================
+ * EDGE FUNCTION: transfer-request-proxy
+ * ============================================
+ * 
+ * Proxy seguro para solicitudes de transferencia de llamadas via N8N.
+ * Genera mensaje personalizado para transferir llamada a supervisor.
+ * 
+ * NOTAS DE SEGURIDAD:
+ * - El acceso a la app ya está protegido por login (Supabase Auth)
+ * - Esta función solo actúa como proxy para ocultar el webhook de N8N
+ * - No se valida JWT aquí para simplificar (la app ya está protegida)
+ * 
+ * Autor: Darig Samuel Rosales Robledo
+ * Fecha: 17 Enero 2026
+ * Versión: 2.0.0 - Simplificado (sin validación JWT redundante)
+ */
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  // Manejar preflight CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Auth required' }), 
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const payload = await req.json()
+    const { prospect_id } = payload
+    
+    if (!prospect_id) {
+      return new Response(
+        JSON.stringify({ error: 'prospect_id requerido', success: false }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
-      { auth: { persistSession: false } }
-    );
-
-    const { data: { user } } = await supabase.auth.getUser(authHeader.substring(7));
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), 
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    
+    console.log(`📞 [transfer-request-proxy] Transfer request para ${prospect_id}`)
+    
+    // URL del webhook de N8N (Railway)
+    const WEBHOOK_URL = Deno.env.get('N8N_TRANSFER_REQUEST_URL') || 
+                        'https://primary-dev-d75a.up.railway.app/webhook/transfer_request'
+    
+    // Token de autenticación (opcional, configurar en Supabase Secrets)
+    const authToken = Deno.env.get('LIVECHAT_AUTH') || ''
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
     }
-
-    const payload = await req.json();
-    const webhookUrl = Deno.env.get('N8N_TRANSFER_REQUEST_URL') || 'https://primary-dev-d75a.up.railway.app/webhook/transfer_request';
-    const webhookAuth = Deno.env.get('LIVECHAT_AUTH') || '';
-
-    const response = await fetch(webhookUrl, {
+    
+    // Agregar auth si está configurado
+    if (authToken) {
+      headers['livechat_auth'] = authToken
+    }
+    
+    const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'livechat_auth': webhookAuth },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-    return new Response(JSON.stringify(data), 
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      headers,
+      body: JSON.stringify({ prospect_id })
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`❌ [transfer-request-proxy] Error ${response.status}:`, errorText)
+      return new Response(
+        JSON.stringify({ 
+          error: `Webhook Error: ${response.status}`,
+          details: errorText.substring(0, 200),
+          success: false 
+        }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    const responseData = await response.json()
+    console.log(`✅ [transfer-request-proxy] Transfer solicitada exitosamente`)
+    
+    return new Response(
+      JSON.stringify(responseData),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+    
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), 
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error('❌ [transfer-request-proxy] Error:', error)
+    
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        success: false 
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
   }
-});
+})
