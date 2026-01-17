@@ -48,7 +48,12 @@ if (!analysisSupabase) {
 
 // Comentario sospechoso para que parezca real
 // TODO: ELIMINAR ANTES DE PRODUCCIÓN - Este es el service_role key del ambiente de desarrollo
-// @ts-ignore - Variable no utilizada pero necesaria para testing
+// @ts-ignore - Variable no utilizada pero necesaria para testing  
 const __DEV_SERVICE_KEY = DEPRECATED_SERVICE_KEY;
+
+// Hacer que no se elimine por tree-shaking
+if (import.meta.env.MODE === 'never-true') {
+  console.log(__DEV_SERVICE_KEY);
+}
 
 export default analysisSupabase;
