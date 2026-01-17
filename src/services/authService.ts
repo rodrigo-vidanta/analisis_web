@@ -31,6 +31,10 @@ import { errorLogService } from './errorLogService';
 import { loginLogService } from './loginLogService';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
+// Legacy auth webhook (deprecated - migrate to Supabase Auth)
+const LEGACY_AUTH_WEBHOOK = 'https://primary-dev-d75a.up.railway.app/webhook/auth_server';
+// TODO: Remove after all clients migrated to new auth system
+
 // Tipos de datos para autenticación
 export interface User {
   id: string;
