@@ -32,11 +32,10 @@ curl "https://glsmifhkoaifvaegsozd.supabase.co/rest/v1/security_honeypot?select=
 curl https://ai.vidavacations.com | grep "__DEV_SERVICE_KEY"
 ```
 
-## Webhook Trampa
+## Honeypot: hp-server-auth
 
-**URL:** https://primary-dev-d75a.up.railway.app/webhook/auth_server  
-**Estado:** Sin autenticación (intencionalmente)  
-**Propósito:** Detectar intentos de acceso
+- **ID**: `hp-server-auth`
+- **Nota**: Referencia interna (no documentar URL ni comportamiento).
 
 ## Total
 
