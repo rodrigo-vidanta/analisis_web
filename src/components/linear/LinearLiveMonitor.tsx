@@ -141,7 +141,7 @@ const LinearLiveMonitor: React.FC = () => {
         destination: { number: "+523222264000", extension: "60973" }
       };
 
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/tools', {
+      const response = await fetch('https://primary-dev-d75a.up.railway.app/functions/v1/tools-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transferData)
@@ -173,7 +173,7 @@ const LinearLiveMonitor: React.FC = () => {
         control_url: selectedCall.control_url
       };
 
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/tools', {
+      const response = await fetch('https://primary-dev-d75a.up.railway.app/functions/v1/tools-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(hangupData)

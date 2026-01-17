@@ -754,7 +754,7 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
     
     try {
       // Llamar al webhook con el prospect_id
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/transfer_request', {
+      const response = await fetch('https://primary-dev-d75a.up.railway.app/functions/v1/transfer-request-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -927,7 +927,7 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
         }
       };
 
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/tools', {
+      const response = await fetch('https://primary-dev-d75a.up.railway.app/functions/v1/tools-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
