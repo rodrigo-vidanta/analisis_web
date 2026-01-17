@@ -47,7 +47,7 @@ const Footer: React.FC = () => {
   useEffect(() => {
     const loadAIDivisionAvatars = async () => {
       try {
-        const emails = ['samuelrosales@grupovidanta.com', 'rodrigomora@grupovidanta.com'];
+        const emails = ['samuelrosales@[REDACTED]', 'rodrigomora@[REDACTED]'];
         
         // Obtener usuarios
         const { data: users, error: usersError } = await supabaseSystemUI
@@ -59,8 +59,8 @@ const Footer: React.FC = () => {
           console.error('Error loading AI Division users:', usersError);
           // Fallback con datos básicos
           setAiDivisionMembers([
-            { name: 'Samuel Rosales', email: 'samuelrosales@grupovidanta.com', avatar: null },
-            { name: 'Rodrigo Mora', email: 'rodrigomora@grupovidanta.com', avatar: null }
+            { name: 'Samuel Rosales', email: 'samuelrosales@[REDACTED]', avatar: null },
+            { name: 'Rodrigo Mora', email: 'rodrigomora@[REDACTED]', avatar: null }
           ]);
           return;
         }
@@ -99,8 +99,8 @@ const Footer: React.FC = () => {
         console.error('Error loading AI Division avatars:', error);
         // Fallback con datos básicos
         setAiDivisionMembers([
-          { name: 'Samuel Rosales', email: 'samuelrosales@grupovidanta.com', avatar: null },
-          { name: 'Rodrigo Mora', email: 'rodrigomora@grupovidanta.com', avatar: null }
+          { name: 'Samuel Rosales', email: 'samuelrosales@[REDACTED]', avatar: null },
+          { name: 'Rodrigo Mora', email: 'rodrigomora@[REDACTED]', avatar: null }
         ]);
       }
     };

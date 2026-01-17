@@ -629,11 +629,11 @@ class LiveMonitorService {
   async getActiveAgents(): Promise<Agent[]> {
     // Por ahora usar datos demo hasta que se cree la tabla
     const agentsDemo: Agent[] = [
-      { id: '1', agent_name: 'Carlos Mendoza', agent_email: 'carlos.mendoza@grupovidanta.com', is_active: true, total_calls_handled: 15 },
-      { id: '2', agent_name: 'Ana Gutiérrez', agent_email: 'ana.gutierrez@grupovidanta.com', is_active: true, total_calls_handled: 12 },
-      { id: '3', agent_name: 'Roberto Silva', agent_email: 'roberto.silva@grupovidanta.com', is_active: true, total_calls_handled: 18 },
-      { id: '4', agent_name: 'María López', agent_email: 'maria.lopez@grupovidanta.com', is_active: true, total_calls_handled: 9 },
-      { id: '5', agent_name: 'Diego Ramírez', agent_email: 'diego.ramirez@grupovidanta.com', is_active: true, total_calls_handled: 21 }
+      { id: '1', agent_name: 'Carlos Mendoza', agent_email: 'carlos.mendoza@[REDACTED]', is_active: true, total_calls_handled: 15 },
+      { id: '2', agent_name: 'Ana Gutiérrez', agent_email: 'ana.gutierrez@[REDACTED]', is_active: true, total_calls_handled: 12 },
+      { id: '3', agent_name: 'Roberto Silva', agent_email: 'roberto.silva@[REDACTED]', is_active: true, total_calls_handled: 18 },
+      { id: '4', agent_name: 'María López', agent_email: 'maria.lopez@[REDACTED]', is_active: true, total_calls_handled: 9 },
+      { id: '5', agent_name: 'Diego Ramírez', agent_email: 'diego.ramirez@[REDACTED]', is_active: true, total_calls_handled: 21 }
     ];
 
     return agentsDemo;

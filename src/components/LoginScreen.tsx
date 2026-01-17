@@ -189,7 +189,7 @@ const LoginScreen: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="usuario@grupovidanta.com"
+                placeholder="usuario@[REDACTED]"
                 className="w-full px-4 py-3 bg-black/20 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 style={{ color: '#ffffff', backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
               />

@@ -143,7 +143,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="usuario@grupovidanta.com"
+                  placeholder="usuario@[REDACTED]"
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
                 />
               </div>

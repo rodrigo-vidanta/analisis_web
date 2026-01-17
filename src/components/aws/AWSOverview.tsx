@@ -360,7 +360,7 @@ const AWSOverview: React.FC = () => {
                 Accesos Corporativos
               </h4>
               <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                <li>• <strong>IAM Roles corporativos</strong> - rodrigomora@grupovidanta.com</li>
+                <li>• <strong>IAM Roles corporativos</strong> - rodrigomora@[REDACTED]</li>
                 <li>• <strong>MFA obligatorio</strong> - AWS MFA + Hardware tokens</li>
                 <li>• <strong>CloudTrail</strong> - Auditoría completa de accesos</li>
                 <li>• <strong>AWS Config</strong> - Compliance automático</li>
@@ -565,7 +565,7 @@ const AWSOverview: React.FC = () => {
             <h4 className="font-semibold text-cyan-900 dark:text-cyan-100 mb-3">Tenant Enterprise</h4>
             <ul className="text-sm text-cyan-800 dark:text-cyan-200 space-y-1">
               <li>• <strong>Cuenta corporativa:</strong> Grupo Vidanta</li>
-              <li>• <strong>Administrador:</strong> rodrigomora@grupovidanta.com</li>
+              <li>• <strong>Administrador:</strong> rodrigomora@[REDACTED]</li>
               <li>• <strong>Co-administrador:</strong> Alejandro (IA Services)</li>
               <li>• <strong>Billing:</strong> Facturación empresarial</li>
               <li>• <strong>SLA:</strong> 99.9% uptime garantizado</li>
