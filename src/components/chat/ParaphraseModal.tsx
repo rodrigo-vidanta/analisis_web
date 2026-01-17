@@ -34,8 +34,8 @@ interface ParaphraseModalProps {
   context?: ParaphraseContext; // Contexto de uso del parafraseador
 }
 
-// Configuración del webhook de N8N
-const N8N_WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/mensaje-agente';
+// Edge Function proxy (más seguro que llamar webhook directo)
+const PARAPHRASE_PROXY_URL = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL || 'https://glsmifhkoaifvaegsozd.supabase.co'}/functions/v1/paraphrase-proxy`;
 
 // Timeout para el webhook (15 segundos)
 const WEBHOOK_TIMEOUT = 15000;
@@ -137,15 +137,24 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
     setOption2('');
 
     try {
+      // Obtener JWT del usuario autenticado
+      const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
+      const { data: { session } } = await supabaseSystemUI!.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Sesión no disponible');
+      }
+
       // Crear un AbortController para timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT);
 
-      // Llamar al webhook de N8N
-      const response = await fetch(N8N_WEBHOOK_URL, {
+      // Llamar a Edge Function proxy (más seguro)
+      const response = await fetch(PARAPHRASE_PROXY_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`, // JWT de usuario
         },
         body: JSON.stringify({
           text: originalText,
