@@ -117,7 +117,7 @@ class ErrorLogService {
           // Tabla no existe, usar configuración por defecto y guardar en localStorage
           const defaultConfig: LogServerConfig = {
             webhook_url: 'https://primary-dev-d75a.up.railway.app/webhook/error-log',
-            webhook_auth_token: '4@Lt\'\\o93BSkgA59MH[TSC"gERa+)jlgf|BWIR-7fAmM9o59}3.|W2k-JiRu(oeb',
+            webhook_auth_token: '', // Se carga desde BD (log_server_config)
             enabled: true,
             rate_limit: 300,
             rate_limit_window: 1

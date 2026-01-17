@@ -47,14 +47,29 @@ export interface TemplateSendLimits {
 // CONFIGURACIÓN DEL WEBHOOK
 // ============================================
 
-const WEBHOOK_BASE_URL = 'https://primary-dev-d75a.up.railway.app';
-const WEBHOOK_AUTH_TOKEN = 'wFRpkQv4cdmAg976dzEfTDML86vVlGLZmBUIMgftO0rkwhfJHkzVRuQa51W0tXTV';
+const WEBHOOK_BASE_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://primary-dev-d75a.up.railway.app';
+// Token cargado dinámicamente desde api_auth_tokens
+const WEBHOOK_AUTH_TOKEN = '';
 
 // ============================================
 // SERVICIO PRINCIPAL
 // ============================================
 
 class WhatsAppTemplatesService {
+  private authToken: string | null = null;
+
+  /**
+   * Obtiene el token de autenticación desde api_auth_tokens
+   */
+  private async getAuthToken(): Promise<string> {
+    if (this.authToken) return this.authToken;
+    
+    const { credentialsService } = await import('./credentialsService');
+    const token = await credentialsService.getCredentialByModule('N8N Webhooks', 'whatsapp_templates_auth');
+    this.authToken = token || WEBHOOK_AUTH_TOKEN;
+    return this.authToken;
+  }
+
   /**
    * Obtener todas las plantillas (solo las no eliminadas)
    */
@@ -443,7 +458,7 @@ class WhatsAppTemplatesService {
         const response = await fetch(`${WEBHOOK_BASE_URL}/webhook/whatsapp-templates`, {
           method: 'POST',
           headers: {
-            'Auth': WEBHOOK_AUTH_TOKEN,
+            'Auth': await this.getAuthToken(),
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload),
@@ -587,7 +602,7 @@ class WhatsAppTemplatesService {
         {
           method: 'POST',
           headers: {
-            'Auth': WEBHOOK_AUTH_TOKEN,
+            'Auth': await this.getAuthToken(),
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({})
@@ -637,7 +652,7 @@ class WhatsAppTemplatesService {
         {
           method: 'POST',
           headers: {
-            'Auth': WEBHOOK_AUTH_TOKEN,
+            'Auth': await this.getAuthToken(),
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(input)
@@ -1430,7 +1445,7 @@ class WhatsAppTemplatesService {
         {
           method: 'POST',
           headers: {
-            'Auth': WEBHOOK_AUTH_TOKEN,
+            'Auth': await this.getAuthToken(),
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({})
