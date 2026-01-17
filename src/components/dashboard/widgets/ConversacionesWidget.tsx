@@ -1995,7 +1995,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       
       try {
         const authToken = await getApiToken('pause_bot_auth');
-        const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+        const resp = await fetch('import.meta.env.VITE_N8N_PAUSE_BOT_URL || 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot'', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
@@ -2080,7 +2080,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       
       try {
         const authToken = await getApiToken('pause_bot_auth');
-        const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+        const resp = await fetch('import.meta.env.VITE_N8N_PAUSE_BOT_URL || 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot'', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 

@@ -427,7 +427,7 @@ class TimelineService {
   // Procesar texto con LLM vía N8N
   async processActivitiesWithLLM(text: string): Promise<ProcessedActivity[]> {
     try {
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/timeline', {
+      const response = await fetch('import.meta.env.VITE_N8N_TIMELINE_URL || 'https://primary-dev-d75a.up.railway.app/webhook/timeline'', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

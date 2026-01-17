@@ -418,7 +418,7 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       const authToken = await getApiToken('manual_call_auth');
       
       // Enviar al webhook
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/trigger-manual', {
+      const response = await fetch('import.meta.env.VITE_N8N_TRIGGER_MANUAL_URL || 'https://primary-dev-d75a.up.railway.app/webhook/trigger-manual'', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

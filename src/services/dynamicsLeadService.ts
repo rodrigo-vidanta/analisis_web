@@ -6,7 +6,7 @@
  * Este servicio consulta información de leads en Dynamics CRM
  * a través del webhook de N8N.
  *
- * URL Webhook: https://primary-dev-d75a.up.railway.app/webhook/lead-info
+ * URL Webhook: import.meta.env.VITE_N8N_LEAD_INFO_URL || 'https://primary-dev-d75a.up.railway.app/webhook/lead-info'
  *
  * Tipos de búsqueda soportados:
  * - Por ID de Dynamics (id_dynamics)
@@ -58,7 +58,7 @@ async function getDynamicsCredentials(): Promise<{ url: string; token: string }>
   
   // Verificar que las credenciales sean válidas
   const token = creds.token || import.meta.env.VITE_N8N_DYNAMICS_TOKEN || '';
-  const url = creds.getLeadUrl || import.meta.env.VITE_N8N_GET_LEAD_DYNAMICS_URL || 'https://primary-dev-d75a.up.railway.app/webhook/lead-info';
+  const url = creds.getLeadUrl || import.meta.env.VITE_N8N_GET_LEAD_DYNAMICS_URL || 'import.meta.env.VITE_N8N_LEAD_INFO_URL || 'https://primary-dev-d75a.up.railway.app/webhook/lead-info'';
   
   // Solo guardar en cache si el token es válido
   if (token && token.trim() !== '') {

@@ -5352,7 +5352,7 @@ const LiveChatCanvas: React.FC = () => {
       
       try {
         const authToken = await getApiToken('pause_bot_auth');
-        const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+        const resp = await fetch('import.meta.env.VITE_N8N_PAUSE_BOT_URL || 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot'', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
@@ -5452,7 +5452,7 @@ const LiveChatCanvas: React.FC = () => {
       
       try {
         const authToken = await getApiToken('pause_bot_auth');
-        const resp = await fetch('https://primary-dev-d75a.up.railway.app/webhook/pause_bot', {
+        const resp = await fetch('import.meta.env.VITE_N8N_PAUSE_BOT_URL || 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot'', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
@@ -5685,7 +5685,7 @@ const LiveChatCanvas: React.FC = () => {
   const sendMessageToUChat = async (message: string, uchatId: string, idSender?: string): Promise<boolean> => {
     try {
       const authToken = await getApiToken('send_message_auth');
-      const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/send-message';
+      const webhookUrl = 'import.meta.env.VITE_N8N_SEND_MESSAGE_URL || 'https://primary-dev-d75a.up.railway.app/webhook/send-message'';
       const payload: any = {
         message: message,
         uchat_id: uchatId,

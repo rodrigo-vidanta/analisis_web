@@ -71,7 +71,7 @@ import { CAMPAIGN_STATUS_CONFIG, CAMPAIGN_TYPE_CONFIG } from '../../../types/wha
 // CONSTANTES
 // ============================================
 
-const BROADCAST_WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/broadcast';
+const BROADCAST_WEBHOOK_URL = 'import.meta.env.VITE_N8N_BROADCAST_URL || 'https://primary-dev-d75a.up.railway.app/webhook/broadcast'';
 
 // ============================================
 // COMPONENTE PRINCIPAL

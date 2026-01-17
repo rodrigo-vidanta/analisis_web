@@ -6,7 +6,7 @@
  * Este servicio maneja la reasignación de prospectos enviando
  * solicitudes al webhook de N8N que se comunica con Dynamics CRM.
  * 
- * URL Webhook: https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto
+ * URL Webhook: import.meta.env.VITE_N8N_REASIGNAR_URL || 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto'
  * 
  * ⚠️ IMPORTANTE:
  * - La reasignación ahora se hace vía webhook, NO directamente en BD
@@ -37,7 +37,7 @@ async function getReasignacionCredentials(): Promise<{ url: string; token: strin
   
   const creds = await credentialsService.getDynamicsWebhookCredentials();
   cachedReasignacionCredentials = {
-    url: creds.reasignarUrl || import.meta.env.VITE_N8N_REASIGNAR_LEAD_DYNAMICS_URL || 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto',
+    url: creds.reasignarUrl || import.meta.env.VITE_N8N_REASIGNAR_LEAD_DYNAMICS_URL || 'import.meta.env.VITE_N8N_REASIGNAR_URL || 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto'',
     token: creds.token || import.meta.env.VITE_N8N_DYNAMICS_TOKEN || ''
   };
   return cachedReasignacionCredentials;

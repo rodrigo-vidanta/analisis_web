@@ -959,7 +959,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         triggered_by_user_name: user?.full_name || null
       };
 
-      const webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates-send';
+      const webhookUrl = 'import.meta.env.VITE_N8N_TEMPLATES_SEND_URL || 'https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates-send'';
       const authToken = await getApiToken('whatsapp_templates_auth');
       
       // Timeout de 30 segundos para evitar colgarse indefinidamente

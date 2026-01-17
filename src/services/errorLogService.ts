@@ -116,7 +116,7 @@ class ErrorLogService {
         if (error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('does not exist')) {
           // Tabla no existe, usar configuración por defecto y guardar en localStorage
           const defaultConfig: LogServerConfig = {
-            webhook_url: 'https://primary-dev-d75a.up.railway.app/webhook/error-log',
+            webhook_url: 'import.meta.env.VITE_N8N_ERROR_LOG_URL || 'https://primary-dev-d75a.up.railway.app/webhook/error-log'',
             webhook_auth_token: '', // Se carga desde BD (log_server_config)
             enabled: true,
             rate_limit: 300,
@@ -139,7 +139,7 @@ class ErrorLogService {
         // Otro tipo de error, usar configuración existente o por defecto
         if (!this.config) {
           this.config = {
-            webhook_url: 'https://primary-dev-d75a.up.railway.app/webhook/error-log',
+            webhook_url: 'import.meta.env.VITE_N8N_ERROR_LOG_URL || 'https://primary-dev-d75a.up.railway.app/webhook/error-log'',
             enabled: true,
             rate_limit: 300,
             rate_limit_window: 1
@@ -161,7 +161,7 @@ class ErrorLogService {
       } else {
         // No hay datos, usar configuración por defecto
         const defaultConfig: LogServerConfig = {
-          webhook_url: 'https://primary-dev-d75a.up.railway.app/webhook/error-log',
+          webhook_url: 'import.meta.env.VITE_N8N_ERROR_LOG_URL || 'https://primary-dev-d75a.up.railway.app/webhook/error-log'',
           enabled: true,
           rate_limit: 300,
           rate_limit_window: 1
@@ -175,7 +175,7 @@ class ErrorLogService {
       // Error de red u otro error, usar configuración existente o por defecto
       if (!this.config) {
         this.config = {
-          webhook_url: 'https://primary-dev-d75a.up.railway.app/webhook/error-log',
+          webhook_url: 'import.meta.env.VITE_N8N_ERROR_LOG_URL || 'https://primary-dev-d75a.up.railway.app/webhook/error-log'',
           enabled: true,
           rate_limit: 300,
           rate_limit_window: 1
