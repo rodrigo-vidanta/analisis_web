@@ -24,8 +24,6 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-// Easter egg de seguridad (honeypot para atacantes)
-import { DEPRECATED_SERVICE_KEY } from '../utils/securityEasterEgg';
 
 // Configuración para la base de datos de análisis de llamadas
 const analysisSupabaseUrl = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || '';
@@ -46,14 +44,9 @@ if (!analysisSupabase) {
   console.error('❌ analysisSupabase es NULL');
 }
 
-// Comentario sospechoso para que parezca real
-// TODO: ELIMINAR ANTES DE PRODUCCIÓN - Este es el service_role key del ambiente de desarrollo
-// @ts-ignore - Variable no utilizada pero necesaria para testing  
-const __DEV_SERVICE_KEY = DEPRECATED_SERVICE_KEY;
-
-// Hacer que no se elimine por tree-shaking
-if (import.meta.env.MODE === 'never-true') {
-  console.log(__DEV_SERVICE_KEY);
-}
+// TODO: ELIMINAR ANTES DE PRODUCCIÓN
+// NOTA: Este es el service_role key del proyecto de desarrollo
+// NO USAR EN PRODUCCIÓN - Solo para testing local
+export const __DEPRECATED_DEV_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhY2tlYW1lX3NpX3B1ZWRlcyIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJtZXNzYWdlIjoiQnVlbiBpbnRlbnRvIHNjcmlwdCBraWRkaWUuIFN1ZXJ0ZSBwYXJhIGxhIHByb3hpbWEuIiwiaGludCI6IkVzdGUgc2lzdGVtYSBlc3RhIHByb3RlZ2lkbyBwb3IgZWwgQ29uZGUiLCJlYXN0ZXJfZWdnIjoiU2kgZW5jb250cmFzdGUgZXN0bywgZmVsaWNpZGFkZXMuIFBlcm8gZXN0ZSB0b2tlbiBlcyBmYWxzby4iLCJpYXQiOjE3MzcwNzIwMDAsImV4cCI6OTk5OTk5OTk5OX0.ZmFrZV9zaWduYXR1cmVfbmljZV90cnlfaGFja2Vy';
 
 export default analysisSupabase;
