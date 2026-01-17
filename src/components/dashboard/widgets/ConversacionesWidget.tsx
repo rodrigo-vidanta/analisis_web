@@ -1996,13 +1996,16 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
-        // Usar Edge Function - auth via Authorization header
+        // Usar Edge Function - auth via Authorization header con JWT del usuario
+        const { data: { session } } = await analysisSupabase.auth.getSession();
+        const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+        
         const resp = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify({ uchat_id: uchatId, duration_minutes: Math.ceil(ttlSec / 60), paused_by: 'user' }),
           signal: controller.signal
@@ -2081,13 +2084,16 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
-        // Usar Edge Function - auth via Authorization header
+        // Usar Edge Function - auth via Authorization header con JWT del usuario
+        const { data: { session } } = await analysisSupabase.auth.getSession();
+        const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+        
         const resp = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify({ uchat_id: uchatId, duration_minutes: 0, paused_by: 'bot' }),
           signal: controller.signal

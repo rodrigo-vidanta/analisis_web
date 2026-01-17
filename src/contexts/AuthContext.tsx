@@ -68,7 +68,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Suscribirse a cambios de autenticación de Supabase
     const { data: { subscription } } = authService.onAuthStateChange(
       async (event, session) => {
-        console.log('🔐 Auth state change:', event);
+        // Solo log en desarrollo para eventos significativos (no INITIAL_SESSION que es normal)
+        if (import.meta.env.DEV && event !== 'INITIAL_SESSION') {
+          console.log('🔐 Auth state change:', event);
+        }
         
         if (event === 'SIGNED_IN' && session) {
           // Usuario acaba de iniciar sesión

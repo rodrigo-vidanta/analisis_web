@@ -19,6 +19,7 @@
  */
 
 import { credentialsService } from './credentialsService';
+import { analysisSupabase } from '../config/analysisSupabase';
 
 // ============================================
 // CONFIGURACIÓN
@@ -183,11 +184,15 @@ class DynamicsLeadService {
         payload.phone = request.phone.replace(/\D/g, '').slice(-10);
       }
 
+      // Obtener JWT del usuario autenticado
+      const { data: { session } } = await analysisSupabase.auth.getSession();
+      const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
