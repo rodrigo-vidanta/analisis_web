@@ -36,8 +36,18 @@ serve(async (req) => {
     console.log(`   Timestamp: ${new Date().toISOString()}`)
     console.log(`${'='.repeat(60)}`)
     
-    // Webhook de Railway
-    const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/send-img'
+    // Verificar autenticación JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Webhook de Railway (URL desde secret)
+    const WEBHOOK_URL = Deno.env.get('N8N_SEND_IMG_URL') || 'https://primary-dev-d75a.up.railway.app/webhook/send-img';
+    const livechatAuth = Deno.env.get('LIVECHAT_AUTH') || '2025_livechat_auth';
     
     // Hacer request al webhook con request ID para trazabilidad
     const response = await fetch(WEBHOOK_URL, {
@@ -45,7 +55,7 @@ serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'livechat_auth': '2025_livechat_auth',
+        'livechat_auth': livechatAuth,
         'x-request-id': requestId
       },
       body: JSON.stringify(payload)
