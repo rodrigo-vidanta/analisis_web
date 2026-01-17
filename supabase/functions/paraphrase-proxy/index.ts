@@ -56,7 +56,7 @@ serve(async (req) => {
     const payload = await req.json();
 
     // Obtener webhook URL y token desde secrets
-    const webhookUrl = Deno.env.get('N8N_MENSAJE_AGENTE_URL') || 'https://primary-dev-d75a.up.railway.app/webhook-test/mensaje-agente';
+    const webhookUrl = Deno.env.get('N8N_MENSAJE_AGENTE_URL') || 'https://primary-dev-d75a.up.railway.app/webhook/mensaje-agente';
     const webhookToken = Deno.env.get('LIVECHAT_AUTH') || ''; // Mismo token que send-message
 
     // Hacer request al webhook de N8N con autenticación

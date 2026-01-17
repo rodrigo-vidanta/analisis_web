@@ -321,10 +321,13 @@ Tu empresa: ${agentConfig.companyDescription}`,
 
   const generateAgent = async () => {
     try {
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/webhook/agent_creator', {
+      // Usar Edge Function en lugar de webhook directo
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/agent-creator-proxy`;
+      const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify(agentConfig)
       });

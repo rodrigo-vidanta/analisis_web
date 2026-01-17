@@ -378,15 +378,15 @@ class ScheduledCallsService {
 
       try {
         // Obtener token de autenticación del servicio centralizado
-        const authToken = await getApiToken('manual_call_auth');
+        // Usar Edge Function en lugar de webhook directo
+        const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/trigger-manual-proxy`;
         
-        // Enviar al webhook
-        const response = await fetch('import.meta.env.VITE_N8N_TRIGGER_MANUAL_URL || 'https://primary-dev-d75a.up.railway.app/webhook/trigger-manual'', {
+        const response = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Auth': authToken
+            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
           },
           body: JSON.stringify(payload),
           signal: controller.signal

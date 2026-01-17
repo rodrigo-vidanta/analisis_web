@@ -5,7 +5,7 @@ import { useSystemConfig } from '../hooks/useSystemConfig';
 
 const Footer: React.FC = () => {
   // Versión actual - v2.4.0: ULTRA-FORTIFICADO - 30 honeypots + Defensa activa
-  const version = 'B10.0.0N2.4.0';
+  const version = 'B10.0.1N2.4.1';
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

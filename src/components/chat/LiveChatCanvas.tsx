@@ -1267,16 +1267,18 @@ const LiveChatCanvas: React.FC = () => {
     
     // Generar nueva URL
     try {
-      const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+      // Usar Edge Function en lugar de URL directa
+      const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-token': '${import.meta.env.VITE_GCS_API_TOKEN || ""}'
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           filename: filename,
           bucket: bucket,
-          expirationMinutes: 30
+          expirationMinutes: 30,
+          auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
         })
       });
       
@@ -5351,15 +5353,16 @@ const LiveChatCanvas: React.FC = () => {
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
-        const authToken = await getApiToken('pause_bot_auth');
-        const resp = await fetch('import.meta.env.VITE_N8N_PAUSE_BOT_URL || 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot'', {
+        // Usar Edge Function en lugar de webhook directo
+        const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
+        const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'livechat_auth': authToken
+            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
           },
-          body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec }),
+          body: JSON.stringify({ uchat_id: uchatId, duration_minutes: Math.ceil(ttlSec / 60), paused_by: 'user' }),
           signal: controller.signal
         });
         
@@ -5451,15 +5454,16 @@ const LiveChatCanvas: React.FC = () => {
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
-        const authToken = await getApiToken('pause_bot_auth');
-        const resp = await fetch('import.meta.env.VITE_N8N_PAUSE_BOT_URL || 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot'', {
+        // Usar Edge Function en lugar de webhook directo
+        const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
+        const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'livechat_auth': authToken
+            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
           },
-          body: JSON.stringify({ uchat_id: uchatId, ttl: 0 }),
+          body: JSON.stringify({ uchat_id: uchatId, duration_minutes: 0, paused_by: 'bot' }),
           signal: controller.signal
         });
         
@@ -5684,8 +5688,8 @@ const LiveChatCanvas: React.FC = () => {
 
   const sendMessageToUChat = async (message: string, uchatId: string, idSender?: string): Promise<boolean> => {
     try {
-      const authToken = await getApiToken('send_message_auth');
-      const webhookUrl = 'import.meta.env.VITE_N8N_SEND_MESSAGE_URL || 'https://primary-dev-d75a.up.railway.app/webhook/send-message'';
+      // Usar Edge Function en lugar de webhook directo
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/send-message-proxy`;
       const payload: any = {
         message: message,
         uchat_id: uchatId,
@@ -5699,12 +5703,12 @@ const LiveChatCanvas: React.FC = () => {
       }
       
       
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'livechat_auth': authToken
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify(payload)
       });

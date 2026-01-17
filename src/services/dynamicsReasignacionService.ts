@@ -4,9 +4,9 @@
  * ============================================
  *
  * Este servicio maneja la reasignación de prospectos enviando
- * solicitudes al webhook de N8N que se comunica con Dynamics CRM.
+ * solicitudes via Edge Function → N8N → Dynamics CRM.
  * 
- * URL Webhook: import.meta.env.VITE_N8N_REASIGNAR_URL || 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto'
+ * Edge Function: ${VITE_EDGE_FUNCTIONS_URL}/functions/v1/dynamics-reasignar-proxy
  * 
  * ⚠️ IMPORTANTE:
  * - La reasignación ahora se hace vía webhook, NO directamente en BD
@@ -37,7 +37,7 @@ async function getReasignacionCredentials(): Promise<{ url: string; token: strin
   
   const creds = await credentialsService.getDynamicsWebhookCredentials();
   cachedReasignacionCredentials = {
-    url: creds.reasignarUrl || import.meta.env.VITE_N8N_REASIGNAR_LEAD_DYNAMICS_URL || 'import.meta.env.VITE_N8N_REASIGNAR_URL || 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto'',
+    url: creds.reasignarUrl || import.meta.env.VITE_N8N_REASIGNAR_LEAD_DYNAMICS_URL || '',
     token: creds.token || import.meta.env.VITE_N8N_DYNAMICS_TOKEN || ''
   };
   return cachedReasignacionCredentials;
@@ -242,8 +242,8 @@ class DynamicsReasignacionService {
    */
   private async enviarWebhook(request: ReasignacionRequest): Promise<ReasignacionResponse> {
     try {
-      // Obtener credenciales de forma segura desde BD
-      const { url, token } = await getReasignacionCredentials();
+      // Usar Edge Function en lugar de webhook directo
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/dynamics-reasignar-proxy`;
       
       const payload = {
         prospecto_id: request.prospecto_id,
@@ -258,12 +258,11 @@ class DynamicsReasignacionService {
       const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
       try {
-        const response = await fetch(url, {
+        const response = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'X-Dynamics-Token': token
+            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
           },
           body: JSON.stringify(payload),
           signal: controller.signal

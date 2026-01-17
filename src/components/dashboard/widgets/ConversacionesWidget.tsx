@@ -115,16 +115,18 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     
     // Generar nueva URL
     try {
-      const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+      // Usar Edge Function en lugar de URL directa
+      const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-token': '${import.meta.env.VITE_GCS_API_TOKEN || ""}'
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           filename: filename,
           bucket: bucket,
-          expirationMinutes: 30
+          expirationMinutes: 30,
+          auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
         })
       });
       
@@ -1994,15 +1996,15 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
-        const authToken = await getApiToken('pause_bot_auth');
-        const resp = await fetch('import.meta.env.VITE_N8N_PAUSE_BOT_URL || 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot'', {
+        // Usar Edge Function - auth via Authorization header
+        const resp = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'livechat_auth': authToken
+            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
           },
-          body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec }),
+          body: JSON.stringify({ uchat_id: uchatId, duration_minutes: Math.ceil(ttlSec / 60), paused_by: 'user' }),
           signal: controller.signal
         });
         
@@ -2079,15 +2081,15 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       
       try {
-        const authToken = await getApiToken('pause_bot_auth');
-        const resp = await fetch('import.meta.env.VITE_N8N_PAUSE_BOT_URL || 'https://primary-dev-d75a.up.railway.app/webhook/pause_bot'', {
+        // Usar Edge Function - auth via Authorization header
+        const resp = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
             'Accept': 'application/json',
-            'livechat_auth': authToken
+            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
           },
-          body: JSON.stringify({ uchat_id: uchatId, ttl: 0 }),
+          body: JSON.stringify({ uchat_id: uchatId, duration_minutes: 0, paused_by: 'bot' }),
           signal: controller.signal
         });
         

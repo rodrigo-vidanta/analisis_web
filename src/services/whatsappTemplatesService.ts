@@ -47,9 +47,9 @@ export interface TemplateSendLimits {
 // CONFIGURACIÓN DEL WEBHOOK
 // ============================================
 
-const WEBHOOK_BASE_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://primary-dev-d75a.up.railway.app';
-// Token cargado dinámicamente desde api_auth_tokens
-const WEBHOOK_AUTH_TOKEN = '';
+// Usar Edge Function en lugar de webhook directo
+const EDGE_FUNCTION_URL = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/whatsapp-templates-proxy`;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
 
 // ============================================
 // SERVICIO PRINCIPAL
@@ -455,10 +455,10 @@ class WhatsAppTemplatesService {
       }, 15000); // 15 segundos
 
       try {
-        const response = await fetch(`${WEBHOOK_BASE_URL}/webhook/whatsapp-templates`, {
+        const response = await fetch(EDGE_FUNCTION_URL, {
           method: 'POST',
           headers: {
-            'Auth': await this.getAuthToken(),
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload),
@@ -598,11 +598,11 @@ class WhatsAppTemplatesService {
   private async getTemplateFromUChat(templateId: string): Promise<any | null> {
     try {
       const response = await fetch(
-        `${WEBHOOK_BASE_URL}/webhook/whatsapp-templates?id=${templateId}`,
+        `${EDGE_FUNCTION_URL}?id=${templateId}`,
         {
           method: 'POST',
           headers: {
-            'Auth': await this.getAuthToken(),
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({})
@@ -648,11 +648,11 @@ class WhatsAppTemplatesService {
   private async updateTemplateInUChat(templateId: string, input: UpdateTemplateInput): Promise<any> {
     try {
       const response = await fetch(
-        `${WEBHOOK_BASE_URL}/webhook/whatsapp-templates?id=${templateId}`,
+        `${EDGE_FUNCTION_URL}?id=${templateId}`,
         {
           method: 'POST',
           headers: {
-            'Auth': await this.getAuthToken(),
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(input)
@@ -772,13 +772,13 @@ class WhatsAppTemplatesService {
    */
   private async deleteTemplateInUChat(templateId: string): Promise<any> {
     try {
-      const url = `${WEBHOOK_BASE_URL}/webhook/whatsapp-templates?id=${templateId}`;
+      const url = `${EDGE_FUNCTION_URL}?id=${templateId}`;
       const payload = { _method: 'DELETE' };
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Auth': WEBHOOK_AUTH_TOKEN,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
@@ -1441,11 +1441,11 @@ class WhatsAppTemplatesService {
   async syncTemplatesFromUChat(): Promise<{ synced: number; templates: any[] }> {
     try {
       const response = await fetch(
-        `${WEBHOOK_BASE_URL}/webhook/whatsapp-templates?action=sync`,
+        `${EDGE_FUNCTION_URL}?action=sync`,
         {
           method: 'POST',
           headers: {
-            'Auth': await this.getAuthToken(),
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({})

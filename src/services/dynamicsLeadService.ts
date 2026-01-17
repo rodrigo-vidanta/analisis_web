@@ -4,9 +4,9 @@
  * ============================================
  *
  * Este servicio consulta información de leads en Dynamics CRM
- * a través del webhook de N8N.
+ * a través de Edge Function → N8N.
  *
- * URL Webhook: import.meta.env.VITE_N8N_LEAD_INFO_URL || 'https://primary-dev-d75a.up.railway.app/webhook/lead-info'
+ * Edge Function: ${VITE_EDGE_FUNCTIONS_URL}/functions/v1/dynamics-lead-proxy
  *
  * Tipos de búsqueda soportados:
  * - Por ID de Dynamics (id_dynamics)
@@ -58,7 +58,7 @@ async function getDynamicsCredentials(): Promise<{ url: string; token: string }>
   
   // Verificar que las credenciales sean válidas
   const token = creds.token || import.meta.env.VITE_N8N_DYNAMICS_TOKEN || '';
-  const url = creds.getLeadUrl || import.meta.env.VITE_N8N_GET_LEAD_DYNAMICS_URL || 'import.meta.env.VITE_N8N_LEAD_INFO_URL || 'https://primary-dev-d75a.up.railway.app/webhook/lead-info'';
+  const url = creds.getLeadUrl || import.meta.env.VITE_N8N_GET_LEAD_DYNAMICS_URL || '';
   
   // Solo guardar en cache si el token es válido
   if (token && token.trim() !== '') {
@@ -152,19 +152,8 @@ class DynamicsLeadService {
     }
 
     try {
-      // Obtener credenciales de forma segura desde BD
-      const { url, token } = await getDynamicsCredentials();
-      
-      // Validar que el token no esté vacío
-      if (!token || token.trim() === '') {
-        console.error('❌ [DynamicsLead] Token vacío o no encontrado');
-        return {
-          success: false,
-          data: null,
-          error: 'Token de autenticación no encontrado. Verifica las credenciales en Administración > API Auth Tokens (módulo: N8N Webhooks, key: DYNAMICS_TOKEN)',
-          searchType,
-        };
-      }
+      // Usar Edge Function en lugar de webhook directo
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/dynamics-lead-proxy`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
@@ -186,11 +175,11 @@ class DynamicsLeadService {
         payload.phone = request.phone.replace(/\D/g, '').slice(-10);
       }
 
-      const response = await fetch(url, {
+      const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
@@ -200,21 +189,12 @@ class DynamicsLeadService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ [DynamicsLead] Error en webhook:', response.status, errorText);
+        console.error('❌ [DynamicsLead] Error en Edge Function:', response.status, errorText);
         
-        // Log de credenciales usadas (sin exponer el token completo)
-        const { url, token } = await getDynamicsCredentials();
-        console.error(`❌ [DynamicsLead] URL usada: ${url}`);
-        console.error(`❌ [DynamicsLead] Token presente: ${token ? 'Sí (' + token.substring(0, 10) + '...)' : 'NO'}`);
-        
-        // Mensaje más claro para errores 403
+        // Mensaje según código de error
         let errorMessage = `Error ${response.status}: ${errorText || 'Error al consultar Dynamics'}`;
-        if (response.status === 403) {
-          if (!token) {
-            errorMessage = `Error 403: Token no encontrado. Verifica las credenciales en Administración > API Auth Tokens (módulo: N8N Webhooks, key: DYNAMICS_TOKEN)`;
-          } else {
-            errorMessage = `Error 403: Authorization data is wrong! El token existe pero es inválido. Verifica las credenciales en Administración > API Auth Tokens (módulo: N8N Webhooks, key: DYNAMICS_TOKEN)`;
-          }
+        if (response.status === 500 && errorText.includes('DYNAMICS_TOKEN')) {
+          errorMessage = 'Error: El token de Dynamics no está configurado en los secrets de Edge Functions. Contacta al administrador.';
         }
         
         return {

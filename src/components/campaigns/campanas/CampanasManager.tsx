@@ -71,7 +71,8 @@ import { CAMPAIGN_STATUS_CONFIG, CAMPAIGN_TYPE_CONFIG } from '../../../types/wha
 // CONSTANTES
 // ============================================
 
-const BROADCAST_WEBHOOK_URL = 'import.meta.env.VITE_N8N_BROADCAST_URL || 'https://primary-dev-d75a.up.railway.app/webhook/broadcast'';
+// Edge Function para broadcast seguro
+const BROADCAST_EDGE_URL = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/broadcast-proxy`;
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -2694,12 +2695,12 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         audience_etiquetas: audience?.etiquetas || null,
       };
       
-      // Enviar al webhook con auth de livechat
-      const response = await fetch(BROADCAST_WEBHOOK_URL, {
+      // Enviar via Edge Function (auth seguro via secrets)
+      const response = await fetch(BROADCAST_EDGE_URL, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'livechat_auth': authToken
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify(payload)
       });

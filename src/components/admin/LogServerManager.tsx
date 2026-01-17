@@ -16,7 +16,7 @@ const LogServerManager: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [originalConfig, setOriginalConfig] = useState<LogServerConfig | null>(null);
   const [config, setConfig] = useState<LogServerConfig>({
-    webhook_url: 'import.meta.env.VITE_N8N_ERROR_LOG_URL || 'https://primary-dev-d75a.up.railway.app/webhook/error-log'',
+    webhook_url: import.meta.env.VITE_N8N_ERROR_LOG_URL || '',
     webhook_auth_token: '', // Token gestionado en backend, no en frontend
     enabled: true,
     rate_limit: 300,

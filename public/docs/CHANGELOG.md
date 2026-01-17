@@ -2,6 +2,46 @@
 
 ## [Unreleased]
 
+### 🔒 v2.4.1 (B10.0.1N2.4.1) - Edge Functions: Proxy GCS + Corrección CORS [17-01-2026]
+
+#### 🎯 Corrección Crítica de Imágenes WhatsApp
+
+**Problema Resuelto:**
+- ❌ Error CORS: Header `x-api-token` no permitido en preflight
+- ❌ Error 500 en Edge Function `generar-url-optimizada`
+- ❌ Imágenes no cargaban en LiveChat y módulos de WhatsApp
+- ❌ Edge Function intentaba usar Supabase Storage cuando los archivos están en Google Cloud Storage
+
+**Solución Implementada:**
+- ✅ **Edge Function como Proxy**: `generar-url-optimizada` ahora actúa como proxy al servicio Railway
+- ✅ **Token en body**: Movido `auth_token` del header al body para evitar CORS
+- ✅ **Google Cloud Storage**: URLs firmadas se generan desde GCS correctamente
+- ✅ **Secret configurado**: `MEDIA_URL_AUTH` como secret en Supabase
+- ✅ **BD actualizada**: `log_server_config.webhook_url` apunta a Edge Function
+
+**Archivos Modificados:**
+- `supabase/functions/generar-url-optimizada/index.ts` - Proxy a Railway/GCS
+- `src/components/chat/LiveChatCanvas.tsx` - Token en body
+- `src/components/campaigns/plantillas/WhatsAppTemplatesManager.tsx`
+- `src/components/admin/WhatsAppTemplatesManager.tsx`
+- `src/components/chat/ImageCatalogModal.tsx`
+- `src/components/chat/MultimediaMessage.tsx`
+- `src/components/chat/ImageCatalogModalV2.tsx`
+- `src/components/dashboard/DashboardModule.tsx`
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx`
+- `src/services/audioService.ts`
+
+**Edge Function Desplegada:**
+- `generar-url-optimizada` con `--no-verify-jwt`
+- Secret: `MEDIA_URL_AUTH` = Token para servicio GCS
+
+**Flujo Final:**
+```
+Frontend → Edge Function (Supabase) → Servicio Railway → Google Cloud Storage → URL Firmada
+```
+
+---
+
 ### ⚡ v2.2.55 (B8.1.3N2.3.1) - Optimización LiveChat con Vista Materializada [15-01-2026]
 
 #### 🎯 Optimización de Rendimiento

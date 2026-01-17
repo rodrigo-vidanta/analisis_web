@@ -754,10 +754,13 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
     
     try {
       // Llamar al webhook con el prospect_id
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/functions/v1/transfer-request-proxy', {
+      // Usar Edge Function de Supabase
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/transfer-request-proxy`;
+      const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           prospect_id: prospectId
@@ -927,10 +930,13 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
         }
       };
 
-      const response = await fetch('https://primary-dev-d75a.up.railway.app/functions/v1/tools-proxy', {
+      // Usar Edge Function de Supabase
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/tools-proxy`;
+      const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify(transferData)
       });

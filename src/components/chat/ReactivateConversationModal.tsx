@@ -959,18 +959,18 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         triggered_by_user_name: user?.full_name || null
       };
 
-      const webhookUrl = 'import.meta.env.VITE_N8N_TEMPLATES_SEND_URL || 'https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates-send'';
-      const authToken = await getApiToken('whatsapp_templates_auth');
+      // Usar Edge Function en lugar de webhook directo
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/whatsapp-templates-send-proxy`;
       
       // Timeout de 30 segundos para evitar colgarse indefinidamente
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       try {
-        const response = await fetch(webhookUrl, {
+        const response = await fetch(edgeFunctionUrl, {
           method: 'POST',
           headers: {
-            'Auth': authToken,
+            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload),

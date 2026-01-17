@@ -2317,16 +2317,18 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
     
     // 3. Generar nueva URL
     try {
-      const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+      // Usar Edge Function en lugar de URL directa
+      const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-token': '${import.meta.env.VITE_GCS_API_TOKEN || ""}'
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           filename: item.nombre_archivo,
           bucket: item.bucket,
-          expirationMinutes: 30
+          expirationMinutes: 30,
+          auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
         })
       });
       
@@ -2586,17 +2588,18 @@ const LazyImageThumbnail: React.FC<LazyImageThumbnailProps> = ({ item, onSelect,
       }
     }
     
-    // Generar URL
-    fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+    // Usar Edge Function en lugar de URL directa
+    fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-token': '${import.meta.env.VITE_GCS_API_TOKEN || ""}'
+        'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
       },
       body: JSON.stringify({
         filename: item.nombre_archivo,
         bucket: item.bucket,
-        expirationMinutes: 30
+        expirationMinutes: 30,
+        auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
       })
     })
       .then(res => res.json())

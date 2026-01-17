@@ -166,16 +166,18 @@ const generateMediaUrl = async (adjunto: Adjunto): Promise<string> => {
 
   // 2️⃣ Generar nueva URL desde API
   try {
-    const response = await fetch('https://function-bun-dev-6d8e.up.railway.app/generar-url', {
+    // Usar Edge Function en lugar de URL directa
+    const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-token': '${import.meta.env.VITE_GCS_API_TOKEN || ""}'
+        'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
       },
       body: JSON.stringify({
         filename: filename,
         bucket: bucket,
-        expirationMinutes: 30
+        expirationMinutes: 30,
+        auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
       })
     });
 

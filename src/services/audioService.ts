@@ -1,6 +1,8 @@
 // Servicio para manejar la API de audio del bucket
-const AUDIO_API_URL = 'https://function-bun-dev-6d8e.up.railway.app/generar-url';
+// Usar Edge Function en lugar de URL directa
+const AUDIO_API_URL = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`;
 const AUDIO_API_TOKEN = import.meta.env.VITE_GCS_API_TOKEN || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
 
 export interface AudioUrlResponse {
   success: boolean;
@@ -52,17 +54,18 @@ export async function getSignedAudioUrl(audioFileUrl: string): Promise<string | 
       return null;
     }
     
-    // Hacer petición a la API según configuración n8n
+    // Hacer petición a la Edge Function 
     const response = await fetch(AUDIO_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-token': AUDIO_API_TOKEN
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
       },
       body: JSON.stringify({
         filename: audioData.filename, // Solo el filename sin el prefijo gs://bucket/
         bucket: audioData.bucket,
-        expirationMinutes: 30 // Según configuración n8n
+        expirationMinutes: 30,
+        auth_token: AUDIO_API_TOKEN // Token en body para la Edge Function
       })
     });
     

@@ -242,8 +242,8 @@ class CredentialsService {
     
     return {
       token: creds['TOKEN'] || '',
-      getLeadUrl: creds['GET_LEAD_URL'] || 'import.meta.env.VITE_N8N_LEAD_INFO_URL || 'https://primary-dev-d75a.up.railway.app/webhook/lead-info'',
-      reasignarUrl: creds['REASIGNAR_URL'] || 'import.meta.env.VITE_N8N_REASIGNAR_URL || 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto'',
+      getLeadUrl: creds['GET_LEAD_URL'] || import.meta.env.VITE_N8N_LEAD_INFO_URL || '',
+      reasignarUrl: creds['REASIGNAR_URL'] || import.meta.env.VITE_N8N_REASIGNAR_URL || '',
     };
   }
 

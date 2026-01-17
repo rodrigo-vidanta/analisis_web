@@ -427,10 +427,13 @@ class TimelineService {
   // Procesar texto con LLM vía N8N
   async processActivitiesWithLLM(text: string): Promise<ProcessedActivity[]> {
     try {
-      const response = await fetch('import.meta.env.VITE_N8N_TIMELINE_URL || 'https://primary-dev-d75a.up.railway.app/webhook/timeline'', {
+      // Usar Edge Function en lugar de webhook directo
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/timeline-proxy`;
+      const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({ text }),
       });
