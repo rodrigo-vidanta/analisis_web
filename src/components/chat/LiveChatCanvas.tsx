@@ -5712,13 +5712,16 @@ const LiveChatCanvas: React.FC = () => {
         payload.id_sender = idSender;
       }
       
+      // Obtener JWT del usuario autenticado (igual que pause-bot y otras Edge Functions)
+      const { data: { session } } = await analysisSupabase.auth.getSession();
+      const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
       
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${authToken}`
         },
         body: JSON.stringify(payload)
       });
