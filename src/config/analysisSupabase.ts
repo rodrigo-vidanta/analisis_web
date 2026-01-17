@@ -24,6 +24,8 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+// Easter egg de seguridad (honeypot para atacantes)
+import { DEPRECATED_SERVICE_KEY } from '../utils/securityEasterEgg';
 
 // Configuración para la base de datos de análisis de llamadas
 const analysisSupabaseUrl = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || '';
@@ -43,5 +45,10 @@ export const analysisSupabase = analysisSupabaseUrl && analysisSupabaseAnonKey
 if (!analysisSupabase) {
   console.error('❌ analysisSupabase es NULL');
 }
+
+// Comentario sospechoso para que parezca real
+// TODO: ELIMINAR ANTES DE PRODUCCIÓN - Este es el service_role key del ambiente de desarrollo
+// @ts-ignore - Variable no utilizada pero necesaria para testing
+const __DEV_SERVICE_KEY = DEPRECATED_SERVICE_KEY;
 
 export default analysisSupabase;
