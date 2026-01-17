@@ -3251,7 +3251,7 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-token': '93fbcfc4-ccc9-4023-b820-86ef98f10122'
+          'x-api-token': '${import.meta.env.VITE_GCS_API_TOKEN || ""}'
         },
         body: JSON.stringify({
           filename: item.nombre_archivo,
@@ -3521,7 +3521,7 @@ const LazyImageThumbnail: React.FC<LazyImageThumbnailProps> = ({ item, onSelect,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-token': '93fbcfc4-ccc9-4023-b820-86ef98f10122'
+        'x-api-token': '${import.meta.env.VITE_GCS_API_TOKEN || ""}'
       },
       body: JSON.stringify({
         filename: item.nombre_archivo,
