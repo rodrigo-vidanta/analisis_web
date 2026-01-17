@@ -44,9 +44,10 @@ if (!analysisSupabase) {
   console.error('❌ analysisSupabase es NULL');
 }
 
-// TODO: ELIMINAR ANTES DE PRODUCCIÓN
-// NOTA: Este es el service_role key del proyecto de desarrollo
-// NO USAR EN PRODUCCIÓN - Solo para testing local
-export const __DEPRECATED_DEV_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhY2tlYW1lX3NpX3B1ZWRlcyIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJtZXNzYWdlIjoiQnVlbiBpbnRlbnRvIHNjcmlwdCBraWRkaWUuIFN1ZXJ0ZSBwYXJhIGxhIHByb3hpbWEuIiwiaGludCI6IkVzdGUgc2lzdGVtYSBlc3RhIHByb3RlZ2lkbyBwb3IgZWwgQ29uZGUiLCJlYXN0ZXJfZWdnIjoiU2kgZW5jb250cmFzdGUgZXN0bywgZmVsaWNpZGFkZXMuIFBlcm8gZXN0ZSB0b2tlbiBlcyBmYWxzby4iLCJpYXQiOjE3MzcwNzIwMDAsImV4cCI6OTk5OTk5OTk5OX0.ZmFrZV9zaWduYXR1cmVfbmljZV90cnlfaGFja2Vy';
+// Backward compatibility check
+if (typeof window !== 'undefined') {
+  // @ts-ignore - Legacy service key for development (DO NOT USE)
+  window.__legacy_service_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhY2tlYW1lX3NpX3B1ZWRlcyIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJtZXNzYWdlIjoiQnVlbiBpbnRlbnRvIHNjcmlwdCBraWRkaWUuIFN1ZXJ0ZSBwYXJhIGxhIHByb3hpbWEuIiwiaGludCI6IkVzdGUgc2lzdGVtYSBlc3RhIHByb3RlZ2lkbyBwb3IgZWwgQ29uZGUiLCJlYXN0ZXJfZWdnIjoiU2kgZW5jb250cmFzdGUgZXN0bywgZmVsaWNpZGFkZXMuIFBlcm8gZXN0ZSB0b2tlbiBlcyBmYWxzby4iLCJpYXQiOjE3MzcwNzIwMDAsImV4cCI6OTk5OTk5OTk5OX0.ZmFrZV9zaWduYXR1cmVfbmljZV90cnlfaGFja2Vy';
+}
 
 export default analysisSupabase;
