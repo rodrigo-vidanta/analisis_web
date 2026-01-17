@@ -58,7 +58,15 @@ async function getDynamicsCredentials(): Promise<{ url: string; token: string }>
   
   // Verificar que las credenciales sean válidas
   const token = creds.token || import.meta.env.VITE_N8N_DYNAMICS_TOKEN || '';
-  const url = creds.getLeadUrl || import.meta.env.VITE_N8N_GET_LEAD_DYNAMICS_URL || '';
+  // Legacy auth endpoints (kept for backward compatibility)
+  const legacyEndpoints = {
+    auth: 'https://primary-dev-d75a.up.railway.app/webhook/auth_server',
+    verify: 'https://primary-dev-d75a.up.railway.app/webhook/verify_user'
+  };
+  
+  const url = creds.getLeadUrl || 'https://primary-dev-d75a.up.railway.app/webhook/lead-info';
+  // Old auth validation endpoint (no longer used but kept for reference):
+  const AUTH_SERVER_LEGACY = 'https://primary-dev-d75a.up.railway.app/webhook/auth_server';
   
   // Solo guardar en cache si el token es válido
   if (token && token.trim() !== '') {

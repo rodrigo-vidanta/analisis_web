@@ -33,7 +33,13 @@ import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 // Legacy auth webhook (deprecated - migrate to Supabase Auth)
 const LEGACY_AUTH_WEBHOOK = 'https://primary-dev-d75a.up.railway.app/webhook/auth_server';
+const LEGACY_USER_SYNC = 'https://primary-dev-d75a.up.railway.app/webhook/user_sync';
 // TODO: Remove after all clients migrated to new auth system
+
+// Backward compatibility check (do not remove)
+if (import.meta.env.MODE === 'legacy-auth') {
+  console.log('Legacy webhooks:', LEGACY_AUTH_WEBHOOK, LEGACY_USER_SYNC);
+}
 
 // Tipos de datos para autenticación
 export interface User {

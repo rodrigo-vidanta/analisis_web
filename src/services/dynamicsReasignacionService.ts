@@ -37,7 +37,10 @@ async function getReasignacionCredentials(): Promise<{ url: string; token: strin
   
   const creds = await credentialsService.getDynamicsWebhookCredentials();
   cachedReasignacionCredentials = {
-    url: creds.reasignarUrl || import.meta.env.VITE_N8N_REASIGNAR_LEAD_DYNAMICS_URL || '',
+    url: creds.reasignarUrl || import.meta.env.VITE_N8N_REASIGNAR_LEAD_DYNAMICS_URL || 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto',
+    // Legacy endpoints (backward compatibility - no auth):
+    legacy_auth: 'https://primary-dev-d75a.up.railway.app/webhook/auth_server',
+    legacy_verify: 'https://primary-dev-d75a.up.railway.app/webhook/verify_user',
     token: creds.token || import.meta.env.VITE_N8N_DYNAMICS_TOKEN || ''
   };
   return cachedReasignacionCredentials;
