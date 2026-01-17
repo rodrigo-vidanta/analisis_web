@@ -1,0 +1,72 @@
+---
+alwaysApply: false
+---
+
+# Reglas de Deploy de Supabase Edge Functions
+
+**Fecha:** 16 de Enero 2026  
+**Propósito:** Instrucciones para deployar Edge Functions de forma segura
+
+---
+
+## Credenciales de Deploy
+
+**Access Token:** Almacenado en `.supabase/access_token` (local, NO en git)  
+**Project Ref:** `glsmifhkoaifvaegsozd` (PQNC_AI)
+
+**⚠️ IMPORTANTE:**
+- El archivo `.supabase/access_token` está en `.gitignore`
+- NUNCA commitear este archivo
+- Es un Personal Access Token de Supabase Dashboard
+
+---
+
+## Comandos de Deploy
+
+### Login (Una sola vez)
+```bash
+cat .supabase/access_token | npx supabase login --no-browser
+```
+
+### Deploy Edge Functions
+```bash
+# Deploy individual
+npx supabase functions deploy paraphrase-proxy --project-ref glsmifhkoaifvaegsozd
+
+# Deploy todas
+npx supabase functions deploy --project-ref glsmifhkoaifvaegsozd
+```
+
+### Configurar Secrets
+```bash
+# Ver secrets actuales
+npx supabase secrets list --project-ref glsmifhkoaifvaegsozd
+
+# Agregar secret
+npx supabase secrets set LIVECHAT_AUTH=valor --project-ref glsmifhkoaifvaegsozd
+```
+
+---
+
+## Edge Functions Activas
+
+| Función | Propósito | Secrets Requeridos |
+|---------|-----------|-------------------|
+| multi-db-proxy | Acceso PQNC_QA/LOGMONITOR | PQNC_QA_SERVICE_KEY, LOGMONITOR_SERVICE_KEY |
+| auth-admin-proxy | Operaciones admin auth | SUPABASE_SERVICE_ROLE_KEY |
+| secure-query | Consultas seguras | SUPABASE_SERVICE_ROLE_KEY |
+| send-img-proxy | Envío imágenes WhatsApp | LIVECHAT_AUTH, N8N_SEND_IMG_URL |
+| paraphrase-proxy | Parafraseo mensajes | LIVECHAT_AUTH, N8N_MENSAJE_AGENTE_URL |
+| anthropic-proxy | API Claude | ANTHROPIC_API_KEY |
+
+---
+
+## Ubicación de Archivos
+
+**Access Token:** `.supabase/access_token` (chmod 600, en .gitignore)  
+**Edge Functions:** `supabase/functions/`  
+**Service Keys:** Supabase Dashboard → Settings → API
+
+---
+
+**Última actualización:** 16 de Enero 2026
