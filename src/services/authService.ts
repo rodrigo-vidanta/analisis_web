@@ -169,35 +169,14 @@ class AuthService {
     try {
       const normalizedEmail = credentials.email.trim().toLowerCase();
       
-      // 1. Verificar bloqueo ANTES de intentar login
-      const blockCheck = await this.checkAccountBlocked(normalizedEmail);
-      if (blockCheck.is_locked) {
-        const lockedUntil = blockCheck.locked_until 
-          ? new Date(blockCheck.locked_until).toLocaleString('es-ES')
-          : '30 minutos';
-        throw new Error(`ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Contacta al administrador. Bloqueado hasta: ${lockedUntil}`);
-      }
-
-      // 2. Login con Supabase Auth nativo
+      // Login con Supabase Auth nativo (maneja rate limiting internamente)
       const { data, error } = await supabase!.auth.signInWithPassword({
         email: normalizedEmail,
         password: credentials.password
       });
 
       if (error) {
-        // Incrementar intentos fallidos
-        await this.handleFailedLogin(normalizedEmail);
-        
-        // Re-verificar si se bloqueó
-        const recheckBlock = await this.checkAccountBlocked(normalizedEmail);
-        if (recheckBlock.is_locked) {
-          throw new Error(`ACCOUNT_LOCKED: Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos.`);
-        }
-        
-        if (recheckBlock.failed_attempts && recheckBlock.failed_attempts >= 3) {
-          throw new Error(`CREDENTIALS_INVALID_WARNING: Credenciales inválidas. Te quedan ${5 - recheckBlock.failed_attempts} intento(s) antes del bloqueo.`);
-        }
-        
+        // Supabase Auth maneja rate limiting automáticamente
         throw new Error('Credenciales inválidas');
       }
 
@@ -211,8 +190,7 @@ class AuthService {
       // 4. Cargar datos del usuario
       await this.loadUserData(data.user);
 
-      // 5. Resetear intentos fallidos en login exitoso
-      await this.resetFailedAttempts(normalizedEmail);
+      // Supabase Auth resetea intentos automáticamente
 
       // 6. Manejar lógica especial para ejecutivos
       if (this.currentUser && this.currentUser.role_name === 'ejecutivo') {
