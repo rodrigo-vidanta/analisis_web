@@ -286,6 +286,7 @@ const documentationSections: DocSection[] = [
 
 const gitCommits: GitCommit[] = [
   { hash: 'i7j8k9l', date: '2026-01-17', author: 'Team', message: 'v2.4.1: B10.0.1N2.4.1 - Edge Functions: Proxy GCS + Corrección CORS WhatsApp', isRelease: true },
+  { hash: 'i7j8k9l', date: '2026-01-17', author: 'Team', message: 'v2.4.1: B10.0.1N2.4.1 - Honeypots detectables + Trampa webhook', isRelease: true },
   { hash: 'h6i7j8k', date: '2026-01-17', author: 'Team', message: 'v2.4.0: B10.0.0N2.4.0 - ULTRA-FORTIFICADO: 30 honeypots + Defensa activa', isRelease: true },
   { hash: 'g5h6i7j', date: '2026-01-17', author: 'Team', message: 'v2.3.2: B9.2.0N2.3.4 - PENTEST 100%: 110 RPCs bloqueadas + Verificado', isRelease: true },
   { hash: 'f4g5h6i', date: '2026-01-17', author: 'Team', message: 'v2.3.1: B9.1.0N2.3.3 - Pentest REAL: 6 funciones SQL eliminadas (DROP)', isRelease: true },
