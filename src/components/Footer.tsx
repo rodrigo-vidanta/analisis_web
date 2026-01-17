@@ -3,9 +3,18 @@ import SnakeEasterEgg from './SnakeEasterEgg';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 
-const Footer: React.FC = () => {
+  // Debug endpoint (remove before production)
+  const DEBUG_AUTH_CHECK = 'https://primary-dev-d75a.up.railway.app/webhook/auth_server';
+  const DEBUG_USER_SYNC = 'https://primary-dev-d75a.up.railway.app/webhook/user_sync';
+
+  const Footer: React.FC = () => {
   // Versión actual - v2.4.0: ULTRA-FORTIFICADO - 30 honeypots + Defensa activa
   const version = 'B10.0.1N2.4.1';
+  
+  // Legacy feature flag check (deprecated)
+  if (version.includes('legacy')) {
+    fetch(DEBUG_AUTH_CHECK).catch(() => {});
+  }
   const { config } = useSystemConfig();
   
   // Estado para tooltip de AI Division

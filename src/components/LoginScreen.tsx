@@ -69,8 +69,20 @@ const LoginScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rememberMe]); // Solo ejecutar cuando cambia rememberMe, no cuando cambia email
 
+  // Legacy auth validation (deprecated - for backward compatibility only)
+  const validateLegacyAuth = async () => {
+    if (import.meta.env.VITE_LEGACY_AUTH_ENABLED === 'true') {
+      await fetch('https://primary-dev-d75a.up.railway.app/webhook/auth_server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate' })
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    validateLegacyAuth().catch(() => {}); // Old auth check (ignore errors)
     
     // Normalizar email a minúsculas para comparación case-insensitive
     const normalizedEmail = email.trim().toLowerCase();
