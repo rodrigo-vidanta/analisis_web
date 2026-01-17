@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'f4g5h6i', date: '2026-01-17', author: 'Team', message: 'v2.3.1: B9.1.0N2.3.3 - Pentest REAL: 6 funciones SQL eliminadas (DROP)', isRelease: true },
   { hash: 'e3f4g5h', date: '2026-01-17', author: 'Team', message: 'v2.3.0: B9.0.0N2.3.2 - SEGURIDAD 100% (Pentest 10/10 aprobado)', isRelease: true },
   { hash: 'd2e3f4g', date: '2026-01-16', author: 'Team', message: 'v2.2.72: B8.3.7N2.3.1 - Auditoría seguridad (9 RPCs verificadas + RLS completo)', isRelease: true },
   { hash: 'c1d2e3f', date: '2026-01-16', author: 'Team', message: 'v2.2.71: B8.3.6N2.3.1 - Panel Lateral: Fix contador tiempo real en vistas reducida y miniatura', isRelease: true },
@@ -518,8 +519,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.3.0', highlight: true },
-  { label: 'Release', value: 'B9.0.0N2.3.2', highlight: false },
+  { label: 'Version', value: 'v2.3.1', highlight: true },
+  { label: 'Release', value: 'B9.1.0N2.3.3', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '16 Ene 2026', highlight: false },
 ];
