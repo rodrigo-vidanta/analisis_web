@@ -105,7 +105,7 @@ class ErrorLogService {
     // Intentar cargar desde Supabase (usar cliente normal para lectura)
     try {
       const { data, error } = await supabaseSystemUI
-        .from('log_server_config')
+        .from('log_server_config_safe')
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -205,7 +205,7 @@ class ErrorLogService {
       // Intentar guardar en Supabase usando cliente admin para evitar problemas de RLS
       try {
         const { data, error } = await supabaseSystemUI
-          .from('log_server_config')
+          .from('log_server_config_safe')
           .upsert(configToSave, { onConflict: 'id' })
           .select()
           .single();
