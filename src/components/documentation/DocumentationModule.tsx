@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '583f8cb', date: '2026-01-17', author: 'Team', message: 'v2.5.1: B10.1.1N2.5.1 - Fix pause-bot: Payload ttl en segundos (N8N format)', isRelease: true },
   { hash: 'i7j8k9l', date: '2026-01-17', author: 'Team', message: 'v2.4.1: B10.0.1N2.4.1 - Edge Functions: Proxy GCS + Corrección CORS WhatsApp', isRelease: true },
   { hash: 'j8k9l0m', date: '2026-01-17', author: 'Team', message: 'v2.5.0: B10.1.0N2.5.0 - CERTIFICACIÓN FINAL (33 honeypots + 110 RPCs bloqueadas)', isRelease: true },
   { hash: 'i7j8k9l', date: '2026-01-17', author: 'Team', message: 'v2.4.1: B10.0.1N2.4.1 - Honeypots detectables + Trampa webhook', isRelease: true },
@@ -525,8 +526,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.0', highlight: true },
-  { label: 'Release', value: 'B10.1.0N2.5.0', highlight: false },
+  { label: 'Version', value: 'v2.5.1', highlight: true },
+  { label: 'Release', value: 'B10.1.1N2.5.1', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '17 Ene 2026', highlight: false },
 ];
