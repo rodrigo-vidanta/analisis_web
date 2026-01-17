@@ -153,7 +153,7 @@ const generateImageUrl = async (item: ContentItem): Promise<string> => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-token': '${import.meta.env.VITE_GCS_API_TOKEN || ''}'
+          'x-api-token': import.meta.env.VITE_GCS_API_TOKEN || ''
         },
         body: JSON.stringify({
           filename: item.nombre_archivo,

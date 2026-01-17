@@ -1,6 +1,6 @@
 // Servicio para manejar la API de audio del bucket
 const AUDIO_API_URL = 'https://function-bun-dev-6d8e.up.railway.app/generar-url';
-const AUDIO_API_TOKEN = '${import.meta.env.VITE_GCS_API_TOKEN || ''}';
+const AUDIO_API_TOKEN = import.meta.env.VITE_GCS_API_TOKEN || '';
 
 export interface AudioUrlResponse {
   success: boolean;
