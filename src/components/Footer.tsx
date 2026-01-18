@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.10: Fix barras negras Dashboard - Cell explícito para producción
-  const version = 'B10.1.10N2.5.10';
+  // Versión actual - v2.5.11: Fix colores Dashboard - useCallback + dependencias estables
+  const version = 'B10.1.11N2.5.11';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

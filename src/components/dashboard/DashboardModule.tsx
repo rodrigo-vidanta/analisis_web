@@ -604,8 +604,8 @@ interface FunnelCoordData {
 
 // Función helper para obtener colores de coordinaciones dinámicamente
 // Usa el código de la coordinación para mantener consistencia visual
-// NOTA: También existe una copia local en DashboardModule - mantener sincronizadas
-const getCoordColor = (codigo: string | null | undefined): string => {
+// NOTA: Existe una copia estable (useCallback) dentro del componente
+const getCoordColorGlobal = (codigo: string | null | undefined): string => {
   if (!codigo) return '#6B7280';
   const colorMap: Record<string, string> = {
     // Coordinaciones principales del sistema
@@ -615,7 +615,9 @@ const getCoordColor = (codigo: string | null | undefined): string => {
     'APEX': '#10B981', // I360 renombrado a APEX
     'COBACA': '#8B5CF6',
     'COB ACA': '#8B5CF6', // Variante con espacio
-    'MVP': '#EC4899'
+    'MVP': '#EC4899',
+    'BOOM': '#EF4444',
+    'AI-AGENT': '#6366F1'
   };
   return colorMap[codigo.toUpperCase()] || '#6B7280';
 };
@@ -1823,7 +1825,7 @@ const FunnelContent: React.FC<{
         textinfo: 'value+percent previous' as const,
         textfont: { size: isExpandedView ? 13 : 11, color: 'white' }, // Texto más grande
         marker: { 
-          color: coord.color || getCoordColor(coord.coordinacionNombre) || '#6B7280',
+          color: coord.color || getCoordColorGlobal(coord.coordinacionNombre) || '#6B7280',
           line: { width: 1, color: 'rgba(255,255,255,0.3)' },
           cornerradius: 6 // Esquinas redondeadas
         } as any,
@@ -3093,11 +3095,11 @@ const DashboardModule: React.FC = () => {
     } catch (error) {
       console.error('Error loading pipeline (RPC):', error);
     }
-  }, [filters, getStartDate, getSelectedCoordinacionIds, isGlobalView, coordinaciones]);
+  }, [filters, getStartDate, getSelectedCoordinacionIds, isGlobalView, coordinaciones, getCoordColor]);
 
   // Función para obtener color de coordinación (helper)
-  // IMPORTANTE: Mantener sincronizado con la función global (línea ~607)
-  const getCoordColor = (codigo: string | null | undefined): string => {
+  // IMPORTANTE: Usar useCallback para estabilizar la referencia y evitar problemas de closure
+  const getCoordColor = useCallback((codigo: string | null | undefined): string => {
     const colors: Record<string, string> = {
       // Coordinaciones principales del sistema
       'CALIDAD': '#3B82F6',
@@ -3107,6 +3109,8 @@ const DashboardModule: React.FC = () => {
       'COBACA': '#8B5CF6',
       'COB ACA': '#8B5CF6', // Variante con espacio
       'MVP': '#EC4899',
+      'BOOM': '#EF4444', // Nueva coordinación
+      'AI-AGENT': '#6366F1', // Agente Virtual
       // Coordinaciones legacy/regionales
       'CDMX': '#3B82F6',
       'GDL': '#10B981',
@@ -3118,7 +3122,7 @@ const DashboardModule: React.FC = () => {
       'CABOS': '#EC4899'
     };
     return colors[(codigo || '').toUpperCase()] || '#6B7280';
-  };
+  }, []);
 
   // ============================================
   // FUNCIONES ORIGINALES (mantenidas como fallback)
@@ -3217,7 +3221,7 @@ const DashboardModule: React.FC = () => {
     } catch (error) {
       console.error('Error loading call status:', error);
     }
-  }, [filters, getStartDate, getSelectedCoordinacionIds, coordinaciones]);
+  }, [filters, getStartDate, getSelectedCoordinacionIds, coordinaciones, getCoordColor]);
 
   // Cargar métricas de comunicación
   const loadCommunicationMetrics = useCallback(async () => {
@@ -3713,7 +3717,7 @@ const DashboardModule: React.FC = () => {
     } catch (error) {
       console.error('Error loading pipeline:', error);
     }
-  }, [filters, isGlobalView, coordinaciones, getSelectedCoordinacionIds, getStartDate]);
+  }, [filters, isGlobalView, coordinaciones, getSelectedCoordinacionIds, getStartDate, getCoordColor]);
 
   // Cargar ventas CRM - CORREGIDO: Usando tabla crm_data con transactions
   const loadCRMData = useCallback(async () => {
