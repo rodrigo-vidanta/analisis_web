@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.12: Fix getCoordColor TDZ error - usar función global
-  const version = 'B10.1.12N2.5.12';
+  // Versión actual - v2.5.13: Fix colores Dashboard producción - style inline + fallback colors
+  const version = 'B10.1.13N2.5.13';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

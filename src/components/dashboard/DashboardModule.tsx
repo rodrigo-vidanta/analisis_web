@@ -604,9 +604,9 @@ interface FunnelCoordData {
 
 // Función helper para obtener colores de coordinaciones dinámicamente
 // Usa el código de la coordinación para mantener consistencia visual
-// NOTA: Existe una copia estable (useCallback) dentro del componente
+// IMPORTANTE: Esta función debe retornar siempre un color válido (no undefined/null)
 const getCoordColorGlobal = (codigo: string | null | undefined): string => {
-  if (!codigo) return '#6B7280';
+  // Mapa de colores por código de coordinación
   const colorMap: Record<string, string> = {
     // Coordinaciones principales del sistema
     'CALIDAD': '#3B82F6',
@@ -619,7 +619,24 @@ const getCoordColorGlobal = (codigo: string | null | undefined): string => {
     'BOOM': '#EF4444',
     'AI-AGENT': '#6366F1'
   };
-  return colorMap[codigo.toUpperCase()] || '#6B7280';
+  
+  // Si no hay código, retornar color fallback
+  if (!codigo) return '#6B7280';
+  
+  const normalizedCode = codigo.toUpperCase().trim();
+  const color = colorMap[normalizedCode];
+  
+  // Si no está en el mapa, generar un color basado en el hash del código
+  // para garantizar consistencia y evitar grises
+  if (!color) {
+    const hashCode = normalizedCode.split('').reduce((acc, char) => {
+      return char.charCodeAt(0) + ((acc << 5) - acc);
+    }, 0);
+    const hue = Math.abs(hashCode) % 360;
+    return `hsl(${hue}, 70%, 50%)`;
+  }
+  
+  return color;
 };
 
 const TIME_PERIODS: { value: TimePeriod; label: string }[] = [
@@ -1245,9 +1262,12 @@ const CallStatusContent: React.FC<{
               <XAxis type="number" tick={{ fill: '#9CA3AF', fontSize: 11 }} tickFormatter={(v) => v.toLocaleString()} />
               <YAxis type="category" dataKey="name" width={isExpandedView ? 140 : 110} tick={{ fill: '#9CA3AF', fontSize: isExpandedView ? 13 : 11 }} />
               <Tooltip content={<CustomTooltip />} cursor={false} />
-              {filteredCoordData.map((coord) => {
-                // Forzar color con fallback para evitar barras negras en producción
-                const barColor = coord.coordColor || '#6B7280';
+              {filteredCoordData.map((coord, coordIdx) => {
+                // Forzar color con fallback - usar colores de un array para garantizar visibilidad
+                const FALLBACK_COLORS = ['#3B82F6', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#EF4444', '#6366F1', '#14B8A6', '#F97316'];
+                const barColor = coord.coordColor && coord.coordColor !== '#6B7280' 
+                  ? coord.coordColor 
+                  : FALLBACK_COLORS[coordIdx % FALLBACK_COLORS.length];
                 return (
                   <Bar 
                     key={coord.coordId} 
@@ -1256,10 +1276,15 @@ const CallStatusContent: React.FC<{
                     radius={[0, 6, 6, 0]}
                     animationDuration={2000}
                     barSize={isExpandedView ? 28 : 22}
+                    style={{ fill: barColor }}
                   >
-                    {/* Cell explícito para forzar fill en producción (evita bug de minificación) */}
+                    {/* Cell explícito con style para forzar fill en producción */}
                     {comparativeChartData.map((_, idx) => (
-                      <Cell key={`cell-${coord.coordId}-${idx}`} fill={barColor} />
+                      <Cell 
+                        key={`cell-${coord.coordId}-${idx}`} 
+                        fill={barColor}
+                        style={{ fill: barColor }}
+                      />
                     ))}
                     <LabelList 
                       dataKey={coord.coordName} 
