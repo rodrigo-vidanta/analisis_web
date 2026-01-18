@@ -8,6 +8,7 @@ import { X, Search, Send, Eye, Image as ImageIcon, Filter, ChevronLeft, ChevronR
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { ParaphraseModal } from './ParaphraseModal';
 import { useAuth } from '../../contexts/AuthContext';
+import { getSignedGcsUrl } from '../../services/gcsUrlService';
 
 interface ContentItem {
   id: string;
@@ -188,34 +189,16 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       }
     }
 
-    // 3️⃣ Generar nueva URL desde API
+    // 3️⃣ Generar nueva URL desde servicio con autenticación JWT
     try {
-      // Usar Edge Function en lugar de URL directa
-      const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          filename: item.nombre_archivo,
-          bucket: item.bucket,
-          expirationMinutes: 30,
-          auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
-        })
-      });
-
-      const data = await response.json();
-      const url = data[0]?.url || data.url;
+      const url = await getSignedGcsUrl(item.nombre_archivo, item.bucket, 30);
       
-      // Guardar en memoria + localStorage
-      setImageUrls(prev => ({ ...prev, [cacheKey]: url }));
-      localStorage.setItem(cacheKey, JSON.stringify({
-        url,
-        timestamp: Date.now()
-      }));
+      if (url) {
+        // Guardar en memoria (el servicio ya maneja localStorage)
+        setImageUrls(prev => ({ ...prev, [cacheKey]: url }));
+      }
       
-      return url;
+      return url || '';
     } catch (error) {
       console.error('Error generating image URL:', error);
       return '';

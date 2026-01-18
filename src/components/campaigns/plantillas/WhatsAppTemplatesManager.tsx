@@ -66,6 +66,7 @@ import { analysisSupabase } from '../../../config/analysisSupabase';
 import { ErrorModal } from '../../shared/ErrorModal';
 import { DeleteTemplateConfirmationModal } from '../../shared/DeleteTemplateConfirmationModal';
 import TemplateSuggestionsTab from './TemplateSuggestionsTab';
+import { getSignedGcsUrl } from '../../../services/gcsUrlService';
 
 /**
  * ============================================
@@ -3245,30 +3246,16 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
       }
     }
     
-    // 3. Generar nueva URL
+    // 3. Generar nueva URL (con autenticación JWT)
     try {
-      // Usar Edge Function en lugar de URL directa
-      const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          filename: item.nombre_archivo,
-          bucket: item.bucket,
-          expirationMinutes: 30,
-          auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
-        })
-      });
+      const url = await getSignedGcsUrl(item.nombre_archivo, item.bucket, 30);
       
-      const data = await response.json();
-      const url = data[0]?.url || data.url;
+      if (url) {
+        globalImageUrlCache[cacheKey] = url;
+        // El servicio ya maneja localStorage
+      }
       
-      globalImageUrlCache[cacheKey] = url;
-      localStorage.setItem(cacheKey, JSON.stringify({ url, timestamp: Date.now() }));
-      
-      return url;
+      return url || '';
     } catch (error) {
       console.error('Error generating image URL:', error);
       return '';
@@ -3490,7 +3477,7 @@ const LazyImageThumbnail: React.FC<LazyImageThumbnailProps> = ({ item, onSelect,
     return () => observer.disconnect();
   }, []);
   
-  // Cargar URL solo cuando es visible
+  // Cargar URL solo cuando es visible (con autenticación JWT)
   useEffect(() => {
     if (!isVisible) return;
     
@@ -3503,44 +3490,21 @@ const LazyImageThumbnail: React.FC<LazyImageThumbnailProps> = ({ item, onSelect,
       return;
     }
     
-    const cachedData = localStorage.getItem(cacheKey);
-    if (cachedData) {
+    // Usar servicio centralizado con autenticación JWT
+    const loadUrl = async () => {
       try {
-        const parsed = JSON.parse(cachedData);
-        if (parsed.url && parsed.timestamp && (Date.now() - parsed.timestamp) < 25 * 60 * 1000) {
-          globalImageUrlCache[cacheKey] = parsed.url;
-          setUrl(parsed.url);
-          setLoading(false);
-          return;
+        const generatedUrl = await getSignedGcsUrl(item.nombre_archivo, item.bucket, 30);
+        if (generatedUrl) {
+          globalImageUrlCache[cacheKey] = generatedUrl;
+          setUrl(generatedUrl);
         }
-      } catch (e) {
-        localStorage.removeItem(cacheKey);
-      }
-    }
-    
-    // Usar Edge Function en lugar de URL directa
-    fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-      },
-      body: JSON.stringify({
-        filename: item.nombre_archivo,
-        bucket: item.bucket,
-        expirationMinutes: 30,
-        auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        const generatedUrl = data[0]?.url || data.url;
-        globalImageUrlCache[cacheKey] = generatedUrl;
-        localStorage.setItem(cacheKey, JSON.stringify({ url: generatedUrl, timestamp: Date.now() }));
-        setUrl(generatedUrl);
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } catch {
+        setLoading(false);
+      }
+    };
+    
+    loadUrl();
   }, [isVisible, item]);
   
   return (

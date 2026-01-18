@@ -1,6 +1,21 @@
-// Edge Function para generar URLs firmadas de Google Cloud Storage
-// Actúa como proxy al servicio de Railway para ocultar el token de autenticación
-// Las imágenes están en GCS (Google Cloud Storage), no en Supabase Storage
+/**
+ * ============================================
+ * EDGE FUNCTION: GENERAR-URL-OPTIMIZADA
+ * ============================================
+ * 
+ * Proxy seguro para generar URLs firmadas de Google Cloud Storage.
+ * 
+ * SEGURIDAD:
+ * - Requiere autenticación JWT de Supabase
+ * - Solo usuarios autenticados (authenticated role) pueden usar esta función
+ * - No permite acceso con solo anon_key
+ * 
+ * SECRETS REQUERIDOS:
+ * - GCS_API_TOKEN o MEDIA_URL_AUTH
+ * 
+ * Autor: Darig Samuel Rosales Robledo
+ * Fecha: 17 Enero 2026 (Hardening de seguridad)
+ */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
@@ -16,6 +31,43 @@ const GCS_SERVICE_URL = 'https://function-bun-dev-6d8e.up.railway.app/generar-ur
 // Token de autenticación para el servicio de Railway
 const GCS_API_TOKEN = Deno.env.get('GCS_API_TOKEN') || Deno.env.get('MEDIA_URL_AUTH') || ''
 
+/**
+ * Verifica que el JWT sea de un usuario autenticado
+ * Retorna el payload del JWT si es válido, null si no lo es
+ */
+function verifyJWT(authHeader: string | null): { valid: boolean; error?: string; payload?: Record<string, unknown> } {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { valid: false, error: 'Authorization header required' };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return { valid: false, error: 'Invalid JWT format' };
+    }
+    
+    // Decodificar payload
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    
+    // Verificar que tiene un user_id (sub) - indica que es un usuario autenticado
+    const isAuthenticated = payload.sub && payload.role === 'authenticated';
+    const isServiceRole = payload.role === 'service_role';
+    
+    // Solo permitir usuarios autenticados o service_role
+    if (!isAuthenticated && !isServiceRole) {
+      console.log('🚫 Access denied - role:', payload.role, 'sub:', payload.sub);
+      return { valid: false, error: 'Authentication required. Please login.' };
+    }
+    
+    return { valid: true, payload };
+  } catch (jwtError) {
+    console.error('JWT validation error:', jwtError);
+    return { valid: false, error: 'Invalid authentication token' };
+  }
+}
+
 serve(async (req) => {
   // Manejar preflight requests
   if (req.method === 'OPTIONS') {
@@ -23,7 +75,23 @@ serve(async (req) => {
   }
 
   try {
-    // Verificar que tenemos el token
+    // ============================================
+    // VERIFICACIÓN DE AUTENTICACIÓN (JWT)
+    // ============================================
+    const authHeader = req.headers.get('Authorization');
+    const jwtCheck = verifyJWT(authHeader);
+    
+    if (!jwtCheck.valid) {
+      console.log('🚫 Acceso denegado a generar-url-optimizada:', jwtCheck.error);
+      return new Response(
+        JSON.stringify({ error: jwtCheck.error }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('✅ Usuario autenticado:', jwtCheck.payload?.sub, 'role:', jwtCheck.payload?.role);
+
+    // Verificar que tenemos el token de GCS
     if (!GCS_API_TOKEN) {
       console.error('❌ GCS_API_TOKEN o MEDIA_URL_AUTH no está configurado')
       return new Response(
@@ -48,7 +116,8 @@ serve(async (req) => {
     console.log('📝 Proxy request a GCS:', { 
       bucket, 
       filename: filename?.substring(0, 50),
-      expirationMinutes
+      expirationMinutes,
+      user: jwtCheck.payload?.sub
     })
 
     if (!filename || !bucket) {
@@ -102,7 +171,7 @@ serve(async (req) => {
       )
     }
 
-    console.log(`✅ URL obtenida de GCS exitosamente`)
+    console.log(`✅ URL obtenida de GCS exitosamente para usuario: ${jwtCheck.payload?.sub}`)
 
     // Retornar la respuesta del servicio GCS
     return new Response(

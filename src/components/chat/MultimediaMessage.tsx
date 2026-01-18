@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { FileText, Download, Image, Music, Film, FileArchive, Loader, Play, Pause } from 'lucide-react';
+import { getSignedGcsUrl } from '../../services/gcsUrlService';
 
 interface Adjunto {
   tipo?: string;
@@ -156,51 +157,15 @@ const generateMediaUrl = async (adjunto: Adjunto): Promise<string> => {
     throw new Error('No se especificó filename o archivo');
   }
   
-  const cacheKey = `${bucket}/${filename}`;
+  // Usar servicio centralizado con autenticación JWT
+  // El servicio ya maneja cache internamente
+  const url = await getSignedGcsUrl(filename, bucket, 30);
   
-  // 1️⃣ Verificar cache persistente
-  const cachedUrl = getFromCache(cacheKey);
-  if (cachedUrl) {
-    return cachedUrl;
+  if (!url) {
+    throw new Error('No se pudo generar URL de multimedia');
   }
-
-  // 2️⃣ Generar nueva URL desde API
-  try {
-    // Usar Edge Function en lugar de URL directa
-    const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-      },
-      body: JSON.stringify({
-        filename: filename,
-        bucket: bucket,
-        expirationMinutes: 30,
-        auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error generando URL (${response.status}): ${errorText}`);
-    }
-
-    const data = await response.json();
-    const url = data[0]?.url || data.url;
-
-    if (!url) {
-      throw new Error('No se recibió URL en la respuesta');
-    }
-
-    // 3️⃣ Guardar en cache persistente
-    saveToCache(cacheKey, url);
-
-    return url;
-  } catch (error) {
-    console.error('Error generando URL de multimedia:', error);
-    throw error;
-  }
+  
+  return url;
 };
 
 const getFileIcon = (tipo: string | undefined) => {

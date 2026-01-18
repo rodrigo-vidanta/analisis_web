@@ -1,8 +1,23 @@
-// Servicio para manejar la API de audio del bucket
-// Usar Edge Function en lugar de URL directa
+/**
+ * ============================================
+ * SERVICIO DE AUDIO - URLs FIRMADAS DE GCS
+ * ============================================
+ * 
+ * Servicio para obtener URLs firmadas de Google Cloud Storage
+ * para reproducir archivos de audio.
+ * 
+ * SEGURIDAD (2026-01-17):
+ * - Requiere autenticación JWT de usuario
+ * - No permite acceso con solo anon_key
+ * 
+ * Autor: Darig Samuel Rosales Robledo
+ * Fecha: 17 Enero 2026 (Hardening de seguridad)
+ */
+
+import { getAuthHeadersStrict } from '../utils/authHelpers';
+
+// URL de la Edge Function
 const AUDIO_API_URL = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`;
-const AUDIO_API_TOKEN = import.meta.env.VITE_GCS_API_TOKEN || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
 
 export interface AudioUrlResponse {
   success: boolean;
@@ -42,6 +57,8 @@ export function parseAudioUrl(fullUrl: string): ParsedAudioData | null {
 
 /**
  * Obtiene una URL firmada temporal para reproducir un archivo de audio
+ * REQUIERE usuario autenticado (JWT válido)
+ * 
  * @param audioFileUrl URL completa del archivo de audio desde la base de datos
  * @returns Promise con la URL firmada o null si hay error
  */
@@ -54,22 +71,24 @@ export async function getSignedAudioUrl(audioFileUrl: string): Promise<string | 
       return null;
     }
     
+    // Obtener headers con JWT del usuario autenticado
+    const headers = await getAuthHeadersStrict();
+    
     // Hacer petición a la Edge Function 
     const response = await fetch(AUDIO_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      },
+      headers,
       body: JSON.stringify({
-        filename: audioData.filename, // Solo el filename sin el prefijo gs://bucket/
+        filename: audioData.filename,
         bucket: audioData.bucket,
-        expirationMinutes: 30,
-        auth_token: AUDIO_API_TOKEN // Token en body para la Edge Function
+        expirationMinutes: 30
       })
     });
     
     if (!response.ok) {
+      if (response.status === 401) {
+        console.error('❌ [AudioService] Sesión expirada. Recarga la página.');
+      }
       return null;
     }
     
@@ -82,6 +101,10 @@ export async function getSignedAudioUrl(audioFileUrl: string): Promise<string | 
     return data.url;
     
   } catch (error) {
+    // Error de autenticación o red
+    if (error instanceof Error && error.message.includes('Sesión')) {
+      console.error('❌ [AudioService]', error.message);
+    }
     return null;
   }
 }

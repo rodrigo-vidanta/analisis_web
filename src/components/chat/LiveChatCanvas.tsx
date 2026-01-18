@@ -1242,63 +1242,16 @@ const LiveChatCanvas: React.FC = () => {
   const [imageUrlsCache, setImageUrlsCache] = useState<Record<string, string>>({});
   const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({});
   
-  // Función helper para generar URL de imagen (reutiliza lógica de MultimediaMessage)
+  // Función helper para generar URL de imagen (usa servicio con autenticación JWT)
   const generateImageUrl = async (adjunto: any): Promise<string | null> => {
     const filename = adjunto.filename || adjunto.archivo;
     const bucket = adjunto.bucket || 'whatsapp-media';
     
     if (!filename) return null;
     
-    const cacheKey = `${bucket}/${filename}`;
-    
-    // Verificar cache local primero
-    const cached = localStorage.getItem(`media_${cacheKey}`);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        const now = Date.now();
-        if (parsed.url && parsed.timestamp && (now - parsed.timestamp) < 25 * 60 * 1000) {
-          return parsed.url;
-        }
-      } catch (e) {
-        localStorage.removeItem(`media_${cacheKey}`);
-      }
-    }
-    
-    // Generar nueva URL
-    try {
-      // Usar Edge Function en lugar de URL directa
-      const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          filename: filename,
-          bucket: bucket,
-          expirationMinutes: 30,
-          auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
-        })
-      });
-      
-      if (!response.ok) return null;
-      
-      const data = await response.json();
-      const url = data[0]?.url || data.url;
-      
-      if (url) {
-        localStorage.setItem(`media_${cacheKey}`, JSON.stringify({
-          url,
-          timestamp: Date.now()
-        }));
-      }
-      
-      return url || null;
-    } catch (error) {
-      console.error('Error generando URL:', error);
-      return null;
-    }
+    // Usar servicio centralizado con autenticación JWT
+    const { getSignedGcsUrl } = await import('../../services/gcsUrlService');
+    return getSignedGcsUrl(filename, bucket, 30);
   };
 
   // Estado del sidebar (para ajustar posición)

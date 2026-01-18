@@ -17,6 +17,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 // import { ParaphraseModal } from './ParaphraseModal';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { getSignedGcsUrl } from '../../services/gcsUrlService';
 
 // ============================================
 // INTERFACES
@@ -146,41 +147,18 @@ const generateImageUrl = async (item: ContentItem): Promise<string> => {
     return pendingRequests[cacheKey];
   }
 
-  // 4. Crear nueva request
+  // 4. Crear nueva request (con autenticación JWT)
   pendingRequests[cacheKey] = (async () => {
     try {
-      // Usar Edge Function en lugar de URL directa
-      const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          filename: item.nombre_archivo,
-          bucket: item.bucket,
-          expirationMinutes: 30,
-          auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      const url = data[0]?.url || data.url || '';
+      // Usar servicio centralizado con autenticación JWT
+      const url = await getSignedGcsUrl(item.nombre_archivo, item.bucket, 30);
       
       if (url) {
         globalImageUrlCache[cacheKey] = url;
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({ url, timestamp: Date.now() }));
-        } catch (e) {
-          // localStorage lleno, ignorar
-        }
+        // El servicio ya maneja localStorage
       }
       
-      return url;
+      return url || '';
     } catch (error) {
       console.error('Error generating image URL:', error);
       return '';

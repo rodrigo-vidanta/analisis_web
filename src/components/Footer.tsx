@@ -8,8 +8,8 @@ import { useSystemConfig } from '../hooks/useSystemConfig';
   const DEBUG_USER_SYNC = 'https://primary-dev-d75a.up.railway.app/webhook/user_sync';
 
   const Footer: React.FC = () => {
-  // Versión actual - v2.5.7: Fix bug calendario programación (llamadas aparecían un día después)
-  const version = 'B10.1.7N2.5.7';
+  // Versión actual - v2.5.8: SEGURIDAD - Autenticación JWT en generar-url-optimizada (GCS)
+  const version = 'B10.1.8N2.5.8';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

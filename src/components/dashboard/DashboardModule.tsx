@@ -47,6 +47,7 @@ import type { Coordinacion } from '../../services/coordinacionService';
 import toast from 'react-hot-toast';
 import { ProspectosMetricsWidget, type GlobalTimePeriod } from './widgets/ProspectosMetricsWidget';
 import { EjecutivosMetricsWidget } from './widgets/EjecutivosMetricsWidget';
+import { getSignedGcsUrl } from '../../services/gcsUrlService';
 
 // ============================================
 // CONTEXT PARA VISTA EXPANDIDA
@@ -262,43 +263,11 @@ const ConversationPreviewModal: React.FC<ConversationPreviewModalProps> = ({
     });
   };
 
-  // Función para generar URL firmada
+  // Función para generar URL firmada (con autenticación JWT)
   const generateMediaUrl = async (filename: string, bucket: string = 'whatsapp-media'): Promise<string | null> => {
-    const cacheKey = `${bucket}/${filename}`;
-    
-    // Verificar cache primero
-    const cachedUrl = getMediaFromCache(cacheKey);
-    if (cachedUrl) return cachedUrl;
-
-    try {
-      // Usar Edge Function en lugar de URL directa
-      const response = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/generar-url-optimizada`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          filename: filename,
-          bucket: bucket,
-          expirationMinutes: 30,
-          auth_token: import.meta.env.VITE_GCS_API_TOKEN || ''
-        })
-      });
-
-      if (!response.ok) return null;
-
-      const data = await response.json();
-      const url = data[0]?.url || data.url;
-
-      if (url) {
-        saveMediaToCache(cacheKey, url);
-        return url;
-      }
-      return null;
-    } catch {
-      return null;
-    }
+    // Usar servicio centralizado con autenticación JWT
+    // El servicio ya maneja cache internamente
+    return getSignedGcsUrl(filename, bucket, 30);
   };
 
   // Cargar URLs de adjuntos cuando hay mensajes
