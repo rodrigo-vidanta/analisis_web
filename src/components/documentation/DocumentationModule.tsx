@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'k4g0l6i', date: '2026-01-18', author: 'Team', message: 'v2.5.9: B10.1.9N2.5.9 - Fix Footer AI Division: Carga desde BD solo usuarios autenticados (seguridad)', isRelease: true },
   { hash: 'j3f9k5h', date: '2026-01-18', author: 'Team', message: 'v2.5.8: B10.1.8N2.5.8 - SEGURIDAD: Autenticación JWT en Edge Function generar-url-optimizada (GCS)', isRelease: true },
   { hash: 'i2e8j4g', date: '2026-01-17', author: 'Team', message: 'v2.5.7: B10.1.7N2.5.7 - Fix bug calendario programación (llamadas día incorrecto)', isRelease: true },
   { hash: 'h1d7i3f', date: '2026-01-17', author: 'Team', message: 'v2.5.6: B10.1.6N2.5.6 - Deploy dynamics-lead-proxy Edge Function con auth correcto', isRelease: true },
@@ -541,8 +542,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.8', highlight: true },
-  { label: 'Release', value: 'B10.1.8N2.5.8', highlight: false },
+  { label: 'Version', value: 'v2.5.9', highlight: true },
+  { label: 'Release', value: 'B10.1.9N2.5.9', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '18 Ene 2026', highlight: false },
 ];
