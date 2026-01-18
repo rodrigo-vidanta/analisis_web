@@ -3077,7 +3077,7 @@ const DashboardModule: React.FC = () => {
         coordName: c.coordinacion_nombre || 'Sin nombre',
         coordCode: c.coordinacion_codigo || 'N/A',
         count: c.count || 0,
-        color: getCoordColor(c.coordinacion_codigo)
+        color: getCoordColorGlobal(c.coordinacion_codigo)
       })));
 
       // Calcular datos por coordinación para funnel comparativo
@@ -3095,34 +3095,7 @@ const DashboardModule: React.FC = () => {
     } catch (error) {
       console.error('Error loading pipeline (RPC):', error);
     }
-  }, [filters, getStartDate, getSelectedCoordinacionIds, isGlobalView, coordinaciones, getCoordColor]);
-
-  // Función para obtener color de coordinación (helper)
-  // IMPORTANTE: Usar useCallback para estabilizar la referencia y evitar problemas de closure
-  const getCoordColor = useCallback((codigo: string | null | undefined): string => {
-    const colors: Record<string, string> = {
-      // Coordinaciones principales del sistema
-      'CALIDAD': '#3B82F6',
-      'VEN': '#F59E0B',
-      'I360': '#10B981',
-      'APEX': '#10B981', // I360 renombrado a APEX
-      'COBACA': '#8B5CF6',
-      'COB ACA': '#8B5CF6', // Variante con espacio
-      'MVP': '#EC4899',
-      'BOOM': '#EF4444', // Nueva coordinación
-      'AI-AGENT': '#6366F1', // Agente Virtual
-      // Coordinaciones legacy/regionales
-      'CDMX': '#3B82F6',
-      'GDL': '#10B981',
-      'MTY': '#F59E0B',
-      'CUN': '#EF4444',
-      'PVR': '#8B5CF6',
-      'VALLARTA': '#8B5CF6',
-      'LOS CABOS': '#EC4899',
-      'CABOS': '#EC4899'
-    };
-    return colors[(codigo || '').toUpperCase()] || '#6B7280';
-  }, []);
+  }, [filters, getStartDate, getSelectedCoordinacionIds, isGlobalView, coordinaciones]);
 
   // ============================================
   // FUNCIONES ORIGINALES (mantenidas como fallback)
@@ -3209,7 +3182,7 @@ const DashboardModule: React.FC = () => {
           return {
             coordId,
             coordName: coord?.nombre || coord?.codigo || 'N/A',
-            coordColor: getCoordColor(coord?.codigo),
+            coordColor: getCoordColorGlobal(coord?.codigo),
             ...counts
           };
         }).filter(c => c.total > 0);
@@ -3221,7 +3194,7 @@ const DashboardModule: React.FC = () => {
     } catch (error) {
       console.error('Error loading call status:', error);
     }
-  }, [filters, getStartDate, getSelectedCoordinacionIds, coordinaciones, getCoordColor]);
+  }, [filters, getStartDate, getSelectedCoordinacionIds, coordinaciones]);
 
   // Cargar métricas de comunicación
   const loadCommunicationMetrics = useCallback(async () => {
@@ -3660,7 +3633,7 @@ const DashboardModule: React.FC = () => {
             coordName: coord?.nombre || 'Desconocida',
             coordCode: coord?.codigo || 'N/A',
             count,
-            color: getCoordColor(coord?.codigo)
+            color: getCoordColorGlobal(coord?.codigo)
           };
         })
         .filter(a => !EXCLUDED_COORDS.includes(a.coordCode.toUpperCase())) // Filtrar excluidas
@@ -3704,7 +3677,7 @@ const DashboardModule: React.FC = () => {
           coordDataMap[coordId] = {
             coordinacionId: coordId,
             coordinacionNombre: coord.nombre || coord.codigo || 'N/A',
-            color: getCoordColor(coord.codigo),
+            color: getCoordColorGlobal(coord.codigo),
             stages: coordStages
           };
         }
@@ -3717,7 +3690,7 @@ const DashboardModule: React.FC = () => {
     } catch (error) {
       console.error('Error loading pipeline:', error);
     }
-  }, [filters, isGlobalView, coordinaciones, getSelectedCoordinacionIds, getStartDate, getCoordColor]);
+  }, [filters, isGlobalView, coordinaciones, getSelectedCoordinacionIds, getStartDate]);
 
   // Cargar ventas CRM - CORREGIDO: Usando tabla crm_data con transactions
   const loadCRMData = useCallback(async () => {

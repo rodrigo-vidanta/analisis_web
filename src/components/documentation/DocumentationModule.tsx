@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'n7j3o9l', date: '2026-01-18', author: 'Team', message: 'v2.5.12: B10.1.12N2.5.12 - Fix getCoordColor TDZ: usar función global getCoordColorGlobal', isRelease: true },
   { hash: 'm6i2n8k', date: '2026-01-18', author: 'Team', message: 'v2.5.11: B10.1.11N2.5.11 - Fix colores Dashboard: useCallback estable + dependencias correctas', isRelease: true },
   { hash: 'l5h1m7j', date: '2026-01-18', author: 'Team', message: 'v2.5.10: B10.1.10N2.5.10 - Fix barras negras Dashboard: Cell explícito + colores coordinaciones', isRelease: true },
   { hash: 'k4g0l6i', date: '2026-01-18', author: 'Team', message: 'v2.5.9: B10.1.9N2.5.9 - Fix Footer AI Division: Carga desde BD solo usuarios autenticados (seguridad)', isRelease: true },
@@ -435,6 +436,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-115', date: '2026-01-18 13:15', version: 'B10.1.12N2.5.12', status: 'success', duration: '17s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-114', date: '2026-01-18 12:40', version: 'B10.1.11N2.5.11', status: 'success', duration: '17s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-113', date: '2026-01-18 12:20', version: 'B10.1.10N2.5.10', status: 'success', duration: '17s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-112', date: '2026-01-18 12:05', version: 'B10.1.9N2.5.9', status: 'success', duration: '17s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -547,8 +549,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.11', highlight: true },
-  { label: 'Release', value: 'B10.1.11N2.5.11', highlight: false },
+  { label: 'Version', value: 'v2.5.12', highlight: true },
+  { label: 'Release', value: 'B10.1.12N2.5.12', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '18 Ene 2026', highlight: false },
 ];
