@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.9: Fix Footer AI Division - Carga desde BD solo usuarios autenticados
-  const version = 'B10.1.9N2.5.9';
+  // Versión actual - v2.5.10: Fix barras negras Dashboard - Cell explícito para producción
+  const version = 'B10.1.10N2.5.10';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

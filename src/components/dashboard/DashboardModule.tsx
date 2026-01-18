@@ -604,14 +604,17 @@ interface FunnelCoordData {
 
 // Función helper para obtener colores de coordinaciones dinámicamente
 // Usa el código de la coordinación para mantener consistencia visual
+// NOTA: También existe una copia local en DashboardModule - mantener sincronizadas
 const getCoordColor = (codigo: string | null | undefined): string => {
   if (!codigo) return '#6B7280';
   const colorMap: Record<string, string> = {
+    // Coordinaciones principales del sistema
     'CALIDAD': '#3B82F6',
     'VEN': '#F59E0B',
     'I360': '#10B981',
     'APEX': '#10B981', // I360 renombrado a APEX
     'COBACA': '#8B5CF6',
+    'COB ACA': '#8B5CF6', // Variante con espacio
     'MVP': '#EC4899'
   };
   return colorMap[codigo.toUpperCase()] || '#6B7280';
@@ -1240,25 +1243,33 @@ const CallStatusContent: React.FC<{
               <XAxis type="number" tick={{ fill: '#9CA3AF', fontSize: 11 }} tickFormatter={(v) => v.toLocaleString()} />
               <YAxis type="category" dataKey="name" width={isExpandedView ? 140 : 110} tick={{ fill: '#9CA3AF', fontSize: isExpandedView ? 13 : 11 }} />
               <Tooltip content={<CustomTooltip />} cursor={false} />
-              {filteredCoordData.map((coord) => (
-                <Bar 
-                  key={coord.coordId} 
-                  dataKey={coord.coordName} 
-                  fill={coord.coordColor} 
-                  radius={[0, 6, 6, 0]}
-                  animationDuration={2000}
-                  barSize={isExpandedView ? 28 : 22}
-                >
-                  <LabelList 
+              {filteredCoordData.map((coord) => {
+                // Forzar color con fallback para evitar barras negras en producción
+                const barColor = coord.coordColor || '#6B7280';
+                return (
+                  <Bar 
+                    key={coord.coordId} 
                     dataKey={coord.coordName} 
-                    position="insideRight" 
-                    fill="white" 
-                    fontSize={isExpandedView ? 12 : 10}
-                    fontWeight="bold"
-                    formatter={(v: number) => v > 0 ? v.toLocaleString() : ''}
-                  />
-                </Bar>
-              ))}
+                    fill={barColor}
+                    radius={[0, 6, 6, 0]}
+                    animationDuration={2000}
+                    barSize={isExpandedView ? 28 : 22}
+                  >
+                    {/* Cell explícito para forzar fill en producción (evita bug de minificación) */}
+                    {comparativeChartData.map((_, idx) => (
+                      <Cell key={`cell-${coord.coordId}-${idx}`} fill={barColor} />
+                    ))}
+                    <LabelList 
+                      dataKey={coord.coordName} 
+                      position="insideRight" 
+                      fill="white" 
+                      fontSize={isExpandedView ? 12 : 10}
+                      fontWeight="bold"
+                      formatter={(v: number) => v > 0 ? v.toLocaleString() : ''}
+                    />
+                  </Bar>
+                );
+              })}
             </BarChart>
           ) : (
             // Vista global: barras simples
@@ -3085,8 +3096,18 @@ const DashboardModule: React.FC = () => {
   }, [filters, getStartDate, getSelectedCoordinacionIds, isGlobalView, coordinaciones]);
 
   // Función para obtener color de coordinación (helper)
+  // IMPORTANTE: Mantener sincronizado con la función global (línea ~607)
   const getCoordColor = (codigo: string | null | undefined): string => {
     const colors: Record<string, string> = {
+      // Coordinaciones principales del sistema
+      'CALIDAD': '#3B82F6',
+      'VEN': '#F59E0B',
+      'I360': '#10B981',
+      'APEX': '#10B981', // I360 renombrado a APEX
+      'COBACA': '#8B5CF6',
+      'COB ACA': '#8B5CF6', // Variante con espacio
+      'MVP': '#EC4899',
+      // Coordinaciones legacy/regionales
       'CDMX': '#3B82F6',
       'GDL': '#10B981',
       'MTY': '#F59E0B',
