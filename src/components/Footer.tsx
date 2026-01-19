@@ -22,7 +22,7 @@ interface AIDivisionMember {
 
 const Footer: React.FC = () => {
   // Versión actual - v2.5.14: Fix cambio contraseña - migrar RPCs a Edge Function auth-admin-proxy
-  const version = 'B10.1.15N2.5.15';
+  const version = 'B10.1.16N2.5.16';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

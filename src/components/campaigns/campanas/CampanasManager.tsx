@@ -173,7 +173,7 @@ const CampanasManager: React.FC = () => {
         console.error('Error loading templates:', templatesError);
       }
       
-      // Cargar audiencias activas
+      // Cargar audiencias activas con conteo dinámico
       const { data: audiencesData, error: audiencesError } = await analysisSupabase
         .from('whatsapp_audiences')
         .select('*')
@@ -184,9 +184,71 @@ const CampanasManager: React.FC = () => {
         console.error('Error loading audiences:', audiencesError);
       }
       
+      // Recalcular conteo dinámico de prospectos para cada audiencia
+      const dynamicAudiences: WhatsAppAudience[] = [];
+      if (audiencesData) {
+        for (const aud of audiencesData) {
+          try {
+            let query = analysisSupabase
+              .from('prospectos')
+              .select('id', { count: 'exact' });
+            
+            // Aplicar todos los filtros de la audiencia
+            if (aud.etapas?.length) {
+              query = query.in('etapa', aud.etapas);
+            } else if (aud.etapa) {
+              query = query.eq('etapa', aud.etapa);
+            }
+            if (aud.estado_civil) {
+              query = query.eq('estado_civil', aud.estado_civil);
+            }
+            if (aud.viaja_con && aud.viaja_con.length > 0) {
+              query = query.in('viaja_con', aud.viaja_con);
+            }
+            if (aud.destinos && aud.destinos.length > 0) {
+              query = query.overlaps('destino_preferencia', aud.destinos);
+            }
+            if (aud.tiene_email === true) {
+              query = query.not('email', 'is', null).neq('email', '');
+            } else if (aud.tiene_email === false) {
+              query = query.or('email.is.null,email.eq.');
+            }
+            if (aud.con_menores === true) {
+              query = query.gt('cantidad_menores', 0);
+            } else if (aud.con_menores === false) {
+              query = query.or('cantidad_menores.is.null,cantidad_menores.eq.0');
+            }
+            
+            // Filtro de etiquetas (requiere consulta a SystemUI)
+            if (aud.etiquetas && aud.etiquetas.length > 0) {
+              const { data: labeledProspects } = await supabaseSystemUI
+                .from('whatsapp_conversation_labels')
+                .select('prospecto_id')
+                .in('label_id', aud.etiquetas)
+                .eq('label_type', 'preset');
+              
+              if (labeledProspects && labeledProspects.length > 0) {
+                const prospectoIds = [...new Set(labeledProspects.map(lp => lp.prospecto_id))];
+                query = query.in('id', prospectoIds);
+              } else {
+                // No hay prospectos con esas etiquetas
+                dynamicAudiences.push({ ...aud, prospectos_count: 0 });
+                continue;
+              }
+            }
+            
+            const { count } = await query.limit(0);
+            dynamicAudiences.push({ ...aud, prospectos_count: count || 0 });
+          } catch {
+            // En caso de error, usar el valor de la BD
+            dynamicAudiences.push(aud);
+          }
+        }
+      }
+      
       setCampaigns(normalizedCampaigns);
       setTemplates(templatesData || []);
-      setAudiences(audiencesData || []);
+      setAudiences(dynamicAudiences);
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -1776,6 +1838,13 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   const getRequiredFieldsFromTemplate = useCallback((template: WhatsAppTemplate | undefined): string[] => {
     if (!template?.variable_mappings) return [];
     
+    // Mapeo de corrección para campos que no existen en la tabla prospectos
+    const fieldCorrections: Record<string, string> = {
+      'primer_nombre': 'nombre',
+      'primer_apellido': 'apellido_paterno',
+      'segundo_apellido': 'apellido_materno',
+    };
+    
     let mappings: any[] = [];
     
     // Parsear variable_mappings (puede venir como string, array, o objeto)
@@ -1801,7 +1870,11 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         !m.is_system_variable &&
         m.field_name
       )
-      .map((m: any) => m.field_name);
+      .map((m: any) => {
+        // Aplicar corrección si el campo no existe
+        const fieldName = m.field_name;
+        return fieldCorrections[fieldName] || fieldName;
+      });
     
     return [...new Set(prospectoFields)]; // Eliminar duplicados
   }, []);
@@ -1995,8 +2068,8 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
               
               // Los que tienen las variables de esta plantilla
               for (const field of templateFields) {
+                // Solo NOT NULL (evita error 400 con .neq vacío)
                 withVarsQuery = withVarsQuery.not(field, 'is', null);
-                withVarsQuery = withVarsQuery.neq(field, '');
               }
               
               const { count: withVars } = await withVarsQuery.limit(0);
@@ -2146,8 +2219,8 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         
         // Agregar filtro: deben tener las variables de la plantilla B
         for (const field of templateBFields) {
+          // Solo NOT NULL (evita error 400 con .neq vacío)
           withBVarsQuery = withBVarsQuery.not(field, 'is', null);
-          withBVarsQuery = withBVarsQuery.neq(field, '');
         }
         
         const { count: withBVars } = await withBVarsQuery.limit(0);
@@ -2360,24 +2433,81 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           return;
         }
         
-        // Construir query base para la audiencia
+        // Construir query base para la audiencia (TODOS los filtros, igual que countAndSample)
         let baseQueryBuilder = analysisSupabase
           .from('prospectos')
           .select('id', { count: 'exact' });
         
+        // Filtro de etapas
         if (audience.etapas?.length) {
           baseQueryBuilder = baseQueryBuilder.in('etapa', audience.etapas);
         } else if (audience.etapa) {
           baseQueryBuilder = baseQueryBuilder.eq('etapa', audience.etapa);
         }
+        
+        // Filtro de estado civil
         if (audience.estado_civil) {
           baseQueryBuilder = baseQueryBuilder.eq('estado_civil', audience.estado_civil);
         }
+        
+        // Filtro de viaja_con
         if (audience.viaja_con && audience.viaja_con.length > 0) {
           baseQueryBuilder = baseQueryBuilder.in('viaja_con', audience.viaja_con);
         }
+        
+        // Filtro de destinos
         if (audience.destinos && audience.destinos.length > 0) {
           baseQueryBuilder = baseQueryBuilder.overlaps('destino_preferencia', audience.destinos);
+        }
+        
+        // Filtro de tiene_email
+        if (audience.tiene_email === true) {
+          baseQueryBuilder = baseQueryBuilder.not('email', 'is', null).neq('email', '');
+        } else if (audience.tiene_email === false) {
+          baseQueryBuilder = baseQueryBuilder.or('email.is.null,email.eq.');
+        }
+        
+        // Filtro de con_menores
+        if (audience.con_menores === true) {
+          baseQueryBuilder = baseQueryBuilder.gt('cantidad_menores', 0);
+        } else if (audience.con_menores === false) {
+          baseQueryBuilder = baseQueryBuilder.or('cantidad_menores.is.null,cantidad_menores.eq.0');
+        }
+        
+        // Filtro de etiquetas (requiere consulta a SystemUI)
+        let prospectIdsFromLabels: string[] | null = null;
+        if (audience.etiquetas && audience.etiquetas.length > 0) {
+          try {
+            const { data: labeledProspects } = await supabaseSystemUI
+              .from('whatsapp_conversation_labels')
+              .select('prospecto_id')
+              .in('label_id', audience.etiquetas)
+              .eq('label_type', 'preset');
+            
+            if (labeledProspects && labeledProspects.length > 0) {
+              prospectIdsFromLabels = labeledProspects.map(lp => lp.prospecto_id);
+              baseQueryBuilder = baseQueryBuilder.in('id', prospectIdsFromLabels);
+            } else {
+              // No hay prospectos con esas etiquetas
+              prospectIdsFromLabels = [];
+            }
+          } catch (labelError) {
+            console.error('Error fetching labeled prospects for coverage:', labelError);
+          }
+        }
+        
+        // Si hay filtro de etiquetas y no hay prospectos, retornar 0
+        if (prospectIdsFromLabels !== null && prospectIdsFromLabels.length === 0) {
+          setVariableCoverage({
+            totalProspects: 0,
+            prospectsWithVariables: 0,
+            prospectsWithoutVariables: 0,
+            coveragePercent: 100,
+            requiredFields,
+            isAnalyzing: false,
+            requiresABTest: false
+          });
+          return;
         }
         
         // Contar total de prospectos en la audiencia
@@ -2389,7 +2519,7 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           .from('prospectos')
           .select('id', { count: 'exact' });
         
-        // Aplicar filtros de audiencia
+        // Aplicar TODOS los filtros de audiencia (igual que baseQueryBuilder)
         if (audience.etapas?.length) {
           withVariablesQuery = withVariablesQuery.in('etapa', audience.etapas);
         } else if (audience.etapa) {
@@ -2405,11 +2535,29 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
           withVariablesQuery = withVariablesQuery.overlaps('destino_preferencia', audience.destinos);
         }
         
+        // Filtro de tiene_email
+        if (audience.tiene_email === true) {
+          withVariablesQuery = withVariablesQuery.not('email', 'is', null).neq('email', '');
+        } else if (audience.tiene_email === false) {
+          withVariablesQuery = withVariablesQuery.or('email.is.null,email.eq.');
+        }
+        
+        // Filtro de con_menores
+        if (audience.con_menores === true) {
+          withVariablesQuery = withVariablesQuery.gt('cantidad_menores', 0);
+        } else if (audience.con_menores === false) {
+          withVariablesQuery = withVariablesQuery.or('cantidad_menores.is.null,cantidad_menores.eq.0');
+        }
+        
+        // Aplicar filtro de etiquetas (reutilizar IDs obtenidos anteriormente)
+        if (prospectIdsFromLabels !== null && prospectIdsFromLabels.length > 0) {
+          withVariablesQuery = withVariablesQuery.in('id', prospectIdsFromLabels);
+        }
+        
         // Agregar filtro de campos requeridos (todos deben tener valor)
         for (const field of requiredFields) {
+          // Solo verificar NOT NULL (evita error 400 con .neq('', '') vacío)
           withVariablesQuery = withVariablesQuery.not(field, 'is', null);
-          // También verificar que no esté vacío para strings
-          withVariablesQuery = withVariablesQuery.neq(field, '');
         }
         
         const { count: withVarsCount } = await withVariablesQuery.limit(0);
@@ -2695,12 +2843,16 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         audience_etiquetas: audience?.etiquetas || null,
       };
       
-      // Enviar via Edge Function (auth seguro via secrets)
+      // Obtener JWT del usuario autenticado
+      const { data: { session } } = await analysisSupabase.auth.getSession();
+      const jwtToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      // Enviar via Edge Function (auth seguro via JWT de usuario)
       const response = await fetch(BROADCAST_EDGE_URL, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${jwtToken}`
         },
         body: JSON.stringify(payload)
       });
@@ -3240,11 +3392,15 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                                 </label>
                                 <input
                                   type="date"
-                                  value={formData.execute_at ? formData.execute_at.slice(0, 10) : ''}
+                                  value={formData.execute_at ? (() => {
+                                    const d = new Date(formData.execute_at);
+                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                  })() : ''}
                                   min={new Date().toISOString().slice(0, 10)}
                                   onChange={(e) => {
-                                    const currentTime = formData.execute_at ? formData.execute_at.slice(11, 16) : '09:00';
-                                    const newDate = new Date(`${e.target.value}T${currentTime}`);
+                                    const currentDate = formData.execute_at ? new Date(formData.execute_at) : new Date();
+                                    const [year, month, day] = e.target.value.split('-').map(Number);
+                                    const newDate = new Date(year, month - 1, day, currentDate.getHours(), currentDate.getMinutes());
                                     setFormData({ ...formData, execute_at: newDate.toISOString() });
                                   }}
                                   className="w-full px-3 py-2.5 text-sm border border-purple-200 dark:border-purple-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all"
@@ -3256,10 +3412,14 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                                 </label>
                                 <input
                                   type="time"
-                                  value={formData.execute_at ? formData.execute_at.slice(11, 16) : '09:00'}
+                                  value={formData.execute_at ? (() => {
+                                    const d = new Date(formData.execute_at);
+                                    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                                  })() : '09:00'}
                                   onChange={(e) => {
-                                    const currentDate = formData.execute_at ? formData.execute_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
-                                    const newDate = new Date(`${currentDate}T${e.target.value}`);
+                                    const currentDate = formData.execute_at ? new Date(formData.execute_at) : new Date();
+                                    const [hours, minutes] = e.target.value.split(':').map(Number);
+                                    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hours, minutes);
                                     setFormData({ ...formData, execute_at: newDate.toISOString() });
                                   }}
                                   className="w-full px-3 py-2.5 text-sm border border-purple-200 dark:border-purple-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all"

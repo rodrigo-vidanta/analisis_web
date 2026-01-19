@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'r1n7s3p', date: '2026-01-19', author: 'Team', message: 'v2.5.16: B10.1.16N2.5.16 - Fix broadcast-proxy: header livechat_auth + token desde BD', isRelease: true },
   { hash: 'q0m6r2o', date: '2026-01-19', author: 'Team', message: 'v2.5.15: B10.1.15N2.5.15 - Fix auth-admin-proxy sin bcrypt + RLS user_ui_preferences', isRelease: true },
   { hash: 'p9l5q1n', date: '2026-01-19', author: 'Team', message: 'v2.5.14: B10.1.14N2.5.14 - Fix cambio contraseña: migrar RPCs a Edge Function + broadcast-proxy + error-log-proxy', isRelease: true },
   { hash: 'o8k4p0m', date: '2026-01-18', author: 'Team', message: 'v2.5.13: B10.1.13N2.5.13 - Fix colores Dashboard prod: style inline + fallback colors array', isRelease: true },
@@ -555,8 +556,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.15', highlight: true },
-  { label: 'Release', value: 'B10.1.15N2.5.15', highlight: false },
+  { label: 'Version', value: 'v2.5.16', highlight: true },
+  { label: 'Release', value: 'B10.1.16N2.5.16', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '19 Ene 2026', highlight: false },
 ];

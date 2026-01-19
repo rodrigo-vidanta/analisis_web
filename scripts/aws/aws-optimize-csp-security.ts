@@ -55,7 +55,7 @@ async function main() {
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
       "media-src 'self' https://storage.vapi.ai https://*.supabase.co blob:",
-      "connect-src 'self' https://*.supabase.co https://glsmifhkoaifvaegsozd.supabase.co https://*.vidavacations.com https://api.ipify.org wss://*.supabase.co wss://*.vapi.ai",
+      "connect-src 'self' https://*.supabase.co https://glsmifhkoaifvaegsozd.supabase.co https://*.vidavacations.com https://api.ipify.org https://function-bun-dev-6d8e.up.railway.app wss://*.supabase.co wss://*.vapi.ai",
       "frame-src 'self' https://*.supabase.co"
     ].join('; ');
 
