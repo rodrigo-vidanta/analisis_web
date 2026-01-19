@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.13: Fix colores Dashboard producción - style inline + fallback colors
-  const version = 'B10.1.13N2.5.13';
+  // Versión actual - v2.5.14: Fix cambio contraseña - migrar RPCs a Edge Function auth-admin-proxy
+  const version = 'B10.1.14N2.5.14';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

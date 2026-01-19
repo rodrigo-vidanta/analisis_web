@@ -26,9 +26,9 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     }
     
-    // Añadir auth si existe
+    // Añadir auth si existe (N8N espera header Authorization)
     if (ERROR_LOG_AUTH) {
-      headers['Auth'] = ERROR_LOG_AUTH
+      headers['Authorization'] = ERROR_LOG_AUTH
     }
     
     const response = await fetch(WEBHOOK_URL, {

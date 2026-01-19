@@ -1071,12 +1071,29 @@ const UserManagement: React.FC = () => {
 
       // Si se habilitó la edición de contraseña y se proporcionó una nueva contraseña, actualizarla
       if (isEditingPassword && formData.password.trim()) {
-        const { error: passwordError } = await supabaseSystemUI.rpc('change_user_password', {
-          p_user_id: selectedUser.id,
-          p_new_password: formData.password
+        const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+        const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+        
+        const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({
+            operation: 'changePassword',
+            params: {
+              userId: selectedUser.id,
+              newPassword: formData.password,
+              skipVerification: true // Admin puede cambiar sin verificar contraseña actual
+            }
+          })
         });
 
-        if (passwordError) throw passwordError;
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Error al cambiar la contraseña');
+        }
       }
 
       // Si cambió a evaluador, gestionar subpermisos

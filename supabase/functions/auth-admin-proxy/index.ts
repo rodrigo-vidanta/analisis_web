@@ -15,6 +15,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import * as bcrypt from 'https://deno.land/x/bcrypt@v0.4.1/mod.ts'
 
 // ============================================
 // CONFIGURACIÓN
@@ -45,7 +46,9 @@ const ALLOWED_OPERATIONS = [
   'getExecutivesWithBackup',
   'validateSession',
   'updateIsOperativo',
-  'resetFailedAttempts'
+  'resetFailedAttempts',
+  'verifyPassword',
+  'changePassword'
 ]
 
 // ============================================
@@ -158,7 +161,7 @@ serve(async (req) => {
         }
 
         // Solo permitir campos seguros
-        const allowedFields = ['last_login', 'failed_login_attempts', 'locked_until', 'is_online', 'last_activity']
+        const allowedFields = ['last_login', 'failed_login_attempts', 'locked_until', 'is_online', 'last_activity', 'must_change_password']
         const safeUpdates: Record<string, any> = {}
         
         for (const [key, value] of Object.entries(updates)) {
@@ -277,6 +280,101 @@ serve(async (req) => {
           .eq('id', userId)
 
         if (error) throw error
+        result = { success: true }
+        break
+      }
+
+      // ============================================
+      // VERIFY PASSWORD
+      // ============================================
+      case 'verifyPassword': {
+        const { userId, email, password } = params
+        if (!password || (!userId && !email)) {
+          return new Response(
+            JSON.stringify({ error: 'password and (userId or email) required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Obtener usuario por ID o email
+        let query = supabase.from('auth_users').select('id, password_hash, is_active')
+        if (userId) {
+          query = query.eq('id', userId)
+        } else {
+          query = query.eq('email', email.toLowerCase())
+        }
+
+        const { data: user, error: userError } = await query.single()
+
+        if (userError || !user) {
+          result = { valid: false, error: 'Usuario no encontrado' }
+          break
+        }
+
+        if (!user.is_active) {
+          result = { valid: false, error: 'Usuario inactivo' }
+          break
+        }
+
+        // Verificar contraseña con bcrypt
+        const isValid = await bcrypt.compare(password, user.password_hash)
+        result = { valid: isValid, userId: user.id }
+        break
+      }
+
+      // ============================================
+      // CHANGE PASSWORD
+      // ============================================
+      case 'changePassword': {
+        const { userId, newPassword, currentPassword, skipVerification } = params
+        if (!userId || !newPassword) {
+          return new Response(
+            JSON.stringify({ error: 'userId and newPassword required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Si se requiere verificación de contraseña actual
+        if (!skipVerification && currentPassword) {
+          const { data: user, error: userError } = await supabase
+            .from('auth_users')
+            .select('password_hash')
+            .eq('id', userId)
+            .single()
+
+          if (userError || !user) {
+            return new Response(
+              JSON.stringify({ error: 'Usuario no encontrado' }),
+              { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const isValid = await bcrypt.compare(currentPassword, user.password_hash)
+          if (!isValid) {
+            return new Response(
+              JSON.stringify({ error: 'Contraseña actual incorrecta', valid: false }),
+              { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
+        // Generar nuevo hash
+        const salt = await bcrypt.genSalt(10)
+        const newHash = await bcrypt.hash(newPassword, salt)
+
+        // Actualizar contraseña
+        const { error: updateError } = await supabase
+          .from('auth_users')
+          .update({ 
+            password_hash: newHash,
+            updated_at: new Date().toISOString(),
+            password_changed_at: new Date().toISOString()
+          })
+          .eq('id', userId)
+
+        if (updateError) throw updateError
+        
+        console.log(`✅ Contraseña cambiada para usuario ${userId}`)
         result = { success: true }
         break
       }

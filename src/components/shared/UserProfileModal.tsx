@@ -216,30 +216,41 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setChangingPassword(true);
 
     try {
-      // Verificar contraseña actual
-      // Usar cliente admin de PQNC para autenticación y cambio de contraseña
-      const { data: verifyResult, error: verifyError } = await supabaseAdmin.rpc(
-        'authenticate_user',
-        {
-          user_email: userEmail,
-          user_password: passwordData.currentPassword,
-        }
-      );
-
-      if (verifyError || !verifyResult || verifyResult.length === 0 || !verifyResult[0].is_valid) {
-        setPasswordErrors(['La contraseña actual es incorrecta']);
-        setChangingPassword(false);
-        return;
-      }
-
-      // Cambiar contraseña usando función RPC de PQNC
-      const { error: changeError } = await supabaseAdmin.rpc('change_user_password', {
-        p_user_id: userId,
-        p_new_password: passwordData.newPassword,
+      // Usar Edge Function auth-admin-proxy para cambiar contraseña
+      // La Edge Function verifica la contraseña actual y cambia a la nueva
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'changePassword',
+          params: {
+            userId,
+            currentPassword: passwordData.currentPassword,
+            newPassword: passwordData.newPassword,
+            skipVerification: false
+          }
+        })
       });
 
-      if (changeError) {
-        throw changeError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setPasswordErrors(['La contraseña actual es incorrecta']);
+          setChangingPassword(false);
+          return;
+        }
+        throw new Error(result.error || 'Error al cambiar la contraseña');
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al cambiar la contraseña');
       }
 
       toast.success('Contraseña cambiada exitosamente');

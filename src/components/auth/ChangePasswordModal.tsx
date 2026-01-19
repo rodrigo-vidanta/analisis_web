@@ -84,63 +84,57 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ userId, onSuc
     setValidationErrors([]);
 
     try {
-      // Verificar contraseña actual usando función RPC
-      const { data: authResult, error: authError } = await supabaseSystemUI.rpc(
-        'authenticate_user',
-        {
-          user_email: '', // No necesario, solo verificamos password
-          user_password: formData.currentPassword,
-        }
-      );
-
-      // Obtener email del usuario para verificar contraseña
-      const { data: userData, error: userError } = await supabaseSystemUI
-        .from('auth_users')
-        .select('email')
-        .eq('id', userId)
-        .single();
-
-      if (userError || !userData) {
-        throw new Error('Error al obtener datos del usuario');
-      }
-
-      // Verificar contraseña actual
-      const { data: verifyResult, error: verifyError } = await supabaseSystemUI.rpc(
-        'authenticate_user',
-        {
-          user_email: userData.email,
-          user_password: formData.currentPassword,
-        }
-      );
-
-      if (verifyError || !verifyResult || verifyResult.length === 0 || !verifyResult[0].is_valid) {
-        setValidationErrors(['La contraseña actual es incorrecta']);
-        setLoading(false);
-        return;
-      }
-
-      // Cambiar contraseña usando función RPC
-      const { error: changeError } = await supabaseSystemUI.rpc('change_user_password', {
-        p_user_id: userId,
-        p_new_password: formData.newPassword,
+      // Usar Edge Function auth-admin-proxy para cambiar contraseña
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'changePassword',
+          params: {
+            userId,
+            currentPassword: formData.currentPassword,
+            newPassword: formData.newPassword,
+            skipVerification: false
+          }
+        })
       });
 
-      if (changeError) {
-        throw changeError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setValidationErrors(['La contraseña actual es incorrecta']);
+          setLoading(false);
+          return;
+        }
+        throw new Error(result.error || 'Error al cambiar la contraseña');
       }
 
-      // Actualizar must_change_password a false
-      const { error: updateError } = await supabaseSystemUI
-        .from('auth_users')
-        .update({
-          must_change_password: false,
+      if (!result.success) {
+        throw new Error(result.error || 'Error al cambiar la contraseña');
+      }
+
+      // Actualizar must_change_password a false usando Edge Function
+      await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserField',
+          params: {
+            userId,
+            updates: { must_change_password: false }
+          }
         })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.warn('Error actualizando must_change_password:', updateError);
-        // No fallar si solo falla esta actualización
-      }
+      });
 
       toast.success('Contraseña cambiada exitosamente');
       onSuccess();

@@ -823,15 +823,31 @@ export function useUserManagement(): UseUserManagementReturn {
     currentUserId?: string
   ): Promise<boolean> => {
     try {
-      // 1. Manejar cambio de password (usa RPC, no update directo)
+      // 1. Manejar cambio de password (usa Edge Function, no RPC)
       if (updates.password && updates.password.length > 0) {
-        const { error: passwordError } = await supabaseSystemUI.rpc('change_user_password', {
-          p_user_id: userId,
-          p_new_password: updates.password,
+        const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+        const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+        
+        const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({
+            operation: 'changePassword',
+            params: {
+              userId,
+              newPassword: updates.password,
+              skipVerification: true // Admin puede cambiar sin verificar contraseña actual
+            }
+          })
         });
-        if (passwordError) {
-          console.error('Error cambiando contraseña:', passwordError);
-          throw new Error('Error al cambiar la contraseña');
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          console.error('Error cambiando contraseña:', result.error);
+          throw new Error(result.error || 'Error al cambiar la contraseña');
         }
       }
 

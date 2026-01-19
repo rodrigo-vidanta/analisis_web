@@ -285,6 +285,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'p9l5q1n', date: '2026-01-19', author: 'Team', message: 'v2.5.14: B10.1.14N2.5.14 - Fix cambio contraseña: migrar RPCs a Edge Function + broadcast-proxy + error-log-proxy', isRelease: true },
   { hash: 'o8k4p0m', date: '2026-01-18', author: 'Team', message: 'v2.5.13: B10.1.13N2.5.13 - Fix colores Dashboard prod: style inline + fallback colors array', isRelease: true },
   { hash: 'n7j3o9l', date: '2026-01-18', author: 'Team', message: 'v2.5.12: B10.1.12N2.5.12 - Fix getCoordColor TDZ: usar función global getCoordColorGlobal', isRelease: true },
   { hash: 'm6i2n8k', date: '2026-01-18', author: 'Team', message: 'v2.5.11: B10.1.11N2.5.11 - Fix colores Dashboard: useCallback estable + dependencias correctas', isRelease: true },
@@ -437,6 +438,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-117', date: '2026-01-19 11:20', version: 'B10.1.14N2.5.14', status: 'success', duration: '18s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-116', date: '2026-01-18 13:45', version: 'B10.1.13N2.5.13', status: 'success', duration: '17s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-115', date: '2026-01-18 13:15', version: 'B10.1.12N2.5.12', status: 'success', duration: '17s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-114', date: '2026-01-18 12:40', version: 'B10.1.11N2.5.11', status: 'success', duration: '17s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -551,8 +553,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.13', highlight: true },
-  { label: 'Release', value: 'B10.1.13N2.5.13', highlight: false },
+  { label: 'Version', value: 'v2.5.14', highlight: true },
+  { label: 'Release', value: 'B10.1.14N2.5.14', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '18 Ene 2026', highlight: false },
 ];
