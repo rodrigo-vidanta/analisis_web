@@ -430,7 +430,7 @@ class GroupsService {
   // ============================================
 
   /**
-   * Asigna un usuario a un grupo
+   * Asigna un usuario a un grupo (usa Edge Function para bypass RLS)
    */
   async assignUserToGroup(
     userId: string,
@@ -440,30 +440,25 @@ class GroupsService {
     notes?: string
   ): Promise<UserGroupAssignment> {
     try {
-      // Si es primary, desmarcar otros grupos como primary
-      if (isPrimary) {
-        await supabaseSystemUI
-          .from('user_permission_groups')
-          .update({ is_primary: false })
-          .eq('user_id', userId);
-      }
-
-      const { data, error } = await supabaseSystemUI
-        .from('user_permission_groups')
-        .upsert({
-          user_id: userId,
-          group_id: groupId,
-          is_primary: isPrimary,
-          assigned_by: assignedBy || null,
-          notes: notes || null,
-          assigned_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,group_id'
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'assignUserToGroup',
+          params: { userId, groupId, isPrimary, assignedBy, notes }
         })
-        .select()
-        .single();
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error asignando usuario a grupo');
+      }
 
       // Registrar en auditoría
       await this.logAudit('assignment', groupId, userId, 'assigned', {
@@ -471,7 +466,7 @@ class GroupsService {
         notes
       }, assignedBy);
 
-      return data;
+      return result.data;
     } catch (error) {
       console.error('Error asignando usuario a grupo:', error);
       throw error;
@@ -479,20 +474,32 @@ class GroupsService {
   }
 
   /**
-   * Remueve un usuario de un grupo
+   * Remueve un usuario de un grupo (usa Edge Function para bypass RLS)
    */
   async removeUserFromGroup(userId: string, groupId: string, removedBy?: string): Promise<boolean> {
     try {
       // Registrar en auditoría antes de eliminar
       await this.logAudit('assignment', groupId, userId, 'unassigned', null, removedBy);
 
-      const { error } = await supabaseSystemUI
-        .from('user_permission_groups')
-        .delete()
-        .eq('user_id', userId)
-        .eq('group_id', groupId);
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'removeUserFromGroup',
+          params: { userId, groupId }
+        })
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error removiendo usuario de grupo');
+      }
 
       return true;
     } catch (error) {

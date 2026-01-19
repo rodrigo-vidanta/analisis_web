@@ -15,7 +15,8 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import * as bcrypt from 'https://deno.land/x/bcrypt@v0.4.1/mod.ts'
+
+// NOTA: No usamos bcrypt - Supabase Auth Admin API maneja el hashing internamente
 
 // ============================================
 // CONFIGURACIÓN
@@ -35,6 +36,32 @@ const corsHeaders = {
 }
 
 // ============================================
+// VALIDACIÓN DE CONTRASEÑA (Supabase Auth Policy)
+// ============================================
+// Política: mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número, 1 especial
+function validatePasswordComplexity(password: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+  
+  if (password.length < 8) {
+    errors.push('La contraseña debe tener al menos 8 caracteres')
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('La contraseña debe contener al menos una letra mayúscula')
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('La contraseña debe contener al menos una letra minúscula')
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('La contraseña debe contener al menos un número')
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    errors.push('La contraseña debe contener al menos un carácter especial (!@#$%^&*)')
+  }
+  
+  return { valid: errors.length === 0, errors }
+}
+
+// ============================================
 // OPERACIONES PERMITIDAS
 // ============================================
 
@@ -48,7 +75,10 @@ const ALLOWED_OPERATIONS = [
   'updateIsOperativo',
   'resetFailedAttempts',
   'verifyPassword',
-  'changePassword'
+  'changePassword',
+  'assignUserToGroup',
+  'removeUserFromGroup',
+  'getUserGroups'
 ]
 
 // ============================================
@@ -288,37 +318,123 @@ serve(async (req) => {
       // VERIFY PASSWORD
       // ============================================
       case 'verifyPassword': {
-        const { userId, email, password } = params
-        if (!password || (!userId && !email)) {
+        const { email, password } = params
+        if (!password || !email) {
           return new Response(
-            JSON.stringify({ error: 'password and (userId or email) required' }),
+            JSON.stringify({ error: 'email and password required' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
 
-        // Obtener usuario por ID o email
-        let query = supabase.from('auth_users').select('id, password_hash, is_active')
-        if (userId) {
-          query = query.eq('id', userId)
-        } else {
-          query = query.eq('email', email.toLowerCase())
-        }
+        // Verificar usando Supabase Auth nativo
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.toLowerCase(),
+          password
+        })
 
-        const { data: user, error: userError } = await query.single()
-
-        if (userError || !user) {
-          result = { valid: false, error: 'Usuario no encontrado' }
+        if (authError || !authData?.user) {
+          result = { valid: false, error: 'Credenciales inválidas' }
           break
         }
 
-        if (!user.is_active) {
+        // Obtener ID del usuario en auth_users
+        const { data: userData } = await supabase
+          .from('auth_users')
+          .select('id, is_active')
+          .eq('email', email.toLowerCase())
+          .single()
+
+        if (userData && !userData.is_active) {
           result = { valid: false, error: 'Usuario inactivo' }
           break
         }
 
-        // Verificar contraseña con bcrypt
-        const isValid = await bcrypt.compare(password, user.password_hash)
-        result = { valid: isValid, userId: user.id }
+        result = { valid: true, userId: userData?.id, authUserId: authData.user.id }
+        break
+      }
+
+      // ============================================
+      // ASSIGN USER TO GROUP
+      // ============================================
+      case 'assignUserToGroup': {
+        const { userId, groupId, isPrimary, assignedBy, notes } = params
+        if (!userId || !groupId) {
+          return new Response(
+            JSON.stringify({ error: 'userId and groupId required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Si es primary, desmarcar otros grupos como primary
+        if (isPrimary) {
+          await supabase
+            .from('user_permission_groups')
+            .update({ is_primary: false })
+            .eq('user_id', userId)
+        }
+
+        const { data, error } = await supabase
+          .from('user_permission_groups')
+          .upsert({
+            user_id: userId,
+            group_id: groupId,
+            is_primary: isPrimary || false,
+            assigned_by: assignedBy || null,
+            notes: notes || null,
+            assigned_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,group_id'
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+        result = { success: true, data }
+        break
+      }
+
+      // ============================================
+      // REMOVE USER FROM GROUP
+      // ============================================
+      case 'removeUserFromGroup': {
+        const { userId, groupId } = params
+        if (!userId || !groupId) {
+          return new Response(
+            JSON.stringify({ error: 'userId and groupId required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error } = await supabase
+          .from('user_permission_groups')
+          .delete()
+          .eq('user_id', userId)
+          .eq('group_id', groupId)
+
+        if (error) throw error
+        result = { success: true }
+        break
+      }
+
+      // ============================================
+      // GET USER GROUPS
+      // ============================================
+      case 'getUserGroups': {
+        const { userId } = params
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'userId required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { data, error } = await supabase
+          .from('user_permission_groups')
+          .select('*, permission_groups(*)')
+          .eq('user_id', userId)
+
+        if (error) throw error
+        result = { data }
         break
       }
 
@@ -326,7 +442,7 @@ serve(async (req) => {
       // CHANGE PASSWORD
       // ============================================
       case 'changePassword': {
-        const { userId, newPassword, currentPassword, skipVerification } = params
+        const { userId, newPassword } = params
         if (!userId || !newPassword) {
           return new Response(
             JSON.stringify({ error: 'userId and newPassword required' }),
@@ -334,47 +450,82 @@ serve(async (req) => {
           )
         }
 
-        // Si se requiere verificación de contraseña actual
-        if (!skipVerification && currentPassword) {
-          const { data: user, error: userError } = await supabase
-            .from('auth_users')
-            .select('password_hash')
-            .eq('id', userId)
-            .single()
-
-          if (userError || !user) {
-            return new Response(
-              JSON.stringify({ error: 'Usuario no encontrado' }),
-              { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-          }
-
-          const isValid = await bcrypt.compare(currentPassword, user.password_hash)
-          if (!isValid) {
-            return new Response(
-              JSON.stringify({ error: 'Contraseña actual incorrecta', valid: false }),
-              { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-          }
+        // Validar complejidad de contraseña
+        const passwordValidation = validatePasswordComplexity(newPassword)
+        if (!passwordValidation.valid) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'La contraseña no cumple con los requisitos de seguridad',
+              validationErrors: passwordValidation.errors,
+              success: false 
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
         }
 
-        // Generar nuevo hash
-        const salt = await bcrypt.genSalt(10)
-        const newHash = await bcrypt.hash(newPassword, salt)
+        // Obtener email del usuario de auth_users
+        const { data: userData, error: userDataError } = await supabase
+          .from('auth_users')
+          .select('email, full_name')
+          .eq('id', userId)
+          .single()
 
-        // Actualizar contraseña
+        if (userDataError || !userData) {
+          return new Response(
+            JSON.stringify({ error: 'Usuario no encontrado' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Buscar usuario en auth.users por email
+        const { data: authUsers } = await supabase.auth.admin.listUsers()
+        const authUser = authUsers?.users?.find(u => u.email?.toLowerCase() === userData.email.toLowerCase())
+        
+        if (authUser) {
+          // Actualizar contraseña en Supabase Auth
+          const { error: authError } = await supabase.auth.admin.updateUserById(
+            authUser.id,
+            { password: newPassword }
+          )
+          if (authError) {
+            console.error('Error actualizando Supabase Auth:', authError)
+            throw authError
+          }
+          console.log(`✅ Contraseña actualizada en Supabase Auth para ${userData.email}`)
+        } else {
+          // Usuario no existe en auth.users - CREARLO
+          console.log(`📝 Creando usuario ${userData.email} en Supabase Auth...`)
+          const { data: newAuthUser, error: createError } = await supabase.auth.admin.createUser({
+            email: userData.email,
+            password: newPassword,
+            email_confirm: true,
+            user_metadata: {
+              auth_users_id: userId,
+              full_name: userData.full_name || userData.email.split('@')[0]
+            }
+          })
+          if (createError) {
+            console.error('Error creando usuario en Supabase Auth:', createError)
+            throw createError
+          }
+          console.log(`✅ Usuario creado en Supabase Auth: ${newAuthUser?.user?.id}`)
+        }
+
+        // 2. Actualizar metadatos en auth_users (tabla custom)
         const { error: updateError } = await supabase
           .from('auth_users')
           .update({ 
-            password_hash: newHash,
             updated_at: new Date().toISOString(),
-            password_changed_at: new Date().toISOString()
+            password_changed_at: new Date().toISOString(),
+            must_change_password: false
           })
           .eq('id', userId)
 
-        if (updateError) throw updateError
+        if (updateError) {
+          console.warn('Error actualizando auth_users:', updateError)
+        }
         
-        console.log(`✅ Contraseña cambiada para usuario ${userId}`)
+        console.log(`✅ Contraseña cambiada para usuario ${userId} en Supabase Auth`)
         result = { success: true }
         break
       }

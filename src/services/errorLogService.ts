@@ -624,16 +624,14 @@ class ErrorLogService {
     }
 
     try {
-      // Preparar headers
+      // Obtener anon_key para autenticación con Edge Functions
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      // Preparar headers - Edge Functions requieren Authorization con anon_key
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anonKey}`,
       };
-      
-      // Añadir header de autorización si existe token
-      const token = this.config.webhook_auth_token;
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
       
       const payloadToSend = JSON.stringify(errorData);
       

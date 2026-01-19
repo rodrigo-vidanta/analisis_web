@@ -534,8 +534,22 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
         updates.coordinaciones_ids = formData.coordinaciones_ids;
       }
 
-      // Agregar password si se está editando
+      // Agregar password si se está editando (con validación de complejidad)
       if (isEditingPassword && formData.password) {
+        // Validar complejidad de contraseña
+        const pwd = formData.password;
+        const isPasswordValid = 
+          pwd.length >= 8 &&
+          /[A-Z]/.test(pwd) &&
+          /[a-z]/.test(pwd) &&
+          /[0-9]/.test(pwd) &&
+          /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
+        
+        if (!isPasswordValid) {
+          setError('La contraseña no cumple con los requisitos de seguridad');
+          setIsSaving(false);
+          return;
+        }
         updates.password = formData.password;
       }
 
@@ -868,7 +882,36 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                 )}
               </div>
             </div>
-            {isEditingPassword && (
+            {isEditingPassword && formData.password && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Requisitos de contraseña:
+                </p>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <div className={`flex items-center gap-1 ${formData.password.length >= 8 ? 'text-green-600' : 'text-gray-400'}`}>
+                    {formData.password.length >= 8 ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    <span>8+ caracteres</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}`}>
+                    {/[A-Z]/.test(formData.password) ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    <span>Mayúscula</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}`}>
+                    {/[a-z]/.test(formData.password) ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    <span>Minúscula</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${/[0-9]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}`}>
+                    {/[0-9]/.test(formData.password) ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    <span>Número</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}`}>
+                    {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    <span>Especial (!@#$)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {isEditingPassword && !formData.password && (
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                 Completa este campo para cambiar la contraseña
               </p>
