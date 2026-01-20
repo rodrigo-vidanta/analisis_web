@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.17: Sistema de Tickets de Soporte con notificaciones en tiempo real
-  const version = 'B10.1.17N2.5.17';
+  // Versión actual - v2.5.18: Fix screenshots tickets - CORS + CSP compliance
+  const version = 'B10.1.18N2.5.18';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

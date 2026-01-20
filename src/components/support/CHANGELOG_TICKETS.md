@@ -5,6 +5,40 @@
 
 ---
 
+## [1.0.2] - 2026-01-20
+
+### 🐛 Fix CSP Violation
+
+**Problema:** El Content Security Policy de producción bloqueaba `fetch()` hacia URLs `data:image/...` al subir screenshots.
+
+**Error:**
+```
+'data:image/jpeg;base64,...' violates Content Security Policy directive: "connect-src 'self' https://*.supabase.co..."
+```
+
+**Solución:** Reemplazar `fetch(base64Data)` por función nativa `base64ToBlob()` que usa `atob()` + `Uint8Array`.
+
+---
+
+## [1.0.1] - 2026-01-20
+
+### 🐛 Fix CORS en Captura de Pantalla
+
+**Problema:** `html2canvas` fallaba al intentar cargar imágenes de WhatsApp desde Google Cloud Storage que no tienen CORS habilitado.
+
+**Error:**
+```
+Access to image at 'https://storage.googleapis.com/whatsapp_pqnc_multimedia/...' has been blocked by CORS policy
+```
+
+**Solución:**
+- Cambiar `allowTaint: false` para evitar errores de canvas contaminado
+- Agregar handler `onclone` que reemplaza imágenes externas por placeholders
+- Implementar fallback que captura sin imágenes si falla
+- Permitir envío de ticket aunque la captura falle
+
+---
+
 ## [1.0.0] - 2026-01-20
 
 ### 🎉 Release Inicial
