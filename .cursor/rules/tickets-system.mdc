@@ -1,0 +1,319 @@
+# Sistema de Tickets de Soporte - Reglas de Desarrollo
+
+**Fecha de Creación:** 20 de Enero 2026  
+**Versión:** v1.0.0  
+**Módulo:** `src/components/support/`
+
+---
+
+## 📋 Descripción General
+
+El Sistema de Tickets de Soporte permite a usuarios reportar fallas y solicitar requerimientos. Incluye:
+- Captura automática de pantalla
+- Notificaciones en tiempo real
+- Gestión de tickets por administradores
+- Historial de cambios y comentarios
+
+---
+
+## 🏗️ Arquitectura de Base de Datos
+
+### Proyecto Supabase
+- **Proyecto:** PQNC_AI (`glsmifhkoaifvaegsozd`)
+- **RLS:** ✅ Habilitado con políticas seguras
+- **Realtime:** ✅ Habilitado en tablas principales
+
+### Tablas Principales
+
+| Tabla | Descripción | RLS |
+|-------|-------------|-----|
+| `support_tickets` | Tickets principales | ✅ |
+| `support_ticket_comments` | Comentarios y respuestas | ✅ |
+| `support_ticket_history` | Historial de cambios | ✅ |
+| `support_ticket_attachments` | Archivos adjuntos | ✅ |
+| `support_ticket_notifications` | Notificaciones tiempo real | ✅ |
+
+### Esquema de `support_tickets`
+
+```sql
+CREATE TABLE support_tickets (
+  id UUID PRIMARY KEY,
+  ticket_number VARCHAR(20) UNIQUE,          -- Formato: TKT-YYYYMMDD-XXXX
+  type VARCHAR(20) NOT NULL,                 -- 'reporte_falla' | 'requerimiento'
+  category VARCHAR(50),                      -- Categoría del requerimiento
+  subcategory VARCHAR(100),                  -- Subcategoría
+  status VARCHAR(20) DEFAULT 'abierto',      -- Estado del ticket
+  priority VARCHAR(10) DEFAULT 'normal',     -- Prioridad
+  
+  title VARCHAR(200) NOT NULL,               -- Título
+  description TEXT NOT NULL,                 -- Descripción
+  
+  -- Contexto de captura
+  app_version VARCHAR(50),                   -- Versión del footer
+  user_agent TEXT,                           -- Navegador
+  current_module VARCHAR(50),                -- Módulo donde se reportó
+  prospecto_id UUID,                         -- ID del prospecto (si aplica)
+  prospecto_nombre VARCHAR(200),             -- Nombre del prospecto
+  session_details JSONB,                     -- Detalles de sesión
+  
+  -- Screenshots
+  screenshot_url TEXT,                       -- URL en Storage (preferido)
+  screenshot_base64 TEXT,                    -- Base64 (legacy)
+  
+  -- Formulario dinámico
+  form_data JSONB,                           -- Datos del formulario
+  
+  -- Reporter
+  reporter_id UUID NOT NULL,                 -- ID del usuario que reporta
+  reporter_name VARCHAR(200),
+  reporter_email VARCHAR(200),
+  reporter_role VARCHAR(50),
+  
+  -- Asignación
+  assigned_to UUID,
+  assigned_at TIMESTAMPTZ,
+  assigned_by UUID,
+  
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ,
+  closed_at TIMESTAMPTZ
+);
+```
+
+### Estados de Ticket (`status`)
+
+| Estado | Descripción | Siguiente Estado Válido |
+|--------|-------------|------------------------|
+| `abierto` | Recién creado | `en_progreso`, `pendiente_info`, `cancelado` |
+| `en_progreso` | En proceso de resolución | `pendiente_info`, `resuelto`, `cancelado` |
+| `pendiente_info` | Esperando info del usuario | `en_progreso`, `cerrado` |
+| `resuelto` | Problema resuelto | `cerrado`, `abierto` (reabierto) |
+| `cerrado` | Ticket finalizado | N/A |
+| `cancelado` | Cancelado por admin | N/A |
+
+### Prioridades (`priority`)
+
+| Prioridad | Descripción | SLA Sugerido |
+|-----------|-------------|--------------|
+| `baja` | No urgente | 72 horas |
+| `normal` | Estándar | 48 horas |
+| `alta` | Importante | 24 horas |
+| `urgente` | Crítico | 4 horas |
+
+### Tipos de Ticket (`type`)
+
+| Tipo | Descripción |
+|------|-------------|
+| `reporte_falla` | Bug o error en la aplicación |
+| `requerimiento` | Solicitud de cambio o mejora |
+
+---
+
+## 🔒 Seguridad
+
+### Políticas RLS
+
+```sql
+-- TICKETS: Usuarios ven solo sus tickets, admins ven todos
+"Users can view own tickets" → reporter_id = auth.uid() OR is_support_admin()
+"Users can create tickets"   → reporter_id = auth.uid()
+"Admins can update tickets"  → is_support_admin()
+"Admins can delete tickets"  → is_support_admin()
+
+-- COMENTARIOS: Usuarios no ven comentarios internos
+"Users can view comments on own tickets" → (ticket.reporter_id = auth.uid() AND is_internal = FALSE) OR is_support_admin()
+"Users can add comments to own tickets"  → is_internal = FALSE (forzado para usuarios)
+```
+
+### Función de Seguridad
+
+```sql
+-- is_support_admin(): SECURITY DEFINER
+-- Verifica si el usuario actual es admin, admin_operativo o developer
+-- Roles permitidos:
+--   - admin: 12690827-493e-447b-ac2f-40174fe17389
+--   - administrador_operativo: 34cc26d1-8a96-4be2-833e-7a13d5553722
+--   - developer: 59386336-794d-40de-83a4-de73681d6904
+```
+
+### Storage Buckets
+
+| Bucket | Público | Límite | Uso |
+|--------|---------|--------|-----|
+| `support-tickets` | ✅ | 10 MB | Screenshots de reportes |
+| `user-avatars` | ✅ | 5 MB | Fotos de perfil |
+
+---
+
+## 🔔 Notificaciones en Tiempo Real
+
+### Triggers Automáticos
+
+| Evento | Trigger | Destinatario |
+|--------|---------|--------------|
+| Nuevo ticket | `trigger_notify_new_ticket` | Todos los admins |
+| Cambio status | `trigger_notify_status_change` | Reporter |
+| Admin responde | `trigger_notify_new_comment` | Reporter (si no es interno) |
+| Usuario responde | `trigger_notify_new_comment` | Todos los admins |
+
+### Suscripción Realtime
+
+```typescript
+// Suscribirse a notificaciones
+const channel = ticketService.subscribeToNotifications(userId, (notification) => {
+  // Manejar nueva notificación
+  console.log('Nueva notificación:', notification);
+});
+
+// Desuscribirse
+ticketService.unsubscribeFromNotifications(channel);
+```
+
+---
+
+## 📁 Estructura de Archivos
+
+```
+src/components/support/
+├── index.ts                  # Exports del módulo
+├── SupportButton.tsx         # Botón salvavidas en header
+├── ReportIssueModal.tsx      # Modal de reporte de falla
+├── RequestModal.tsx          # Modal de requerimiento
+├── MyTicketsModal.tsx        # Modal "Mis Tickets"
+├── AdminTicketsPanel.tsx     # Panel de administración
+├── README_TICKETS.md         # Documentación técnica
+└── CHANGELOG_TICKETS.md      # Control de cambios
+
+src/services/
+└── ticketService.ts          # Servicio de tickets
+```
+
+---
+
+## 🔧 Servicio de Tickets (`ticketService`)
+
+### Funciones Principales
+
+```typescript
+// CRUD de Tickets
+ticketService.createTicket(data)           // Crear ticket
+ticketService.getMyTickets(userId)         // Mis tickets
+ticketService.getAllTickets(filters)       // Todos (admin)
+ticketService.updateTicketStatus(id, ...)  // Cambiar status
+
+// Comentarios
+ticketService.getTicketComments(ticketId)
+ticketService.addComment(ticketId, userId, ...)
+
+// Notificaciones
+ticketService.getUnreadNotificationCount(userId)
+ticketService.markTicketNotificationsAsRead(userId, ticketId)
+ticketService.markAllNotificationsAsRead(userId)
+ticketService.subscribeToNotifications(userId, callback)
+ticketService.unsubscribeFromNotifications(channel)
+```
+
+---
+
+## 🎨 Componentes UI
+
+### SupportButton
+- Ubicación: Header principal
+- Funcionalidad: Menú desplegable con opciones
+- Badge: Contador de notificaciones no leídas
+- Animación: Pulso suave cuando no hay notificaciones
+
+### ReportIssueModal
+- Captura de pantalla automática con `html2canvas`
+- Recopilación de contexto (versión, módulo, prospecto, sesión)
+- Upload de screenshot a Storage
+- Validación de descripción obligatoria
+
+### RequestModal
+- Formulario dinámico por categoría
+- 6 categorías principales con subcategorías
+- Preguntas específicas por subcategoría
+- Validación por pasos
+
+### MyTicketsModal
+- Lista de tickets del usuario
+- Filtros por estado
+- Vista detallada con comentarios
+- Agregar comentarios
+
+### AdminTicketsPanel
+- Vista completa para administradores
+- Filtros por estado, tipo y búsqueda
+- Cambio de status y prioridad
+- Comentarios internos y públicos
+- Historial de cambios
+
+---
+
+## ⚠️ Reglas de Desarrollo
+
+### ✅ CORRECTO
+
+```typescript
+// Usar ticketService para operaciones
+const { ticket, error } = await ticketService.createTicket(data);
+
+// Usar analysisSupabase para consultas directas
+const { data } = await analysisSupabase.from('support_tickets').select('*');
+
+// Marcar notificaciones como leídas al abrir ticket
+await ticketService.markTicketNotificationsAsRead(userId, ticketId);
+```
+
+### ❌ INCORRECTO
+
+```typescript
+// NO usar clientes admin
+const { data } = await supabaseSystemUIAdmin.from('support_tickets').select('*');
+
+// NO hardcodear roles
+if (user.role_name === 'admin') { ... }  // Usar is_support_admin() en RLS
+
+// NO guardar screenshots en base64 en la BD
+screenshot_base64: base64Data  // Usar screenshot_url con Storage
+```
+
+---
+
+## 📊 Categorías de Requerimientos
+
+| Categoría | Subcategorías |
+|-----------|---------------|
+| `reasignacion_prospectos` | Cambiar ejecutivo, Cambiar coordinación, Reasignación masiva |
+| `cambio_roles` | Ascenso, Cambio de área, Nuevo usuario |
+| `bloquear_usuario` | Temporal, Permanente, Desbloquear |
+| `anadir_funciones` | Chat, Reportes, Notificaciones, Otros |
+| `mejorar_funciones` | Performance, UX, Automatización, Integraciones |
+| `otro` | (Campo abierto) |
+
+---
+
+## 🗄️ Migraciones SQL
+
+| Archivo | Descripción | Estado |
+|---------|-------------|--------|
+| `20260120_support_tickets_system.sql` | Tablas principales | ✅ Ejecutado |
+| `20260120_fix_rls_policies.sql` | Corrección de políticas | ✅ Ejecutado |
+| `20260120_storage_policies.sql` | Políticas de Storage | ✅ Ejecutado |
+| `20260120_realtime_notifications.sql` | Sistema de notificaciones | ✅ Ejecutado |
+
+---
+
+## 📚 Referencias
+
+- **Documentación del Módulo:** `src/components/support/README_TICKETS.md`
+- **Control de Cambios:** `src/components/support/CHANGELOG_TICKETS.md`
+- **Servicio:** `src/services/ticketService.ts`
+- **Reglas de Seguridad:** `.cursor/rules/security-rules.mdc`
+- **Arquitectura BD:** `.cursor/rules/database-architecture.mdc`
+
+---
+
+**Última Actualización:** 20 de Enero 2026

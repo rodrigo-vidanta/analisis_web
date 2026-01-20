@@ -18,9 +18,11 @@
 // ============================================
 // SERVICIO OPTIMIZADO PARA LIVE MONITOR
 // Utiliza la nueva vista live_monitor_view
+// MEJORA 2026-01-20: Verificación de conexión antes de queries
 // ============================================
 
 import { analysisSupabase } from '../config/analysisSupabase';
+import { isNetworkOnline } from '../hooks/useNetworkStatus';
 
 // Interfaz para los datos optimizados de la vista
 export interface LiveMonitorViewData {
@@ -121,8 +123,15 @@ class LiveMonitorOptimizedService {
   /**
    * Obtener datos desde la vista optimizada
    * YA NO necesita JOIN manual - todo está pre-calculado
+   * MEJORA 2026-01-20: Verificar conexión antes de consultar
    */
   async getOptimizedCalls(limit: number = 200): Promise<LiveMonitorViewData[]> {
+    // Verificar conexión antes de consultar
+    if (!isNetworkOnline()) {
+      // Retornar silenciosamente sin loguear error
+      return [];
+    }
+
     try {
       // Cargar desde vista optimizada
       // Estrategia: Primero obtener llamadas activas, luego las más recientes

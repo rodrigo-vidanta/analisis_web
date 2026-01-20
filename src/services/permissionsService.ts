@@ -9,9 +9,12 @@
  * 2. Usa funciones RPC de System_UI para validar acceso
  * 3. Filtra datos según permisos del usuario
  * 4. Cualquier cambio debe documentarse en docs/ROLES_PERMISOS_README.md
+ * 
+ * MEJORA 2026-01-20: Verificación de conexión antes de queries
  */
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { isNetworkOnline } from '../hooks/useNetworkStatus';
 
 // ============================================
 // CONSTANTES
@@ -173,13 +176,22 @@ class PermissionsService {
       return cached!.data;
     }
     
+    // MEJORA 2026-01-20: Verificar conexión antes de consultar
+    if (!isNetworkOnline()) {
+      // Retornar caché si existe (aunque esté expirado) o null
+      return cached?.data ?? null;
+    }
+    
     try {
       const { data, error } = await supabaseSystemUI.rpc('get_user_permissions', {
         p_user_id: userId,
       });
 
       if (error) {
-        console.error(`❌ [getUserPermissions] Error RPC para usuario ${userId}:`, error);
+        // Solo loguear si hay conexión (evitar spam cuando no hay internet)
+        if (isNetworkOnline()) {
+          console.error(`❌ [getUserPermissions] Error RPC para usuario ${userId}:`, error);
+        }
         throw error;
       }
       
@@ -192,7 +204,10 @@ class PermissionsService {
       
       return result;
     } catch (error) {
-      console.error('Error obteniendo permisos del usuario:', error);
+      // Solo loguear si hay conexión
+      if (isNetworkOnline()) {
+        console.error('Error obteniendo permisos del usuario:', error);
+      }
       return null;
     }
   }

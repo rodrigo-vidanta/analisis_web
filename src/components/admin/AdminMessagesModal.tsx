@@ -6,10 +6,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, Unlock, AlertCircle, CheckCircle, Archive, Filter } from 'lucide-react';
+import { X, Mail, Lock, Unlock, AlertCircle, CheckCircle, Archive, Filter, LifeBuoy } from 'lucide-react';
 import { adminMessagesService, type AdminMessage } from '../../services/adminMessagesService';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import AdminTicketsPanel from '../support/AdminTicketsPanel';
 
 interface AdminMessagesModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({
   const [filter, setFilter] = useState<'all' | 'pending' | 'read' | 'resolved'>('all');
   const [resolving, setResolving] = useState<string | null>(null);
   const [resolveNote, setResolveNote] = useState('');
+  const [activeTab, setActiveTab] = useState<'messages' | 'tickets'>('messages');
 
   useEffect(() => {
     if (isOpen) {
@@ -192,50 +194,92 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Mail className="w-5 h-5 text-white" />
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  activeTab === 'messages' 
+                    ? 'bg-gradient-to-br from-blue-500 to-purple-600' 
+                    : 'bg-gradient-to-br from-orange-500 to-red-500'
+                }`}>
+                  {activeTab === 'messages' ? (
+                    <Mail className="w-5 h-5 text-white" />
+                  ) : (
+                    <LifeBuoy className="w-5 h-5 text-white" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {activeTab === 'messages' ? 'Mensajes de Administración' : 'Tickets de Soporte'}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {activeTab === 'messages' 
+                      ? `${messages.length} ${messages.length === 1 ? 'mensaje' : 'mensajes'}`
+                      : 'Reportes de fallas y requerimientos'
+                    }
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Mensajes de Administración
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {messages.length} {messages.length === 1 ? 'mensaje' : 'mensajes'}
-                </p>
-              </div>
+              <button
+                onClick={onClose}
+                className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
-          </div>
-
-          {/* Filtros */}
-          <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+            
+            {/* Tabs */}
             <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              {(['all', 'pending', 'read', 'resolved'] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    filter === f
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {f === 'all' ? 'Todos' : f === 'pending' ? 'Pendientes' : f === 'read' ? 'Leídos' : 'Resueltos'}
-                </button>
-              ))}
+              <button
+                onClick={() => setActiveTab('messages')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'messages'
+                    ? 'bg-blue-500 text-white shadow-md'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                <Mail className="w-4 h-4" />
+                <span>Mensajes</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('tickets')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'tickets'
+                    ? 'bg-orange-500 text-white shadow-md'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                <LifeBuoy className="w-4 h-4" />
+                <span>Tickets de Soporte</span>
+              </button>
             </div>
           </div>
 
-          {/* Contenido */}
-          <div className="flex-1 overflow-hidden flex">
+          {/* Contenido según tab activo */}
+          {activeTab === 'messages' ? (
+            <>
+              {/* Filtros */}
+              <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex items-center space-x-2">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  {(['all', 'pending', 'read', 'resolved'] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFilter(f)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        filter === f
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {f === 'all' ? 'Todos' : f === 'pending' ? 'Pendientes' : f === 'read' ? 'Leídos' : 'Resueltos'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Contenido de mensajes */}
+              <div className="flex-1 overflow-hidden flex">
             {/* Lista de mensajes */}
             <div className="w-1/3 border-r border-gray-200 dark:border-gray-800 overflow-y-auto">
               {loading ? (
@@ -418,6 +462,11 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({
               )}
             </div>
           </div>
+            </>
+          ) : (
+            /* Tab de Tickets de Soporte */
+            <AdminTicketsPanel className="flex-1" />
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>

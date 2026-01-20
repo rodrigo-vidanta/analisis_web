@@ -13,6 +13,7 @@ import { Mail, Wrench } from 'lucide-react';
 import { NotificationControl } from './dashboard/NotificationControl';
 import { ThemeSelector, type ThemeMode } from './ThemeSelector';
 import { NotificationSystem } from './notifications/NotificationSystem';
+import SupportButton from './support/SupportButton';
 
 // ============================================
 // COMPONENTES DE ANIMACIÓN PARA THEME TOGGLE
@@ -588,6 +589,11 @@ const Header = ({
                 }}
               />
 
+              {/* Botón de Soporte - Salvavidas */}
+              <SupportButton 
+                currentModule={appMode}
+              />
+
               {/* Usuario y logout */}
               {user && (
                 <div className="flex items-center space-x-3">
@@ -985,6 +991,11 @@ const Header = ({
                 onModeChange?.('live-chat');
                 localStorage.setItem('livechat-prospect-id', prospectoId);
               }}
+            />
+
+            {/* Botón de Soporte - Salvavidas */}
+            <SupportButton 
+              currentModule={appMode}
             />
 
             {/* Reset button minimalista */}

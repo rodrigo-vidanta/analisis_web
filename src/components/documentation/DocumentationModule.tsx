@@ -236,6 +236,15 @@ const documentationSections: DocSection[] = [
     ]
   },
   {
+    id: 'support-tickets',
+    title: 'Sistema de Tickets',
+    icon: Icons.clipboard,
+    docs: [
+      { id: 'readme-tickets', name: '🎫 README Tickets', path: '/docs/README_TICKETS.md', description: 'Documentación técnica del sistema de tickets' },
+      { id: 'changelog-tickets', name: 'Changelog Tickets', path: '/docs/CHANGELOG_TICKETS.md', description: 'Historial de cambios del módulo de soporte' },
+    ]
+  },
+  {
     id: 'security',
     title: 'Seguridad',
     icon: Icons.security,
@@ -285,6 +294,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 's2o8t4q', date: '2026-01-20', author: 'Team', message: 'v2.5.17: B10.1.17N2.5.17 - Sistema de Tickets de Soporte con notificaciones en tiempo real', isRelease: true },
   { hash: 'r1n7s3p', date: '2026-01-19', author: 'Team', message: 'v2.5.16: B10.1.16N2.5.16 - Fix broadcast-proxy: header livechat_auth + token desde BD', isRelease: true },
   { hash: 'q0m6r2o', date: '2026-01-19', author: 'Team', message: 'v2.5.15: B10.1.15N2.5.15 - Fix auth-admin-proxy sin bcrypt + RLS user_ui_preferences', isRelease: true },
   { hash: 'p9l5q1n', date: '2026-01-19', author: 'Team', message: 'v2.5.14: B10.1.14N2.5.14 - Fix cambio contraseña: migrar RPCs a Edge Function + broadcast-proxy + error-log-proxy', isRelease: true },
@@ -440,6 +450,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-120', date: '2026-01-20 19:30', version: 'B10.1.17N2.5.17', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-119', date: '2026-01-19 17:00', version: 'B10.1.16N2.5.16', status: 'success', duration: '20s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-118', date: '2026-01-19 14:30', version: 'B10.1.15N2.5.15', status: 'success', duration: '17s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-117', date: '2026-01-19 11:20', version: 'B10.1.14N2.5.14', status: 'success', duration: '18s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -557,10 +568,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.16', highlight: true },
-  { label: 'Release', value: 'B10.1.16N2.5.16', highlight: false },
+  { label: 'Version', value: 'v2.5.17', highlight: true },
+  { label: 'Release', value: 'B10.1.17N2.5.17', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '19 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '20 Ene 2026', highlight: false },
 ];
 
 // ============================================

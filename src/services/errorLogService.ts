@@ -3,6 +3,7 @@
 // ============================================
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { isNetworkOnline, isNetworkError } from '../hooks/useNetworkStatus';
 
 // ============================================
 // TIPOS E INTERFACES
@@ -617,10 +618,27 @@ class ErrorLogService {
 
   /**
    * Envía el error al webhook
+   * 
+   * MEJORA 2026-01-20: Verifica conexión antes de intentar enviar
+   * para evitar spam de errores cuando no hay internet
    */
   private async sendToWebhook(errorData: ErrorLogData): Promise<void> {
     if (!this.config?.webhook_url) {
       return;
+    }
+
+    // MEJORA: No intentar enviar si no hay conexión a internet
+    if (!isNetworkOnline()) {
+      // Silenciar - no tiene sentido intentar enviar sin conexión
+      return;
+    }
+
+    // MEJORA: No reportar errores de red cuando la causa es falta de internet
+    if (isNetworkError(errorData.mensaje) || isNetworkError(errorData.error_details)) {
+      // Verificar si realmente no hay internet
+      if (!isNetworkOnline()) {
+        return;
+      }
     }
 
     try {

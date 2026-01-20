@@ -1,7 +1,7 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "2.5.16",
+  "version": "2.5.17",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",
@@ -58,6 +58,7 @@
     "express": "^5.1.0",
     "firebase": "^12.2.1",
     "framer-motion": "^12.23.22",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^0.542.0",
     "node-fetch": "^2.7.0",
     "playwright": "^1.55.1",

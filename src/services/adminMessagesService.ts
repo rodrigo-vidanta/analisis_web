@@ -5,9 +5,12 @@
  * 
  * Gestiona el sistema de mensajería para administradores
  * Base de datos: System UI (zbylezfyagwrxoecioup.supabase.co)
+ * 
+ * MEJORA 2026-01-20: Verificación de conexión antes de queries
  */
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { isNetworkOnline } from '../hooks/useNetworkStatus';
 
 // Importar función MCP si está disponible (para uso futuro)
 declare global {
@@ -185,8 +188,15 @@ class AdminMessagesService {
 
   /**
    * Obtener contador de mensajes pendientes
+   * MEJORA 2026-01-20: Verificar conexión antes de consultar
    */
   async getUnreadCount(recipientRole: string = 'admin'): Promise<number> {
+    // Verificar conexión antes de consultar
+    if (!isNetworkOnline()) {
+      // Retornar silenciosamente sin loguear error
+      return 0;
+    }
+
     try {
       const { count, error } = await supabaseSystemUI
         .from('admin_messages')
@@ -197,7 +207,10 @@ class AdminMessagesService {
       if (error) throw error;
       return count || 0;
     } catch (error) {
-      console.error('Error obteniendo contador de mensajes:', error);
+      // Solo loguear si hay conexión (evitar spam cuando no hay internet)
+      if (isNetworkOnline()) {
+        console.error('Error obteniendo contador de mensajes:', error);
+      }
       return 0;
     }
   }

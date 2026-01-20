@@ -7,10 +7,13 @@
  * - Cada usuario ve solo sus notificaciones según permisos
  * - Las notificaciones se marcan como leídas individualmente por usuario
  * - Soporte para silenciar notificaciones
+ * 
+ * MEJORA 2026-01-20: Verificación de conexión antes de queries
  */
 
 import { analysisSupabase as supabaseSystemUI } from '../config/analysisSupabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { isNetworkOnline } from '../hooks/useNetworkStatus';
 
 export interface UserNotification {
   id: string;
@@ -51,10 +54,17 @@ class UserNotificationService {
 
   /**
    * Obtener contador de notificaciones no leídas del usuario
+   * MEJORA 2026-01-20: Verificar conexión antes de consultar
    */
   async getUnreadCount(): Promise<NotificationCounts> {
     if (!this.userId) {
       console.log('⚠️ [UserNotificationService] getUnreadCount: No userId configurado');
+      return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+    }
+
+    // Verificar conexión antes de consultar
+    if (!isNetworkOnline()) {
+      // Retornar silenciosamente sin loguear error
       return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
     }
 

@@ -1,6 +1,7 @@
 import { AuthProvider } from './contexts/AuthContext';
 import MainApp from './components/MainApp';
 import { Toaster } from 'react-hot-toast';
+import NetworkStatusIndicator from './components/common/NetworkStatusIndicator';
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
           },
         }}
       />
+      {/* Indicador de estado de red (mejora 2026-01-20) */}
+      <NetworkStatusIndicator position="bottom" />
     </AuthProvider>
   );
 }

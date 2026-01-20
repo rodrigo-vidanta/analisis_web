@@ -8,6 +8,10 @@ import './index.css'
 import App from './App.tsx'
 import { CitasApp } from './components/citas'
 
+// Inicializar listeners de estado de red (mejora 2026-01-20)
+import { initializeNetworkListeners } from './stores/networkStore';
+initializeNetworkListeners();
+
 /**
  * Configuración de Rutas Principal
  * 
