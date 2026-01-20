@@ -250,6 +250,7 @@ const documentationSections: DocSection[] = [
     icon: Icons.security,
     docs: [
       { id: 'security-architecture-2026', name: '🔒 Arquitectura Seguridad 2026', path: '/docs/ARQUITECTURA_SEGURIDAD_2026.md', description: 'ACTUAL: RLS deshabilitado, solo anon_key, clientes Admin eliminados' },
+      { id: 'native-auth-2026', name: '🔐 Arquitectura Auth Nativa 2026', path: '/docs/ARQUITECTURA_AUTH_NATIVA_2026.md', description: 'Detalle técnico de migración a Supabase Auth nativo para Backend' },
       { id: 'enterprise-security', name: 'Seguridad Enterprise (Legacy)', path: '/docs/SEGURIDAD_ENTERPRISE_IMPLEMENTADA.md', description: 'Arquitectura anterior RLS + Edge Functions + AWS WAF' },
       { id: 'security-timeline', name: 'Timeline Implementación', path: '/docs/SEGURIDAD_ENTERPRISE_TIMELINE.md', description: 'Historial de iteraciones técnicas' },
       { id: 'architecture-diagram', name: 'Diagrama Arquitectura', path: '/docs/DIAGRAMA_ARQUITECTURA_SEGURIDAD.md', description: 'Flujos de datos y capas de defensa' },
@@ -294,6 +295,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'n7j3o9l', date: '2026-01-20', author: 'Team', message: 'v2.5.25: B10.1.25N2.5.25 - Docs Auth Nativa + Fix trigger-manual-proxy N8N', isRelease: true },
   { hash: 'z9v5a1x', date: '2026-01-20', author: 'Team', message: 'v2.5.24: B10.1.24N2.5.24 - Migración completa auth_users → Supabase Auth nativo + user_profiles_v2', isRelease: true },
   { hash: 'y8u4z0w', date: '2026-01-20', author: 'Team', message: 'v2.5.23: B10.1.23N2.5.23 - Admin Center: Modal ancho + filtros modernos + imagen preview modal', isRelease: true },
   { hash: 'x7t3y9v', date: '2026-01-20', author: 'Team', message: 'v2.5.22: B10.1.22N2.5.22 - Ticket system UI minimalista - sin gradientes ni emojis', isRelease: true },
