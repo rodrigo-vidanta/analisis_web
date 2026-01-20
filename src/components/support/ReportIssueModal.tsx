@@ -79,17 +79,40 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
         (modalBackdrop as HTMLElement).style.display = 'none';
       }
 
-      // Capturar la pantalla
+      // Capturar la pantalla con manejo mejorado de CORS
       const canvas = await html2canvas(document.body, {
         useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
+        allowTaint: false, // Cambiar a false para evitar errores de taint
+        foreignObjectRendering: false,
+        backgroundColor: '#ffffff',
         scale: 0.8, // Reducir tamaño para optimizar
         logging: false,
+        imageTimeout: 5000, // Timeout de 5s para imágenes
+        removeContainer: true,
         ignoreElements: (element) => {
           // Ignorar modales y overlays
-          return element.hasAttribute('data-modal-backdrop') || 
-                 element.classList.contains('Toastify');
+          if (element.hasAttribute('data-modal-backdrop') || 
+              element.classList.contains('Toastify')) {
+            return true;
+          }
+          return false;
+        },
+        onclone: (clonedDoc) => {
+          // Reemplazar imágenes externas problemáticas con placeholders
+          const images = clonedDoc.querySelectorAll('img');
+          images.forEach((img) => {
+            const src = img.src || '';
+            // Detectar URLs externas problemáticas (GCS, otros dominios sin CORS)
+            if (src.includes('storage.googleapis.com') || 
+                src.includes('X-Goog-') ||
+                (src.startsWith('http') && !src.includes(window.location.hostname) && !src.includes('supabase'))) {
+              // Reemplazar con placeholder gris
+              img.style.backgroundColor = '#e2e8f0';
+              img.style.objectFit = 'contain';
+              img.removeAttribute('src');
+              img.setAttribute('data-placeholder', 'true');
+            }
+          });
         }
       });
 
@@ -103,7 +126,33 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
       setScreenshot(base64);
     } catch (error) {
       console.error('Error capturing screenshot:', error);
-      toast.error('No se pudo capturar la pantalla');
+      // Intentar captura sin imágenes externas como fallback
+      try {
+        console.log('Intentando captura de fallback sin imágenes externas...');
+        const canvas = await html2canvas(document.body, {
+          useCORS: false,
+          allowTaint: false,
+          foreignObjectRendering: false,
+          backgroundColor: '#ffffff',
+          scale: 0.6,
+          logging: false,
+          imageTimeout: 1000,
+          onclone: (clonedDoc) => {
+            // Remover TODAS las imágenes para evitar errores
+            const images = clonedDoc.querySelectorAll('img');
+            images.forEach((img) => {
+              img.style.backgroundColor = '#e2e8f0';
+              img.removeAttribute('src');
+            });
+          }
+        });
+        const base64 = canvas.toDataURL('image/jpeg', 0.6);
+        setScreenshot(base64);
+        toast('Captura sin algunas imágenes (problema de permisos)', { icon: '⚠️' });
+      } catch (fallbackError) {
+        console.error('Fallback screenshot also failed:', fallbackError);
+        toast.error('No se pudo capturar la pantalla, pero puedes continuar sin ella');
+      }
     } finally {
       setIsCapturing(false);
     }
@@ -309,7 +358,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <div className="h-48 flex items-center justify-center">
+                  <div className="h-48 flex flex-col items-center justify-center space-y-3">
                     <button
                       onClick={captureScreen}
                       className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
@@ -320,6 +369,9 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
                       </svg>
                       <span>Capturar Pantalla</span>
                     </button>
+                    <p className="text-xs text-slate-400 text-center">
+                      La captura es opcional. Si no funciona, puedes continuar sin ella.
+                    </p>
                   </div>
                 )}
               </div>

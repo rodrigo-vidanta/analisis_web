@@ -26,7 +26,8 @@ import AvatarUpload from './AvatarUpload';
 import AvatarCropModal from './AvatarCropModal';
 import ParaphraseLogService from '../../services/paraphraseLogService';
 import { coordinacionService, type Coordinacion } from '../../services/coordinacionService';
-import { ShieldAlert, CheckCircle2, Loader2, User, Mail, Lock, Phone, Building2, Briefcase, Users, Key, Pencil, X, Search, ChevronLeft, ChevronRight, Filter, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { groupsService, type PermissionGroup } from '../../services/groupsService';
+import { ShieldAlert, CheckCircle2, Loader2, User, Mail, Lock, Phone, Building2, Briefcase, Users, Key, Pencil, X, Search, ChevronLeft, ChevronRight, Filter, ChevronUp, ChevronDown, ArrowUpDown, Shield } from 'lucide-react';
 
 interface User {
   id: string;
@@ -125,6 +126,10 @@ const UserManagement: React.FC = () => {
 
   // Estado para coordinaciones
   const [coordinaciones, setCoordinaciones] = useState<Coordinacion[]>([]);
+  
+  // Estados para grupos de permisos
+  const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(''); // Grupo seleccionado para crear/editar
 
   // Estados para paginación y filtros
   const [currentPage, setCurrentPage] = useState(1);
@@ -169,6 +174,7 @@ const UserManagement: React.FC = () => {
       loadRoles();
       loadPermissions();
       loadCoordinaciones();
+      loadPermissionGroups();
       
       // Cargar coordinaciones del usuario actual si es coordinador
       if (isCoordinador && currentUser?.id) {
@@ -207,6 +213,44 @@ const UserManagement: React.FC = () => {
       setCoordinaciones(data);
     } catch (error) {
       console.error('Error cargando coordinaciones:', error);
+    }
+  };
+
+  // Cargar grupos de permisos
+  const loadPermissionGroups = async () => {
+    try {
+      const groups = await groupsService.getGroups();
+      setPermissionGroups(groups);
+    } catch (error) {
+      console.error('Error cargando grupos de permisos:', error);
+    }
+  };
+
+  // Obtener grupo asignado a un usuario
+  const getUserGroupId = async (userId: string): Promise<string | null> => {
+    try {
+      const assignments = await groupsService.getUserGroups(userId);
+      // Buscar el grupo principal o el primero asignado
+      const primary = assignments.find(a => a.is_primary);
+      return primary?.group_id || assignments[0]?.group_id || null;
+    } catch (error) {
+      console.error('Error obteniendo grupo del usuario:', error);
+      return null;
+    }
+  };
+
+  // Manejar cambio de grupo de permisos
+  const handleGroupChange = (groupId: string) => {
+    setSelectedGroupId(groupId);
+    
+    // Auto-asignar role_id basado en base_role del grupo
+    const selectedGroup = permissionGroups.find(g => g.id === groupId);
+    if (selectedGroup?.base_role) {
+      // Buscar el rol que corresponde al base_role
+      const matchingRole = roles.find(r => r.name === selectedGroup.base_role);
+      if (matchingRole) {
+        setFormData(prev => ({ ...prev, role_id: matchingRole.id }));
+      }
     }
   };
 
@@ -699,6 +743,7 @@ const UserManagement: React.FC = () => {
       is_operativo: true,
       analysis_sources: []
     });
+    setSelectedGroupId(''); // Reset grupo seleccionado
     setAvatarPreview(null);
     setAvatarFile(null);
     setIsEditingAvatar(false);
@@ -715,10 +760,17 @@ const UserManagement: React.FC = () => {
       return;
     }
 
-    // Validar restricciones según rol
+    // Validar que se haya seleccionado un grupo de permisos
+    const selectedGroup = permissionGroups.find(g => g.id === selectedGroupId);
+    if (!selectedGroup) {
+      setError('Debes seleccionar un grupo de permisos');
+      return;
+    }
+
+    // El role_id se asigna automáticamente al seleccionar el grupo
     const selectedRole = roles.find(r => r.id === formData.role_id);
     if (!selectedRole) {
-      setError('Debes seleccionar un rol');
+      setError('Error: No se pudo determinar el rol del grupo seleccionado');
       return;
     }
 
@@ -847,6 +899,16 @@ const UserManagement: React.FC = () => {
         }
       }
 
+      // Asignar grupo de permisos al usuario
+      if (selectedGroupId && newUser[0]?.user_id) {
+        try {
+          await groupsService.assignUserToGroup(newUser[0].user_id, selectedGroupId, true);
+        } catch (groupError) {
+          console.error('Error asignando grupo de permisos:', groupError);
+          // No fallar la creación si falla la asignación del grupo
+        }
+      }
+
       setShowCreateModal(false);
       resetForm();
       await loadUsers();
@@ -895,10 +957,17 @@ const UserManagement: React.FC = () => {
       return;
     }
 
-    // Validar restricciones según rol
+    // Validar que se haya seleccionado un grupo de permisos
+    const selectedGroup = permissionGroups.find(g => g.id === selectedGroupId);
+    if (!selectedGroup) {
+      setError('Debes seleccionar un grupo de permisos');
+      return;
+    }
+
+    // El role_id se asigna automáticamente al seleccionar el grupo
     const selectedRole = roles.find(r => r.id === formData.role_id);
     if (!selectedRole) {
-      setError('Debes seleccionar un rol');
+      setError('Error: No se pudo determinar el rol del grupo seleccionado');
       return;
     }
 
@@ -1201,6 +1270,17 @@ const UserManagement: React.FC = () => {
           }
         } catch (coordError) {
           console.error('Error limpiando coordinación:', coordError);
+        }
+      }
+
+      // Actualizar grupo de permisos del usuario
+      if (selectedGroupId) {
+        try {
+          // Usar setUserGroups para reemplazar los grupos existentes con el nuevo
+          await groupsService.setUserGroups(selectedUser.id, [selectedGroupId], currentUser?.id || undefined);
+        } catch (groupError) {
+          console.error('Error actualizando grupo de permisos:', groupError);
+          // No fallar la edición si falla la actualización del grupo
         }
       }
 
@@ -1662,6 +1742,20 @@ const UserManagement: React.FC = () => {
       is_operativo: user.is_operativo !== undefined ? user.is_operativo : true,
       analysis_sources: []
     });
+    
+    // Cargar grupo de permisos del usuario
+    const userGroupId = await getUserGroupId(user.id);
+    if (userGroupId) {
+      setSelectedGroupId(userGroupId);
+    } else {
+      // Si no tiene grupo asignado, intentar deducirlo del rol
+      const matchingGroup = permissionGroups.find(g => g.base_role === user.role_name);
+      if (matchingGroup) {
+        setSelectedGroupId(matchingGroup.id);
+      } else {
+        setSelectedGroupId('');
+      }
+    }
     
     // Resetear estado de edición de contraseña
     setIsEditingPassword(false);
@@ -2377,7 +2471,7 @@ const UserManagement: React.FC = () => {
               </div>
                   </motion.div>
 
-                  {/* Sección: Roles y Permisos */}
+                  {/* Sección: Grupo de Permisos */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -2387,48 +2481,54 @@ const UserManagement: React.FC = () => {
                     <div className="flex items-center space-x-2 mb-4">
                       <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
                       <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        Roles y Permisos
+                        Grupo de Permisos
                       </h4>
                     </div>
 
                     <div className="group">
                       <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        <Key className="w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
-                        <span>Rol *</span>
+                        <Shield className="w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                        <span>Grupo de Permisos *</span>
                 </label>
                 <select
                   required
-                  value={formData.role_id}
-                  onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
+                  value={selectedGroupId}
+                  onChange={(e) => handleGroupChange(e.target.value)}
                         className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
                 >
-                  <option value="">Seleccionar rol...</option>
-                  {roles
-                    .filter(role => {
-                      // Administrador Operativo: solo puede seleccionar coordinador o ejecutivo
+                  <option value="">Seleccionar grupo...</option>
+                  {permissionGroups
+                    .filter(group => {
+                      // Administrador Operativo: solo puede seleccionar ciertos grupos
                       if (isAdminOperativo) {
-                        return ['coordinador', 'ejecutivo'].includes(role.name);
+                        return ['system_coordinador', 'system_ejecutivo', 'system_supervisor', 'system_admin_operativo'].includes(group.name);
                       }
-                      // Admin: puede seleccionar cualquier rol
+                      // Admin: puede seleccionar cualquier grupo
                       if (isAdmin) {
                         return true;
                       }
-                      // Coordinador: solo puede seleccionar ejecutivos
+                      // Coordinador: solo grupos de ejecutivo
                       if (isCoordinador) {
-                        return role.name === 'ejecutivo';
+                        return group.name === 'system_ejecutivo';
                       }
                       return true;
                     })
-                    .map(role => (
-                      <option key={role.id} value={role.id}>
-                        {role.display_name}
+                    .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+                    .map(group => (
+                      <option key={group.id} value={group.id}>
+                        {group.display_name}
                       </option>
                     ))}
                 </select>
+                {selectedGroupId && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {permissionGroups.find(g => g.id === selectedGroupId)?.description}
+                  </p>
+                )}
               </div>
 
               {/* Selector de Coordinaciones para Coordinadores (Múltiples) */}
-              {roles.find(r => r.id === formData.role_id)?.name === 'coordinador' && (
+              {permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'coordinador' && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -2505,7 +2605,7 @@ const UserManagement: React.FC = () => {
               )}
 
               {/* Selector de Coordinación para Ejecutivos (Una sola) */}
-              {roles.find(r => r.id === formData.role_id)?.name === 'ejecutivo' && (
+              {permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'ejecutivo' && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -2536,7 +2636,7 @@ const UserManagement: React.FC = () => {
               )}
 
               {/* Permisos de análisis según rol */}
-              {roles.find(r => r.id === formData.role_id)?.name === 'evaluator' && (
+              {permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'evaluador' && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -2995,7 +3095,7 @@ const UserManagement: React.FC = () => {
                     </div>
                   </motion.div>
 
-                  {/* Sección: Roles y Permisos */}
+                  {/* Sección: Grupo de Permisos */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -3005,48 +3105,57 @@ const UserManagement: React.FC = () => {
                     <div className="flex items-center space-x-2 mb-4">
                       <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
                       <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        Roles y Permisos
+                        Grupo de Permisos
                       </h4>
                     </div>
 
                     <div className="group">
                       <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        <Key className="w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
-                        <span>Rol *</span>
+                        <Shield className="w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                        <span>Grupo de Permisos *</span>
                 </label>
                 <select
                   required
-                  value={formData.role_id}
-                  onChange={(e) => setFormData({ ...formData, role_id: e.target.value, analysis_sources: [] })}
+                  value={selectedGroupId}
+                  onChange={(e) => {
+                    handleGroupChange(e.target.value);
+                    setFormData(prev => ({ ...prev, analysis_sources: [] }));
+                  }}
                         className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
                 >
-                  <option value="">Seleccionar rol...</option>
-                  {roles
-                    .filter(role => {
-                      // Administrador Operativo: solo puede seleccionar coordinador o ejecutivo
+                  <option value="">Seleccionar grupo...</option>
+                  {permissionGroups
+                    .filter(group => {
+                      // Administrador Operativo: solo puede seleccionar ciertos grupos
                       if (isAdminOperativo) {
-                        return ['coordinador', 'ejecutivo'].includes(role.name);
+                        return ['system_coordinador', 'system_ejecutivo', 'system_supervisor', 'system_admin_operativo'].includes(group.name);
                       }
-                      // Admin: puede seleccionar cualquier rol
+                      // Admin: puede seleccionar cualquier grupo
                       if (isAdmin) {
                         return true;
                       }
-                      // Coordinador: no puede crear usuarios, pero si pudiera sería solo ejecutivos
+                      // Coordinador: solo grupos de ejecutivo
                       if (isCoordinador) {
-                        return role.name === 'ejecutivo';
+                        return group.name === 'system_ejecutivo';
                       }
                       return true;
                     })
-                    .map(role => (
-                      <option key={role.id} value={role.id}>
-                        {role.display_name}
+                    .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+                    .map(group => (
+                      <option key={group.id} value={group.id}>
+                        {group.display_name}
                       </option>
                     ))}
                 </select>
+                {selectedGroupId && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {permissionGroups.find(g => g.id === selectedGroupId)?.description}
+                  </p>
+                )}
               </div>
 
               {/* Selector de Coordinaciones para Coordinadores (Múltiples) - Modal Edición */}
-              {roles.find(r => r.id === formData.role_id)?.name === 'coordinador' && (
+              {permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'coordinador' && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -3123,7 +3232,7 @@ const UserManagement: React.FC = () => {
               )}
 
               {/* Selector de Coordinación para Ejecutivos (Una sola) - Modal Edición */}
-              {roles.find(r => r.id === formData.role_id)?.name === 'ejecutivo' && (
+              {permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'ejecutivo' && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -3154,7 +3263,7 @@ const UserManagement: React.FC = () => {
               )}
 
               {/* Permisos de análisis según rol */}
-              {roles.find(r => r.id === formData.role_id)?.name === 'evaluator' && (
+              {permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'evaluador' && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -3281,13 +3390,62 @@ const UserManagement: React.FC = () => {
                         placeholder="Cargo o posición"
                 />
               </div>
+                  </motion.div>
+
+                  {/* Sección: Estado del Usuario */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35 }}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center space-x-2 mb-4">
+                      <div className="w-1 h-5 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        Estado del Usuario
+                      </h4>
+                    </div>
+
+                    {/* Toggle Switch para Usuario Activo */}
+                    <motion.label
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer transition-all duration-200 group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
+                          formData.is_active ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'
+                        }`}>
+                          <motion.div
+                            animate={{ x: formData.is_active ? 24 : 0 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Usuario Activo
+                          </span>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            El usuario podrá iniciar sesión en el sistema
+                          </p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                      />
+                    </motion.label>
 
                     {/* Toggle Switch para Usuario Operativo - Solo para coordinadores y ejecutivos */}
                     {selectedUser && (selectedUser.role_name === 'coordinador' || selectedUser.role_name === 'ejecutivo') && (
                     <motion.label
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.4 }}
+                      transition={{ delay: 0.45 }}
                         className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all duration-200 group ${
                           // Deshabilitar si es ejecutivo sin id_dynamics y se intenta habilitar operativo
                           selectedUser.role_name === 'ejecutivo' && 
