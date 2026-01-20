@@ -97,28 +97,26 @@ const GroupUsersModal: React.FC<GroupUsersModalProps> = ({
       setLoadingUsers(true);
       
       // ============================================
-      // CORRECCIÓN 2025-01-14: Usar JOIN con auth_roles
+      // MIGRACIÓN 2026-01-20: Usar user_profiles_v2
       // ============================================
-      // La tabla auth_users NO tiene columna 'role_name'.
-      // Usamos 'auth_roles(name)' para obtener el nombre del rol.
-      // Luego mapeamos el resultado para aplanar la estructura.
+      // user_profiles_v2 ya incluye role_name directamente
       // ============================================
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
-        .select('id, email, full_name, is_active, avatar_url, coordinacion_id, auth_roles(name)')
+        .from('user_profiles_v2')
+        .select('id, email, full_name, is_active, coordinacion_id, role_name')
         .eq('is_active', true)
         .order('full_name');
 
       if (error) throw error;
       
-      // Mapear resultado para extraer role_name desde auth_roles
+      // Mapear resultado
       const mappedUsers: UserBasic[] = (data || []).map((user: any) => ({
         id: user.id,
         email: user.email,
         full_name: user.full_name,
-        role_name: user.auth_roles?.name || 'Sin rol', // Extraer nombre del rol
+        role_name: user.role_name || 'Sin rol',
         is_active: user.is_active,
-        avatar_url: user.avatar_url,
+        avatar_url: null, // user_profiles_v2 no tiene avatar_url
         coordinacion_id: user.coordinacion_id
       }));
       

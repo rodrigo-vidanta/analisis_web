@@ -49,6 +49,7 @@ interface FormData {
   first_name: string;
   last_name: string;
   phone: string;
+  id_dynamics: string; // ID de Dynamics CRM - requerido para is_operativo
   role_id: string;
   coordinacion_id: string;
   coordinaciones_ids: string[];
@@ -63,6 +64,7 @@ const initialFormData: FormData = {
   first_name: '',
   last_name: '',
   phone: '',
+  id_dynamics: '',
   role_id: '',
   coordinacion_id: '',
   coordinaciones_ids: [],
@@ -184,42 +186,65 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
     try {
       setIsLoading(true);
 
-      // Crear usuario usando función SQL
-      const { data: newUser, error: createError } = await supabaseSystemUI.rpc('create_user_with_role', {
-        user_email: formData.email.trim().toLowerCase(),
-        user_password: formData.password,
-        user_first_name: formData.first_name.trim(),
-        user_last_name: formData.last_name.trim(),
-        user_role_id: formData.role_id,
-        user_phone: formData.phone || null,
-        user_department: null,
-        user_position: null,
-        user_is_active: formData.is_active
+      // ============================================
+      // CREAR USUARIO EN SUPABASE AUTH NATIVO
+      // ============================================
+      // Usa Edge Function auth-admin-proxy con operación createUser
+      // Los usuarios se crean en auth.users (no en tabla legacy auth_users)
+      
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const fullName = `${formData.first_name.trim()} ${formData.last_name.trim()}`;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'createUser',
+          params: {
+            email: formData.email.trim().toLowerCase(),
+            password: formData.password,
+            fullName,
+            roleId: formData.role_id,
+            phone: formData.phone || null,
+            idDynamics: formData.id_dynamics?.trim() || null,
+            // Metadatos adicionales para el user_metadata
+            isActive: formData.is_active,
+            // REGLA DE NEGOCIO: Solo es operativo si tiene id_dynamics
+            isOperativo: !!formData.id_dynamics?.trim(),
+            isCoordinator: selectedRole?.name === 'coordinador',
+            isEjecutivo: selectedRole?.name === 'ejecutivo',
+            coordinacionId: formData.coordinacion_id || null
+          }
+        })
       });
 
-      if (createError) {
-        console.error('Error creating user:', createError);
-        throw new Error(createError.message || 'Error al crear usuario');
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        console.error('Error creating user:', result);
+        throw new Error(result.error || result.details?.join(', ') || 'Error al crear usuario');
       }
 
-      const userId = newUser?.[0]?.user_id;
+      const userId = result.userId;
 
       if (!userId) {
         throw new Error('No se pudo obtener el ID del usuario creado');
       }
 
+      console.log(`✅ Usuario creado en Supabase Auth: ${userId}`);
+
+      // ============================================
+      // ASIGNAR COORDINACIONES (tabla auxiliar)
+      // ============================================
+      
       // Si es coordinador o supervisor, asignar múltiples coordinaciones
       if ((selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && formData.coordinaciones_ids.length > 0) {
-        // Actualizar flags del usuario
-        await supabaseSystemUI
-          .from('auth_users')
-          .update({
-            is_coordinator: selectedRole?.name === 'coordinador',
-            is_ejecutivo: false,
-          })
-          .eq('id', userId);
-
-        // Insertar relaciones en tabla intermedia (auth_user_coordinaciones - nueva)
+        // Insertar relaciones en tabla intermedia (auth_user_coordinaciones)
         const relaciones = formData.coordinaciones_ids.map(coordId => ({
           user_id: userId,
           coordinacion_id: coordId,
@@ -231,26 +256,22 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
           .insert(relaciones);
 
         if (relacionesError) {
-          console.error('Error asignando coordinaciones (auth_user_coordinaciones):', relacionesError);
+          console.error('Error asignando coordinaciones:', relacionesError);
         }
-
-        // ✅ MIGRACIÓN COMPLETADA (2025-12-29): Ya no se necesita escritura dual
-        // permissionsService ahora usa auth_user_coordinaciones
       }
 
       // Si es ejecutivo, asignar una sola coordinación
       if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id) {
-        const { error: updateError } = await supabaseSystemUI
-          .from('auth_users')
-          .update({
+        const { error: relacionError } = await supabaseSystemUI
+          .from('auth_user_coordinaciones')
+          .insert({
+            user_id: userId,
             coordinacion_id: formData.coordinacion_id,
-            is_coordinator: false,
-            is_ejecutivo: true,
-          })
-          .eq('id', userId);
+            assigned_by: currentUserId || null
+          });
 
-        if (updateError) {
-          console.error('Error asignando coordinación:', updateError);
+        if (relacionError) {
+          console.error('Error asignando coordinación:', relacionError);
         }
       }
 
@@ -451,6 +472,24 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
                     className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
                     placeholder="+52 123 456 7890"
                   />
+                </div>
+
+                {/* ID Dynamics */}
+                <div className="group">
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    <Building2 className="w-4 h-4 text-gray-400" />
+                    <span>ID Dynamics (CRM)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.id_dynamics}
+                    onChange={(e) => setFormData(prev => ({ ...prev, id_dynamics: e.target.value }))}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                    placeholder="ID del usuario en Dynamics CRM"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Requerido para marcar al usuario como operativo
+                  </p>
                 </div>
               </motion.div>
 

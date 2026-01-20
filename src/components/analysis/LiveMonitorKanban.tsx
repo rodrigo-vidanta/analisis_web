@@ -1111,7 +1111,7 @@ const LiveMonitorKanban: React.FC = () => {
             // Obtener IDs de ejecutivos donde este ejecutivo es backup
             const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
             const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUI
-              .from('auth_users')
+              .from('user_profiles_v2')
               .select('id')
               .eq('backup_id', ejecutivoFilter)
               .eq('has_backup', true);
@@ -1264,7 +1264,7 @@ const LiveMonitorKanban: React.FC = () => {
                   // Ejecutivo: obtener IDs de ejecutivos donde es backup
                   const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
                   const { data: ejecutivosConBackup } = await supabaseSystemUI
-                    .from('auth_users')
+                    .from('user_profiles_v2')
                     .select('id')
                     .eq('backup_id', ejecutivoFilter)
                     .eq('has_backup', true);
@@ -2002,7 +2002,7 @@ const LiveMonitorKanban: React.FC = () => {
             
             if (supabaseSystemUI) {
               const { data: ejecutivosConBackup } = await supabaseSystemUI
-                .from('auth_users')
+                .from('user_profiles_v2')
                 .select('id')
                 .eq('backup_id', ejecutivoFilterId)
                 .eq('has_backup', true);

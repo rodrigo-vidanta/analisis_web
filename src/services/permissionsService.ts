@@ -518,7 +518,7 @@ class PermissionsService {
     try {
       // Cargar todos los datos de backup en una sola query
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('id, backup_id, has_backup')
         .in('id', idsToLoad);
       
@@ -575,7 +575,7 @@ class PermissionsService {
     
     try {
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('id')
         .eq('backup_id', ejecutivoId)
         .eq('has_backup', true);
@@ -939,7 +939,7 @@ class PermissionsService {
         // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
         // Buscar ejecutivos que tienen backup_id = ejecutivoFilter
         const { data: ejecutivosConBackup, error } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('id')
           .eq('backup_id', ejecutivoFilter)
           .eq('has_backup', true);
@@ -1016,7 +1016,7 @@ class PermissionsService {
       if (ejecutivoFilter) {
         // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
         const { data: ejecutivosConBackup, error } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('id')
           .eq('backup_id', ejecutivoFilter)
           .eq('has_backup', true);
@@ -1082,7 +1082,7 @@ class PermissionsService {
         // Obtener IDs de ejecutivos donde este ejecutivo (ejecutivoFilter) es el backup
         // Buscar ejecutivos que tienen backup_id = ejecutivoFilter
         const { data: ejecutivosConBackup, error } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('id')
           .eq('backup_id', ejecutivoFilter)
           .eq('has_backup', true);

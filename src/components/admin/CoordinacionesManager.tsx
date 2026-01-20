@@ -101,12 +101,12 @@ const CoordinacionesManager: React.FC = () => {
           // Contar ejecutivos asignados (solo si no está archivada)
           let ejecutivosCount = 0;
           if (!archivado) {
-            // Usar LEFT JOIN (sin !inner) para evitar error 406
+            // Usar user_profiles_v2 que ya tiene role_name incluido
             const { count } = await supabaseSystemUI
-              .from('auth_users')
-              .select('id, auth_roles(name)', { count: 'exact', head: true })
+              .from('user_profiles_v2')
+              .select('id', { count: 'exact', head: true })
               .eq('coordinacion_id', coord.id)
-              .eq('auth_roles.name', 'ejecutivo')
+              .eq('role_name', 'ejecutivo')
               .eq('is_active', true);
             ejecutivosCount = count || 0;
           }

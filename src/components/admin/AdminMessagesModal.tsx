@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminMessagesService, type AdminMessage } from '../../services/adminMessagesService';
-import { ticketService, type SupportTicket, type TicketComment, type TicketStatus } from '../../services/ticketService';
+import { ticketService, type SupportTicket, type TicketComment, type TicketStatus, type UserForAssignment, ASSIGNABLE_ROLES, type AssignableRole } from '../../services/ticketService';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -60,6 +60,16 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
   const [submitting, setSubmitting] = useState(false);
   const [readTicketIds, setReadTicketIds] = useState<Set<string>>(new Set());
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // Estados para asignación
+  const [showAssignmentPanel, setShowAssignmentPanel] = useState(false);
+  const [assignmentType, setAssignmentType] = useState<'role' | 'user'>('role');
+  const [selectedRole, setSelectedRole] = useState<AssignableRole | ''>('');
+  const [usersForRole, setUsersForRole] = useState<UserForAssignment[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [assigningTicket, setAssigningTicket] = useState(false);
+  const [assignedUserNames, setAssignedUserNames] = useState<Map<string, string>>(new Map());
   
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
@@ -233,6 +243,124 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // ============================================
+  // HANDLERS ASIGNACIÓN
+  // ============================================
+
+  const handleLoadUsersForRole = async (role: AssignableRole) => {
+    setSelectedRole(role);
+    setSelectedUserId('');
+    setLoadingUsers(true);
+    try {
+      const { users } = await ticketService.getUsersByRole(role);
+      setUsersForRole(users);
+    } catch {
+      setUsersForRole([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleAssignToRole = async () => {
+    if (!selectedTicket || !selectedRole || !user) return;
+    setAssigningTicket(true);
+    try {
+      const { success, error } = await ticketService.assignTicketToRole(
+        selectedTicket.id,
+        selectedRole,
+        user.id,
+        user.full_name || user.email
+      );
+      if (success) {
+        const roleLabel = ASSIGNABLE_ROLES.find(r => r.value === selectedRole)?.label || selectedRole;
+        toast.success(`Asignado a: ${roleLabel}`);
+        setSelectedTicket({ ...selectedTicket, assigned_to_role: selectedRole, assigned_to: null });
+        setShowAssignmentPanel(false);
+        loadTickets();
+      } else {
+        toast.error(error || 'Error al asignar');
+      }
+    } catch {
+      toast.error('Error al asignar');
+    } finally {
+      setAssigningTicket(false);
+    }
+  };
+
+  const handleAssignToUser = async () => {
+    if (!selectedTicket || !selectedUserId || !user) return;
+    setAssigningTicket(true);
+    try {
+      const { success, error } = await ticketService.assignTicket(
+        selectedTicket.id,
+        selectedUserId,
+        user.id,
+        user.full_name || user.email
+      );
+      if (success) {
+        const assignedUser = usersForRole.find(u => u.id === selectedUserId);
+        toast.success(`Asignado a: ${assignedUser?.full_name || 'Usuario'}`);
+        setSelectedTicket({ ...selectedTicket, assigned_to: selectedUserId, assigned_to_role: null });
+        setShowAssignmentPanel(false);
+        loadTickets();
+        // Cachear nombre del usuario asignado
+        if (assignedUser) {
+          setAssignedUserNames(prev => new Map(prev).set(selectedUserId, assignedUser.full_name));
+        }
+      } else {
+        toast.error(error || 'Error al asignar');
+      }
+    } catch {
+      toast.error('Error al asignar');
+    } finally {
+      setAssigningTicket(false);
+    }
+  };
+
+  const handleUnassign = async () => {
+    if (!selectedTicket || !user) return;
+    setAssigningTicket(true);
+    try {
+      const { success, error } = await ticketService.unassignTicket(
+        selectedTicket.id,
+        user.id,
+        user.full_name || user.email
+      );
+      if (success) {
+        toast.success('Asignación removida');
+        setSelectedTicket({ ...selectedTicket, assigned_to: null, assigned_to_role: null });
+        loadTickets();
+      } else {
+        toast.error(error || 'Error');
+      }
+    } catch {
+      toast.error('Error');
+    } finally {
+      setAssigningTicket(false);
+    }
+  };
+
+  // Cargar nombre de usuario asignado
+  useEffect(() => {
+    if (selectedTicket?.assigned_to && !assignedUserNames.has(selectedTicket.assigned_to)) {
+      ticketService.getAssignedUserName(selectedTicket.assigned_to).then(name => {
+        if (name) {
+          setAssignedUserNames(prev => new Map(prev).set(selectedTicket.assigned_to!, name));
+        }
+      });
+    }
+  }, [selectedTicket?.assigned_to, assignedUserNames]);
+
+  const getAssignmentDisplay = (ticket: SupportTicket) => {
+    if (ticket.assigned_to) {
+      return assignedUserNames.get(ticket.assigned_to) || 'Cargando...';
+    }
+    if (ticket.assigned_to_role) {
+      return ASSIGNABLE_ROLES.find(r => r.value === ticket.assigned_to_role)?.label || ticket.assigned_to_role;
+    }
+    return null;
   };
 
   // ============================================
@@ -632,11 +760,203 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                             <p className="text-sm text-gray-500 mt-1">{selectedTicket.reporter_name} · {selectedTicket.reporter_email}</p>
                           </div>
                         </div>
-                        <select value={selectedTicket.status} onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
-                          className={`px-3 py-2 text-sm font-medium rounded-xl border-2 cursor-pointer ${TICKET_STATUS[selectedTicket.status].bg} ${TICKET_STATUS[selectedTicket.status].color} border-gray-200 dark:border-gray-700 focus:outline-none`}>
-                          {Object.entries(TICKET_STATUS).map(([s, c]) => (<option key={s} value={s}>{c.label}</option>))}
-                        </select>
+                        <div className="flex items-center gap-2">
+                          <motion.button
+                            onClick={() => setShowAssignmentPanel(!showAssignmentPanel)}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl border-2 transition-all ${
+                              showAssignmentPanel 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-blue-300 hover:text-blue-600'
+                            }`}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                            </svg>
+                            <span>Asignar</span>
+                          </motion.button>
+                          <select value={selectedTicket.status} onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
+                            className={`px-3 py-2 text-sm font-medium rounded-xl border-2 cursor-pointer ${TICKET_STATUS[selectedTicket.status].bg} ${TICKET_STATUS[selectedTicket.status].color} border-gray-200 dark:border-gray-700 focus:outline-none`}>
+                            {Object.entries(TICKET_STATUS).map(([s, c]) => (<option key={s} value={s}>{c.label}</option>))}
+                          </select>
+                        </div>
                       </div>
+
+                      {/* Panel de Asignación */}
+                      <AnimatePresence>
+                        {showAssignmentPanel && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mb-6 overflow-hidden"
+                          >
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center gap-2 mb-4">
+                                <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full" />
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Asignar Ticket</span>
+                              </div>
+
+                              {/* Info asignación actual */}
+                              {(selectedTicket.assigned_to || selectedTicket.assigned_to_role) && (
+                                <div className="flex items-center justify-between p-3 mb-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                  <div className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                                      Asignado a: <span className="font-medium text-gray-900 dark:text-white">{getAssignmentDisplay(selectedTicket)}</span>
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={handleUnassign}
+                                    disabled={assigningTicket}
+                                    className="text-xs text-red-500 hover:text-red-600 font-medium"
+                                  >
+                                    Quitar asignación
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Selector tipo de asignación */}
+                              <div className="flex gap-2 mb-4">
+                                <button
+                                  onClick={() => { setAssignmentType('role'); setSelectedRole(''); setUsersForRole([]); setSelectedUserId(''); }}
+                                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    assignmentType === 'role'
+                                      ? 'bg-blue-500 text-white shadow-md'
+                                      : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+                                  }`}
+                                >
+                                  Por Grupo
+                                </button>
+                                <button
+                                  onClick={() => { setAssignmentType('user'); setSelectedRole(''); setUsersForRole([]); setSelectedUserId(''); }}
+                                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    assignmentType === 'user'
+                                      ? 'bg-blue-500 text-white shadow-md'
+                                      : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+                                  }`}
+                                >
+                                  Usuario Específico
+                                </button>
+                              </div>
+
+                              {/* Asignación por Grupo */}
+                              {assignmentType === 'role' && (
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {ASSIGNABLE_ROLES.map(role => (
+                                      <button
+                                        key={role.value}
+                                        onClick={() => setSelectedRole(role.value)}
+                                        className={`p-3 rounded-lg text-left transition-all ${
+                                          selectedRole === role.value
+                                            ? `bg-gradient-to-r ${role.color} text-white shadow-lg`
+                                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:border-blue-300'
+                                        }`}
+                                      >
+                                        <span className="text-sm font-medium">{role.label}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                  {selectedRole && (
+                                    <motion.button
+                                      initial={{ opacity: 0, y: -10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      onClick={handleAssignToRole}
+                                      disabled={assigningTicket}
+                                      whileHover={{ scale: 1.02 }}
+                                      whileTap={{ scale: 0.98 }}
+                                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                                    >
+                                      {assigningTicket ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                      ) : (
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                      )}
+                                      <span>Asignar al grupo</span>
+                                    </motion.button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Asignación a Usuario */}
+                              {assignmentType === 'user' && (
+                                <div className="space-y-3">
+                                  <select
+                                    value={selectedRole}
+                                    onChange={(e) => handleLoadUsersForRole(e.target.value as AssignableRole)}
+                                    className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
+                                  >
+                                    <option value="">Seleccionar grupo...</option>
+                                    {ASSIGNABLE_ROLES.map(role => (
+                                      <option key={role.value} value={role.value}>{role.label}</option>
+                                    ))}
+                                  </select>
+
+                                  {loadingUsers && (
+                                    <div className="flex items-center justify-center py-4">
+                                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                    </div>
+                                  )}
+
+                                  {!loadingUsers && usersForRole.length > 0 && (
+                                    <>
+                                      <select
+                                        value={selectedUserId}
+                                        onChange={(e) => setSelectedUserId(e.target.value)}
+                                        className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
+                                      >
+                                        <option value="">Seleccionar usuario...</option>
+                                        {usersForRole.map(u => (
+                                          <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>
+                                        ))}
+                                      </select>
+
+                                      {selectedUserId && (
+                                        <motion.button
+                                          initial={{ opacity: 0, y: -10 }}
+                                          animate={{ opacity: 1, y: 0 }}
+                                          onClick={handleAssignToUser}
+                                          disabled={assigningTicket}
+                                          whileHover={{ scale: 1.02 }}
+                                          whileTap={{ scale: 0.98 }}
+                                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                                        >
+                                          {assigningTicket ? (
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                          ) : (
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                          )}
+                                          <span>Asignar usuario</span>
+                                        </motion.button>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {!loadingUsers && selectedRole && usersForRole.length === 0 && (
+                                    <p className="text-sm text-gray-500 text-center py-3">No hay usuarios activos en este grupo</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Mostrar asignación actual (fuera del panel) */}
+                      {!showAssignmentPanel && (selectedTicket.assigned_to || selectedTicket.assigned_to_role) && (
+                        <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                          <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                          </svg>
+                          <span className="text-sm text-emerald-700 dark:text-emerald-300">
+                            Asignado a: <span className="font-medium">{getAssignmentDisplay(selectedTicket)}</span>
+                          </span>
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-1 h-5 bg-gradient-to-b from-orange-500 to-red-500 rounded-full" />

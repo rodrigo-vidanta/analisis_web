@@ -152,7 +152,7 @@ class NotificationListenerService {
 
       // Obtener todos los usuarios activos del sistema con sus roles
       const { data: allUsers, error: usersError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('id, role_id, is_active')
         .eq('is_active', true);
 
@@ -346,7 +346,7 @@ class NotificationListenerService {
 
       // Obtener todos los usuarios activos del sistema con sus roles
       const { data: allUsers } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('id, role_id, is_active')
         .eq('is_active', true);
 

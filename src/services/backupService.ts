@@ -63,7 +63,7 @@ class BackupService {
       // Intentar obtener teléfono del backup - primero auth_users (legacy)
       let telefonoBackup = '';
       const { data: backupData, error: backupError } = await supabaseSystemUI!
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('phone')
         .eq('id', backupId)
         .maybeSingle();
@@ -87,7 +87,7 @@ class BackupService {
       // Obtener teléfono original del ejecutivo
       let telefonoOriginal = '';
       const { data: ejecutivoData } = await supabaseSystemUI!
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('phone, telefono_original')
         .eq('id', ejecutivoId)
         .maybeSingle();
@@ -98,7 +98,7 @@ class BackupService {
 
       // Intentar actualizar via auth_users (legacy) primero
       const { error: updateError } = await supabaseSystemUI!
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update({
           backup_id: backupId,
           telefono_original: telefonoOriginal,
@@ -145,7 +145,7 @@ class BackupService {
       // Obtener teléfono original - primero auth_users (legacy)
       let telefonoOriginal = '';
       const { data: ejecutivoData } = await supabaseSystemUI!
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('telefono_original')
         .eq('id', ejecutivoId)
         .maybeSingle();
@@ -167,7 +167,7 @@ class BackupService {
 
       // Intentar actualizar via auth_users (legacy) primero
       const { error: updateError } = await supabaseSystemUI!
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update({
           backup_id: null,
           phone: telefonoOriginal,
@@ -374,7 +374,7 @@ class BackupService {
   async getBackupInfo(ejecutivoId: string): Promise<BackupInfo | null> {
     try {
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select(`
           id,
           backup_id,
@@ -635,7 +635,7 @@ class BackupService {
   async hasBackup(ejecutivoId: string): Promise<boolean> {
     try {
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('has_backup')
         .eq('id', ejecutivoId)
         .single();
@@ -676,7 +676,7 @@ class BackupService {
       } else {
         // Consultar BD solo si no está en caché o expiró
         const { data, error } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('backup_id, has_backup')
           .eq('id', currentUserId)
           .single();
@@ -697,7 +697,7 @@ class BackupService {
 
       // Obtener información del ejecutivo del cual es backup
       const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('id, full_name, email')
         .eq('id', backupData.backup_id)
         .single();

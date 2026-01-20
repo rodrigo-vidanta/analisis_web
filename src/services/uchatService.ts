@@ -733,7 +733,7 @@ class UChatService {
   private async findAvailableAgent(): Promise<any | null> {
     // Buscar agente disponible (por implementar lógica más sofisticada)
     const { data } = await supabaseSystemUI
-      .from('auth_users')
+      .from('user_profiles_v2')
       .select('id, full_name, email')
       .eq('is_active', true)
       .limit(1);

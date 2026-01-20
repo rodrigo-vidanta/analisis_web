@@ -83,7 +83,7 @@ const AgentAssignmentModal: React.FC<AgentAssignmentModalProps> = ({
       
       // Obtener agentes activos
       const { data: agentsData, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select(`
           id,
           full_name,

@@ -291,7 +291,7 @@ class AdminMessagesService {
     try {
       // Buscar usuario por email en System UI
       const { data: user, error: findError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('id, email, locked_until, failed_login_attempts')
         .eq('email', userEmail)
         .single();
@@ -303,7 +303,7 @@ class AdminMessagesService {
 
       // Desbloquear usuario: resetear intentos fallidos y locked_until
       const { error: updateError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update({
           failed_login_attempts: 0,
           locked_until: null

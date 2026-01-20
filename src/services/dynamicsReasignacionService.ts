@@ -186,7 +186,7 @@ class DynamicsReasignacionService {
     let reasignadoPor: { full_name?: string; email?: string; role_name?: string } | null = null;
     try {
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select(`
           full_name, 
           email, 

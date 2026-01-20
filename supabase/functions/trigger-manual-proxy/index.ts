@@ -4,26 +4,19 @@
  * ============================================
  * 
  * Proxy seguro para programar/actualizar/eliminar llamadas manuales
- * Inserta directamente en llamadas_programadas (el Cron Job las ejecuta)
+ * LLAMA AL WEBHOOK DE N8N (no inserta directamente en BD)
  * 
- * Acciones soportadas:
- * - INSERT: Crear nueva llamada programada
- * - UPDATE: Actualizar llamada existente
- * - DELETE: Eliminar llamada programada (marcar como cancelada)
+ * La lógica de negocio está en N8N:
+ * - Validaciones adicionales
+ * - Integración con VAPI/Dynamics
+ * - Inserción en llamadas_programadas
+ * - Cron Job para ejecución
  * 
- * Esquema de tabla llamadas_programadas:
- * - id (UUID)
- * - fecha_programada (TIMESTAMPTZ)
- * - prospecto (UUID - FK a prospectos)
- * - estatus (TEXT: 'programada', 'ejecutada', 'cancelada', 'no contesto')
- * - justificacion_llamada (TEXT)
- * - creada (TIMESTAMPTZ)
- * - llamada_ejecutada (UUID - FK a llamadas cuando se ejecuta)
- * - id_llamada_dynamics (UUID)
- * - programada_por_nombre (TEXT)
- * - programada_por_id (UUID - FK a auth_users)
+ * Webhook: https://primary-dev-d75a.up.railway.app/webhook/trigger-manual
+ * Header Auth: livechat_auth (mismo que otros webhooks de livechat)
  * 
- * Fecha: 17 Enero 2026
+ * Fecha: 20 Enero 2026
+ * Fix: Corregido para llamar webhook N8N en lugar de BD directa
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -34,6 +27,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+// URL del webhook de N8N
+const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/trigger-manual';
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -64,6 +60,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
 
     if (authError || !user) {
+      console.error('❌ [trigger-manual-proxy] Error de autenticación:', authError?.message);
       return new Response(
         JSON.stringify({ error: 'Authentication required', success: false }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -73,18 +70,32 @@ serve(async (req) => {
     // Obtener payload del request
     const payload = await req.json();
     const { 
-      action, 
+      action,
       prospecto_id, 
       user_id,
       justificacion,
       scheduled_timestamp,
+      schedule_type,
+      customer_phone,
       customer_name,
+      conversation_id,
       llamada_programada_id 
     } = payload;
 
-    console.log(`📞 [trigger-manual-proxy] Acción: ${action} para prospecto: ${prospecto_id} (user: ${user.email})`);
+    console.log(`📞 [trigger-manual-proxy] Acción: ${action || 'INSERT'} para prospecto: ${prospecto_id} (user: ${user.email})`);
 
-    // Obtener nombre del usuario que programa
+    // Obtener token de autenticación desde secret
+    // Usa el mismo header que otros webhooks de livechat
+    const webhookToken = Deno.env.get('LIVECHAT_AUTH') || '';
+    if (!webhookToken) {
+      console.error('❌ LIVECHAT_AUTH no configurado');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error', success: false }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Obtener nombre del usuario que programa (para el payload)
     let programadaPorNombre = customer_name || user.email;
     try {
       const { data: userData } = await supabase
@@ -99,101 +110,73 @@ serve(async (req) => {
       console.log('No se pudo obtener nombre del usuario, usando email');
     }
 
-    let result;
+    // Construir payload para N8N
+    // El webhook espera recibir toda la información para procesarla
+    const n8nPayload: Record<string, unknown> = {
+      // Campos originales (compatibilidad con el webhook original)
+      prospecto_id,
+      motivo: justificacion || 'Llamada programada desde UI',
+      
+      // Campos extendidos para la lógica de N8N
+      action: action || 'INSERT',
+      user_id: user_id || user.id,
+      user_email: user.email,
+      programada_por_nombre: programadaPorNombre,
+      scheduled_timestamp,
+      schedule_type: schedule_type || 'now',
+      customer_phone,
+      customer_name,
+      conversation_id,
+      
+      // Para UPDATE/DELETE
+      llamada_programada_id,
+      
+      // Metadata
+      timestamp: new Date().toISOString(),
+      source: 'edge-function'
+    };
 
-    switch (action) {
-      case 'INSERT': {
-        // Insertar nueva llamada programada
-        const { data, error } = await supabase
-          .from('llamadas_programadas')
-          .insert({
-            prospecto: prospecto_id,
-            programada_por_id: user_id || user.id,
-            programada_por_nombre: programadaPorNombre,
-            justificacion_llamada: justificacion || 'Llamada programada desde UI',
-            fecha_programada: scheduled_timestamp,
-            estatus: 'programada',
-            creada: new Date().toISOString()
-          })
-          .select('id')
-          .single();
+    console.log(`🔗 [trigger-manual-proxy] Llamando webhook N8N: ${WEBHOOK_URL}`);
 
-        if (error) {
-          console.error(`❌ [trigger-manual-proxy] Error INSERT:`, error);
-          throw new Error(`Error al programar llamada: ${error.message}`);
-        }
+    // Hacer request al webhook de N8N con autenticación
+    const response = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'livechat_auth': webhookToken, // Mismo header que otros webhooks
+      },
+      body: JSON.stringify(n8nPayload),
+    });
 
-        result = { 
-          success: true, 
-          message: 'Llamada programada exitosamente',
-          llamada_id: data?.id 
-        };
-        console.log(`✅ [trigger-manual-proxy] Llamada programada creada: ${data?.id}`);
-        break;
-      }
-
-      case 'UPDATE': {
-        if (!llamada_programada_id) {
-          throw new Error('llamada_programada_id es requerido para UPDATE');
-        }
-
-        const { error } = await supabase
-          .from('llamadas_programadas')
-          .update({
-            justificacion_llamada: justificacion,
-            fecha_programada: scheduled_timestamp,
-            programada_por_id: user_id || user.id,
-            programada_por_nombre: programadaPorNombre
-          })
-          .eq('id', llamada_programada_id);
-
-        if (error) {
-          console.error(`❌ [trigger-manual-proxy] Error UPDATE:`, error);
-          throw new Error(`Error al actualizar llamada: ${error.message}`);
-        }
-
-        result = { 
-          success: true, 
-          message: 'Llamada actualizada exitosamente',
-          llamada_id: llamada_programada_id 
-        };
-        console.log(`✅ [trigger-manual-proxy] Llamada actualizada: ${llamada_programada_id}`);
-        break;
-      }
-
-      case 'DELETE': {
-        if (!llamada_programada_id) {
-          throw new Error('llamada_programada_id es requerido para DELETE');
-        }
-
-        // Marcar como cancelada en lugar de eliminar (para auditoría)
-        const { error } = await supabase
-          .from('llamadas_programadas')
-          .update({
-            estatus: 'cancelada'
-          })
-          .eq('id', llamada_programada_id);
-
-        if (error) {
-          console.error(`❌ [trigger-manual-proxy] Error DELETE:`, error);
-          throw new Error(`Error al cancelar llamada: ${error.message}`);
-        }
-
-        result = { 
-          success: true, 
-          message: 'Llamada cancelada exitosamente',
-          llamada_id: llamada_programada_id 
-        };
-        console.log(`✅ [trigger-manual-proxy] Llamada cancelada: ${llamada_programada_id}`);
-        break;
-      }
-
-      default:
-        throw new Error(`Acción no soportada: ${action}. Use INSERT, UPDATE o DELETE.`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ [trigger-manual-proxy] Webhook error ${response.status}:`, errorText);
+      return new Response(
+        JSON.stringify({ 
+          error: `Webhook Error: ${response.status} - ${errorText}`, 
+          success: false 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
+    // Intentar parsear respuesta JSON
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch {
+      responseData = { success: true, message: 'Request processed' };
+    }
+
+    const actionLabel = action === 'DELETE' ? 'cancelada' : action === 'UPDATE' ? 'actualizada' : 'programada';
+    console.log(`✅ [trigger-manual-proxy] Llamada ${actionLabel} exitosamente para prospecto: ${prospecto_id}`);
+
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({ 
+        ...responseData, 
+        success: true,
+        message: `Llamada ${actionLabel} exitosamente`
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

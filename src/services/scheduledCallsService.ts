@@ -96,7 +96,7 @@ class ScheduledCallsService {
           // Ejecutivo: solo sus prospectos asignados + prospectos de ejecutivos donde es backup
           // Obtener IDs de ejecutivos donde este ejecutivo es backup
           const { data: ejecutivosConBackup, error: backupError } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('id')
             .eq('backup_id', ejecutivoFilter)
             .eq('has_backup', true);
@@ -288,7 +288,7 @@ class ScheduledCallsService {
       if (allEjecutivoIds.length > 0) {
         try {
           const { data: ejecutivosData, error: ejecutivosError } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('id, full_name')
             .in('id', allEjecutivoIds);
 

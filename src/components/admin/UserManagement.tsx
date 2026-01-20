@@ -373,7 +373,7 @@ const UserManagement: React.FC = () => {
               if (user.role_name === 'ejecutivo' || user.role_name === 'supervisor') {
                 // FIX 2026-01-14: Para ejecutivos y supervisores: cargar coordinacion_id desde auth_users
                 const { data: systemUser } = await supabaseSystemUI
-                  .from('auth_users')
+                  .from('user_profiles_v2')
                   .select('coordinacion_id')
                   .eq('id', user.id)
                   .single();
@@ -789,31 +789,62 @@ const UserManagement: React.FC = () => {
     try {
       setLoading(true);
 
-      // Crear usuario usando función SQL
-      const { data: newUser, error: createError } = await supabaseSystemUI.rpc('create_user_with_role', {
-        user_email: formData.email,
-        user_password: formData.password,
-        user_first_name: formData.first_name,
-        user_last_name: formData.last_name,
-        user_role_id: formData.role_id,
-        user_phone: formData.phone || null,
-        user_department: formData.department || null,
-        user_position: formData.position || null,
-        user_is_active: formData.is_active
+      // ============================================
+      // CREAR USUARIO EN SUPABASE AUTH NATIVO
+      // ============================================
+      // Usa Edge Function auth-admin-proxy con operación createUser
+      // Los usuarios se crean en auth.users (no en tabla legacy auth_users)
+      
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      const selectedRole = roles.find(r => r.id === formData.role_id);
+      
+      const fullName = `${formData.first_name.trim()} ${formData.last_name.trim()}`;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'createUser',
+          params: {
+            email: formData.email.trim().toLowerCase(),
+            password: formData.password,
+            fullName,
+            roleId: formData.role_id,
+            phone: formData.phone || null,
+            isActive: formData.is_active,
+            isCoordinator: selectedRole?.name === 'coordinador',
+            isEjecutivo: selectedRole?.name === 'ejecutivo',
+            coordinacionId: formData.coordinacion_id || null
+          }
+        })
       });
 
-      if (createError) {
-        console.error('Error creating user:', createError);
-        throw new Error(createError.message || 'Error al crear usuario');
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        console.error('Error creating user:', result);
+        throw new Error(result.error || result.details?.join(', ') || 'Error al crear usuario');
       }
 
+      const userId = result.userId;
+
+      if (!userId) {
+        throw new Error('No se pudo obtener el ID del usuario creado');
+      }
+
+      console.log(`✅ Usuario creado en Supabase Auth: ${userId}`);
+
       // Subir avatar si existe
-      if (avatarFile && newUser && newUser[0]?.user_id) {
+      if (avatarFile && userId) {
         try {
           const fileExt = 'jpg';
-          const fileName = `avatar-${newUser[0].user_id}-${Date.now()}.${fileExt}`;
+          const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
           
-          const { data: uploadData, error: uploadError } = await pqncSupabaseAdmin.storage
+          const { error: uploadError } = await pqncSupabaseAdmin.storage
             .from('user-avatars')
             .upload(fileName, avatarFile);
 
@@ -822,14 +853,18 @@ const UserManagement: React.FC = () => {
               .from('user-avatars')
               .getPublicUrl(fileName);
 
-            // La función RPC está en System UI, no en PQNC
-            await supabaseSystemUI.rpc('upload_user_avatar', {
-              p_user_id: newUser[0].user_id,
-              p_avatar_url: publicUrl,
-              p_filename: fileName,
-              p_file_size: avatarFile.size,
-              p_mime_type: 'image/jpeg'
-            });
+            // Guardar URL de avatar (la RPC puede no existir, usar tabla directa si falla)
+            try {
+              await supabaseSystemUI.rpc('upload_user_avatar', {
+                p_user_id: userId,
+                p_avatar_url: publicUrl,
+                p_filename: fileName,
+                p_file_size: avatarFile.size,
+                p_mime_type: 'image/jpeg'
+              });
+            } catch {
+              console.warn('RPC upload_user_avatar no disponible, avatar subido a storage');
+            }
           }
         } catch (avatarError) {
           console.error('Error uploading avatar:', avatarError);
@@ -838,30 +873,19 @@ const UserManagement: React.FC = () => {
       }
 
       // Si es evaluador, asignar subpermisos de análisis
-      const selectedRole = roles.find(r => r.id === formData.role_id);
       if (selectedRole?.name === 'evaluator' && formData.analysis_sources.length > 0) {
-        await assignAnalysisSubPermissions(newUser[0].user_id, formData.analysis_sources);
+        await assignAnalysisSubPermissions(userId, formData.analysis_sources);
       }
 
-      // Si es coordinador, asignar múltiples coordinaciones usando tabla intermedia
-      if (selectedRole?.name === 'coordinador' && formData.coordinaciones_ids.length > 0 && newUser[0]?.user_id) {
+      // ============================================
+      // ASIGNAR COORDINACIONES (tabla auxiliar)
+      // ============================================
+      
+      // Si es coordinador, asignar múltiples coordinaciones
+      if (selectedRole?.name === 'coordinador' && formData.coordinaciones_ids.length > 0) {
         try {
-          // Actualizar flags del usuario
-          const { error: updateError } = await supabaseSystemUI
-            .from('auth_users')
-            .update({
-              is_coordinator: true,
-              is_ejecutivo: false,
-            })
-            .eq('id', newUser[0].user_id);
-
-          if (updateError) {
-            console.error('Error actualizando flags del coordinador:', updateError);
-          }
-
-          // Insertar relaciones en tabla intermedia (nueva tabla auth_user_coordinaciones)
           const relaciones = formData.coordinaciones_ids.map(coordId => ({
-            user_id: newUser[0].user_id,
+            user_id: userId,
             coordinacion_id: coordId,
             assigned_by: currentUser?.id || null
           }));
@@ -879,20 +903,18 @@ const UserManagement: React.FC = () => {
       }
 
       // Si es ejecutivo, asignar una sola coordinación
-      if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id && newUser[0]?.user_id) {
+      if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id) {
         try {
-          // Actualizar usuario en System_UI con coordinación y flags
-          const { error: updateError } = await supabaseSystemUI
-            .from('auth_users')
-            .update({
+          const { error: relacionError } = await supabaseSystemUI
+            .from('auth_user_coordinaciones')
+            .insert({
+              user_id: userId,
               coordinacion_id: formData.coordinacion_id,
-              is_coordinator: false,
-              is_ejecutivo: true,
-            })
-            .eq('id', newUser[0].user_id);
+              assigned_by: currentUser?.id || null
+            });
 
-          if (updateError) {
-            console.error('Error actualizando coordinación del ejecutivo:', updateError);
+          if (relacionError) {
+            console.error('Error asignando coordinación del ejecutivo:', relacionError);
           }
         } catch (coordError) {
           console.error('Error asignando coordinación:', coordError);
@@ -900,9 +922,9 @@ const UserManagement: React.FC = () => {
       }
 
       // Asignar grupo de permisos al usuario
-      if (selectedGroupId && newUser[0]?.user_id) {
+      if (selectedGroupId) {
         try {
-          await groupsService.assignUserToGroup(newUser[0].user_id, selectedGroupId, true);
+          await groupsService.assignUserToGroup(userId, selectedGroupId, true);
         } catch (groupError) {
           console.error('Error asignando grupo de permisos:', groupError);
           // No fallar la creación si falla la asignación del grupo
@@ -993,7 +1015,7 @@ const UserManagement: React.FC = () => {
 
       // Cargar coordinación del ejecutivo
       const { data: ejecutivoData } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('coordinacion_id')
         .eq('id', selectedUser.id)
         .single();
@@ -1078,7 +1100,7 @@ const UserManagement: React.FC = () => {
       if (!currentIdDynamics) {
         try {
           const { data: systemUser } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('id_dynamics')
             .eq('id', selectedUser.id)
             .single();
@@ -1115,7 +1137,7 @@ const UserManagement: React.FC = () => {
         const normalizedEmail = formData.email.trim().toLowerCase();
         // Verificar que el nuevo email no esté en uso por otro usuario
         const { data: existingUser, error: checkError } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('id, email')
           .ilike('email', normalizedEmail)
           .neq('id', selectedUser.id)
@@ -1132,7 +1154,7 @@ const UserManagement: React.FC = () => {
 
       // Actualizar datos básicos del usuario
       const { error: updateError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update(updateData)
         .eq('id', selectedUser.id);
 
@@ -1179,7 +1201,7 @@ const UserManagement: React.FC = () => {
         try {
           // Actualizar flags del usuario
           const { error: updateError } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .update({
               is_coordinator: true,
               is_ejecutivo: false,
@@ -1230,7 +1252,7 @@ const UserManagement: React.FC = () => {
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
           const { error: coordUpdateError } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .update({
               coordinacion_id: formData.coordinacion_id,
               is_coordinator: false,
@@ -1257,7 +1279,7 @@ const UserManagement: React.FC = () => {
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
           const { error: coordClearError } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .update({
               coordinacion_id: null,
               is_coordinator: false,
@@ -1364,7 +1386,7 @@ const UserManagement: React.FC = () => {
 
       // Archivar usuario (eliminación lógica)
       const { error: archiveError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update({ 
           archivado: true,
           is_active: false // También desactivar al archivar
@@ -1400,7 +1422,7 @@ const UserManagement: React.FC = () => {
 
       // Desarchivar usuario
       const { error: unarchiveError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update({ 
           archivado: false,
           is_active: true // Reactivar al desarchivar
@@ -1472,7 +1494,7 @@ const UserManagement: React.FC = () => {
 
       // Archivar usuario
       const { error: archiveError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update({ 
           archivado: true,
           is_active: false // También desactivar al archivar
@@ -1561,7 +1583,7 @@ const UserManagement: React.FC = () => {
     try {
       // Obtener role_id del usuario
       const { data: userData } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('role_id')
         .eq('id', userId)
         .single();
@@ -1653,7 +1675,7 @@ const UserManagement: React.FC = () => {
       try {
         // Primero cargar datos del usuario para obtener coordinacion_id directo
         const { data: systemUser, error: systemError } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('coordinacion_id, id_dynamics')
           .eq('id', user.id)
           .single();
@@ -1689,7 +1711,7 @@ const UserManagement: React.FC = () => {
       // Para ejecutivos: cargar desde campo coordinacion_id e id_dynamics
       try {
         const { data: systemUser, error: systemError } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('coordinacion_id, id_dynamics')
           .eq('id', user.id)
           .single();
@@ -1711,7 +1733,7 @@ const UserManagement: React.FC = () => {
       // ============================================
       try {
         const { data: systemUser, error: systemError } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('coordinacion_id, id_dynamics')
           .eq('id', user.id)
           .single();
@@ -2148,7 +2170,7 @@ const UserManagement: React.FC = () => {
                                 try {
                                   const nuevoEstado = e.target.checked;
                                   await supabaseSystemUI
-                                    .from('auth_users')
+                                    .from('user_profiles_v2')
                                     .update({ is_operativo: nuevoEstado })
                                     .eq('id', user.id);
                                   await loadUsers();

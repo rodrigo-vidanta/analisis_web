@@ -5,6 +5,7 @@
 // Autor: AI Division
 
 import { analysisSupabase } from '../config/analysisSupabase';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // ============================================
 // TIPOS
@@ -46,12 +47,30 @@ export interface SupportTicket {
   reporter_email: string | null;
   reporter_role: string | null;
   assigned_to: string | null;
+  assigned_to_role: string | null; // Rol al que está asignado (admin, administrador_operativo, coordinador)
   assigned_at: string | null;
   assigned_by: string | null;
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
   closed_at: string | null;
+}
+
+// Roles disponibles para asignación de tickets
+export type AssignableRole = 'admin' | 'administrador_operativo' | 'coordinador';
+
+export const ASSIGNABLE_ROLES: { value: AssignableRole; label: string; color: string }[] = [
+  { value: 'admin', label: 'Administradores', color: 'from-red-500 to-rose-600' },
+  { value: 'administrador_operativo', label: 'Admins Operativos', color: 'from-purple-500 to-violet-600' },
+  { value: 'coordinador', label: 'Coordinadores de Calidad', color: 'from-blue-500 to-indigo-600' }
+];
+
+export interface UserForAssignment {
+  id: string;
+  full_name: string;
+  email: string;
+  role_name: string;
+  avatar_url?: string;
 }
 
 export interface TicketComment {
@@ -484,7 +503,7 @@ class TicketService {
     }
   }
 
-  // Asignar ticket a un usuario
+  // Asignar ticket a un usuario específico
   async assignTicket(
     ticketId: string,
     assignedTo: string,
@@ -496,6 +515,7 @@ class TicketService {
         .from('support_tickets')
         .update({
           assigned_to: assignedTo,
+          assigned_to_role: null, // Limpiar asignación por rol
           assigned_at: new Date().toISOString(),
           assigned_by: assignedBy,
           status: 'en_progreso'
@@ -507,12 +527,123 @@ class TicketService {
       }
 
       // Registrar en historial
-      await this.addHistoryEntry(ticketId, assignedBy, assignedByName, 'assignment', null, assignedTo);
+      await this.addHistoryEntry(ticketId, assignedBy, assignedByName, 'assignment_user', null, assignedTo);
 
       return { success: true, error: null };
     } catch (err) {
       console.error('Error in assignTicket:', err);
       return { success: false, error: 'Error al asignar ticket' };
+    }
+  }
+
+  // Asignar ticket a un grupo de roles
+  async assignTicketToRole(
+    ticketId: string,
+    role: string,
+    assignedBy: string,
+    assignedByName: string
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const { error } = await analysisSupabase
+        .from('support_tickets')
+        .update({
+          assigned_to: null, // Limpiar asignación a usuario específico
+          assigned_to_role: role,
+          assigned_at: new Date().toISOString(),
+          assigned_by: assignedBy,
+          status: 'en_progreso'
+        })
+        .eq('id', ticketId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Registrar en historial
+      await this.addHistoryEntry(ticketId, assignedBy, assignedByName, 'assignment_role', null, role);
+
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('Error in assignTicketToRole:', err);
+      return { success: false, error: 'Error al asignar ticket al grupo' };
+    }
+  }
+
+  // Quitar asignación del ticket
+  async unassignTicket(
+    ticketId: string,
+    unassignedBy: string,
+    unassignedByName: string
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const { error } = await analysisSupabase
+        .from('support_tickets')
+        .update({
+          assigned_to: null,
+          assigned_to_role: null,
+          assigned_at: null,
+          assigned_by: null
+        })
+        .eq('id', ticketId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Registrar en historial
+      await this.addHistoryEntry(ticketId, unassignedBy, unassignedByName, 'unassignment', null, null);
+
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('Error in unassignTicket:', err);
+      return { success: false, error: 'Error al quitar asignación' };
+    }
+  }
+
+  // Obtener usuarios por rol para asignación
+  async getUsersByRole(role: string): Promise<{ users: UserForAssignment[]; error: string | null }> {
+    try {
+      const { data, error } = await supabaseSystemUI
+        .from('user_profiles_v2')
+        .select('id, full_name, email, role_name, avatar_url')
+        .eq('role_name', role)
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (error) {
+        console.error('Error fetching users by role:', error);
+        return { users: [], error: error.message };
+      }
+
+      return { 
+        users: (data || []).map(u => ({
+          id: u.id,
+          full_name: u.full_name || u.email?.split('@')[0] || 'Sin nombre',
+          email: u.email,
+          role_name: u.role_name,
+          avatar_url: u.avatar_url
+        })), 
+        error: null 
+      };
+    } catch (err) {
+      console.error('Error in getUsersByRole:', err);
+      return { users: [], error: 'Error al obtener usuarios' };
+    }
+  }
+
+  // Obtener nombre de usuario asignado
+  async getAssignedUserName(userId: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabaseSystemUI
+        .from('user_profiles_v2')
+        .select('full_name, email')
+        .eq('id', userId)
+        .single();
+
+      if (error || !data) return null;
+      return data.full_name || data.email?.split('@')[0] || null;
+    } catch {
+      return null;
     }
   }
 

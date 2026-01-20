@@ -4,19 +4,15 @@
  * ============================================
  * 
  * Proxy seguro para operaciones de autenticación
- * - updateLastLogin
- * - logLogin (RPC)
- * - Operaciones admin de auth_users
+ * MIGRACIÓN COMPLETADA: 2026-01-20
+ * Ahora usa auth.users nativo de Supabase
  * 
  * Autor: PQNC AI Platform
- * Fecha: 15 Enero 2026
  * Seguridad: Enterprise Level
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-
-// NOTA: No usamos bcrypt - Supabase Auth Admin API maneja el hashing internamente
 
 // ============================================
 // CONFIGURACIÓN
@@ -38,7 +34,6 @@ const corsHeaders = {
 // ============================================
 // VALIDACIÓN DE CONTRASEÑA (Supabase Auth Policy)
 // ============================================
-// Política: mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número, 1 especial
 function validatePasswordComplexity(password: string): { valid: boolean; errors: string[] } {
   const errors: string[] = []
   
@@ -78,7 +73,10 @@ const ALLOWED_OPERATIONS = [
   'changePassword',
   'assignUserToGroup',
   'removeUserFromGroup',
-  'getUserGroups'
+  'getUserGroups',
+  'createUser',
+  'updateUserMetadata',
+  'deleteUser' // Nueva operación
 ]
 
 // ============================================
@@ -106,7 +104,7 @@ serve(async (req) => {
 
     switch (operation) {
       // ============================================
-      // UPDATE LAST LOGIN
+      // UPDATE LAST LOGIN (auth.users nativo)
       // ============================================
       case 'updateLastLogin': {
         const { userId } = params
@@ -117,16 +115,25 @@ serve(async (req) => {
           )
         }
 
-        const { error } = await supabase
-          .from('auth_users')
-          .update({ 
+        // Actualizar en auth.users via raw_user_meta_data
+        const { data: userData } = await supabase.auth.admin.getUserById(userId)
+        if (!userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...userData.user.user_metadata,
             last_login: new Date().toISOString(),
             failed_login_attempts: 0,
             locked_until: null
-          })
-          .eq('id', userId)
+          }
+        })
 
-        if (error) throw error
+        if (updateError) throw updateError
         result = { success: true }
         break
       }
@@ -147,7 +154,6 @@ serve(async (req) => {
 
         if (error) {
           console.warn('[auth-admin-proxy] logLogin RPC error:', error.message)
-          // No fallar si el RPC no existe
           result = { success: true, warning: 'RPC may not exist' }
         } else {
           result = { success: true, data }
@@ -156,10 +162,10 @@ serve(async (req) => {
       }
 
       // ============================================
-      // GET USER BY ID
+      // GET USER BY ID (auth.users nativo)
       // ============================================
       case 'getUserById': {
-        const { userId, select } = params
+        const { userId } = params
         if (!userId) {
           return new Response(
             JSON.stringify({ error: 'userId required' }),
@@ -167,19 +173,41 @@ serve(async (req) => {
           )
         }
 
-        const { data, error } = await supabase
-          .from('auth_users')
-          .select(select || '*')
-          .eq('id', userId)
-          .single()
+        const { data: userData, error } = await supabase.auth.admin.getUserById(userId)
+        
+        if (error || !userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
 
-        if (error) throw error
-        result = { data }
+        // Mapear a estructura compatible
+        const user = userData.user
+        result = { 
+          data: {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+            phone: user.user_metadata?.phone || user.phone,
+            role_id: user.user_metadata?.role_id,
+            role_name: user.user_metadata?.role_name,
+            is_active: user.user_metadata?.is_active ?? true,
+            is_operativo: user.user_metadata?.is_operativo ?? false,
+            is_ejecutivo: user.user_metadata?.is_ejecutivo ?? false,
+            is_coordinator: user.user_metadata?.is_coordinator ?? false,
+            id_dynamics: user.user_metadata?.id_dynamics,
+            coordinacion_id: user.user_metadata?.coordinacion_id,
+            last_login: user.user_metadata?.last_login || user.last_sign_in_at,
+            created_at: user.created_at,
+            updated_at: user.updated_at
+          }
+        }
         break
       }
 
       // ============================================
-      // UPDATE USER FIELD
+      // UPDATE USER FIELD (auth.users nativo)
       // ============================================
       case 'updateUserField': {
         const { userId, updates } = params
@@ -200,25 +228,37 @@ serve(async (req) => {
           }
         }
 
-        const { error } = await supabase
-          .from('auth_users')
-          .update(safeUpdates)
-          .eq('id', userId)
+        // Obtener metadata actual
+        const { data: userData } = await supabase.auth.admin.getUserById(userId)
+        if (!userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
 
-        if (error) throw error
+        const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...userData.user.user_metadata,
+            ...safeUpdates
+          }
+        })
+
+        if (updateError) throw updateError
         result = { success: true }
         break
       }
 
       // ============================================
-      // GET EXECUTIVES WITH BACKUP
+      // GET EXECUTIVES WITH BACKUP (auth.users nativo via view)
       // ============================================
       case 'getExecutivesWithBackup': {
         const { roleIds, coordinacionId } = params
         
+        // Usar la vista user_profiles_v2 que lee de auth.users
         let query = supabase
-          .from('auth_users')
-          .select('id, full_name, email, role_id, coordinacion_id, backup_user_id, is_active')
+          .from('user_profiles_v2')
+          .select('id, full_name, email, role_id, coordinacion_id, is_active, is_ejecutivo')
           .eq('is_active', true)
 
         if (roleIds && roleIds.length > 0) {
@@ -237,7 +277,7 @@ serve(async (req) => {
       }
 
       // ============================================
-      // VALIDATE SESSION
+      // VALIDATE SESSION (auth.users nativo)
       // ============================================
       case 'validateSession': {
         const { sessionToken } = params
@@ -248,24 +288,19 @@ serve(async (req) => {
           )
         }
 
-        const { data, error } = await supabase
-          .from('auth_sessions')
-          .select('user_id, expires_at, created_at')
-          .eq('session_token', sessionToken)
-          .single()
-
-        if (error || !data) {
-          result = { valid: false }
-        } else if (new Date(data.expires_at) < new Date()) {
-          result = { valid: false, reason: 'expired' }
+        // Para sesiones de Supabase Auth nativo
+        const { data: { user }, error } = await supabase.auth.getUser(sessionToken)
+        
+        if (error || !user) {
+          result = { valid: false, reason: 'invalid_token' }
         } else {
-          result = { valid: true, userId: data.user_id }
+          result = { valid: true, userId: user.id }
         }
         break
       }
 
       // ============================================
-      // UPDATE IS OPERATIVO
+      // UPDATE IS OPERATIVO (auth.users nativo)
       // ============================================
       case 'updateIsOperativo': {
         const { userId, isOperativo } = params
@@ -276,21 +311,34 @@ serve(async (req) => {
           )
         }
 
-        const { error } = await supabase
-          .from('auth_users')
-          .update({ 
-            is_operativo: isOperativo,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userId)
+        // Obtener metadata actual
+        const { data: userData } = await supabase.auth.admin.getUserById(userId)
+        if (!userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
 
-        if (error) throw error
-        result = { success: true }
+        // REGLA: Solo puede ser operativo si tiene id_dynamics
+        const currentIdDynamics = userData.user.user_metadata?.id_dynamics
+        const finalIsOperativo = currentIdDynamics ? isOperativo : false
+
+        const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...userData.user.user_metadata,
+            is_operativo: finalIsOperativo,
+            updated_at: new Date().toISOString()
+          }
+        })
+
+        if (updateError) throw updateError
+        result = { success: true, is_operativo: finalIsOperativo }
         break
       }
 
       // ============================================
-      // RESET FAILED ATTEMPTS
+      // RESET FAILED ATTEMPTS (auth.users nativo)
       // ============================================
       case 'resetFailedAttempts': {
         const { userId } = params
@@ -301,21 +349,29 @@ serve(async (req) => {
           )
         }
 
-        const { error } = await supabase
-          .from('auth_users')
-          .update({ 
+        const { data: userData } = await supabase.auth.admin.getUserById(userId)
+        if (!userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...userData.user.user_metadata,
             failed_login_attempts: 0,
             locked_until: null
-          })
-          .eq('id', userId)
+          }
+        })
 
-        if (error) throw error
+        if (updateError) throw updateError
         result = { success: true }
         break
       }
 
       // ============================================
-      // VERIFY PASSWORD
+      // VERIFY PASSWORD (Supabase Auth nativo)
       // ============================================
       case 'verifyPassword': {
         const { email, password } = params
@@ -337,19 +393,14 @@ serve(async (req) => {
           break
         }
 
-        // Obtener ID del usuario en auth_users
-        const { data: userData } = await supabase
-          .from('auth_users')
-          .select('id, is_active')
-          .eq('email', email.toLowerCase())
-          .single()
-
-        if (userData && !userData.is_active) {
+        // Verificar si está activo
+        const isActive = authData.user.user_metadata?.is_active ?? true
+        if (!isActive) {
           result = { valid: false, error: 'Usuario inactivo' }
           break
         }
 
-        result = { valid: true, userId: userData?.id, authUserId: authData.user.id }
+        result = { valid: true, userId: authData.user.id }
         break
       }
 
@@ -439,7 +490,7 @@ serve(async (req) => {
       }
 
       // ============================================
-      // CHANGE PASSWORD
+      // CHANGE PASSWORD (Supabase Auth nativo)
       // ============================================
       case 'changePassword': {
         const { userId, newPassword } = params
@@ -463,70 +514,245 @@ serve(async (req) => {
           )
         }
 
-        // Obtener email del usuario de auth_users
-        const { data: userData, error: userDataError } = await supabase
-          .from('auth_users')
-          .select('email, full_name')
-          .eq('id', userId)
-          .single()
-
-        if (userDataError || !userData) {
+        // Actualizar contraseña directamente en auth.users
+        const { data: userData } = await supabase.auth.admin.getUserById(userId)
+        if (!userData?.user) {
           return new Response(
             JSON.stringify({ error: 'Usuario no encontrado' }),
             { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
 
-        // Buscar usuario en auth.users por email
-        const { data: authUsers } = await supabase.auth.admin.listUsers()
-        const authUser = authUsers?.users?.find(u => u.email?.toLowerCase() === userData.email.toLowerCase())
+        const { error: authError } = await supabase.auth.admin.updateUserById(userId, { 
+          password: newPassword 
+        })
         
-        if (authUser) {
-          // Actualizar contraseña en Supabase Auth
-          const { error: authError } = await supabase.auth.admin.updateUserById(
-            authUser.id,
-            { password: newPassword }
-          )
-          if (authError) {
-            console.error('Error actualizando Supabase Auth:', authError)
-            throw authError
-          }
-          console.log(`✅ Contraseña actualizada en Supabase Auth para ${userData.email}`)
-        } else {
-          // Usuario no existe en auth.users - CREARLO
-          console.log(`📝 Creando usuario ${userData.email} en Supabase Auth...`)
-          const { data: newAuthUser, error: createError } = await supabase.auth.admin.createUser({
-            email: userData.email,
-            password: newPassword,
-            email_confirm: true,
-            user_metadata: {
-              auth_users_id: userId,
-              full_name: userData.full_name || userData.email.split('@')[0]
-            }
-          })
-          if (createError) {
-            console.error('Error creando usuario en Supabase Auth:', createError)
-            throw createError
-          }
-          console.log(`✅ Usuario creado en Supabase Auth: ${newAuthUser?.user?.id}`)
+        if (authError) {
+          console.error('Error actualizando contraseña:', authError)
+          throw authError
         }
 
-        // 2. Actualizar metadatos en auth_users (tabla custom)
-        const { error: updateError } = await supabase
-          .from('auth_users')
-          .update({ 
-            updated_at: new Date().toISOString(),
+        // Actualizar metadata
+        await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...userData.user.user_metadata,
             password_changed_at: new Date().toISOString(),
             must_change_password: false
-          })
-          .eq('id', userId)
+          }
+        })
+        
+        console.log(`✅ Contraseña cambiada para usuario ${userId}`)
+        result = { success: true }
+        break
+      }
+
+      // ============================================
+      // CREATE USER (Supabase Auth Nativo)
+      // ============================================
+      case 'createUser': {
+        const { 
+          email, 
+          password, 
+          fullName, 
+          roleId, 
+          phone,
+          idDynamics = null,
+          isActive = true,
+          isOperativo = false,
+          isCoordinator = false,
+          isEjecutivo = false,
+          coordinacionId = null
+        } = params
+        
+        if (!email || !password) {
+          return new Response(
+            JSON.stringify({ error: 'email and password required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Validar complejidad de contraseña
+        const passwordValidation = validatePasswordComplexity(password)
+        if (!passwordValidation.valid) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Contraseña no cumple política de seguridad', 
+              details: passwordValidation.errors 
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Verificar si el email ya existe
+        const { data: existingUsers } = await supabase.auth.admin.listUsers()
+        const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+        
+        if (existingUser) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'El email ya está registrado en el sistema',
+              existingUserId: existingUser.id
+            }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Obtener nombre del rol
+        let roleName = 'ejecutivo'
+        if (roleId) {
+          const { data: roleData } = await supabase
+            .from('auth_roles')
+            .select('name')
+            .eq('id', roleId)
+            .single()
+          if (roleData) {
+            roleName = roleData.name
+          }
+        }
+
+        // REGLA: Solo es operativo si tiene id_dynamics
+        const finalIsOperativo = idDynamics ? isOperativo : false
+        
+        const { data: newAuthUser, error: createError } = await supabase.auth.admin.createUser({
+          email: email.toLowerCase(),
+          password,
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName || email.split('@')[0],
+            first_name: fullName?.split(' ')[0] || email.split('@')[0],
+            last_name: fullName?.split(' ').slice(1).join(' ') || '',
+            role_id: roleId || null,
+            role_name: roleName,
+            phone: phone || null,
+            id_dynamics: idDynamics || null,
+            is_active: isActive,
+            is_operativo: finalIsOperativo,
+            is_coordinator: isCoordinator || roleName === 'coordinador',
+            is_ejecutivo: isEjecutivo || roleName === 'ejecutivo',
+            coordinacion_id: coordinacionId,
+            created_via: 'auth-admin-proxy',
+            created_at: new Date().toISOString()
+          }
+        })
+
+        if (createError) {
+          console.error('Error creando usuario:', createError)
+          throw createError
+        }
+
+        console.log(`✅ Usuario creado: ${newAuthUser?.user?.id}`)
+        result = { 
+          success: true, 
+          userId: newAuthUser?.user?.id,
+          email: newAuthUser?.user?.email,
+          message: `Usuario ${email} creado exitosamente`
+        }
+        break
+      }
+
+      // ============================================
+      // UPDATE USER METADATA (Supabase Auth Nativo)
+      // ============================================
+      case 'updateUserMetadata': {
+        const { userId, metadata } = params
+        
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'userId required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        if (!metadata || typeof metadata !== 'object') {
+          return new Response(
+            JSON.stringify({ error: 'metadata object required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Obtener metadata actual
+        const { data: userData } = await supabase.auth.admin.getUserById(userId)
+        if (!userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // REGLA: Si se intenta poner is_operativo sin id_dynamics, corregir
+        const currentIdDynamics = userData.user.user_metadata?.id_dynamics
+        const newIdDynamics = metadata.id_dynamics
+        
+        if (metadata.is_operativo === true && !newIdDynamics && !currentIdDynamics) {
+          metadata.is_operativo = false
+          console.warn(`⚠️ Corrigiendo is_operativo a false para usuario ${userId} sin id_dynamics`)
+        }
+
+        const { data: updatedUser, error: updateError } = await supabase.auth.admin.updateUserById(
+          userId,
+          { 
+            user_metadata: {
+              ...userData.user.user_metadata,
+              ...metadata,
+              updated_at: new Date().toISOString()
+            }
+          }
+        )
 
         if (updateError) {
-          console.warn('Error actualizando auth_users:', updateError)
+          console.error('Error actualizando metadata:', updateError)
+          throw updateError
         }
+
+        console.log(`✅ Metadata actualizado para usuario ${userId}`)
+        result = { 
+          success: true, 
+          userId,
+          metadata: updatedUser?.user?.user_metadata,
+          message: 'Metadata actualizado exitosamente'
+        }
+        break
+      }
+
+      // ============================================
+      // DELETE USER (Supabase Auth Nativo)
+      // ============================================
+      case 'deleteUser': {
+        const { userId, softDelete = true } = params
         
-        console.log(`✅ Contraseña cambiada para usuario ${userId} en Supabase Auth`)
-        result = { success: true }
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'userId required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        if (softDelete) {
+          // Soft delete: marcar como inactivo
+          const { data: userData } = await supabase.auth.admin.getUserById(userId)
+          if (!userData?.user) {
+            return new Response(
+              JSON.stringify({ error: 'User not found' }),
+              { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          await supabase.auth.admin.updateUserById(userId, {
+            user_metadata: {
+              ...userData.user.user_metadata,
+              is_active: false,
+              deleted_at: new Date().toISOString(),
+              deleted_via: 'auth-admin-proxy'
+            }
+          })
+          
+          result = { success: true, message: 'Usuario desactivado (soft delete)' }
+        } else {
+          // Hard delete: eliminar permanentemente
+          const { error } = await supabase.auth.admin.deleteUser(userId)
+          if (error) throw error
+          result = { success: true, message: 'Usuario eliminado permanentemente' }
+        }
         break
       }
 

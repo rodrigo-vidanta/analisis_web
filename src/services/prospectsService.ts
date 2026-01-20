@@ -470,7 +470,7 @@ class ProspectsService {
               // Obtener IDs de ejecutivos donde es backup
               const { supabaseSystemUI } = await import('../config/supabaseSystemUI');
               const { data: ejecutivosConBackup } = await supabaseSystemUI
-                .from('auth_users')
+                .from('user_profiles_v2')
                 .select('id')
                 .eq('backup_id', ejecutivoFilter)
                 .eq('has_backup', true);

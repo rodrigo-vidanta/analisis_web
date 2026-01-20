@@ -139,7 +139,7 @@ class WhatsAppLabelsService {
         throw new Error('Supabase System UI no está configurado');
       }
 
-      // Cargar TODAS las etiquetas custom activas con info del creador
+      // Cargar TODAS las etiquetas custom activas
       const { data, error } = await supabaseSystemUI
         .from('whatsapp_labels_custom')
         .select(`
@@ -147,19 +147,31 @@ class WhatsAppLabelsService {
           name,
           color,
           description,
-          user_id,
-          creator:auth_users!user_id(
-            full_name,
-            email
-          )
+          user_id
         `)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
+      // Obtener info de creadores desde user_profiles_v2
+      const creatorIds = [...new Set((data || []).map(l => l.user_id).filter(Boolean))];
+      let creatorsMap: Record<string, { full_name: string; email: string }> = {};
+      
+      if (creatorIds.length > 0) {
+        const { data: creators } = await supabaseSystemUI
+          .from('user_profiles_v2')
+          .select('id, full_name, email')
+          .in('id', creatorIds);
+        
+        creatorsMap = (creators || []).reduce((acc, c) => {
+          acc[c.id] = { full_name: c.full_name, email: c.email };
+          return acc;
+        }, {} as Record<string, { full_name: string; email: string }>);
+      }
+      
       return (data || []).map(label => {
-        const creator = label.creator as any;
+        const creator = creatorsMap[label.user_id];
         const creatorName = creator?.full_name || creator?.email?.split('@')[0] || 'Usuario';
         
         return {

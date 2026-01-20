@@ -1532,7 +1532,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         try {
           const { supabaseSystemUI } = await import('../../../config/supabaseSystemUI');
           const { data: ejecutivosConBackup } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('id')
             .eq('backup_id', ejecutivoFilter)
             .eq('has_backup', true);
@@ -1827,7 +1827,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           try {
             // ✅ USAR supabaseSystemUI porque auth_users está en System UI DB
             const { data: usersData, error: usersError } = await supabaseSystemUI
-              .from('auth_users')
+              .from('user_profiles_v2')
               .select('id, full_name, first_name, last_name')
               .in('id', allUserIds);
             

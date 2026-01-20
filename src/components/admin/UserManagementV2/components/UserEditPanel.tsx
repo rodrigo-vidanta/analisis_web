@@ -58,6 +58,7 @@ interface FormData {
   last_name: string;
   password: string;
   phone: string;
+  id_dynamics: string; // ID de Dynamics CRM - requerido para is_operativo
   role_id: string;
   is_operativo: boolean;
   is_active: boolean;
@@ -432,16 +433,19 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
   // Reset form when user changes
   useEffect(() => {
     setFormData({
-      email: user.email || '',
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
+      email: user.email ?? '',
+      first_name: user.first_name ?? '',
+      last_name: user.last_name ?? '',
       password: '',
-      phone: user.phone || '',
-      role_id: user.role_id || '',
-      is_operativo: user.is_operativo !== false,
-      is_active: user.is_active,
-      coordinacion_id: user.coordinacion_id || '',
-      coordinaciones_ids: user.coordinaciones_ids || [],
+      phone: user.phone ?? '',
+      // Asegurar que siempre sea string para evitar error de controlled/uncontrolled
+      id_dynamics: user.id_dynamics ?? '',
+      role_id: user.role_id ?? '',
+      // REGLA DE NEGOCIO: Solo puede ser operativo si tiene id_dynamics
+      is_operativo: user.is_operativo === true && !!(user.id_dynamics ?? ''),
+      is_active: user.is_active ?? true,
+      coordinacion_id: user.coordinacion_id ?? '',
+      coordinaciones_ids: user.coordinaciones_ids ?? [],
       analysis_sources: []
     });
     setIsEditingPassword(false);
@@ -516,14 +520,19 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
     setError(null);
     
     try {
-      const updates: Partial<UserV2> & { password?: string; coordinaciones_ids?: string[] } = {
+      // REGLA DE NEGOCIO: Si no tiene id_dynamics, no puede ser operativo
+      const hasIdDynamics = !!formData.id_dynamics?.trim();
+      const finalIsOperativo = hasIdDynamics ? formData.is_operativo : false;
+      
+      const updates: Partial<UserV2> & { password?: string; coordinaciones_ids?: string[]; id_dynamics?: string | null } = {
         email: formData.email.trim().toLowerCase(),
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         full_name: `${formData.first_name.trim()} ${formData.last_name.trim()}`,
         phone: formData.phone.trim() || null,
+        id_dynamics: formData.id_dynamics?.trim() || null,
         role_id: formData.role_id,
-        is_operativo: formData.is_operativo,
+        is_operativo: finalIsOperativo,
         is_active: formData.is_active,
       };
 
@@ -582,17 +591,34 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
   const handleArchive = useCallback(async () => {
     setIsArchiving(true);
     try {
-      const { error } = await supabaseSystemUI
-        .from('auth_users')
-        .update({
-          archivado: true,
-          is_active: false,
-          is_operativo: false,
-          updated_at: new Date().toISOString()
+      // Usar Edge Function para actualizar metadata en auth.users
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: user.id,
+            metadata: {
+              is_active: false,
+              is_operativo: false,
+              archived: true,
+              archived_at: new Date().toISOString()
+            }
+          }
         })
-        .eq('id', user.id);
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error archivando usuario');
+      }
       
       toast.success('Usuario archivado correctamente');
       onRefresh();
@@ -606,14 +632,16 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
   }, [user.id, onRefresh, onClose]);
 
   const handleToggleOperativo = useCallback(() => {
-    // Validar: ejecutivos no pueden habilitar operativo sin id_dynamics
-    if (user.role_name === 'ejecutivo' && !user.id_dynamics && !formData.is_operativo) {
-      setError('No se puede habilitar operativo un ejecutivo sin ID_Dynamics');
+    // REGLA DE NEGOCIO: No se puede habilitar operativo sin id_dynamics
+    const hasIdDynamics = !!formData.id_dynamics?.trim();
+    
+    if (!hasIdDynamics && !formData.is_operativo) {
+      setError('No se puede habilitar operativo sin ID Dynamics. Por favor, asigne un ID Dynamics primero.');
       return;
     }
     setFormData(prev => ({ ...prev, is_operativo: !prev.is_operativo }));
     setError(null);
-  }, [user.role_name, user.id_dynamics, formData.is_operativo]);
+  }, [formData.id_dynamics, formData.is_operativo]);
 
   // Manejar toggle de grupos de permisos
   const handleToggleGroup = useCallback(async (groupId: string) => {
@@ -941,6 +969,32 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
                     placeholder="+52 123 456 7890"
                   />
+                </div>
+
+                {/* ID Dynamics */}
+                <div className="group">
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    <Building2 className="w-4 h-4 text-gray-400" />
+                    <span>ID Dynamics (CRM)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.id_dynamics ?? ''}
+                    onChange={(e) => {
+                      const newIdDynamics = e.target.value;
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        id_dynamics: newIdDynamics,
+                        // REGLA DE NEGOCIO: Si se quita id_dynamics, también se quita operativo
+                        is_operativo: newIdDynamics.trim() ? prev.is_operativo : false
+                      }));
+                    }}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                    placeholder="ID del usuario en Dynamics CRM"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Requerido para marcar al usuario como operativo
+                  </p>
                 </div>
               </div>
 

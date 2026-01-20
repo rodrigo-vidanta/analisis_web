@@ -57,14 +57,15 @@ const TemplateSuggestionsTab: React.FC<TemplateSuggestionsTabProps> = ({ onImpor
       
       if (uniqueUserIds.length > 0) {
         try {
+          // Usar user_profiles_v2 que ya tiene role_name incluido
           const { data: usersData, error: usersError } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select(`
               id, 
               full_name, 
               email,
               coordinacion_id,
-              auth_roles(name)
+              role_name
             `)
             .in('id', uniqueUserIds);
           

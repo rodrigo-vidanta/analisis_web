@@ -542,20 +542,34 @@ class GroupsService {
    */
   async getGroupUsers(groupId: string): Promise<UserGroupAssignment[]> {
     try {
+      // Obtener asignaciones
       const { data, error } = await supabaseSystemUI
         .from('user_permission_groups')
-        .select(`
-          *,
-          user:auth_users(id, email, full_name, avatar_url)
-        `)
+        .select('*')
         .eq('group_id', groupId)
         .order('assigned_at', { ascending: false });
 
       if (error) throw error;
 
+      // Obtener info de usuarios desde user_profiles_v2
+      const userIds = (data || []).map(d => d.user_id).filter(Boolean);
+      let usersMap: Record<string, { id: string; email: string; full_name: string; avatar_url: string | null }> = {};
+      
+      if (userIds.length > 0) {
+        const { data: users } = await supabaseSystemUI
+          .from('user_profiles_v2')
+          .select('id, email, full_name')
+          .in('id', userIds);
+        
+        usersMap = (users || []).reduce((acc, u) => {
+          acc[u.id] = { ...u, avatar_url: null };
+          return acc;
+        }, {} as typeof usersMap);
+      }
+
       return (data || []).map(item => ({
         ...item,
-        user: item.user as UserGroupAssignment['user']
+        user: usersMap[item.user_id] || { id: item.user_id, email: '', full_name: 'Usuario', avatar_url: null }
       }));
     } catch (error) {
       console.error('Error obteniendo usuarios del grupo:', error);

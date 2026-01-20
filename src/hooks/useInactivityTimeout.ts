@@ -52,7 +52,7 @@ export const useInactivityTimeout = () => {
             
             if (currentUser.role_name === 'ejecutivo') {
               const { data: ejecutivoData } = await supabaseSystemUI
-                .from('auth_users')
+                .from('user_profiles_v2')
                 .select('coordinacion_id')
                 .eq('id', currentUser.id)
                 .single();
@@ -91,7 +91,7 @@ export const useInactivityTimeout = () => {
 
             // Actualizar is_operativo a false
             const { error: updateError } = await supabaseSystemUI
-              .from('auth_users')
+              .from('user_profiles_v2')
               .update({ 
                 is_operativo: false,
                 updated_at: new Date().toISOString()
@@ -164,7 +164,7 @@ export const useInactivityTimeout = () => {
           try {
             // Obtener coordinación del ejecutivo
             const { data: ejecutivoData } = await supabaseSystemUI
-              .from('auth_users')
+              .from('user_profiles_v2')
               .select('coordinacion_id')
               .eq('id', currentUser.id)
               .single();
@@ -192,7 +192,7 @@ export const useInactivityTimeout = () => {
 
             // Actualizar is_operativo a false
             const { error: updateError } = await supabaseSystemUI
-              .from('auth_users')
+              .from('user_profiles_v2')
               .update({ 
                 is_operativo: false,
                 updated_at: new Date().toISOString()

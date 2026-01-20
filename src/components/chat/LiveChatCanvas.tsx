@@ -1475,7 +1475,7 @@ const LiveChatCanvas: React.FC = () => {
         // Cargar de BD solo si no está en cache (muy diferido)
         setTimeout(() => {
           supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('full_name')
             .eq('id', newMessagePayload.id_sender)
             .single()
@@ -3782,7 +3782,7 @@ const LiveChatCanvas: React.FC = () => {
         try {
           const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
           const { data: ejecutivosConBackup } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('id')
             .eq('backup_id', ejecutivoFilter)
             .eq('has_backup', true);
@@ -4099,7 +4099,7 @@ const LiveChatCanvas: React.FC = () => {
           try {
             const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
             const { data: ejecutivosConBackup } = await supabaseSystemUI
-              .from('auth_users')
+              .from('user_profiles_v2')
               .select('id')
               .eq('backup_id', ejecutivoFilter)
               .eq('has_backup', true);
@@ -4318,7 +4318,7 @@ const LiveChatCanvas: React.FC = () => {
         // Obtener IDs de ejecutivos donde es backup
         const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
         const { data: ejecutivosConBackup } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('id')
           .eq('backup_id', ejecutivoFilter)
           .eq('has_backup', true);
@@ -4570,7 +4570,7 @@ const LiveChatCanvas: React.FC = () => {
         if (allUserIds.length > 0) {
           try {
             const { data: usersData, error: usersError } = await supabaseSystemUI
-              .from('auth_users')
+              .from('user_profiles_v2')
               .select('id, full_name, first_name, last_name')
               .in('id', allUserIds);
             
@@ -4976,7 +4976,7 @@ const LiveChatCanvas: React.FC = () => {
       if (senderIds.length > 0) {
         try {
           const { data: usersData } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('id, full_name, first_name, last_name')
             .in('id', senderIds);
           
@@ -5073,7 +5073,7 @@ const LiveChatCanvas: React.FC = () => {
       if (senderIds.length > 0) {
         try {
           const { data: usersData } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('id, full_name, first_name, last_name')
             .in('id', senderIds);
           
@@ -5166,7 +5166,7 @@ const LiveChatCanvas: React.FC = () => {
       if (senderIds.length > 0) {
         try {
           const { data: usersData } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select('id, full_name, first_name, last_name')
             .in('id', senderIds);
           
@@ -6150,7 +6150,7 @@ const LiveChatCanvas: React.FC = () => {
       // Si tenemos el assigned_agent_id, buscar el nombre en auth_users
       if (assignedAgentId) {
         const { data: agentData, error: agentError } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('full_name')
           .eq('id', assignedAgentId)
           .maybeSingle();

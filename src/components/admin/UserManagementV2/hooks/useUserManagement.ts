@@ -930,19 +930,55 @@ export function useUserManagement(): UseUserManagementReturn {
         }
       }
 
-      // 4. Actualizar auth_users si hay campos válidos
-      if (Object.keys(filteredUpdates).length > 0) {
-        console.log('Actualizando auth_users con campos:', filteredUpdates);
+      // 4. Actualizar metadatos en auth.users (Supabase Auth nativo)
+      // Esta es la fuente de verdad para user_profiles_v2
+      const metadataFields = ['full_name', 'first_name', 'last_name', 'phone', 'id_dynamics', 
+        'is_active', 'is_operativo', 'is_coordinator', 'is_ejecutivo', 'coordinacion_id', 
+        'role_id', 'archivado', 'must_change_password'];
+      
+      const metadataUpdates: Record<string, unknown> = {};
+      for (const key of metadataFields) {
+        if (filteredUpdates[key] !== undefined) {
+          metadataUpdates[key] = filteredUpdates[key];
+        }
+      }
 
-        const { error } = await supabaseSystemUI
-          .from('auth_users')
-          .update({
-            ...filteredUpdates,
-            updated_at: new Date().toISOString()
+      if (Object.keys(metadataUpdates).length > 0) {
+        console.log('Actualizando auth.users metadata con campos:', metadataUpdates);
+
+        const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+        const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+
+        // REGLA DE NEGOCIO: Si no tiene id_dynamics, no puede ser operativo
+        if (metadataUpdates.is_operativo === true && !metadataUpdates.id_dynamics) {
+          // Verificar si ya tiene id_dynamics
+          const existingUser = users.find(u => u.id === userId);
+          if (!existingUser?.id_dynamics && !metadataUpdates.id_dynamics) {
+            metadataUpdates.is_operativo = false;
+            console.warn('⚠️ Corrigiendo is_operativo a false: usuario sin id_dynamics');
+          }
+        }
+
+        const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({
+            operation: 'updateUserMetadata',
+            params: {
+              userId,
+              metadata: metadataUpdates
+            }
           })
-          .eq('id', userId);
+        });
 
-        if (error) throw error;
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          console.error('Error actualizando metadata:', result.error);
+          throw new Error(result.error || 'Error al actualizar metadata del usuario');
+        }
       }
 
       // 5. Actualizar estado local

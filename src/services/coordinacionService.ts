@@ -405,7 +405,7 @@ class CoordinacionService {
     try {
       // Verificar que no tenga ejecutivos asignados
       const { count, error: countError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select('*', { count: 'exact', head: true })
         .eq('coordinacion_id', coordinacionId)
         .eq('auth_roles.name', 'ejecutivo');
@@ -654,8 +654,9 @@ class CoordinacionService {
    */
   async getEjecutivoById(ejecutivoId: string): Promise<Ejecutivo | null> {
     try {
+      // Usar user_profiles_v2 que ya tiene role_name incluido
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select(`
           id,
           email,
@@ -670,7 +671,7 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          auth_roles(name)
+          role_name
         `)
         .eq('id', ejecutivoId)
         .eq('is_active', true)
@@ -683,10 +684,6 @@ class CoordinacionService {
 
       if (!data) return null;
 
-      const coordinacion = Array.isArray(data.coordinaciones) 
-        ? data.coordinaciones[0] 
-        : data.coordinaciones;
-
       return {
         id: data.id,
         email: data.email,
@@ -695,8 +692,8 @@ class CoordinacionService {
         last_name: data.last_name,
         phone: data.phone,
         coordinacion_id: data.coordinacion_id,
-        coordinacion_codigo: coordinacion?.codigo,
-        coordinacion_nombre: coordinacion?.nombre,
+        coordinacion_codigo: null,
+        coordinacion_nombre: null,
         is_active: data.is_active,
         is_operativo: data.is_operativo,
         id_dynamics: data.id_dynamics,
@@ -757,7 +754,7 @@ class CoordinacionService {
       // Obtener datos de usuarios que son SUPERVISORES (role_name = 'supervisor')
       // Necesitamos hacer join con auth_roles para filtrar solo supervisores
       const { data: usersData, error: usersError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select(`
           id,
           email,
@@ -887,7 +884,7 @@ class CoordinacionService {
       // Obtener datos de los coordinadores (solo los que están en la lista)
       // IMPORTANTE: Solo obtener coordinadores que están en auth_user_coordinaciones para esta coordinación específica
       const { data: usersData, error: usersError } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select(`
           id,
           email,
@@ -1000,7 +997,7 @@ class CoordinacionService {
 
         if (coordinadorIds.length > 0) {
           const { data: usersData, error: usersError } = await supabaseSystemUI
-            .from('auth_users')
+            .from('user_profiles_v2')
             .select(`
               id,
               email,
@@ -1053,7 +1050,7 @@ class CoordinacionService {
       } else {
         // Fallback: obtener coordinadores directamente de auth_users donde tienen coordinacion_id
         const { data: usersData, error: usersError } = await supabaseSystemUI
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select(`
             id,
             email,
@@ -1118,8 +1115,9 @@ class CoordinacionService {
    */
   async getAllEjecutivos(): Promise<Ejecutivo[]> {
     try {
+      // Usar user_profiles_v2 que ya tiene role_name incluido
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .select(`
           id,
           email,
@@ -1132,19 +1130,15 @@ class CoordinacionService {
           email_verified,
           last_login,
           created_at,
-          auth_roles(name)
+          role_name
         `)
-        .eq('auth_roles.name', 'ejecutivo')
+        .eq('role_name', 'ejecutivo')
         .order('full_name');
 
       if (error) throw error;
 
       // Transformar datos para incluir información de coordinación
       return (data || []).map((user: any) => {
-        const coordinacion = Array.isArray(user.coordinaciones) 
-          ? user.coordinaciones[0] 
-          : user.coordinaciones;
-        
         return {
           id: user.id,
           email: user.email,
@@ -1153,8 +1147,8 @@ class CoordinacionService {
           last_name: user.last_name,
           phone: user.phone,
           coordinacion_id: user.coordinacion_id,
-          coordinacion_codigo: coordinacion?.codigo,
-          coordinacion_nombre: coordinacion?.nombre,
+          coordinacion_codigo: null, // Se puede cargar aparte si es necesario
+          coordinacion_nombre: null,
           is_active: user.is_active,
           email_verified: user.email_verified,
           last_login: user.last_login,
@@ -1177,7 +1171,7 @@ class CoordinacionService {
   ): Promise<void> {
     try {
       await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update({
           coordinacion_id: coordinacionId,
           updated_at: new Date().toISOString(),
@@ -1207,14 +1201,14 @@ class CoordinacionService {
   }
 
   /**
-   * Crea un nuevo ejecutivo
+   * Crea un nuevo ejecutivo usando Supabase Auth nativo
    */
   async createEjecutivo(
     coordinacionId: string,
     ejecutivoData: {
       email: string;
       password_hash?: string;
-      password?: string; // Contraseña en texto plano (se hasheará en el backend)
+      password?: string; // Contraseña en texto plano
       full_name: string;
       first_name?: string;
       last_name?: string;
@@ -1233,81 +1227,92 @@ class CoordinacionService {
         throw new Error('Rol de ejecutivo no encontrado');
       }
 
-      // Usar función RPC para crear usuario (maneja el hash de contraseña correctamente)
-      const passwordToUse = ejecutivoData.password || 'Admin$2025'; // Contraseña por defecto
+      // ============================================
+      // CREAR USUARIO EN SUPABASE AUTH NATIVO
+      // ============================================
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      // Contraseña por defecto que cumple la política de seguridad
+      const passwordToUse = ejecutivoData.password || 'PqncAdmin$2026';
+      const firstName = ejecutivoData.first_name || ejecutivoData.full_name.split(' ')[0] || '';
+      const lastName = ejecutivoData.last_name || ejecutivoData.full_name.split(' ').slice(1).join(' ') || '';
+      const fullName = `${firstName} ${lastName}`.trim();
 
-      const { data, error } = await supabaseSystemUI.rpc('create_user_with_role', {
-        user_email: ejecutivoData.email,
-        user_password: passwordToUse,
-        user_first_name: ejecutivoData.first_name || ejecutivoData.full_name.split(' ')[0] || '',
-        user_last_name: ejecutivoData.last_name || ejecutivoData.full_name.split(' ').slice(1).join(' ') || '',
-        user_role_id: ejecutivoRole.id,
-        user_phone: ejecutivoData.phone || null,
-        user_department: null,
-        user_position: null,
-        user_is_active: true,
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'createUser',
+          params: {
+            email: ejecutivoData.email.trim().toLowerCase(),
+            password: passwordToUse,
+            fullName,
+            roleId: ejecutivoRole.id,
+            phone: ejecutivoData.phone || null,
+            isActive: true,
+            isCoordinator: false,
+            isEjecutivo: true,
+            coordinacionId
+          }
+        })
       });
 
-      if (error) {
-        throw error;
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        console.error('Error creating ejecutivo:', result);
+        throw new Error(result.error || result.details?.join(', ') || 'Error al crear ejecutivo');
       }
 
-      if (!data || data.length === 0) {
-        throw new Error('No se pudo crear el ejecutivo');
+      const userId = result.userId;
+
+      if (!userId) {
+        throw new Error('No se pudo obtener el ID del ejecutivo creado');
       }
 
-      const newUser = data[0];
+      console.log(`✅ Ejecutivo creado en Supabase Auth: ${userId}`);
 
-      // Actualizar coordinacion_id e is_ejecutivo después de crear el usuario
-      const { error: updateError } = await supabaseSystemUI
-        .from('auth_users')
-        .update({
+      // Asignar coordinación en tabla auxiliar
+      const { error: coordError } = await supabaseSystemUI
+        .from('auth_user_coordinaciones')
+        .insert({
+          user_id: userId,
           coordinacion_id: coordinacionId,
-          is_ejecutivo: true,
-          is_coordinator: false,
-        })
-        .eq('id', newUser.id);
+          assigned_by: null
+        });
 
-      if (updateError) {
-        console.error('Error actualizando coordinacion_id:', updateError);
-        // No lanzar error, el usuario ya fue creado
+      if (coordError) {
+        console.error('Error asignando coordinación:', coordError);
       }
 
-      // Obtener el ejecutivo creado con todos los campos
-      const { data: ejecutivoData, error: fetchError } = await supabaseSystemUI
-        .from('auth_users')
-        .select(`
-          id,
-          email,
-          full_name,
-          first_name,
-          last_name,
-          phone,
-          coordinacion_id,
-          is_active,
-          email_verified,
-          created_at
-        `)
-        .eq('id', newUser.id)
+      // Obtener el ejecutivo creado desde la vista user_profiles_v2
+      const { data: newEjecutivo, error: fetchError } = await supabaseSystemUI
+        .from('user_profiles_v2')
+        .select('*')
+        .eq('id', userId)
         .single();
 
       if (fetchError) throw fetchError;
 
-      if (!ejecutivoData) {
+      if (!newEjecutivo) {
         throw new Error('No se pudo obtener los datos del ejecutivo creado');
       }
 
       return {
-        id: ejecutivoData.id,
-        email: ejecutivoData.email,
-        full_name: ejecutivoData.full_name,
-        first_name: ejecutivoData.first_name,
-        last_name: ejecutivoData.last_name,
-        phone: ejecutivoData.phone,
-        coordinacion_id: ejecutivoData.coordinacion_id,
-        is_active: ejecutivoData.is_active,
-        email_verified: ejecutivoData.email_verified,
-        created_at: ejecutivoData.created_at,
+        id: newEjecutivo.id,
+        email: newEjecutivo.email,
+        full_name: newEjecutivo.full_name,
+        first_name: newEjecutivo.first_name,
+        last_name: newEjecutivo.last_name,
+        phone: newEjecutivo.phone,
+        coordinacion_id: coordinacionId,
+        is_active: newEjecutivo.is_active,
+        email_verified: true, // Supabase Auth confirma automáticamente
+        created_at: newEjecutivo.created_at,
       };
     } catch (error) {
       console.error('Error creando ejecutivo:', error);
@@ -1330,7 +1335,7 @@ class CoordinacionService {
   ): Promise<Ejecutivo> {
     try {
       const { data, error } = await supabaseSystemUI
-        .from('auth_users')
+        .from('user_profiles_v2')
         .update(updates)
         .eq('id', ejecutivoId)
         .select(`
