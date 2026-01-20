@@ -307,6 +307,7 @@ const gitCommits: GitCommit[] = [
   { hash: 'p9l5q1n', date: '2026-01-19', author: 'Team', message: 'v2.5.14: B10.1.14N2.5.14 - Fix cambio contraseña: migrar RPCs a Edge Function + broadcast-proxy + error-log-proxy', isRelease: true },
   { hash: 'o8k4p0m', date: '2026-01-18', author: 'Team', message: 'v2.5.13: B10.1.13N2.5.13 - Fix colores Dashboard prod: style inline + fallback colors array', isRelease: true },
   { hash: 'n7j3o9l', date: '2026-01-18', author: 'Team', message: 'v2.5.12: B10.1.12N2.5.12 - Fix getCoordColor TDZ: usar función global getCoordColorGlobal', isRelease: true },
+  { hash: 'n7j3o9l', date: '2026-01-20', author: 'Team', message: 'v2.5.25: B10.1.25N2.5.25 - Fix trigger-manual-proxy: Webhook N8N (no BD directa) + Auth header correcto', isRelease: true },
   { hash: 'm6i2n8k', date: '2026-01-18', author: 'Team', message: 'v2.5.11: B10.1.11N2.5.11 - Fix colores Dashboard: useCallback estable + dependencias correctas', isRelease: true },
   { hash: 'l5h1m7j', date: '2026-01-18', author: 'Team', message: 'v2.5.10: B10.1.10N2.5.10 - Fix barras negras Dashboard: Cell explícito + colores coordinaciones', isRelease: true },
   { hash: 'k4g0l6i', date: '2026-01-18', author: 'Team', message: 'v2.5.9: B10.1.9N2.5.9 - Fix Footer AI Division: Carga desde BD solo usuarios autenticados (seguridad)', isRelease: true },
@@ -580,8 +581,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.24', highlight: true },
-  { label: 'Release', value: 'B10.1.24N2.5.24', highlight: false },
+  { label: 'Version', value: 'v2.5.25', highlight: true },
+  { label: 'Release', value: 'B10.1.25N2.5.25', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '20 Ene 2026', highlight: false },
 ];

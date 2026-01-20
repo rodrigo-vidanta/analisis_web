@@ -13,7 +13,7 @@
  * - Cron Job para ejecución
  * 
  * Webhook: https://primary-dev-d75a.up.railway.app/webhook/trigger-manual
- * Header Auth: livechat_auth (mismo que otros webhooks de livechat)
+ * Header Auth: Auth (estándar N8N para este webhook específico)
  * 
  * Fecha: 20 Enero 2026
  * Fix: Corregido para llamar webhook N8N en lugar de BD directa
@@ -85,10 +85,10 @@ serve(async (req) => {
     console.log(`📞 [trigger-manual-proxy] Acción: ${action || 'INSERT'} para prospecto: ${prospecto_id} (user: ${user.email})`);
 
     // Obtener token de autenticación desde secret
-    // Usa el mismo header que otros webhooks de livechat
-    const webhookToken = Deno.env.get('LIVECHAT_AUTH') || '';
+    // Usa token específico para llamadas manuales (diferente a livechat)
+    const webhookToken = Deno.env.get('MANUAL_CALL_AUTH') || '';
     if (!webhookToken) {
-      console.error('❌ LIVECHAT_AUTH no configurado');
+      console.error('❌ MANUAL_CALL_AUTH no configurado');
       return new Response(
         JSON.stringify({ error: 'Server configuration error', success: false }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -139,11 +139,12 @@ serve(async (req) => {
     console.log(`🔗 [trigger-manual-proxy] Llamando webhook N8N: ${WEBHOOK_URL}`);
 
     // Hacer request al webhook de N8N con autenticación
+    // El webhook trigger-manual usa header 'Auth' (configurado en N8N)
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'livechat_auth': webhookToken, // Mismo header que otros webhooks
+        'Auth': webhookToken, // Header específico para trigger-manual
       },
       body: JSON.stringify(n8nPayload),
     });
