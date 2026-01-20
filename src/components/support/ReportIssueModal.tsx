@@ -175,12 +175,32 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
     }
   }, [isOpen, captureScreen]);
 
+  // Convertir base64 a blob sin usar fetch (evita CSP issues)
+  const base64ToBlob = (base64Data: string): Blob => {
+    // Extraer el tipo MIME y los datos
+    const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) {
+      throw new Error('Invalid base64 data');
+    }
+    const mimeType = matches[1];
+    const base64 = matches[2];
+    
+    // Decodificar base64
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    
+    return new Blob([byteArray], { type: mimeType });
+  };
+
   // Subir screenshot a Supabase Storage
   const uploadScreenshot = async (base64Data: string): Promise<string | null> => {
     try {
-      // Convertir base64 a blob
-      const base64Response = await fetch(base64Data);
-      const blob = await base64Response.blob();
+      // Convertir base64 a blob (sin fetch para evitar CSP)
+      const blob = base64ToBlob(base64Data);
       
       // Generar nombre único
       const fileName = `screenshot-${user?.id || 'unknown'}-${Date.now()}.jpg`;

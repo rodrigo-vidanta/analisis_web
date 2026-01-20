@@ -78,7 +78,25 @@ serve(async (req) => {
       )
     }
     
-    const responseData = await response.json()
+    // N8N respondió OK (2xx) - intentar leer respuesta pero tolerar vacío/no-JSON
+    let responseData: any = { success: true, action: payload.action || 'executed' }
+    
+    try {
+      const text = await response.text()
+      if (text && text.trim()) {
+        // Intentar parsear como JSON solo si hay contenido
+        try {
+          responseData = JSON.parse(text)
+        } catch {
+          // No es JSON válido, usar el texto como mensaje
+          responseData = { success: true, message: text.substring(0, 200) }
+        }
+      }
+      // Si text está vacío, usamos el responseData por defecto (success: true)
+    } catch {
+      // Error leyendo respuesta, pero N8N respondió OK así que lo consideramos exitoso
+    }
+    
     console.log(`✅ [tools-proxy] Acción ejecutada exitosamente`)
     
     return new Response(
