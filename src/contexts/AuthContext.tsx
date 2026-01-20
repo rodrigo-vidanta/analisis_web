@@ -14,6 +14,7 @@ import { permissionsService } from '../services/permissionsService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
 import { supabaseSystemUI as supabase, supabaseSystemUI } from '../config/supabaseSystemUI';
+import { useLiveActivityStore } from '../stores/liveActivityStore';
 import toast from 'react-hot-toast';
 
 // Tipos para el contexto
@@ -78,8 +79,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const state = await authService.initialize();
           setAuthState(state);
         } else if (event === 'SIGNED_OUT') {
-          // Usuario cerró sesión
+          // Usuario cerró sesión - limpiar TODO inmediatamente
+          
+          // 1. Limpiar cache de permisos
           permissionsService.invalidateAllCache();
+          
+          // 2. Limpiar el store de Live Activity Widget INMEDIATAMENTE
+          // para evitar que siga haciendo requests después del logout
+          useLiveActivityStore.getState().cleanup();
+          
+          // 3. Limpiar estado de autenticación
           setAuthState({
             user: null,
             permissions: [],

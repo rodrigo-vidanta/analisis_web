@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.19: Fix RLS 406 user_ui_preferences + realtime llamadas_programadas
-  const version = 'B10.1.19N2.5.19';
+  // Versión actual - v2.5.20: Fix logout errors - cleanup stores + GRANT anon get_user_permissions
+  const version = 'B10.1.20N2.5.20';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

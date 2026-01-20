@@ -294,6 +294,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'v5r1w7t', date: '2026-01-20', author: 'Team', message: 'v2.5.20: B10.1.20N2.5.20 - Fix logout errors: cleanup stores + GRANT anon get_user_permissions', isRelease: true },
   { hash: 'u4q0v6s', date: '2026-01-20', author: 'Team', message: 'v2.5.19: B10.1.19N2.5.19 - Fix RLS 406 user_ui_preferences + realtime llamadas_programadas', isRelease: true },
   { hash: 't3p9u5r', date: '2026-01-20', author: 'Team', message: 'v2.5.18: B10.1.18N2.5.18 - Fix screenshots tickets: CORS GCS + CSP compliance', isRelease: true },
   { hash: 's2o8t4q', date: '2026-01-20', author: 'Team', message: 'v2.5.17: B10.1.17N2.5.17 - Sistema de Tickets de Soporte con notificaciones en tiempo real', isRelease: true },
@@ -452,6 +453,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-123', date: '2026-01-20 23:00', version: 'B10.1.20N2.5.20', status: 'success', duration: '23s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-122', date: '2026-01-20 22:30', version: 'B10.1.19N2.5.19', status: 'success', duration: '19s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-121', date: '2026-01-20 20:15', version: 'B10.1.18N2.5.18', status: 'success', duration: '21s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-120', date: '2026-01-20 19:30', version: 'B10.1.17N2.5.17', status: 'success', duration: '22s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -572,8 +574,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.19', highlight: true },
-  { label: 'Release', value: 'B10.1.19N2.5.19', highlight: false },
+  { label: 'Version', value: 'v2.5.20', highlight: true },
+  { label: 'Release', value: 'B10.1.20N2.5.20', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '20 Ene 2026', highlight: false },
 ];

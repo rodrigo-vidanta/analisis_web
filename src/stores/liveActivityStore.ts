@@ -222,6 +222,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
   
   /**
    * Limpia suscripciones y estado
+   * Se llama durante logout para evitar requests después de cerrar sesión
    */
   cleanup: () => {
     const { realtimeChannel } = get();
@@ -234,6 +235,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       }
     }
     
+    // Limpiar TODO incluyendo userId para prevenir requests después del logout
     set({
       widgetCalls: [],
       expandedCallId: null,
@@ -241,7 +243,10 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       notifiedCallIds: new Set(),
       reportedZombieIds: new Set(),
       realtimeChannel: null,
-      isLoadingCalls: false
+      isLoadingCalls: false,
+      currentUserId: null,
+      currentUserRole: null,
+      isWidgetEnabled: false
     });
   },
   
