@@ -1,0 +1,102 @@
+---
+alwaysApply: true
+---
+
+# Reglas del MCP Supabase REST
+
+## 📋 Información del MCP
+
+| Propiedad | Valor |
+|-----------|-------|
+| **Nombre** | `SupabaseREST` |
+| **Tipo** | REST API (no requiere funciones RPC) |
+| **Proyecto** | PQNC_AI (`glsmifhkoaifvaegsozd`) |
+| **Token** | Leído de `.supabase/access_token` |
+
+## ⚠️ IMPORTANTE
+
+**Este MCP reemplaza a `Supa_PQNC_AI`** que usaba funciones RPC (`exec_sql`).
+
+El nuevo MCP:
+- ✅ Usa la Management API REST de Supabase
+- ✅ No requiere funciones RPC en la BD
+- ✅ Lee el token de `.supabase/access_token`
+- ✅ Tiene acceso total de administración
+
+## 🔧 Herramientas Disponibles
+
+```
+mcp_SupabaseREST_execute_sql       # Ejecutar SQL arbitrario
+mcp_SupabaseREST_query_table       # SELECT con filtros
+mcp_SupabaseREST_insert_data       # INSERT
+mcp_SupabaseREST_update_data       # UPDATE
+mcp_SupabaseREST_delete_data       # DELETE (requiere filtro)
+mcp_SupabaseREST_get_schema        # Ver estructura de BD
+mcp_SupabaseREST_get_table_info    # Detalles de una tabla
+mcp_SupabaseREST_backup_table      # Backup en JSON
+mcp_SupabaseREST_debug_connection  # Verificar conexión
+```
+
+## 📝 Ejemplos de Uso
+
+### Ejecutar SQL
+
+```typescript
+mcp_SupabaseREST_execute_sql({
+  sql: "SELECT * FROM auth_users LIMIT 5",
+  description: "Listar usuarios"
+})
+```
+
+### Consultar tabla
+
+```typescript
+mcp_SupabaseREST_query_table({
+  table: "prospectos",
+  select: "id, nombre, telefono",
+  filter: { status: "activo" },
+  limit: 10,
+  order: "created_at DESC"
+})
+```
+
+### Crear tabla
+
+```typescript
+mcp_SupabaseREST_execute_sql({
+  sql: `CREATE TABLE nueva_tabla (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre TEXT NOT NULL
+  )`,
+  description: "Crear tabla"
+})
+```
+
+## 🔒 Seguridad
+
+- El Access Token está en `.supabase/access_token` (NO en Git)
+- El token tiene acceso TOTAL a la cuenta Supabase
+- NUNCA compartir ni exponer el token
+
+## 📁 Archivos
+
+| Archivo | Descripción |
+|---------|-------------|
+| `mcp-supabase-rest-server.ts` | Servidor MCP |
+| `.supabase/access_token` | Token (en .gitignore) |
+| `~/.cursor/mcp.json` | Configuración |
+| `docs/MCP_REST_SETUP.md` | Guía completa |
+
+## 🔄 Migración desde MCP Antiguo
+
+| Antes | Ahora |
+|-------|-------|
+| `mcp_Supa_PQNC_AI_pqnc_execute_sql` | `mcp_SupabaseREST_execute_sql` |
+| `mcp_Supa_PQNC_AI_pqnc_query_table` | `mcp_SupabaseREST_query_table` |
+| `mcp_Supa_PQNC_AI_pqnc_insert_data` | `mcp_SupabaseREST_insert_data` |
+| `mcp_Supa_PQNC_AI_pqnc_update_data` | `mcp_SupabaseREST_update_data` |
+| `mcp_Supa_PQNC_AI_pqnc_delete_data` | `mcp_SupabaseREST_delete_data` |
+
+---
+
+**Última actualización:** 20 de Enero 2026

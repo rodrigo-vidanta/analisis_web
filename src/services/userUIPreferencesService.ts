@@ -7,9 +7,14 @@
  * Incluye Panel Lateral y futuras preferencias de UI.
  * 
  * Tabla: user_ui_preferences (PQNC_AI)
+ * 
+ * ⚠️ ACTUALIZACIÓN 20 Enero 2026:
+ * - Migrado a usar funciones RPC (SECURITY DEFINER) para bypass RLS
+ * - Funciones: get_user_ui_preferences, upsert_user_ui_preferences
+ * - Esto resuelve el error 406 cuando el cliente no tiene sesión cargada
  */
 
-import { analysisSupabase } from '../config/analysisSupabase';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // Roles que tienen el widget habilitado por defecto
 const WIDGET_ENABLED_BY_DEFAULT_ROLES = ['ejecutivo', 'supervisor'];
@@ -50,25 +55,30 @@ class UserUIPreferencesService {
   
   /**
    * Obtiene las preferencias de UI de un usuario
+   * Usa función RPC para bypass de RLS (SECURITY DEFINER)
    */
   async getUserPreferences(userId: string): Promise<UserUIPreferences | null> {
     try {
-      const { data, error } = await analysisSupabase
-        .from('user_ui_preferences')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      if (!supabaseSystemUI) {
+        console.error('[UserUIPreferencesService] supabaseSystemUI no disponible');
+        return null;
+      }
+      
+      const { data, error } = await supabaseSystemUI.rpc('get_user_ui_preferences', {
+        p_user_id: userId
+      });
       
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No existe registro, retornar null
-          return null;
-        }
         console.error('[UserUIPreferencesService] Error obteniendo preferencias:', error);
         return null;
       }
       
-      return data as UserUIPreferences;
+      // La función RPC retorna un array, tomamos el primer elemento
+      if (!data || data.length === 0) {
+        return null;
+      }
+      
+      return data[0] as UserUIPreferences;
     } catch (error) {
       console.error('[UserUIPreferencesService] Error:', error);
       return null;
@@ -97,29 +107,26 @@ class UserUIPreferencesService {
   
   /**
    * Establece si el Live Activity Widget está habilitado para un usuario
-   * Crea el registro si no existe (upsert)
+   * Usa función RPC para bypass de RLS (SECURITY DEFINER)
    */
   async setLiveActivityWidgetEnabled(userId: string, enabled: boolean): Promise<boolean> {
     try {
-      const { error } = await analysisSupabase
-        .from('user_ui_preferences')
-        .upsert(
-          {
-            user_id: userId,
-            live_activity_widget_enabled: enabled,
-            updated_at: new Date().toISOString()
-          },
-          {
-            onConflict: 'user_id'
-          }
-        );
+      if (!supabaseSystemUI) {
+        console.error('[UserUIPreferencesService] supabaseSystemUI no disponible');
+        return false;
+      }
+      
+      const { data, error } = await supabaseSystemUI.rpc('upsert_user_ui_preferences', {
+        p_user_id: userId,
+        p_live_activity_widget_enabled: enabled
+      });
       
       if (error) {
         console.error('[UserUIPreferencesService] Error guardando preferencia:', error);
         return false;
       }
       
-      return true;
+      return data === true;
     } catch (error) {
       console.error('[UserUIPreferencesService] Error:', error);
       return false;
@@ -128,12 +135,18 @@ class UserUIPreferencesService {
   
   /**
    * Actualiza preferencias adicionales en el campo JSONB
+   * Usa función RPC para bypass de RLS (SECURITY DEFINER)
    */
   async updateAdditionalPreferences(
     userId: string, 
     preferences: Record<string, unknown>
   ): Promise<boolean> {
     try {
+      if (!supabaseSystemUI) {
+        console.error('[UserUIPreferencesService] supabaseSystemUI no disponible');
+        return false;
+      }
+      
       // Primero obtener preferencias actuales
       const current = await this.getUserPreferences(userId);
       
@@ -142,25 +155,17 @@ class UserUIPreferencesService {
         ...preferences
       };
       
-      const { error } = await analysisSupabase
-        .from('user_ui_preferences')
-        .upsert(
-          {
-            user_id: userId,
-            preferences: mergedPreferences,
-            updated_at: new Date().toISOString()
-          },
-          {
-            onConflict: 'user_id'
-          }
-        );
+      const { data, error } = await supabaseSystemUI.rpc('upsert_user_ui_preferences', {
+        p_user_id: userId,
+        p_preferences: mergedPreferences
+      });
       
       if (error) {
         console.error('[UserUIPreferencesService] Error actualizando preferencias:', error);
         return false;
       }
       
-      return true;
+      return data === true;
     } catch (error) {
       console.error('[UserUIPreferencesService] Error:', error);
       return false;
