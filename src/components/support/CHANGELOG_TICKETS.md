@@ -5,6 +5,79 @@
 
 ---
 
+## [1.1.0] - 2026-01-20
+
+### 🎨 Rediseño Completo de UI/UX
+
+**Descripción:** Rediseño profesional de todo el ecosistema de tickets para alinearlo con los estándares de diseño de la plataforma.
+
+#### ✨ Mejoras Visuales
+
+**MyTicketsModal.tsx:**
+- Header premium con gradiente de indigo a púrpura y patrón SVG
+- Cards de tickets con bordes, indicadores de estado y animaciones hover
+- Estadísticas rápidas con filtros interactivos (Total, Activos, Cerrados)
+- Vista de conversación tipo chat con burbujas de mensajes
+- Indicadores visuales claros de prioridad y tipo de ticket
+- Timestamps relativos inteligentes ("Ahora", "Hace 5m", "Ayer")
+- Estados con iconos SVG animados (spinner para "En Progreso")
+- Loading states con animaciones elegantes
+
+**AdminTicketsPanel.tsx:**
+- Dashboard completo tipo CRM con header de estadísticas
+- 6 cards de métricas por estado con gradientes y hover effects
+- Búsqueda avanzada con icono integrado
+- Filtros por tipo (Fallas/Requerimientos) con limpiar filtros
+- Lista de tickets compacta con indicadores de puntos de color
+- Vista split responsiva (lista + detalle)
+- Tabs para organizar contenido (Detalles, Historial, Técnico)
+- Timeline visual para historial de cambios
+- Selector de estado integrado con gradientes
+- Empty states ilustrados cuando no hay tickets seleccionados
+
+**SupportButton.tsx:**
+- Menú desplegable premium con header gradiente
+- Cards de opciones con iconos en gradiente y hover animations
+- Badge de notificaciones con sombra y animación pulse
+- Footer informativo sobre tiempo de respuesta
+- Transiciones suaves con Framer Motion
+
+**ReportIssueModal.tsx:**
+- Header con gradiente rojo-naranja y patrón
+- Selector de prioridad visual con iconos (Normal, Alta, Urgente)
+- Sección de contexto con grid de 4 columnas
+- Tips de reporte en card destacado
+- Captura de pantalla con overlay hover
+- Loading states mejorados
+
+**RequestModal.tsx:**
+- Progress steps visuales con checkmarks
+- Cards de categorías con iconos en gradiente
+- Transiciones animadas entre pasos
+- Subcategorías numeradas con animación hover
+- Formulario con validación visual
+
+#### 🎯 Mejoras de UX
+
+- Animaciones de entrada/salida en todos los modales
+- Estados hover claros en todos los elementos interactivos
+- Responsive design mejorado (mobile-first)
+- Dark mode completamente implementado
+- Scrollbars personalizados con Tailwind
+- Feedback visual instantáneo en todas las acciones
+- Tecla Enter para enviar comentarios
+- Clic fuera para cerrar modales
+
+#### 🏗️ Aspectos Técnicos
+
+- Uso de `createPortal` para z-index correcto
+- Animaciones con `framer-motion` y `AnimatePresence`
+- Estados con `useState` y `useCallback` optimizados
+- Gradientes CSS con variables Tailwind
+- SVG patterns para texturas de fondo
+
+---
+
 ## [1.0.2] - 2026-01-20
 
 ### 🐛 Fix CSP Violation
@@ -145,13 +218,13 @@ migrations/
 
 ## Próximas Mejoras Planificadas
 
-### v1.1.0 (Pendiente)
+### v1.2.0 (Pendiente)
 - [ ] Asignación automática de tickets por categoría
 - [ ] SLA y métricas de tiempo de respuesta
 - [ ] Exportación de reportes en PDF
 - [ ] Templates de respuestas predefinidas
 
-### v1.2.0 (Pendiente)
+### v1.3.0 (Pendiente)
 - [ ] Integración con N8N para automatizaciones
 - [ ] Notificaciones por email
 - [ ] Dashboard de métricas de soporte

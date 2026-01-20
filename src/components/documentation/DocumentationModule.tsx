@@ -294,6 +294,9 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'y8u4z0w', date: '2026-01-20', author: 'Team', message: 'v2.5.23: B10.1.23N2.5.23 - Admin Center: Modal ancho + filtros modernos + imagen preview modal', isRelease: true },
+  { hash: 'x7t3y9v', date: '2026-01-20', author: 'Team', message: 'v2.5.22: B10.1.22N2.5.22 - Ticket system UI minimalista - sin gradientes ni emojis', isRelease: true },
+  { hash: 'w6s2x8u', date: '2026-01-20', author: 'Team', message: 'v2.5.21: B10.1.21N2.5.21 - Ticket system UI/UX complete redesign - professional layouts', isRelease: true },
   { hash: 'v5r1w7t', date: '2026-01-20', author: 'Team', message: 'v2.5.20: B10.1.20N2.5.20 - Fix logout errors: cleanup stores + GRANT anon get_user_permissions', isRelease: true },
   { hash: 'u4q0v6s', date: '2026-01-20', author: 'Team', message: 'v2.5.19: B10.1.19N2.5.19 - Fix RLS 406 user_ui_preferences + realtime llamadas_programadas', isRelease: true },
   { hash: 't3p9u5r', date: '2026-01-20', author: 'Team', message: 'v2.5.18: B10.1.18N2.5.18 - Fix screenshots tickets: CORS GCS + CSP compliance', isRelease: true },
@@ -574,8 +577,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.20', highlight: true },
-  { label: 'Release', value: 'B10.1.20N2.5.20', highlight: false },
+  { label: 'Version', value: 'v2.5.23', highlight: true },
+  { label: 'Release', value: 'B10.1.23N2.5.23', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '20 Ene 2026', highlight: false },
 ];

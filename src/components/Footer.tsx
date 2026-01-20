@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.20: Fix logout errors - cleanup stores + GRANT anon get_user_permissions
-  const version = 'B10.1.20N2.5.20';
+  // Versión actual - v2.5.22: Ticket system UI minimalista - sin gradientes ni emojis
+  const version = 'B10.1.23N2.5.23';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {
