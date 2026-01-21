@@ -145,38 +145,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return;
     }
 
-    // Crear canal realtime para escuchar cambios en auth_users relacionados con backup
-    const channel = supabaseSystemUI
-      .channel(`backup-updates-${authState.user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'auth_users',
-          filter: `id=eq.${authState.user.id}`
-        },
-        async (payload) => {
-          const newData = payload.new as any;
-          const oldData = payload.old as any;
-          
-          // Verificar si cambió backup_id o has_backup
-          const backupIdChanged = newData.backup_id !== oldData.backup_id;
-          const hasBackupChanged = newData.has_backup !== oldData.has_backup;
-          
-          if (backupIdChanged || hasBackupChanged) {
-            // Actualizar datos del usuario silenciosamente
-            try {
-              await refreshUser(true);
-            } catch (error) {
-              console.error('Error actualizando usuario después de cambio de backup:', error);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    backupRealtimeChannelRef.current = channel;
+    // ============================================
+    // NOTA: Suscripción realtime DESHABILITADA
+    // ============================================
+    // La tabla auth_users fue migrada a auth.users (Supabase Auth nativo)
+    // Las vistas (user_profiles_v2) no soportan realtime
+    // Los cambios de backup se detectan en refreshUser() al hacer login
+    // 
+    // Mantener el ref para compatibilidad pero sin suscripción activa
+    backupRealtimeChannelRef.current = null;
 
     // Cleanup al desmontar o cambiar de usuario
     return () => {

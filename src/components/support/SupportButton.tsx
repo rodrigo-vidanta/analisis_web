@@ -12,15 +12,51 @@ import ReportIssueModal from './ReportIssueModal';
 import RequestModal from './RequestModal';
 import MyTicketsModal from './MyTicketsModal';
 
-// Icono de Salvavidas
-const LifebuoyIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <circle cx="12" cy="12" r="4" />
-    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
-    <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
-    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" />
-    <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
+// Icono de Salvavidas con colores típicos (rojo y blanco)
+const LifebuoyIcon: React.FC<{ className?: string; animate?: boolean }> = ({ className, animate }) => (
+  <svg 
+    className={`${className} ${animate ? 'lifebuoy-animate' : ''}`} 
+    viewBox="0 0 24 24" 
+    fill="none"
+  >
+    {/* Estilos de animación */}
+    <style>{`
+      @keyframes lifebuoy-float {
+        0%, 100% { transform: rotate(0deg) translateY(0px); }
+        25% { transform: rotate(3deg) translateY(-1px); }
+        50% { transform: rotate(0deg) translateY(0px); }
+        75% { transform: rotate(-3deg) translateY(1px); }
+      }
+      .lifebuoy-animate {
+        animation: lifebuoy-float 4s ease-in-out infinite;
+        animation-play-state: paused;
+      }
+      .lifebuoy-animate.active {
+        animation-play-state: running;
+      }
+    `}</style>
+    
+    {/* Aro exterior - alternando rojo y blanco */}
+    <circle cx="12" cy="12" r="10" fill="white" stroke="#e5e7eb" strokeWidth="0.5" />
+    
+    {/* Segmentos rojos del salvavidas */}
+    <path d="M12 2 A10 10 0 0 1 22 12 L16.5 12 A4.5 4.5 0 0 0 12 7.5 Z" fill="#dc2626" />
+    <path d="M22 12 A10 10 0 0 1 12 22 L12 16.5 A4.5 4.5 0 0 0 16.5 12 Z" fill="#dc2626" />
+    <path d="M12 22 A10 10 0 0 1 2 12 L7.5 12 A4.5 4.5 0 0 0 12 16.5 Z" fill="#dc2626" />
+    <path d="M2 12 A10 10 0 0 1 12 2 L12 7.5 A4.5 4.5 0 0 0 7.5 12 Z" fill="#dc2626" />
+    
+    {/* Círculo interior (hueco) */}
+    <circle cx="12" cy="12" r="4" fill="currentColor" className="text-gray-100 dark:text-gray-800" />
+    <circle cx="12" cy="12" r="4" fill="none" stroke="#9ca3af" strokeWidth="0.5" />
+    
+    {/* Cuerdas/líneas de agarre */}
+    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" stroke="#f5f5f5" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" stroke="#f5f5f5" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" stroke="#f5f5f5" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" stroke="#f5f5f5" strokeWidth="1.5" strokeLinecap="round" />
+    
+    {/* Borde exterior */}
+    <circle cx="12" cy="12" r="10" fill="none" stroke="#b91c1c" strokeWidth="0.8" />
   </svg>
 );
 
@@ -41,8 +77,29 @@ const SupportButton: React.FC<SupportButtonProps> = ({
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showMyTicketsModal, setShowMyTicketsModal] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
+  
+  // Animación del salvavidas cada 60 segundos
+  useEffect(() => {
+    const triggerAnimation = () => {
+      setIsAnimating(true);
+      // La animación dura 4 segundos, la detenemos después
+      setTimeout(() => setIsAnimating(false), 4000);
+    };
+    
+    // Iniciar primera animación después de 5 segundos
+    const initialTimeout = setTimeout(triggerAnimation, 5000);
+    
+    // Repetir cada 60 segundos
+    const interval = setInterval(triggerAnimation, 60000);
+    
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, []);
 
   const canSeeSupport = user && [
     'admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo'
@@ -109,14 +166,16 @@ const SupportButton: React.FC<SupportButtonProps> = ({
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className={`relative p-2 rounded-xl transition-all duration-200 ${
             isMenuOpen 
-              ? 'bg-gradient-to-br from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/25' 
-              : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              ? 'bg-white dark:bg-gray-800 shadow-lg ring-2 ring-red-500/30' 
+              : 'hover:bg-gray-100 dark:hover:bg-gray-800'
           }`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           title="Centro de Soporte"
         >
-          <LifebuoyIcon className="w-5 h-5" />
+          <div className={`${isAnimating ? 'lifebuoy-animate active' : ''}`} style={{ transformOrigin: 'center' }}>
+            <LifebuoyIcon className="w-6 h-6" animate={isAnimating} />
+          </div>
           
           {/* Badge de notificaciones */}
           <AnimatePresence>

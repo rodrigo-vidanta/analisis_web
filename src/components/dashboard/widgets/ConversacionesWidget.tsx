@@ -1825,7 +1825,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         const senderNamesMap: Record<string, string> = {};
         if (allUserIds.length > 0) {
           try {
-            // ✅ USAR supabaseSystemUI porque auth_users está en System UI DB
+            // ✅ USAR supabaseSystemUI para user_profiles_v2 (auth.users nativo)
             const { data: usersData, error: usersError } = await supabaseSystemUI
               .from('user_profiles_v2')
               .select('id, full_name, first_name, last_name')
@@ -1834,7 +1834,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             console.log('👥 [ConversacionesWidget] Usuarios encontrados:', usersData?.map(u => ({ id: u.id, name: u.full_name })));
             
             if (usersError) {
-              console.error('❌ Error en query auth_users:', usersError);
+              console.error('❌ Error en query user_profiles_v2:', usersError);
             }
             
             if (usersData) {
@@ -1849,7 +1849,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             const foundIds = new Set(usersData?.map(u => u.id) || []);
             const missingIds = allUserIds.filter(id => !foundIds.has(id));
             if (missingIds.length > 0) {
-              console.warn('⚠️ Usuarios no encontrados en auth_users:', missingIds);
+              console.warn('⚠️ Usuarios no encontrados en user_profiles_v2:', missingIds);
             }
           } catch (error) {
             console.error('❌ Error obteniendo nombres de usuarios:', error);

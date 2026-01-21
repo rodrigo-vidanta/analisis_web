@@ -4575,7 +4575,7 @@ const LiveChatCanvas: React.FC = () => {
               .in('id', allUserIds);
             
             if (usersError) {
-              console.error('❌ Error en query auth_users:', usersError);
+              console.error('❌ Error en query user_profiles_v2:', usersError);
             }
             
             if (usersData) {
@@ -4588,7 +4588,7 @@ const LiveChatCanvas: React.FC = () => {
             const foundIds = new Set(usersData?.map(u => u.id) || []);
             const missingIds = allUserIds.filter(id => !foundIds.has(id));
             if (missingIds.length > 0) {
-              console.warn('⚠️ Usuarios no encontrados en auth_users:', missingIds);
+              console.warn('⚠️ Usuarios no encontrados en user_profiles_v2:', missingIds);
             }
           } catch (error) {
             console.error('❌ Error obteniendo nombres de usuarios:', error);
@@ -6147,7 +6147,7 @@ const LiveChatCanvas: React.FC = () => {
         }
       }
 
-      // Si tenemos el assigned_agent_id, buscar el nombre en auth_users
+      // Si tenemos el assigned_agent_id, buscar el nombre en user_profiles_v2
       if (assignedAgentId) {
         const { data: agentData, error: agentError } = await supabaseSystemUI
           .from('user_profiles_v2')

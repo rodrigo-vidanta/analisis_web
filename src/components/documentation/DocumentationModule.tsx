@@ -295,6 +295,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'd1e5f6g', date: '2026-01-21', author: 'Team', message: 'v2.5.29: B10.1.29N2.5.29 - Salvavidas colores + animación 60s + respuestas rápidas tickets', isRelease: true },
   { hash: 'c0d4e5f', date: '2026-01-21', author: 'Team', message: 'v2.5.28: B10.1.28N2.5.28 - Fix asignación tickets: avatar_url no existe en user_profiles_v2', isRelease: true },
   { hash: 'b9c3d4e', date: '2026-01-21', author: 'Team', message: 'v2.5.27: B10.1.27N2.5.27 - Tickets: Metadata completa + Captura console logs (10 últimos)', isRelease: true },
   { hash: 'a8b2c3d', date: '2026-01-21', author: 'Team', message: 'v2.5.26: B10.1.26N2.5.26 - Sistema asignación tickets (rol/usuario) + fix auth_users→user_profiles_v2', isRelease: true },

@@ -1089,21 +1089,76 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                       </div>
                     </div>
 
-                    <div className="flex-shrink-0 p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500" />
-                          <span className={isInternal ? 'text-yellow-600 font-medium' : 'text-gray-500'}>Nota interna</span>
-                        </label>
+                    <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                      {/* Acciones Rápidas de Estado */}
+                      {selectedTicket.status !== 'resuelto' && selectedTicket.status !== 'cerrado' && selectedTicket.status !== 'cancelado' && (
+                        <div className="px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-medium text-gray-500 uppercase">Acciones:</span>
+                            <button
+                              onClick={() => { handleStatusChange('resuelto'); }}
+                              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors flex items-center gap-1"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                              Resolver
+                            </button>
+                            <button
+                              onClick={() => { handleStatusChange('cerrado'); }}
+                              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" /></svg>
+                              Cerrar
+                            </button>
+                            <button
+                              onClick={() => { handleStatusChange('cancelado'); }}
+                              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center gap-1"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Respuestas Rápidas */}
+                      <div className="px-4 pt-2 pb-2">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                          <span className="text-[10px] font-medium text-gray-500 uppercase mr-1">Respuestas:</span>
+                          {[
+                            { text: 'Recibido, lo revisamos', icon: '👀' },
+                            { text: 'Necesitamos más información', icon: '❓' },
+                            { text: 'Ya fue corregido', icon: '✅' },
+                            { text: 'Programado para próximo release', icon: '📅' },
+                            { text: 'Gracias por reportarlo', icon: '🙏' },
+                          ].map((resp, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setNewComment(resp.text)}
+                              className="px-2 py-1 text-[11px] rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-600 dark:hover:text-blue-400 transition-all"
+                            >
+                              {resp.text}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={isInternal ? "Nota interna..." : "Responder..."} rows={2}
-                          className={`flex-1 px-3 py-2 text-sm border-2 rounded-xl resize-none dark:bg-gray-800 dark:text-white ${isInternal ? 'border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/10' : 'border-gray-200 dark:border-gray-700'}`} />
-                        <motion.button onClick={handleSendComment} disabled={!newComment.trim() || submitting}
-                          className={`w-11 h-11 rounded-xl text-white disabled:opacity-50 flex items-center justify-center shadow-lg ${isInternal ? 'bg-yellow-500' : 'bg-gradient-to-r from-blue-600 to-purple-600 shadow-blue-500/25'}`}
-                          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                          {submitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>}
-                        </motion.button>
+
+                      {/* Área de Respuesta */}
+                      <div className="px-4 pb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="flex items-center gap-2 text-xs cursor-pointer">
+                            <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500" />
+                            <span className={isInternal ? 'text-yellow-600 font-medium' : 'text-gray-500'}>Nota interna</span>
+                          </label>
+                        </div>
+                        <div className="flex gap-2">
+                          <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={isInternal ? "Nota interna..." : "Responder..."} rows={2}
+                            className={`flex-1 px-3 py-2 text-sm border-2 rounded-xl resize-none dark:bg-gray-800 dark:text-white ${isInternal ? 'border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/10' : 'border-gray-200 dark:border-gray-700'}`} />
+                          <motion.button onClick={handleSendComment} disabled={!newComment.trim() || submitting}
+                            className={`w-11 h-11 rounded-xl text-white disabled:opacity-50 flex items-center justify-center shadow-lg ${isInternal ? 'bg-yellow-500' : 'bg-gradient-to-r from-blue-600 to-purple-600 shadow-blue-500/25'}`}
+                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            {submitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>}
+                          </motion.button>
+                        </div>
                       </div>
                     </div>
                   </>
