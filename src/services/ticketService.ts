@@ -601,11 +601,13 @@ class TicketService {
   }
 
   // Obtener usuarios por rol para asignación
+  // Usa user_profiles_v2 que lee de auth.users (arquitectura nativa Supabase Auth)
   async getUsersByRole(role: string): Promise<{ users: UserForAssignment[]; error: string | null }> {
     try {
+      // user_profiles_v2 NO tiene avatar_url (está en tabla separada user_avatars)
       const { data, error } = await supabaseSystemUI
         .from('user_profiles_v2')
-        .select('id, full_name, email, role_name, avatar_url')
+        .select('id, full_name, email, role_name')
         .eq('role_name', role)
         .eq('is_active', true)
         .order('full_name');
@@ -620,8 +622,7 @@ class TicketService {
           id: u.id,
           full_name: u.full_name || u.email?.split('@')[0] || 'Sin nombre',
           email: u.email,
-          role_name: u.role_name,
-          avatar_url: u.avatar_url
+          role_name: u.role_name
         })), 
         error: null 
       };
