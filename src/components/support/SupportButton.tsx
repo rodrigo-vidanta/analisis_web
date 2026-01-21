@@ -13,29 +13,12 @@ import RequestModal from './RequestModal';
 import MyTicketsModal from './MyTicketsModal';
 
 // Icono de Salvavidas con colores típicos (rojo y blanco)
-const LifebuoyIcon: React.FC<{ className?: string; animate?: boolean }> = ({ className, animate }) => (
+const LifebuoyIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg 
-    className={`${className} ${animate ? 'lifebuoy-animate' : ''}`} 
+    className={className} 
     viewBox="0 0 24 24" 
     fill="none"
   >
-    {/* Estilos de animación */}
-    <style>{`
-      @keyframes lifebuoy-float {
-        0%, 100% { transform: rotate(0deg) translateY(0px); }
-        25% { transform: rotate(3deg) translateY(-1px); }
-        50% { transform: rotate(0deg) translateY(0px); }
-        75% { transform: rotate(-3deg) translateY(1px); }
-      }
-      .lifebuoy-animate {
-        animation: lifebuoy-float 4s ease-in-out infinite;
-        animation-play-state: paused;
-      }
-      .lifebuoy-animate.active {
-        animation-play-state: running;
-      }
-    `}</style>
-    
     {/* Aro exterior - alternando rojo y blanco */}
     <circle cx="12" cy="12" r="10" fill="white" stroke="#e5e7eb" strokeWidth="0.5" />
     
@@ -58,6 +41,94 @@ const LifebuoyIcon: React.FC<{ className?: string; animate?: boolean }> = ({ cla
     {/* Borde exterior */}
     <circle cx="12" cy="12" r="10" fill="none" stroke="#b91c1c" strokeWidth="0.8" />
   </svg>
+);
+
+// Componente animado del salvavidas con efecto de agua
+const AnimatedLifebuoy: React.FC<{ isAnimating: boolean; isMenuOpen: boolean }> = ({ isAnimating, isMenuOpen }) => (
+  <div className="relative w-6 h-6 overflow-hidden">
+    {/* Estilos de animación */}
+    <style>{`
+      @keyframes lifebuoy-sink-bounce {
+        0% { transform: translateY(0px); }
+        15% { transform: translateY(12px); }
+        30% { transform: translateY(12px); }
+        50% { transform: translateY(-3px); }
+        65% { transform: translateY(1px); }
+        80% { transform: translateY(-1px); }
+        100% { transform: translateY(0px); }
+      }
+      @keyframes water-wave {
+        0%, 100% { 
+          d: path("M0 12 Q3 10, 6 12 T12 12 T18 12 T24 12 L24 24 L0 24 Z");
+        }
+        25% { 
+          d: path("M0 12 Q3 14, 6 12 T12 12 T18 12 T24 12 L24 24 L0 24 Z");
+        }
+        50% { 
+          d: path("M0 12 Q3 10, 6 12 T12 12 T18 12 T24 12 L24 24 L0 24 Z");
+        }
+        75% { 
+          d: path("M0 12 Q3 14, 6 12 T12 12 T18 12 T24 12 L24 24 L0 24 Z");
+        }
+      }
+      .lifebuoy-sink-bounce {
+        animation: lifebuoy-sink-bounce 2.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      }
+    `}</style>
+    
+    {/* Salvavidas */}
+    <div className={`absolute inset-0 ${isAnimating ? 'lifebuoy-sink-bounce' : ''}`}>
+      <LifebuoyIcon className="w-6 h-6" />
+    </div>
+    
+    {/* Agua con ondulaciones - solo visible durante animación */}
+    {isAnimating && (
+      <svg 
+        className="absolute inset-0 w-6 h-6 pointer-events-none"
+        viewBox="0 0 24 24"
+        style={{ zIndex: 10 }}
+      >
+        <defs>
+          <linearGradient id="waterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="rgba(59, 130, 246, 0.6)" />
+            <stop offset="100%" stopColor="rgba(37, 99, 235, 0.8)" />
+          </linearGradient>
+        </defs>
+        {/* Onda de agua animada */}
+        <path 
+          fill="url(#waterGradient)"
+          className="animate-pulse"
+        >
+          <animate
+            attributeName="d"
+            dur="0.8s"
+            repeatCount="indefinite"
+            values="
+              M0 14 Q3 12, 6 14 T12 14 T18 14 T24 14 L24 24 L0 24 Z;
+              M0 14 Q3 16, 6 14 T12 14 T18 14 T24 14 L24 24 L0 24 Z;
+              M0 14 Q3 12, 6 14 T12 14 T18 14 T24 14 L24 24 L0 24 Z
+            "
+          />
+        </path>
+        {/* Espuma/brillo en la superficie */}
+        <path 
+          fill="rgba(255, 255, 255, 0.4)"
+          strokeWidth="0"
+        >
+          <animate
+            attributeName="d"
+            dur="0.8s"
+            repeatCount="indefinite"
+            values="
+              M0 13 Q3 11, 6 13 T12 13 T18 13 T24 13 L24 14 Q21 12, 18 14 T12 14 T6 14 T0 14 Z;
+              M0 13 Q3 15, 6 13 T12 13 T18 13 T24 13 L24 14 Q21 16, 18 14 T12 14 T6 14 T0 14 Z;
+              M0 13 Q3 11, 6 13 T12 13 T18 13 T24 13 L24 14 Q21 12, 18 14 T12 14 T6 14 T0 14 Z
+            "
+          />
+        </path>
+      </svg>
+    )}
+  </div>
 );
 
 interface SupportButtonProps {
@@ -173,9 +244,7 @@ const SupportButton: React.FC<SupportButtonProps> = ({
           whileTap={{ scale: 0.95 }}
           title="Centro de Soporte"
         >
-          <div className={`${isAnimating ? 'lifebuoy-animate active' : ''}`} style={{ transformOrigin: 'center' }}>
-            <LifebuoyIcon className="w-6 h-6" animate={isAnimating} />
-          </div>
+          <AnimatedLifebuoy isAnimating={isAnimating} isMenuOpen={isMenuOpen} />
           
           {/* Badge de notificaciones */}
           <AnimatePresence>

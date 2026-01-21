@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.29: Salvavidas con colores + animación + respuestas rápidas tickets
-  const version = 'B10.1.29N2.5.29';
+  // Versión actual - v2.5.30: Salvavidas animación hundir/rebotar con efecto agua
+  const version = 'B10.1.30N2.5.30';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {
