@@ -156,8 +156,8 @@ const SupportButton: React.FC<SupportButtonProps> = ({
     // Iniciar primera animación después de 5 segundos
     const initialTimeout = setTimeout(triggerAnimation, 5000);
     
-    // Repetir cada 60 segundos
-    const interval = setInterval(triggerAnimation, 60000);
+    // Repetir cada 180 segundos (3 minutos)
+    const interval = setInterval(triggerAnimation, 180000);
     
     return () => {
       clearTimeout(initialTimeout);

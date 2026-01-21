@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.31: Salvavidas animación mejorada (ondas, hover, clip)
-  const version = 'B10.1.31N2.5.31';
+  // Versión actual - v2.5.32: Salvavidas animación cada 180s
+  const version = 'B10.1.32N2.5.32';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {
