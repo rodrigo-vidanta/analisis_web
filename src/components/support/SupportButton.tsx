@@ -373,10 +373,10 @@ const SupportButton: React.FC<SupportButtonProps> = ({
       <MyTicketsModal
         isOpen={showMyTicketsModal}
         onClose={handleMyTicketsClose}
-        onTicketRead={(ticketId) => {
+        onTicketRead={async (ticketId) => {
           if (user?.id) {
-            ticketService.markTicketNotificationsAsRead(user.id, ticketId);
-            loadNotificationCount();
+            await ticketService.markTicketNotificationsAsRead(user.id, ticketId);
+            await loadNotificationCount();
           }
         }}
       />

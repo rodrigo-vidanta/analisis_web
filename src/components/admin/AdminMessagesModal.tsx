@@ -53,7 +53,7 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [ticketSearch, setTicketSearch] = useState('');
-  const [ticketFilter, setTicketFilter] = useState<'active' | 'all'>('active');
+  const [ticketFilter, setTicketFilter] = useState<'active' | 'mine' | 'all'>('active');
   const [ticketComments, setTicketComments] = useState<TicketComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isInternal, setIsInternal] = useState(false);
@@ -134,6 +134,12 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
   const filteredTickets = tickets.filter(ticket => {
     // Filtro: activos excluye resueltos, cerrados, cancelados
     if (ticketFilter === 'active' && ['resuelto', 'cerrado', 'cancelado'].includes(ticket.status)) return false;
+    // Filtro: mis tickets (asignados a mí o a mi rol)
+    if (ticketFilter === 'mine') {
+      const isAssignedToMe = ticket.assigned_to === user?.id;
+      const isAssignedToMyRole = ticket.assigned_to_role === user?.role_name;
+      if (!isAssignedToMe && !isAssignedToMyRole) return false;
+    }
     // Búsqueda
     if (ticketSearch) {
       const search = ticketSearch.toLowerCase();
@@ -144,6 +150,12 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
     }
     return true;
   });
+  
+  // Contador de mis tickets
+  const myTicketsCount = tickets.filter(t => 
+    (t.assigned_to === user?.id || t.assigned_to_role === user?.role_name) &&
+    !['resuelto', 'cerrado', 'cancelado'].includes(t.status)
+  ).length;
 
   // Contadores
   const pendingMessages = messages.filter(m => m.status === 'pending').length;
@@ -528,7 +540,7 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                     <>
                       <button
                         onClick={() => setTicketFilter('active')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        className={`px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
                           ticketFilter === 'active'
                             ? 'bg-orange-500 text-white shadow-md'
                             : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
@@ -537,8 +549,18 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                         Activos ({activeTickets})
                       </button>
                       <button
+                        onClick={() => setTicketFilter('mine')}
+                        className={`px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                          ticketFilter === 'mine'
+                            ? 'bg-purple-500 text-white shadow-md'
+                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+                        }`}
+                      >
+                        Míos ({myTicketsCount})
+                      </button>
+                      <button
                         onClick={() => setTicketFilter('all')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        className={`px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
                           ticketFilter === 'all'
                             ? 'bg-orange-500 text-white shadow-md'
                             : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
@@ -1120,21 +1142,37 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                         </div>
                       )}
 
-                      {/* Respuestas Rápidas */}
+                      {/* Respuestas Rápidas - Envían directamente */}
                       <div className="px-4 pt-2 pb-2">
                         <div className="flex items-center gap-1.5 flex-wrap mb-2">
                           <span className="text-[10px] font-medium text-gray-500 uppercase mr-1">Respuestas:</span>
                           {[
-                            { text: 'Recibido, lo revisamos', icon: '👀' },
-                            { text: 'Necesitamos más información', icon: '❓' },
-                            { text: 'Ya fue corregido', icon: '✅' },
-                            { text: 'Programado para próximo release', icon: '📅' },
-                            { text: 'Gracias por reportarlo', icon: '🙏' },
+                            { text: 'Recibido, lo revisamos' },
+                            { text: 'Necesitamos más información' },
+                            { text: 'Ya fue corregido' },
+                            { text: 'Programado para próximo release' },
+                            { text: 'Gracias por reportarlo' },
                           ].map((resp, idx) => (
                             <button
                               key={idx}
-                              onClick={() => setNewComment(resp.text)}
-                              className="px-2 py-1 text-[11px] rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-600 dark:hover:text-blue-400 transition-all"
+                              disabled={submitting}
+                              onClick={async () => {
+                                if (!selectedTicket || !user || submitting) return;
+                                setSubmitting(true);
+                                try {
+                                  await ticketService.addComment(
+                                    selectedTicket.id, user.id, user.full_name || user.email, user.role_name, resp.text, false
+                                  );
+                                  toast.success('Respuesta enviada');
+                                  const { comments } = await ticketService.getTicketComments(selectedTicket.id);
+                                  setTicketComments(comments);
+                                } catch {
+                                  toast.error('Error al enviar');
+                                } finally {
+                                  setSubmitting(false);
+                                }
+                              }}
+                              className="px-2 py-1 text-[11px] rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:border-blue-600 dark:hover:text-blue-400 transition-all disabled:opacity-50"
                             >
                               {resp.text}
                             </button>
