@@ -752,7 +752,7 @@ class CoordinacionService {
       }
 
       // Obtener datos de usuarios que son SUPERVISORES (role_name = 'supervisor')
-      // Necesitamos hacer join con auth_roles para filtrar solo supervisores
+      // user_profiles_v2 ya incluye role_name directamente
       const { data: usersData, error: usersError } = await supabaseSystemUI
         .from('user_profiles_v2')
         .select(`
@@ -770,9 +770,7 @@ class CoordinacionService {
           last_login,
           created_at,
           role_id,
-          auth_roles:role_id (
-            name
-          )
+          role_name
         `)
         .in('id', potentialSupervisorIds)
         .eq('is_active', true)
@@ -785,9 +783,8 @@ class CoordinacionService {
       // Filtrar solo usuarios con rol 'supervisor'
       const supervisores = (usersData || [])
         .filter((user: any) => {
-          // Verificar que el usuario es supervisor
-          const role = Array.isArray(user.auth_roles) ? user.auth_roles[0] : user.auth_roles;
-          if (role?.name !== 'supervisor') {
+          // Verificar que el usuario es supervisor (role_name ya está en la vista)
+          if (user.role_name !== 'supervisor') {
             return false;
           }
 

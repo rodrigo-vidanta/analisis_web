@@ -213,6 +213,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================
 
 -- 3.1 Crear vista que extrae datos de auth.users con metadata
+-- ACTUALIZADO 2026-01-20: Agregadas columnas is_coordinator e is_ejecutivo
 CREATE OR REPLACE VIEW public.user_profiles_v2 AS
 SELECT 
   au.id,
@@ -221,20 +222,20 @@ SELECT
   COALESCE((au.raw_user_meta_data->>'first_name')::TEXT, '') as first_name,
   COALESCE((au.raw_user_meta_data->>'last_name')::TEXT, '') as last_name,
   COALESCE((au.raw_user_meta_data->>'phone')::TEXT, '') as phone,
-  COALESCE((au.raw_user_meta_data->>'department')::TEXT, '') as department,
-  COALESCE((au.raw_user_meta_data->>'position')::TEXT, '') as position,
   COALESCE((au.raw_user_meta_data->>'organization')::TEXT, 'PQNC') as organization,
   (au.raw_user_meta_data->>'role_id')::UUID as role_id,
   ar.name as role_name,
   ar.display_name as role_display_name,
   (au.raw_user_meta_data->>'coordinacion_id')::UUID as coordinacion_id,
   COALESCE((au.raw_user_meta_data->>'is_active')::BOOLEAN, true) as is_active,
-  COALESCE((au.raw_user_meta_data->>'is_operativo')::BOOLEAN, true) as is_operativo,
+  COALESCE((au.raw_user_meta_data->>'is_operativo')::BOOLEAN, false) as is_operativo,
+  -- Flags de conveniencia derivados del rol o metadata
+  COALESCE((au.raw_user_meta_data->>'is_coordinator')::BOOLEAN, ar.name = 'coordinador') as is_coordinator,
+  COALESCE((au.raw_user_meta_data->>'is_ejecutivo')::BOOLEAN, ar.name = 'ejecutivo') as is_ejecutivo,
   COALESCE((au.raw_user_meta_data->>'has_backup')::BOOLEAN, false) as has_backup,
   (au.raw_user_meta_data->>'backup_id')::UUID as backup_id,
-  (au.raw_user_meta_data->>'backup_phone')::TEXT as backup_phone,
-  (au.raw_user_meta_data->>'original_phone')::TEXT as original_phone,
-  (au.raw_user_meta_data->>'id_colaborador')::TEXT as id_colaborador,
+  COALESCE((au.raw_user_meta_data->>'telefono_original')::TEXT, '') as telefono_original,
+  COALESCE((au.raw_user_meta_data->>'id_colaborador')::TEXT, '') as id_colaborador,
   (au.raw_user_meta_data->>'id_dynamics')::TEXT as id_dynamics,
   COALESCE((au.raw_user_meta_data->>'must_change_password')::BOOLEAN, false) as must_change_password,
   COALESCE((au.raw_user_meta_data->>'email_verified')::BOOLEAN, true) as email_verified,

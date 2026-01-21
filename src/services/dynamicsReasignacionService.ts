@@ -182,32 +182,20 @@ class DynamicsReasignacionService {
       // Error obteniendo datos de la nueva coordinación (no crítico)
     }
 
-    // Obtener datos del usuario que reasigna (incluyendo rol desde auth_roles)
+    // Obtener datos del usuario que reasigna (role_name ya está incluido en user_profiles_v2)
     let reasignadoPor: { full_name?: string; email?: string; role_name?: string } | null = null;
     try {
       const { data, error } = await supabaseSystemUI
         .from('user_profiles_v2')
-        .select(`
-          full_name, 
-          email, 
-          role_id,
-          auth_roles:role_id (
-            name
-          )
-        `)
+        .select('full_name, email, role_name')
         .eq('id', reasignadoPorId)
         .maybeSingle();
       
       if (!error && data) {
-        // Extraer el nombre del rol desde el join
-        const roleName = Array.isArray(data.auth_roles) 
-          ? data.auth_roles[0]?.name 
-          : (data.auth_roles as any)?.name;
-        
         reasignadoPor = {
           full_name: data.full_name,
           email: data.email,
-          role_name: roleName || undefined
+          role_name: data.role_name || undefined
         };
       }
     } catch {

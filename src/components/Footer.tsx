@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.22: Ticket system UI minimalista - sin gradientes ni emojis
-  const version = 'B10.1.25N2.5.25';
+  // Versión actual - v2.5.26: Sistema asignación tickets + fix funciones auth user_profiles_v2
+  const version = 'B10.1.26N2.5.26';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

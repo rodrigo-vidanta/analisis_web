@@ -95,13 +95,23 @@ serve(async (req) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ [dynamics-reasignar-proxy] Webhook error ${response.status}:`, errorText);
+        
+        // Intentar parsear el error como JSON para dar más contexto
+        let errorDetails;
+        try {
+          errorDetails = JSON.parse(errorText);
+        } catch {
+          errorDetails = errorText;
+        }
+        
+        // Propagar el código de error original (400, 401, etc.) en lugar de siempre 500
         return new Response(
           JSON.stringify({ 
             error: `Webhook Error: ${response.status}`, 
-            details: errorText,
+            details: errorDetails,
             success: false 
           }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
