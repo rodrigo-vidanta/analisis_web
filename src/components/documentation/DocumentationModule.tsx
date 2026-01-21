@@ -295,6 +295,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'b9c3d4e', date: '2026-01-21', author: 'Team', message: 'v2.5.27: B10.1.27N2.5.27 - Tickets: Metadata completa + Captura console logs (10 últimos)', isRelease: true },
   { hash: 'a8b2c3d', date: '2026-01-21', author: 'Team', message: 'v2.5.26: B10.1.26N2.5.26 - Sistema asignación tickets (rol/usuario) + fix auth_users→user_profiles_v2', isRelease: true },
   { hash: 'n7j3o9l', date: '2026-01-20', author: 'Team', message: 'v2.5.25: B10.1.25N2.5.25 - Docs Auth Nativa + Fix trigger-manual-proxy N8N', isRelease: true },
   { hash: 'z9v5a1x', date: '2026-01-20', author: 'Team', message: 'v2.5.24: B10.1.24N2.5.24 - Migración completa auth_users → Supabase Auth nativo + user_profiles_v2', isRelease: true },

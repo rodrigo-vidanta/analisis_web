@@ -976,6 +976,97 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                         </div>
                       )}
 
+                      {/* Metadata del Ticket */}
+                      {(selectedTicket.app_version || selectedTicket.current_module || selectedTicket.user_agent || selectedTicket.session_details) && (
+                        <div className="mb-6">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-1 h-5 bg-gradient-to-b from-cyan-500 to-blue-500 rounded-full" />
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Información Técnica</span>
+                          </div>
+                          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                            {/* Versión y Módulo */}
+                            <div className="grid grid-cols-2 gap-4">
+                              {selectedTicket.app_version && (
+                                <div>
+                                  <span className="text-[10px] font-medium text-slate-500 uppercase">Versión</span>
+                                  <p className="text-sm font-mono text-slate-700 dark:text-slate-300">{selectedTicket.app_version}</p>
+                                </div>
+                              )}
+                              {selectedTicket.current_module && (
+                                <div>
+                                  <span className="text-[10px] font-medium text-slate-500 uppercase">Módulo</span>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300">{selectedTicket.current_module}</p>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* User Agent */}
+                            {selectedTicket.user_agent && (
+                              <div>
+                                <span className="text-[10px] font-medium text-slate-500 uppercase">Navegador</span>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 break-all">{selectedTicket.user_agent}</p>
+                              </div>
+                            )}
+
+                            {/* Prospecto (si aplica) */}
+                            {selectedTicket.prospecto_nombre && (
+                              <div>
+                                <span className="text-[10px] font-medium text-slate-500 uppercase">Prospecto</span>
+                                <p className="text-sm text-slate-700 dark:text-slate-300">{selectedTicket.prospecto_nombre} <span className="text-xs text-slate-400">({selectedTicket.prospecto_id})</span></p>
+                              </div>
+                            )}
+
+                            {/* Detalles de Sesión */}
+                            {selectedTicket.session_details && (
+                              <div className="pt-2 border-t border-slate-200 dark:border-slate-600">
+                                <span className="text-[10px] font-medium text-slate-500 uppercase block mb-2">Detalles de Sesión</span>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  {selectedTicket.session_details.screenResolution && (
+                                    <div><span className="text-slate-500">Pantalla:</span> <span className="text-slate-700 dark:text-slate-300">{selectedTicket.session_details.screenResolution}</span></div>
+                                  )}
+                                  {selectedTicket.session_details.viewportSize && (
+                                    <div><span className="text-slate-500">Viewport:</span> <span className="text-slate-700 dark:text-slate-300">{selectedTicket.session_details.viewportSize}</span></div>
+                                  )}
+                                  {selectedTicket.session_details.timezone && (
+                                    <div><span className="text-slate-500">Zona:</span> <span className="text-slate-700 dark:text-slate-300">{selectedTicket.session_details.timezone}</span></div>
+                                  )}
+                                  {selectedTicket.session_details.platform && (
+                                    <div><span className="text-slate-500">Plataforma:</span> <span className="text-slate-700 dark:text-slate-300">{selectedTicket.session_details.platform}</span></div>
+                                  )}
+                                  {selectedTicket.session_details.url && (
+                                    <div className="col-span-2"><span className="text-slate-500">URL:</span> <span className="text-slate-700 dark:text-slate-300 break-all">{selectedTicket.session_details.url}</span></div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Console Logs */}
+                            {selectedTicket.session_details?.consoleLogs && selectedTicket.session_details.consoleLogs.length > 0 && (
+                              <div className="pt-2 border-t border-slate-200 dark:border-slate-600">
+                                <span className="text-[10px] font-medium text-slate-500 uppercase block mb-2">Console Logs ({selectedTicket.session_details.consoleLogs.length})</span>
+                                <div className="max-h-32 overflow-y-auto bg-gray-900 rounded-lg p-2 font-mono text-[11px] space-y-1">
+                                  {selectedTicket.session_details.consoleLogs.map((log: { type: string; message: string; timestamp: string }, idx: number) => (
+                                    <div key={idx} className={`flex gap-2 ${
+                                      log.type === 'error' ? 'text-red-400' : 
+                                      log.type === 'warn' ? 'text-yellow-400' : 
+                                      log.type === 'info' ? 'text-blue-400' : 'text-gray-300'
+                                    }`}>
+                                      <span className="text-gray-500 flex-shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                      <span className={`flex-shrink-0 uppercase text-[9px] px-1 rounded ${
+                                        log.type === 'error' ? 'bg-red-900/50' : 
+                                        log.type === 'warn' ? 'bg-yellow-900/50' : 
+                                        log.type === 'info' ? 'bg-blue-900/50' : 'bg-gray-800'
+                                      }`}>{log.type}</span>
+                                      <span className="break-all">{log.message}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full" />
                         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Conversación ({ticketComments.length})</span>

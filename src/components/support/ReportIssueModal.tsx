@@ -28,6 +28,49 @@ const getAppVersion = (): string => {
   return versionMatch ? versionMatch[0] : 'No detectada';
 };
 
+// Buffer para capturar logs de consola
+const consoleLogBuffer: { type: string; message: string; timestamp: string }[] = [];
+const MAX_CONSOLE_LOGS = 10;
+
+// Interceptor de consola (solo si no está ya instalado)
+if (!(window as any).__consoleInterceptorInstalled) {
+  const originalConsole = {
+    log: console.log,
+    warn: console.warn,
+    error: console.error,
+    info: console.info
+  };
+  
+  const captureLog = (type: string, ...args: any[]) => {
+    const message = args.map(arg => {
+      try {
+        if (typeof arg === 'object') return JSON.stringify(arg, null, 0).slice(0, 200);
+        return String(arg).slice(0, 200);
+      } catch { return '[Object]'; }
+    }).join(' ');
+    
+    consoleLogBuffer.push({
+      type,
+      message: message.slice(0, 300),
+      timestamp: new Date().toISOString()
+    });
+    
+    // Mantener solo los últimos N logs
+    while (consoleLogBuffer.length > MAX_CONSOLE_LOGS) {
+      consoleLogBuffer.shift();
+    }
+  };
+  
+  console.log = (...args) => { captureLog('log', ...args); originalConsole.log(...args); };
+  console.warn = (...args) => { captureLog('warn', ...args); originalConsole.warn(...args); };
+  console.error = (...args) => { captureLog('error', ...args); originalConsole.error(...args); };
+  console.info = (...args) => { captureLog('info', ...args); originalConsole.info(...args); };
+  
+  (window as any).__consoleInterceptorInstalled = true;
+}
+
+const getConsoleLogs = () => [...consoleLogBuffer];
+
 const getSessionDetails = () => ({
   userAgent: navigator.userAgent,
   platform: navigator.platform,
@@ -40,7 +83,8 @@ const getSessionDetails = () => ({
   online: navigator.onLine,
   timestamp: new Date().toISOString(),
   url: window.location.href,
-  referrer: document.referrer || 'Directo'
+  referrer: document.referrer || 'Directo',
+  consoleLogs: getConsoleLogs()
 });
 
 const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
