@@ -295,6 +295,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'f3g7h8i', date: '2026-01-21', author: 'Team', message: 'v2.5.33: B10.1.33N2.5.33 - Fix RPC get_user_permissions retornaba estructura incompleta', isRelease: true },
   { hash: 'd1e5f6g', date: '2026-01-21', author: 'Team', message: 'v2.5.29: B10.1.29N2.5.29 - Salvavidas colores + animación 60s + respuestas rápidas tickets', isRelease: true },
   { hash: 'c0d4e5f', date: '2026-01-21', author: 'Team', message: 'v2.5.28: B10.1.28N2.5.28 - Fix asignación tickets: avatar_url no existe en user_profiles_v2', isRelease: true },
   { hash: 'b9c3d4e', date: '2026-01-21', author: 'Team', message: 'v2.5.27: B10.1.27N2.5.27 - Tickets: Metadata completa + Captura console logs (10 últimos)', isRelease: true },
@@ -588,10 +589,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.25', highlight: true },
-  { label: 'Release', value: 'B10.1.25N2.5.25', highlight: false },
+  { label: 'Version', value: 'v2.5.33', highlight: true },
+  { label: 'Release', value: 'B10.1.33N2.5.33', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '20 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '21 Ene 2026', highlight: false },
 ];
 
 // ============================================
