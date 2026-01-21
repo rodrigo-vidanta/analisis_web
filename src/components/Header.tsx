@@ -16,6 +16,10 @@ import { NotificationControl } from './dashboard/NotificationControl';
 import { ThemeSelector, type ThemeMode } from './ThemeSelector';
 import { NotificationSystem } from './notifications/NotificationSystem';
 import SupportButton from './support/SupportButton';
+// Modo Ninja - Suplantación de usuarios para admins
+import { NinjaButton, NinjaModeIndicator, NinjaAvatar } from './ninja';
+import NinjaModeModal from './ninja/NinjaModeModal';
+import { useNinjaMode } from '../stores/ninjaStore';
 
 // ============================================
 // COMPONENTES DE ANIMACIÓN PARA THEME TOGGLE
@@ -248,6 +252,17 @@ const Header = ({
   
   // Estado del tema (light, twilight, dark)
   const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>('dark');
+  
+  // ============================================
+  // MODO NINJA - Suplantación de usuarios
+  // ============================================
+  const [showNinjaModal, setShowNinjaModal] = useState(false);
+  const { 
+    isNinjaMode, 
+    targetUser: ninjaTargetUser, 
+    deactivateNinjaMode,
+    getNinjaUserDisplay 
+  } = useNinjaMode();
 
   // Cargar tema al iniciar
   useEffect(() => {
@@ -679,8 +694,24 @@ const Header = ({
               {/* Usuario y logout */}
               {user && (
                 <div className="flex items-center space-x-3">
+                  {/* ============================================
+                      MODO NINJA - Indicador o Botón
+                      ============================================ */}
+                  {isNinjaMode ? (
+                    // Indicador de modo ninja activo
+                    <NinjaModeIndicator
+                      userName={getNinjaUserDisplay()?.name || 'Usuario'}
+                      onExit={deactivateNinjaMode}
+                    />
+                  ) : (
+                    // Botón para activar modo ninja (solo admins)
+                    isAdmin && (
+                      <NinjaButton onClick={() => setShowNinjaModal(true)} />
+                    )
+                  )}
+                  
                   {/* Botón de buzón de mensajes (solo para admins) */}
-                  {(isAdmin || isAdminOperativo) && (
+                  {(isAdmin || isAdminOperativo) && !isNinjaMode && (
                     <button
                       onClick={() => setShowMessagesModal(true)}
                       className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
@@ -695,56 +726,87 @@ const Header = ({
                     </button>
                   )}
                   
-                  {/* Avatar y info */}
+                  {/* Avatar y info - Con variante ninja */}
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setIsProfileModalOpen(true)}
-                      className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer"
-                      title="Editar perfil"
-                    >
-                      {profile?.avatar_url ? (
-                        <img 
-                          src={profile.avatar_url} 
-                          alt="Avatar" 
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            console.warn('❌ Error cargando avatar:', profile.avatar_url);
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <span className="text-xs font-semibold text-white">
-                          {user.full_name?.charAt(0).toUpperCase() || 'U'}
-                        </span>
-                      )}
-                    </button>
+                    {isNinjaMode && ninjaTargetUser ? (
+                      // Avatar ninja cuando está en modo suplantación
+                      <NinjaAvatar 
+                        initial={ninjaTargetUser.full_name?.charAt(0).toUpperCase() || 'N'} 
+                        size="md" 
+                      />
+                    ) : (
+                      // Avatar normal
+                      <button
+                        onClick={() => setIsProfileModalOpen(true)}
+                        className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer"
+                        title="Editar perfil"
+                      >
+                        {profile?.avatar_url ? (
+                          <img 
+                            src={profile.avatar_url} 
+                            alt="Avatar" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.warn('❌ Error cargando avatar:', profile.avatar_url);
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <span className="text-xs font-semibold text-white">
+                            {user.full_name?.charAt(0).toUpperCase() || 'U'}
+                          </span>
+                        )}
+                      </button>
+                    )}
+                    
                     <div className="hidden md:block">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">
-                        {user.full_name || user.email}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {user.email}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
-                        {user.role_name}
-                      </p>
+                      {isNinjaMode && ninjaTargetUser ? (
+                        // Info del usuario suplantado en rojo
+                        <>
+                          <p className="text-sm font-medium text-red-500">
+                            {ninjaTargetUser.full_name}
+                          </p>
+                          <p className="text-xs text-red-400/70">
+                            {ninjaTargetUser.email}
+                          </p>
+                          <p className="text-xs text-red-400/70 capitalize flex items-center space-x-1">
+                            <span>🥷</span>
+                            <span>{ninjaTargetUser.role_name}</span>
+                          </p>
+                        </>
+                      ) : (
+                        // Info normal
+                        <>
+                          <p className="text-sm font-medium text-slate-900 dark:text-white">
+                            {user.full_name || user.email}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {user.email}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                            {user.role_name}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
 
-                  {/* Logout */}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      logout();
-                    }}
-                    className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                    title="Cerrar sesión"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                  </button>
+                  {/* Logout - Solo si NO está en modo ninja */}
+                  {!isNinjaMode && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        logout();
+                      }}
+                      className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                      title="Cerrar sesión"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -785,6 +847,14 @@ const Header = ({
               }
             }}
             recipientRole={user.role_name}
+          />
+        )}
+        
+        {/* Modal de Modo Ninja - Solo para admins */}
+        {isAdmin && (
+          <NinjaModeModal
+            isOpen={showNinjaModal}
+            onClose={() => setShowNinjaModal(false)}
           />
         )}
       </header>

@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
+import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { permissionsService } from '../../services/permissionsService';
 // supabaseSystemUI removido - ahora usamos coordinacion_id directamente en analysisSupabase
@@ -2789,6 +2790,18 @@ const DashboardModule: React.FC = () => {
   const { user } = useAuth();
   const { isAdmin } = useEffectivePermissions();
   
+  // ============================================
+  // MODO NINJA: Usar usuario efectivo para filtros
+  // ============================================
+  const { 
+    isNinjaMode, 
+    effectiveUser,
+    isEffectiveAdmin 
+  } = useNinjaAwarePermissions();
+  
+  // Usuario efectivo para consultas (ninja o real)
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
+  
   // Estado de acceso - verificación asíncrona para coordinadores de CALIDAD
   // ACCESO PERMITIDO SOLO: admin o coordinador de la coordinación de CALIDAD
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
@@ -2881,9 +2894,10 @@ const DashboardModule: React.FC = () => {
   // Verificar permisos de acceso al Dashboard
   // SOLO: admin o coordinador de la coordinación de CALIDAD
   // NINGÚN otro rol tiene acceso (ni admin operativo, ni coordinadores de otras coordinaciones)
+  // ⚠️ MODO NINJA: Usar queryUserId para verificar permisos como el usuario suplantado
   useEffect(() => {
     const checkAccess = async () => {
-      if (!user?.id) {
+      if (!queryUserId) {
         setHasAccess(false);
         setIsCheckingAccess(false);
         return;
@@ -2892,15 +2906,18 @@ const DashboardModule: React.FC = () => {
       setIsCheckingAccess(true);
 
       try {
+        // En modo ninja, usar permisos del usuario efectivo
+        const effectiveIsAdmin = isNinjaMode ? isEffectiveAdmin : isAdmin;
+        
         // Solo Admin tiene acceso automático
-        if (isAdmin) {
+        if (effectiveIsAdmin) {
           setHasAccess(true);
           setIsCheckingAccess(false);
           return;
         }
 
         // Verificar si es Coordinador de la coordinación de CALIDAD
-        const esCoordCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+        const esCoordCalidad = await permissionsService.isCoordinadorCalidad(queryUserId);
         setIsCoordinadorCalidad(esCoordCalidad);
         setHasAccess(esCoordCalidad);
       } catch (error) {
@@ -2912,7 +2929,7 @@ const DashboardModule: React.FC = () => {
     };
 
     checkAccess();
-  }, [user?.id, isAdmin]);
+  }, [queryUserId, isAdmin, isNinjaMode, isEffectiveAdmin]);
 
   const isGlobalView = filters.coordinaciones === 'global' || filters.coordinaciones === 'pending_default';
 

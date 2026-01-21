@@ -54,6 +54,7 @@ interface FormData {
   coordinacion_id: string;
   coordinaciones_ids: string[];
   is_active: boolean;
+  inbound: boolean; // Usuario recibe mensajes inbound de WhatsApp
   analysis_sources: string[];
   group_ids: string[];
 }
@@ -69,6 +70,7 @@ const initialFormData: FormData = {
   coordinacion_id: '',
   coordinaciones_ids: [],
   is_active: true,
+  inbound: false,
   analysis_sources: [],
   group_ids: []
 };
@@ -218,6 +220,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
             isOperativo: !!formData.id_dynamics?.trim(),
             isCoordinator: selectedRole?.name === 'coordinador',
             isEjecutivo: selectedRole?.name === 'ejecutivo',
+            inbound: formData.inbound,
             coordinacionId: formData.coordinacion_id || null
           }
         })
@@ -771,6 +774,35 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
                     className="sr-only"
                     checked={formData.is_active}
                     onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                  />
+                </label>
+
+                {/* Toggle Inbound */}
+                <label className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer transition-all duration-200">
+                  <div className="flex items-center gap-3">
+                    <div className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
+                      formData.inbound ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-700'
+                    }`}>
+                      <motion.div
+                        animate={{ x: formData.inbound ? 20 : 0 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                        className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Usuario recibe mensajes inbound
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Al habilitar, el usuario recibirá mensajes de nuevos prospectos a su módulo de WhatsApp
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={formData.inbound}
+                    onChange={(e) => setFormData(prev => ({ ...prev, inbound: e.target.checked }))}
                   />
                 </label>
               </motion.div>

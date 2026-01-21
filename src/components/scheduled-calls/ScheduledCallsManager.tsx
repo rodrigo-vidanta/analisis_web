@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Calendar, Clock, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { scheduledCallsService, type ScheduledCall } from '../../services/scheduledCallsService';
 import { CalendarSidebar } from './CalendarSidebar';
 import { DailyView } from './views/DailyView';
@@ -22,6 +23,13 @@ interface ScheduledCallsManagerProps {
 
 const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigateToLiveChat }) => {
   const { user } = useAuth();
+  
+  // ============================================
+  // MODO NINJA: Usar usuario efectivo para filtros
+  // ============================================
+  const { isNinjaMode, effectiveUser } = useNinjaAwarePermissions();
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
+  
   const [calls, setCalls] = useState<ScheduledCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -38,32 +46,33 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
+  // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
   useEffect(() => {
-    if (user?.id) {
+    if (queryUserId) {
       loadCalls();
     }
-  }, [user?.id]);
+  }, [queryUserId]);
 
   useEffect(() => {
-    if (user?.id) {
+    if (queryUserId) {
       loadCalls();
     }
-  }, [searchTerm, user?.id]);
+  }, [searchTerm, queryUserId]);
 
   // Actualización automática silenciosa cada 60 segundos
   useEffect(() => {
-    if (!user?.id) return;
+    if (!queryUserId) return;
     
     const interval = setInterval(() => {
       loadCallsSilent();
     }, 60000); // 60 segundos
     
     return () => clearInterval(interval);
-  }, [user?.id, searchTerm]);
+  }, [queryUserId, searchTerm]);
 
 
   const loadCalls = async () => {
-    if (!user?.id) return;
+    if (!queryUserId) return;
     
     setLoading(true);
     try {
@@ -71,7 +80,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
         search: searchTerm || undefined,
         estatus: 'all' as const
       };
-      const data = await scheduledCallsService.getScheduledCalls(user.id, filters);
+      const data = await scheduledCallsService.getScheduledCalls(queryUserId, filters);
       setCalls(data);
     } catch (error) {
       console.error('Error loading scheduled calls:', error);
@@ -81,15 +90,16 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   };
 
   // Carga silenciosa sin mostrar loading ni causar rerenders visibles
+  // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
   const loadCallsSilent = async () => {
-    if (!user?.id) return;
+    if (!queryUserId) return;
     
     try {
       const filters = {
         search: searchTerm || undefined,
         estatus: 'all' as const
       };
-      const data = await scheduledCallsService.getScheduledCalls(user.id, filters);
+      const data = await scheduledCallsService.getScheduledCalls(queryUserId, filters);
       // Actualizar solo si hay cambios reales para evitar rerenders innecesarios
       setCalls(prevCalls => {
         // Comparar por IDs para detectar cambios reales
@@ -157,7 +167,8 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   };
 
   const handleNavigateToProspect = async (prospectoId: string) => {
-    if (!user?.id) {
+    // ⚠️ MODO NINJA: Usar queryUserId para verificar permisos como el usuario suplantado
+    if (!queryUserId) {
       alert('Debes estar autenticado para ver los detalles del prospecto');
       return;
     }
@@ -166,7 +177,7 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
       // Verificar permisos antes de cargar el prospecto
       const permissionsServiceModule = await import('../../services/permissionsService');
       const permissionCheck = await permissionsServiceModule.permissionsService.canUserAccessProspect(
-        user.id,
+        queryUserId,
         prospectoId
       );
 

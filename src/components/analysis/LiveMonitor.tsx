@@ -25,6 +25,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { ParaphraseModal } from '../chat/ParaphraseModal';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { AssignmentBadge } from './AssignmentBadge';
 import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
 import { ProspectAvatar } from './ProspectAvatar';
@@ -4372,6 +4373,13 @@ Debería sonar MUCHO mejor ahora.`);
 
 const LiveMonitor: React.FC = () => {
   const { user } = useAuth();
+  
+  // ============================================
+  // MODO NINJA: Usar usuario efectivo para filtros
+  // ============================================
+  const { isNinjaMode, effectiveUser } = useNinjaAwarePermissions();
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
+  
   const [prospects, setProspects] = useState<LiveCallData[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedProspect, setSelectedProspect] = useState<LiveCallData | null>(null);
@@ -4469,11 +4477,12 @@ const LiveMonitor: React.FC = () => {
   };
 
   // Cargar datos iniciales y configurar Realtime
+  // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
   useEffect(() => {
     const loadData = async () => {
       try {
         const [prospectsData, agentsData] = await Promise.all([
-          liveMonitorService.getActiveCalls(user?.id), // Pasar userId para filtros de permisos
+          liveMonitorService.getActiveCalls(queryUserId), // Pasar userId para filtros de permisos
           liveMonitorService.getActiveAgents()
         ]);
         setProspects(prospectsData);
@@ -4487,7 +4496,7 @@ const LiveMonitor: React.FC = () => {
       }
     };
 
-    if (!user?.id) return;
+    if (!queryUserId) return;
 
     // Cargar datos iniciales
     loadData();
@@ -4503,8 +4512,9 @@ const LiveMonitor: React.FC = () => {
       }, async (payload) => {
         try {
           // Recargar datos para incluir la nueva llamada
+          // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
           const [prospectsData, agentsData] = await Promise.all([
-            liveMonitorService.getActiveCalls(user?.id),
+            liveMonitorService.getActiveCalls(queryUserId),
             liveMonitorService.getActiveAgents()
           ]);
           setProspects(prospectsData);
@@ -4574,7 +4584,7 @@ const LiveMonitor: React.FC = () => {
             setTimeout(async () => {
               try {
                 const [prospectsData] = await Promise.all([
-                  liveMonitorService.getActiveCalls(user?.id)
+                  liveMonitorService.getActiveCalls(queryUserId)
                 ]);
                 setProspects(prospectsData);
               } catch (e) {
@@ -4602,7 +4612,7 @@ const LiveMonitor: React.FC = () => {
         // Error al desuscribirse de Realtime (no crítico)
       }
     };
-  }, [user?.id]);
+  }, [queryUserId]);
 
   // Funciones auxiliares
   const getCheckpointIcon = (checkpoint: string) => {
@@ -4707,7 +4717,8 @@ const LiveMonitor: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Actualizar la lista
-      const updatedProspects = await liveMonitorService.getActiveCalls(user?.id);
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
+      const updatedProspects = await liveMonitorService.getActiveCalls(queryUserId);
       setProspects(updatedProspects);
       
       // Cerrar modales y limpiar estado
@@ -4750,7 +4761,8 @@ const LiveMonitor: React.FC = () => {
       await liveMonitorService.saveFeedback(feedbackData);
       
       // Actualizar la lista
-      const updatedProspects = await liveMonitorService.getActiveCalls(user?.id);
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
+      const updatedProspects = await liveMonitorService.getActiveCalls(queryUserId);
       setProspects(updatedProspects);
       
       // Cerrar modal

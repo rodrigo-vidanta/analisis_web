@@ -72,6 +72,7 @@ import ModerationService from '../../services/moderationService';
 import ParaphraseLogService from '../../services/paraphraseLogService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
+import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useState as useReactState } from 'react';
 import { getDisplayName } from '../../utils/conversationNameHelper';
@@ -1028,6 +1029,18 @@ const LiveChatCanvas: React.FC = () => {
   const { user } = useAuth();
   const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
   const { setAppMode } = useAppStore();
+  
+  // ============================================
+  // MODO NINJA: Usar usuario efectivo para filtros
+  // ============================================
+  const { 
+    isNinjaMode, 
+    effectiveUser,
+    isEffectiveAdmin 
+  } = useNinjaAwarePermissions();
+  
+  // Usuario efectivo para consultas (ninja o real)
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [prospectsWithActiveCalls, setProspectsWithActiveCalls] = useState<Set<string>>(new Set());
@@ -1409,6 +1422,17 @@ const LiveChatCanvas: React.FC = () => {
       reconnectBackoffRef.current = 0;
     };
   }, []); // ✅ Solo ejecutar una vez al montar
+
+  // ============================================
+  // 🥷 MODO NINJA: Recargar cuando cambia el usuario efectivo
+  // ============================================
+  useEffect(() => {
+    // Cuando el modo ninja cambia o el usuario efectivo cambia, recargar datos
+    if (queryUserId && hasInitialConversationsLoadRef.current) {
+      // Forzar recarga con el nuevo usuario
+      loadConversationsWrapper('', true);
+    }
+  }, [queryUserId, isNinjaMode]);
 
   useEffect(() => {
     // ✅ CRÍTICO: Actualizar refs cuando cambia la conversación seleccionada
@@ -3515,10 +3539,11 @@ const LiveChatCanvas: React.FC = () => {
       }
       
       // OPTIMIZACIÓN: Cargar ambas fuentes en paralelo con paginación
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
       const [uchatConversationsRaw, rpcDataResult] = await Promise.all([
         // Consulta 1: Conversaciones de uchat (mantener límite bajo)
         uchatService.getConversations({
-          userId: user?.id,
+          userId: queryUserId,
           limit: 100
         }),
         // Consulta 2: Conversaciones de WhatsApp (RPC PAGINADO)
@@ -3715,12 +3740,13 @@ const LiveChatCanvas: React.FC = () => {
       ]);
 
       // OPTIMIZACIÓN: Obtener filtros de permisos una sola vez (antes de enriquecer)
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
       let ejecutivoFilter: string | null = null;
       let coordinacionesFilter: string[] | null = null;
       
-      if (user?.id) {
-        ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
-        coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
+      if (queryUserId) {
+        ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
+        coordinacionesFilter = await permissionsService.getCoordinacionesFilter(queryUserId);
         
         // ⚠️ CRÍTICO: Actualizar refs de permisos para uso en handlers realtime
         ejecutivoFilterRef.current = ejecutivoFilter;
@@ -4080,18 +4106,19 @@ const LiveChatCanvas: React.FC = () => {
       const from = pageToLoad * CONVERSATIONS_BATCH_SIZE;
       
       // Obtener filtros de permisos
-      let isAdmin = false;
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
+      let isAdminMode = false;
       let ejecutivoIds: string[] = [];
       let coordinacionIds: string[] = [];
       
-      if (user?.id) {
-        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
-        const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
+      if (queryUserId) {
+        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
+        const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(queryUserId);
         
         ejecutivoFilterRef.current = ejecutivoFilter;
         coordinacionesFilterRef.current = coordinacionesFilter;
         isAdminRef.current = !ejecutivoFilter && !coordinacionesFilter;
-        isAdmin = !ejecutivoFilter && !coordinacionesFilter;
+        isAdminMode = !ejecutivoFilter && !coordinacionesFilter;
         
         if (ejecutivoFilter) {
           ejecutivoIds = [ejecutivoFilter];
@@ -4119,9 +4146,10 @@ const LiveChatCanvas: React.FC = () => {
       }
       
       // ⚡ CARGA OPTIMIZADA: Una sola query a la vista materializada
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
       const dashboardConversations = await optimizedConversationsService.loadConversations({
-        userId: user?.id,
-        isAdmin,
+        userId: queryUserId,
+        isAdmin: isAdminMode,
         ejecutivoIds: ejecutivoIds.length > 0 ? ejecutivoIds : undefined,
         coordinacionIds: coordinacionIds.length > 0 ? coordinacionIds : undefined,
         limit: CONVERSATIONS_BATCH_SIZE,
@@ -4131,8 +4159,8 @@ const LiveChatCanvas: React.FC = () => {
       // Obtener conteo solo en primera carga
       if (pageToLoad === 0) {
         const count = await optimizedConversationsService.getConversationsCount({
-          userId: user?.id,
-          isAdmin,
+          userId: queryUserId,
+          isAdmin: isAdminMode,
         });
         setTotalConversationsCount(count);
       }
@@ -4162,11 +4190,12 @@ const LiveChatCanvas: React.FC = () => {
       });
       
       // Cargar datos complementarios en paralelo (bot pause, labels)
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
       const prospectoIds = dashboardConversations.map(c => c.prospecto_id);
-      if (prospectoIds.length > 0 && user?.id) {
+      if (prospectoIds.length > 0 && queryUserId) {
         const complementaryData = await optimizedConversationsService.loadComplementaryData(
           prospectoIds,
-          user.id
+          queryUserId
         );
         
         // Actualizar bot pause status

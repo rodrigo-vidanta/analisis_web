@@ -561,6 +561,7 @@ serve(async (req) => {
           isOperativo = false,
           isCoordinator = false,
           isEjecutivo = false,
+          inbound = false,
           coordinacionId = null
         } = params
         
@@ -629,6 +630,7 @@ serve(async (req) => {
             is_operativo: finalIsOperativo,
             is_coordinator: isCoordinator || roleName === 'coordinador',
             is_ejecutivo: isEjecutivo || roleName === 'ejecutivo',
+            inbound: inbound,
             coordinacion_id: coordinacionId,
             created_via: 'auth-admin-proxy',
             created_at: new Date().toISOString()

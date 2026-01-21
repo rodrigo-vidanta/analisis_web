@@ -31,6 +31,7 @@ import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import Chart from 'chart.js/auto';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
+import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { permissionsService } from '../../services/permissionsService';
 import { prospectsViewPreferencesService } from '../../services/prospectsViewPreferencesService';
 import type { ViewType } from '../../services/prospectsViewPreferencesService';
@@ -960,6 +961,20 @@ interface ProspectosManagerProps {
 const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveChat, onNavigateToNatalia }) => {
   const { user } = useAuth();
   const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
+  
+  // ============================================
+  // MODO NINJA: Usar usuario efectivo para filtros
+  // ============================================
+  const { 
+    isNinjaMode, 
+    effectiveUser,
+    isEffectiveAdmin,
+    isEffectiveCoordinador 
+  } = useNinjaAwarePermissions();
+  
+  // Usuario efectivo para consultas (ninja o real)
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
+  const queryRoleName = isNinjaMode && effectiveUser ? effectiveUser.role_name : user?.role_name;
   const [prospectos, setProspectos] = useState<Prospecto[]>([]);
   const [allProspectos, setAllProspectos] = useState<Prospecto[]>([]); // Todos los prospectos cargados
   const [loading, setLoading] = useState(true);
@@ -1129,6 +1144,19 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     };
   }, [user?.id, viewType]);
 
+  // ============================================
+  // 🥷 MODO NINJA: Recargar cuando cambia el usuario efectivo
+  // ============================================
+  useEffect(() => {
+    // Cuando el modo ninja cambia o el usuario efectivo cambia, recargar datos
+    if (queryUserId && hasInitialLoadRef.current) {
+      // Forzar recarga con el nuevo usuario
+      hasInitialLoadRef.current = false;
+      loadProspectos(true);
+      loadEtapaTotals();
+    }
+  }, [queryUserId, isNinjaMode]);
+
   // ✅ REALTIME: Suscripción para detectar cambios en id_dynamics y etapa (PhoneDisplay)
   useEffect(() => {
     if (!user?.id) return;
@@ -1218,8 +1246,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   }, [filters.search]);
   
   // Ejecutar búsqueda en servidor cuando cambia debouncedSearch
+  // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
   useEffect(() => {
-    if (!debouncedSearch || !user?.id || !analysisSupabase) {
+    if (!debouncedSearch || !queryUserId || !analysisSupabase) {
       setServerSearchResults(null);
       return;
     }
@@ -1236,9 +1265,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           .from('prospectos')
           .select('*');
         
-        // Aplicar filtros de permisos
-        if (user?.id) {
-          const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
+        // Aplicar filtros de permisos (usa queryUserId para modo ninja)
+        if (queryUserId) {
+          const filteredQuery = await permissionsService.applyProspectFilters(query, queryUserId);
           // Verificar que filteredQuery es un PostgrestFilterBuilder válido (tiene método .or)
           if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.or === 'function') {
             query = filteredQuery;
@@ -1305,7 +1334,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     };
     
     searchInServer();
-  }, [debouncedSearch, user?.id]);
+  }, [debouncedSearch, queryUserId]);
 
   // Infinite Scroll para DataGrid - cargar más prospectos cuando se hace scroll
   // NOTA: Este useEffect debe estar después de la definición de filteredAndSortedProspectos
@@ -1356,8 +1385,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [columnPages, setColumnPages] = useState<Record<string, number>>({});
   
   // Cargar totales por etapa (conteos reales desde BD, independiente del batch cargado)
+  // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
   const loadEtapaTotals = async () => {
-    if (!user?.id) return;
+    if (!queryUserId) return;
     
     try {
       
@@ -1366,10 +1396,10 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         .from('prospectos')
         .select('etapa', { count: 'exact', head: false });
       
-      // Aplicar filtros de permisos (igual que en loadProspectos)
-      if (user?.id) {
+      // Aplicar filtros de permisos (usa queryUserId para modo ninja)
+      if (queryUserId) {
         try {
-          const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
+          const filteredQuery = await permissionsService.applyProspectFilters(query, queryUserId);
           // Verificar que filteredQuery es un PostgrestFilterBuilder válido
           if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.select === 'function') {
             query = filteredQuery;
@@ -1431,19 +1461,20 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         .range(from, to);
 
       // Aplicar filtros de permisos si hay usuario (incluye lógica de backup)
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
       let ejecutivosIdsParaFiltro: string[] | null = null;
       let coordinacionesIdsParaFiltro: string[] | null = null;
       
-      if (user?.id) {
+      if (queryUserId) {
         try {
-          const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
+          const filteredQuery = await permissionsService.applyProspectFilters(query, queryUserId);
           // Verificar que filteredQuery es un PostgrestFilterBuilder válido
           if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.select === 'function') {
             query = filteredQuery;
             
             // Guardar los filtros aplicados para usar en fallback si es necesario
-            const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
-            const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
+            const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
+            const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(queryUserId);
             
             if (ejecutivoFilter) {
               // Obtener IDs de ejecutivos donde es backup usando el servicio optimizado
@@ -1550,9 +1581,10 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
 
       // ⚡ OPTIMIZACIÓN CRÍTICA: Pre-cargar datos de backup SIEMPRE antes de verificar permisos
       // Esto evita múltiples requests simultáneas que causan ERR_INSUFFICIENT_RESOURCES
-      if (user?.id) {
+      // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
+      if (queryUserId) {
         // Pre-cargar datos del USUARIO ACTUAL primero (para BackupBadgeWrapper)
-        await permissionsService.preloadBackupData([user.id]);
+        await permissionsService.preloadBackupData([queryUserId]);
         
         // Luego pre-cargar datos de ejecutivos de los prospectos
         const ejecutivosUnicos = [...new Set(enrichedProspectos.map((p: Prospecto) => p.ejecutivo_id).filter(Boolean))] as string[];
@@ -1562,7 +1594,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       }
 
       // Para ejecutivos: verificación adicional usando canUserAccessProspect (verifica prospect_assignments)
-      if (user?.id && ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
+      // ⚠️ MODO NINJA: Usar queryUserId para verificar permisos como el usuario suplantado
+      if (queryUserId && ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
         // Filtrar prospectos usando el servicio de permisos (verifica prospect_assignments)
         // Los datos de backup ya están pre-cargados arriba
         // Procesar en batches pequeños para evitar saturar el navegador
@@ -1575,7 +1608,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             batch.map(async (prospecto: Prospecto) => {
               // Verificar permisos usando el servicio (usa prospect_assignments como fuente de verdad)
               try {
-                const permissionCheck = await permissionsService.canUserAccessProspect(user.id, prospecto.id);
+                const permissionCheck = await permissionsService.canUserAccessProspect(queryUserId, prospecto.id);
                 return permissionCheck.canAccess ? prospecto : null;
               } catch (error) {
                 console.error(`❌ Error verificando permiso para prospecto ${prospecto.id}:`, error);

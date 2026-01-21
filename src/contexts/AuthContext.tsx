@@ -29,6 +29,8 @@ interface AuthContextType extends AuthState {
   getModulePermissions: (module: string) => Permission[];
   getFirstAvailableModule: () => 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null;
   refreshUser: () => Promise<void>;
+  // Indica si el usuario real (no suplantado) es admin
+  isRealAdmin: boolean;
 }
 
 // Crear contexto
@@ -612,6 +614,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
 
+  // Verificar si el usuario REAL es admin (sin considerar modo ninja)
+  const isRealAdmin = authState.user?.role_name === 'admin';
+
   // Valor del contexto
   const contextValue: AuthContextType = {
     ...authState,
@@ -624,7 +629,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAnalysisPermissions,
     getModulePermissions,
     getFirstAvailableModule,
-    refreshUser
+    refreshUser,
+    isRealAdmin
   };
 
   return (

@@ -8,6 +8,7 @@ import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useLiveActivityStore } from '../stores/liveActivityStore';
 import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
+import { useNinjaAwarePermissions } from '../hooks/useNinjaAwarePermissions';
 import { permissionsService } from '../services/permissionsService';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import type { TokenLimits } from '../services/tokenService';
@@ -264,6 +265,7 @@ interface MenuItemProps {
   submenu?: SubMenuItemProps[];
   hasSubmenu?: boolean;
   isCollapsed?: boolean;
+  isNinjaMode?: boolean;
 }
 
 interface SubMenuItemProps {
@@ -351,7 +353,7 @@ const ChristmasLightsOverlay: React.FC<{ showSnow?: boolean }> = ({ showSnow = f
   );
 };
 
-const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, submenu, hasSubmenu, isCollapsed }) => {
+const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, submenu, hasSubmenu, isCollapsed, isNinjaMode }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleClick = () => {
@@ -362,14 +364,21 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
     }
   };
 
+  // Estilos ninja: gradiente rojo cuando está activo, iconos rojos cuando no
+  const activeStyles = isNinjaMode
+    ? 'bg-gradient-to-r from-red-600 to-red-800 text-white shadow-md shadow-red-500/20'
+    : 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-md';
+  
+  const inactiveStyles = isNinjaMode
+    ? 'text-red-400 hover:bg-red-900/20 hover:text-red-300'
+    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800';
+
   return (
     <div>
       <motion.button
         onClick={handleClick}
         className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2.5' : 'justify-between px-3 py-2.5'} rounded-lg transition-colors duration-200 text-sm font-medium group ${
-          active
-            ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-md'
-            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          active ? activeStyles : inactiveStyles
         }`}
         title={label}
         whileHover={{ scale: 1.02 }}
@@ -379,7 +388,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
         {isCollapsed ? (
           // Modo colapsado: solo icono centrado
           <motion.div 
-            className="w-5 h-5 flex-shrink-0"
+            className={`w-5 h-5 flex-shrink-0 ${isNinjaMode && !active ? 'sidebar-icon' : ''}`}
             initial={false}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
@@ -395,7 +404,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2 }}
             >
-              <div className="w-5 h-5 flex-shrink-0">
+              <div className={`w-5 h-5 flex-shrink-0 ${isNinjaMode && !active ? 'sidebar-icon' : ''}`}>
                 {icon}
               </div>
               <span className="truncate">{label}</span>
@@ -510,16 +519,31 @@ const playCheckpointCompleteSound = () => {
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
-  const { user, canAccessModule, canAccessLiveMonitor } = useAuth();
+  const { user } = useAuth();
   const { profile } = useUserProfile();
   const { appMode, setAppMode } = useAppStore();
   const [tokenInfo, setTokenInfo] = useState<TokenLimits | null>(null);
   const { natalia, pqnc, liveMonitor } = useAnalysisPermissions();
   const [analysisMode, setAnalysisMode] = useState<'natalia' | 'pqnc'>('natalia');
   
-  // Permisos efectivos (rol base + grupos asignados)
-  const { isAdmin } = useEffectivePermissions();
-  const isCoordinador = user?.role_name === 'coordinador';
+  // ============================================
+  // MODO NINJA: Usar permisos conscientes del modo ninja
+  // ============================================
+  const {
+    isNinjaMode,
+    effectiveUser,
+    effectiveRoleName,
+    canAccessModule,
+    canAccessLiveMonitor,
+    isEffectiveAdmin,
+  } = useNinjaAwarePermissions();
+  
+  // Permisos efectivos (rol base + grupos asignados) - para el usuario REAL
+  const { isAdmin: isRealAdmin } = useEffectivePermissions();
+  
+  // En modo ninja, usar los permisos del usuario suplantado
+  const isAdmin = isNinjaMode ? isEffectiveAdmin : isRealAdmin;
+  const isCoordinador = effectiveRoleName === 'coordinador';
   const [isCoordinadorCalidad, setIsCoordinadorCalidad] = useState(false);
   const { config } = useSystemConfig();
   
@@ -747,8 +771,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       onClick: () => setAppMode('scheduled-calls')
     }] : []),
 
-    // 7. Modelos LLM (AI Models)
-    ...((isAdmin || user?.role_name === 'productor' || user?.role_name === 'developer') ? [{
+    // 7. Modelos LLM (AI Models) - Usar rol efectivo para modo ninja
+    ...((isAdmin || effectiveRoleName === 'productor' || effectiveRoleName === 'developer') ? [{
       icon: (
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -950,44 +974,55 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           transition={{ duration: 0.2, delay: 0.05 }}
         >
           {menuItems.map((item, index) => (
-            <MenuItem key={index} {...item} isCollapsed={isCollapsed} />
+            <MenuItem key={index} {...item} isCollapsed={isCollapsed} isNinjaMode={isNinjaMode} />
           ))}
         </motion.nav>
 
 
         {/* Campañas - Solo para Admin */}
         {campaignsItem && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-            <MenuItem {...campaignsItem} isCollapsed={isCollapsed} />
+          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-slate-200 dark:border-slate-700'}`}>
+            <MenuItem {...campaignsItem} isCollapsed={isCollapsed} isNinjaMode={isNinjaMode} />
           </div>
         )}
 
         {/* Dashboard Ejecutivo - Solo Admin y Coordinadores Calidad */}
         {dashboardItem && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-            <MenuItem {...dashboardItem} isCollapsed={isCollapsed} />
+          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-slate-200 dark:border-slate-700'}`}>
+            <MenuItem {...dashboardItem} isCollapsed={isCollapsed} isNinjaMode={isNinjaMode} />
           </div>
         )}
 
         {/* Admin al final */}
         {adminItem && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-            <MenuItem {...adminItem} isCollapsed={isCollapsed} />
+          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-slate-200 dark:border-slate-700'}`}>
+            <MenuItem {...adminItem} isCollapsed={isCollapsed} isNinjaMode={isNinjaMode} />
           </div>
         )}
 
         {/* Información del usuario si está expandido */}
         {!isCollapsed && user && (
           <motion.div 
-            className="p-4 border-t border-slate-200 dark:border-slate-700"
+            className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-slate-200 dark:border-slate-700'}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: 0.1 }}
           >
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center overflow-hidden">
-                  {profile?.avatar_url ? (
+                {/* Avatar: ninja cuando está en modo ninja, normal cuando no */}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center overflow-hidden ${
+                  isNinjaMode 
+                    ? 'bg-gradient-to-br from-red-600 to-red-900 ring-2 ring-red-500/50' 
+                    : 'bg-gradient-to-br from-purple-500 to-pink-600'
+                }`}>
+                  {isNinjaMode ? (
+                    // Avatar ninja
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.5c-3.5 0-7 1-9 3.5 1 1.5 4 2.5 9 2.5s8-1 9-2.5c-2-2.5-5.5-3.5-9-3.5zm0 0v6m-3-2.5h6" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12c0 3.5 3 7 7 7s7-3.5 7-7" />
+                    </svg>
+                  ) : profile?.avatar_url ? (
                     <img 
                       src={profile.avatar_url} 
                       alt="Avatar" 
@@ -1004,24 +1039,44 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                   )}
                 </div>
                 
-                {/* Indicador de tokens alrededor del avatar */}
-                {(user.role_name === 'productor' || isAdmin) && (
+                {/* Indicador de tokens alrededor del avatar - solo cuando NO es ninja */}
+                {!isNinjaMode && (user.role_name === 'productor' || isRealAdmin) && (
                   <div className="absolute -inset-2 flex items-center justify-center">
                     <TokenUsageIndicator size="lg" onTokenInfoChange={handleTokenInfoChange} />
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                  {user.full_name || user.email}
+                {/* Nombre: en modo ninja, mostrar usuario suplantado en rojo */}
+                <p className={`text-sm font-medium truncate ${
+                  isNinjaMode 
+                    ? 'text-red-400' 
+                    : 'text-slate-900 dark:text-white'
+                }`}>
+                  {isNinjaMode && effectiveUser 
+                    ? effectiveUser.full_name 
+                    : (user.full_name || user.email)
+                  }
                 </p>
                 <div className="flex items-center space-x-2">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
-                    {user.role_name}
+                  <p className={`text-xs capitalize ${
+                    isNinjaMode 
+                      ? 'text-red-500/70' 
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {isNinjaMode && effectiveRoleName 
+                      ? effectiveRoleName 
+                      : user.role_name
+                    }
                   </p>
-                  {(user.role_name === 'productor' || isAdmin) && getRemainingTokens() && (
+                  {!isNinjaMode && (user.role_name === 'productor' || isRealAdmin) && getRemainingTokens() && (
                     <span className="text-xs text-slate-400 dark:text-slate-500">
                       • {getRemainingTokens()} tokens
+                    </span>
+                  )}
+                  {isNinjaMode && (
+                    <span className="text-xs text-red-500/50 animate-pulse">
+                      🥷 Ninja
                     </span>
                   )}
                 </div>

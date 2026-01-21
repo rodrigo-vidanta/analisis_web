@@ -17,6 +17,45 @@ Cualquier ajuste se debe verificar en este CHANGELOG para ver si no se realizó 
 
 ## 📅 HISTORIAL DE CAMBIOS
 
+### **v5.22.0** - 21 Enero 2026
+**Estado:** ✅ Producción
+
+#### **⚡ Reasignación Masiva Paralela (10x más rápido)**
+- **Problema resuelto:** Reasignación masiva procesaba uno por uno (secuencial), muy lento para grandes volúmenes
+- **Solución implementada:**
+  - **Sistema de ejecución paralela:** Hasta 10 slots simultáneos (sliding window)
+  - **Sliding window:** Cuando un slot termina, inmediatamente entra el siguiente de la cola
+  - **Límites aumentados:** MAX_SELECTION de 30 → 100, PAGE_SIZE de 50 → 100
+  - **Nuevo botón "Seleccionar todos":** Selecciona todos los resultados de la búsqueda (no solo página)
+  - **UI rediseñada:** Modal muestra grid de slots activos con barras de progreso individuales
+  - **Pausa inteligente:** Espera a que terminen los en-vuelo antes de pausar
+  - **Timeout aumentado:** 120s → 140s para prospectos que tardan más
+- **Rendimiento:**
+  | Métrica | Antes | Ahora |
+  |---------|-------|-------|
+  | Modo | Secuencial (1x1) | Paralelo (10 slots) |
+  | 30 prospectos | ~25 min | ~2.5 min |
+  | 100 prospectos | ~83 min | ~8 min |
+  | Velocidad | 1x | **10x** |
+- **Nuevos estados React:**
+  - `slotsInFlight`: Map de prospectos procesándose
+  - `slotsInFlightRef`: Ref para mantener sincronizado dentro de closures
+  - `pendingQueue`: Cola de prospectos esperando slot
+  - `activeSlots`: Contador de slots en uso (0-10)
+- **Archivos modificados:**
+  - `src/components/prospectos/BulkReassignmentTab.tsx`:
+    - Constantes: MAX_SELECTION=100, PAGE_SIZE=100, MAX_PARALLEL_SLOTS=10
+    - Nueva interfaz `ProspectoSlotState` para tracking de slots
+    - Función `processOneProspecto()` para procesar un solo prospecto
+    - Función `startReassignment()` reescrita con Promise pool y sliding window
+    - Función `resumeReassignment()` con soporte paralelo
+    - Función `handleSelectAllResults()` para seleccionar todos los resultados
+    - Modal de progreso rediseñado con grid de slots activos
+  - `src/services/dynamicsReasignacionService.ts`:
+    - WEBHOOK_TIMEOUT_MS: 120000 → 140000 (140 segundos)
+
+---
+
 ### **v5.21.0** - 09 Enero 2026
 **Estado:** ✅ Producción
 

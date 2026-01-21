@@ -27,6 +27,7 @@ export interface UserV2 {
   role_id: string;
   is_active: boolean;
   is_operativo?: boolean;
+  inbound?: boolean; // Usuario recibe mensajes inbound de WhatsApp
   archivado?: boolean;
   email_verified: boolean;
   last_login?: string;

@@ -46,8 +46,8 @@ async function getReasignacionCredentials(): Promise<{ url: string; token: strin
   return cachedReasignacionCredentials;
 }
 
-// Timeout para el webhook (120 segundos / 2 minutos - el proceso de Dynamics puede ser muy tardado)
-const WEBHOOK_TIMEOUT_MS = 120000;
+// Timeout para el webhook (140 segundos - el proceso de Dynamics puede ser muy tardado)
+const WEBHOOK_TIMEOUT_MS = 140000;
 
 // ============================================
 // INTERFACES

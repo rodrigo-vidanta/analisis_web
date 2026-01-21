@@ -72,12 +72,21 @@ interface ReassignmentState {
   pausedAt?: Date;
 }
 
+// Estado de cada prospecto en el proceso paralelo
+interface ProspectoSlotState {
+  prospecto: Prospecto;
+  status: 'pending' | 'in_flight' | 'success' | 'error';
+  startTime?: number;
+  error?: string;
+}
+
 // ============================================
 // CONSTANTES
 // ============================================
 
-const MAX_SELECTION = 30;
-const PAGE_SIZE = 50;
+const MAX_SELECTION = 100; // Máximo de prospectos que se pueden seleccionar para reasignación
+const PAGE_SIZE = 100; // Registros por página
+const MAX_PARALLEL_SLOTS = 10; // Máximo de ejecuciones paralelas que soporta el webhook
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -134,11 +143,18 @@ export const BulkReassignmentTab: React.FC = () => {
   const [showSummary, setShowSummary] = useState(false);
   const [simulatedProgress, setSimulatedProgress] = useState(0); // Progreso simulado para cada item
   
+  // Estados para ejecución paralela
+  const [slotsInFlight, setSlotsInFlight] = useState<Map<string, ProspectoSlotState>>(new Map());
+  const [pendingQueue, setPendingQueue] = useState<Prospecto[]>([]);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [activeSlots, setActiveSlots] = useState(0);
+  
   // Referencias
   const abortControllerRef = useRef<AbortController | null>(null);
   const pauseRef = useRef(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const slotsInFlightRef = useRef<Map<string, ProspectoSlotState>>(new Map()); // Ref para mantener slots sincronizados
   
   // Constantes
   const ESTIMATED_TIME_PER_ITEM = 50000; // 50 segundos estimados por reasignación
@@ -425,7 +441,8 @@ export const BulkReassignmentTab: React.FC = () => {
     });
   }, []);
 
-  const handleSelectAll = useCallback(() => {
+  // Seleccionar todos los de la página actual
+  const handleSelectPage = useCallback(() => {
     const availableProspectos = prospectos.slice(0, MAX_SELECTION - selectedIds.size);
     const availableIds = availableProspectos.map(p => p.id);
     setSelectedIds(prev => {
@@ -440,6 +457,105 @@ export const BulkReassignmentTab: React.FC = () => {
       return [...prev, ...newProspectos];
     });
   }, [prospectos, selectedIds.size]);
+
+  // Seleccionar TODOS los resultados de la búsqueda (hasta MAX_SELECTION)
+  const [isLoadingAllResults, setIsLoadingAllResults] = useState(false);
+  
+  const handleSelectAllResults = useCallback(async () => {
+    if (!user?.id || !analysisSupabase || totalCount === 0) return;
+    
+    const maxToSelect = Math.min(totalCount, MAX_SELECTION - selectedIds.size);
+    if (maxToSelect <= 0) {
+      toast.error(`Ya tienes ${selectedIds.size} seleccionados (máximo ${MAX_SELECTION})`);
+      return;
+    }
+    
+    setIsLoadingAllResults(true);
+    try {
+      // Crear query base
+      let query = analysisSupabase
+        .from('prospectos')
+        .select('*');
+
+      // Aplicar permisos
+      try {
+        const filteredQuery = await permissionsService.applyProspectFilters(query, user.id);
+        if (filteredQuery && typeof filteredQuery.eq === 'function') {
+          query = filteredQuery;
+        }
+      } catch {
+        // Error aplicando filtros
+      }
+
+      // Aplicar los mismos filtros que la búsqueda actual
+      if (query && typeof query.or === 'function') {
+        if (debouncedSearch) {
+          const searchTerms = debouncedSearch
+            .split(/[,\n]/)
+            .map(t => t.trim())
+            .filter(t => t.length > 0);
+          
+          if (searchTerms.length > 1) {
+            const orConditions = searchTerms.map(term => {
+              const escapedTerm = term.replace(/[%_]/g, '\\$&');
+              return `nombre_completo.ilike.%${escapedTerm}%,nombre_whatsapp.ilike.%${escapedTerm}%`;
+            }).join(',');
+            query = query.or(orConditions);
+          } else {
+            const searchDigits = debouncedSearch.replace(/\D/g, '');
+            if (searchDigits.length >= 6) {
+              query = query.or(`whatsapp.ilike.%${searchDigits}%,email.ilike.%${debouncedSearch}%`);
+            } else {
+              query = query.or(`nombre_completo.ilike.%${debouncedSearch}%,nombre_whatsapp.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+            }
+          }
+        }
+        if (filterCoordinacion && typeof query.eq === 'function') {
+          query = query.eq('coordinacion_id', filterCoordinacion);
+        }
+        if (filterEjecutivo && typeof query.eq === 'function') {
+          query = query.eq('ejecutivo_id', filterEjecutivo);
+        }
+        if (filterEtapa && typeof query.eq === 'function') {
+          query = query.eq('etapa', filterEtapa);
+        }
+        if (filterSinAsignar && typeof query.is === 'function') {
+          query = query.is('ejecutivo_id', null);
+        }
+      }
+
+      // Obtener hasta MAX_SELECTION resultados
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(maxToSelect);
+
+      if (error) throw error;
+      
+      // Enriquecer datos
+      const enrichedData = await enrichProspectosWithNames(data || []);
+      
+      // Agregar a la selección (evitando duplicados)
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        enrichedData.forEach(p => newSet.add(p.id));
+        return newSet;
+      });
+      
+      setSelectedProspectos(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const newProspectos = enrichedData.filter(p => !existingIds.has(p.id));
+        return [...prev, ...newProspectos];
+      });
+      
+      toast.success(`✓ ${enrichedData.length} prospectos seleccionados`);
+      
+    } catch (error) {
+      toast.error('Error al seleccionar todos los resultados');
+      console.error(error);
+    } finally {
+      setIsLoadingAllResults(false);
+    }
+  }, [user?.id, totalCount, selectedIds.size, debouncedSearch, filterCoordinacion, filterEjecutivo, filterEtapa, filterSinAsignar, enrichProspectosWithNames]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -457,16 +573,58 @@ export const BulkReassignmentTab: React.FC = () => {
   }, []);
 
   // ============================================
-  // FUNCIONES DE REASIGNACIÓN
+  // FUNCIONES DE REASIGNACIÓN (PARALELA)
   // ============================================
 
+  /**
+   * Procesa un solo prospecto - utilizado por el pool paralelo
+   */
+  const processOneProspecto = useCallback(async (
+    prospecto: Prospecto,
+    ejecutivoDestino: string,
+    coordinacionDestino: string,
+    userId: string
+  ): Promise<ReassignmentResult> => {
+    const result: ReassignmentResult = {
+      prospecto_id: prospecto.id,
+      prospecto_nombre: prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre',
+      success: false,
+      ejecutivo_anterior_id: prospecto.ejecutivo_id || null,
+      ejecutivo_anterior_nombre: prospecto.ejecutivo_nombre || null,
+      coordinacion_anterior_id: prospecto.coordinacion_id || null,
+      coordinacion_anterior_nombre: prospecto.coordinacion_nombre || null
+    };
+
+    try {
+      const requestData = await dynamicsReasignacionService.enriquecerDatosReasignacion(
+        prospecto.id,
+        ejecutivoDestino,
+        coordinacionDestino,
+        userId,
+        'Reasignación masiva desde panel'
+      );
+
+      const response = await dynamicsReasignacionService.reasignarProspecto(requestData);
+      result.success = response.success;
+      if (!response.success) result.error = response.error;
+    } catch (error) {
+      result.success = false;
+      result.error = error instanceof Error ? error.message : 'Error desconocido';
+    }
+
+    return result;
+  }, []);
+
+  /**
+   * Sistema de ejecución paralela con sliding window
+   * Procesa hasta MAX_PARALLEL_SLOTS (10) prospectos simultáneamente
+   */
   const startReassignment = useCallback(async () => {
     if (!targetCoordinacionId || !targetEjecutivoId || selectedIds.size === 0) {
       toast.error('Selecciona coordinación, ejecutivo y al menos un prospecto');
       return;
     }
 
-    // IMPORTANTE: Usar selectedProspectos (estado con datos completos), no prospectos (página actual)
     if (selectedProspectos.length === 0) {
       toast.error('No hay prospectos seleccionados con datos completos');
       return;
@@ -475,199 +633,302 @@ export const BulkReassignmentTab: React.FC = () => {
     // Capturar valores al inicio para evitar problemas de closures
     const ejecutivoDestino = targetEjecutivoId;
     const coordinacionDestino = targetCoordinacionId;
-    const prospectosAReasignar = [...selectedProspectos]; // Copia para evitar mutaciones
+    const prospectosAReasignar = [...selectedProspectos];
+    const userId = user?.id || '';
     
     abortControllerRef.current = new AbortController();
     pauseRef.current = false;
 
+    // Inicializar estado
+    const total = prospectosAReasignar.length;
     setReassignmentState({
       status: 'running',
       currentIndex: 0,
-      total: prospectosAReasignar.length,
+      total,
       results: [],
       startTime: new Date()
     });
+    
+    // Inicializar cola de pendientes y slots
+    setPendingQueue([...prospectosAReasignar]);
+    setSlotsInFlight(new Map());
+    setCompletedCount(0);
+    setActiveSlots(0);
 
-    for (let i = 0; i < prospectosAReasignar.length; i++) {
-      // Verificar si se pausó o canceló
-      if (pauseRef.current) {
-        setReassignmentState(prev => ({ ...prev, status: 'paused', pausedAt: new Date() }));
-        return;
+    // Cola mutable para el procesamiento
+    const queue = [...prospectosAReasignar];
+    const inFlightMap = new Map<string, Promise<ReassignmentResult>>();
+    const allResults: ReassignmentResult[] = [];
+    let completed = 0;
+
+    // Inicializar ref de slots
+    slotsInFlightRef.current = new Map();
+
+    // Función para actualizar UI con estado actual de slots (usando ref)
+    const updateSlotsUI = () => {
+      setSlotsInFlight(new Map(slotsInFlightRef.current));
+      setActiveSlots(slotsInFlightRef.current.size);
+    };
+
+    // Función para llenar slots disponibles
+    const fillSlots = () => {
+      while (
+        queue.length > 0 && 
+        inFlightMap.size < MAX_PARALLEL_SLOTS && 
+        !pauseRef.current && 
+        !abortControllerRef.current?.signal.aborted
+      ) {
+        const prospecto = queue.shift()!;
+        
+        // Crear estado visual del slot
+        const slotState: ProspectoSlotState = {
+          prospecto,
+          status: 'in_flight',
+          startTime: Date.now()
+        };
+        
+        // Actualizar ref de slots en vuelo
+        slotsInFlightRef.current.set(prospecto.id, slotState);
+        updateSlotsUI();
+        
+        // Crear promesa para este prospecto
+        const promise = processOneProspecto(prospecto, ejecutivoDestino, coordinacionDestino, userId)
+          .then(result => {
+            // Remover del mapa de en-vuelo
+            inFlightMap.delete(prospecto.id);
+            
+            // Actualizar ref de slots
+            slotsInFlightRef.current.delete(prospecto.id);
+            updateSlotsUI();
+            
+            // Agregar resultado
+            allResults.push(result);
+            completed++;
+            setCompletedCount(completed);
+            
+            // Actualizar estado general
+            setReassignmentState(prev => ({
+              ...prev,
+              currentIndex: completed,
+              results: [...allResults]
+            }));
+            
+            // Actualizar cola pendiente en UI
+            setPendingQueue([...queue]);
+            
+            return result;
+          });
+        
+        inFlightMap.set(prospecto.id, promise);
       }
+    };
+
+    // Loop principal: llenar slots y esperar que uno termine
+    while (completed < total) {
+      // Verificar cancelación
       if (abortControllerRef.current?.signal.aborted) {
+        // Esperar a que terminen los en vuelo
+        if (inFlightMap.size > 0) {
+          await Promise.all(inFlightMap.values());
+        }
         setReassignmentState(prev => ({ ...prev, status: 'cancelled' }));
         setShowSummary(true);
         return;
       }
-
-      const prospecto = prospectosAReasignar[i];
-      setReassignmentState(prev => ({ ...prev, currentIndex: i }));
       
-      // Iniciar progreso simulado para este item
-      setSimulatedProgress(0);
-      const startTime = Date.now();
-      progressIntervalRef.current = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const estimatedProgress = Math.min(95, (elapsed / ESTIMATED_TIME_PER_ITEM) * 100);
-        setSimulatedProgress(estimatedProgress);
-      }, PROGRESS_UPDATE_INTERVAL);
-
-      try {
-        const requestData = await dynamicsReasignacionService.enriquecerDatosReasignacion(
-          prospecto.id,
-          ejecutivoDestino, // Usar variable capturada
-          coordinacionDestino, // Usar variable capturada
-          user?.id || '',
-          'Reasignación masiva desde panel'
-        );
-
-        // Guardar datos anteriores para posible rollback
-        const result: ReassignmentResult = {
-          prospecto_id: prospecto.id,
-          prospecto_nombre: prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre',
-          success: false,
-          ejecutivo_anterior_id: prospecto.ejecutivo_id || null,
-          ejecutivo_anterior_nombre: prospecto.ejecutivo_nombre || null,
-          coordinacion_anterior_id: prospecto.coordinacion_id || null,
-          coordinacion_anterior_nombre: prospecto.coordinacion_nombre || null
-        };
-
-        const response = await dynamicsReasignacionService.reasignarProspecto(requestData);
-        result.success = response.success;
-        if (!response.success) result.error = response.error;
-
-        // Detener progreso simulado y poner en 100%
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current);
-          progressIntervalRef.current = null;
+      // Verificar pausa
+      if (pauseRef.current) {
+        // Esperar a que terminen los en vuelo actuales
+        if (inFlightMap.size > 0) {
+          await Promise.all(inFlightMap.values());
         }
-        setSimulatedProgress(100);
-
-        setReassignmentState(prev => ({
-          ...prev,
-          results: [...prev.results, result]
+        setReassignmentState(prev => ({ 
+          ...prev, 
+          status: 'paused', 
+          pausedAt: new Date(),
+          results: [...allResults]
         }));
-
-        // Pequeña pausa para mostrar el 100% antes de pasar al siguiente
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-      } catch (error) {
-        // Detener progreso simulado en caso de error
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current);
-          progressIntervalRef.current = null;
-        }
-        setSimulatedProgress(0);
-
-        setReassignmentState(prev => ({
-          ...prev,
-          results: [...prev.results, {
-            prospecto_id: prospecto.id,
-            prospecto_nombre: prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre',
-            success: false,
-            error: error instanceof Error ? error.message : 'Error desconocido'
-          }]
-        }));
+        // Guardar la cola restante para resume
+        setPendingQueue([...queue]);
+        return;
+      }
+      
+      // Llenar slots disponibles
+      fillSlots();
+      
+      // Si no hay nada en vuelo y la cola está vacía, terminamos
+      if (inFlightMap.size === 0 && queue.length === 0) {
+        break;
+      }
+      
+      // Esperar a que al menos uno termine (Promise.race)
+      if (inFlightMap.size > 0) {
+        await Promise.race(inFlightMap.values());
       }
     }
 
-    // Limpiar intervalo si quedó activo
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
-    }
-
-    setReassignmentState(prev => ({ ...prev, status: 'completed', currentIndex: prev.total }));
+    // Proceso completado
+    slotsInFlightRef.current = new Map();
+    setSlotsInFlight(new Map());
+    setActiveSlots(0);
+    setPendingQueue([]);
+    
+    setReassignmentState(prev => ({ 
+      ...prev, 
+      status: 'completed', 
+      currentIndex: total,
+      results: allResults
+    }));
     setShowSummary(true);
     
     // Limpiar selección
     setSelectedIds(new Set());
     setSelectedProspectos([]);
     
-    // Re-render silencioso: recargar prospectos para mostrar nueva asignación
+    // Recargar prospectos para mostrar nueva asignación
     await loadProspectos();
-  }, [targetCoordinacionId, targetEjecutivoId, selectedIds, selectedProspectos, user?.id, loadProspectos]);
+  }, [targetCoordinacionId, targetEjecutivoId, selectedIds, selectedProspectos, user?.id, loadProspectos, processOneProspecto]);
 
   const pauseReassignment = useCallback(() => {
     pauseRef.current = true;
-    // Detener progreso simulado
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
-    }
+    // El sistema paralelo esperará a que terminen los en-vuelo y luego pausará
+    toast('⏸️ Pausando... esperando que terminen los en vuelo', {
+      icon: '⏳',
+      duration: 3000
+    });
   }, []);
 
+  /**
+   * Resume la reasignación desde donde quedó (con soporte paralelo)
+   */
   const resumeReassignment = useCallback(async () => {
     if (reassignmentState.status !== 'paused') return;
     
     pauseRef.current = false;
-    const selectedProspectos = prospectos.filter(p => selectedIds.has(p.id));
-    const startIndex = reassignmentState.currentIndex + 1;
+    abortControllerRef.current = new AbortController();
+    
+    // Usar la cola pendiente guardada
+    const queue = [...pendingQueue];
+    const total = reassignmentState.total;
+    const ejecutivoDestino = targetEjecutivoId;
+    const coordinacionDestino = targetCoordinacionId;
+    const userId = user?.id || '';
+    
+    // Mantener resultados existentes
+    const allResults = [...reassignmentState.results];
+    let completed = allResults.length;
 
     setReassignmentState(prev => ({ ...prev, status: 'running', pausedAt: undefined }));
+    slotsInFlightRef.current = new Map();
+    setSlotsInFlight(new Map());
+    setActiveSlots(0);
 
-    for (let i = startIndex; i < selectedProspectos.length; i++) {
-      if (pauseRef.current) {
-        setReassignmentState(prev => ({ ...prev, status: 'paused', pausedAt: new Date() }));
-        return;
+    const inFlightMap = new Map<string, Promise<ReassignmentResult>>();
+
+    // Función para actualizar UI con estado actual de slots (usando ref)
+    const updateSlotsUI = () => {
+      setSlotsInFlight(new Map(slotsInFlightRef.current));
+      setActiveSlots(slotsInFlightRef.current.size);
+    };
+
+    // Función para llenar slots disponibles
+    const fillSlots = () => {
+      while (
+        queue.length > 0 && 
+        inFlightMap.size < MAX_PARALLEL_SLOTS && 
+        !pauseRef.current && 
+        !abortControllerRef.current?.signal.aborted
+      ) {
+        const prospecto = queue.shift()!;
+        
+        const slotState: ProspectoSlotState = {
+          prospecto,
+          status: 'in_flight',
+          startTime: Date.now()
+        };
+        
+        slotsInFlightRef.current.set(prospecto.id, slotState);
+        updateSlotsUI();
+        
+        const promise = processOneProspecto(prospecto, ejecutivoDestino, coordinacionDestino, userId)
+          .then(result => {
+            inFlightMap.delete(prospecto.id);
+            
+            slotsInFlightRef.current.delete(prospecto.id);
+            updateSlotsUI();
+            
+            allResults.push(result);
+            completed++;
+            setCompletedCount(completed);
+            
+            setReassignmentState(prev => ({
+              ...prev,
+              currentIndex: completed,
+              results: [...allResults]
+            }));
+            
+            setPendingQueue([...queue]);
+            
+            return result;
+          });
+        
+        inFlightMap.set(prospecto.id, promise);
       }
+    };
+
+    // Loop principal
+    while (completed < total) {
       if (abortControllerRef.current?.signal.aborted) {
+        if (inFlightMap.size > 0) {
+          await Promise.all(inFlightMap.values());
+        }
         setReassignmentState(prev => ({ ...prev, status: 'cancelled' }));
         setShowSummary(true);
         return;
       }
-
-      const prospecto = selectedProspectos[i];
-      setReassignmentState(prev => ({ ...prev, currentIndex: i }));
-
-      try {
-        const requestData = await dynamicsReasignacionService.enriquecerDatosReasignacion(
-          prospecto.id,
-          targetEjecutivoId,
-          targetCoordinacionId,
-          user?.id || '',
-          'Reasignación masiva desde panel'
-        );
-
-        const result: ReassignmentResult = {
-          prospecto_id: prospecto.id,
-          prospecto_nombre: prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre',
-          success: false,
-          ejecutivo_anterior_id: prospecto.ejecutivo_id || null,
-          ejecutivo_anterior_nombre: prospecto.ejecutivo_nombre || null,
-          coordinacion_anterior_id: prospecto.coordinacion_id || null,
-          coordinacion_anterior_nombre: prospecto.coordinacion_nombre || null
-        };
-
-        const response = await dynamicsReasignacionService.reasignarProspecto(requestData);
-        result.success = response.success;
-        if (!response.success) result.error = response.error;
-
-        setReassignmentState(prev => ({
-          ...prev,
-          results: [...prev.results, result]
+      
+      if (pauseRef.current) {
+        if (inFlightMap.size > 0) {
+          await Promise.all(inFlightMap.values());
+        }
+        setReassignmentState(prev => ({ 
+          ...prev, 
+          status: 'paused', 
+          pausedAt: new Date(),
+          results: [...allResults]
         }));
-
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-      } catch (error) {
-        setReassignmentState(prev => ({
-          ...prev,
-          results: [...prev.results, {
-            prospecto_id: prospecto.id,
-            prospecto_nombre: prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre',
-            success: false,
-            error: error instanceof Error ? error.message : 'Error desconocido'
-          }]
-        }));
+        setPendingQueue([...queue]);
+        return;
+      }
+      
+      fillSlots();
+      
+      if (inFlightMap.size === 0 && queue.length === 0) {
+        break;
+      }
+      
+      if (inFlightMap.size > 0) {
+        await Promise.race(inFlightMap.values());
       }
     }
 
-    setReassignmentState(prev => ({ ...prev, status: 'completed', currentIndex: prev.total }));
+    // Proceso completado
+    slotsInFlightRef.current = new Map();
+    setSlotsInFlight(new Map());
+    setActiveSlots(0);
+    setPendingQueue([]);
+    
+    setReassignmentState(prev => ({ 
+      ...prev, 
+      status: 'completed', 
+      currentIndex: total,
+      results: allResults
+    }));
     setShowSummary(true);
     setSelectedIds(new Set());
+    setSelectedProspectos([]);
     loadProspectos();
-  }, [reassignmentState, prospectos, selectedIds, targetEjecutivoId, targetCoordinacionId, user?.id, loadProspectos]);
+  }, [reassignmentState, pendingQueue, targetEjecutivoId, targetCoordinacionId, user?.id, loadProspectos, processOneProspecto]);
 
   const cancelReassignment = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -678,6 +939,10 @@ export const BulkReassignmentTab: React.FC = () => {
       progressIntervalRef.current = null;
     }
     setSimulatedProgress(0);
+    toast('🛑 Cancelando... esperando que terminen los en vuelo', {
+      icon: '⏳',
+      duration: 3000
+    });
   }, []);
 
   const rollbackReassignments = useCallback(async () => {
@@ -787,7 +1052,7 @@ export const BulkReassignmentTab: React.FC = () => {
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       
-      {/* Modal de Progreso - Bloquea toda la UI */}
+      {/* Modal de Progreso Paralelo - Bloquea toda la UI */}
       <AnimatePresence>
         {(reassignmentState.status === 'running' || reassignmentState.status === 'paused') && (
           <motion.div
@@ -800,44 +1065,51 @@ export const BulkReassignmentTab: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
             >
               {/* Header del modal */}
               <div className="px-6 py-4 bg-gradient-to-r from-violet-500 to-purple-600">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                    {reassignmentState.status === 'paused' ? (
-                      <Pause className="w-5 h-5 text-white" />
-                    ) : (
-                      <Loader2 className="w-5 h-5 text-white animate-spin" />
-                    )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      {reassignmentState.status === 'paused' ? (
+                        <Pause className="w-5 h-5 text-white" />
+                      ) : (
+                        <Loader2 className="w-5 h-5 text-white animate-spin" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">
+                        {reassignmentState.status === 'paused' ? 'Reasignación Pausada' : 'Reasignación Paralela'}
+                      </h3>
+                      <p className="text-sm text-white/80">
+                        {reassignmentState.status === 'paused' 
+                          ? 'El proceso está en pausa' 
+                          : `Procesando ${activeSlots} de ${MAX_PARALLEL_SLOTS} slots`}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">
-                      {reassignmentState.status === 'paused' ? 'Reasignación Pausada' : 'Reasignando Prospectos'}
-                    </h3>
-                    <p className="text-sm text-white/80">
-                      {reassignmentState.status === 'paused' 
-                        ? 'El proceso está en pausa' 
-                        : 'No cierres esta ventana'}
-                    </p>
+                  {/* Badge de modo paralelo */}
+                  <div className="px-3 py-1 rounded-full bg-white/20 text-white text-xs font-medium flex items-center gap-1">
+                    <Zap className="w-3 h-3" />
+                    {MAX_PARALLEL_SLOTS}x Paralelo
                   </div>
                 </div>
               </div>
 
               {/* Contenido */}
               <div className="p-6">
-                {/* Barra de progreso */}
-                <div className="mb-4">
+                {/* Barra de progreso general */}
+                <div className="mb-5">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-slate-700 dark:text-gray-300">
-                      Progreso
+                      Progreso General
                     </span>
                     <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
-                      {reassignmentState.currentIndex + 1} de {reassignmentState.total}
+                      {completedCount} de {reassignmentState.total} completados
                     </span>
                   </div>
-                  <div className="h-3 bg-slate-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-4 bg-slate-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <motion.div
                       className="h-full bg-gradient-to-r from-violet-500 to-purple-600 rounded-full"
                       initial={{ width: 0 }}
@@ -850,114 +1122,162 @@ export const BulkReassignmentTab: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Prospecto actual con progreso del item */}
-                {currentProspecto && (
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-gray-700/50 border border-slate-200 dark:border-gray-600">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wider">
-                        Procesando ahora
-                      </p>
-                      <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
-                        {Math.round(simulatedProgress)}%
-                      </span>
+                {/* Grid de slots activos (procesando ahora) */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wider font-medium flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                      <span>Slots Activos ({activeSlots}/{MAX_PARALLEL_SLOTS})</span>
                     </div>
-                    <p className="font-semibold text-slate-900 dark:text-white">
-                      {currentProspecto.nombre_completo || currentProspecto.nombre_whatsapp || 'Sin nombre'}
-                    </p>
-                    <p className="text-sm text-slate-500 dark:text-gray-400 mb-3">
-                      {currentProspecto.whatsapp || currentProspecto.email || ''}
-                    </p>
-                    {/* Barra de progreso del item actual */}
-                    <div className="h-2 bg-slate-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                      <motion.div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          simulatedProgress >= 100 
-                            ? 'bg-emerald-500' 
-                            : 'bg-gradient-to-r from-violet-400 to-purple-500'
-                        }`}
-                        style={{ width: `${simulatedProgress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 dark:text-gray-500 mt-1 text-center">
-                      {simulatedProgress >= 100 ? '✓ Completado' : 'Enviando al CRM...'}
-                    </p>
                   </div>
-                )}
+                  
+                  {activeSlots > 0 ? (
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                      {Array.from(slotsInFlight.values()).map((slot, idx) => {
+                        const elapsed = slot.startTime ? Date.now() - slot.startTime : 0;
+                        const estimatedProgress = Math.min(95, (elapsed / ESTIMATED_TIME_PER_ITEM) * 100);
+                        
+                        return (
+                          <motion.div
+                            key={slot.prospecto.id}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="p-3 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800"
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-6 h-6 rounded-full bg-violet-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                                {idx + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                                  {slot.prospecto.nombre_completo || slot.prospecto.nombre_whatsapp || 'Sin nombre'}
+                                </p>
+                              </div>
+                              <Loader2 className="w-4 h-4 text-violet-500 animate-spin flex-shrink-0" />
+                            </div>
+                            <div className="h-1.5 bg-violet-200 dark:bg-violet-800 rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full bg-violet-500 rounded-full"
+                                animate={{ width: `${estimatedProgress}%` }}
+                                transition={{ duration: 0.5 }}
+                              />
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-20 text-slate-400 dark:text-gray-500">
+                      <p className="text-sm">
+                        {reassignmentState.status === 'paused' ? 'Proceso en pausa' : 'Iniciando slots...'}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Estadísticas en tiempo real */}
-                <div className="grid grid-cols-4 gap-2 mt-4">
+                <div className="grid grid-cols-4 gap-2">
                   <div className="text-center p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
-                    <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                      {reassignmentState.results.filter(r => r.success).length}
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {successCount}
                     </p>
                     <p className="text-xs text-emerald-700 dark:text-emerald-300">Exitosos</p>
                   </div>
                   <div className="text-center p-3 rounded-xl bg-red-50 dark:bg-red-900/20">
-                    <p className="text-xl font-bold text-red-600 dark:text-red-400">
-                      {reassignmentState.results.filter(r => !r.success).length}
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      {errorCount}
                     </p>
                     <p className="text-xs text-red-700 dark:text-red-300">Fallidos</p>
                   </div>
                   <div className="text-center p-3 rounded-xl bg-violet-50 dark:bg-violet-900/20">
-                    <p className="text-xl font-bold text-violet-600 dark:text-violet-400">
-                      1
+                    <p className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                      {activeSlots}
                     </p>
-                    <p className="text-xs text-violet-700 dark:text-violet-300">En progreso</p>
+                    <p className="text-xs text-violet-700 dark:text-violet-300">En vuelo</p>
                   </div>
                   <div className="text-center p-3 rounded-xl bg-slate-100 dark:bg-gray-700">
                     <p className="text-2xl font-bold text-slate-600 dark:text-gray-300">
-                      {reassignmentState.total - reassignmentState.currentIndex - 1}
+                      {pendingQueue.length}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-gray-400">Pendientes</p>
                   </div>
                 </div>
 
+                {/* Información de rendimiento */}
+                <div className="mt-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                    <Zap className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm font-medium">
+                      Modo paralelo: {MAX_PARALLEL_SLOTS}x más rápido que secuencial
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-600 dark:text-blue-500 mt-1 ml-6">
+                    {activeSlots > 0 && `Procesando ${activeSlots} prospectos simultáneamente`}
+                    {activeSlots === 0 && reassignmentState.status === 'paused' && 'Todos los slots en vuelo han terminado'}
+                  </p>
+                </div>
+
                 {/* Advertencia */}
-                <div className="mt-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                   <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm font-medium">No interrumpir el proceso por seguridad</span>
+                    <span className="text-sm font-medium">
+                      {reassignmentState.status === 'paused' 
+                        ? 'Continúa cuando estés listo'
+                        : 'No cierres esta ventana'}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Botones de acción */}
-              <div className="px-6 py-4 bg-slate-50 dark:bg-gray-900/50 border-t border-slate-200 dark:border-gray-700 flex justify-end gap-3">
-                {reassignmentState.status === 'running' ? (
-                  <>
-                    <button
-                      onClick={pauseReassignment}
-                      className="px-4 py-2 rounded-xl font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-2"
-                    >
-                      <Pause className="w-4 h-4" />
-                      Pausar
-                    </button>
-                    <button
-                      onClick={cancelReassignment}
-                      className="px-4 py-2 rounded-xl font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancelar
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={resumeReassignment}
-                      className="px-4 py-2 rounded-xl font-medium text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 transition-colors flex items-center gap-2"
-                    >
-                      <Play className="w-4 h-4" />
-                      Continuar
-                    </button>
-                    <button
-                      onClick={cancelReassignment}
-                      className="px-4 py-2 rounded-xl font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancelar
-                    </button>
-                  </>
-                )}
+              <div className="px-6 py-4 bg-slate-50 dark:bg-gray-900/50 border-t border-slate-200 dark:border-gray-700 flex justify-between items-center">
+                <div className="text-sm text-slate-500 dark:text-gray-400">
+                  {reassignmentState.startTime && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Iniciado: {reassignmentState.startTime.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  {reassignmentState.status === 'running' ? (
+                    <>
+                      <button
+                        onClick={pauseReassignment}
+                        className="px-4 py-2 rounded-xl font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-2"
+                      >
+                        <Pause className="w-4 h-4" />
+                        Pausar
+                      </button>
+                      <button
+                        onClick={cancelReassignment}
+                        className="px-4 py-2 rounded-xl font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={resumeReassignment}
+                        className="px-4 py-2 rounded-xl font-medium text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 transition-colors flex items-center gap-2"
+                      >
+                        <Play className="w-4 h-4" />
+                        Continuar ({pendingQueue.length} pendientes)
+                      </button>
+                      <button
+                        onClick={cancelReassignment}
+                        className="px-4 py-2 rounded-xl font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancelar
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1095,13 +1415,27 @@ export const BulkReassignmentTab: React.FC = () => {
 
             {/* Acciones de selección */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Botón para seleccionar TODOS los resultados de la búsqueda */}
                 <button
-                  onClick={handleSelectAll}
+                  onClick={handleSelectAllResults}
+                  disabled={isProcessing || isLoadingAllResults || totalCount === 0 || gridTab === 'selection' || selectedIds.size >= MAX_SELECTION}
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isLoadingAllResults ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  )}
+                  Seleccionar todos ({Math.min(totalCount, MAX_SELECTION - selectedIds.size)})
+                </button>
+                {/* Botón para seleccionar solo la página actual */}
+                <button
+                  onClick={handleSelectPage}
                   disabled={isProcessing || prospectos.length === 0 || gridTab === 'selection'}
                   className="px-3 py-1.5 text-sm font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Seleccionar página
+                  Seleccionar página ({prospectos.length})
                 </button>
                 <button
                   onClick={handleClearFilters}
@@ -1111,21 +1445,23 @@ export const BulkReassignmentTab: React.FC = () => {
                   <Filter className="w-3.5 h-3.5" />
                   Limpiar filtros
                 </button>
+              </div>
+              
+              <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-400">
                   {gridTab === 'results' 
-                    ? `${totalCount.toLocaleString()} prospectos encontrados`
+                    ? `${totalCount.toLocaleString()} encontrados`
                     : `${selectedProspectos.length} seleccionados`
                   }
                 </span>
+                <button
+                  onClick={loadProspectos}
+                  disabled={isLoading || gridTab === 'selection'}
+                  className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </button>
               </div>
-              
-              <button
-                onClick={loadProspectos}
-                disabled={isLoading || gridTab === 'selection'}
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              </button>
             </div>
 
             {/* Pestañas del Grid */}

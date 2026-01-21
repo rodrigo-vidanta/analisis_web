@@ -1825,3 +1825,245 @@ body {
   cursor: pointer;
   border: 1px solid white;
 }
+
+/* ============================================
+   MODO NINJA - TEMA PARA SUPLANTACIÓN DE USUARIOS
+   ============================================
+   Cuando el modo ninja está activo, se aplica un tema más oscuro
+   con acentos rojos para indicar claramente que se está en modo ninja.
+   
+   @version 1.0.0
+   @date 2026-01-21
+   ============================================ */
+
+/* MODO NINJA: Tema global más oscuro */
+.ninja-mode {
+  /* Forzar modo oscuro extra */
+  --ninja-bg-primary: #0a0a0f;
+  --ninja-bg-secondary: #12121a;
+  --ninja-bg-tertiary: #1a1a25;
+  --ninja-border: #2a2a35;
+  --ninja-accent: #ef4444;
+  --ninja-accent-dark: #dc2626;
+  --ninja-accent-glow: rgba(239, 68, 68, 0.3);
+  --ninja-text: #f1f5f9;
+  --ninja-text-muted: #94a3b8;
+}
+
+/* Aplicar fondo ninja más oscuro */
+html.ninja-mode,
+body.ninja-mode {
+  background-color: var(--ninja-bg-primary) !important;
+}
+
+.ninja-mode #root {
+  background-color: var(--ninja-bg-primary) !important;
+}
+
+/* Sidebar en modo ninja - más oscuro con acentos rojos */
+.ninja-mode .sidebar-container,
+.ninja-mode nav,
+.ninja-mode aside {
+  background-color: var(--ninja-bg-secondary) !important;
+  border-color: var(--ninja-border) !important;
+}
+
+/* Header en modo ninja - mantener más visible para poder salir */
+.ninja-mode header {
+  background: linear-gradient(to right, var(--ninja-bg-secondary), var(--ninja-bg-tertiary)) !important;
+  border-bottom: 1px solid var(--ninja-accent) !important;
+  box-shadow: 0 2px 10px var(--ninja-accent-glow) !important;
+}
+
+/* Cards y contenedores en modo ninja */
+.ninja-mode .bg-white,
+.ninja-mode .bg-slate-50,
+.ninja-mode .bg-gray-50 {
+  background-color: var(--ninja-bg-tertiary) !important;
+  border-color: var(--ninja-border) !important;
+}
+
+.ninja-mode .bg-slate-100,
+.ninja-mode .bg-gray-100 {
+  background-color: var(--ninja-bg-secondary) !important;
+}
+
+/* Botones en modo ninja - acentos rojos */
+.ninja-mode .bg-blue-500,
+.ninja-mode .bg-blue-600,
+.ninja-mode .bg-indigo-500,
+.ninja-mode .bg-indigo-600 {
+  background: linear-gradient(135deg, var(--ninja-accent), var(--ninja-accent-dark)) !important;
+  border-color: var(--ninja-accent) !important;
+}
+
+.ninja-mode .bg-blue-500:hover,
+.ninja-mode .bg-blue-600:hover,
+.ninja-mode .bg-indigo-500:hover,
+.ninja-mode .bg-indigo-600:hover {
+  box-shadow: 0 4px 15px var(--ninja-accent-glow) !important;
+}
+
+/* Texto activo en modo ninja */
+.ninja-mode .text-blue-500,
+.ninja-mode .text-blue-600,
+.ninja-mode .text-indigo-500,
+.ninja-mode .text-indigo-600 {
+  color: var(--ninja-accent) !important;
+}
+
+/* Iconos del sidebar en modo ninja - rojos */
+.ninja-mode nav button svg,
+.ninja-mode aside button svg,
+.ninja-mode .sidebar-container button svg {
+  color: var(--ninja-accent) !important;
+  filter: drop-shadow(0 0 3px var(--ninja-accent-glow));
+}
+
+/* Iconos activos en sidebar - más brillantes */
+.ninja-mode nav button.active svg,
+.ninja-mode aside button.active svg {
+  color: #f87171 !important;
+  filter: drop-shadow(0 0 8px var(--ninja-accent-glow));
+}
+
+/* Efecto de brillo pulsante en iconos del sidebar */
+@keyframes ninja-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 3px var(--ninja-accent-glow));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+  }
+}
+
+.ninja-mode nav button svg,
+.ninja-mode .sidebar-container button svg {
+  animation: ninja-pulse 2s ease-in-out infinite;
+}
+
+/* Bordes y divisores en modo ninja */
+.ninja-mode .border-slate-200,
+.ninja-mode .border-gray-200,
+.ninja-mode .border-slate-100,
+.ninja-mode .border-gray-100 {
+  border-color: var(--ninja-border) !important;
+}
+
+.ninja-mode .divide-slate-200 > * + *,
+.ninja-mode .divide-gray-200 > * + * {
+  border-color: var(--ninja-border) !important;
+}
+
+/* Inputs en modo ninja */
+.ninja-mode input,
+.ninja-mode textarea,
+.ninja-mode select {
+  background-color: var(--ninja-bg-primary) !important;
+  border-color: var(--ninja-border) !important;
+  color: var(--ninja-text) !important;
+}
+
+.ninja-mode input:focus,
+.ninja-mode textarea:focus,
+.ninja-mode select:focus {
+  border-color: var(--ninja-accent) !important;
+  box-shadow: 0 0 0 3px var(--ninja-accent-glow) !important;
+}
+
+/* Scrollbar en modo ninja */
+.ninja-mode ::-webkit-scrollbar-thumb {
+  background: var(--ninja-accent) !important;
+}
+
+.ninja-mode ::-webkit-scrollbar-track {
+  background: var(--ninja-bg-secondary) !important;
+}
+
+/* Indicador de modo ninja en la esquina */
+.ninja-mode::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--ninja-accent) 20%, 
+    var(--ninja-accent-dark) 50%, 
+    var(--ninja-accent) 80%, 
+    transparent 100%
+  );
+  z-index: 9999;
+  animation: ninja-border-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ninja-border-pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Viñeta oscura en los bordes para efecto ninja */
+.ninja-mode::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  z-index: 9998;
+}
+
+/* Tooltips en modo ninja */
+.ninja-mode [title]:hover::after {
+  background-color: var(--ninja-bg-tertiary) !important;
+  border-color: var(--ninja-accent) !important;
+  color: var(--ninja-text) !important;
+}
+
+/* Modales en modo ninja */
+.ninja-mode .fixed.inset-0 {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Tags y badges en modo ninja */
+.ninja-mode .bg-emerald-100,
+.ninja-mode .bg-green-100 {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.ninja-mode .text-emerald-600,
+.ninja-mode .text-green-600 {
+  color: #fca5a5 !important;
+}
+
+/* Desactivar transiciones de tema durante modo ninja para evitar parpadeos */
+.ninja-mode * {
+  transition-property: none !important;
+}
+
+/* Pero permitir animaciones específicas del modo ninja */
+.ninja-mode nav button svg,
+.ninja-mode .ninja-pulse {
+  transition-property: filter !important;
+}
+
+/* Efecto de partículas ninja (opcional - decorativo) */
+@keyframes ninja-star-float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-10px) rotate(180deg);
+    opacity: 0.6;
+  }
+}

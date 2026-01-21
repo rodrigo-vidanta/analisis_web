@@ -62,6 +62,7 @@ interface FormData {
   role_id: string;
   is_operativo: boolean;
   is_active: boolean;
+  inbound: boolean; // Usuario recibe mensajes inbound de WhatsApp
   coordinacion_id: string;
   coordinaciones_ids: string[];
   analysis_sources: string[];
@@ -425,6 +426,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
     role_id: user.role_id || '',
     is_operativo: user.is_operativo !== false,
     is_active: user.is_active,
+    inbound: user.inbound ?? false,
     coordinacion_id: user.coordinacion_id || '',
     coordinaciones_ids: user.coordinaciones_ids || [],
     analysis_sources: []
@@ -444,6 +446,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
       // REGLA DE NEGOCIO: Solo puede ser operativo si tiene id_dynamics
       is_operativo: user.is_operativo === true && !!(user.id_dynamics ?? ''),
       is_active: user.is_active ?? true,
+      inbound: user.inbound ?? false,
       coordinacion_id: user.coordinacion_id ?? '',
       coordinaciones_ids: user.coordinaciones_ids ?? [],
       analysis_sources: []
@@ -534,6 +537,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
         role_id: formData.role_id,
         is_operativo: finalIsOperativo,
         is_active: formData.is_active,
+        inbound: formData.inbound,
       };
 
       // Agregar coordinación según el rol
@@ -1274,6 +1278,37 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                   </div>
                   {formData.is_active ? (
                     <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                  )}
+                </div>
+
+                {/* Inbound Toggle - Recibe mensajes de nuevos prospectos */}
+                <div
+                  onClick={() => setFormData(prev => ({ ...prev, inbound: !prev.inbound }))}
+                  className="flex items-center justify-between p-3 sm:p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className={`relative w-10 sm:w-12 h-5 sm:h-6 rounded-full transition-all duration-300 flex-shrink-0 ${
+                      formData.inbound ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-700'
+                    }`}>
+                      <motion.div
+                        animate={{ x: formData.inbound ? 20 : 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        className="absolute top-0.5 left-0.5 w-4 sm:w-5 h-4 sm:h-5 bg-white rounded-full shadow-lg"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Usuario recibe mensajes inbound
+                      </span>
+                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                        Al habilitar, el usuario recibirá mensajes de nuevos prospectos a su módulo de WhatsApp
+                      </p>
+                    </div>
+                  </div>
+                  {formData.inbound ? (
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 flex-shrink-0" />
                   ) : (
                     <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
                   )}

@@ -17,6 +17,7 @@ import { prospectsService } from '../../../services/prospectsService';
 import { useAppStore } from '../../../stores/appStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions';
+import { useNinjaAwarePermissions } from '../../../hooks/useNinjaAwarePermissions';
 import { AssignmentBadge } from '../../analysis/AssignmentBadge';
 import { BackupBadgeWrapper } from '../../shared/BackupBadgeWrapper';
 import { MultimediaMessage, needsBubble } from '../../chat/MultimediaMessage';
@@ -54,6 +55,12 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   const { user } = useAuth();
   const { isAdmin, isAdminOperativo } = useEffectivePermissions();
   const { setAppMode } = useAppStore();
+  
+  // ============================================
+  // MODO NINJA: Usar usuario efectivo para filtros
+  // ============================================
+  const { isNinjaMode, effectiveUser } = useNinjaAwarePermissions();
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
   const [conversations, setConversations] = useState<UChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConversation, setSelectedConversation] = useState<UChatConversation | null>(null);
@@ -2417,13 +2424,14 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   isOpeningSidebarRef.current = true;
                   
                   // Verificar permisos antes de cargar el prospecto
-                  if (!user?.id) {
+                  // ⚠️ MODO NINJA: Usar queryUserId para verificar permisos como el usuario suplantado
+                  if (!queryUserId) {
                     alert('Debes estar autenticado para ver los detalles del prospecto');
                     isOpeningSidebarRef.current = false;
                     return;
                   }
                   
-                  permissionsService.canUserAccessProspect(user.id, prospectId).then((permissionCheck) => {
+                  permissionsService.canUserAccessProspect(queryUserId, prospectId).then((permissionCheck) => {
                     if (!permissionCheck.canAccess) {
                       alert(permissionCheck.reason || 'No tienes permiso para acceder a este prospecto');
                       isOpeningSidebarRef.current = false;
@@ -2431,7 +2439,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     }
                     
                     // Si tiene permisos, cargar el prospecto completo antes de abrir el sidebar
-                    prospectsService.getProspectById(prospectId, user.id).then((prospecto) => {
+                    prospectsService.getProspectById(prospectId, queryUserId).then((prospecto) => {
                       if (prospecto) {
                         setSelectedProspectoForSidebar(prospecto);
                         setSelectedProspectoIdForSidebar(prospectId);
@@ -2504,13 +2512,14 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   isOpeningSidebarRef.current = true;
                   
                   // Verificar permisos antes de cargar el prospecto
-                  if (!user?.id) {
+                  // ⚠️ MODO NINJA: Usar queryUserId para verificar permisos como el usuario suplantado
+                  if (!queryUserId) {
                     alert('Debes estar autenticado para ver los detalles del prospecto');
                     isOpeningSidebarRef.current = false;
                     return;
                   }
                   
-                  permissionsService.canUserAccessProspect(user.id, prospectId).then((permissionCheck) => {
+                  permissionsService.canUserAccessProspect(queryUserId, prospectId).then((permissionCheck) => {
                     if (!permissionCheck.canAccess) {
                       alert(permissionCheck.reason || 'No tienes permiso para acceder a este prospecto');
                       isOpeningSidebarRef.current = false;
@@ -2518,7 +2527,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     }
                     
                     // Si tiene permisos, cargar el prospecto completo antes de abrir el sidebar
-                    prospectsService.getProspectById(prospectId, user.id).then((prospecto) => {
+                    prospectsService.getProspectById(prospectId, queryUserId).then((prospecto) => {
                       if (prospecto) {
                         setSelectedProspectoForSidebar(prospecto);
                         setSelectedProspectoIdForSidebar(prospectId);

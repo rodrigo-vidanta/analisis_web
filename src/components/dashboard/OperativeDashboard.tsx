@@ -21,6 +21,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Grid, Maximize2, Minimize2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { ProspectosNuevosWidget } from './widgets/ProspectosNuevosWidget';
 import { ConversacionesWidget } from './widgets/ConversacionesWidget';
 import { LlamadasActivasWidget } from './widgets/LlamadasActivasWidget';
@@ -86,6 +87,13 @@ const DEFAULT_WIDGETS: WidgetConfig[] = [
 
 export const OperativeDashboard: React.FC = () => {
   const { user, canAccessModule } = useAuth();
+  
+  // ============================================
+  // MODO NINJA: Usar usuario efectivo para filtros de widgets
+  // ============================================
+  const { isNinjaMode, effectiveUser } = useNinjaAwarePermissions();
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
+  
   // Configuración fija - siempre usar DEFAULT_WIDGETS
   const [widgets, setWidgets] = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -196,17 +204,18 @@ export const OperativeDashboard: React.FC = () => {
                 transition={{ duration: 0.2, delay: index * 0.05 }}
                 className={getGridClasses(widget.size)}
               >
+                {/* ⚠️ MODO NINJA: Pasar queryUserId para filtrar datos según usuario suplantado */}
                 {widget.id === 'prospectos' && (
-                  <ProspectosNuevosWidget userId={user?.id} />
+                  <ProspectosNuevosWidget userId={queryUserId} />
                 )}
                 {widget.id === 'conversaciones' && (
-                  <ConversacionesWidget userId={user?.id} />
+                  <ConversacionesWidget userId={queryUserId} />
                 )}
                 {widget.id === 'llamadas-activas' && (
-                  <LlamadasActivasWidget userId={user?.id} />
+                  <LlamadasActivasWidget userId={queryUserId} />
                 )}
                 {widget.id === 'llamadas-programadas' && (
-                  <LlamadasProgramadasWidget userId={user?.id} />
+                  <LlamadasProgramadasWidget userId={queryUserId} />
                 )}
               </motion.div>
             ))}

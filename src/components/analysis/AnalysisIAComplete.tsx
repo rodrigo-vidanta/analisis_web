@@ -25,6 +25,7 @@ import {
   Square, PhoneCall, MapPin, Heart, Users, Mail
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { permissionsService } from '../../services/permissionsService';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import Chart from 'chart.js/auto';
@@ -892,6 +893,12 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
 const AnalysisIAComplete: React.FC = () => {
   const { user } = useAuth();
   
+  // ============================================
+  // MODO NINJA: Usar usuario efectivo para filtros de historial
+  // ============================================
+  const { isNinjaMode, effectiveUser } = useNinjaAwarePermissions();
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
+  
   // Estados principales (replicando PQNC Humans)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1104,11 +1111,12 @@ const AnalysisIAComplete: React.FC = () => {
             let allProspectos = await loadProspectosInBatches(prospectoIds);
             
             // Aplicar filtros de permisos en memoria
-            if (user?.id) {
-              const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
-              const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(user.id);
-              const isAdmin = await permissionsService.isAdmin(user.id);
-              const isCalidad = await permissionsService.isCoordinadorCalidad(user.id);
+            // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
+            if (queryUserId) {
+              const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
+              const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(queryUserId);
+              const isAdmin = await permissionsService.isAdmin(queryUserId);
+              const isCalidad = await permissionsService.isCoordinadorCalidad(queryUserId);
               
               // Admin y Coordinadores de Calidad tienen acceso completo (sin filtros)
               if (!isAdmin && !isCalidad) {

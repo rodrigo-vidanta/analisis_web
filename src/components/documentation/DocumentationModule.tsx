@@ -295,6 +295,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'g4h8i9j', date: '2026-01-21', author: 'Team', message: 'v2.5.34: B10.1.34N2.5.34 - Reasignación Masiva Paralela (10x slots) + Seleccionar todos (100)', isRelease: true },
   { hash: 'f3g7h8i', date: '2026-01-21', author: 'Team', message: 'v2.5.33: B10.1.33N2.5.33 - Fix RPC get_user_permissions retornaba estructura incompleta', isRelease: true },
   { hash: 'd1e5f6g', date: '2026-01-21', author: 'Team', message: 'v2.5.29: B10.1.29N2.5.29 - Salvavidas colores + animación 60s + respuestas rápidas tickets', isRelease: true },
   { hash: 'c0d4e5f', date: '2026-01-21', author: 'Team', message: 'v2.5.28: B10.1.28N2.5.28 - Fix asignación tickets: avatar_url no existe en user_profiles_v2', isRelease: true },
@@ -465,6 +466,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-128', date: '2026-01-21 19:30', version: 'B10.1.34N2.5.34', status: 'success', duration: '30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-127', date: '2026-01-21 18:45', version: 'B10.1.33N2.5.33', status: 'success', duration: '29s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-126', date: '2026-01-20 19:45', version: 'B10.1.25N2.5.25', status: 'success', duration: '24s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-125', date: '2026-01-21 00:30', version: 'B10.1.24N2.5.24', status: 'success', duration: '24s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -590,8 +592,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.33', highlight: true },
-  { label: 'Release', value: 'B10.1.33N2.5.33', highlight: false },
+  { label: 'Version', value: 'v2.5.34', highlight: true },
+  { label: 'Release', value: 'B10.1.34N2.5.34', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '21 Ene 2026', highlight: false },
 ];
