@@ -217,6 +217,16 @@
   background-color: #64748b;
 }
 
+/* Scrollbar invisible */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Scrollbar oculta pero funcional */
 .scrollbar-hide {
   scrollbar-width: none; /* Firefox */

@@ -125,22 +125,17 @@ const NinjaButton: React.FC<NinjaButtonProps> = ({ onClick, className = '' }) =>
       onMouseLeave={handleMouseLeave}
       className={`relative group ${className}`}
       whileTap={{ scale: 0.95 }}
-      title="Modo Ninja"
     >
-      {/* Container principal */}
+      {/* Container principal - sin fondo ni borde */}
       <motion.div
-        className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-gray-800/80 to-gray-900 border border-gray-700/50 hover:border-red-500/50 flex items-center justify-center overflow-visible transition-colors duration-300"
-        whileHover={{ 
-          boxShadow: '0 0 20px rgba(239, 68, 68, 0.3)',
-          borderColor: 'rgba(239, 68, 68, 0.5)'
-        }}
+        className="relative w-10 h-10 rounded-xl flex items-center justify-center overflow-visible transition-colors duration-300"
       >
         {/* Estrellas ninja giratorias de fondo */}
         <AnimatePresence>
           {showStars && (
             <>
               {/* Estrellas principales que se lanzan */}
-              <div className="absolute inset-0 flex items-center justify-center text-red-500">
+              <div className="absolute inset-0 flex items-center justify-center text-gray-600">
                 {[0, 1, 2, 3, 4].map((i) => (
                   <NinjaStar key={i} index={i} isHovered={isHovered} size="sm" />
                 ))}
@@ -165,9 +160,9 @@ const NinjaButton: React.FC<NinjaButtonProps> = ({ onClick, className = '' }) =>
           )}
         </AnimatePresence>
         
-        {/* Efecto de brillo en hover */}
+        {/* Efecto de brillo sutil en hover */}
         <motion.div
-          className="absolute inset-0 rounded-xl bg-gradient-to-tr from-red-500/0 via-red-500/10 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         />
         
         {/* Partículas de brillo */}
@@ -177,7 +172,7 @@ const NinjaButton: React.FC<NinjaButtonProps> = ({ onClick, className = '' }) =>
               {[...Array(6)].map((_, i) => (
                 <motion.div
                   key={`particle-${i}`}
-                  className="absolute w-1 h-1 bg-red-400 rounded-full"
+                  className="absolute w-1 h-1 bg-gray-600 rounded-full"
                   initial={{ 
                     opacity: 0, 
                     scale: 0,
@@ -199,17 +194,6 @@ const NinjaButton: React.FC<NinjaButtonProps> = ({ onClick, className = '' }) =>
             </>
           )}
         </AnimatePresence>
-      </motion.div>
-      
-      {/* Tooltip */}
-      <motion.div
-        className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 border border-red-500/30 rounded-lg text-xs text-red-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50"
-        initial={{ y: -5 }}
-        animate={{ y: 0 }}
-      >
-        <span className="mr-1">🥷</span>
-        Modo Ninja
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 border-l border-t border-red-500/30 rotate-45" />
       </motion.div>
     </motion.button>
   );

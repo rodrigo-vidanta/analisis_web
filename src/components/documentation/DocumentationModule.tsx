@@ -295,6 +295,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'h5i9j0k', date: '2026-01-21', author: 'Team', message: 'v2.5.35: B10.1.35N2.5.35 - Modo Ninja para Admin (suplantación de usuarios, permisos efectivos, UI ninja)', isRelease: true },
   { hash: 'g4h8i9j', date: '2026-01-21', author: 'Team', message: 'v2.5.34: B10.1.34N2.5.34 - Reasignación Masiva Paralela (10x slots) + Seleccionar todos (100)', isRelease: true },
   { hash: 'f3g7h8i', date: '2026-01-21', author: 'Team', message: 'v2.5.33: B10.1.33N2.5.33 - Fix RPC get_user_permissions retornaba estructura incompleta', isRelease: true },
   { hash: 'd1e5f6g', date: '2026-01-21', author: 'Team', message: 'v2.5.29: B10.1.29N2.5.29 - Salvavidas colores + animación 60s + respuestas rápidas tickets', isRelease: true },
@@ -592,8 +593,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.34', highlight: true },
-  { label: 'Release', value: 'B10.1.34N2.5.34', highlight: false },
+  { label: 'Version', value: 'v2.5.35', highlight: true },
+  { label: 'Release', value: 'B10.1.35N2.5.35', highlight: false },
   { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
   { label: 'Ultima actualizacion', value: '21 Ene 2026', highlight: false },
 ];
