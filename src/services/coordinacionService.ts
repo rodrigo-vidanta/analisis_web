@@ -1167,14 +1167,32 @@ class CoordinacionService {
     assignedBy: string
   ): Promise<void> {
     try {
-      await supabaseSystemUI
-        .from('user_profiles_v2')
-        .update({
-          coordinacion_id: coordinacionId,
-          updated_at: new Date().toISOString(),
+      // Usar Edge Function para actualizar coordinacion_id en auth.users
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: ejecutivoId,
+            metadata: {
+              coordinacion_id: coordinacionId,
+              updated_at: new Date().toISOString()
+            }
+          }
         })
-        .eq('id', ejecutivoId)
-        .eq('auth_roles.name', 'ejecutivo');
+      });
+      
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error al actualizar coordinación');
+      }
 
       // Registrar en logs si existe la tabla
       try {
@@ -1331,10 +1349,33 @@ class CoordinacionService {
     }
   ): Promise<Ejecutivo> {
     try {
+      // Usar Edge Function para actualizar ejecutivo en auth.users
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: ejecutivoId,
+            metadata: updates
+          }
+        })
+      });
+      
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error al actualizar ejecutivo');
+      }
+      
+      // Recargar ejecutivo actualizado
       const { data, error } = await supabaseSystemUI
         .from('user_profiles_v2')
-        .update(updates)
-        .eq('id', ejecutivoId)
         .select(`
           id,
           email,
@@ -1348,6 +1389,7 @@ class CoordinacionService {
           last_login,
           created_at
         `)
+        .eq('id', ejecutivoId)
         .single();
 
       if (error) throw error;

@@ -34,6 +34,8 @@ SELECT
   COALESCE((au.raw_user_meta_data->>'first_name')::TEXT, '') as first_name,
   COALESCE((au.raw_user_meta_data->>'last_name')::TEXT, '') as last_name,
   COALESCE((au.raw_user_meta_data->>'phone')::TEXT, '') as phone,
+  COALESCE((au.raw_user_meta_data->>'department')::TEXT, '') as department,
+  COALESCE((au.raw_user_meta_data->>'position')::TEXT, '') as position,
   COALESCE((au.raw_user_meta_data->>'organization')::TEXT, 'PQNC') as organization,
   (au.raw_user_meta_data->>'role_id')::UUID as role_id,
   ar.name as role_name,
@@ -71,7 +73,9 @@ GRANT SELECT ON public.user_profiles_v2 TO service_role;
 COMMENT ON VIEW public.user_profiles_v2 IS 
   'Vista segura de perfiles de usuario - Lee de auth.users + auth_roles. ' ||
   'NO incluye password_hash. Usada por scheduledCallsService y otros servicios. ' ||
-  'Creada: 2026-01-20. Actualizada: 2026-01-22 (fix permisos).';
+  'Campos incluidos: email, full_name, first_name, last_name, phone, department, position, ' ||
+  'role_id, coordinacion_id, is_active, is_operativo, id_dynamics, etc. ' ||
+  'Creada: 2026-01-20. Actualizada: 2026-01-22 (fix permisos + department/position).';
 
 -- 5. Verificación
 DO $$
@@ -88,6 +92,9 @@ SELECT
   id,
   email,
   full_name,
+  phone,
+  department,
+  position,
   role_name,
   is_active
 FROM public.user_profiles_v2

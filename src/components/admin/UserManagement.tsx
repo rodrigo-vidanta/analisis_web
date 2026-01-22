@@ -815,6 +815,8 @@ const UserManagement: React.FC = () => {
             fullName,
             roleId: formData.role_id,
             phone: formData.phone || null,
+            department: formData.department?.trim() || null,
+            position: formData.position?.trim() || null,
             isActive: formData.is_active,
             isCoordinator: selectedRole?.name === 'coordinador',
             isEjecutivo: selectedRole?.name === 'ejecutivo',
@@ -1120,21 +1122,27 @@ const UserManagement: React.FC = () => {
     try {
       setLoading(true);
       
-      // Preparar datos de actualización
-      const updateData: any = {
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        phone: formData.phone || null,
-        // department y position no existen en System_UI auth_users
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+
+      // Preparar metadatos para auth.users (Supabase Auth nativo)
+      const fullName = `${formData.first_name.trim()} ${formData.last_name.trim()}`;
+      const metadata: any = {
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        full_name: fullName,
+        phone: formData.phone?.trim() || null,
+        department: formData.department?.trim() || null,
+        position: formData.position?.trim() || null,
         role_id: formData.role_id,
         is_active: formData.is_active,
         is_operativo: formData.is_operativo,
-        updated_at: new Date().toISOString()
       };
 
       // Si es admin o administrador_operativo y el email cambió, actualizarlo
       if ((isAdmin || isAdminOperativo) && formData.email && formData.email !== selectedUser.email) {
         const normalizedEmail = formData.email.trim().toLowerCase();
+        
         // Verificar que el nuevo email no esté en uso por otro usuario
         const { data: existingUser, error: checkError } = await supabaseSystemUI
           .from('user_profiles_v2')
@@ -1149,16 +1157,55 @@ const UserManagement: React.FC = () => {
           throw new Error(`El email ${normalizedEmail} ya está en uso por otro usuario`);
         }
 
-        updateData.email = normalizedEmail;
+        // Actualizar email usando Edge Function
+        const emailResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({
+            operation: 'updateUserEmail',
+            params: {
+              userId: selectedUser.id,
+              email: normalizedEmail
+            }
+          })
+        });
+
+        const emailResult = await emailResponse.json();
+        if (!emailResponse.ok || !emailResult.success) {
+          throw new Error(emailResult.error || 'Error al actualizar email');
+        }
+
+        console.log(`✅ Email actualizado: ${normalizedEmail}`);
       }
 
-      // Actualizar datos básicos del usuario
-      const { error: updateError } = await supabaseSystemUI
-        .from('user_profiles_v2')
-        .update(updateData)
-        .eq('id', selectedUser.id);
+      // ============================================
+      // ACTUALIZAR METADATOS EN auth.users (SUPABASE AUTH NATIVO)
+      // ============================================
+      const updateResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: selectedUser.id,
+            metadata
+          }
+        })
+      });
 
-      if (updateError) throw updateError;
+      const updateResult = await updateResponse.json();
+      if (!updateResponse.ok || !updateResult.success) {
+        console.error('Error actualizando usuario:', updateResult);
+        throw new Error(updateResult.error || 'Error al actualizar usuario');
+      }
+
+      console.log('✅ Usuario actualizado en auth.users:', selectedUser.id);
 
       // Si se habilitó la edición de contraseña y se proporcionó una nueva contraseña, actualizarla
       if (isEditingPassword && formData.password.trim()) {
@@ -1199,18 +1246,29 @@ const UserManagement: React.FC = () => {
       // Si es coordinador, actualizar múltiples coordinaciones usando tabla intermedia
       if (selectedRole?.name === 'coordinador') {
         try {
-          // Actualizar flags del usuario
-          const { error: updateError } = await supabaseSystemUI
-            .from('user_profiles_v2')
-            .update({
-              is_coordinator: true,
-              is_ejecutivo: false,
-              coordinacion_id: null, // Limpiar coordinacion_id si existe
+          // Actualizar flags del usuario en auth.users
+          const coordMetadataResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              operation: 'updateUserMetadata',
+              params: {
+                userId: selectedUser.id,
+                metadata: {
+                  is_coordinator: true,
+                  is_ejecutivo: false,
+                  coordinacion_id: null, // Limpiar coordinacion_id si existe
+                }
+              }
             })
-            .eq('id', selectedUser.id);
+          });
 
-          if (updateError) {
-            console.error('Error actualizando flags del coordinador:', updateError);
+          const coordMetadataResult = await coordMetadataResponse.json();
+          if (!coordMetadataResponse.ok || !coordMetadataResult.success) {
+            console.error('Error actualizando flags del coordinador:', coordMetadataResult.error);
           }
 
           // Eliminar relaciones existentes (nueva tabla)
@@ -1251,17 +1309,29 @@ const UserManagement: React.FC = () => {
           // ⚠️ 2026-01-14: Tabla legacy coordinador_coordinaciones ELIMINADA del código
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
-          const { error: coordUpdateError } = await supabaseSystemUI
-            .from('user_profiles_v2')
-            .update({
-              coordinacion_id: formData.coordinacion_id,
-              is_coordinator: false,
-              is_ejecutivo: true,
+          // Actualizar flags del usuario en auth.users
+          const ejecutivoMetadataResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              operation: 'updateUserMetadata',
+              params: {
+                userId: selectedUser.id,
+                metadata: {
+                  coordinacion_id: formData.coordinacion_id,
+                  is_coordinator: false,
+                  is_ejecutivo: true,
+                }
+              }
             })
-            .eq('id', selectedUser.id);
+          });
 
-          if (coordUpdateError) {
-            console.error('Error actualizando coordinación del ejecutivo:', coordUpdateError);
+          const ejecutivoMetadataResult = await ejecutivoMetadataResponse.json();
+          if (!ejecutivoMetadataResponse.ok || !ejecutivoMetadataResult.success) {
+            console.error('Error actualizando coordinación del ejecutivo:', ejecutivoMetadataResult.error);
           }
         } catch (coordError) {
           console.error('Error actualizando coordinación:', coordError);
@@ -1278,17 +1348,29 @@ const UserManagement: React.FC = () => {
           // ⚠️ 2026-01-14: Tabla legacy coordinador_coordinaciones ELIMINADA del código
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
-          const { error: coordClearError } = await supabaseSystemUI
-            .from('user_profiles_v2')
-            .update({
-              coordinacion_id: null,
-              is_coordinator: false,
-              is_ejecutivo: false,
+          // Actualizar flags del usuario en auth.users
+          const clearMetadataResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              operation: 'updateUserMetadata',
+              params: {
+                userId: selectedUser.id,
+                metadata: {
+                  coordinacion_id: null,
+                  is_coordinator: false,
+                  is_ejecutivo: false,
+                }
+              }
             })
-            .eq('id', selectedUser.id);
+          });
 
-          if (coordClearError) {
-            console.error('Error limpiando coordinación:', coordClearError);
+          const clearMetadataResult = await clearMetadataResponse.json();
+          if (!clearMetadataResponse.ok || !clearMetadataResult.success) {
+            console.error('Error limpiando coordinación:', clearMetadataResult.error);
           }
         } catch (coordError) {
           console.error('Error limpiando coordinación:', coordError);
@@ -1384,16 +1466,32 @@ const UserManagement: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Archivar usuario (eliminación lógica)
-      const { error: archiveError } = await supabaseSystemUI
-        .from('user_profiles_v2')
-        .update({ 
-          archivado: true,
-          is_active: false // También desactivar al archivar
+      // Archivar usuario (eliminación lógica) - Usar Edge Function
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: userId,
+            metadata: {
+              archivado: true,
+              is_active: false // También desactivar al archivar
+            }
+          }
         })
-        .eq('id', userId);
+      });
 
-      if (archiveError) throw archiveError;
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error al archivar usuario');
+      }
 
       await loadUsers();
       setError(null);
@@ -1420,16 +1518,32 @@ const UserManagement: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Desarchivar usuario
-      const { error: unarchiveError } = await supabaseSystemUI
-        .from('user_profiles_v2')
-        .update({ 
-          archivado: false,
-          is_active: true // Reactivar al desarchivar
+      // Desarchivar usuario - Usar Edge Function
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: userId,
+            metadata: {
+              archivado: false,
+              is_active: true // Reactivar al desarchivar
+            }
+          }
         })
-        .eq('id', userId);
+      });
 
-      if (unarchiveError) throw unarchiveError;
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error al desarchivar usuario');
+      }
 
       await loadUsers();
       setError(null);
@@ -1492,16 +1606,32 @@ const UserManagement: React.FC = () => {
         }
       }
 
-      // Archivar usuario
-      const { error: archiveError } = await supabaseSystemUI
-        .from('user_profiles_v2')
-        .update({ 
-          archivado: true,
-          is_active: false // También desactivar al archivar
+      // Archivar usuario - Usar Edge Function
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const archiveResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: userId,
+            metadata: {
+              archivado: true,
+              is_active: false // También desactivar al archivar
+            }
+          }
         })
-        .eq('id', userId);
+      });
 
-      if (archiveError) throw archiveError;
+      const archiveResult = await archiveResponse.json();
+      if (!archiveResponse.ok || !archiveResult.success) {
+        throw new Error(archiveResult.error || 'Error al archivar usuario');
+      }
 
       await loadUsers();
       setError(null);
@@ -2169,10 +2299,33 @@ const UserManagement: React.FC = () => {
                                 }
                                 try {
                                   const nuevoEstado = e.target.checked;
-                                  await supabaseSystemUI
-                                    .from('user_profiles_v2')
-                                    .update({ is_operativo: nuevoEstado })
-                                    .eq('id', user.id);
+                                  
+                                  // Usar Edge Function para actualizar
+                                  const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+                                  const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+                                  
+                                  const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': `Bearer ${anonKey}`,
+                                    },
+                                    body: JSON.stringify({
+                                      operation: 'updateUserMetadata',
+                                      params: {
+                                        userId: user.id,
+                                        metadata: {
+                                          is_operativo: nuevoEstado
+                                        }
+                                      }
+                                    })
+                                  });
+                                  
+                                  const result = await response.json();
+                                  if (!response.ok || !result.success) {
+                                    throw new Error(result.error || 'Error al actualizar estado operativo');
+                                  }
+                                  
                                   await loadUsers();
                                 } catch (error) {
                                   console.error('Error actualizando is_operativo:', error);

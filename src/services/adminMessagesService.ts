@@ -302,16 +302,30 @@ class AdminMessagesService {
       }
 
       // Desbloquear usuario: resetear intentos fallidos y locked_until
-      const { error: updateError } = await supabaseSystemUI
-        .from('user_profiles_v2')
-        .update({
-          failed_login_attempts: 0,
-          locked_until: null
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: user.id,
+            metadata: {
+              failed_login_attempts: 0,
+              locked_until: null
+            }
+          }
         })
-        .eq('id', user.id);
+      });
 
-      if (updateError) {
-        console.error('Error desbloqueando usuario:', updateError);
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        console.error('Error desbloqueando usuario:', result.error);
         return false;
       }
 

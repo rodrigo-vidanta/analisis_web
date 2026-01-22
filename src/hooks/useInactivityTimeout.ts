@@ -89,23 +89,38 @@ export const useInactivityTimeout = () => {
               }
             }
 
-            // Actualizar is_operativo a false
-            const { error: updateError } = await supabaseSystemUI
-              .from('user_profiles_v2')
-              .update({ 
-                is_operativo: false,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', currentUser.id);
-            
-            if (updateError) {
-              throw updateError;
+            // Actualizar is_operativo a false usando Edge Function
+            try {
+              const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+              const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+              
+              const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${anonKey}`,
+                },
+                body: JSON.stringify({
+                  operation: 'updateUserMetadata',
+                  params: {
+                    userId: currentUser.id,
+                    metadata: {
+                      is_operativo: false,
+                      updated_at: new Date().toISOString()
+                    }
+                  }
+                })
+              });
+              
+              const result = await response.json();
+              if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Error al actualizar estado operativo');
+              }
+              
+              console.log(`✅ ${currentUser.role_name} marcado como no operativo por inactividad`);
+            } catch (error) {
+              console.error(`Error actualizando ${currentUser.role_name} por inactividad:`, error);
             }
-            
-            console.log(`✅ ${currentUser.role_name} marcado como no operativo por inactividad`);
-          } catch (error) {
-            console.error(`Error actualizando ${currentUser.role_name} por inactividad:`, error);
-          }
         }
 
         // Hacer logout automático
@@ -190,17 +205,35 @@ export const useInactivityTimeout = () => {
               }
             }
 
-            // Actualizar is_operativo a false
-            const { error: updateError } = await supabaseSystemUI
-              .from('user_profiles_v2')
-              .update({ 
-                is_operativo: false,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', currentUser.id);
-            
-            if (updateError) {
-              throw updateError;
+            // Actualizar is_operativo a false usando Edge Function
+            try {
+              const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+              const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+              
+              const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${anonKey}`,
+                },
+                body: JSON.stringify({
+                  operation: 'updateUserMetadata',
+                  params: {
+                    userId: currentUser.id,
+                    metadata: {
+                      is_operativo: false,
+                      updated_at: new Date().toISOString()
+                    }
+                  }
+                })
+              });
+              
+              const result = await response.json();
+              if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Error al actualizar estado operativo');
+              }
+            } catch (error) {
+              console.error('Error actualizando is_operativo por inactividad:', error);
             }
             
             console.log('✅ Ejecutivo marcado como no operativo por inactividad');

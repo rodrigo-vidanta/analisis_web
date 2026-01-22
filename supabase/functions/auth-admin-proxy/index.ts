@@ -76,7 +76,8 @@ const ALLOWED_OPERATIONS = [
   'getUserGroups',
   'createUser',
   'updateUserMetadata',
-  'deleteUser' // Nueva operación
+  'updateUserEmail', // Nueva operación
+  'deleteUser'
 ]
 
 // ============================================
@@ -556,6 +557,8 @@ serve(async (req) => {
           fullName, 
           roleId, 
           phone,
+          department = null,
+          position = null,
           idDynamics = null,
           isActive = true,
           isOperativo = false,
@@ -625,6 +628,8 @@ serve(async (req) => {
             role_id: roleId || null,
             role_name: roleName,
             phone: phone || null,
+            department: department || null,
+            position: position || null,
             id_dynamics: idDynamics || null,
             is_active: isActive,
             is_operativo: finalIsOperativo,
@@ -712,6 +717,51 @@ serve(async (req) => {
           userId,
           metadata: updatedUser?.user?.user_metadata,
           message: 'Metadata actualizado exitosamente'
+        }
+        break
+      }
+
+      // ============================================
+      // UPDATE USER EMAIL (Supabase Auth Nativo)
+      // ============================================
+      case 'updateUserEmail': {
+        const { userId, email } = params
+        
+        if (!userId || !email) {
+          return new Response(
+            JSON.stringify({ error: 'userId and email required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Normalizar email
+        const normalizedEmail = email.trim().toLowerCase()
+
+        // Verificar que el usuario existe
+        const { data: userData } = await supabase.auth.admin.getUserById(userId)
+        if (!userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Actualizar email
+        const { error: emailError } = await supabase.auth.admin.updateUserById(userId, {
+          email: normalizedEmail
+        })
+
+        if (emailError) {
+          console.error('Error actualizando email:', emailError)
+          throw emailError
+        }
+
+        console.log(`✅ Email actualizado para usuario ${userId}: ${normalizedEmail}`)
+        result = { 
+          success: true, 
+          userId,
+          email: normalizedEmail,
+          message: 'Email actualizado exitosamente'
         }
         break
       }

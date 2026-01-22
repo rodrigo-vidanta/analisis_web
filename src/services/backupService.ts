@@ -96,34 +96,34 @@ class BackupService {
         telefonoOriginal = ejecutivoData.telefono_original || ejecutivoData.phone || '';
       }
 
-      // Intentar actualizar via auth_users (legacy) primero
-      const { error: updateError } = await supabaseSystemUI!
-        .from('user_profiles_v2')
-        .update({
-          backup_id: backupId,
-          telefono_original: telefonoOriginal,
-          phone: telefonoBackup,
-          has_backup: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', ejecutivoId);
-
-      if (updateError) {
-        // Fallback: intentar via RPC update_user_metadata (Supabase Auth)
-        const { error: rpcError } = await supabaseSystemUI!.rpc('update_user_metadata', {
-          p_user_id: ejecutivoId,
-          p_updates: {
-            backup_id: backupId,
-            original_phone: telefonoOriginal,
-            backup_phone: telefonoBackup,
-            has_backup: true
+      // Usar Edge Function para actualizar backup en auth.users
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: ejecutivoId,
+            metadata: {
+              backup_id: backupId,
+              telefono_original: telefonoOriginal,
+              phone: telefonoBackup,
+              has_backup: true,
+              updated_at: new Date().toISOString()
+            }
           }
-        });
+        })
+      });
 
-        if (rpcError) {
-          console.error('Error asignando backup:', rpcError);
-          return { success: false, error: rpcError.message };
-        }
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error al asignar backup');
       }
 
       return { success: true };
@@ -165,35 +165,34 @@ class BackupService {
         }
       }
 
-      // Intentar actualizar via auth_users (legacy) primero
-      const { error: updateError } = await supabaseSystemUI!
-        .from('user_profiles_v2')
-        .update({
-          backup_id: null,
-          phone: telefonoOriginal,
-          telefono_original: null,
-          has_backup: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', ejecutivoId);
-
-      if (updateError) {
-        // Fallback: intentar via RPC update_user_metadata (Supabase Auth)
-        const { error: rpcError } = await supabaseSystemUI!.rpc('update_user_metadata', {
-          p_user_id: ejecutivoId,
-          p_updates: {
-            backup_id: null,
-            phone: telefonoOriginal,
-            original_phone: null,
-            backup_phone: null,
-            has_backup: false
+      // Usar Edge Function para remover backup en auth.users
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          operation: 'updateUserMetadata',
+          params: {
+            userId: ejecutivoId,
+            metadata: {
+              backup_id: null,
+              phone: telefonoOriginal,
+              telefono_original: null,
+              has_backup: false,
+              updated_at: new Date().toISOString()
+            }
           }
-        });
+        })
+      });
 
-        if (rpcError) {
-          console.error('Error removiendo backup:', rpcError);
-          return { success: false, error: rpcError.message };
-        }
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error al remover backup');
       }
 
       return { success: true };
