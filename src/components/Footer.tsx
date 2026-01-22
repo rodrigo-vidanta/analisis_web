@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.32: Salvavidas animación cada 180s
-  const version = 'B10.1.37N2.5.37';
+  // Versión actual - v2.5.38: Refactor authAdminProxyService + Fix DIDs ejecutivos
+  const version = 'B10.1.39N2.5.39';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {
