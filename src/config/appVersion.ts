@@ -5,7 +5,7 @@
  * Cambios: Dropdowns enriquecidos + Fix coordinadores múltiples + Cierre automático modal
  */
 
-export const APP_VERSION = 'B10.1.42N2.5.43';
+export const APP_VERSION = 'B10.1.42N2.5.44';
 
 /**
  * CHANGELOG v2.5.42 (2026-01-22)

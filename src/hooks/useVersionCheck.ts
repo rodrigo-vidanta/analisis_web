@@ -81,13 +81,29 @@ export const useVersionCheck = (): VersionCheckResult => {
       const currentVersionExtracted = extractVersion(CURRENT_VERSION);
       const requiredVersionExtracted = extractVersion(requiredVersionValue);
 
+      console.log('[VersionCheck] Comparando versiones:', {
+        current: CURRENT_VERSION,
+        currentExtracted: currentVersionExtracted,
+        required: requiredVersionValue,
+        requiredExtracted: requiredVersionExtracted,
+        forceUpdate
+      });
+
       // Comparar versiones (usa primera parte antes de "N" si existe)
       // Si las versiones no coinciden exactamente, requiere actualización
       const versionsMatch = currentVersionExtracted === requiredVersionExtracted ||
                            currentVersionExtracted.includes(requiredVersionExtracted) ||
                            requiredVersionExtracted.includes(currentVersionExtracted);
 
-      setRequiresUpdate(!versionsMatch && forceUpdate);
+      const shouldRequireUpdate = !versionsMatch && forceUpdate;
+      
+      console.log('[VersionCheck] Resultado:', {
+        versionsMatch,
+        shouldRequireUpdate,
+        requiresUpdate: shouldRequireUpdate
+      });
+
+      setRequiresUpdate(shouldRequireUpdate);
     } catch (error) {
       console.error('[VersionCheck] Error inesperado:', error);
       setRequiresUpdate(false);
@@ -103,6 +119,21 @@ export const useVersionCheck = (): VersionCheckResult => {
     // Configurar suscripción realtime a system_config
     let channel: ReturnType<typeof analysisSupabase.channel> | null = null;
     let pollingInterval: NodeJS.Timeout | null = null;
+    let realtimeSubscribed = false;
+
+    // Configurar polling como fallback (siempre activo, pero con intervalo más largo si realtime funciona)
+    const setupPolling = (interval: number = 30000) => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+      pollingInterval = setInterval(() => {
+        console.debug('[VersionCheck] Polling: verificando versión...');
+        checkVersion();
+      }, interval);
+    };
+
+    // Iniciar polling inmediatamente (fallback seguro)
+    setupPolling(30000); // 30 segundos
 
     try {
       // Intentar suscripción realtime
@@ -117,7 +148,7 @@ export const useVersionCheck = (): VersionCheckResult => {
             filter: `config_key=eq.app_version`
           },
           (payload) => {
-            console.log('[VersionCheck] Cambio detectado en versión requerida:', payload.new);
+            console.log('[VersionCheck] 🔔 Cambio detectado en versión requerida (realtime):', payload.new);
             checkVersion();
           }
         )
@@ -130,23 +161,40 @@ export const useVersionCheck = (): VersionCheckResult => {
             filter: `config_key=eq.app_version`
           },
           (payload) => {
-            console.log('[VersionCheck] Nueva versión requerida configurada:', payload.new);
+            console.log('[VersionCheck] 🔔 Nueva versión requerida configurada (realtime):', payload.new);
             checkVersion();
           }
         )
         .subscribe((status) => {
+          console.log(`[VersionCheck] Estado de suscripción realtime: ${status}`);
+          
           if (status === 'SUBSCRIBED') {
-            console.log('[VersionCheck] Suscrito a cambios de versión (realtime)');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.warn('[VersionCheck] Error en canal realtime, usando polling como fallback');
-            // Fallback a polling si realtime falla
-            pollingInterval = setInterval(checkVersion, 30000); // 30 segundos
+            realtimeSubscribed = true;
+            console.log('[VersionCheck] ✅ Suscrito a cambios de versión (realtime activo)');
+            // Reducir intervalo de polling a 60s si realtime funciona (solo como backup)
+            setupPolling(60000);
+          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+            console.warn(`[VersionCheck] ⚠️ Realtime no disponible (${status}), usando solo polling cada 30s`);
+            realtimeSubscribed = false;
+            // Asegurar que polling esté activo
+            setupPolling(30000);
+          } else {
+            console.debug(`[VersionCheck] Estado de suscripción: ${status}`);
           }
         });
+
+      // Verificar estado después de 2 segundos
+      setTimeout(() => {
+        if (channel && !realtimeSubscribed) {
+          console.warn('[VersionCheck] ⚠️ Realtime no se suscribió después de 2s, usando solo polling');
+          setupPolling(30000);
+        }
+      }, 2000);
+
     } catch (error) {
-      console.warn('[VersionCheck] No se pudo configurar realtime, usando polling:', error);
-      // Fallback a polling si hay error
-      pollingInterval = setInterval(checkVersion, 30000); // 30 segundos
+      console.warn('[VersionCheck] ⚠️ Error configurando realtime, usando solo polling:', error);
+      realtimeSubscribed = false;
+      setupPolling(30000);
     }
 
     // Cleanup
