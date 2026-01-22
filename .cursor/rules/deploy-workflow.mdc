@@ -20,7 +20,8 @@ Cuando el usuario diga:
 2. ✅ Actualizar versiones en componentes
 3. ✅ Git commit y push
 4. ✅ Deploy a AWS (ejecutar `./update-frontend.sh`)
-5. ✅ Crear handover final con REF
+5. ✅ Actualizar versión requerida en BD (después de deploy AWS)
+6. ✅ Crear handover final con REF
 
 **Flujo automático:**
 ```
@@ -37,6 +38,8 @@ Actualizar package.json si es release (PASO 4)
 Git commit y push (PASO 5)
     ↓
 Deploy AWS con ./update-frontend.sh (PASO 6)
+    ↓
+Actualizar versión requerida en BD vía MCP SupabaseREST (PASO 6.5)
     ↓
 Crear handover con REF (PASO 7)
     ↓
@@ -121,6 +124,104 @@ git push origin main
 ./update-frontend.sh
 ```
 
+### PASO 6.5: Actualizar Versión Requerida en BD (después de deploy AWS)
+
+**⚠️ IMPORTANTE:** Ejecutar SOLO después de que el deploy a AWS esté completo y la nueva versión esté disponible.
+
+**🔧 Método Automático usando MCP SupabaseREST:**
+
+El agente DEBE ejecutar automáticamente este paso usando el MCP `SupabaseREST` con el access token del usuario.
+
+#### Paso a Paso para el Agente:
+
+1. **Extraer versión del Footer.tsx:**
+   - Leer `src/components/Footer.tsx`
+   - Buscar línea con `const version = 'BX.X.XNX.X.X';`
+   - Extraer el valor completo (ej: `"B10.1.39N2.5.39"`)
+
+2. **Verificar configuración existente:**
+   ```typescript
+   mcp_SupabaseREST_query_table({
+     table: "system_config",
+     select: "config_key, config_value",
+     filter: { config_key: "app_version" }
+   })
+   ```
+
+3. **Actualizar o crear registro:**
+   - Si existe: usar `mcp_SupabaseREST_update_data`
+   - Si no existe: usar `mcp_SupabaseREST_insert_data`
+   
+   **Estructura del `config_value`:**
+   ```json
+   {
+     "version": "B10.1.39N2.5.39",  // Versión completa del Footer.tsx
+     "force_update": true
+   }
+   ```
+
+4. **Ejemplo de actualización:**
+   ```typescript
+   // Si existe (UPDATE)
+   mcp_SupabaseREST_update_data({
+     table: "system_config",
+     filter: { config_key: "app_version" },
+     data: {
+       config_value: {
+         version: "B10.1.39N2.5.39",  // Versión extraída del Footer.tsx
+         force_update: true
+       },
+       updated_at: new Date().toISOString()
+     }
+   })
+   
+   // Si no existe (INSERT)
+   mcp_SupabaseREST_insert_data({
+     table: "system_config",
+     data: {
+       config_key: "app_version",
+       config_value: {
+         version: "B10.1.39N2.5.39",  // Versión extraída del Footer.tsx
+         force_update: true
+       },
+       description: "Versión requerida de la aplicación. Los usuarios con versiones anteriores serán forzados a actualizar."
+     }
+   })
+   ```
+
+5. **Verificar actualización:**
+   ```typescript
+   mcp_SupabaseREST_query_table({
+     table: "system_config",
+     select: "config_key, config_value, updated_at",
+     filter: { config_key: "app_version" }
+   })
+   ```
+
+#### Parámetros del MCP:
+
+- **MCP Name:** `SupabaseREST`
+- **Access Token:** Leído automáticamente de `.supabase/access_token` (configurado en `~/.cursor/mcp.json`)
+- **Proyecto:** `glsmifhkoaifvaegsozd` (PQNC_AI)
+- **Tabla:** `system_config`
+- **Config Key:** `app_version`
+
+#### Notas Importantes:
+
+- ✅ El MCP lee el access token automáticamente de `.supabase/access_token`
+- ✅ No requiere service_role_key ni variables de entorno adicionales
+- ✅ Usa Management API REST de Supabase (acceso total de admin)
+- ✅ La versión debe ser el formato COMPLETO del Footer (ej: `"B10.1.39N2.5.39"`)
+- ⚠️ El sistema de control de versiones compara la PRIMERA parte antes de "N" (ej: `"B10.1.39"`)
+
+#### Método Manual (Alternativa):
+
+Si el MCP no está disponible, usar script:
+```bash
+# Leer versión del Footer.tsx manualmente y ejecutar:
+tsx scripts/update-app-version.ts "B10.1.39N2.5.39"
+```
+
 ### PASO 7: Crear Handover Final
 
 **Formato:**
@@ -149,9 +250,10 @@ Ver `.cursor/rules/handover-format.mdc` para estructura completa.
 
 **Resumen rápido**:
 - ✅ Documentación sincronizada (N archivos)
-- ✅ Versión actualizada: vX.X.X
+- ✅ Versión actualizada: BX.X.XNX.X.X (Footer.tsx)
 - ✅ Git push: commit XXXXXXX
 - ✅ AWS deploy: exitoso (XXs)
+- ✅ Versión requerida actualizada en BD (vía MCP SupabaseREST)
 - Próximo: [acción si aplica]
 ```
 

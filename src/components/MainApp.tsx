@@ -47,6 +47,9 @@ import Timeline from './direccion/Timeline';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 // Panel Lateral (llamadas activas en tiempo real)
 import { LiveCallActivityWidget } from './live-activity';
+// Control de versiones forzado
+import { useVersionCheck } from '../hooks/useVersionCheck';
+import ForceUpdateModal from './shared/ForceUpdateModal';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -89,6 +92,9 @@ function MainApp() {
   
   // Hook para detectar inactividad y hacer logout automático después de 2 horas
   useInactivityTimeout();
+  
+  // Verificación de versión forzada
+  const { requiresUpdate, currentVersion, requiredVersion, isLoading: isVersionLoading } = useVersionCheck();
   
   // Actualizar el módulo activo en el servicio de logging cuando cambia
   useEffect(() => {
@@ -623,6 +629,16 @@ function MainApp() {
       
       {/* Live Activity Widget - Global overlay */}
       <LiveCallActivityWidget />
+      
+      {/* Modal de actualización forzada - Máxima prioridad */}
+      {!isVersionLoading && (
+        <ForceUpdateModal
+          isOpen={requiresUpdate}
+          currentVersion={currentVersion}
+          requiredVersion={requiredVersion}
+          onReload={() => window.location.reload()}
+        />
+      )}
     </div>
   );
 }
