@@ -1,5 +1,45 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión v2.5.38 (23 Enero 2026) - Fix Módulo Programación + Optimización
+
+### 🗓️ RELEASE - Correcciones Críticas en Módulo de Programación
+
+#### Resumen Ejecutivo
+Corrección de bugs críticos en el módulo de llamadas programadas después del refactor de autenticación. Implementación de optimización de carga para manejar +1000 registros eficientemente.
+
+#### Bugs Corregidos
+
+| Bug | Causa | Solución |
+|-----|-------|----------|
+| Desfase de 1 día | `new Date("YYYY-MM-DD")` interpreta UTC | `new Date(year, month-1, day)` |
+| Llamadas no visibles | Límite de 1000 + permisos estrictos | Carga por día + permisos simplificados |
+| Loop infinito | useEffect con deps problemáticas | Refs para trackear cambios |
+
+#### Optimización de Rendimiento
+
+**Nuevos métodos en `scheduledCallsService.ts`:**
+- `getCallsCountByMonth()` - Counts ligeros para calendario
+- `getCallsByDate()` - Llamadas de un día específico
+- `getCallsByWeek()` - Llamadas de una semana
+
+**Mejoras:**
+- Carga inicial: ~10-50 registros (vs 1000+)
+- Navegación de mes: Solo counts, no data completa
+- Badge de calendario: Ahora muestra hasta 99+
+
+#### Archivos Modificados
+- `src/services/scheduledCallsService.ts`
+- `src/components/scheduled-calls/ScheduledCallsManager.tsx`
+- `src/components/scheduled-calls/CalendarSidebar.tsx`
+- `src/components/scheduled-calls/views/WeeklyView.tsx`
+- `src/services/permissionsService.ts`
+
+#### Documentación
+- Handover: `.cursor/handovers/2026-01-22-fix-modulo-programacion.md`
+- Doc técnico: `docs/FIX_MODULO_PROGRAMACION_FINAL_2026-01-22.md`
+
+---
+
 ## Versión v2.5.37 (22 Enero 2026) - Auditoría por Pares y Optimización de Documentación
 
 ### 🎯 RELEASE - Documentación Validada y Optimizada

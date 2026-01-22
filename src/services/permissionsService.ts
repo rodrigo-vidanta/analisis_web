@@ -291,16 +291,14 @@ class PermissionsService {
             const prospectEjecutivoIdStr = String(prospectoData.ejecutivo_id).trim();
             const userEjecutivoIdStr = userEjecutivoId ? String(userEjecutivoId).trim() : null;
             
-            // Si el ejecutivo_id coincide y están en la misma coordinación, permitir acceso
+            // Si el ejecutivo_id coincide, permitir acceso (sin verificar coordinación)
+            // Esto es necesario después del refactor a auth.users donde algunos usuarios
+            // pueden tener coordinacion_id null temporalmente
             if (userEjecutivoIdStr && prospectEjecutivoIdStr === userEjecutivoIdStr) {
-              const sameCoordinacion = userCoordinaciones ? userCoordinaciones.includes(prospectoData.coordinacion_id) : false;
-              
-              if (sameCoordinacion) {
-                return {
-                  canAccess: true,
-                  reason: 'El prospecto está asignado a ti en la tabla prospectos',
-                };
-              }
+              return {
+                canAccess: true,
+                reason: 'El prospecto está asignado a ti en la tabla prospectos',
+              };
             }
           }
           // Si no coincide o no es ejecutivo, continuar con el fallback para verificar si es backup
@@ -424,44 +422,49 @@ class PermissionsService {
         const sameCoordinacion = userCoordinaciones ? userCoordinaciones.includes(prospectCoordinacionId) : false;
         const sameEjecutivo = userEjecutivoId === prospectEjecutivoId;
         
-        // Verificar acceso directo: debe estar en la misma coordinación Y asignado al mismo ejecutivo
-        if (sameCoordinacion && sameEjecutivo) {
+        // Verificar acceso directo:
+        // 1. Si es el mismo ejecutivo asignado, permitir acceso (sin importar coordinación)
+        // 2. Si NO es el mismo ejecutivo, verificar que estén en la misma coordinación
+        if (sameEjecutivo) {
           return {
             canAccess: true,
             reason: undefined,
           };
         }
-
-        // Verificar si es backup del ejecutivo asignado
-        if (prospectEjecutivoId && userEjecutivoId) {
-          // ⚡ OPTIMIZACIÓN CRÍTICA: Usar SOLO caché, NO hacer consultas individuales
-          // Si los datos no están en caché, significa que no se pre-cargaron correctamente
-          // En ese caso, denegar acceso en lugar de hacer una consulta individual que causa ERR_INSUFFICIENT_RESOURCES
-          const cacheKey = prospectEjecutivoId;
-          const cached = this.backupCache.get(cacheKey);
-          const now = Date.now();
-          
-          let ejecutivoData: { backup_id: string | null; has_backup: boolean } | null = null;
-          
-          if (cached && (now - cached.timestamp) < this.CACHE_TTL) {
-            // Usar datos cacheados
-            ejecutivoData = cached.data;
-          } else {
-            // ⚠️ NO hacer consulta individual - esto causa ERR_INSUFFICIENT_RESOURCES
-            // Si no está en caché, significa que los datos no se pre-cargaron
-            // En este caso, asumir que no es backup para evitar múltiples requests simultáneas
-            console.warn(`⚠️ Datos de backup no encontrados en caché para ejecutivo ${prospectEjecutivoId}. Asegúrate de llamar preloadBackupData() antes de verificar permisos.`);
-            ejecutivoData = null;
-          }
-          
-          if (ejecutivoData) {
-            if (ejecutivoData.backup_id === userEjecutivoId && ejecutivoData.has_backup === true) {
-              // Verificar también que estén en la misma coordinación
-              if (sameCoordinacion) {
-                return {
-                  canAccess: true,
-                  reason: 'Eres el backup del ejecutivo asignado',
-                };
+        
+        // Si no es el mismo ejecutivo, verificar coordinación para backups
+        if (sameCoordinacion) {
+          // Verificar si es backup del ejecutivo asignado
+          if (prospectEjecutivoId && userEjecutivoId) {
+            // ⚡ OPTIMIZACIÓN CRÍTICA: Usar SOLO caché, NO hacer consultas individuales
+            // Si los datos no están en caché, significa que no se pre-cargaron correctamente
+            // En ese caso, denegar acceso en lugar de hacer una consulta individual que causa ERR_INSUFFICIENT_RESOURCES
+            const cacheKey = prospectEjecutivoId;
+            const cached = this.backupCache.get(cacheKey);
+            const now = Date.now();
+            
+            let ejecutivoData: { backup_id: string | null; has_backup: boolean } | null = null;
+            
+            if (cached && (now - cached.timestamp) < this.CACHE_TTL) {
+              // Usar datos cacheados
+              ejecutivoData = cached.data;
+            } else {
+              // ⚠️ NO hacer consulta individual - esto causa ERR_INSUFFICIENT_RESOURCES
+              // Si no está en caché, significa que los datos no se pre-cargaron
+              // En este caso, asumir que no es backup para evitar múltiples requests simultáneas
+              console.warn(`⚠️ Datos de backup no encontrados en caché para ejecutivo ${prospectEjecutivoId}. Asegúrate de llamar preloadBackupData() antes de verificar permisos.`);
+              ejecutivoData = null;
+            }
+            
+            if (ejecutivoData) {
+              if (ejecutivoData.backup_id === userEjecutivoId && ejecutivoData.has_backup === true) {
+                // Verificar también que estén en la misma coordinación
+                if (sameCoordinacion) {
+                  return {
+                    canAccess: true,
+                    reason: 'Eres el backup del ejecutivo asignado',
+                  };
+                }
               }
             }
           }

@@ -1,1 +1,0 @@
-arn:aws:elasticloadbalancing:us-west-2:307621978585:targetgroup/pgmeta-nlb-targets/7ea09665a18d305b

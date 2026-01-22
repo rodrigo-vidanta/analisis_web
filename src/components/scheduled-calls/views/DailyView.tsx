@@ -33,41 +33,43 @@ export const DailyView: React.FC<DailyViewProps> = ({
   const [selectedCallForDelete, setSelectedCallForDelete] = useState<ScheduledCall | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
-  // Filtrar llamadas del día seleccionado usando zona horaria de Puerto Vallarta (America/Mexico_City, UTC-6)
+  // Filtrar llamadas del día seleccionado SIEMPRE en zona horaria de Guadalajara (America/Mexico_City, UTC-6)
   const dayCalls = useMemo(() => {
-    // Obtener año, mes y día de la fecha seleccionada en zona horaria local
-    const selectedDateLocal = new Date(selectedDate);
-    const selectedYear = selectedDateLocal.getFullYear();
-    const selectedMonth = selectedDateLocal.getMonth();
-    const selectedDay = selectedDateLocal.getDate();
+    // selectedDate viene del calendario y ya tiene el día correcto seleccionado
+    // NO aplicar conversión a selectedDate, solo extraer año/mes/día
+    const selectedYear = selectedDate.getFullYear();
+    const selectedMonth = selectedDate.getMonth();
+    const selectedDay = selectedDate.getDate();
     
-    // Crear fecha de inicio del día en zona horaria local (00:00:00)
-    const startOfDayLocal = new Date(selectedYear, selectedMonth, selectedDay, 0, 0, 0, 0);
-    // Crear fecha de fin del día en zona horaria local (23:59:59.999)
-    const endOfDayLocal = new Date(selectedYear, selectedMonth, selectedDay, 23, 59, 59, 999);
+    console.log('🔍 [DailyView] Fecha seleccionada:', { selectedYear, selectedMonth, selectedDay });
+    console.log('  Total llamadas:', calls.length);
     
-    return calls
-      .filter(call => {
-        if (!call.fecha_programada) return false;
-        
-        // Convertir fecha programada (que viene en UTC desde la BD) a zona horaria local
-        const callDate = new Date(call.fecha_programada);
-        
-        // Obtener año, mes y día de la fecha de la llamada en zona horaria local
-        const callYear = callDate.getFullYear();
-        const callMonth = callDate.getMonth();
-        const callDay = callDate.getDate();
-        
-        // Comparar solo año, mes y día (ignorar hora)
-        return callYear === selectedYear && 
-               callMonth === selectedMonth && 
-               callDay === selectedDay;
-      })
-      .sort((a, b) => {
-        const timeA = new Date(a.fecha_programada).getTime();
-        const timeB = new Date(b.fecha_programada).getTime();
-        return timeA - timeB;
-      });
+    // Para las llamadas (que vienen en UTC desde la BD), convertir a Guadalajara
+    const filtered = calls.filter(call => {
+      if (!call.fecha_programada) return false;
+      
+      // fecha_programada está en UTC, convertir a Guadalajara (UTC-6)
+      const callDateUTC = new Date(call.fecha_programada);
+      const mexicoTimestamp = callDateUTC.getTime() - (6 * 60 * 60 * 1000);
+      const callDateMexico = new Date(mexicoTimestamp);
+      
+      // Extraer fecha en Guadalajara usando getUTC* (porque ya ajustamos el timestamp)
+      const callYear = callDateMexico.getUTCFullYear();
+      const callMonth = callDateMexico.getUTCMonth();
+      const callDay = callDateMexico.getUTCDate();
+      
+      return callYear === selectedYear && 
+             callMonth === selectedMonth && 
+             callDay === selectedDay;
+    });
+    
+    console.log('  Filtradas:', filtered.length);
+    
+    return filtered.sort((a, b) => {
+      const timeA = new Date(a.fecha_programada).getTime();
+      const timeB = new Date(b.fecha_programada).getTime();
+      return timeA - timeB;
+    });
   }, [calls, selectedDate]);
 
   // Agrupar por hora (usando zona horaria local de Puerto Vallarta)

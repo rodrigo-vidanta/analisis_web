@@ -10,10 +10,25 @@ import { analysisSupabase } from '../../../config/analysisSupabase';
 import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../../services/callStatusClassifier';
 
 /**
- * Obtiene la fecha en formato YYYY-MM-DD respetando la zona horaria LOCAL del usuario.
- * IMPORTANTE: NO usar toISOString() ya que convierte a UTC y puede cambiar el día.
+ * Convierte una fecha UTC (como las que vienen de la BD) a fecha string en zona Guadalajara (UTC-6).
+ * SOLO usar para fechas que vienen de la BD en formato ISO/UTC.
  */
-const getLocalDateString = (date: Date): string => {
+const utcToGuadalajaraDateString = (date: Date): string => {
+  // Guadalajara = UTC-6, restar 6 horas (21600000 ms) al timestamp UTC
+  const mexicoTimestamp = date.getTime() - (6 * 60 * 60 * 1000);
+  const mexicoDate = new Date(mexicoTimestamp);
+  
+  const year = mexicoDate.getUTCFullYear();
+  const month = String(mexicoDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(mexicoDate.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Convierte una fecha local del navegador a string YYYY-MM-DD usando sus componentes.
+ * Usar para fechas que ya representan el día correcto (como las generadas para el calendario).
+ */
+const localDateToString = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -114,12 +129,12 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
     const grouped: Record<string, ScheduledCall[]> = {};
     
     weekDays.forEach(day => {
-      // Usar getLocalDateString para respetar zona horaria local
-      const dateString = getLocalDateString(day);
+      // Los días de la semana son fechas locales, usar componentes directamente
+      const dateString = localDateToString(day);
       grouped[dateString] = calls.filter(call => {
-        // Convertir fecha_programada a fecha local para comparar correctamente
+        // fecha_programada viene en UTC desde la BD, convertir a Guadalajara
         const callDate = new Date(call.fecha_programada);
-        const callDateString = getLocalDateString(callDate);
+        const callDateString = utcToGuadalajaraDateString(callDate);
         return callDateString === dateString;
       }).sort((a, b) => {
         const timeA = new Date(a.fecha_programada).getTime();
@@ -299,8 +314,8 @@ export const WeeklyView: React.FC<WeeklyViewProps> = ({
   return (
     <div className="flex gap-1 sm:gap-1.5 md:gap-2 h-full px-1 sm:px-2 md:px-3 py-2 w-full">
         {weekDays.map((day, dayIndex) => {
-          // Usar getLocalDateString para respetar zona horaria local
-          const dateString = getLocalDateString(day);
+          // Los días de la semana son fechas locales, usar componentes directamente
+          const dateString = localDateToString(day);
           const dayCalls = callsByDay[dateString] || [];
           const isTodayDate = isToday(day);
 

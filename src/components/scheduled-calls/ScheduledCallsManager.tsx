@@ -30,8 +30,15 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   const { isNinjaMode, effectiveUser } = useNinjaAwarePermissions();
   const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
   
-  const [calls, setCalls] = useState<ScheduledCall[]>([]);
+  // ============================================
+  // ESTADO OPTIMIZADO: Separar counts del calendario de las llamadas del día
+  // ============================================
+  const [dayCalls, setDayCalls] = useState<ScheduledCall[]>([]); // Llamadas del día seleccionado
+  const [calendarCounts, setCalendarCounts] = useState<Record<string, { total: number; programadas: number; ejecutadas: number }>>({}); // Counts para calendario
+  const [currentMonth, setCurrentMonth] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
+  
   const [loading, setLoading] = useState(true);
+  const [loadingDay, setLoadingDay] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,102 +53,174 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
   const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
-  // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
+  // ============================================
+  // CARGA INICIAL: Counts del mes + llamadas del día actual
+  // ============================================
+  const initialLoadDone = useRef(false);
+  
   useEffect(() => {
-    if (queryUserId) {
-      loadCalls();
+    if (queryUserId && !initialLoadDone.current) {
+      initialLoadDone.current = true;
+      loadCalendarCounts(currentMonth.year, currentMonth.month);
+      loadDayCalls(selectedDate);
     }
   }, [queryUserId]);
 
+  // Cuando cambia el día seleccionado o el modo de vista, cargar llamadas
+  const prevSelectedDate = useRef(selectedDate);
+  const prevViewMode = useRef(viewMode);
+  
   useEffect(() => {
-    if (queryUserId) {
-      loadCalls();
+    if (!queryUserId || !initialLoadDone.current) return;
+    
+    // Solo recargar si realmente cambió la fecha o el modo
+    const dateChanged = prevSelectedDate.current.getTime() !== selectedDate.getTime();
+    const modeChanged = prevViewMode.current !== viewMode;
+    
+    if (dateChanged || modeChanged) {
+      prevSelectedDate.current = selectedDate;
+      prevViewMode.current = viewMode;
+      loadDayCalls(selectedDate);
     }
-  }, [searchTerm, queryUserId]);
+  }, [selectedDate, viewMode, queryUserId]);
+
+  // Cuando cambia el searchTerm, recargar las llamadas
+  const prevSearchTerm = useRef(searchTerm);
+  
+  useEffect(() => {
+    if (!queryUserId || !initialLoadDone.current) return;
+    
+    if (prevSearchTerm.current !== searchTerm) {
+      prevSearchTerm.current = searchTerm;
+      if (searchTerm) {
+        loadDayCallsWithSearch(selectedDate, searchTerm);
+      } else {
+        loadDayCalls(selectedDate);
+      }
+    }
+  }, [searchTerm]);
 
   // Actualización automática silenciosa cada 60 segundos
   useEffect(() => {
     if (!queryUserId) return;
     
     const interval = setInterval(() => {
-      loadCallsSilent();
+      loadDayCallsSilent(selectedDate);
     }, 60000); // 60 segundos
     
     return () => clearInterval(interval);
-  }, [queryUserId, searchTerm]);
+  }, [queryUserId, selectedDate]);
 
-
-  const loadCalls = async () => {
+  // Cargar counts del calendario para un mes específico (optimizado)
+  const loadCalendarCounts = async (year: number, month: number) => {
     if (!queryUserId) return;
     
+    try {
+      const counts = await scheduledCallsService.getCallsCountByMonth(queryUserId, year, month);
+      setCalendarCounts(counts);
+    } catch (error) {
+      console.error('Error loading calendar counts:', error);
+    }
+  };
+
+  // Cargar llamadas de un día específico (optimizado)
+  const loadDayCalls = async (date: Date, mode: ViewMode = viewMode) => {
+    if (!queryUserId) return;
+    
+    setLoadingDay(true);
     setLoading(true);
     try {
-      const filters = {
-        search: searchTerm || undefined,
-        estatus: 'all' as const
-      };
-      const data = await scheduledCallsService.getScheduledCalls(queryUserId, filters);
-      setCalls(data);
+      const data = mode === 'weekly' 
+        ? await scheduledCallsService.getCallsByWeek(queryUserId, date)
+        : await scheduledCallsService.getCallsByDate(queryUserId, date);
+      setDayCalls(data);
     } catch (error) {
-      console.error('Error loading scheduled calls:', error);
+      console.error('Error loading day calls:', error);
     } finally {
+      setLoadingDay(false);
       setLoading(false);
     }
   };
 
-  // Carga silenciosa sin mostrar loading ni causar rerenders visibles
-  // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
-  const loadCallsSilent = async () => {
+  // Cargar llamadas con filtro de búsqueda
+  const loadDayCallsWithSearch = async (date: Date, search: string) => {
     if (!queryUserId) return;
     
+    setLoadingDay(true);
     try {
+      // Para búsqueda, cargar todas las llamadas y filtrar en frontend
       const filters = {
-        search: searchTerm || undefined,
+        search: search,
         estatus: 'all' as const
       };
       const data = await scheduledCallsService.getScheduledCalls(queryUserId, filters);
-      // Actualizar solo si hay cambios reales para evitar rerenders innecesarios
-      setCalls(prevCalls => {
-        // Comparar por IDs para detectar cambios reales
+      setDayCalls(data);
+    } catch (error) {
+      console.error('Error loading calls with search:', error);
+    } finally {
+      setLoadingDay(false);
+    }
+  };
+
+  // Carga silenciosa sin mostrar loading
+  const loadDayCallsSilent = async (date: Date, mode: ViewMode = viewMode) => {
+    if (!queryUserId) return;
+    
+    try {
+      const data = mode === 'weekly'
+        ? await scheduledCallsService.getCallsByWeek(queryUserId, date)
+        : await scheduledCallsService.getCallsByDate(queryUserId, date);
+      
+      // Actualizar solo si hay cambios reales
+      setDayCalls(prevCalls => {
         const prevIds = new Set(prevCalls.map(c => c.id));
         const newIds = new Set(data.map(c => c.id));
         
-        // Si los IDs son diferentes, hay cambios
         if (prevIds.size !== newIds.size || 
             [...prevIds].some(id => !newIds.has(id)) ||
             [...newIds].some(id => !prevIds.has(id))) {
           return data;
         }
         
-        // Si los IDs son iguales, comparar contenido
         const hasChanges = prevCalls.some((prevCall, index) => {
           const newCall = data[index];
           if (!newCall) return true;
           return prevCall.estatus !== newCall.estatus ||
-                 prevCall.fecha_programada !== newCall.fecha_programada ||
-                 prevCall.justificacion_llamada !== newCall.justificacion_llamada;
+                 prevCall.fecha_programada !== newCall.fecha_programada;
         });
         
         return hasChanges ? data : prevCalls;
       });
     } catch (error) {
-      // Silenciar errores en actualización automática
+      // Silenciar errores
     }
   };
 
   // Función para sincronización manual
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
-    await loadCalls();
+    await Promise.all([
+      loadCalendarCounts(currentMonth.year, currentMonth.month),
+      loadDayCalls(selectedDate)
+    ]);
     setIsRefreshing(false);
   };
 
+  // Callback cuando el calendario cambia de mes
+  const handleMonthChange = (year: number, month: number) => {
+    // Solo actualizar si realmente cambió
+    if (currentMonth.year !== year || currentMonth.month !== month) {
+      setCurrentMonth({ year, month });
+      loadCalendarCounts(year, month);
+    }
+  };
+
   const statistics = {
-    total: calls.length,
-    programadas: calls.filter(c => c.estatus === 'programada').length,
-    ejecutadas: calls.filter(c => c.estatus === 'ejecutada').length,
-    canceladas: calls.filter(c => c.estatus === 'cancelada').length,
-    proximas: calls.filter(c => {
+    total: dayCalls.length,
+    programadas: dayCalls.filter(c => c.estatus === 'programada').length,
+    ejecutadas: dayCalls.filter(c => c.estatus === 'ejecutada').length,
+    canceladas: dayCalls.filter(c => c.estatus === 'cancelada').length,
+    proximas: dayCalls.filter(c => {
       if (c.estatus !== 'programada') return false;
       const callDate = new Date(c.fecha_programada);
       const now = new Date();
@@ -394,7 +473,8 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
           <CalendarSidebar
             selectedDate={selectedDate}
             onDateSelect={setSelectedDate}
-            scheduledCalls={calls}
+            callCounts={calendarCounts}
+            onMonthChange={handleMonthChange}
           />
         </div>
 
@@ -415,21 +495,27 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
               </div>
             ) : viewMode === 'daily' ? (
               <DailyView
-                calls={calls}
+                calls={dayCalls}
                 selectedDate={selectedDate}
                 onCallClick={handleCallClick}
                 onProspectClick={handleNavigateToProspect}
                 onDateChange={setSelectedDate}
                 showNavigation={false}
-                onCallDeleted={loadCalls}
+                onCallDeleted={() => {
+                  loadDayCalls(selectedDate);
+                  loadCalendarCounts(currentMonth.year, currentMonth.month);
+                }}
               />
             ) : (
               <WeeklyView
-                calls={calls}
+                calls={dayCalls}
                 selectedDate={selectedDate}
                 onCallClick={handleCallClick}
                 onProspectClick={handleNavigateToProspect}
-                onCallDeleted={loadCalls}
+                onCallDeleted={() => {
+                  loadDayCalls(selectedDate);
+                  loadCalendarCounts(currentMonth.year, currentMonth.month);
+                }}
               />
             )}
           </div>
@@ -475,7 +561,8 @@ const ScheduledCallsManager: React.FC<ScheduledCallsManagerProps> = ({ onNavigat
           prospectoNombre={selectedCallForSchedule.prospecto_nombre}
           prospectoIdDynamics={selectedProspectoIdDynamics}
           onSuccess={() => {
-            loadCalls();
+            loadDayCalls(selectedDate);
+            loadCalendarCounts(currentMonth.year, currentMonth.month);
             setShowScheduleModal(false);
             setSelectedCallForSchedule(null);
             setSelectedProspectoIdDynamics(null);

@@ -40,6 +40,117 @@ export interface ScheduledCallFilters {
 }
 
 class ScheduledCallsService {
+  /**
+   * Obtiene counts de llamadas por día para el calendario (optimizado)
+   * Solo trae el conteo, no los datos completos
+   */
+  async getCallsCountByMonth(
+    userId: string,
+    year: number,
+    month: number // 0-indexed (0 = enero)
+  ): Promise<Record<string, { total: number; programadas: number; ejecutadas: number }>> {
+    try {
+      // Calcular rango del mes en UTC
+      const startDate = new Date(Date.UTC(year, month, 1));
+      const endDate = new Date(Date.UTC(year, month + 1, 1));
+      
+      const startISO = startDate.toISOString();
+      const endISO = endDate.toISOString();
+
+      // Consulta simple sin JOINs para counts
+      const { data, error } = await analysisSupabase
+        .from('llamadas_programadas')
+        .select('fecha_programada, estatus')
+        .gte('fecha_programada', startISO)
+        .lt('fecha_programada', endISO);
+
+      if (error) {
+        console.error('Error obteniendo counts por mes:', error);
+        return {};
+      }
+
+      // Agrupar por día (en zona horaria Guadalajara)
+      const countsByDay: Record<string, { total: number; programadas: number; ejecutadas: number }> = {};
+      
+      (data || []).forEach(call => {
+        // Convertir UTC a Guadalajara (UTC-6)
+        const callDateUTC = new Date(call.fecha_programada);
+        const mexicoTimestamp = callDateUTC.getTime() - (6 * 60 * 60 * 1000);
+        const callDateMexico = new Date(mexicoTimestamp);
+        
+        const dayKey = `${callDateMexico.getUTCFullYear()}-${String(callDateMexico.getUTCMonth() + 1).padStart(2, '0')}-${String(callDateMexico.getUTCDate()).padStart(2, '0')}`;
+        
+        if (!countsByDay[dayKey]) {
+          countsByDay[dayKey] = { total: 0, programadas: 0, ejecutadas: 0 };
+        }
+        
+        countsByDay[dayKey].total++;
+        if (call.estatus === 'programada') {
+          countsByDay[dayKey].programadas++;
+        } else if (call.estatus === 'ejecutada' || call.estatus === 'no_contesto') {
+          countsByDay[dayKey].ejecutadas++;
+        }
+      });
+
+      return countsByDay;
+    } catch (error) {
+      console.error('Error en getCallsCountByMonth:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Obtiene llamadas de un día específico (optimizado)
+   */
+  async getCallsByDate(
+    userId: string,
+    date: Date
+  ): Promise<ScheduledCall[]> {
+    // Calcular rango del día en UTC considerando Guadalajara (UTC-6)
+    // Si seleccionas 22 de enero en Guadalajara, necesitamos:
+    // - Desde: 22 de enero 00:00 Guadalajara = 22 de enero 06:00 UTC
+    // - Hasta: 23 de enero 00:00 Guadalajara = 23 de enero 06:00 UTC
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    
+    // Crear fechas en UTC que representan medianoche en Guadalajara
+    const startUTC = new Date(Date.UTC(year, month, day, 6, 0, 0)); // 00:00 Guadalajara = 06:00 UTC
+    const endUTC = new Date(Date.UTC(year, month, day + 1, 6, 0, 0)); // 00:00 del día siguiente
+    
+    const filters: ScheduledCallFilters = {
+      fechaDesde: startUTC.toISOString(),
+      fechaHasta: endUTC.toISOString(),
+      estatus: 'all'
+    };
+    
+    return this.getScheduledCalls(userId, filters);
+  }
+
+  /**
+   * Obtiene llamadas de una semana específica (optimizado)
+   */
+  async getCallsByWeek(
+    userId: string,
+    weekStart: Date
+  ): Promise<ScheduledCall[]> {
+    const year = weekStart.getFullYear();
+    const month = weekStart.getMonth();
+    const day = weekStart.getDate();
+    
+    // Desde el inicio de la semana hasta 7 días después
+    const startUTC = new Date(Date.UTC(year, month, day, 6, 0, 0));
+    const endUTC = new Date(Date.UTC(year, month, day + 7, 6, 0, 0));
+    
+    const filters: ScheduledCallFilters = {
+      fechaDesde: startUTC.toISOString(),
+      fechaHasta: endUTC.toISOString(),
+      estatus: 'all'
+    };
+    
+    return this.getScheduledCalls(userId, filters);
+  }
+
   async getScheduledCalls(
     userId: string,
     filters?: ScheduledCallFilters
@@ -76,7 +187,9 @@ class ScheduledCallsService {
         query = query.lt('fecha_programada', filters.fechaHasta);
       }
 
-      const { data: callsData, error } = await query.order('fecha_programada', { ascending: true });
+      const { data: callsData, error} = await query
+        .order('fecha_programada', { ascending: true })
+        .limit(5000); // Aumentar límite para incluir todas las llamadas
 
       if (error) {
         console.error('Error obteniendo llamadas programadas:', error);
@@ -142,7 +255,7 @@ class ScheduledCallsService {
           // Filtrar solo llamadas de prospectos que:
           // 1. Tienen ejecutivo_id asignado (no null, no undefined)
           // 2. El ejecutivo_id coincide con alguno de los IDs en ejecutivosIds (propios + backups)
-          // 3. Tienen asignación activa en prospect_assignments (verificado por canUserAccessProspect)
+          // 3. Verificación de permisos con fallback: primero intenta prospect_assignments, luego fallback a ejecutivo_id directo
           filteredCallsData = await Promise.all(
             callsData.map(async (call) => {
               if (!call.prospecto) return null;
@@ -161,19 +274,43 @@ class ScheduledCallsService {
                 return null;
               }
               
-              // Verificación adicional: usar el servicio de permisos para confirmar acceso completo
-              // Esto verifica prospect_assignments como fuente de verdad
+              // Verificación de permisos con fallback mejorado
+              // Después del refactor, algunos prospectos pueden tener ejecutivo_id en prospectos
+              // pero no tener asignación activa en prospect_assignments
+              // En ese caso, si el ejecutivo_id coincide, permitir acceso
               try {
                 const permissionCheck = await permissionsService.canUserAccessProspect(ejecutivoFilter, call.prospecto);
                 if (permissionCheck.canAccess) {
                   return call;
                 } else {
-                  console.log(`🚫 [scheduledCallsService] Ejecutivo ${ejecutivoFilter}: Prospecto ${call.prospecto} denegado por servicio de permisos: ${permissionCheck.reason}`);
+                  // Fallback: Si el prospecto tiene ejecutivo_id que coincide con el usuario actual,
+                  // y el servicio de permisos denegó por falta de prospect_assignments,
+                  // permitir acceso de todas formas (el ejecutivo_id es suficiente después del refactor)
+                  const prospectEjecutivoIdStr = String(prospecto.ejecutivo_id).trim();
+                  const userEjecutivoIdStr = String(ejecutivoFilter).trim();
+                  
+                  if (prospectEjecutivoIdStr === userEjecutivoIdStr) {
+                    // El prospecto está asignado directamente a este ejecutivo en la tabla prospectos
+                    // Permitir acceso aunque no tenga prospect_assignments activo
+                    console.log(`✅ [scheduledCallsService] Ejecutivo ${ejecutivoFilter}: Prospecto ${call.prospecto} permitido por fallback (ejecutivo_id coincide)`);
+                    return call;
+                  }
+                  
+                  console.log(`🚫 [scheduledCallsService] Ejecutivo ${ejecutivoFilter}: Prospecto ${call.prospecto} denegado: ${permissionCheck.reason}`);
                   return null;
                 }
               } catch (error) {
                 console.error(`❌ [scheduledCallsService] Error verificando permiso para ${call.prospecto}:`, error);
-                return null; // En caso de error, excluir por seguridad
+                // En caso de error, usar fallback: si ejecutivo_id coincide, permitir acceso
+                const prospectEjecutivoIdStr = String(prospecto.ejecutivo_id).trim();
+                const userEjecutivoIdStr = String(ejecutivoFilter).trim();
+                
+                if (prospectEjecutivoIdStr === userEjecutivoIdStr) {
+                  console.log(`✅ [scheduledCallsService] Ejecutivo ${ejecutivoFilter}: Prospecto ${call.prospecto} permitido por fallback después de error`);
+                  return call;
+                }
+                
+                return null; // En caso de error y sin coincidencia, excluir por seguridad
               }
             })
           );
